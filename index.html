@@ -9,52 +9,78 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#0a0a1a;color:#fff;font-family:'Nunito',sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column}
 
-#topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;background:rgba(255,255,255,0.04);border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0}
+/* TOP BAR */
+#topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;background:rgba(255,255,255,0.04);border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0;z-index:10}
 #logo{font-family:'Fredoka One',cursive;font-size:20px;background:linear-gradient(135deg,#ff6fd8,#7c6fff,#00d2ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.pill{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:5px 14px;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px}
+.pill{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:5px 16px;font-size:14px;font-weight:700;display:inline-flex;align-items:center;gap:6px}
 .pill b{color:#ff6fd8}
-#streak-pill b{color:#ff9d00}
 
+/* MAIN */
 #main{display:grid;grid-template-columns:1fr 320px;flex:1;min-height:0}
 
+/* CAM */
 #cam-zone{position:relative;background:#050510;overflow:hidden}
 #webcam{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
 #overlay-canvas{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1);pointer-events:none}
+#loading-bar{position:absolute;bottom:0;left:0;height:3px;background:linear-gradient(90deg,#ff6fd8,#7c6fff);width:0%;transition:width .3s}
 
-#cam-overlay{position:absolute;inset:0;background:rgba(10,10,26,0.96);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;z-index:5}
-#cam-overlay h2{font-family:'Fredoka One',cursive;font-size:26px}
-#cam-overlay p{font-size:13px;color:rgba(255,255,255,0.5);text-align:center;max-width:260px;line-height:1.6}
-.big-btn{background:linear-gradient(135deg,#ff6fd8,#7c6fff);border:none;border-radius:50px;padding:13px 34px;font-family:'Fredoka One',cursive;font-size:17px;color:#fff;cursor:pointer;box-shadow:0 4px 20px rgba(124,111,255,0.4);transition:transform .2s}
+/* START OVERLAY */
+#cam-overlay{position:absolute;inset:0;background:rgba(10,10,26,0.97);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:20}
+#cam-overlay h2{font-family:'Fredoka One',cursive;font-size:28px;text-align:center}
+#cam-overlay p{font-size:13px;color:rgba(255,255,255,0.5);text-align:center;max-width:280px;line-height:1.7}
+.big-btn{background:linear-gradient(135deg,#ff6fd8,#7c6fff);border:none;border-radius:50px;padding:14px 40px;font-family:'Fredoka One',cursive;font-size:18px;color:#fff;cursor:pointer;box-shadow:0 4px 24px rgba(124,111,255,0.5);transition:transform .2s}
 .big-btn:hover{transform:scale(1.05)}
+#err-msg{display:none;background:rgba(255,50,50,0.15);border:1px solid rgba(255,50,50,0.4);border-radius:12px;padding:12px 16px;font-size:13px;color:#ff8080;text-align:center;max-width:300px;line-height:1.6}
 
-#toast{position:absolute;bottom:70px;left:50%;transform:translateX(-50%) translateY(10px);background:rgba(124,111,255,0.93);border-radius:30px;padding:9px 22px;font-size:15px;font-weight:800;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap}
-#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* GAME STATE OVERLAY — countdown + move name */
+#game-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;pointer-events:none;z-index:10}
 
-#score-pop{position:absolute;top:38%;left:50%;transform:translateX(-50%) scale(0);font-family:'Fredoka One',cursive;font-size:50px;pointer-events:none;transition:all .25s cubic-bezier(.34,1.56,.64,1);text-shadow:0 0 20px currentColor}
+#move-banner{background:rgba(0,0,0,0.82);border:2px solid #ff6fd8;border-radius:24px;padding:12px 30px;font-family:'Fredoka One',cursive;font-size:22px;color:#ff6fd8;text-align:center;opacity:0;transform:scale(0.8);transition:all .35s cubic-bezier(.34,1.56,.64,1)}
+#move-banner.show{opacity:1;transform:scale(1)}
+
+#countdown{font-family:'Fredoka One',cursive;font-size:100px;color:#fff;text-shadow:0 0 40px #7c6fff;opacity:0;transform:scale(1.5);transition:all .2s}
+#countdown.show{opacity:1;transform:scale(1)}
+
+#judge-text{font-family:'Fredoka One',cursive;font-size:52px;opacity:0;transform:translateY(20px);transition:all .25s;text-shadow:0 0 30px currentColor}
+#judge-text.show{opacity:1;transform:translateY(0)}
+
+/* SCORE POP */
+#score-pop{position:absolute;top:35%;left:50%;transform:translateX(-50%) scale(0);font-family:'Fredoka One',cursive;font-size:56px;pointer-events:none;transition:all .25s cubic-bezier(.34,1.56,.64,1);text-shadow:0 0 20px currentColor;z-index:15}
 #score-pop.show{transform:translateX(-50%) scale(1)}
-#score-pop.hide{opacity:0;transform:translateX(-50%) scale(0.7) translateY(-30px)}
+#score-pop.hide{opacity:0;transform:translateX(-50%) scale(0.7) translateY(-40px)}
 
-#move-prompt{position:absolute;top:16px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.75);border:1px solid rgba(255,111,216,0.5);border-radius:20px;padding:7px 18px;font-size:13px;font-weight:700;color:#ff6fd8;pointer-events:none;opacity:0;transition:opacity .4s}
-#move-prompt.show{opacity:1}
+/* TIMING BAR */
+#timing-wrap{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;opacity:0;transition:opacity .3s}
+#timing-wrap.show{opacity:1}
+#timing-label-l{font-size:11px;font-weight:700;color:rgba(255,255,255,0.4)}
+#timing-bar{width:220px;height:8px;background:rgba(255,255,255,0.1);border-radius:8px;overflow:hidden}
+#timing-fill{height:100%;width:50%;border-radius:8px;background:linear-gradient(90deg,#ff6fd8,#7c6fff,#00d2ff);transition:width .15s}
+#timing-label-r{font-size:11px;font-weight:700;color:rgba(255,255,255,0.4)}
 
-#status-box{position:absolute;top:16px;right:16px;display:flex;flex-direction:column;gap:5px;pointer-events:none}
+/* STATUS */
+#status-box{position:absolute;top:14px;right:14px;display:flex;flex-direction:column;gap:5px;pointer-events:none;z-index:5}
 .sstat{background:rgba(0,0,0,0.65);border-radius:8px;padding:3px 10px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px}
 .sdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 
+/* AVATAR PANEL */
 #avatar-panel{background:#080818;border-left:1px solid rgba(255,255,255,0.07);display:flex;flex-direction:column}
-#avatar-header{padding:12px 16px 8px;border-bottom:1px solid rgba(255,255,255,0.07)}
+#avatar-header{padding:12px 16px 8px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between}
 #avatar-name{font-family:'Fredoka One',cursive;font-size:17px;background:linear-gradient(135deg,#ff6fd8,#7c6fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 #avatar-status{font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px}
 #avatar-status.on{color:#7fff7f}
+#round-badge{background:rgba(124,111,255,0.2);border:1px solid rgba(124,111,255,0.4);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:700;color:#b8b0ff}
 
-#avatar-container{flex:1;position:relative;min-height:0;background:radial-gradient(ellipse at 50% 85%,rgba(124,111,255,0.07) 0%,transparent 70%)}
+#avatar-container{flex:1;position:relative;min-height:0;background:radial-gradient(ellipse at 50% 85%,rgba(124,111,255,0.08) 0%,transparent 70%)}
 #avatar-canvas{width:100%;height:100%;display:block}
 #avatar-loader{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#080818}
 .spin{width:32px;height:32px;border:3px solid rgba(124,111,255,0.2);border-top-color:#7c6fff;border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 #avatar-loader p{font-size:11px;color:rgba(255,255,255,0.35)}
 
-#bubble{margin:0 12px 10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:11px 13px;font-size:13px;line-height:1.5;color:rgba(255,255,255,0.85);min-height:58px;transition:border-color .3s}
+/* NOVA INSTRUCTION */
+#nova-instruction{margin:8px 12px 0;background:rgba(124,111,255,0.12);border:1px solid rgba(124,111,255,0.3);border-radius:12px;padding:10px 12px;font-size:13px;font-weight:700;color:#c4baff;text-align:center;min-height:36px;transition:all .3s}
+
+#bubble{margin:6px 12px 8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:10px 13px;font-size:12px;line-height:1.5;color:rgba(255,255,255,0.8);min-height:52px;transition:border-color .3s}
 #bubble.talking{border-color:rgba(124,111,255,0.5);background:rgba(124,111,255,0.08)}
 #dots{display:none;gap:4px;margin-top:5px}
 #dots.show{display:flex}
@@ -62,25 +88,23 @@ body{background:#0a0a1a;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
 .dot:nth-child(2){animation-delay:.15s}.dot:nth-child(3){animation-delay:.3s}
 @keyframes bob{0%,80%,100%{transform:translateY(0);opacity:.5}40%{transform:translateY(-5px);opacity:1}}
 
-#controls{padding:9px 11px;border-top:1px solid rgba(255,255,255,0.07);display:flex;gap:7px}
+#controls{padding:8px 10px;border-top:1px solid rgba(255,255,255,0.07);display:flex;gap:6px}
 .cbtn{flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:9px;padding:7px 4px;color:rgba(255,255,255,0.65);font-family:'Nunito',sans-serif;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;text-align:center}
 .cbtn:hover{background:rgba(124,111,255,0.2);border-color:rgba(124,111,255,0.4);color:#fff}
 .cbtn.on{background:rgba(124,111,255,0.3);border-color:#7c6fff;color:#fff}
 
-.particle{position:absolute;pointer-events:none;border-radius:50%;animation:float 1.2s ease-out forwards}
-@keyframes float{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-70px) scale(0)}}
-
-#loading-bar{position:absolute;bottom:0;left:0;height:3px;background:linear-gradient(90deg,#ff6fd8,#7c6fff);width:0%;transition:width .3s}
+.particle{position:absolute;pointer-events:none;border-radius:50%;animation:float 1.2s ease-out forwards;z-index:20}
+@keyframes float{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-80px) scale(0)}}
 </style>
 </head>
 <body>
 
 <div id="topbar">
   <div id="logo">🕺 DanceCoach AI</div>
-  <div style="display:flex;gap:12px">
-    <div class="pill">⭐ Score: <b id="sv">0</b></div>
-    <div class="pill">🔥 Combo: <b id="cv">0</b></div>
-    <div class="pill" id="streak-pill">📅 Streak: <b>1</b></div>
+  <div style="display:flex;gap:10px">
+    <div class="pill">⭐ <b id="sv">0</b></div>
+    <div class="pill">🔥 <b id="cv">0</b></div>
+    <div class="pill" style="border-color:#ff9d00"><b style="color:#ff9d00" id="roundv">Round 1</b></div>
   </div>
 </div>
 
@@ -90,9 +114,20 @@ body{background:#0a0a1a;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
     <canvas id="overlay-canvas"></canvas>
     <div id="loading-bar"></div>
 
-    <div id="move-prompt">🙌 Raise both arms!</div>
-    <div id="toast">Nice!</div>
-    <div id="score-pop">+100</div>
+    <!-- GAME OVERLAYS -->
+    <div id="game-overlay">
+      <div id="move-banner">🙌 Raise Both Arms!</div>
+      <div id="countdown"></div>
+      <div id="judge-text">PERFECT!</div>
+    </div>
+
+    <div id="score-pop">+500</div>
+
+    <div id="timing-wrap">
+      <div id="timing-label-l">EARLY</div>
+      <div id="timing-bar"><div id="timing-fill"></div></div>
+      <div id="timing-label-r">PERFECT</div>
+    </div>
 
     <div id="status-box">
       <div class="sstat"><div class="sdot" style="background:#ff6fd8"></div><span id="ls">Left: —</span></div>
@@ -100,29 +135,39 @@ body{background:#0a0a1a;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
       <div class="sstat"><div class="sdot" style="background:#00d2ff"></div><span id="bs">Body: waiting...</span></div>
     </div>
 
+    <!-- START OVERLAY -->
     <div id="cam-overlay">
-      <div style="font-size:52px">🕺</div>
-      <h2>Meet Nova!</h2>
-      <p>Your AI dance coach. Stand 1.5–2m from camera so your full upper body is visible.</p>
-      <button class="big-btn" onclick="start()">Let's Dance!</button>
-      <p style="font-size:11px;color:rgba(255,255,255,0.25)">Chrome recommended · camera required</p>
-      <div id="err-msg" style="display:none;background:rgba(255,50,50,0.15);border:1px solid rgba(255,50,50,0.4);border-radius:12px;padding:12px 16px;font-size:13px;color:#ff8080;text-align:center;max-width:300px;line-height:1.6"></div>
+      <div style="font-size:60px">🕺</div>
+      <h2>Nova is your<br>dance teacher!</h2>
+      <p>Nova shows you a move → you copy it → she scores you.<br><br>Stand <b>1.5–2m</b> from camera so your upper body is visible.</p>
+      <button class="big-btn" onclick="startGame()">Let's Dance! 🎉</button>
+      <p style="font-size:11px;color:rgba(255,255,255,0.2)">Chrome recommended · camera required</p>
+      <div id="err-msg"></div>
     </div>
   </div>
 
+  <!-- AVATAR PANEL -->
   <div id="avatar-panel">
     <div id="avatar-header">
-      <div id="avatar-name">Nova ✨</div>
-      <div id="avatar-status">Your AI Dance Coach</div>
+      <div>
+        <div id="avatar-name">Nova ✨</div>
+        <div id="avatar-status">Your Dance Teacher</div>
+      </div>
+      <div id="round-badge">Round 1</div>
     </div>
+
     <div id="avatar-container">
       <div id="avatar-loader"><div class="spin"></div><p>Loading Nova...</p></div>
       <canvas id="avatar-canvas"></canvas>
     </div>
+
+    <div id="nova-instruction">👆 Nova will show you what to do!</div>
+
     <div id="bubble">
-      <div id="btext">Hi! I'm Nova 👋 Hit "Let's Dance" and show me your moves!</div>
+      <div id="btext">Hi! I'm Nova 👋 I'll show you a move — then you copy me! Ready?</div>
       <div id="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
     </div>
+
     <div id="controls">
       <button class="cbtn" onclick="nova('hype')">🎉 Hype!</button>
       <button class="cbtn" onclick="nova('tip')">💡 Tip</button>
@@ -137,37 +182,92 @@ body{background:#0a0a1a;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 
 <script>
-// ── STATE ──
-let score=0, combo=0, active=false, talking=false;
-let lastScore=0, lastFeedback=0, lastPrompt=0;
-let moves={lUp:false,rUp:false,bothUp:false,squat:false};
-let detector=null, rafId=null;
+// ══════════════════════════════════════════
+// GAME MOVES — Nova teaches these one by one
+// ══════════════════════════════════════════
+const MOVES = [
+  {
+    id:'both_arms',
+    name:'🙌 Both Arms UP!',
+    instruction:'Raise BOTH arms above your head!',
+    novaMode:'hype',
+    check:(m)=>m.lUp&&m.rUp,
+    points:300,
+    teach:"Watch me! Raise BOTH arms up high like this!"
+  },
+  {
+    id:'left_arm',
+    name:'👈 Left Arm UP!',
+    instruction:'Raise your LEFT arm up high!',
+    novaMode:'dance',
+    check:(m)=>m.lUp&&!m.rUp,
+    points:200,
+    teach:"Now copy me — LEFT arm up, right arm down!"
+  },
+  {
+    id:'right_arm',
+    name:'👉 Right Arm UP!',
+    instruction:'Raise your RIGHT arm up high!',
+    novaMode:'dance',
+    check:(m)=>m.rUp&&!m.lUp,
+    points:200,
+    teach:"Your turn! Right arm up this time!"
+  },
+  {
+    id:'squat',
+    name:'⬇️ Get LOW!',
+    instruction:'Bend your knees — squat down!',
+    novaMode:'dance',
+    check:(m)=>m.squat,
+    points:250,
+    teach:"Get LOW! Bend those knees and squat down!"
+  },
+  {
+    id:'both_arms',
+    name:'🙌 Both Arms UP!',
+    instruction:'Both arms up — AGAIN! You got this!',
+    novaMode:'hype',
+    check:(m)=>m.lUp&&m.rUp,
+    points:400,
+    teach:"Final move — BOTH arms up for maximum points!"
+  },
+];
+
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+let score=0, combo=0, round=1, active=false, talking=false;
+let moves={lUp:false,rUp:false,squat:false};
+let detector=null;
 let scene,cam3d,renderer,clock,avatarMesh,headBone,lArmBone,rArmBone,mouthMesh;
 let idleT=0, avatarMode='idle';
 let lRot=0.3, rRot=-0.3, lTarget=0.3, rTarget=-0.3;
 let musicOn=false, audioCtx=null, beatTimer=null;
-let promptIdx=0;
-const prompts=[
-  {t:'🙌 Raise both arms!'},
-  {t:'👈 Left arm up!'},
-  {t:'👉 Right arm up!'},
-  {t:'⬇️ Get low — squat!'},
-];
 
-// ── NOVA LINES ──
+// Game loop state
+let gamePhase='idle'; // idle, teach, countdown, judge, next
+let currentMoveIdx=0;
+let currentMove=null;
+let judgeTimer=null;
+let countdownVal=3;
+
+// ══════════════════════════════════════════
+// NOVA LINES
+// ══════════════════════════════════════════
 const lines={
-  hype:["YES! You are ON FIRE! 🔥","Oh my gosh that was incredible!","YESSS! That's the energy I need!","You are literally glowing right now!"],
-  tip:["Roll your shoulders on the beat — instant style!","Loosen your hips, let them flow naturally.","Add a little knee bounce to everything you do.","Tilt your head on the strong beats — performer energy!","Arms wider! Own the whole space!"],
-  idle:["Keep moving! Don't stop now!","Come on, show me what you've got!","I know you have more in you — let's GO!","Feel the music, let your body follow!"],
-  lUp:["Left arm! Yes!","Nice left arm!"],
-  rUp:["Right arm up! Love it!","Yes! Right side!"],
-  both:["BOTH ARMS UP! Amazing!","YES! Hands in the air!","That's it! Full energy!"],
-  squat:["Ooh getting LOW! I see you!","Yes! Bring it down!"],
-  hi:["Hey! I'm Nova, your personal dance coach! 💜 I'm watching your every move and I'll give you real feedback. Let's go!"]
+  perfect:["PERFECT! You nailed it! 🔥","YES! That's exactly it!","PERFECT! You're a natural!","Amazing! Perfect form!"],
+  good:["Good job! Nice move!","Great! Keep it up!","Yes! That's it! Well done!"],
+  miss:["Oops! Almost — try again next round!","Not quite — watch me again!","Keep trying, you'll get it!"],
+  hype:["YES! You are ON FIRE! 🔥","Oh my gosh incredible!","YESSS! That energy!","You are glowing right now!"],
+  tip:["Roll your shoulders on the beat!","Loosen your hips — let them flow!","Add a knee bounce to every move!","Arms wider! Own the space!"],
+  ready:["OK! Watch me do this move first — then YOU copy it!","Pay attention — then copy exactly what I do!","Here's the move — watch carefully then copy me!"],
+  go:["Your turn! GO!","Now YOU do it! GO GO GO!","Copy me! NOW!","Let's see it! GO!"],
 };
 
-// ── SPEECH ──
-function speak(txt, mode='idle'){
+// ══════════════════════════════════════════
+// SPEECH
+// ══════════════════════════════════════════
+function speak(txt,mode='idle'){
   if(!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const b=document.getElementById('bubble');
@@ -178,7 +278,7 @@ function speak(txt, mode='idle'){
   d.classList.add('show');
   talking=true; avatarMode=mode;
   const u=new SpeechSynthesisUtterance(txt);
-  u.rate=1.05; u.pitch=1.2; u.volume=1;
+  u.rate=1.1; u.pitch=1.2; u.volume=1;
   const vs=speechSynthesis.getVoices();
   const v=vs.find(x=>x.name.includes('Samantha')||x.name.includes('Google UK English Female')||x.name.includes('Karen')||x.name.includes('Victoria'));
   if(v) u.voice=v;
@@ -192,105 +292,216 @@ function speak(txt, mode='idle'){
 }
 
 function pick(a){return a[Math.floor(Math.random()*a.length)]}
+
 function nova(type){
-  if(type==='score') speak(`Score is ${score}, combo at ${combo}!`,'idle');
+  if(type==='score') speak(`Score is ${score}, combo at ${combo}!`);
   else if(type==='hype'){speak(pick(lines.hype),'hype');setTimeout(()=>{if(avatarMode==='hype')avatarMode='idle'},3000)}
-  else if(type==='tip') speak(pick(lines.tip),'think');
+  else if(type==='tip') speak(pick(lines.tip));
 }
 
-// ── SCORE ──
-function addScore(pts,label,color){
+// ══════════════════════════════════════════
+// GAME LOOP
+// ══════════════════════════════════════════
+function startRound(){
+  if(currentMoveIdx>=MOVES.length){
+    // All moves done — loop back
+    currentMoveIdx=0;
+    round++;
+    document.getElementById('roundv').textContent='Round '+round;
+    document.getElementById('round-badge').textContent='Round '+round;
+    speak('Amazing! Round '+round+'! Let\'s go again — faster this time!','hype');
+    setTimeout(startRound, 3500);
+    return;
+  }
+
+  currentMove=MOVES[currentMoveIdx];
+  gamePhase='teach';
+
+  // Show move name banner
+  showBanner(currentMove.name);
+
+  // Update nova instruction panel
+  document.getElementById('nova-instruction').textContent='👀 Watch Nova: '+currentMove.instruction;
+
+  // Nova teaches the move
+  speak(pick(lines.ready)+' '+currentMove.teach, currentMove.novaMode);
+
+  // Set avatar to show the move
+  setAvatarMove(currentMove.id);
+
+  // After 3.5s — start countdown
+  setTimeout(()=>{
+    hideBanner();
+    speak(pick(lines.go),'idle');
+    document.getElementById('nova-instruction').textContent='🎯 YOUR TURN: '+currentMove.instruction;
+    startCountdown();
+  }, 3500);
+}
+
+function setAvatarMove(id){
+  if(id==='both_arms'){ lTarget=-2.1; rTarget=2.1; }
+  else if(id==='left_arm'){ lTarget=-2.1; rTarget=-0.3; }
+  else if(id==='right_arm'){ lTarget=0.3; rTarget=2.1; }
+  else if(id==='squat'){ lTarget=0.3; rTarget=-0.3; }
+  avatarMode='teach';
+}
+
+function startCountdown(){
+  gamePhase='countdown';
+  showTimingBar();
+  countdownVal=3;
+  showCountdown(countdownVal);
+  const t=setInterval(()=>{
+    countdownVal--;
+    if(countdownVal>0){
+      showCountdown(countdownVal);
+    } else {
+      hideCountdown();
+      clearInterval(t);
+      startJudge();
+    }
+  },1000);
+}
+
+function startJudge(){
+  gamePhase='judge';
+  document.getElementById('nova-instruction').textContent='⚡ GO! '+currentMove.instruction;
+
+  // Judge window — 2.5 seconds to do the move
+  let judged=false;
+  const window_ms=2500;
+  const checkInterval=setInterval(()=>{
+    if(currentMove.check(moves)&&!judged){
+      judged=true;
+      clearInterval(checkInterval);
+      clearTimeout(judgeTimer);
+      onMoveSuccess();
+    }
+  },100);
+
+  judgeTimer=setTimeout(()=>{
+    if(!judged){
+      clearInterval(checkInterval);
+      onMoveMiss();
+    }
+  },window_ms);
+}
+
+function onMoveSuccess(){
+  gamePhase='result';
+  const pts=currentMove.points+(combo*50);
   score+=pts; combo++;
   document.getElementById('sv').textContent=score;
   document.getElementById('cv').textContent=combo;
-  showPop(pts,color);
-  showToast(label,color);
-  burst(color);
+
+  // Judge text
+  const isPerfect=combo>2;
+  showJudge(isPerfect?'PERFECT! 🔥':'GREAT! ✨', isPerfect?'#ff6fd8':'#7c6fff');
+  showScorePop(pts, isPerfect?'#ff6fd8':'#7c6fff');
+  burst(isPerfect?'#ff6fd8':'#7c6fff');
+  speak(pick(isPerfect?lines.perfect:lines.good),'hype');
+  hideTimingBar();
+
+  // Move to next
+  currentMoveIdx++;
+  setTimeout(()=>{
+    hideJudge();
+    avatarMode='idle';
+    startRound();
+  },2500);
 }
 
-function showPop(pts,color='#ff6fd8'){
+function onMoveMiss(){
+  gamePhase='result';
+  combo=0;
+  document.getElementById('cv').textContent=0;
+  showJudge('MISS! 😅','#ff9d00');
+  speak(pick(lines.miss));
+  hideTimingBar();
+
+  currentMoveIdx++;
+  setTimeout(()=>{
+    hideJudge();
+    avatarMode='idle';
+    startRound();
+  },2000);
+}
+
+// ── UI helpers ──
+function showBanner(txt){
+  const b=document.getElementById('move-banner');
+  b.textContent=txt;
+  b.classList.add('show');
+}
+function hideBanner(){ document.getElementById('move-banner').classList.remove('show'); }
+
+function showCountdown(n){
+  const c=document.getElementById('countdown');
+  c.textContent=n;
+  c.classList.remove('show'); void c.offsetWidth;
+  c.classList.add('show');
+}
+function hideCountdown(){ document.getElementById('countdown').classList.remove('show'); }
+
+function showJudge(txt,color='#ff6fd8'){
+  const j=document.getElementById('judge-text');
+  j.textContent=txt; j.style.color=color;
+  j.classList.add('show');
+}
+function hideJudge(){ document.getElementById('judge-text').classList.remove('show'); }
+
+function showTimingBar(){ document.getElementById('timing-wrap').classList.add('show'); }
+function hideTimingBar(){ document.getElementById('timing-wrap').classList.remove('show'); }
+
+function showScorePop(pts,color='#ff6fd8'){
   const el=document.getElementById('score-pop');
   el.textContent='+'+pts; el.style.color=color;
   el.classList.remove('show','hide'); void el.offsetWidth;
   el.classList.add('show');
-  setTimeout(()=>{el.classList.remove('show');el.classList.add('hide')},700);
-  setTimeout(()=>el.classList.remove('hide'),1100);
-}
-
-function showToast(msg,color){
-  const t=document.getElementById('toast');
-  t.textContent=msg; t.style.background=color||'rgba(124,111,255,0.93)';
-  t.classList.add('show');
-  clearTimeout(t._t);
-  t._t=setTimeout(()=>t.classList.remove('show'),2200);
+  setTimeout(()=>{el.classList.remove('show');el.classList.add('hide')},800);
+  setTimeout(()=>el.classList.remove('hide'),1200);
 }
 
 function burst(color='#ff6fd8'){
   const z=document.getElementById('cam-zone');
-  for(let i=0;i<7;i++){
+  for(let i=0;i<10;i++){
     const p=document.createElement('div');
     p.className='particle';
-    p.style.cssText=`width:${7+Math.random()*7}px;height:${7+Math.random()*7}px;background:${color};left:${25+Math.random()*50}%;bottom:${15+Math.random()*35}%;animation-delay:${Math.random()*0.3}s`;
+    p.style.cssText=`width:${7+Math.random()*8}px;height:${7+Math.random()*8}px;background:${color};left:${20+Math.random()*60}%;bottom:${15+Math.random()*40}%;animation-delay:${Math.random()*0.4}s`;
     z.appendChild(p);
-    setTimeout(()=>p.remove(),1500);
+    setTimeout(()=>p.remove(),1600);
   }
 }
 
-// ── MOVE PROMPTS ──
-function showPrompt(){
-  if(!active) return;
-  const el=document.getElementById('move-prompt');
-  el.textContent=prompts[promptIdx%prompts.length].t;
-  promptIdx++;
-  el.classList.add('show');
-  setTimeout(()=>{
-    el.classList.remove('show');
-    setTimeout(showPrompt,14000);
-  },7000);
-}
-
-// ── POSE ANALYSIS ──
+// ══════════════════════════════════════════
+// POSE DETECTION
+// ══════════════════════════════════════════
 function analyzePose(kps){
   const get=(n)=>kps.find(k=>k.name===n);
-  const ls=get('left_shoulder'), rs=get('right_shoulder');
-  const lw=get('left_wrist'), rw=get('right_wrist');
-  const lh=get('left_hip'), rh=get('right_hip');
+  const ls=get('left_shoulder'),rs=get('right_shoulder');
+  const lw=get('left_wrist'),rw=get('right_wrist');
+  const lh=get('left_hip'),rh=get('right_hip');
   if(!ls||!rs||!lw||!rw) return;
 
-  const conf=0.35;
-  const lUp = lw.score>conf && ls.score>conf && lw.y < ls.y - 0.04;
-  const rUp = rw.score>conf && rs.score>conf && rw.y < rs.y - 0.04;
-  const both = lUp && rUp;
-  const squat = lh&&rh&&lh.score>conf&&rh.score>conf && (lh.y+rh.y)/2 > 0.68;
+  const conf=0.3;
+  moves.lUp=lw.score>conf&&ls.score>conf&&lw.y<ls.y-0.04;
+  moves.rUp=rw.score>conf&&rs.score>conf&&rw.y<rs.y-0.04;
+  moves.squat=lh&&rh&&lh.score>conf&&rh.score>conf&&(lh.y+rh.y)/2>0.68;
 
-  moves.lUp=lUp; moves.rUp=rUp; moves.bothUp=both; moves.squat=squat;
+  document.getElementById('ls').textContent='Left: '+(moves.lUp?'✅ UP':'—');
+  document.getElementById('rs').textContent='Right: '+(moves.rUp?'✅ UP':'—');
+  document.getElementById('bs').textContent=moves.squat?'Squat 🔥':'Tracking ✓';
 
-  document.getElementById('ls').textContent='Left: '+(lUp?'✅ UP':'—');
-  document.getElementById('rs').textContent='Right: '+(rUp?'✅ UP':'—');
-  document.getElementById('bs').textContent=squat?'Squat 🔥':'Tracking ✓';
-
-  const now=Date.now();
-  if(now-lastScore<2500) return;
-  if(both){
-    addScore(150,'🙌 Both arms UP!','rgba(255,111,216,0.9)');
-    if(now-lastFeedback>6000){speak(pick(lines.both),'dance');lastFeedback=now}
-    lastScore=now;
-  } else if(lUp){
-    addScore(80,'👈 Left arm!','rgba(124,111,255,0.9)');
-    lastScore=now;
-  } else if(rUp){
-    addScore(80,'👉 Right arm!','rgba(124,111,255,0.9)');
-    lastScore=now;
-  } else if(squat){
-    addScore(100,'⬇️ Getting low!','rgba(0,210,255,0.9)');
-    if(now-lastFeedback>6000){speak(pick(lines.squat),'dance');lastFeedback=now}
-    lastScore=now;
+  // Update timing bar during judge phase
+  if(gamePhase==='judge'&&currentMove){
+    const matched=currentMove.check(moves);
+    const fill=document.getElementById('timing-fill');
+    fill.style.width=matched?'95%':'40%';
+    fill.style.background=matched?'linear-gradient(90deg,#00d2ff,#7fff7f)':'linear-gradient(90deg,#ff6fd8,#7c6fff)';
   }
-  if(now-lastFeedback>14000&&!talking){speak(pick(lines.idle));lastFeedback=now}
 }
 
-// ── DRAW SKELETON ──
-function drawSkeleton(kps, ctx, W, H){
+function drawSkeleton(kps,ctx,W,H){
   const EDGES=[
     ['left_shoulder','right_shoulder'],
     ['left_shoulder','left_elbow'],['left_elbow','left_wrist'],
@@ -300,38 +511,30 @@ function drawSkeleton(kps, ctx, W, H){
     ['left_hip','left_knee'],['left_knee','left_ankle'],
     ['right_hip','right_knee'],['right_knee','right_ankle'],
   ];
-  const byName={};
-  kps.forEach(k=>{byName[k.name]=k});
+  const by={};kps.forEach(k=>{by[k.name]=k});
   ctx.lineWidth=3;
   EDGES.forEach(([a,b])=>{
-    const pa=byName[a],pb=byName[b];
+    const pa=by[a],pb=by[b];
     if(!pa||!pb||pa.score<0.3||pb.score<0.3) return;
-    ctx.beginPath();
-    ctx.moveTo(pa.x*W,pa.y*H);
-    ctx.lineTo(pb.x*W,pb.y*H);
-    ctx.strokeStyle=a.includes('shoulder')||a.includes('elbow')||a.includes('wrist')?'rgba(255,111,216,0.8)':a.includes('hip')||a.includes('knee')||a.includes('ankle')?'rgba(0,210,255,0.8)':'rgba(124,111,255,0.8)';
+    ctx.beginPath();ctx.moveTo(pa.x*W,pa.y*H);ctx.lineTo(pb.x*W,pb.y*H);
+    ctx.strokeStyle=a.includes('shoulder')||a.includes('elbow')||a.includes('wrist')?'rgba(255,111,216,0.85)':a.includes('hip')||a.includes('knee')||a.includes('ankle')?'rgba(0,210,255,0.85)':'rgba(124,111,255,0.85)';
     ctx.stroke();
   });
   kps.forEach(k=>{
-    if(k.score<0.3) return;
-    ctx.beginPath();
-    ctx.arc(k.x*W,k.y*H,5,0,Math.PI*2);
-    ctx.fillStyle=k.name.includes('wrist')?'#ff6fd8':k.name.includes('ankle')?'#00d2ff':'#7c6fff';
+    if(k.score<0.3)return;
+    ctx.beginPath();ctx.arc(k.x*W,k.y*H,5,0,Math.PI*2);
+    ctx.fillStyle=k.name.includes('wrist')?'#ff6fd8':k.name.includes('ankle')?'#00d2ff':'#fff';
     ctx.fill();
   });
 }
 
-// ── POSE LOOP ──
 async function poseLoop(){
   const video=document.getElementById('webcam');
   const canvas=document.getElementById('overlay-canvas');
   const ctx=canvas.getContext('2d');
-
-  // Match canvas to video once
   canvas.width=video.videoWidth||640;
   canvas.height=video.videoHeight||480;
-
-  if(!detector) return;
+  if(!detector){requestAnimationFrame(poseLoop);return;}
   try{
     const poses=await detector.estimatePoses(video,{flipHorizontal:false});
     ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -340,215 +543,199 @@ async function poseLoop(){
       if(active) analyzePose(poses[0].keypoints);
     }
   }catch(e){}
-  rafId=requestAnimationFrame(poseLoop);
+  requestAnimationFrame(poseLoop);
 }
 
-// ── INIT DETECTOR ──
 async function initDetector(){
   const bar=document.getElementById('loading-bar');
   bar.style.width='30%';
   await tf.ready();
-  bar.style.width='60%';
+  bar.style.width='65%';
   detector=await poseDetection.createDetector(
     poseDetection.SupportedModels.MoveNet,
     {modelType:poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING}
   );
   bar.style.width='100%';
-  setTimeout(()=>bar.style.opacity='0',500);
+  setTimeout(()=>{bar.style.opacity='0'},500);
   document.getElementById('bs').textContent='Model ready ✓';
 }
 
-// ── 3D AVATAR ──
+// ══════════════════════════════════════════
+// 3D AVATAR
+// ══════════════════════════════════════════
 function initAvatar(){
   const cont=document.getElementById('avatar-container');
   const cv=document.getElementById('avatar-canvas');
-  const W=cont.clientWidth, H=cont.clientHeight;
-  scene=new THREE.Scene();
-  clock=new THREE.Clock();
+  const W=cont.clientWidth,H=cont.clientHeight;
+  scene=new THREE.Scene();clock=new THREE.Clock();
   cam3d=new THREE.PerspectiveCamera(45,W/H,0.1,100);
-  cam3d.position.set(0,1.4,3.2);
-  cam3d.lookAt(0,1.2,0);
+  cam3d.position.set(0,1.4,3.2);cam3d.lookAt(0,1.2,0);
   renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});
-  renderer.setSize(W,H);
-  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-
+  renderer.setSize(W,H);renderer.setPixelRatio(Math.min(devicePixelRatio,2));
   scene.add(new THREE.AmbientLight(0xffffff,0.7));
-  const d1=new THREE.DirectionalLight(0xff6fd8,1.2); d1.position.set(-2,3,2); scene.add(d1);
-  const d2=new THREE.DirectionalLight(0x7c6fff,0.8); d2.position.set(2,2,-2); scene.add(d2);
-
-  // Floor glow
+  const d1=new THREE.DirectionalLight(0xff6fd8,1.3);d1.position.set(-2,3,2);scene.add(d1);
+  const d2=new THREE.DirectionalLight(0x7c6fff,0.9);d2.position.set(2,2,-2);scene.add(d2);
+  const d3=new THREE.PointLight(0x00d2ff,0.5,10);d3.position.set(0,3,1);scene.add(d3);
   const fg=new THREE.CircleGeometry(0.7,32);
-  const fm=new THREE.MeshBasicMaterial({color:0x7c6fff,transparent:true,opacity:0.12});
-  const fl=new THREE.Mesh(fg,fm); fl.rotation.x=-Math.PI/2; scene.add(fl);
-
+  const fm=new THREE.MeshBasicMaterial({color:0x7c6fff,transparent:true,opacity:0.15});
+  const fl=new THREE.Mesh(fg,fm);fl.rotation.x=-Math.PI/2;scene.add(fl);
   buildAvatar();
   document.getElementById('avatar-loader').style.display='none';
   renderAvatar();
 }
 
-function mat(color,opts={}){return new THREE.MeshToonMaterial({color,...opts})}
+function mat(c,o={}){return new THREE.MeshToonMaterial({color:c,...o})}
+function mk(g,m){return new THREE.Mesh(g,m)}
+function cyl(rt,rb,h,m,x=0,y=0,z=0){const o=mk(new THREE.CylinderGeometry(rt,rb,h,10),m);o.position.set(x,y,z);return o}
 
 function buildAvatar(){
-  avatarMesh=new THREE.Group(); scene.add(avatarMesh);
+  avatarMesh=new THREE.Group();scene.add(avatarMesh);
   const S={skin:0xffcba4,hair:0xff6fd8,shirt:0x7c6fff,pant:0x1e1e3a,shoe:0xffffff,eye:0x220044};
 
-  // HEAD
-  headBone=new THREE.Group(); headBone.position.set(0,2.05,0);
-  headBone.add(mesh(new THREE.SphereGeometry(0.22,16,16),mat(S.skin)));
-  const hair=mesh(new THREE.SphereGeometry(0.235,16,16,0,Math.PI*2,0,Math.PI*0.55),mat(S.hair));
-  hair.position.y=0.04; headBone.add(hair);
-  const tuft=mesh(new THREE.ConeGeometry(0.055,0.18,6),mat(S.hair));
-  tuft.position.set(0.04,0.27,0); tuft.rotation.z=-0.3; headBone.add(tuft);
+  headBone=new THREE.Group();headBone.position.set(0,2.05,0);
+  headBone.add(mk(new THREE.SphereGeometry(0.22,16,16),mat(S.skin)));
+  const hair=mk(new THREE.SphereGeometry(0.235,16,16,0,Math.PI*2,0,Math.PI*0.55),mat(S.hair));
+  hair.position.y=0.04;headBone.add(hair);
+  const tuft=mk(new THREE.ConeGeometry(0.055,0.18,6),mat(S.hair));
+  tuft.position.set(0.04,0.27,0);tuft.rotation.z=-0.3;headBone.add(tuft);
   [-0.09,0.09].forEach(x=>{
-    const eye=mesh(new THREE.SphereGeometry(0.03,8,8),mat(S.eye));
-    eye.position.set(x,0.02,0.2); headBone.add(eye);
-    const shine=mesh(new THREE.SphereGeometry(0.009,6,6),new THREE.MeshBasicMaterial({color:0xffffff}));
-    shine.position.set(x+0.013,0.033,0.225); headBone.add(shine);
+    const e=mk(new THREE.SphereGeometry(0.03,8,8),mat(S.eye));e.position.set(x,0.02,0.2);headBone.add(e);
+    const s=mk(new THREE.SphereGeometry(0.009,6,6),new THREE.MeshBasicMaterial({color:0xffffff}));s.position.set(x+0.013,0.033,0.225);headBone.add(s);
   });
-  [-0.13,0.13].forEach(x=>{
-    const ck=mesh(new THREE.CircleGeometry(0.046,8),mat(0xff9bb0,{transparent:true,opacity:0.65}));
-    ck.position.set(x,-0.045,0.19); headBone.add(ck);
-  });
-  mouthMesh=mesh(new THREE.TorusGeometry(0.038,0.007,6,10,Math.PI),mat(S.eye));
-  mouthMesh.position.set(0,-0.082,0.19); mouthMesh.rotation.z=Math.PI; headBone.add(mouthMesh);
+  [-0.13,0.13].forEach(x=>{const ck=mk(new THREE.CircleGeometry(0.046,8),mat(0xff9bb0,{transparent:true,opacity:0.65}));ck.position.set(x,-0.045,0.19);headBone.add(ck)});
+  mouthMesh=mk(new THREE.TorusGeometry(0.038,0.007,6,10,Math.PI),mat(S.eye));
+  mouthMesh.position.set(0,-0.082,0.19);mouthMesh.rotation.z=Math.PI;headBone.add(mouthMesh);
   avatarMesh.add(headBone);
 
-  // NECK + TORSO
-  avatarMesh.add(cyl(0.07,0.09,0.14,mat(S.skin),{y:1.88}));
-  avatarMesh.add(cyl(0.18,0.16,0.54,mat(S.shirt),{y:1.55}));
+  avatarMesh.add(cyl(0.07,0.09,0.14,mat(S.skin),0,1.88));
+  avatarMesh.add(cyl(0.18,0.16,0.54,mat(S.shirt),0,1.55));
 
-  // ARMS
-  lArmBone=new THREE.Group(); lArmBone.position.set(-0.24,1.78,0);
-  const la=mesh(new THREE.CylinderGeometry(0.052,0.047,0.3,8),mat(S.shirt)); la.position.set(-0.09,-0.15,0); la.rotation.z=0.3; lArmBone.add(la);
-  const lf=mesh(new THREE.CylinderGeometry(0.043,0.038,0.26,8),mat(S.skin)); lf.position.set(-0.17,-0.36,0); lf.rotation.z=0.2; lArmBone.add(lf);
-  const lh=mesh(new THREE.SphereGeometry(0.05,8,8),mat(S.skin)); lh.position.set(-0.23,-0.5,0); lArmBone.add(lh);
+  lArmBone=new THREE.Group();lArmBone.position.set(-0.24,1.78,0);
+  const la=mk(new THREE.CylinderGeometry(0.052,0.047,0.3,8),mat(S.shirt));la.position.set(-0.09,-0.15,0);la.rotation.z=0.3;lArmBone.add(la);
+  const lf=mk(new THREE.CylinderGeometry(0.043,0.038,0.26,8),mat(S.skin));lf.position.set(-0.17,-0.36,0);lf.rotation.z=0.2;lArmBone.add(lf);
+  const lh=mk(new THREE.SphereGeometry(0.05,8,8),mat(S.skin));lh.position.set(-0.23,-0.5,0);lArmBone.add(lh);
   avatarMesh.add(lArmBone);
 
-  rArmBone=new THREE.Group(); rArmBone.position.set(0.24,1.78,0);
-  const ra=mesh(new THREE.CylinderGeometry(0.052,0.047,0.3,8),mat(S.shirt)); ra.position.set(0.09,-0.15,0); ra.rotation.z=-0.3; rArmBone.add(ra);
-  const rf=mesh(new THREE.CylinderGeometry(0.043,0.038,0.26,8),mat(S.skin)); rf.position.set(0.17,-0.36,0); rf.rotation.z=-0.2; rArmBone.add(rf);
-  const rh2=mesh(new THREE.SphereGeometry(0.05,8,8),mat(S.skin)); rh2.position.set(0.23,-0.5,0); rArmBone.add(rh2);
+  rArmBone=new THREE.Group();rArmBone.position.set(0.24,1.78,0);
+  const ra=mk(new THREE.CylinderGeometry(0.052,0.047,0.3,8),mat(S.shirt));ra.position.set(0.09,-0.15,0);ra.rotation.z=-0.3;rArmBone.add(ra);
+  const rf=mk(new THREE.CylinderGeometry(0.043,0.038,0.26,8),mat(S.skin));rf.position.set(0.17,-0.36,0);rf.rotation.z=-0.2;rArmBone.add(rf);
+  const rh2=mk(new THREE.SphereGeometry(0.05,8,8),mat(S.skin));rh2.position.set(0.23,-0.5,0);rArmBone.add(rh2);
   avatarMesh.add(rArmBone);
 
-  // HIPS + LEGS
-  avatarMesh.add(cyl(0.17,0.15,0.19,mat(S.pant),{y:1.22}));
+  avatarMesh.add(cyl(0.17,0.15,0.19,mat(S.pant),0,1.22));
   [-0.09,0.09].forEach(x=>{
-    avatarMesh.add(cyl(0.068,0.058,0.48,mat(S.pant),{x,y:0.87}));
-    avatarMesh.add(cyl(0.053,0.048,0.4,mat(S.pant),{x,y:0.42}));
-    const shoe=mesh(new THREE.BoxGeometry(0.11,0.065,0.17),mat(S.shoe)); shoe.position.set(x,0.17,0.03); avatarMesh.add(shoe);
+    avatarMesh.add(cyl(0.068,0.058,0.48,mat(S.pant),x,0.87));
+    avatarMesh.add(cyl(0.053,0.048,0.4,mat(S.pant),x,0.42));
+    const sh=mk(new THREE.BoxGeometry(0.11,0.065,0.17),mat(S.shoe));sh.position.set(x,0.17,0.03);avatarMesh.add(sh);
   });
   avatarMesh.position.y=-0.1;
 }
 
-function mesh(geo,mat){return new THREE.Mesh(geo,mat)}
-function cyl(rt,rb,h,m,pos={}){
-  const o=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,9),m);
-  if(pos.x) o.position.x=pos.x;
-  if(pos.y) o.position.y=pos.y;
-  if(pos.z) o.position.z=pos.z;
-  return o;
-}
-
 function renderAvatar(){
   requestAnimationFrame(renderAvatar);
-  const d=clock.getDelta(); idleT+=d;
-  if(!avatarMesh) return;
+  const d=clock.getDelta();idleT+=d;
+  if(!avatarMesh)return;
 
   avatarMesh.position.y=-0.1+Math.sin(idleT*1.8)*0.015;
   headBone.rotation.y=Math.sin(idleT*0.7)*0.12;
   headBone.rotation.z=Math.sin(idleT*0.5)*0.05;
 
-  if(avatarMode==='dance'||avatarMode==='hype'){
-    lTarget=-2.0+Math.sin(idleT*5)*0.7;
-    rTarget=2.0+Math.sin(idleT*5+1)*0.7;
-    avatarMesh.rotation.y=Math.sin(idleT*2)*0.25;
+  if(avatarMode==='hype'){
+    lTarget=-2.1+Math.sin(idleT*6)*0.3;
+    rTarget=2.1+Math.sin(idleT*6)*0.3;
+    avatarMesh.rotation.y=Math.sin(idleT*3)*0.2;
+  } else if(avatarMode==='dance'){
+    lTarget=-1.6+Math.sin(idleT*4)*0.5;
+    rTarget=1.6+Math.sin(idleT*4+1)*0.5;
+    avatarMesh.rotation.y=Math.sin(idleT*2)*0.15;
+  } else if(avatarMode==='teach'){
+    // hold the move position — already set by setAvatarMove
+    avatarMesh.rotation.y=0;
   } else {
+    // idle — mirror user arms slightly
     lTarget=moves.lUp?-1.8:0.3;
     rTarget=moves.rUp?1.8:-0.3;
     avatarMesh.rotation.y+=(0-avatarMesh.rotation.y)*0.05;
   }
-  lRot+=(lTarget-lRot)*0.09; rRot+=(rTarget-rRot)*0.09;
-  lArmBone.rotation.z=lRot; rArmBone.rotation.z=rRot;
 
-  if(mouthMesh) mouthMesh.scale.y=talking?1+Math.abs(Math.sin(idleT*14))*1.4:1+(mouthMesh.scale.y-1)*0.85;
-
+  lRot+=(lTarget-lRot)*0.1;rRot+=(rTarget-rRot)*0.1;
+  lArmBone.rotation.z=lRot;rArmBone.rotation.z=rRot;
+  if(mouthMesh) mouthMesh.scale.y=talking?1+Math.abs(Math.sin(idleT*14))*1.4:1+(mouthMesh.scale.y-1)*0.88;
   renderer.render(scene,cam3d);
 }
 
-// ── MUSIC ──
+// ══════════════════════════════════════════
+// MUSIC
+// ══════════════════════════════════════════
 function toggleMusic(){
-  if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
   const btn=document.getElementById('mbtn');
   if(musicOn){clearInterval(beatTimer);musicOn=false;btn.textContent='🎵 Music';btn.classList.remove('on')}
   else{beat();musicOn=true;btn.textContent='🔇 Stop';btn.classList.add('on')}
 }
 function beat(){
-  let step=0;
-  const ms=(60/120/4)*1000;
+  let step=0;const ms=(60/120/4)*1000;
   function tick(){
     const t=audioCtx.currentTime;
-    if(step%16===0||step%16===8) kick(t);
-    if(step%16===4||step%16===12) snare(t);
-    hat(t,step%2===0?0.14:0.06);
-    if(step%16===0) bass(t,60);
-    if(step%16===8) bass(t,67);
+    if(step%16===0||step%16===8)kick(t);
+    if(step%16===4||step%16===12)snare(t);
+    hat(t,step%2===0?0.13:0.06);
+    if(step%16===0)bass(t,60);if(step%16===8)bass(t,67);
     step++;
   }
-  tick(); beatTimer=setInterval(tick,ms);
+  tick();beatTimer=setInterval(tick,ms);
 }
 function kick(t){const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.frequency.setValueAtTime(160,t);o.frequency.exponentialRampToValueAtTime(40,t+0.15);g.gain.setValueAtTime(0.8,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.25);o.start(t);o.stop(t+0.25)}
-function snare(t){const b=audioCtx.createBuffer(1,audioCtx.sampleRate*0.1,audioCtx.sampleRate);const d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const s=audioCtx.createBufferSource();s.buffer=b;const g=audioCtx.createGain(),f=audioCtx.createBiquadFilter();f.type='highpass';f.frequency.value=1000;s.connect(f);f.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(0.3,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.1);s.start(t)}
-function hat(t,v){const b=audioCtx.createBuffer(1,audioCtx.sampleRate*0.04,audioCtx.sampleRate);const d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const s=audioCtx.createBufferSource();s.buffer=b;const g=audioCtx.createGain(),f=audioCtx.createBiquadFilter();f.type='highpass';f.frequency.value=8000;s.connect(f);f.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.035);s.start(t)}
-function bass(t,midi){const freq=440*Math.pow(2,(midi-69)/12);const o=audioCtx.createOscillator(),g=audioCtx.createGain(),f=audioCtx.createBiquadFilter();o.type='sawtooth';o.frequency.value=freq;f.type='lowpass';f.frequency.value=280;o.connect(f);f.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(0.22,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.38);o.start(t);o.stop(t+0.38)}
+function snare(t){const b=audioCtx.createBuffer(1,audioCtx.sampleRate*0.1,audioCtx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const s=audioCtx.createBufferSource();s.buffer=b;const g=audioCtx.createGain(),f=audioCtx.createBiquadFilter();f.type='highpass';f.frequency.value=1000;s.connect(f);f.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(0.3,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.1);s.start(t)}
+function hat(t,v){const b=audioCtx.createBuffer(1,audioCtx.sampleRate*0.04,audioCtx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const s=audioCtx.createBufferSource();s.buffer=b;const g=audioCtx.createGain(),f=audioCtx.createBiquadFilter();f.type='highpass';f.frequency.value=8000;s.connect(f);f.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.035);s.start(t)}
+function bass(t,midi){const freq=440*Math.pow(2,(midi-69)/12),o=audioCtx.createOscillator(),g=audioCtx.createGain(),f=audioCtx.createBiquadFilter();o.type='sawtooth';o.frequency.value=freq;f.type='lowpass';f.frequency.value=280;o.connect(f);f.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(0.22,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.38);o.start(t);o.stop(t+0.38)}
 
-// ── START ──
-async function start(){
+// ══════════════════════════════════════════
+// START
+// ══════════════════════════════════════════
+async function startGame(){
   document.getElementById('cam-overlay').style.display='none';
-
   try{
-    const stream=await navigator.mediaDevices.getUserMedia({video:{width:1280,height:720,facingMode:'user',zoom:1},audio:false});
+    const stream=await navigator.mediaDevices.getUserMedia({video:{width:1280,height:720,facingMode:'user'},audio:false});
     const video=document.getElementById('webcam');
     video.srcObject=stream;
     await new Promise(r=>video.onloadedmetadata=r);
     await video.play();
 
-    // Fix canvas size once
     const canvas=document.getElementById('overlay-canvas');
-    canvas.width=video.videoWidth;
-    canvas.height=video.videoHeight;
+    canvas.width=video.videoWidth||640;
+    canvas.height=video.videoHeight||480;
 
     document.getElementById('avatar-status').textContent='● Live — watching you';
     document.getElementById('avatar-status').classList.add('on');
     active=true;
 
-    // Load detector
     await initDetector();
-
-    // Start pose loop
     poseLoop();
 
-    // Greet
+    // Welcome + start first round
     setTimeout(()=>{
-      speak(pick(lines.hi),'hype');
-      lastFeedback=Date.now();
-      setTimeout(showPrompt,12000);
+      speak("Hey! I'm Nova — I'll show you a move, then you copy it! Watch me carefully!",'hype');
+      setTimeout(startRound, 3500);
     },800);
 
   }catch(e){
     document.getElementById('cam-overlay').style.display='flex';
-    const errEl = document.getElementById('err-msg');
-    errEl.style.display='block';
-    errEl.innerHTML='<b>Error: '+( e.name||'unknown')+'</b><br>'+( e.message||String(e));
+    const err=document.getElementById('err-msg');
+    err.style.display='block';
+    err.innerHTML='<b>Error: '+(e.name||'unknown')+'</b><br>'+(e.message||String(e));
   }
 }
 
-// ── BOOT ──
+// ══════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════
 window.addEventListener('load',()=>{
   speechSynthesis.getVoices();
   speechSynthesis.onvoiceschanged=()=>speechSynthesis.getVoices();
   initAvatar();
   window.addEventListener('resize',()=>{
-    if(!renderer) return;
+    if(!renderer)return;
     const c=document.getElementById('avatar-container');
     cam3d.aspect=c.clientWidth/c.clientHeight;
     cam3d.updateProjectionMatrix();
