@@ -506,7 +506,7 @@ async function start(){
   document.getElementById('cam-overlay').style.display='none';
 
   try{
-    const stream=await navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'},audio:false});
+    const stream=await navigator.mediaDevices.getUserMedia({video:{width:1280,height:720,facingMode:'user',zoom:1},audio:false});
     const video=document.getElementById('webcam');
     video.srcObject=stream;
     await new Promise(r=>video.onloadedmetadata=r);
