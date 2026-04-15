@@ -3,105 +3,121 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DanceCoach AI</title>
+<title>DanceCoach AI — Nova</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;800&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#0a0a1a;color:#fff;font-family:'Nunito',sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column}
 
 /* TOP BAR */
-#topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;background:rgba(255,255,255,0.04);border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0;z-index:10}
-#logo{font-family:'Fredoka One',cursive;font-size:20px;background:linear-gradient(135deg,#ff6fd8,#7c6fff,#00d2ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.pill{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:5px 16px;font-size:14px;font-weight:700;display:inline-flex;align-items:center;gap:6px}
+#topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 20px;background:rgba(0,0,0,0.5);border-bottom:1px solid rgba(255,255,255,0.07);flex-shrink:0;z-index:10;backdrop-filter:blur(10px)}
+#logo{font-family:'Fredoka One',cursive;font-size:19px;background:linear-gradient(135deg,#ff6fd8,#7c6fff,#00d2ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.pill{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:4px 14px;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:5px}
 .pill b{color:#ff6fd8}
 
-/* MAIN */
-#main{display:grid;grid-template-columns:1fr 320px;flex:1;min-height:0}
+/* SPLIT SCREEN — main layout */
+#main{display:grid;grid-template-columns:1fr 1fr;flex:1;min-height:0;position:relative}
 
-/* CAM */
-#cam-zone{position:relative;background:#050510;overflow:hidden}
+/* NOVA SIDE — LEFT */
+#nova-side{position:relative;background:linear-gradient(160deg,#12052a 0%,#1a0a3a 50%,#0d1535 100%);overflow:hidden;display:flex;flex-direction:column}
+
+/* Animated background particles for Nova */
+#nova-bg{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.star{position:absolute;border-radius:50%;background:#fff;animation:twinkle 2s infinite}
+@keyframes twinkle{0%,100%{opacity:.2;transform:scale(1)}50%{opacity:.8;transform:scale(1.3)}}
+
+#nova-canvas-wrap{flex:1;position:relative;min-height:0}
+#avatar-canvas{width:100%;height:100%;display:block}
+#avatar-loader{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+.spin{width:32px;height:32px;border:3px solid rgba(255,111,216,0.2);border-top-color:#ff6fd8;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#avatar-loader p{font-size:12px;color:rgba(255,255,255,0.4)}
+
+/* Nova name tag */
+#nova-tag{position:absolute;top:12px;left:12px;display:flex;align-items:center;gap:8px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,111,216,0.3);border-radius:20px;padding:5px 12px;backdrop-filter:blur(8px)}
+#nova-dot{width:8px;height:8px;border-radius:50%;background:#7fff7f;box-shadow:0 0 6px #7fff7f;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+#nova-tag-name{font-family:'Fredoka One',cursive;font-size:14px;background:linear-gradient(135deg,#ff6fd8,#b8b0ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+
+/* Speech bubble from Nova */
+#nova-bubble{position:absolute;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(124,111,255,0.92);border-radius:20px;padding:10px 18px;font-size:13px;font-weight:700;color:#fff;text-align:center;max-width:85%;line-height:1.5;backdrop-filter:blur(8px);box-shadow:0 4px 20px rgba(124,111,255,0.4);opacity:0;transition:opacity .3s;pointer-events:none}
+#nova-bubble::after{content:'';position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:8px solid rgba(124,111,255,0.92)}
+#nova-bubble.show{opacity:1}
+#nova-bubble-dots{display:none;justify-content:center;gap:4px;margin-top:6px}
+#nova-bubble-dots.show{display:flex}
+.ndot{width:5px;height:5px;border-radius:50%;background:#fff;animation:bob .8s infinite;opacity:.7}
+.ndot:nth-child(2){animation-delay:.15s}.ndot:nth-child(3){animation-delay:.3s}
+@keyframes bob{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-4px)}}
+
+/* Nova instruction strip */
+#nova-instruction{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.75);padding:10px 16px;text-align:center;font-size:13px;font-weight:700;color:#c4baff;backdrop-filter:blur(8px);border-top:1px solid rgba(124,111,255,0.2);min-height:42px}
+
+/* KID SIDE — RIGHT */
+#kid-side{position:relative;background:#050510;overflow:hidden}
 #webcam{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
 #overlay-canvas{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1);pointer-events:none}
-#loading-bar{position:absolute;bottom:0;left:0;height:3px;background:linear-gradient(90deg,#ff6fd8,#7c6fff);width:0%;transition:width .3s}
+#loading-bar{position:absolute;bottom:0;left:0;height:3px;background:linear-gradient(90deg,#ff6fd8,#7c6fff);width:0%;transition:width .3s;z-index:5}
 
-/* START OVERLAY */
-#cam-overlay{position:absolute;inset:0;background:rgba(10,10,26,0.97);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:20}
-#cam-overlay h2{font-family:'Fredoka One',cursive;font-size:28px;text-align:center}
-#cam-overlay p{font-size:13px;color:rgba(255,255,255,0.5);text-align:center;max-width:280px;line-height:1.7}
-.big-btn{background:linear-gradient(135deg,#ff6fd8,#7c6fff);border:none;border-radius:50px;padding:14px 40px;font-family:'Fredoka One',cursive;font-size:18px;color:#fff;cursor:pointer;box-shadow:0 4px 24px rgba(124,111,255,0.5);transition:transform .2s}
-.big-btn:hover{transform:scale(1.05)}
-#err-msg{display:none;background:rgba(255,50,50,0.15);border:1px solid rgba(255,50,50,0.4);border-radius:12px;padding:12px 16px;font-size:13px;color:#ff8080;text-align:center;max-width:300px;line-height:1.6}
+/* Kid name tag */
+#kid-tag{position:absolute;top:12px;left:12px;display:flex;align-items:center;gap:8px;background:rgba(0,0,0,0.5);border:1px solid rgba(0,210,255,0.3);border-radius:20px;padding:5px 12px;backdrop-filter:blur(8px)}
+#kid-tag-name{font-family:'Fredoka One',cursive;font-size:14px;color:#00d2ff}
 
-/* GAME STATE OVERLAY — countdown + move name */
-#game-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;pointer-events:none;z-index:10}
+/* Status mini */
+#status-box{position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:4px;pointer-events:none}
+.sstat{background:rgba(0,0,0,0.6);border-radius:8px;padding:3px 9px;font-size:10px;font-weight:700;display:flex;align-items:center;gap:4px}
+.sdot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
 
-#move-banner{background:rgba(0,0,0,0.82);border:2px solid #ff6fd8;border-radius:24px;padding:12px 30px;font-family:'Fredoka One',cursive;font-size:22px;color:#ff6fd8;text-align:center;opacity:0;transform:scale(0.8);transition:all .35s cubic-bezier(.34,1.56,.64,1)}
+/* GAME OVERLAYS — centered across both panels */
+#game-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;pointer-events:none;z-index:15}
+
+#move-banner{background:rgba(0,0,0,0.88);border:2px solid #ff6fd8;border-radius:24px;padding:12px 32px;font-family:'Fredoka One',cursive;font-size:24px;color:#ff6fd8;text-align:center;opacity:0;transform:scale(0.8);transition:all .35s cubic-bezier(.34,1.56,.64,1);box-shadow:0 0 30px rgba(255,111,216,0.3)}
 #move-banner.show{opacity:1;transform:scale(1)}
 
-#countdown{font-family:'Fredoka One',cursive;font-size:100px;color:#fff;text-shadow:0 0 40px #7c6fff;opacity:0;transform:scale(1.5);transition:all .2s}
+#countdown{font-family:'Fredoka One',cursive;font-size:110px;color:#fff;text-shadow:0 0 50px #7c6fff,0 0 100px rgba(124,111,255,0.3);opacity:0;transform:scale(1.5);transition:all .25s}
 #countdown.show{opacity:1;transform:scale(1)}
 
-#judge-text{font-family:'Fredoka One',cursive;font-size:52px;opacity:0;transform:translateY(20px);transition:all .25s;text-shadow:0 0 30px currentColor}
+#judge-text{font-family:'Fredoka One',cursive;font-size:58px;opacity:0;transform:translateY(20px);transition:all .3s;text-shadow:0 0 30px currentColor}
 #judge-text.show{opacity:1;transform:translateY(0)}
 
-/* SCORE POP */
-#score-pop{position:absolute;top:35%;left:50%;transform:translateX(-50%) scale(0);font-family:'Fredoka One',cursive;font-size:56px;pointer-events:none;transition:all .25s cubic-bezier(.34,1.56,.64,1);text-shadow:0 0 20px currentColor;z-index:15}
+/* Score pop */
+#score-pop{position:absolute;top:40%;left:50%;transform:translateX(-50%) scale(0);font-family:'Fredoka One',cursive;font-size:60px;pointer-events:none;transition:all .25s cubic-bezier(.34,1.56,.64,1);text-shadow:0 0 25px currentColor;z-index:20}
 #score-pop.show{transform:translateX(-50%) scale(1)}
-#score-pop.hide{opacity:0;transform:translateX(-50%) scale(0.7) translateY(-40px)}
+#score-pop.hide{opacity:0;transform:translateX(-50%) scale(0.7) translateY(-50px)}
 
-/* TIMING BAR */
-#timing-wrap{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;opacity:0;transition:opacity .3s}
+/* Timing bar — bottom center */
+#timing-wrap{position:absolute;bottom:52px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;opacity:0;transition:opacity .3s;z-index:10;background:rgba(0,0,0,0.6);border-radius:20px;padding:6px 14px;backdrop-filter:blur(8px)}
 #timing-wrap.show{opacity:1}
-#timing-label-l{font-size:11px;font-weight:700;color:rgba(255,255,255,0.4)}
-#timing-bar{width:220px;height:8px;background:rgba(255,255,255,0.1);border-radius:8px;overflow:hidden}
-#timing-fill{height:100%;width:50%;border-radius:8px;background:linear-gradient(90deg,#ff6fd8,#7c6fff,#00d2ff);transition:width .15s}
-#timing-label-r{font-size:11px;font-weight:700;color:rgba(255,255,255,0.4)}
+#timing-bar{width:180px;height:7px;background:rgba(255,255,255,0.1);border-radius:7px;overflow:hidden}
+#timing-fill{height:100%;width:40%;border-radius:7px;background:linear-gradient(90deg,#ff6fd8,#7c6fff);transition:width .12s,background .2s}
+.tlabel{font-size:10px;font-weight:700;color:rgba(255,255,255,0.5)}
 
-/* STATUS */
-#status-box{position:absolute;top:14px;right:14px;display:flex;flex-direction:column;gap:5px;pointer-events:none;z-index:5}
-.sstat{background:rgba(0,0,0,0.65);border-radius:8px;padding:3px 10px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px}
-.sdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+/* CENTER DIVIDER */
+#divider{position:absolute;top:0;bottom:0;left:50%;width:3px;background:linear-gradient(180deg,transparent,rgba(255,111,216,0.6),rgba(124,111,255,0.6),transparent);transform:translateX(-50%);pointer-events:none;z-index:5}
 
-/* AVATAR PANEL */
-#avatar-panel{background:#080818;border-left:1px solid rgba(255,255,255,0.07);display:flex;flex-direction:column}
-#avatar-header{padding:12px 16px 8px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between}
-#avatar-name{font-family:'Fredoka One',cursive;font-size:17px;background:linear-gradient(135deg,#ff6fd8,#7c6fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-#avatar-status{font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px}
-#avatar-status.on{color:#7fff7f}
-#round-badge{background:rgba(124,111,255,0.2);border:1px solid rgba(124,111,255,0.4);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:700;color:#b8b0ff}
+/* PARTICLES */
+.particle{position:absolute;pointer-events:none;border-radius:50%;animation:float 1.3s ease-out forwards;z-index:25}
+@keyframes float{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-90px) scale(0)}}
 
-#avatar-container{flex:1;position:relative;min-height:0;background:radial-gradient(ellipse at 50% 85%,rgba(124,111,255,0.08) 0%,transparent 70%)}
-#avatar-canvas{width:100%;height:100%;display:block}
-#avatar-loader{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#080818}
-.spin{width:32px;height:32px;border:3px solid rgba(124,111,255,0.2);border-top-color:#7c6fff;border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-#avatar-loader p{font-size:11px;color:rgba(255,255,255,0.35)}
+/* START OVERLAY */
+#start-overlay{position:absolute;inset:0;background:rgba(8,4,22,0.97);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:30}
+#start-overlay h1{font-family:'Fredoka One',cursive;font-size:36px;text-align:center;background:linear-gradient(135deg,#ff6fd8,#7c6fff,#00d2ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+#start-overlay p{font-size:14px;color:rgba(255,255,255,0.5);text-align:center;max-width:320px;line-height:1.8}
+.big-btn{background:linear-gradient(135deg,#ff6fd8,#7c6fff);border:none;border-radius:50px;padding:15px 44px;font-family:'Fredoka One',cursive;font-size:20px;color:#fff;cursor:pointer;box-shadow:0 6px 28px rgba(124,111,255,0.5);transition:transform .2s}
+.big-btn:hover{transform:scale(1.06)}
+#err-msg{display:none;background:rgba(255,50,50,0.12);border:1px solid rgba(255,50,50,0.3);border-radius:12px;padding:12px 18px;font-size:13px;color:#ff8080;text-align:center;max-width:300px;line-height:1.6}
 
-/* NOVA INSTRUCTION */
-#nova-instruction{margin:8px 12px 0;background:rgba(124,111,255,0.12);border:1px solid rgba(124,111,255,0.3);border-radius:12px;padding:10px 12px;font-size:13px;font-weight:700;color:#c4baff;text-align:center;min-height:36px;transition:all .3s}
-
-#bubble{margin:6px 12px 8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:10px 13px;font-size:12px;line-height:1.5;color:rgba(255,255,255,0.8);min-height:52px;transition:border-color .3s}
-#bubble.talking{border-color:rgba(124,111,255,0.5);background:rgba(124,111,255,0.08)}
-#dots{display:none;gap:4px;margin-top:5px}
-#dots.show{display:flex}
-.dot{width:6px;height:6px;border-radius:50%;background:#7c6fff;animation:bob .8s infinite}
-.dot:nth-child(2){animation-delay:.15s}.dot:nth-child(3){animation-delay:.3s}
-@keyframes bob{0%,80%,100%{transform:translateY(0);opacity:.5}40%{transform:translateY(-5px);opacity:1}}
-
-#controls{padding:8px 10px;border-top:1px solid rgba(255,255,255,0.07);display:flex;gap:6px}
-.cbtn{flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:9px;padding:7px 4px;color:rgba(255,255,255,0.65);font-family:'Nunito',sans-serif;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;text-align:center}
-.cbtn:hover{background:rgba(124,111,255,0.2);border-color:rgba(124,111,255,0.4);color:#fff}
+/* BOTTOM CONTROLS */
+#controls{position:absolute;bottom:0;left:0;right:0;display:flex;justify-content:center;gap:8px;padding:7px 16px;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);border-top:1px solid rgba(255,255,255,0.06);z-index:10}
+.cbtn{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:5px 16px;color:rgba(255,255,255,0.65);font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s}
+.cbtn:hover{background:rgba(124,111,255,0.25);border-color:rgba(124,111,255,0.5);color:#fff}
 .cbtn.on{background:rgba(124,111,255,0.3);border-color:#7c6fff;color:#fff}
-
-.particle{position:absolute;pointer-events:none;border-radius:50%;animation:float 1.2s ease-out forwards;z-index:20}
-@keyframes float{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-80px) scale(0)}}
 </style>
 </head>
 <body>
 
 <div id="topbar">
   <div id="logo">🕺 DanceCoach AI</div>
-  <div style="display:flex;gap:10px">
+  <div style="display:flex;gap:10px;align-items:center">
     <div class="pill">⭐ <b id="sv">0</b></div>
     <div class="pill">🔥 <b id="cv">0</b></div>
     <div class="pill" style="border-color:#ff9d00"><b style="color:#ff9d00" id="roundv">Round 1</b></div>
@@ -109,72 +125,85 @@ body{background:#0a0a1a;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
 </div>
 
 <div id="main">
-  <div id="cam-zone">
-    <video id="webcam" autoplay playsinline muted></video>
-    <canvas id="overlay-canvas"></canvas>
-    <div id="loading-bar"></div>
 
-    <!-- GAME OVERLAYS -->
-    <div id="game-overlay">
-      <div id="move-banner">🙌 Raise Both Arms!</div>
-      <div id="countdown"></div>
-      <div id="judge-text">PERFECT!</div>
-    </div>
+  <!-- LEFT: NOVA -->
+  <div id="nova-side">
+    <div id="nova-bg"></div>
 
-    <div id="score-pop">+500</div>
-
-    <div id="timing-wrap">
-      <div id="timing-label-l">EARLY</div>
-      <div id="timing-bar"><div id="timing-fill"></div></div>
-      <div id="timing-label-r">PERFECT</div>
-    </div>
-
-    <div id="status-box">
-      <div class="sstat"><div class="sdot" style="background:#ff6fd8"></div><span id="ls">Left: —</span></div>
-      <div class="sstat"><div class="sdot" style="background:#7c6fff"></div><span id="rs">Right: —</span></div>
-      <div class="sstat"><div class="sdot" style="background:#00d2ff"></div><span id="bs">Body: waiting...</span></div>
-    </div>
-
-    <!-- START OVERLAY -->
-    <div id="cam-overlay">
-      <div style="font-size:60px">🕺</div>
-      <h2>Nova is your<br>dance teacher!</h2>
-      <p>Nova shows you a move → you copy it → she scores you.<br><br>Stand <b>1.5–2m</b> from camera so your upper body is visible.</p>
-      <button class="big-btn" onclick="startGame()">Let's Dance! 🎉</button>
-      <p style="font-size:11px;color:rgba(255,255,255,0.2)">Chrome recommended · camera required</p>
-      <div id="err-msg"></div>
-    </div>
-  </div>
-
-  <!-- AVATAR PANEL -->
-  <div id="avatar-panel">
-    <div id="avatar-header">
-      <div>
-        <div id="avatar-name">Nova ✨</div>
-        <div id="avatar-status">Your Dance Teacher</div>
-      </div>
-      <div id="round-badge">Round 1</div>
-    </div>
-
-    <div id="avatar-container">
+    <div id="nova-canvas-wrap">
       <div id="avatar-loader"><div class="spin"></div><p>Loading Nova...</p></div>
       <canvas id="avatar-canvas"></canvas>
     </div>
 
-    <div id="nova-instruction">👆 Nova will show you what to do!</div>
-
-    <div id="bubble">
-      <div id="btext">Hi! I'm Nova 👋 I'll show you a move — then you copy me! Ready?</div>
-      <div id="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+    <div id="nova-tag">
+      <div id="nova-dot"></div>
+      <div id="nova-tag-name">Nova ✨</div>
     </div>
 
-    <div id="controls">
-      <button class="cbtn" onclick="nova('hype')">🎉 Hype!</button>
-      <button class="cbtn" onclick="nova('tip')">💡 Tip</button>
-      <button class="cbtn" id="mbtn" onclick="toggleMusic()">🎵 Music</button>
-      <button class="cbtn" onclick="nova('score')">📊 Score</button>
+    <div id="nova-bubble">
+      <div id="btext">Hi! I'm Nova 👋</div>
+      <div id="nova-bubble-dots">
+        <div class="ndot"></div><div class="ndot"></div><div class="ndot"></div>
+      </div>
+    </div>
+
+    <div id="nova-instruction">👆 Nova will show you what to do!</div>
+  </div>
+
+  <!-- DIVIDER -->
+  <div id="divider"></div>
+
+  <!-- RIGHT: KID CAM -->
+  <div id="kid-side">
+    <video id="webcam" autoplay playsinline muted></video>
+    <canvas id="overlay-canvas"></canvas>
+    <div id="loading-bar"></div>
+
+    <div id="kid-tag">
+      <div id="nova-dot" style="background:#00d2ff;box-shadow:0 0 6px #00d2ff"></div>
+      <div id="kid-tag-name">You 🎯</div>
+    </div>
+
+    <div id="status-box">
+      <div class="sstat"><div class="sdot" style="background:#ff6fd8"></div><span id="ls">L: —</span></div>
+      <div class="sstat"><div class="sdot" style="background:#7c6fff"></div><span id="rs">R: —</span></div>
+      <div class="sstat"><div class="sdot" style="background:#00d2ff"></div><span id="bs">detecting...</span></div>
     </div>
   </div>
+
+  <!-- GAME OVERLAYS — float over both -->
+  <div id="game-overlay">
+    <div id="move-banner">🙌 Raise Both Arms!</div>
+    <div id="countdown"></div>
+    <div id="judge-text">PERFECT!</div>
+  </div>
+
+  <div id="score-pop">+500</div>
+
+  <div id="timing-wrap">
+    <div class="tlabel">EARLY</div>
+    <div id="timing-bar"><div id="timing-fill"></div></div>
+    <div class="tlabel">PERFECT</div>
+  </div>
+
+  <!-- START OVERLAY -->
+  <div id="start-overlay">
+    <div style="font-size:64px">🕺</div>
+    <h1>Nova is your<br>Dance Teacher!</h1>
+    <p>Nova shows you a move on the left.<br>You copy it on the right!<br><br>Stand <b style="color:#ff6fd8">1.5–2m</b> from your camera.</p>
+    <button class="big-btn" onclick="startGame()">Let's Dance! 🎉</button>
+    <p style="font-size:11px;color:rgba(255,255,255,0.2)">Chrome recommended · camera required</p>
+    <div id="err-msg"></div>
+  </div>
+
+  <!-- BOTTOM CONTROLS -->
+  <div id="controls">
+    <button class="cbtn" onclick="nova('hype')">🎉 Hype!</button>
+    <button class="cbtn" onclick="nova('tip')">💡 Tip</button>
+    <button class="cbtn" id="mbtn" onclick="toggleMusic()">🎵 Music</button>
+    <button class="cbtn" onclick="nova('score')">📊 Score</button>
+  </div>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -183,120 +212,69 @@ body{background:#0a0a1a;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
 
 <script>
 // ══════════════════════════════════════════
-// GAME MOVES — Nova teaches these one by one
+// MOVES
 // ══════════════════════════════════════════
-const MOVES = [
-  {
-    id:'both_arms',
-    name:'🙌 Both Arms UP!',
-    instruction:'Raise BOTH arms above your head!',
-    novaMode:'hype',
-    check:(m)=>m.lUp&&m.rUp,
-    points:300,
-    teach:"Watch me! Raise BOTH arms up high like this!"
-  },
-  {
-    id:'left_arm',
-    name:'👈 Left Arm UP!',
-    instruction:'Raise your LEFT arm up high!',
-    novaMode:'dance',
-    check:(m)=>m.lUp&&!m.rUp,
-    points:200,
-    teach:"Now copy me — LEFT arm up, right arm down!"
-  },
-  {
-    id:'right_arm',
-    name:'👉 Right Arm UP!',
-    instruction:'Raise your RIGHT arm up high!',
-    novaMode:'dance',
-    check:(m)=>m.rUp&&!m.lUp,
-    points:200,
-    teach:"Your turn! Right arm up this time!"
-  },
-  {
-    id:'squat',
-    name:'⬇️ Get LOW!',
-    instruction:'Bend your knees — squat down!',
-    novaMode:'dance',
-    check:(m)=>m.squat,
-    points:250,
-    teach:"Get LOW! Bend those knees and squat down!"
-  },
-  {
-    id:'both_arms',
-    name:'🙌 Both Arms UP!',
-    instruction:'Both arms up — AGAIN! You got this!',
-    novaMode:'hype',
-    check:(m)=>m.lUp&&m.rUp,
-    points:400,
-    teach:"Final move — BOTH arms up for maximum points!"
-  },
+const MOVES=[
+  {id:'both_arms',name:'🙌 Both Arms UP!',instruction:'Raise BOTH arms above your head!',novaMode:'hype',check:m=>m.lUp&&m.rUp,points:300,teach:"Watch me! Raise BOTH arms up high like this!"},
+  {id:'left_arm',name:'👈 Left Arm UP!',instruction:'Raise your LEFT arm up high!',novaMode:'dance',check:m=>m.lUp&&!m.rUp,points:200,teach:"Now copy me — LEFT arm up, right arm stays down!"},
+  {id:'right_arm',name:'👉 Right Arm UP!',instruction:'Raise your RIGHT arm up!',novaMode:'dance',check:m=>m.rUp&&!m.lUp,points:200,teach:"Your turn! Right arm UP this time!"},
+  {id:'squat',name:'⬇️ Get LOW!',instruction:'Bend your knees — squat down!',novaMode:'dance',check:m=>m.squat,points:250,teach:"Get LOW with me! Bend those knees!"},
+  {id:'both_arms',name:'🙌 BOTH ARMS — Final!',instruction:'Both arms UP for maximum points!',novaMode:'hype',check:m=>m.lUp&&m.rUp,points:400,teach:"FINAL MOVE! Both arms UP — give it everything!"},
 ];
 
 // ══════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════
-let score=0, combo=0, round=1, active=false, talking=false;
+let score=0,combo=0,round=1,active=false,talking=false;
 let moves={lUp:false,rUp:false,squat:false};
 let detector=null;
 let scene,cam3d,renderer,clock,avatarMesh,headBone,lArmBone,rArmBone,mouthMesh;
-let idleT=0, avatarMode='idle';
-let lRot=0.3, rRot=-0.3, lTarget=0.3, rTarget=-0.3;
-let musicOn=false, audioCtx=null, beatTimer=null;
-
-// Game loop state
-let gamePhase='idle'; // idle, teach, countdown, judge, next
-let currentMoveIdx=0;
-let currentMove=null;
-let judgeTimer=null;
-let countdownVal=3;
-
-// ══════════════════════════════════════════
-// NOVA LINES
-// ══════════════════════════════════════════
-const lines={
-  perfect:["PERFECT! You nailed it! 🔥","YES! That's exactly it!","PERFECT! You're a natural!","Amazing! Perfect form!"],
-  good:["Good job! Nice move!","Great! Keep it up!","Yes! That's it! Well done!"],
-  miss:["Oops! Almost — try again next round!","Not quite — watch me again!","Keep trying, you'll get it!"],
-  hype:["YES! You are ON FIRE! 🔥","Oh my gosh incredible!","YESSS! That energy!","You are glowing right now!"],
-  tip:["Roll your shoulders on the beat!","Loosen your hips — let them flow!","Add a knee bounce to every move!","Arms wider! Own the space!"],
-  ready:["OK! Watch me do this move first — then YOU copy it!","Pay attention — then copy exactly what I do!","Here's the move — watch carefully then copy me!"],
-  go:["Your turn! GO!","Now YOU do it! GO GO GO!","Copy me! NOW!","Let's see it! GO!"],
-};
+let idleT=0,avatarMode='idle';
+let lRot=0.3,rRot=-0.3,lTarget=0.3,rTarget=-0.3;
+let musicOn=false,audioCtx=null,beatTimer=null;
+let gamePhase='idle',currentMoveIdx=0,currentMove=null,judgeTimer=null;
 
 // ══════════════════════════════════════════
 // SPEECH
 // ══════════════════════════════════════════
+const lines={
+  perfect:["PERFECT! You nailed it! 🔥","YES! That's exactly it!","AMAZING! You're a natural!"],
+  good:["Great job! Well done!","Yes! Keep it up!","Nice move!"],
+  miss:["Oops! Almost — try again!","Not quite! Watch me again!","Keep trying, you'll get it!"],
+  hype:["YES! You are ON FIRE! 🔥","Oh my gosh incredible!","YESSS! That energy!"],
+  tip:["Roll your shoulders on the beat!","Loosen your hips — let them flow!","Arms wider! Own the space!"],
+  ready:["Watch me carefully — then YOU copy it!","Pay attention — then copy exactly what I do!"],
+  go:["Your turn! GO!","Now YOU do it! GO GO GO!","Copy me! NOW!"],
+};
+
 function speak(txt,mode='idle'){
-  if(!window.speechSynthesis) return;
+  if(!window.speechSynthesis)return;
   window.speechSynthesis.cancel();
-  const b=document.getElementById('bubble');
+  const b=document.getElementById('nova-bubble');
   const bt=document.getElementById('btext');
-  const d=document.getElementById('dots');
+  const d=document.getElementById('nova-bubble-dots');
   bt.textContent=txt;
-  b.classList.add('talking');
+  b.classList.add('show');
   d.classList.add('show');
-  talking=true; avatarMode=mode;
+  talking=true;avatarMode=mode;
   const u=new SpeechSynthesisUtterance(txt);
-  u.rate=1.1; u.pitch=1.2; u.volume=1;
+  u.rate=1.1;u.pitch=1.2;u.volume=1;
   const vs=speechSynthesis.getVoices();
   const v=vs.find(x=>x.name.includes('Samantha')||x.name.includes('Google UK English Female')||x.name.includes('Karen')||x.name.includes('Victoria'));
-  if(v) u.voice=v;
+  if(v)u.voice=v;
   u.onend=()=>{
     talking=false;
-    b.classList.remove('talking');
     d.classList.remove('show');
-    if(avatarMode===mode) avatarMode='idle';
+    if(avatarMode===mode)avatarMode='idle';
   };
   speechSynthesis.speak(u);
 }
 
 function pick(a){return a[Math.floor(Math.random()*a.length)]}
-
 function nova(type){
-  if(type==='score') speak(`Score is ${score}, combo at ${combo}!`);
+  if(type==='score')speak(`Score is ${score}, combo at ${combo}!`);
   else if(type==='hype'){speak(pick(lines.hype),'hype');setTimeout(()=>{if(avatarMode==='hype')avatarMode='idle'},3000)}
-  else if(type==='tip') speak(pick(lines.tip));
+  else if(type==='tip')speak(pick(lines.tip));
 }
 
 // ══════════════════════════════════════════
@@ -304,218 +282,140 @@ function nova(type){
 // ══════════════════════════════════════════
 function startRound(){
   if(currentMoveIdx>=MOVES.length){
-    // All moves done — loop back
-    currentMoveIdx=0;
-    round++;
+    currentMoveIdx=0;round++;
     document.getElementById('roundv').textContent='Round '+round;
-    document.getElementById('round-badge').textContent='Round '+round;
-    speak('Amazing! Round '+round+'! Let\'s go again — faster this time!','hype');
-    setTimeout(startRound, 3500);
-    return;
+    speak('Amazing! Round '+round+'! Faster this time!','hype');
+    setTimeout(startRound,3500);return;
   }
-
   currentMove=MOVES[currentMoveIdx];
   gamePhase='teach';
-
-  // Show move name banner
   showBanner(currentMove.name);
-
-  // Update nova instruction panel
   document.getElementById('nova-instruction').textContent='👀 Watch Nova: '+currentMove.instruction;
-
-  // Nova teaches the move
-  speak(pick(lines.ready)+' '+currentMove.teach, currentMove.novaMode);
-
-  // Set avatar to show the move
+  speak(pick(lines.ready)+' '+currentMove.teach,currentMove.novaMode);
   setAvatarMove(currentMove.id);
-
-  // After 3.5s — start countdown
   setTimeout(()=>{
     hideBanner();
     speak(pick(lines.go),'idle');
     document.getElementById('nova-instruction').textContent='🎯 YOUR TURN: '+currentMove.instruction;
     startCountdown();
-  }, 3500);
+  },3500);
 }
 
 function setAvatarMove(id){
-  if(id==='both_arms'){ lTarget=-2.1; rTarget=2.1; }
-  else if(id==='left_arm'){ lTarget=-2.1; rTarget=-0.3; }
-  else if(id==='right_arm'){ lTarget=0.3; rTarget=2.1; }
-  else if(id==='squat'){ lTarget=0.3; rTarget=-0.3; }
+  if(id==='both_arms'){lTarget=-2.1;rTarget=2.1}
+  else if(id==='left_arm'){lTarget=-2.1;rTarget=-0.3}
+  else if(id==='right_arm'){lTarget=0.3;rTarget=2.1}
+  else{lTarget=0.3;rTarget=-0.3}
   avatarMode='teach';
 }
 
 function startCountdown(){
   gamePhase='countdown';
   showTimingBar();
-  countdownVal=3;
-  showCountdown(countdownVal);
+  let n=3;showCountdown(n);
   const t=setInterval(()=>{
-    countdownVal--;
-    if(countdownVal>0){
-      showCountdown(countdownVal);
-    } else {
-      hideCountdown();
-      clearInterval(t);
-      startJudge();
-    }
+    n--;
+    if(n>0){showCountdown(n)}
+    else{hideCountdown();clearInterval(t);startJudge()}
   },1000);
 }
 
 function startJudge(){
   gamePhase='judge';
   document.getElementById('nova-instruction').textContent='⚡ GO! '+currentMove.instruction;
-
-  // Judge window — 2.5 seconds to do the move
   let judged=false;
-  const window_ms=2500;
-  const checkInterval=setInterval(()=>{
+  const ci=setInterval(()=>{
     if(currentMove.check(moves)&&!judged){
-      judged=true;
-      clearInterval(checkInterval);
-      clearTimeout(judgeTimer);
-      onMoveSuccess();
+      judged=true;clearInterval(ci);clearTimeout(judgeTimer);onMoveSuccess();
     }
   },100);
-
-  judgeTimer=setTimeout(()=>{
-    if(!judged){
-      clearInterval(checkInterval);
-      onMoveMiss();
-    }
-  },window_ms);
+  judgeTimer=setTimeout(()=>{if(!judged){clearInterval(ci);onMoveMiss()}},3000);
 }
 
 function onMoveSuccess(){
   gamePhase='result';
   const pts=currentMove.points+(combo*50);
-  score+=pts; combo++;
+  score+=pts;combo++;
   document.getElementById('sv').textContent=score;
   document.getElementById('cv').textContent=combo;
-
-  // Judge text
-  const isPerfect=combo>2;
-  showJudge(isPerfect?'PERFECT! 🔥':'GREAT! ✨', isPerfect?'#ff6fd8':'#7c6fff');
-  showScorePop(pts, isPerfect?'#ff6fd8':'#7c6fff');
-  burst(isPerfect?'#ff6fd8':'#7c6fff');
-  speak(pick(isPerfect?lines.perfect:lines.good),'hype');
+  const perf=combo>2;
+  showJudge(perf?'PERFECT! 🔥':'GREAT! ✨',perf?'#ff6fd8':'#7c6fff');
+  showScorePop(pts,perf?'#ff6fd8':'#7c6fff');
+  burst(perf?'#ff6fd8':'#7c6fff');
+  speak(pick(perf?lines.perfect:lines.good),'hype');
   hideTimingBar();
-
-  // Move to next
   currentMoveIdx++;
-  setTimeout(()=>{
-    hideJudge();
-    avatarMode='idle';
-    startRound();
-  },2500);
+  setTimeout(()=>{hideJudge();avatarMode='idle';startRound()},2500);
 }
 
 function onMoveMiss(){
-  gamePhase='result';
-  combo=0;
+  gamePhase='result';combo=0;
   document.getElementById('cv').textContent=0;
   showJudge('MISS! 😅','#ff9d00');
   speak(pick(lines.miss));
   hideTimingBar();
-
   currentMoveIdx++;
-  setTimeout(()=>{
-    hideJudge();
-    avatarMode='idle';
-    startRound();
-  },2000);
+  setTimeout(()=>{hideJudge();avatarMode='idle';startRound()},2000);
 }
 
-// ── UI helpers ──
-function showBanner(txt){
-  const b=document.getElementById('move-banner');
-  b.textContent=txt;
-  b.classList.add('show');
-}
-function hideBanner(){ document.getElementById('move-banner').classList.remove('show'); }
-
-function showCountdown(n){
-  const c=document.getElementById('countdown');
-  c.textContent=n;
-  c.classList.remove('show'); void c.offsetWidth;
-  c.classList.add('show');
-}
-function hideCountdown(){ document.getElementById('countdown').classList.remove('show'); }
-
-function showJudge(txt,color='#ff6fd8'){
-  const j=document.getElementById('judge-text');
-  j.textContent=txt; j.style.color=color;
-  j.classList.add('show');
-}
-function hideJudge(){ document.getElementById('judge-text').classList.remove('show'); }
-
-function showTimingBar(){ document.getElementById('timing-wrap').classList.add('show'); }
-function hideTimingBar(){ document.getElementById('timing-wrap').classList.remove('show'); }
-
-function showScorePop(pts,color='#ff6fd8'){
+// UI helpers
+function showBanner(t){const b=document.getElementById('move-banner');b.textContent=t;b.classList.add('show')}
+function hideBanner(){document.getElementById('move-banner').classList.remove('show')}
+function showCountdown(n){const c=document.getElementById('countdown');c.textContent=n;c.classList.remove('show');void c.offsetWidth;c.classList.add('show')}
+function hideCountdown(){document.getElementById('countdown').classList.remove('show')}
+function showJudge(t,c='#ff6fd8'){const j=document.getElementById('judge-text');j.textContent=t;j.style.color=c;j.classList.add('show')}
+function hideJudge(){document.getElementById('judge-text').classList.remove('show')}
+function showTimingBar(){document.getElementById('timing-wrap').classList.add('show')}
+function hideTimingBar(){document.getElementById('timing-wrap').classList.remove('show')}
+function showScorePop(pts,c='#ff6fd8'){
   const el=document.getElementById('score-pop');
-  el.textContent='+'+pts; el.style.color=color;
-  el.classList.remove('show','hide'); void el.offsetWidth;
+  el.textContent='+'+pts;el.style.color=c;
+  el.classList.remove('show','hide');void el.offsetWidth;
   el.classList.add('show');
   setTimeout(()=>{el.classList.remove('show');el.classList.add('hide')},800);
   setTimeout(()=>el.classList.remove('hide'),1200);
 }
-
 function burst(color='#ff6fd8'){
-  const z=document.getElementById('cam-zone');
-  for(let i=0;i<10;i++){
+  const z=document.getElementById('main');
+  for(let i=0;i<12;i++){
     const p=document.createElement('div');
     p.className='particle';
-    p.style.cssText=`width:${7+Math.random()*8}px;height:${7+Math.random()*8}px;background:${color};left:${20+Math.random()*60}%;bottom:${15+Math.random()*40}%;animation-delay:${Math.random()*0.4}s`;
-    z.appendChild(p);
-    setTimeout(()=>p.remove(),1600);
+    p.style.cssText=`width:${6+Math.random()*9}px;height:${6+Math.random()*9}px;background:${color};left:${20+Math.random()*60}%;bottom:${20+Math.random()*40}%;animation-delay:${Math.random()*0.4}s`;
+    z.appendChild(p);setTimeout(()=>p.remove(),1700);
   }
 }
 
 // ══════════════════════════════════════════
-// POSE DETECTION
+// POSE
 // ══════════════════════════════════════════
 function analyzePose(kps){
-  const get=(n)=>kps.find(k=>k.name===n);
+  const get=n=>kps.find(k=>k.name===n);
   const ls=get('left_shoulder'),rs=get('right_shoulder');
   const lw=get('left_wrist'),rw=get('right_wrist');
   const lh=get('left_hip'),rh=get('right_hip');
-  if(!ls||!rs||!lw||!rw) return;
-
-  const conf=0.3;
-  moves.lUp=lw.score>conf&&ls.score>conf&&lw.y<ls.y-0.04;
-  moves.rUp=rw.score>conf&&rs.score>conf&&rw.y<rs.y-0.04;
-  moves.squat=lh&&rh&&lh.score>conf&&rh.score>conf&&(lh.y+rh.y)/2>0.68;
-
-  document.getElementById('ls').textContent='Left: '+(moves.lUp?'✅ UP':'—');
-  document.getElementById('rs').textContent='Right: '+(moves.rUp?'✅ UP':'—');
-  document.getElementById('bs').textContent=moves.squat?'Squat 🔥':'Tracking ✓';
-
-  // Update timing bar during judge phase
+  if(!ls||!rs||!lw||!rw)return;
+  const c=0.3;
+  moves.lUp=lw.score>c&&ls.score>c&&lw.y<ls.y-0.06;
+  moves.rUp=rw.score>c&&rs.score>c&&rw.y<rs.y-0.06;
+  moves.squat=lh&&rh&&lh.score>c&&rh.score>c&&(lh.y+rh.y)/2>0.68;
+  document.getElementById('ls').textContent='L: '+(moves.lUp?'✅':'—');
+  document.getElementById('rs').textContent='R: '+(moves.rUp?'✅':'—');
+  document.getElementById('bs').textContent=moves.squat?'Squat🔥':'OK✓';
   if(gamePhase==='judge'&&currentMove){
-    const matched=currentMove.check(moves);
-    const fill=document.getElementById('timing-fill');
-    fill.style.width=matched?'95%':'40%';
-    fill.style.background=matched?'linear-gradient(90deg,#00d2ff,#7fff7f)':'linear-gradient(90deg,#ff6fd8,#7c6fff)';
+    const ok=currentMove.check(moves);
+    const f=document.getElementById('timing-fill');
+    f.style.width=ok?'92%':'38%';
+    f.style.background=ok?'linear-gradient(90deg,#00d2ff,#7fff7f)':'linear-gradient(90deg,#ff6fd8,#7c6fff)';
   }
 }
 
 function drawSkeleton(kps,ctx,W,H){
-  const EDGES=[
-    ['left_shoulder','right_shoulder'],
-    ['left_shoulder','left_elbow'],['left_elbow','left_wrist'],
-    ['right_shoulder','right_elbow'],['right_elbow','right_wrist'],
-    ['left_shoulder','left_hip'],['right_shoulder','right_hip'],
-    ['left_hip','right_hip'],
-    ['left_hip','left_knee'],['left_knee','left_ankle'],
-    ['right_hip','right_knee'],['right_knee','right_ankle'],
-  ];
+  const E=[['left_shoulder','right_shoulder'],['left_shoulder','left_elbow'],['left_elbow','left_wrist'],['right_shoulder','right_elbow'],['right_elbow','right_wrist'],['left_shoulder','left_hip'],['right_shoulder','right_hip'],['left_hip','right_hip'],['left_hip','left_knee'],['left_knee','left_ankle'],['right_hip','right_knee'],['right_knee','right_ankle']];
   const by={};kps.forEach(k=>{by[k.name]=k});
   ctx.lineWidth=3;
-  EDGES.forEach(([a,b])=>{
+  E.forEach(([a,b])=>{
     const pa=by[a],pb=by[b];
-    if(!pa||!pb||pa.score<0.3||pb.score<0.3) return;
+    if(!pa||!pb||pa.score<0.3||pb.score<0.3)return;
     ctx.beginPath();ctx.moveTo(pa.x*W,pa.y*H);ctx.lineTo(pb.x*W,pb.y*H);
     ctx.strokeStyle=a.includes('shoulder')||a.includes('elbow')||a.includes('wrist')?'rgba(255,111,216,0.85)':a.includes('hip')||a.includes('knee')||a.includes('ankle')?'rgba(0,210,255,0.85)':'rgba(124,111,255,0.85)';
     ctx.stroke();
@@ -534,14 +434,11 @@ async function poseLoop(){
   const ctx=canvas.getContext('2d');
   canvas.width=video.videoWidth||640;
   canvas.height=video.videoHeight||480;
-  if(!detector){requestAnimationFrame(poseLoop);return;}
+  if(!detector){requestAnimationFrame(poseLoop);return}
   try{
     const poses=await detector.estimatePoses(video,{flipHorizontal:false});
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    if(poses.length>0){
-      drawSkeleton(poses[0].keypoints,ctx,canvas.width,canvas.height);
-      if(active) analyzePose(poses[0].keypoints);
-    }
+    if(poses.length>0){drawSkeleton(poses[0].keypoints,ctx,canvas.width,canvas.height);if(active)analyzePose(poses[0].keypoints)}
   }catch(e){}
   requestAnimationFrame(poseLoop);
 }
@@ -551,84 +448,204 @@ async function initDetector(){
   bar.style.width='30%';
   await tf.ready();
   bar.style.width='65%';
-  detector=await poseDetection.createDetector(
-    poseDetection.SupportedModels.MoveNet,
-    {modelType:poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING}
-  );
+  detector=await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,{modelType:poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING});
   bar.style.width='100%';
   setTimeout(()=>{bar.style.opacity='0'},500);
-  document.getElementById('bs').textContent='Model ready ✓';
+  document.getElementById('bs').textContent='Ready ✓';
 }
 
 // ══════════════════════════════════════════
-// 3D AVATAR
+// AVATAR — Disney-style upgrade
+// Bigger head, larger eyes, rounder face,
+// more expressive proportions
 // ══════════════════════════════════════════
 function initAvatar(){
-  const cont=document.getElementById('avatar-container');
+  const cont=document.getElementById('nova-canvas-wrap');
   const cv=document.getElementById('avatar-canvas');
   const W=cont.clientWidth,H=cont.clientHeight;
   scene=new THREE.Scene();clock=new THREE.Clock();
-  cam3d=new THREE.PerspectiveCamera(45,W/H,0.1,100);
-  cam3d.position.set(0,1.4,3.2);cam3d.lookAt(0,1.2,0);
+  cam3d=new THREE.PerspectiveCamera(42,W/H,0.1,100);
+  cam3d.position.set(0,1.6,3.0);cam3d.lookAt(0,1.4,0);
   renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});
   renderer.setSize(W,H);renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-  scene.add(new THREE.AmbientLight(0xffffff,0.7));
-  const d1=new THREE.DirectionalLight(0xff6fd8,1.3);d1.position.set(-2,3,2);scene.add(d1);
-  const d2=new THREE.DirectionalLight(0x7c6fff,0.9);d2.position.set(2,2,-2);scene.add(d2);
-  const d3=new THREE.PointLight(0x00d2ff,0.5,10);d3.position.set(0,3,1);scene.add(d3);
-  const fg=new THREE.CircleGeometry(0.7,32);
-  const fm=new THREE.MeshBasicMaterial({color:0x7c6fff,transparent:true,opacity:0.15});
-  const fl=new THREE.Mesh(fg,fm);fl.rotation.x=-Math.PI/2;scene.add(fl);
-  buildAvatar();
+
+  // Warm Disney lighting
+  scene.add(new THREE.AmbientLight(0xfff5f0,0.8));
+  const key=new THREE.DirectionalLight(0xffd4f0,1.4);key.position.set(-1.5,3,2);scene.add(key);
+  const fill=new THREE.DirectionalLight(0xd4c8ff,0.7);fill.position.set(2,1,-1);scene.add(fill);
+  const rim=new THREE.PointLight(0xff6fd8,0.6,8);rim.position.set(0,4,0);scene.add(rim);
+  const foot=new THREE.PointLight(0x7c6fff,0.4,5);foot.position.set(0,-1,2);scene.add(foot);
+
+  // Soft floor glow
+  const fg=new THREE.CircleGeometry(0.9,32);
+  const fm=new THREE.MeshBasicMaterial({color:0x9966ff,transparent:true,opacity:0.18});
+  const fl=new THREE.Mesh(fg,fm);fl.rotation.x=-Math.PI/2;fl.position.y=-0.01;scene.add(fl);
+
+  // Spawn background stars
+  spawnStars();
+  buildDisneyAvatar();
   document.getElementById('avatar-loader').style.display='none';
   renderAvatar();
 }
 
+function spawnStars(){
+  const bg=document.getElementById('nova-bg');
+  for(let i=0;i<18;i++){
+    const s=document.createElement('div');
+    s.className='star';
+    const size=1+Math.random()*3;
+    s.style.cssText=`width:${size}px;height:${size}px;left:${Math.random()*100}%;top:${Math.random()*100}%;animation-delay:${Math.random()*2}s;animation-duration:${1.5+Math.random()*2}s;opacity:${0.1+Math.random()*0.4}`;
+    bg.appendChild(s);
+  }
+}
+
 function mat(c,o={}){return new THREE.MeshToonMaterial({color:c,...o})}
 function mk(g,m){return new THREE.Mesh(g,m)}
-function cyl(rt,rb,h,m,x=0,y=0,z=0){const o=mk(new THREE.CylinderGeometry(rt,rb,h,10),m);o.position.set(x,y,z);return o}
 
-function buildAvatar(){
+function buildDisneyAvatar(){
   avatarMesh=new THREE.Group();scene.add(avatarMesh);
-  const S={skin:0xffcba4,hair:0xff6fd8,shirt:0x7c6fff,pant:0x1e1e3a,shoe:0xffffff,eye:0x220044};
 
-  headBone=new THREE.Group();headBone.position.set(0,2.05,0);
-  headBone.add(mk(new THREE.SphereGeometry(0.22,16,16),mat(S.skin)));
-  const hair=mk(new THREE.SphereGeometry(0.235,16,16,0,Math.PI*2,0,Math.PI*0.55),mat(S.hair));
-  hair.position.y=0.04;headBone.add(hair);
-  const tuft=mk(new THREE.ConeGeometry(0.055,0.18,6),mat(S.hair));
-  tuft.position.set(0.04,0.27,0);tuft.rotation.z=-0.3;headBone.add(tuft);
-  [-0.09,0.09].forEach(x=>{
-    const e=mk(new THREE.SphereGeometry(0.03,8,8),mat(S.eye));e.position.set(x,0.02,0.2);headBone.add(e);
-    const s=mk(new THREE.SphereGeometry(0.009,6,6),new THREE.MeshBasicMaterial({color:0xffffff}));s.position.set(x+0.013,0.033,0.225);headBone.add(s);
+  const C={
+    skin:0xffd5aa,
+    skinDark:0xf0b88a,
+    hair:0xff6fd8,
+    hairDark:0xd44eb0,
+    shirt:0x9966ff,
+    shirtLight:0xb388ff,
+    pant:0x2a1a5a,
+    shoe:0xffffff,
+    eye:0x1a0830,
+    iris:0x7c3aed,
+    cheek:0xffb3c6,
+    lip:0xff6b9d,
+    white:0xffffff,
+    outline:0x1a0830,
+  };
+
+  // ── HEAD — big Disney proportions ──
+  headBone=new THREE.Group();headBone.position.set(0,2.08,0);
+
+  // Main head — bigger, rounder
+  const head=mk(new THREE.SphereGeometry(0.28,20,20),mat(C.skin));
+  headBone.add(head);
+
+  // Chin narrowing
+  const chin=mk(new THREE.SphereGeometry(0.18,12,12),mat(C.skin));
+  chin.position.set(0,-0.22,0.06);chin.scale.set(1,0.7,0.9);headBone.add(chin);
+
+  // Hair — voluminous
+  const hairTop=mk(new THREE.SphereGeometry(0.3,16,16,0,Math.PI*2,0,Math.PI*0.6),mat(C.hair));
+  hairTop.position.y=0.06;headBone.add(hairTop);
+
+  // Hair side volumes
+  [-1,1].forEach(s=>{
+    const hs=mk(new THREE.SphereGeometry(0.18,10,10),mat(C.hair));
+    hs.position.set(s*0.26,0.0,-0.04);hs.scale.set(0.8,1.1,0.7);headBone.add(hs);
   });
-  [-0.13,0.13].forEach(x=>{const ck=mk(new THREE.CircleGeometry(0.046,8),mat(0xff9bb0,{transparent:true,opacity:0.65}));ck.position.set(x,-0.045,0.19);headBone.add(ck)});
-  mouthMesh=mk(new THREE.TorusGeometry(0.038,0.007,6,10,Math.PI),mat(S.eye));
-  mouthMesh.position.set(0,-0.082,0.19);mouthMesh.rotation.z=Math.PI;headBone.add(mouthMesh);
+
+  // Hair tuft / strand
+  const tuft=mk(new THREE.ConeGeometry(0.07,0.22,7),mat(C.hairDark));
+  tuft.position.set(0.06,0.33,0.04);tuft.rotation.z=-0.4;headBone.add(tuft);
+
+  // Hair back
+  const hback=mk(new THREE.SphereGeometry(0.26,12,12,0,Math.PI*2,0,Math.PI*0.7),mat(C.hairDark));
+  hback.position.set(0,0,-0.1);hback.scale.set(1,0.9,0.7);headBone.add(hback);
+
+  // ── EYES — big Disney eyes ──
+  [-0.11,0.11].forEach((x,i)=>{
+    // Eye white
+    const ew=mk(new THREE.SphereGeometry(0.055,12,12),mat(C.white));
+    ew.position.set(x,0.05,0.24);ew.scale.set(1,1.15,0.7);headBone.add(ew);
+
+    // Iris — large, colored
+    const iris=mk(new THREE.CircleGeometry(0.038,12),mat(C.iris));
+    iris.position.set(x,0.05,0.275);headBone.add(iris);
+
+    // Pupil
+    const pupil=mk(new THREE.CircleGeometry(0.022,10),mat(C.eye));
+    pupil.position.set(x,0.05,0.278);headBone.add(pupil);
+
+    // Shine spots
+    const sh1=mk(new THREE.CircleGeometry(0.009,8),mat(C.white));
+    sh1.position.set(x+0.018,0.065,0.28);headBone.add(sh1);
+    const sh2=mk(new THREE.CircleGeometry(0.005,6),mat(C.white));
+    sh2.position.set(x-0.012,0.038,0.28);headBone.add(sh2);
+
+    // Eyelid / lash line
+    const lid=mk(new THREE.TorusGeometry(0.045,0.006,6,12,Math.PI),mat(C.eye));
+    lid.position.set(x,0.065,0.272);lid.rotation.z=i===0?0.15:-0.15;headBone.add(lid);
+  });
+
+  // Eyebrows
+  [-0.11,0.11].forEach((x,i)=>{
+    const brow=mk(new THREE.CapsuleGeometry?new THREE.CapsuleGeometry(0.003,0.065,4,4):new THREE.CylinderGeometry(0.004,0.004,0.07,6),mat(C.hairDark));
+    brow.position.set(x,0.115,0.25);
+    brow.rotation.z=i===0?0.25:-0.25;
+    headBone.add(brow);
+  });
+
+  // Nose — small button
+  const nose=mk(new THREE.SphereGeometry(0.022,8,8),mat(C.skinDark));
+  nose.position.set(0,-0.028,0.27);nose.scale.set(1,0.7,0.8);headBone.add(nose);
+
+  // Mouth — small smile
+  mouthMesh=mk(new THREE.TorusGeometry(0.038,0.008,6,10,Math.PI*0.75),mat(C.lip));
+  mouthMesh.position.set(0,-0.1,0.255);mouthMesh.rotation.z=Math.PI+0.4;headBone.add(mouthMesh);
+
+  // Cheeks
+  [-0.16,0.16].forEach(x=>{
+    const ck=mk(new THREE.CircleGeometry(0.055,10),mat(C.cheek,{transparent:true,opacity:0.6}));
+    ck.position.set(x,-0.05,0.23);headBone.add(ck);
+  });
+
+  // Ears
+  [-1,1].forEach(s=>{
+    const ear=mk(new THREE.SphereGeometry(0.055,8,8),mat(C.skin));
+    ear.position.set(s*0.27,0.02,0);ear.scale.set(0.5,0.7,0.5);headBone.add(ear);
+  });
+
   avatarMesh.add(headBone);
 
-  avatarMesh.add(cyl(0.07,0.09,0.14,mat(S.skin),0,1.88));
-  avatarMesh.add(cyl(0.18,0.16,0.54,mat(S.shirt),0,1.55));
+  // ── NECK ──
+  const neck=mk(new THREE.CylinderGeometry(0.075,0.095,0.16,10),mat(C.skin));
+  neck.position.set(0,1.88,0);avatarMesh.add(neck);
 
-  lArmBone=new THREE.Group();lArmBone.position.set(-0.24,1.78,0);
-  const la=mk(new THREE.CylinderGeometry(0.052,0.047,0.3,8),mat(S.shirt));la.position.set(-0.09,-0.15,0);la.rotation.z=0.3;lArmBone.add(la);
-  const lf=mk(new THREE.CylinderGeometry(0.043,0.038,0.26,8),mat(S.skin));lf.position.set(-0.17,-0.36,0);lf.rotation.z=0.2;lArmBone.add(lf);
-  const lh=mk(new THREE.SphereGeometry(0.05,8,8),mat(S.skin));lh.position.set(-0.23,-0.5,0);lArmBone.add(lh);
+  // ── TORSO — hourglass ──
+  const torso=mk(new THREE.CylinderGeometry(0.15,0.17,0.52,12),mat(C.shirt));
+  torso.position.set(0,1.57,0);avatarMesh.add(torso);
+
+  // Collar detail
+  const collar=mk(new THREE.TorusGeometry(0.14,0.02,6,12),mat(C.shirtLight));
+  collar.position.set(0,1.82,0);collar.rotation.x=Math.PI/2;avatarMesh.add(collar);
+
+  // ── ARMS ──
+  lArmBone=new THREE.Group();lArmBone.position.set(-0.22,1.8,0);
+  const lu=mk(new THREE.CylinderGeometry(0.055,0.048,0.3,9),mat(C.shirt));lu.position.set(-0.09,-0.15,0);lu.rotation.z=0.28;lArmBone.add(lu);
+  const ll=mk(new THREE.CylinderGeometry(0.046,0.04,0.27,9),mat(C.skin));ll.position.set(-0.17,-0.36,0);ll.rotation.z=0.18;lArmBone.add(ll);
+  const lhand=mk(new THREE.SphereGeometry(0.055,10,10),mat(C.skin));lhand.position.set(-0.23,-0.51,0);lArmBone.add(lhand);
   avatarMesh.add(lArmBone);
 
-  rArmBone=new THREE.Group();rArmBone.position.set(0.24,1.78,0);
-  const ra=mk(new THREE.CylinderGeometry(0.052,0.047,0.3,8),mat(S.shirt));ra.position.set(0.09,-0.15,0);ra.rotation.z=-0.3;rArmBone.add(ra);
-  const rf=mk(new THREE.CylinderGeometry(0.043,0.038,0.26,8),mat(S.skin));rf.position.set(0.17,-0.36,0);rf.rotation.z=-0.2;rArmBone.add(rf);
-  const rh2=mk(new THREE.SphereGeometry(0.05,8,8),mat(S.skin));rh2.position.set(0.23,-0.5,0);rArmBone.add(rh2);
+  rArmBone=new THREE.Group();rArmBone.position.set(0.22,1.8,0);
+  const ru=mk(new THREE.CylinderGeometry(0.055,0.048,0.3,9),mat(C.shirt));ru.position.set(0.09,-0.15,0);ru.rotation.z=-0.28;rArmBone.add(ru);
+  const rl=mk(new THREE.CylinderGeometry(0.046,0.04,0.27,9),mat(C.skin));rl.position.set(0.17,-0.36,0);rl.rotation.z=-0.18;rArmBone.add(rl);
+  const rhand=mk(new THREE.SphereGeometry(0.055,10,10),mat(C.skin));rhand.position.set(0.23,-0.51,0);rArmBone.add(rhand);
   avatarMesh.add(rArmBone);
 
-  avatarMesh.add(cyl(0.17,0.15,0.19,mat(S.pant),0,1.22));
+  // ── HIPS + SKIRT hint ──
+  const hip=mk(new THREE.CylinderGeometry(0.18,0.17,0.2,12),mat(C.pant));
+  hip.position.set(0,1.24,0);avatarMesh.add(hip);
+
+  // ── LEGS ──
   [-0.09,0.09].forEach(x=>{
-    avatarMesh.add(cyl(0.068,0.058,0.48,mat(S.pant),x,0.87));
-    avatarMesh.add(cyl(0.053,0.048,0.4,mat(S.pant),x,0.42));
-    const sh=mk(new THREE.BoxGeometry(0.11,0.065,0.17),mat(S.shoe));sh.position.set(x,0.17,0.03);avatarMesh.add(sh);
+    const leg=mk(new THREE.CylinderGeometry(0.07,0.062,0.48,9),mat(C.pant));
+    leg.position.set(x,0.88,0);avatarMesh.add(leg);
+    const calf=mk(new THREE.CylinderGeometry(0.056,0.05,0.4,9),mat(C.pant));
+    calf.position.set(x,0.43,0);avatarMesh.add(calf);
+    const shoe=mk(new THREE.SphereGeometry(0.07,9,9),mat(C.shoe));
+    shoe.position.set(x,0.16,0.04);shoe.scale.set(1,0.55,1.3);avatarMesh.add(shoe);
   });
-  avatarMesh.position.y=-0.1;
+
+  avatarMesh.position.y=-0.12;
 }
 
 function renderAvatar(){
@@ -636,23 +653,27 @@ function renderAvatar(){
   const d=clock.getDelta();idleT+=d;
   if(!avatarMesh)return;
 
-  avatarMesh.position.y=-0.1+Math.sin(idleT*1.8)*0.015;
-  headBone.rotation.y=Math.sin(idleT*0.7)*0.12;
-  headBone.rotation.z=Math.sin(idleT*0.5)*0.05;
+  // Gentle bob
+  avatarMesh.position.y=-0.12+Math.sin(idleT*1.6)*0.012;
+
+  // Head sway
+  headBone.rotation.y=Math.sin(idleT*0.65)*0.1;
+  headBone.rotation.z=Math.sin(idleT*0.45)*0.04;
+  // Slight head nod when talking
+  if(talking) headBone.rotation.x=Math.sin(idleT*8)*0.04;
+  else headBone.rotation.x=0;
 
   if(avatarMode==='hype'){
-    lTarget=-2.1+Math.sin(idleT*6)*0.3;
-    rTarget=2.1+Math.sin(idleT*6)*0.3;
-    avatarMesh.rotation.y=Math.sin(idleT*3)*0.2;
+    lTarget=-2.1+Math.sin(idleT*6)*0.25;
+    rTarget=2.1+Math.sin(idleT*6)*0.25;
+    avatarMesh.rotation.y=Math.sin(idleT*3)*0.18;
   } else if(avatarMode==='dance'){
-    lTarget=-1.6+Math.sin(idleT*4)*0.5;
-    rTarget=1.6+Math.sin(idleT*4+1)*0.5;
-    avatarMesh.rotation.y=Math.sin(idleT*2)*0.15;
+    lTarget=-1.5+Math.sin(idleT*4)*0.55;
+    rTarget=1.5+Math.sin(idleT*4+1)*0.55;
+    avatarMesh.rotation.y=Math.sin(idleT*2)*0.12;
   } else if(avatarMode==='teach'){
-    // hold the move position — already set by setAvatarMove
     avatarMesh.rotation.y=0;
   } else {
-    // idle — mirror user arms slightly
     lTarget=moves.lUp?-1.8:0.3;
     rTarget=moves.rUp?1.8:-0.3;
     avatarMesh.rotation.y+=(0-avatarMesh.rotation.y)*0.05;
@@ -660,7 +681,13 @@ function renderAvatar(){
 
   lRot+=(lTarget-lRot)*0.1;rRot+=(rTarget-rRot)*0.1;
   lArmBone.rotation.z=lRot;rArmBone.rotation.z=rRot;
-  if(mouthMesh) mouthMesh.scale.y=talking?1+Math.abs(Math.sin(idleT*14))*1.4:1+(mouthMesh.scale.y-1)*0.88;
+
+  // Mouth animate
+  if(mouthMesh){
+    if(talking) mouthMesh.scale.y=1+Math.abs(Math.sin(idleT*13))*1.6;
+    else mouthMesh.scale.y+=(1-mouthMesh.scale.y)*0.1;
+  }
+
   renderer.render(scene,cam3d);
 }
 
@@ -679,48 +706,40 @@ function beat(){
     const t=audioCtx.currentTime;
     if(step%16===0||step%16===8)kick(t);
     if(step%16===4||step%16===12)snare(t);
-    hat(t,step%2===0?0.13:0.06);
+    hat(t,step%2===0?0.12:0.05);
     if(step%16===0)bass(t,60);if(step%16===8)bass(t,67);
     step++;
   }
   tick();beatTimer=setInterval(tick,ms);
 }
 function kick(t){const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.frequency.setValueAtTime(160,t);o.frequency.exponentialRampToValueAtTime(40,t+0.15);g.gain.setValueAtTime(0.8,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.25);o.start(t);o.stop(t+0.25)}
-function snare(t){const b=audioCtx.createBuffer(1,audioCtx.sampleRate*0.1,audioCtx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const s=audioCtx.createBufferSource();s.buffer=b;const g=audioCtx.createGain(),f=audioCtx.createBiquadFilter();f.type='highpass';f.frequency.value=1000;s.connect(f);f.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(0.3,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.1);s.start(t)}
+function snare(t){const b=audioCtx.createBuffer(1,audioCtx.sampleRate*0.1,audioCtx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const s=audioCtx.createBufferSource();s.buffer=b;const g=audioCtx.createGain(),f=audioCtx.createBiquadFilter();f.type='highpass';f.frequency.value=1000;s.connect(f);f.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(0.28,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.1);s.start(t)}
 function hat(t,v){const b=audioCtx.createBuffer(1,audioCtx.sampleRate*0.04,audioCtx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const s=audioCtx.createBufferSource();s.buffer=b;const g=audioCtx.createGain(),f=audioCtx.createBiquadFilter();f.type='highpass';f.frequency.value=8000;s.connect(f);f.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.035);s.start(t)}
-function bass(t,midi){const freq=440*Math.pow(2,(midi-69)/12),o=audioCtx.createOscillator(),g=audioCtx.createGain(),f=audioCtx.createBiquadFilter();o.type='sawtooth';o.frequency.value=freq;f.type='lowpass';f.frequency.value=280;o.connect(f);f.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(0.22,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.38);o.start(t);o.stop(t+0.38)}
+function bass(t,midi){const freq=440*Math.pow(2,(midi-69)/12),o=audioCtx.createOscillator(),g=audioCtx.createGain(),f=audioCtx.createBiquadFilter();o.type='sawtooth';o.frequency.value=freq;f.type='lowpass';f.frequency.value=280;o.connect(f);f.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(0.2,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.38);o.start(t);o.stop(t+0.38)}
 
 // ══════════════════════════════════════════
 // START
 // ══════════════════════════════════════════
 async function startGame(){
-  document.getElementById('cam-overlay').style.display='none';
+  document.getElementById('start-overlay').style.display='none';
   try{
     const stream=await navigator.mediaDevices.getUserMedia({video:{width:1280,height:720,facingMode:'user'},audio:false});
     const video=document.getElementById('webcam');
     video.srcObject=stream;
     await new Promise(r=>video.onloadedmetadata=r);
     await video.play();
-
     const canvas=document.getElementById('overlay-canvas');
     canvas.width=video.videoWidth||640;
     canvas.height=video.videoHeight||480;
-
-    document.getElementById('avatar-status').textContent='● Live — watching you';
-    document.getElementById('avatar-status').classList.add('on');
     active=true;
-
     await initDetector();
     poseLoop();
-
-    // Welcome + start first round
     setTimeout(()=>{
-      speak("Hey! I'm Nova — I'll show you a move, then you copy it! Watch me carefully!",'hype');
-      setTimeout(startRound, 3500);
+      speak("Hey! I'm Nova — watch me do a move, then YOU copy it! Ready?",'hype');
+      setTimeout(startRound,3500);
     },800);
-
   }catch(e){
-    document.getElementById('cam-overlay').style.display='flex';
+    document.getElementById('start-overlay').style.display='flex';
     const err=document.getElementById('err-msg');
     err.style.display='block';
     err.innerHTML='<b>Error: '+(e.name||'unknown')+'</b><br>'+(e.message||String(e));
@@ -736,7 +755,7 @@ window.addEventListener('load',()=>{
   initAvatar();
   window.addEventListener('resize',()=>{
     if(!renderer)return;
-    const c=document.getElementById('avatar-container');
+    const c=document.getElementById('nova-canvas-wrap');
     cam3d.aspect=c.clientWidth/c.clientHeight;
     cam3d.updateProjectionMatrix();
     renderer.setSize(c.clientWidth,c.clientHeight);
