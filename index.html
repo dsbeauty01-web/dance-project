@@ -945,9 +945,13 @@ function initPose() {
     minTrackingConfidence: 0.6
   });
 
+  // Set canvas size once on video load — never resize mid-frame (causes flicker)
+  videoEl.addEventListener('loadeddata', () => {
+    canvasEl.width = videoEl.videoWidth || 640;
+    canvasEl.height = videoEl.videoHeight || 480;
+  }, { once: true });
+
   pose.onResults(results => {
-    canvasEl.width = videoEl.videoWidth || canvasEl.offsetWidth;
-    canvasEl.height = videoEl.videoHeight || canvasEl.offsetHeight;
     ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
 
     if (!results.poseLandmarks) return;
@@ -1024,8 +1028,8 @@ function showNextPrompt() {
   el.classList.add('show');
   promptTimer = setTimeout(() => {
     el.classList.remove('show');
-    setTimeout(showNextPrompt, 2000);
-  }, 5000);
+    setTimeout(showNextPrompt, 12000); // 12s gap between prompts
+  }, 6000); // show for 6s then hide
 }
 
 function analyzePose(lm) {
@@ -1052,8 +1056,8 @@ function analyzePose(lm) {
   document.getElementById('right-arm-stat').textContent = 'Right arm: ' + (detectedMoves.rightArmUp ? '✅ UP' : '—');
   document.getElementById('body-stat').textContent = detectedMoves.squatting ? 'Body: squat 🔥' : 'Body: tracking';
 
-  // Score moves
-  if (now - lastPoseTime > 800) {
+  // Score moves — 2.5s cooldown so messages don't spam
+  if (now - lastPoseTime > 2500) {
     if (detectedMoves.bothArmsUp) {
       addScore(150, '🙌 Both arms UP!', '#ff6fd8');
       if (now - lastFeedbackTime > 5000) {
@@ -1211,7 +1215,7 @@ async function startExperience() {
       setTimeout(() => {
         speak(pick(novaLines.greeting), 'hype');
         lastFeedbackTime = Date.now();
-        setTimeout(showNextPrompt, 4000);
+        setTimeout(showNextPrompt, 10000); // wait 10s before first prompt
       }, 1000);
     };
   } catch (e) {
