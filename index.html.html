@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DanceCoach AI</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a1a;
+    color: #fff;
+    font-family: 'Nunito', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── TOP BAR ── */
+  #topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    z-index: 10;
+    flex-shrink: 0;
+  }
+
+  #logo {
+    font-family: 'Fredoka One', cursive;
+    font-size: 22px;
+    background: linear-gradient(135deg, #ff6fd8, #7c6fff, #00d2ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  #score-display {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .stat-pill {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+    padding: 6px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .stat-pill span { color: #ff6fd8; font-size: 16px; }
+
+  #streak-pill { border-color: #ff9d00; }
+  #streak-pill span { color: #ff9d00; }
+
+  /* ── MAIN LAYOUT ── */
+  #main {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    flex: 1;
+    min-height: 0;
+    gap: 0;
+  }
+
+  /* ── LEFT: WEBCAM ZONE ── */
+  #cam-zone {
+    position: relative;
+    background: #050510;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  #webcam {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    display: block;
+  }
+
+  #pose-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    transform: scaleX(-1);
+    pointer-events: none;
+  }
+
+  /* ── FEEDBACK TOAST ── */
+  #feedback-toast {
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(124, 111, 255, 0.92);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 30px;
+    padding: 10px 24px;
+    font-size: 16px;
+    font-weight: 800;
+    white-space: nowrap;
+    opacity: 0;
+    transition: all 0.3s ease;
+    pointer-events: none;
+    backdrop-filter: blur(10px);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+
+  #feedback-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ── SCORE POP ── */
+  #score-pop {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translateX(-50%) scale(0);
+    font-family: 'Fredoka One', cursive;
+    font-size: 52px;
+    pointer-events: none;
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    text-shadow: 0 0 30px currentColor;
+  }
+
+  #score-pop.pop { transform: translateX(-50%) scale(1); }
+  #score-pop.fade { opacity: 0; transform: translateX(-50%) scale(0.8) translateY(-30px); }
+
+  /* ── TIMING BAR ── */
+  #timing-bar {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 280px;
+    height: 10px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  #timing-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 10px;
+    background: linear-gradient(90deg, #ff6fd8, #7c6fff);
+    transition: width 0.1s ease;
+  }
+
+  /* ── CAM START OVERLAY ── */
+  #cam-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(10,10,26,0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    z-index: 5;
+  }
+
+  #cam-overlay h2 {
+    font-family: 'Fredoka One', cursive;
+    font-size: 28px;
+    color: #fff;
+  }
+
+  #cam-overlay p {
+    font-size: 14px;
+    color: rgba(255,255,255,0.5);
+    text-align: center;
+    max-width: 280px;
+    line-height: 1.6;
+  }
+
+  .big-btn {
+    background: linear-gradient(135deg, #ff6fd8, #7c6fff);
+    border: none;
+    border-radius: 50px;
+    padding: 14px 36px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 18px;
+    color: #fff;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 20px rgba(124,111,255,0.4);
+  }
+
+  .big-btn:hover { transform: scale(1.05); box-shadow: 0 6px 30px rgba(124,111,255,0.6); }
+  .big-btn:active { transform: scale(0.97); }
+
+  /* ── RIGHT: AVATAR PANEL ── */
+  #avatar-panel {
+    background: #080818;
+    border-left: 1px solid rgba(255,255,255,0.07);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #avatar-header {
+    padding: 14px 16px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+
+  #avatar-name {
+    font-family: 'Fredoka One', cursive;
+    font-size: 18px;
+    background: linear-gradient(135deg, #ff6fd8, #7c6fff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  #avatar-status {
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+    margin-top: 2px;
+  }
+
+  #avatar-status.active { color: #7fff7f; }
+
+  /* ── 3D AVATAR CONTAINER ── */
+  #avatar-container {
+    flex: 1;
+    position: relative;
+    min-height: 0;
+    background: radial-gradient(ellipse at 50% 80%, rgba(124,111,255,0.08) 0%, transparent 70%);
+  }
+
+  #avatar-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* ── SPEECH BUBBLE ── */
+  #speech-bubble {
+    margin: 0 12px 12px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: rgba(255,255,255,0.85);
+    min-height: 60px;
+    position: relative;
+    transition: all 0.3s ease;
+  }
+
+  #speech-bubble::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-bottom: 8px solid rgba(255,255,255,0.1);
+  }
+
+  #speech-bubble.speaking {
+    border-color: rgba(124,111,255,0.5);
+    background: rgba(124,111,255,0.1);
+  }
+
+  #speaking-dots {
+    display: none;
+    gap: 4px;
+    align-items: center;
+    margin-top: 6px;
+  }
+
+  #speaking-dots.show { display: flex; }
+
+  .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #7c6fff;
+    animation: bounce 0.8s infinite;
+  }
+  .dot:nth-child(2) { animation-delay: 0.15s; }
+  .dot:nth-child(3) { animation-delay: 0.3s; }
+
+  @keyframes bounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+    40% { transform: translateY(-5px); opacity: 1; }
+  }
+
+  /* ── CONTROLS ── */
+  #controls {
+    padding: 10px 12px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    display: flex;
+    gap: 8px;
+  }
+
+  .ctrl-btn {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 8px;
+    color: rgba(255,255,255,0.7);
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+
+  .ctrl-btn:hover { background: rgba(124,111,255,0.2); border-color: rgba(124,111,255,0.4); color: #fff; }
+  .ctrl-btn.active { background: rgba(124,111,255,0.3); border-color: #7c6fff; color: #fff; }
+
+  /* ── MOVE PROMPTS ── */
+  #move-prompt {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.7);
+    border: 1px solid rgba(255,111,216,0.4);
+    border-radius: 20px;
+    padding: 8px 20px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #ff6fd8;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  #move-prompt.show { opacity: 1; }
+
+  /* ── PARTICLES ── */
+  .particle {
+    position: absolute;
+    pointer-events: none;
+    border-radius: 50%;
+    animation: floatUp 1.2s ease-out forwards;
+  }
+
+  @keyframes floatUp {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-80px) scale(0); }
+  }
+
+  /* ── SKELETON DOTS ── */
+  .skeleton-joint {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ff6fd8;
+    box-shadow: 0 0 8px #ff6fd8;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  /* ── LOADING ── */
+  #avatar-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: #080818;
+  }
+
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid rgba(124,111,255,0.2);
+    border-top-color: #7c6fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #avatar-loading p { font-size: 12px; color: rgba(255,255,255,0.4); }
+
+  /* ── POSE INDICATOR ── */
+  #pose-indicator {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    pointer-events: none;
+  }
+
+  .pose-stat {
+    background: rgba(0,0,0,0.6);
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .pose-dot { width: 6px; height: 6px; border-radius: 50%; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div id="logo">🕺 DanceCoach AI</div>
+  <div id="score-display">
+    <div class="stat-pill" id="score-pill">⭐ Score: <span id="score-val">0</span></div>
+    <div class="stat-pill" id="combo-pill">🔥 Combo: <span id="combo-val">0</span></div>
+    <div class="stat-pill" id="streak-pill">📅 Streak: <span id="streak-val">1</span></div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- LEFT: CAM ZONE -->
+  <div id="cam-zone">
+    <video id="webcam" autoplay playsinline muted></video>
+    <canvas id="pose-canvas"></canvas>
+
+    <div id="move-prompt">🙌 Raise both arms!</div>
+    <div id="feedback-toast">Great move!</div>
+    <div id="score-pop">+100</div>
+    <div id="timing-bar"><div id="timing-fill"></div></div>
+
+    <div id="pose-indicator">
+      <div class="pose-stat"><div class="pose-dot" style="background:#ff6fd8"></div> <span id="left-arm-stat">Left arm: —</span></div>
+      <div class="pose-stat"><div class="pose-dot" style="background:#7c6fff"></div> <span id="right-arm-stat">Right arm: —</span></div>
+      <div class="pose-stat"><div class="pose-dot" style="background:#00d2ff"></div> <span id="body-stat">Body: detecting...</span></div>
+    </div>
+
+    <!-- START OVERLAY -->
+    <div id="cam-overlay">
+      <div style="font-size:56px">🕺</div>
+      <h2>Meet Nova, your dance coach!</h2>
+      <p>Nova watches your moves in real time and gives you voice coaching. Stand 1.5–2m from your camera.</p>
+      <button class="big-btn" onclick="startExperience()">Start Dancing</button>
+      <p style="font-size:12px;color:rgba(255,255,255,0.3)">Needs camera + microphone access · Chrome recommended</p>
+    </div>
+  </div>
+
+  <!-- RIGHT: AVATAR PANEL -->
+  <div id="avatar-panel">
+    <div id="avatar-header">
+      <div id="avatar-name">Nova ✨</div>
+      <div id="avatar-status">Your AI Dance Coach</div>
+    </div>
+
+    <div id="avatar-container">
+      <div id="avatar-loading">
+        <div class="spinner"></div>
+        <p>Loading Nova...</p>
+      </div>
+      <canvas id="avatar-canvas"></canvas>
+    </div>
+
+    <div id="speech-bubble">
+      <div id="speech-text">Hi! I'm Nova 👋 Press Start and show me your moves!</div>
+      <div id="speaking-dots">
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+    </div>
+
+    <div id="controls">
+      <button class="ctrl-btn" onclick="triggerFeedback('hype')">🎉 Hype me!</button>
+      <button class="ctrl-btn" onclick="triggerFeedback('tip')">💡 Give tip</button>
+      <button class="ctrl-btn" id="music-btn" onclick="toggleMusic()">🎵 Music</button>
+      <button class="ctrl-btn" onclick="triggerFeedback('score')">📊 My score</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCRIPTS -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js" crossorigin="anonymous"></script>
+
+<script>
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+let score = 0, combo = 0, isActive = false, isSpeaking = false;
+let lastFeedbackTime = 0, lastPoseTime = 0;
+let poseHistory = [];
+let musicPlaying = false;
+let audioCtx = null, musicNode = null;
+let avatarReady = false;
+
+// Avatar 3D state (Three.js based avatar)
+let scene, camera, renderer, avatarMesh, mixer, clock;
+let mouthBone, headBone, leftArmBone, rightArmBone;
+
+// Pose data
+let currentPose = null;
+let detectedMoves = { leftArmUp: false, rightArmUp: false, bothArmsUp: false, squatting: false, swaying: false };
+
+// ══════════════════════════════════════════
+// AVATAR — 3D STICK FIGURE (fallback while TalkingHead loads)
+// We build a stylized 3D avatar with Three.js directly
+// ══════════════════════════════════════════
+function initAvatar() {
+  const container = document.getElementById('avatar-container');
+  const canvas = document.getElementById('avatar-canvas');
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+
+  scene = new THREE.Scene();
+  clock = new THREE.Clock();
+
+  camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
+  camera.position.set(0, 1.4, 3.2);
+  camera.lookAt(0, 1.2, 0);
+
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setSize(w, h);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+
+  // Lighting
+  const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+  scene.add(ambient);
+  const fill = new THREE.DirectionalLight(0xff6fd8, 1.2);
+  fill.position.set(-2, 3, 2);
+  scene.add(fill);
+  const rim = new THREE.DirectionalLight(0x7c6fff, 0.8);
+  rim.position.set(2, 2, -2);
+  scene.add(rim);
+  const point = new THREE.PointLight(0x00d2ff, 0.5, 10);
+  point.position.set(0, 3, 1);
+  scene.add(point);
+
+  // Floor glow disc
+  const floorGeo = new THREE.CircleGeometry(0.8, 32);
+  const floorMat = new THREE.MeshBasicMaterial({ color: 0x7c6fff, transparent: true, opacity: 0.15 });
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = 0;
+  scene.add(floor);
+
+  // Build stylized avatar
+  buildStylizedAvatar();
+
+  document.getElementById('avatar-loading').style.display = 'none';
+  avatarReady = true;
+
+  animate();
+}
+
+function buildStylizedAvatar() {
+  avatarMesh = new THREE.Group();
+  scene.add(avatarMesh);
+
+  const skinColor = 0xffcba4;
+  const hairColor = 0xff6fd8;
+  const shirtColor = 0x7c6fff;
+  const pantColor = 0x2a2a4a;
+
+  const mats = {
+    skin: new THREE.MeshToonMaterial({ color: skinColor }),
+    hair: new THREE.MeshToonMaterial({ color: hairColor }),
+    shirt: new THREE.MeshToonMaterial({ color: shirtColor }),
+    pant: new THREE.MeshToonMaterial({ color: pantColor }),
+    shoe: new THREE.MeshToonMaterial({ color: 0xffffff }),
+    eye: new THREE.MeshToonMaterial({ color: 0x220044 }),
+    cheek: new THREE.MeshToonMaterial({ color: 0xff9bb0, transparent: true, opacity: 0.7 }),
+  };
+
+  // HEAD group
+  const headGroup = new THREE.Group();
+  headGroup.position.set(0, 2.05, 0);
+  headBone = headGroup;
+
+  const headGeo = new THREE.SphereGeometry(0.22, 16, 16);
+  headGroup.add(new THREE.Mesh(headGeo, mats.skin));
+
+  // Hair
+  const hairGeo = new THREE.SphereGeometry(0.235, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.55);
+  const hair = new THREE.Mesh(hairGeo, mats.hair);
+  hair.position.y = 0.04;
+  headGroup.add(hair);
+
+  // Hair strand on top
+  const strandGeo = new THREE.ConeGeometry(0.06, 0.2, 6);
+  const strand = new THREE.Mesh(strandGeo, mats.hair);
+  strand.position.set(0.05, 0.28, 0);
+  strand.rotation.z = -0.3;
+  headGroup.add(strand);
+
+  // Eyes
+  [-0.09, 0.09].forEach((x, i) => {
+    const eyeGeo = new THREE.SphereGeometry(0.032, 8, 8);
+    const eye = new THREE.Mesh(eyeGeo, mats.eye);
+    eye.position.set(x, 0.02, 0.2);
+    headGroup.add(eye);
+
+    // Shine
+    const shineGeo = new THREE.SphereGeometry(0.01, 6, 6);
+    const shine = new THREE.Mesh(shineGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    shine.position.set(x + 0.015, 0.035, 0.23);
+    headGroup.add(shine);
+  });
+
+  // Cheeks
+  [-0.14, 0.14].forEach(x => {
+    const cheekGeo = new THREE.CircleGeometry(0.05, 8);
+    const cheek = new THREE.Mesh(cheekGeo, mats.cheek);
+    cheek.position.set(x, -0.04, 0.19);
+    headGroup.add(cheek);
+  });
+
+  // Mouth (just a small arc shape using torus)
+  const mouthGeo = new THREE.TorusGeometry(0.04, 0.008, 6, 10, Math.PI);
+  const mouth = new THREE.Mesh(mouthGeo, mats.eye);
+  mouth.position.set(0, -0.08, 0.19);
+  mouth.rotation.z = Math.PI;
+  mouthBone = mouth;
+  headGroup.add(mouth);
+
+  avatarMesh.add(headGroup);
+
+  // NECK
+  const neckGeo = new THREE.CylinderGeometry(0.07, 0.09, 0.15, 8);
+  const neck = new THREE.Mesh(neckGeo, mats.skin);
+  neck.position.set(0, 1.88, 0);
+  avatarMesh.add(neck);
+
+  // TORSO
+  const torsoGeo = new THREE.CylinderGeometry(0.18, 0.16, 0.55, 10);
+  const torso = new THREE.Mesh(torsoGeo, mats.shirt);
+  torso.position.set(0, 1.55, 0);
+  avatarMesh.add(torso);
+
+  // LEFT ARM group (user's right visually)
+  leftArmBone = new THREE.Group();
+  leftArmBone.position.set(-0.24, 1.78, 0);
+  const lUpperGeo = new THREE.CylinderGeometry(0.055, 0.05, 0.32, 8);
+  const lUpper = new THREE.Mesh(lUpperGeo, mats.shirt);
+  lUpper.position.set(-0.09, -0.16, 0);
+  lUpper.rotation.z = 0.3;
+  leftArmBone.add(lUpper);
+  const lLowerGeo = new THREE.CylinderGeometry(0.045, 0.04, 0.28, 8);
+  const lLower = new THREE.Mesh(lLowerGeo, mats.skin);
+  lLower.position.set(-0.18, -0.38, 0);
+  lLower.rotation.z = 0.2;
+  leftArmBone.add(lLower);
+  const lHandGeo = new THREE.SphereGeometry(0.055, 8, 8);
+  const lHand = new THREE.Mesh(lHandGeo, mats.skin);
+  lHand.position.set(-0.24, -0.54, 0);
+  leftArmBone.add(lHand);
+  avatarMesh.add(leftArmBone);
+
+  // RIGHT ARM group
+  rightArmBone = new THREE.Group();
+  rightArmBone.position.set(0.24, 1.78, 0);
+  const rUpperGeo = new THREE.CylinderGeometry(0.055, 0.05, 0.32, 8);
+  const rUpper = new THREE.Mesh(rUpperGeo, mats.shirt);
+  rUpper.position.set(0.09, -0.16, 0);
+  rUpper.rotation.z = -0.3;
+  rightArmBone.add(rUpper);
+  const rLowerGeo = new THREE.CylinderGeometry(0.045, 0.04, 0.28, 8);
+  const rLower = new THREE.Mesh(rLowerGeo, mats.skin);
+  rLower.position.set(0.18, -0.38, 0);
+  rLower.rotation.z = -0.2;
+  rightArmBone.add(rLower);
+  const rHandGeo = new THREE.SphereGeometry(0.055, 8, 8);
+  const rHand = new THREE.Mesh(rHandGeo, mats.skin);
+  rHand.position.set(0.24, -0.54, 0);
+  rightArmBone.add(rHand);
+  avatarMesh.add(rightArmBone);
+
+  // HIPS
+  const hipGeo = new THREE.CylinderGeometry(0.17, 0.15, 0.2, 10);
+  const hips = new THREE.Mesh(hipGeo, mats.pant);
+  hips.position.set(0, 1.22, 0);
+  avatarMesh.add(hips);
+
+  // LEGS
+  [-0.09, 0.09].forEach((x, i) => {
+    const legGeo = new THREE.CylinderGeometry(0.07, 0.06, 0.5, 8);
+    const leg = new THREE.Mesh(legGeo, mats.pant);
+    leg.position.set(x, 0.87, 0);
+    avatarMesh.add(leg);
+
+    const calfGeo = new THREE.CylinderGeometry(0.055, 0.05, 0.42, 8);
+    const calf = new THREE.Mesh(calfGeo, mats.pant);
+    calf.position.set(x, 0.42, 0);
+    avatarMesh.add(calf);
+
+    const shoeGeo = new THREE.BoxGeometry(0.12, 0.07, 0.18);
+    const shoe = new THREE.Mesh(shoeGeo, mats.shoe);
+    shoe.position.set(x, 0.18, 0.03);
+    avatarMesh.add(shoe);
+  });
+
+  // Position whole avatar
+  avatarMesh.position.y = -0.1;
+}
+
+// ══════════════════════════════════════════
+// ANIMATION LOOP
+// ══════════════════════════════════════════
+let idleTime = 0;
+let avatarState = 'idle'; // idle, hype, dance, thinking
+let avatarTargetLeftRot = 0.3, avatarTargetRightRot = -0.3;
+let currentLeftRot = 0.3, currentRightRot = -0.3;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const delta = clock.getDelta();
+  idleTime += delta;
+
+  // Idle bob
+  if (avatarMesh) {
+    avatarMesh.position.y = -0.1 + Math.sin(idleTime * 1.8) * 0.015;
+    headBone.rotation.y = Math.sin(idleTime * 0.7) * 0.12;
+    headBone.rotation.z = Math.sin(idleTime * 0.5) * 0.05;
+
+    // Arm animation
+    if (avatarState === 'dance') {
+      avatarTargetLeftRot = -1.8 + Math.sin(idleTime * 4) * 0.8;
+      avatarTargetRightRot = 1.8 + Math.sin(idleTime * 4 + 1) * 0.8;
+      avatarMesh.rotation.y = Math.sin(idleTime * 2) * 0.3;
+    } else if (avatarState === 'hype') {
+      avatarTargetLeftRot = -2.2 + Math.sin(idleTime * 6) * 0.4;
+      avatarTargetRightRot = 2.2 + Math.sin(idleTime * 6) * 0.4;
+    } else {
+      // Mirror user's arm position
+      if (detectedMoves.leftArmUp) avatarTargetLeftRot = -1.8;
+      else avatarTargetLeftRot = 0.3;
+      if (detectedMoves.rightArmUp) avatarTargetRightRot = 1.8;
+      else avatarTargetRightRot = -0.3;
+    }
+
+    // Smooth arm lerp
+    currentLeftRot += (avatarTargetLeftRot - currentLeftRot) * 0.08;
+    currentRightRot += (avatarTargetRightRot - currentRightRot) * 0.08;
+    leftArmBone.rotation.z = currentLeftRot;
+    rightArmBone.rotation.z = currentRightRot;
+
+    // Mouth open when speaking
+    if (isSpeaking && mouthBone) {
+      mouthBone.scale.y = 1 + Math.abs(Math.sin(idleTime * 12)) * 1.5;
+    } else if (mouthBone) {
+      mouthBone.scale.y += (1 - mouthBone.scale.y) * 0.1;
+    }
+  }
+
+  renderer.render(scene, camera);
+}
+
+// ══════════════════════════════════════════
+// SPEECH
+// ══════════════════════════════════════════
+const novaLines = {
+  hype: [
+    "YES! You are KILLING it! 🔥",
+    "Oh my gosh that was amazing! Keep going!",
+    "YESSS! I'm obsessed with your energy right now!",
+    "You are literally glowing! Don't stop!",
+    "That's the vibe! That's EXACTLY the vibe!"
+  ],
+  tip: [
+    "Try rolling your shoulders on the beat — it adds so much style!",
+    "Loosen up your hips a little, let them sway naturally.",
+    "Your arms look great! Now try adding a little bounce in your knees.",
+    "Think of the music going through your whole body, not just your arms.",
+    "Tilt your head slightly on the strong beats — instant performer energy!"
+  ],
+  score: [
+    `Your score is ${score}! You're on a ${combo} move combo! Let's keep it going!`,
+    `${score} points and counting! Your combo is at ${combo}!`,
+    `You've scored ${score} so far — honestly impressive for a first session!`
+  ],
+  moveDetected: {
+    bothArmsUp: ["Both arms UP! Love that energy!", "YES! Hands in the air!", "That's it! Full arms up!"],
+    leftArmUp: ["Left arm looking good!", "Nice! Work that left side!"],
+    rightArmUp: ["Right arm up! Yes!", "Love the right arm energy!"],
+    squatting: ["Ooh getting low! I see you!", "Yes! Bring it down!"],
+    idle: ["Keep moving! Don't stop now!", "Come on, I know you've got more in you!", "Show me what you've got!"]
+  },
+  greeting: [
+    "Hey! I'm Nova, your dance coach! 💜 I'm watching your moves and I'll give you real feedback. Let's gooo!",
+  ]
+};
+
+function speak(text, state = 'idle') {
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+
+  const bubble = document.getElementById('speech-bubble');
+  const speechText = document.getElementById('speech-text');
+  const dots = document.getElementById('speaking-dots');
+
+  speechText.textContent = text;
+  bubble.classList.add('speaking');
+  dots.classList.add('show');
+  isSpeaking = true;
+  avatarState = state;
+
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = 1.05;
+  utter.pitch = 1.15;
+  utter.volume = 1;
+
+  // Pick a pleasant female voice if available
+  const voices = window.speechSynthesis.getVoices();
+  const preferred = voices.find(v =>
+    (v.name.includes('Samantha') || v.name.includes('Google UK English Female') ||
+     v.name.includes('Karen') || v.name.includes('Victoria') || v.name.includes('Moira'))
+  );
+  if (preferred) utter.voice = preferred;
+
+  utter.onend = () => {
+    isSpeaking = false;
+    bubble.classList.remove('speaking');
+    dots.classList.remove('show');
+    if (avatarState === state) avatarState = 'idle';
+  };
+
+  window.speechSynthesis.speak(utter);
+}
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function triggerFeedback(type) {
+  const lines = novaLines[type];
+  if (!lines) return;
+  const text = Array.isArray(lines) ? pick(lines) : pick(Object.values(lines).flat());
+
+  // Handle score specially
+  if (type === 'score') {
+    speak(`Your score is ${score}! You're on a ${combo} move combo!`, 'thinking');
+  } else if (type === 'hype') {
+    speak(pick(novaLines.hype), 'hype');
+    avatarState = 'hype';
+    setTimeout(() => { if (avatarState === 'hype') avatarState = 'idle'; }, 3000);
+  } else if (type === 'tip') {
+    speak(pick(novaLines.tip), 'thinking');
+  }
+}
+
+// ══════════════════════════════════════════
+// SCORE + FEEDBACK
+// ══════════════════════════════════════════
+function addScore(pts, label, color) {
+  score += pts;
+  combo++;
+  document.getElementById('score-val').textContent = score;
+  document.getElementById('combo-val').textContent = combo;
+
+  // Score pop
+  const pop = document.getElementById('score-pop');
+  pop.textContent = `+${pts}`;
+  pop.style.color = color || '#ff6fd8';
+  pop.classList.remove('pop', 'fade');
+  void pop.offsetWidth;
+  pop.classList.add('pop');
+  setTimeout(() => { pop.classList.add('fade'); }, 600);
+  setTimeout(() => { pop.classList.remove('pop', 'fade'); }, 1000);
+
+  // Toast
+  if (label) showToast(label);
+
+  // Particles
+  spawnParticles(color);
+
+  // Timing bar pulse
+  const fill = document.getElementById('timing-fill');
+  fill.style.width = Math.min(100, (combo * 10)) + '%';
+}
+
+function showToast(msg) {
+  const toast = document.getElementById('feedback-toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+function spawnParticles(color = '#ff6fd8') {
+  const zone = document.getElementById('cam-zone');
+  for (let i = 0; i < 6; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.cssText = `
+      width: ${6 + Math.random() * 8}px;
+      height: ${6 + Math.random() * 8}px;
+      background: ${color};
+      left: ${30 + Math.random() * 40}%;
+      bottom: ${10 + Math.random() * 30}%;
+      animation-delay: ${Math.random() * 0.3}s;
+    `;
+    zone.appendChild(p);
+    setTimeout(() => p.remove(), 1500);
+  }
+}
+
+// ══════════════════════════════════════════
+// MEDIAPIPE POSE
+// ══════════════════════════════════════════
+function initPose() {
+  const videoEl = document.getElementById('webcam');
+  const canvasEl = document.getElementById('pose-canvas');
+  const ctx = canvasEl.getContext('2d');
+
+  const pose = new Pose({
+    locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`
+  });
+
+  pose.setOptions({
+    modelComplexity: 1,
+    smoothLandmarks: true,
+    enableSegmentation: false,
+    minDetectionConfidence: 0.6,
+    minTrackingConfidence: 0.6
+  });
+
+  pose.onResults(results => {
+    canvasEl.width = videoEl.videoWidth || canvasEl.offsetWidth;
+    canvasEl.height = videoEl.videoHeight || canvasEl.offsetHeight;
+    ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+
+    if (!results.poseLandmarks) return;
+    currentPose = results.poseLandmarks;
+
+    // Draw skeleton
+    drawSkeleton(ctx, results.poseLandmarks, canvasEl.width, canvasEl.height);
+
+    // Analyze pose
+    analyzePose(results.poseLandmarks);
+  });
+
+  const mpCamera = new Camera(videoEl, {
+    onFrame: async () => { await pose.send({ image: videoEl }); },
+    width: 640, height: 480
+  });
+  mpCamera.start();
+}
+
+function drawSkeleton(ctx, landmarks, w, h) {
+  const connections = [
+    [11,12],[11,13],[13,15],[12,14],[14,16], // arms
+    [11,23],[12,24],[23,24], // torso
+    [23,25],[25,27],[24,26],[26,28], // legs
+    [0,1],[1,2],[2,3],[0,4],[4,5],[5,6] // face
+  ];
+
+  ctx.lineWidth = 2.5;
+  connections.forEach(([a, b]) => {
+    const pa = landmarks[a], pb = landmarks[b];
+    if (pa.visibility < 0.4 || pb.visibility < 0.4) return;
+    ctx.beginPath();
+    ctx.moveTo(pa.x * w, pa.y * h);
+    ctx.lineTo(pb.x * w, pb.y * h);
+    // Color by body part
+    if (a >= 11 && a <= 16) ctx.strokeStyle = 'rgba(255,111,216,0.7)';
+    else if (a >= 23) ctx.strokeStyle = 'rgba(0,210,255,0.7)';
+    else ctx.strokeStyle = 'rgba(124,111,255,0.7)';
+    ctx.stroke();
+  });
+
+  // Joints
+  [11,12,13,14,15,16,23,24,25,26,27,28].forEach(i => {
+    const p = landmarks[i];
+    if (p.visibility < 0.4) return;
+    ctx.beginPath();
+    ctx.arc(p.x * w, p.y * h, 5, 0, Math.PI * 2);
+    ctx.fillStyle = i <= 16 ? '#ff6fd8' : '#00d2ff';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+}
+
+// Move detection thresholds
+const SHOULDER_Y_THRESHOLD = 0.05; // arm above shoulder
+let movePromptIndex = 0;
+const movePrompts = [
+  { text: '🙌 Raise both arms!', target: 'bothArmsUp' },
+  { text: '👈 Left arm up!', target: 'leftArmUp' },
+  { text: '👉 Right arm up!', target: 'rightArmUp' },
+  { text: '🕺 Sway side to side!', target: 'swaying' },
+];
+let currentPrompt = null;
+let promptTimer = null;
+
+function showNextPrompt() {
+  if (!isActive) return;
+  currentPrompt = movePrompts[movePromptIndex % movePrompts.length];
+  movePromptIndex++;
+  const el = document.getElementById('move-prompt');
+  el.textContent = currentPrompt.text;
+  el.classList.add('show');
+  promptTimer = setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(showNextPrompt, 2000);
+  }, 5000);
+}
+
+function analyzePose(lm) {
+  if (!isActive) return;
+  const now = Date.now();
+
+  // Shoulders
+  const lShoulder = lm[11], rShoulder = lm[12];
+  const lWrist = lm[15], rWrist = lm[16];
+  const lElbow = lm[13], rElbow = lm[14];
+  const lHip = lm[23], rHip = lm[24];
+
+  // Arm up = wrist above shoulder
+  detectedMoves.leftArmUp = lWrist.y < lShoulder.y - SHOULDER_Y_THRESHOLD && lWrist.visibility > 0.5;
+  detectedMoves.rightArmUp = rWrist.y < rShoulder.y - SHOULDER_Y_THRESHOLD && rWrist.visibility > 0.5;
+  detectedMoves.bothArmsUp = detectedMoves.leftArmUp && detectedMoves.rightArmUp;
+
+  // Squat = hip below normal
+  const hipY = (lHip.y + rHip.y) / 2;
+  detectedMoves.squatting = hipY > 0.72;
+
+  // Update stat indicators
+  document.getElementById('left-arm-stat').textContent = 'Left arm: ' + (detectedMoves.leftArmUp ? '✅ UP' : '—');
+  document.getElementById('right-arm-stat').textContent = 'Right arm: ' + (detectedMoves.rightArmUp ? '✅ UP' : '—');
+  document.getElementById('body-stat').textContent = detectedMoves.squatting ? 'Body: squat 🔥' : 'Body: tracking';
+
+  // Score moves
+  if (now - lastPoseTime > 800) {
+    if (detectedMoves.bothArmsUp) {
+      addScore(150, '🙌 Both arms UP!', '#ff6fd8');
+      if (now - lastFeedbackTime > 5000) {
+        speak(pick(novaLines.moveDetected.bothArmsUp), 'dance');
+        lastFeedbackTime = now;
+      }
+      lastPoseTime = now;
+    } else if (detectedMoves.leftArmUp) {
+      addScore(80, '👈 Left arm!', '#7c6fff');
+      lastPoseTime = now;
+    } else if (detectedMoves.rightArmUp) {
+      addScore(80, '👉 Right arm!', '#7c6fff');
+      lastPoseTime = now;
+    } else if (detectedMoves.squatting) {
+      addScore(100, '⬇️ Getting low!', '#00d2ff');
+      if (now - lastFeedbackTime > 5000) {
+        speak(pick(novaLines.moveDetected.squatting), 'dance');
+        lastFeedbackTime = now;
+      }
+      lastPoseTime = now;
+    }
+  }
+
+  // Periodic idle feedback
+  if (now - lastFeedbackTime > 12000 && !isSpeaking) {
+    speak(pick(novaLines.moveDetected.idle));
+    lastFeedbackTime = now;
+  }
+}
+
+// ══════════════════════════════════════════
+// MUSIC (Web Audio — generative beat)
+// ══════════════════════════════════════════
+function toggleMusic() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const btn = document.getElementById('music-btn');
+  if (musicPlaying) {
+    stopBeat();
+    btn.textContent = '🎵 Music';
+    btn.classList.remove('active');
+    musicPlaying = false;
+  } else {
+    startBeat();
+    btn.textContent = '🔇 Stop';
+    btn.classList.add('active');
+    musicPlaying = true;
+  }
+}
+
+let beatInterval = null;
+function startBeat() {
+  if (!audioCtx) return;
+  let step = 0;
+  const bpm = 120;
+  const interval = (60 / bpm / 4) * 1000;
+
+  function playStep() {
+    const now = audioCtx.currentTime;
+    // Kick on 1 and 3
+    if (step % 16 === 0 || step % 16 === 8) {
+      playKick(now);
+    }
+    // Snare on 2 and 4
+    if (step % 16 === 4 || step % 16 === 12) {
+      playSnare(now);
+    }
+    // Hi-hat every step
+    playHihat(now, step % 2 === 0 ? 0.15 : 0.07);
+    // Bass note
+    if (step % 16 === 0) playBass(now, 60);
+    if (step % 16 === 8) playBass(now, 67);
+    step++;
+  }
+
+  playStep();
+  beatInterval = setInterval(playStep, interval);
+}
+
+function stopBeat() {
+  clearInterval(beatInterval);
+}
+
+function playKick(t) {
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.connect(g); g.connect(audioCtx.destination);
+  o.frequency.setValueAtTime(160, t);
+  o.frequency.exponentialRampToValueAtTime(40, t + 0.15);
+  g.gain.setValueAtTime(0.8, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+  o.start(t); o.stop(t + 0.25);
+}
+
+function playSnare(t) {
+  const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.1, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1);
+  const s = audioCtx.createBufferSource();
+  s.buffer = buf;
+  const g = audioCtx.createGain();
+  const f = audioCtx.createBiquadFilter();
+  f.type = 'highpass'; f.frequency.value = 1000;
+  s.connect(f); f.connect(g); g.connect(audioCtx.destination);
+  g.gain.setValueAtTime(0.35, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+  s.start(t);
+}
+
+function playHihat(t, vol) {
+  const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.05, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1);
+  const s = audioCtx.createBufferSource();
+  s.buffer = buf;
+  const g = audioCtx.createGain();
+  const f = audioCtx.createBiquadFilter();
+  f.type = 'highpass'; f.frequency.value = 8000;
+  s.connect(f); f.connect(g); g.connect(audioCtx.destination);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+  s.start(t);
+}
+
+function playBass(t, midi) {
+  const freq = 440 * Math.pow(2, (midi - 69) / 12);
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = 'sawtooth';
+  o.frequency.value = freq;
+  const f = audioCtx.createBiquadFilter();
+  f.type = 'lowpass'; f.frequency.value = 300;
+  o.connect(f); f.connect(g); g.connect(audioCtx.destination);
+  g.gain.setValueAtTime(0.25, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+  o.start(t); o.stop(t + 0.4);
+}
+
+// ══════════════════════════════════════════
+// START EXPERIENCE
+// ══════════════════════════════════════════
+async function startExperience() {
+  document.getElementById('cam-overlay').style.display = 'none';
+  isActive = true;
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    document.getElementById('webcam').srcObject = stream;
+    document.getElementById('avatar-status').textContent = '● Live — watching you';
+    document.getElementById('avatar-status').classList.add('active');
+
+    // Init pose after video loads
+    document.getElementById('webcam').onloadeddata = () => {
+      initPose();
+      // Greet after 1s
+      setTimeout(() => {
+        speak(pick(novaLines.greeting), 'hype');
+        lastFeedbackTime = Date.now();
+        setTimeout(showNextPrompt, 4000);
+      }, 1000);
+    };
+  } catch (e) {
+    alert('Camera access needed! Please allow camera and reload.');
+    document.getElementById('cam-overlay').style.display = 'flex';
+    isActive = false;
+  }
+}
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+window.addEventListener('load', () => {
+  // Load voices
+  window.speechSynthesis.getVoices();
+  window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+
+  // Init 3D avatar
+  initAvatar();
+
+  // Resize handler
+  window.addEventListener('resize', () => {
+    if (!renderer) return;
+    const container = document.getElementById('avatar-container');
+    const w = container.clientWidth, h = container.clientHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  });
+});
+</script>
+</body>
+</html>
