@@ -1167,27 +1167,34 @@ function playAgain(){
 // ══════════════════════════════════════════
 async function requestCamera(){
   try{
-    const stream=await navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'},audio:false});
+    const stream=await navigator.mediaDevices.getUserMedia({
+      video:{width:640,height:480,facingMode:'user'},audio:false
+    });
     const video=document.getElementById('webcam');
     video.srcObject=stream;
     await new Promise(r=>video.onloadedmetadata=r);
     await video.play();
-    // Show camera feed
     video.style.opacity='1';
-    document.getElementById('no-cam-msg').style.display='none';
+    const nc=document.getElementById('no-cam-msg');
+    if(nc) nc.style.display='none';
     document.getElementById('cam-permission').style.display='none';
     active=true;
     poseLoop();
+    // Start Nova greeting immediately with browser speech (no Claude needed)
     setTimeout(()=>{
-      sessionContext.kidName=avatarCfg.name||'Star';
-      // Use Claude for personalized greeting
-      askNova(`New session starting. Kid's name is ${avatarCfg.name}. Give an exciting personalized welcome and tell them you'll show them moves to copy!`);
-      setTimeout(startRound,4500);
-    },800);
+      speak("Hi! I'm Nova! Watch me do a move — then YOU copy it! Ready? Let's go!");
+      setTimeout(startRound, 4000);
+    }, 500);
   }catch(e){
     const err=document.getElementById('cam-err');
-    err.style.display='block';
-    err.textContent='Error: '+(e.name||'unknown')+' — '+e.message;
+    if(err){
+      err.style.display='block';
+      err.textContent='Camera error: '+e.message+' — try refreshing and allow camera access';
+    }
+    // Start game anyway without camera
+    document.getElementById('cam-permission').style.display='none';
+    speak("Hi! I'm Nova! Let's dance! Watch me — then copy!");
+    setTimeout(startRound, 3500);
   }
 }
 
@@ -1196,9 +1203,6 @@ async function requestCamera(){
 // ══════════════════════════════════════════
 function startGame(){
   avatarCfg.name='Star';
-  avatarCfg.skin='#FDDBB4';
-  avatarCfg.hair='#ff6fd8';
-  avatarCfg.outfit='#7c6fff';
 
   document.getElementById('creator-screen').style.display='none';
   document.getElementById('game-screen').style.display='flex';
@@ -1206,13 +1210,8 @@ function startGame(){
   // Build Nova SVG
   document.getElementById('nova-svg').innerHTML=buildNovaSVG();
 
-  // Build kid avatar SVG
-  document.getElementById('kid-svg').innerHTML=buildAvatarSVG(avatarCfg,'kid');
-  document.getElementById('kid-tag').textContent='You 🎯';
-
   // Spawn bg stars + orbs for Nova
   const nobg=document.getElementById('nova-bg-anim');
-  // Stars
   for(let i=0;i<20;i++){
     const s=document.createElement('div');
     s.className='bg-star';
@@ -1220,7 +1219,6 @@ function startGame(){
     s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*80}%;animation-delay:${Math.random()*3}s;animation-duration:${1.5+Math.random()*2.5}s`;
     nobg.appendChild(s);
   }
-  // Glowing orbs
   const orbColors=['rgba(255,111,216,0.12)','rgba(124,111,255,0.12)','rgba(0,210,255,0.08)'];
   for(let i=0;i<3;i++){
     const o=document.createElement('div');
@@ -1230,10 +1228,7 @@ function startGame(){
     nobg.appendChild(o);
   }
 
-  // Start animation
   animateAvatars();
-
-  // Show camera permission
   document.getElementById('cam-permission').style.display='flex';
 }
 
