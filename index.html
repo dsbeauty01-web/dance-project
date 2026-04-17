@@ -3,301 +3,244 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova Dance</title>
+<title>Nova — Hello Hello!</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;800&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column}
 
-/* ── AVATAR CREATOR SCREEN ── */
-#creator-screen{position:fixed;inset:0;background:linear-gradient(160deg,#1a0533,#2d0a5a,#0a1a3d);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:50;padding:20px}
-#creator-screen h1{font-family:'Fredoka One',cursive;font-size:32px;text-align:center;background:linear-gradient(135deg,#ff6fd8,#7c6fff,#00d2ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-#creator-screen p{font-size:14px;color:rgba(255,255,255,0.6);text-align:center}
-
-#avatar-preview-wrap{width:160px;height:220px;position:relative;margin:0 auto}
-#avatar-preview-wrap svg{width:100%;height:100%}
-
-.option-row{display:flex;flex-direction:column;gap:8px;width:100%;max-width:360px}
-.option-label{font-size:12px;font-weight:700;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:.05em}
-.option-pills{display:flex;gap:8px;flex-wrap:wrap}
-.opt-pill{width:36px;height:36px;border-radius:50%;border:3px solid transparent;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;font-size:18px}
-.opt-pill.selected{border-color:#fff;transform:scale(1.15)}
-.opt-pill.skin{border-radius:50%}
-
-#name-input{background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:20px;padding:10px 20px;font-family:'Nunito',sans-serif;font-size:16px;font-weight:700;color:#fff;text-align:center;width:100%;max-width:360px;outline:none}
-#name-input::placeholder{color:rgba(255,255,255,0.3)}
-#name-input:focus{border-color:#ff6fd8}
-
-.start-btn{background:linear-gradient(135deg,#ff6fd8,#7c6fff);border:none;border-radius:50px;padding:14px 40px;font-family:'Fredoka One',cursive;font-size:20px;color:#fff;cursor:pointer;box-shadow:0 6px 28px rgba(124,111,255,0.5);transition:transform .2s;width:100%;max-width:360px}
-.start-btn:hover{transform:scale(1.04)}
-
-/* ── MAIN GAME ── */
-#game-screen{display:none;flex:1;flex-direction:column}
-
-#topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:rgba(0,0,0,0.4);flex-shrink:0;backdrop-filter:blur(8px)}
-#top-logo{font-family:'Fredoka One',cursive;font-size:18px;background:linear-gradient(135deg,#ff6fd8,#7c6fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-#top-score{font-family:'Fredoka One',cursive;font-size:16px;color:#ffd700}
+/* ── TOP BAR ── */
+#topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:rgba(0,0,0,0.4);flex-shrink:0;backdrop-filter:blur(8px);z-index:10}
+#top-logo{font-family:'Fredoka One',cursive;font-size:18px;background:linear-gradient(135deg,#ff6fd8,#7c6fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 #top-stars{font-size:18px;letter-spacing:2px}
+#top-score{font-family:'Fredoka One',cursive;font-size:16px;color:#ffd700}
 
+/* ── SPLIT ── */
 #split{display:grid;grid-template-columns:1fr 1fr;flex:1;min-height:0;position:relative}
 
-/* NOVA SIDE — Pixar stage */
-#nova-side{position:relative;overflow:hidden;display:flex;align-items:flex-end;justify-content:center;background:radial-gradient(ellipse at 50% 30%, #3a0a6a 0%, #1a0340 40%, #0a0120 100%)}
-
-#nova-bg-anim{position:absolute;inset:0;pointer-events:none}
+/* ── NOVA SIDE ── */
+#nova-side{position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  background:radial-gradient(ellipse at 50% 20%, #3a0a6a 0%, #1a0340 50%, #0a0120 100%)}
+#nova-bg{position:absolute;inset:0;pointer-events:none}
 .bg-star{position:absolute;border-radius:50%;background:#fff;animation:twinkle 2s ease-in-out infinite}
-@keyframes twinkle{0%,100%{opacity:.08;transform:scale(1)}50%{opacity:.5;transform:scale(1.5)}}
+@keyframes twinkle{0%,100%{opacity:.08}50%{opacity:.5}}
 .bg-orb{position:absolute;border-radius:50%;filter:blur(40px);animation:orbFloat 5s ease-in-out infinite}
-@keyframes orbFloat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-18px) scale(1.05)}}
+@keyframes orbFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-15px)}}
+/* Spotlight */
+#nova-side::before{content:'';position:absolute;top:-10%;left:50%;transform:translateX(-50%);width:200%;height:120%;
+  background:radial-gradient(ellipse at 50% 0%,rgba(255,150,255,0.15) 0%,transparent 65%);pointer-events:none}
+/* Floor glow */
+#nova-side::after{content:'';position:absolute;bottom:40px;left:50%;transform:translateX(-50%);
+  width:180px;height:20px;background:radial-gradient(ellipse,rgba(255,111,216,0.4),transparent 70%);
+  border-radius:50%;pointer-events:none}
+#nova-wrap{position:relative;width:min(220px,46vw);flex-shrink:0;margin-bottom:44px}
+#nova-svg{width:100%;height:auto;filter:drop-shadow(0 0 28px rgba(255,111,216,0.5))}
 
-#nova-canvas-wrap{width:100%;height:100%;position:relative;display:flex;align-items:flex-end;justify-content:center;padding-bottom:44px}
-#nova-svg{width:min(220px,48vw);height:auto;filter:drop-shadow(0 0 30px rgba(255,111,216,0.5)) drop-shadow(0 8px 20px rgba(0,0,0,0.6))}
-
-/* Nova speech bubble */
-#nova-bubble{position:absolute;top:12px;left:12px;right:12px;background:rgba(124,111,255,0.92);border-radius:18px;padding:10px 14px;font-size:13px;font-weight:700;color:#fff;text-align:center;line-height:1.5;opacity:0;transition:opacity .3s;pointer-events:none;backdrop-filter:blur(8px)}
-#nova-bubble::after{content:'';position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);border-left:8px solid transparent;border-right:8px solid transparent;border-top:8px solid rgba(124,111,255,0.92)}
+/* Nova bubble */
+#nova-bubble{position:absolute;top:10px;left:8px;right:8px;background:rgba(124,111,255,0.93);
+  border-radius:16px;padding:8px 12px;font-size:13px;font-weight:700;color:#fff;
+  text-align:center;line-height:1.5;opacity:0;transition:opacity .3s;pointer-events:none;
+  backdrop-filter:blur(8px)}
 #nova-bubble.show{opacity:1}
-#bdots{display:none;justify-content:center;gap:4px;margin-top:5px}
-#bdots.show{display:flex}
-.bd{width:5px;height:5px;border-radius:50%;background:#fff;animation:bob .8s infinite;opacity:.7}
-.bd:nth-child(2){animation-delay:.15s}.bd:nth-child(3){animation-delay:.3s}
-@keyframes bob{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-4px)}}
+#nova-bubble::after{content:'';position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);
+  border-left:7px solid transparent;border-right:7px solid transparent;
+  border-top:7px solid rgba(124,111,255,0.93)}
+#nova-tag{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,0.5);border:1px solid rgba(255,111,216,0.4);
+  border-radius:20px;padding:3px 12px;font-family:'Fredoka One',cursive;font-size:12px;
+  backdrop-filter:blur(8px);white-space:nowrap}
+#nova-tag span{background:linear-gradient(135deg,#ff6fd8,#b8b0ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 
-#nova-tag{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.5);border:1px solid rgba(255,111,216,0.4);border-radius:20px;padding:4px 14px;font-family:'Fredoka One',cursive;font-size:13px;backdrop-filter:blur(8px);white-space:nowrap}
-#nova-tag span{background:linear-gradient(135deg,#ff6fd8,#b8b0ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+/* ── CAMERA SIDE ── */
+#cam-side{position:relative;background:#0a0a1a;overflow:hidden}
+#webcam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);opacity:0;transition:opacity 1s}
+#cam-side::after{content:'';position:absolute;bottom:0;left:0;right:0;height:30%;
+  background:linear-gradient(180deg,transparent,rgba(0,0,20,0.8));pointer-events:none;z-index:2}
+#cam-tag{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:3;
+  background:rgba(0,0,0,0.5);border:1px solid rgba(0,210,255,0.4);
+  border-radius:20px;padding:3px 12px;font-family:'Fredoka One',cursive;font-size:12px;color:#00d2ff}
+#track-pills{position:absolute;top:10px;right:10px;z-index:3;display:flex;flex-direction:column;gap:4px}
+.tpill{background:rgba(0,0,0,0.6);border-radius:8px;padding:3px 8px;font-size:10px;font-weight:700;display:flex;align-items:center;gap:4px}
 
-/* KID AVATAR SIDE */
-#kid-side{position:relative;background:#0a0a1a;overflow:hidden;display:flex;align-items:flex-end;justify-content:center}
+/* ── SONG OVERLAY ── */
+#song-overlay{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:0;pointer-events:none}
 
-#kid-bg{position:absolute;inset:0;pointer-events:none}
+/* Lyrics display */
+#lyric-box{position:absolute;bottom:56px;left:0;right:0;text-align:center;padding:0 12px;pointer-events:none;z-index:22}
+#lyric-text{font-family:'Fredoka One',cursive;font-size:clamp(16px,4vw,26px);
+  color:#fff;text-shadow:0 0 20px rgba(255,111,216,0.8),0 2px 8px rgba(0,0,0,0.9);
+  opacity:0;transition:opacity .3s;line-height:1.3}
+#lyric-text.show{opacity:1}
 
-/* Hidden webcam for tracking */
-#webcam{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
-#overlay-canvas{display:none}
+/* Action cue — big center */
+#action-cue{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);
+  z-index:25;text-align:center;pointer-events:none;transition:all .3s cubic-bezier(.34,1.56,.64,1)}
+#action-cue.show{transform:translate(-50%,-50%) scale(1)}
+#action-emoji{font-size:clamp(60px,14vw,100px);display:block;
+  filter:drop-shadow(0 0 20px rgba(255,255,255,0.5));animation:pulseEmoji 0.6s ease-in-out infinite alternate}
+@keyframes pulseEmoji{0%{transform:scale(1)}100%{transform:scale(1.08)}}
+#action-word{font-family:'Fredoka One',cursive;font-size:clamp(22px,5vw,36px);
+  color:#fff;text-shadow:0 0 30px currentColor;margin-top:4px;display:block}
 
-#kid-avatar-wrap{width:100%;height:100%;display:flex;align-items:flex-end;justify-content:center;padding-bottom:50px;position:relative}
-#kid-svg{width:min(200px,45vw);height:auto;filter:drop-shadow(0 0 20px rgba(0,210,255,0.3));transition:transform .1s}
+/* Progress bar */
+#progress-bar{position:absolute;bottom:0;left:0;right:0;height:4px;background:rgba(255,255,255,0.1);z-index:30}
+#progress-fill{height:100%;width:0%;background:linear-gradient(90deg,#ff6fd8,#7c6fff,#00d2ff);transition:width .1s linear;border-radius:0 2px 2px 0}
 
-#kid-tag{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.5);border:1px solid rgba(0,210,255,0.4);border-radius:20px;padding:4px 14px;font-family:'Fredoka One',cursive;font-size:13px;color:#00d2ff;backdrop-filter:blur(8px);white-space:nowrap}
+/* Feedback flash */
+#feedback-flash{position:absolute;inset:0;z-index:28;opacity:0;pointer-events:none;transition:opacity .15s;border-radius:0}
+#feedback-flash.success{background:rgba(0,255,150,0.18);opacity:1}
+#feedback-flash.miss{background:rgba(255,150,0,0.12);opacity:1}
 
-/* Tracking dots on kid avatar */
-#track-status{position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:4px}
-.tstat{background:rgba(0,0,0,0.6);border-radius:8px;padding:3px 8px;font-size:10px;font-weight:700;display:flex;align-items:center;gap:4px}
-.tdot{width:5px;height:5px;border-radius:50%}
-
-/* DIVIDER */
-#divider{position:absolute;top:0;bottom:0;left:50%;width:2px;background:linear-gradient(180deg,transparent,rgba(255,111,216,0.5),rgba(124,111,255,0.5),transparent);transform:translateX(-50%);pointer-events:none;z-index:5}
-
-/* GAME OVERLAYS */
-#game-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;pointer-events:none;z-index:15}
-#move-banner{background:rgba(0,0,0,0.9);border:2px solid #ff6fd8;border-radius:24px;padding:12px 28px;font-family:'Fredoka One',cursive;font-size:22px;color:#ff6fd8;opacity:0;transform:scale(0.8);transition:all .35s cubic-bezier(.34,1.56,.64,1);box-shadow:0 0 30px rgba(255,111,216,0.25);text-align:center}
-#move-banner.show{opacity:1;transform:scale(1)}
-#countdown{font-family:'Fredoka One',cursive;font-size:110px;color:#fff;text-shadow:0 0 60px #7c6fff;opacity:0;transform:scale(1.4);transition:all .25s}
-#countdown.show{opacity:1;transform:scale(1)}
-#judge-text{font-family:'Fredoka One',cursive;font-size:56px;opacity:0;transform:translateY(20px);transition:all .3s;text-shadow:0 0 30px currentColor}
-#judge-text.show{opacity:1;transform:translateY(0)}
-
-#score-pop{position:absolute;top:35%;left:50%;transform:translateX(-50%) scale(0);font-family:'Fredoka One',cursive;font-size:58px;pointer-events:none;transition:all .25s cubic-bezier(.34,1.56,.64,1);text-shadow:0 0 25px currentColor;z-index:20}
+/* Score pop */
+#score-pop{position:absolute;top:30%;left:50%;transform:translateX(-50%) scale(0);
+  font-family:'Fredoka One',cursive;font-size:48px;z-index:30;pointer-events:none;
+  transition:all .25s cubic-bezier(.34,1.56,.64,1);text-shadow:0 0 20px currentColor}
 #score-pop.show{transform:translateX(-50%) scale(1)}
-#score-pop.hide{opacity:0;transform:translateX(-50%) scale(0.7) translateY(-50px)}
 
-/* BOTTOM BAR */
-#bottom-bar{position:absolute;bottom:0;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:8px;padding:7px 16px;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);border-top:1px solid rgba(255,255,255,0.06);z-index:10}
-.cbtn{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:5px 14px;color:rgba(255,255,255,0.65);font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s}
-.cbtn:hover{background:rgba(124,111,255,0.25);color:#fff}
-.cbtn.on{background:rgba(124,111,255,0.3);border-color:#7c6fff;color:#fff}
+/* Particles */
+.particle{position:absolute;pointer-events:none;border-radius:50%;
+  animation:pfloat 1.2s ease-out forwards;z-index:29}
+@keyframes pfloat{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-80px) scale(0)}}
 
-/* SHARE SCREEN */
-#share-screen{display:none;position:fixed;inset:0;background:linear-gradient(160deg,#1a0533,#2d0a5a);flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:60;padding:20px}
-#share-screen h2{font-family:'Fredoka One',cursive;font-size:28px;text-align:center;background:linear-gradient(135deg,#ff6fd8,#7c6fff,#00d2ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-#share-preview{width:min(280px,80vw);height:min(280px,80vw);background:rgba(255,255,255,0.05);border:2px solid rgba(255,111,216,0.4);border-radius:24px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
-#share-stars{font-size:48px;letter-spacing:4px;text-align:center}
-#share-name{font-family:'Fredoka One',cursive;font-size:20px;color:#ff6fd8;text-align:center}
-.share-btn{background:linear-gradient(135deg,#ff6fd8,#7c6fff);border:none;border-radius:50px;padding:12px 32px;font-family:'Fredoka One',cursive;font-size:16px;color:#fff;cursor:pointer;width:100%;max-width:320px;transition:transform .2s}
-.share-btn:hover{transform:scale(1.04)}
-.share-btn.secondary{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2)}
+/* ── SCREENS ── */
+/* Intro */
+#intro-screen{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:20px;padding:24px;
+  background:radial-gradient(ellipse at 50% 30%,#2d0a5a,#1a0533)}
+#intro-screen h1{font-family:'Fredoka One',cursive;font-size:clamp(26px,6vw,42px);text-align:center;
+  background:linear-gradient(135deg,#ff6fd8,#7c6fff,#00d2ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#intro-screen p{font-size:15px;color:rgba(255,255,255,0.6);text-align:center;max-width:320px;line-height:1.6}
+.big-btn{background:linear-gradient(135deg,#ff6fd8,#7c6fff);border:none;border-radius:50px;
+  padding:14px 40px;font-family:'Fredoka One',cursive;font-size:22px;color:#fff;cursor:pointer;
+  box-shadow:0 6px 28px rgba(124,111,255,0.5);transition:transform .2s;width:100%;max-width:320px}
+.big-btn:hover{transform:scale(1.04)}
+.action-preview{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.ap-item{display:flex;flex-direction:column;align-items:center;gap:4px;
+  background:rgba(255,255,255,0.08);border-radius:16px;padding:12px 16px}
+.ap-emoji{font-size:32px}
+.ap-label{font-size:12px;font-weight:700;color:rgba(255,255,255,0.6)}
 
-/* PARTICLES */
-.particle{position:absolute;pointer-events:none;border-radius:50%;animation:pfloat 1.3s ease-out forwards;z-index:25}
-@keyframes pfloat{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-90px) scale(0)}}
+/* Camera permission */
+#cam-screen{position:fixed;inset:0;z-index:45;display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:16px;padding:24px;background:rgba(0,0,0,0.92)}
+#cam-screen h2{font-family:'Fredoka One',cursive;font-size:22px;text-align:center}
+#cam-screen p{font-size:13px;color:rgba(255,255,255,0.5);text-align:center;max-width:280px;line-height:1.6}
+#cam-err{display:none;background:rgba(255,50,50,0.15);border:1px solid rgba(255,50,50,0.3);
+  border-radius:10px;padding:10px;font-size:12px;color:#ff8080;text-align:center;max-width:280px}
 
-/* LOADING */
-#loading-overlay{position:fixed;inset:0;background:#1a0533;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:100}
-#loading-overlay h2{font-family:'Fredoka One',cursive;font-size:24px;color:#ff6fd8}
-#loading-bar-wrap{width:260px;height:6px;background:rgba(255,255,255,0.1);border-radius:6px;overflow:hidden}
-#loading-bar-fill{height:100%;width:0%;background:linear-gradient(90deg,#ff6fd8,#7c6fff);border-radius:6px;transition:width .3s}
-#loading-overlay p{font-size:12px;color:rgba(255,255,255,0.4)}
-.spin{width:32px;height:32px;border:3px solid rgba(255,111,216,0.2);border-top-color:#ff6fd8;border-radius:50%;animation:spin .8s linear infinite}
+/* End screen */
+#end-screen{position:fixed;inset:0;z-index:55;display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:18px;padding:24px;
+  background:radial-gradient(ellipse at 50% 30%,#2d0a5a,#1a0533)}
+#end-screen h1{font-family:'Fredoka One',cursive;font-size:clamp(28px,6vw,44px);text-align:center;
+  background:linear-gradient(135deg,#ff6fd8,#ffd700);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#end-stars{font-size:48px;letter-spacing:6px}
+#end-score{font-family:'Fredoka One',cursive;font-size:28px;color:#ffd700}
+#end-words{font-size:15px;color:rgba(255,255,255,0.7);text-align:center;max-width:300px;line-height:1.6}
+
+/* Loading */
+#loading{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;background:#1a0533}
+#loading h2{font-family:'Fredoka One',cursive;font-size:22px;color:#ff6fd8}
+.spin{width:36px;height:36px;border:3px solid rgba(255,111,216,0.2);border-top-color:#ff6fd8;
+  border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-
-/* CAMERA PERMISSION */
-#cam-permission{position:fixed;inset:0;background:rgba(0,0,0,0.95);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:90;padding:20px}
-#cam-permission h2{font-family:'Fredoka One',cursive;font-size:22px;text-align:center}
-#cam-permission p{font-size:13px;color:rgba(255,255,255,0.5);text-align:center;max-width:280px;line-height:1.6}
-#cam-err{display:none;background:rgba(255,50,50,0.15);border:1px solid rgba(255,50,50,0.3);border-radius:12px;padding:12px;font-size:12px;color:#ff8080;text-align:center;max-width:280px}
+#load-bar-wrap{width:260px;height:5px;background:rgba(255,255,255,0.1);border-radius:5px;overflow:hidden}
+#load-bar{height:100%;width:0%;background:linear-gradient(90deg,#ff6fd8,#7c6fff);border-radius:5px;transition:width .3s}
 </style>
 </head>
 <body>
 
 <!-- LOADING -->
-<div id="loading-overlay">
+<div id="loading">
   <div class="spin"></div>
   <h2>Loading Nova... 🌟</h2>
-  <div id="loading-bar-wrap"><div id="loading-bar-fill"></div></div>
-  <p id="loading-msg">Getting ready to dance!</p>
+  <div id="load-bar-wrap"><div id="load-bar"></div></div>
 </div>
 
-<!-- CAMERA PERMISSION -->
-<div id="cam-permission">
+<!-- INTRO SCREEN -->
+<div id="intro-screen" style="display:none">
+  <div style="font-size:64px">🎵</div>
+  <h1>Hello Hello!</h1>
+  <p>Sing and move along with Nova! Watch for the action — then YOU do it!</p>
+  <div class="action-preview">
+    <div class="ap-item"><div class="ap-emoji">👏</div><div class="ap-label">Clap!</div></div>
+    <div class="ap-item"><div class="ap-emoji">🙌</div><div class="ap-label">Stretch Up!</div></div>
+    <div class="ap-item"><div class="ap-emoji">👇</div><div class="ap-label">Touch Toes!</div></div>
+    <div class="ap-item"><div class="ap-emoji">👋</div><div class="ap-label">Say Hello!</div></div>
+  </div>
+  <button class="big-btn" onclick="startCameraSetup()">Let's Go! 🎉</button>
+</div>
+
+<!-- CAMERA SCREEN -->
+<div id="cam-screen">
   <div style="font-size:56px">📷</div>
   <h2>Nova needs your camera!</h2>
-  <p>So she can see your amazing moves and your avatar can dance with you!</p>
-  <button class="start-btn" onclick="requestCamera()" style="max-width:280px">Allow Camera 🎉</button>
+  <p>So she can see your amazing moves!</p>
+  <button class="big-btn" onclick="requestCamera()" style="font-size:18px;padding:12px 32px">Allow Camera 🎉</button>
   <div id="cam-err"></div>
-</div>
-
-<!-- AVATAR CREATOR -->
-<div id="creator-screen">
-  <h1>Create Your Dancer! 🕺</h1>
-  <p>Pick your look — then dance with Nova!</p>
-
-  <!-- Avatar preview -->
-  <div id="avatar-preview-wrap">
-    <svg id="preview-svg" viewBox="0 0 160 260" xmlns="http://www.w3.org/2000/svg">
-      <!-- Generated dynamically -->
-    </svg>
-  </div>
-
-  <!-- Skin color -->
-  <div class="option-row">
-    <div class="option-label">Skin</div>
-    <div class="option-pills" id="skin-pills">
-      <div class="opt-pill selected" data-type="skin" data-val="#FDDBB4" style="background:#FDDBB4" onclick="selectOpt(this,'skin')"></div>
-      <div class="opt-pill" data-type="skin" data-val="#F5C5A3" style="background:#F5C5A3" onclick="selectOpt(this,'skin')"></div>
-      <div class="opt-pill" data-type="skin" data-val="#E8A87C" style="background:#E8A87C" onclick="selectOpt(this,'skin')"></div>
-      <div class="opt-pill" data-type="skin" data-val="#C68642" style="background:#C68642" onclick="selectOpt(this,'skin')"></div>
-      <div class="opt-pill" data-type="skin" data-val="#8D5524" style="background:#8D5524" onclick="selectOpt(this,'skin')"></div>
-    </div>
-  </div>
-
-  <!-- Hair color -->
-  <div class="option-row">
-    <div class="option-label">Hair</div>
-    <div class="option-pills" id="hair-pills">
-      <div class="opt-pill selected" data-type="hair" data-val="#ff6fd8" style="background:#ff6fd8" onclick="selectOpt(this,'hair')"></div>
-      <div class="opt-pill" data-type="hair" data-val="#FFD700" style="background:#FFD700" onclick="selectOpt(this,'hair')"></div>
-      <div class="opt-pill" data-type="hair" data-val="#8B4513" style="background:#8B4513" onclick="selectOpt(this,'hair')"></div>
-      <div class="opt-pill" data-type="hair" data-val="#222222" style="background:#222222" onclick="selectOpt(this,'hair')"></div>
-      <div class="opt-pill" data-type="hair" data-val="#FF4500" style="background:#FF4500" onclick="selectOpt(this,'hair')"></div>
-      <div class="opt-pill" data-type="hair" data-val="#7c6fff" style="background:#7c6fff" onclick="selectOpt(this,'hair')"></div>
-    </div>
-  </div>
-
-  <!-- Outfit color -->
-  <div class="option-row">
-    <div class="option-label">Outfit</div>
-    <div class="option-pills" id="outfit-pills">
-      <div class="opt-pill selected" data-type="outfit" data-val="#7c6fff" style="background:#7c6fff" onclick="selectOpt(this,'outfit')"></div>
-      <div class="opt-pill" data-type="outfit" data-val="#ff6fd8" style="background:#ff6fd8" onclick="selectOpt(this,'outfit')"></div>
-      <div class="opt-pill" data-type="outfit" data-val="#00d2ff" style="background:#00d2ff" onclick="selectOpt(this,'outfit')"></div>
-      <div class="opt-pill" data-type="outfit" data-val="#ff9d00" style="background:#ff9d00" onclick="selectOpt(this,'outfit')"></div>
-      <div class="opt-pill" data-type="outfit" data-val="#7fff7f" style="background:#7fff7f" onclick="selectOpt(this,'outfit')"></div>
-      <div class="opt-pill" data-type="outfit" data-val="#ff4444" style="background:#ff4444" onclick="selectOpt(this,'outfit')"></div>
-    </div>
-  </div>
-
-  <!-- Name -->
-  <input id="name-input" type="text" placeholder="Your name... 🌟" maxlength="12"/>
-
-  <button class="start-btn" onclick="startGame()">Let's Dance with Nova! 🎉</button>
+  <button onclick="skipCamera()" style="background:none;border:none;color:rgba(255,255,255,0.3);font-size:13px;cursor:pointer;margin-top:-8px">Skip camera →</button>
 </div>
 
 <!-- MAIN GAME -->
-<div id="game-screen">
-  <div id="topbar">
-    <div id="top-logo">🌟 Nova Dance</div>
-    <div style="display:flex;align-items:center;gap:10px">
-      <div id="top-stars">⭐⭐⭐⭐⭐</div>
-      <div id="top-score">0 pts</div>
-    </div>
-  </div>
-
-  <div id="split" style="flex:1;position:relative">
-
-    <!-- NOVA -->
-    <div id="nova-side">
-      <div id="nova-bg-anim"></div>
-      <!-- Stage spotlight -->
-      <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:180%;height:100%;background:radial-gradient(ellipse at 50% 0%,rgba(255,150,255,0.12) 0%,transparent 65%);pointer-events:none"></div>
-      <!-- Stage floor -->
-      <div style="position:absolute;bottom:0;left:0;right:0;height:30%;background:linear-gradient(180deg,transparent,rgba(124,111,255,0.06));border-top:1px solid rgba(255,111,216,0.1);pointer-events:none"></div>
-      <!-- Floor glow ellipse -->
-      <div style="position:absolute;bottom:38px;left:50%;transform:translateX(-50%);width:160px;height:18px;background:radial-gradient(ellipse,rgba(255,111,216,0.35),transparent 70%);border-radius:50%;pointer-events:none"></div>
-      <div id="nova-canvas-wrap">
-        <svg id="nova-svg" viewBox="0 0 200 340" xmlns="http://www.w3.org/2000/svg">
-          <!-- Nova built in JS -->
-        </svg>
-      </div>
-      <div id="nova-bubble">
-        <div id="btext">Hi! I'm Nova! 👋</div>
-        <div id="bdots"><div class="bd"></div><div class="bd"></div><div class="bd"></div></div>
-      </div>
-      <div id="nova-tag"><span>Nova ✨</span></div>
-    </div>
-
-    <div id="divider"></div>
-
-    <!-- KID CAMERA -->
-    <div id="kid-side">
-      <video id="webcam" autoplay playsinline muted
-        style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);opacity:0;transition:opacity 1s"></video>
-      <canvas id="overlay-canvas" style="display:none"></canvas>
-      <!-- Camera overlay gradient at bottom -->
-      <div style="position:absolute;bottom:0;left:0;right:0;height:25%;background:linear-gradient(180deg,transparent,rgba(0,0,20,0.7));pointer-events:none;z-index:2"></div>
-      <!-- Your name tag -->
-      <div id="kid-tag" style="z-index:3">You 🎯</div>
-      <!-- Tracking status -->
-      <div id="track-status" style="z-index:3">
-        <div class="tstat"><div class="tdot" style="background:#ff6fd8"></div><span id="ls">L: —</span></div>
-        <div class="tstat"><div class="tdot" style="background:#7c6fff"></div><span id="rs">R: —</span></div>
-      </div>
-      <!-- No camera message -->
-      <div id="no-cam-msg" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:2">
-        <div style="font-size:48px">📷</div>
-        <div style="font-family:'Fredoka One',cursive;font-size:16px;color:rgba(255,255,255,0.5);text-align:center;padding:0 20px">Allow camera<br>to track your moves!</div>
-      </div>
-    </div>
-
-    <!-- OVERLAYS -->
-    <div id="game-overlay">
-      <div id="move-banner">🙌 Raise Both Arms!</div>
-      <div id="countdown"></div>
-      <div id="judge-text">PERFECT!</div>
-    </div>
-    <div id="score-pop">+300</div>
-  </div>
-
-  <div id="bottom-bar">
-    <button class="cbtn" onclick="nova('hype')">🎉 Hype!</button>
-    <button class="cbtn" onclick="nova('tip')">💡 Tip</button>
-    <button class="cbtn" id="mbtn" onclick="toggleMusic()">🎵 Music</button>
-    <button class="cbtn" onclick="showShare()">📤 Share</button>
+<div id="topbar">
+  <div id="top-logo">🌟 Nova</div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <div id="top-stars">⭐⭐⭐⭐⭐</div>
+    <div id="top-score">0 pts</div>
   </div>
 </div>
 
-<!-- SHARE SCREEN -->
-<div id="share-screen">
-  <div style="font-size:64px" id="share-emoji">🌟</div>
-  <h2 id="share-title">Amazing Dancing!</h2>
-  <div id="share-stars" style="font-size:40px">⭐⭐⭐⭐⭐</div>
-  <div id="share-name-display" style="font-family:'Fredoka One',cursive;font-size:18px;color:#ff6fd8"></div>
-  <p style="font-size:13px;color:rgba(255,255,255,0.5);text-align:center;max-width:280px">Share your avatar dancing — no real video, just your character! 🎭</p>
-  <button class="share-btn" onclick="shareVideo()">📤 Share My Avatar!</button>
-  <button class="share-btn secondary" onclick="playAgain()">🔄 Dance Again!</button>
+<div id="split">
+  <!-- NOVA -->
+  <div id="nova-side">
+    <div id="nova-bg"></div>
+    <div id="nova-wrap">
+      <svg id="nova-svg" viewBox="0 0 200 340" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <div id="nova-bubble"><span id="btext">Hi! 👋</span></div>
+    <div id="nova-tag"><span>Nova ✨</span></div>
+  </div>
+
+  <!-- CAMERA -->
+  <div id="cam-side">
+    <video id="webcam" autoplay playsinline muted></video>
+    <div id="cam-tag">You 🎯</div>
+    <div id="track-pills">
+      <div class="tpill"><div style="width:5px;height:5px;border-radius:50%;background:#ff6fd8"></div><span id="ls">L:—</span></div>
+      <div class="tpill"><div style="width:5px;height:5px;border-radius:50%;background:#7c6fff"></div><span id="rs">R:—</span></div>
+    </div>
+  </div>
+
+  <!-- SONG OVERLAY (spans both sides) -->
+  <div id="song-overlay">
+    <div id="action-cue">
+      <span id="action-emoji">👏</span>
+      <span id="action-word">CLAP!</span>
+    </div>
+    <div id="feedback-flash"></div>
+    <div id="score-pop">+100</div>
+  </div>
+
+  <!-- Lyrics + progress (bottom) -->
+  <div id="lyric-box"><div id="lyric-text"></div></div>
+  <div id="progress-bar"><div id="progress-fill"></div></div>
 </div>
 
+<!-- END SCREEN -->
+<div id="end-screen">
+  <div style="font-size:72px">🎉</div>
+  <h1 id="end-title">Amazing!</h1>
+  <div id="end-stars">⭐⭐⭐⭐⭐</div>
+  <div id="end-score">0 pts</div>
+  <div id="end-words">You sang Hello Hello with Nova!</div>
+  <button class="big-btn" onclick="playAgain()">🔄 Play Again!</button>
+  <button class="big-btn" onclick="shareResult()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);margin-top:-8px">📤 Share!</button>
+</div>
+
+<!-- TF -->
 <script>
-// Load TF with multiple CDN fallbacks
 async function loadScript(urls){
   for(const url of urls){
     try{
@@ -307,789 +250,331 @@ async function loadScript(urls){
         document.head.appendChild(s);
       });
       return true;
-    }catch(e){console.log('CDN failed, trying next:',url)}
+    }catch(e){}
   }
   return false;
 }
-window._tfReady=loadScript([
-  'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js',
-  'https://unpkg.com/@tensorflow/tfjs@4.2.0/dist/tf.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/tensorflow/4.2.0/tf.min.js'
-]).then(ok=>{
-  if(!ok){console.log('TF failed — tracking disabled, game works without it');return false}
-  return loadScript([
-    'https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js',
-    'https://unpkg.com/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js'
-  ]);
-});
 </script>
 
 <script>
 // ══════════════════════════════════════════
-// AVATAR CONFIG
+// CONFIG
 // ══════════════════════════════════════════
-const avatarCfg = {
-  skin: '#FDDBB4',
-  hair: '#ff6fd8',
-  outfit: '#7c6fff',
-  name: 'Star'
-};
+const ELEVENLABS_KEY = 'sk_0e751a9c5c9a159bfa840e96e432bf24b8ec27c9814ec83e';
+const ELEVENLABS_VOICE = 'EXAVITQu4vr4xnSDxMaL'; // Sarah
 
 // ══════════════════════════════════════════
-// SVG AVATAR BUILDER
+// SONG TIMELINE
+// Hello Hello — one verse, ~50 seconds
+// Each entry: [startMs, endMs, lyric, action, emoji, points]
+// action: null = just lyrics, 'clap','armsUp','armsDown','wave'
 // ══════════════════════════════════════════
-function buildAvatarSVG(cfg, size='normal'){
-  const s=cfg.skin, h=cfg.hair, o=cfg.outfit;
-  // Darken skin for details
-  const sd = shadeColor(s, -20);
-  const od = shadeColor(o, -20);
+const SONG_DURATION = 91000; // 91 seconds — real song
 
-  return `
-  <defs>
-    <radialGradient id="sg${size}" cx="40%" cy="35%" r="65%">
-      <stop offset="0%" stop-color="${lightenColor(s,15)}"/>
-      <stop offset="100%" stop-color="${s}"/>
-    </radialGradient>
-    <radialGradient id="hg${size}" cx="40%" cy="30%" r="65%">
-      <stop offset="0%" stop-color="${lightenColor(h,20)}"/>
-      <stop offset="100%" stop-color="${h}"/>
-    </radialGradient>
-    <radialGradient id="og${size}" cx="40%" cy="30%" r="65%">
-      <stop offset="0%" stop-color="${lightenColor(o,20)}"/>
-      <stop offset="100%" stop-color="${o}"/>
-    </radialGradient>
-  </defs>
+// Timeline matched to actual Hello Hello Super Simple Songs
+// Song structure: intro (8s) → verse1 (38s) → verse2 (38s) → outro (7s)
+const TIMELINE = [
+  // INTRO
+  {t:0,      lyric:"🎵 Hello Hello! 🎵",         action:null,        emoji:null,  pts:0},
+  {t:4000,   lyric:"Get ready to move!",          action:null,        emoji:null,  pts:0},
 
-  <!-- Floor glow -->
-  <ellipse cx="80" cy="272" rx="55" ry="8" fill="${o}" opacity="0.2"/>
+  // VERSE 1 — "Can you clap your hands?"
+  {t:8000,   lyric:"Hello, hello!",               action:null,        emoji:null,  pts:0},
+  {t:10500,  lyric:"Can you clap your hands?",    action:'clap',      emoji:'👏',  pts:150, label:'CLAP!'},
+  {t:14000,  lyric:"Hello, hello!",               action:null,        emoji:null,  pts:0},
+  {t:16500,  lyric:"Can you clap your hands?",    action:'clap',      emoji:'👏',  pts:150, label:'CLAP!'},
+  {t:20000,  lyric:"Can you stretch up high?",    action:'armsUp',    emoji:'🙌',  pts:200, label:'STRETCH UP!'},
+  {t:23500,  lyric:"Can you touch your toes?",    action:'armsDown',  emoji:'👇',  pts:200, label:'TOUCH TOES!'},
+  {t:27000,  lyric:"Can you turn around?",        action:null,        emoji:'🔄',  pts:0},
+  {t:30000,  lyric:"Can you say... Hello!",       action:'wave',      emoji:'👋',  pts:150, label:'WAVE HELLO!'},
 
-  <!-- SHOES -->
-  <ellipse cx="60" cy="265" rx="18" ry="7" fill="#fff" opacity="0.9"/>
-  <ellipse cx="100" cy="265" rx="18" ry="7" fill="#fff" opacity="0.9"/>
+  // VERSE 2 — "Can you stamp your feet?"
+  {t:34000,  lyric:"Hello, hello!",               action:null,        emoji:null,  pts:0},
+  {t:36500,  lyric:"Can you stamp your feet?",    action:'clap',      emoji:'👏',  pts:150, label:'CLAP ALONG!'},
+  {t:40000,  lyric:"Hello, hello!",               action:null,        emoji:null,  pts:0},
+  {t:42500,  lyric:"Can you stamp your feet?",    action:'clap',      emoji:'👏',  pts:150, label:'CLAP ALONG!'},
+  {t:46000,  lyric:"Can you stretch up high?",    action:'armsUp',    emoji:'🙌',  pts:200, label:'STRETCH UP!'},
+  {t:49500,  lyric:"Can you touch your toes?",    action:'armsDown',  emoji:'👇',  pts:200, label:'TOUCH TOES!'},
+  {t:53000,  lyric:"Can you turn around?",        action:null,        emoji:'🔄',  pts:0},
+  {t:56000,  lyric:"Can you say... Hello!",       action:'wave',      emoji:'👋',  pts:150, label:'WAVE HELLO!'},
 
-  <!-- LEGS -->
-  <rect x="52" y="200" width="20" height="68" rx="10" fill="${shadeColor(o,-40)}"/>
-  <rect x="88" y="200" width="20" height="68" rx="10" fill="${shadeColor(o,-40)}"/>
-
-  <!-- HIPS -->
-  <rect x="44" y="188" width="72" height="22" rx="12" fill="${od}"/>
-
-  <!-- TORSO -->
-  <rect id="torso-${size}" x="42" y="120" width="76" height="74" rx="22" fill="url(#og${size})"/>
-
-  <!-- Collar sparkle -->
-  <ellipse cx="80" cy="123" rx="26" ry="6" fill="none" stroke="${lightenColor(o,40)}" stroke-width="2" opacity="0.8"/>
-
-  <!-- LEFT ARM -->
-  <g id="larm-${size}" style="transform-origin:60px 130px">
-    <path d="M50 138 Q28 165 20 195" stroke="url(#og${size})" stroke-width="18" fill="none" stroke-linecap="round"/>
-    <circle cx="18" cy="200" r="11" fill="url(#sg${size})"/>
-  </g>
-
-  <!-- RIGHT ARM -->
-  <g id="rarm-${size}" style="transform-origin:100px 130px">
-    <path d="M110 138 Q132 165 140 195" stroke="url(#og${size})" stroke-width="18" fill="none" stroke-linecap="round"/>
-    <circle cx="142" cy="200" r="11" fill="url(#sg${size})"/>
-  </g>
-
-  <!-- NECK -->
-  <rect x="68" y="104" width="24" height="20" rx="10" fill="url(#sg${size})"/>
-
-  <!-- HAIR BACK -->
-  <ellipse cx="80" cy="72" rx="48" ry="52" fill="${shadeColor(h,-20)}" opacity="0.7"/>
-
-  <!-- HEAD -->
-  <ellipse cx="80" cy="70" rx="44" ry="48" fill="url(#sg${size})"/>
-
-  <!-- HAIR TOP -->
-  <ellipse cx="80" cy="38" rx="46" ry="32" fill="url(#hg${size})"/>
-  <ellipse cx="36" cy="64" rx="16" ry="28" fill="${h}" opacity="0.85"/>
-  <ellipse cx="124" cy="64" rx="16" ry="28" fill="${h}" opacity="0.85"/>
-
-  <!-- Hair tuft -->
-  <path d="M90 28 Q106 10 100 -2" stroke="${lightenColor(h,20)}" stroke-width="9" fill="none" stroke-linecap="round"/>
-  <circle cx="99" cy="-5" r="7" fill="${lightenColor(h,30)}"/>
-
-  <!-- EARS -->
-  <ellipse cx="37" cy="72" rx="8" ry="10" fill="${s}"/>
-  <ellipse cx="123" cy="72" rx="8" ry="10" fill="${s}"/>
-
-  <!-- EYE WHITES -->
-  <ellipse cx="64" cy="72" rx="14" ry="17" fill="white"/>
-  <ellipse cx="96" cy="72" rx="14" ry="17" fill="white"/>
-
-  <!-- IRISES -->
-  <circle cx="64" cy="75" r="10" fill="#4422bb"/>
-  <circle cx="96" cy="75" r="10" fill="#4422bb"/>
-
-  <!-- PUPILS -->
-  <circle cx="64" cy="75" r="6" fill="#110022"/>
-  <circle cx="96" cy="75" r="6" fill="#110022"/>
-
-  <!-- Eye shines -->
-  <circle cx="69" cy="69" r="3.5" fill="white"/>
-  <circle cx="101" cy="69" r="3.5" fill="white"/>
-  <circle cx="61" cy="77" r="1.8" fill="white"/>
-  <circle cx="93" cy="77" r="1.8" fill="white"/>
-
-  <!-- Eyelashes -->
-  <path d="M51 62 Q64 52 77 62" stroke="#220033" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M83 62 Q96 52 109 62" stroke="#220033" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-
-  <!-- Eyebrows -->
-  <path d="M53 54 Q64 46 75 51" stroke="${shadeColor(h,-10)}" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M85 51 Q96 46 107 54" stroke="${shadeColor(h,-10)}" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-
-  <!-- NOSE -->
-  <ellipse cx="80" cy="86" rx="5" ry="4" fill="${sd}" opacity="0.5"/>
-
-  <!-- MOUTH smile -->
-  <path d="M67 98 Q80 110 93 98" stroke="#ff5599" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-
-  <!-- CHEEKS -->
-  <ellipse cx="48" cy="88" rx="12" ry="8" fill="#ffaacc" opacity="0.4"/>
-  <ellipse cx="112" cy="88" rx="12" ry="8" fill="#ffaacc" opacity="0.4"/>
-  `;
-}
-
-function lightenColor(hex, amt){
-  const num=parseInt(hex.replace('#',''),16);
-  const r=Math.min(255,(num>>16)+amt);
-  const g=Math.min(255,((num>>8)&0xff)+amt);
-  const b=Math.min(255,(num&0xff)+amt);
-  return '#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);
-}
-function shadeColor(hex, amt){
-  const num=parseInt(hex.replace('#',''),16);
-  const r=Math.max(0,Math.min(255,(num>>16)+amt));
-  const g=Math.max(0,Math.min(255,((num>>8)&0xff)+amt));
-  const b=Math.max(0,Math.min(255,(num&0xff)+amt));
-  return '#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);
-}
-
-// ══════════════════════════════════════════
-// CREATOR
-// ══════════════════════════════════════════
-function selectOpt(el, type){
-  document.querySelectorAll(`[data-type="${type}"]`).forEach(e=>e.classList.remove('selected'));
-  el.classList.add('selected');
-  avatarCfg[type]=el.dataset.val;
-  updatePreview();
-}
-
-function updatePreview(){
-  document.getElementById('preview-svg').innerHTML=buildAvatarSVG(avatarCfg,'prev');
-}
-
-updatePreview();
-
-// ══════════════════════════════════════════
-// NOVA SVG — always same look
-// ══════════════════════════════════════════
-function buildNovaSVG(){
-  return `
-  <defs>
-    <radialGradient id="nsg" cx="38%" cy="32%" r="65%">
-      <stop offset="0%" stop-color="#ffe8cc"/>
-      <stop offset="100%" stop-color="#f0b888"/>
-    </radialGradient>
-    <radialGradient id="nhg" cx="40%" cy="25%" r="65%">
-      <stop offset="0%" stop-color="#ff88dd"/>
-      <stop offset="100%" stop-color="#cc1199"/>
-    </radialGradient>
-    <radialGradient id="nog" cx="40%" cy="25%" r="65%">
-      <stop offset="0%" stop-color="#bb77ff"/>
-      <stop offset="100%" stop-color="#5511cc"/>
-    </radialGradient>
-    <radialGradient id="eyeg" cx="35%" cy="30%" r="65%">
-      <stop offset="0%" stop-color="#8855ff"/>
-      <stop offset="60%" stop-color="#3311aa"/>
-      <stop offset="100%" stop-color="#110044"/>
-    </radialGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="3" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <filter id="softglow">
-      <feGaussianBlur stdDeviation="6" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-  </defs>
-
-  <!-- Floor shadow -->
-  <ellipse cx="100" cy="335" rx="70" ry="10" fill="#7c6fff" opacity="0.15"/>
-
-  <!-- SHOES -->
-  <ellipse cx="78" cy="328" rx="20" ry="8" fill="#fff" opacity="0.95"/>
-  <ellipse cx="122" cy="328" rx="20" ry="8" fill="#fff" opacity="0.95"/>
-  <ellipse cx="78" cy="326" rx="16" ry="5" fill="#ee99ff" opacity="0.5"/>
-  <ellipse cx="122" cy="326" rx="16" ry="5" fill="#ee99ff" opacity="0.5"/>
-
-  <!-- LEGS -->
-  <rect x="68" y="255" width="22" height="75" rx="11" fill="#1a0f4a"/>
-  <rect x="110" y="255" width="22" height="75" rx="11" fill="#1a0f4a"/>
-
-  <!-- HIPS -->
-  <rect x="55" y="242" width="90" height="20" rx="13" fill="#3a1888"/>
-
-  <!-- SKIRT -->
-  <path d="M58 248 Q55 285 42 300 L158 300 Q145 285 142 248 Z" fill="url(#nog)" opacity="0.9"/>
-  <path d="M60 250 Q58 282 46 296 L154 296 Q142 282 140 250 Z" fill="#9955ff" opacity="0.4"/>
-
-  <!-- TORSO -->
-  <rect x="60" y="155" width="80" height="92" rx="26" fill="url(#nog)"/>
-
-  <!-- Outfit shine -->
-  <ellipse cx="85" cy="170" rx="18" ry="8" fill="white" opacity="0.15" transform="rotate(-20,85,170)"/>
-
-  <!-- Collar sparkle -->
-  <ellipse cx="100" cy="158" rx="30" ry="7" fill="none" stroke="#dd99ff" stroke-width="2.5" opacity="0.9"/>
-  <ellipse cx="100" cy="158" rx="25" ry="4" fill="white" opacity="0.1"/>
-
-  <!-- Star on outfit -->
-  <text x="100" y="205" text-anchor="middle" font-size="18" fill="white" opacity="0.4">✦</text>
-
-  <!-- LEFT ARM -->
-  <g id="nova-larm" style="transform-origin:72px 172px">
-    <path d="M68 178 Q44 210 32 248" stroke="url(#nog)" stroke-width="20" fill="none" stroke-linecap="round"/>
-    <path d="M68 178 Q44 210 32 248" stroke="#aa55ff" stroke-width="14" fill="none" stroke-linecap="round" opacity="0.4"/>
-    <!-- Hand -->
-    <circle cx="30" cy="253" r="13" fill="url(#nsg)"/>
-    <circle cx="30" cy="253" r="8" fill="#f5c8a0" opacity="0.5"/>
-  </g>
-
-  <!-- RIGHT ARM -->
-  <g id="nova-rarm" style="transform-origin:128px 172px">
-    <path d="M132 178 Q156 210 168 248" stroke="url(#nog)" stroke-width="20" fill="none" stroke-linecap="round"/>
-    <path d="M132 178 Q156 210 168 248" stroke="#aa55ff" stroke-width="14" fill="none" stroke-linecap="round" opacity="0.4"/>
-    <!-- Hand -->
-    <circle cx="170" cy="253" r="13" fill="url(#nsg)"/>
-    <circle cx="170" cy="253" r="8" fill="#f5c8a0" opacity="0.5"/>
-  </g>
-
-  <!-- NECK -->
-  <rect x="86" y="138" width="28" height="22" rx="13" fill="url(#nsg)"/>
-
-  <!-- HAIR BACK -->
-  <ellipse cx="100" cy="88" rx="54" ry="60" fill="#cc1199" opacity="0.55"/>
-
-  <!-- HEAD -->
-  <ellipse cx="100" cy="84" rx="50" ry="56" fill="url(#nsg)"/>
-
-  <!-- HAIR FRONT TOP -->
-  <ellipse cx="100" cy="44" rx="52" ry="36" fill="url(#nhg)"/>
-
-  <!-- Hair sides -->
-  <ellipse cx="52" cy="82" rx="18" ry="34" fill="#dd1199" opacity="0.9"/>
-  <ellipse cx="148" cy="82" rx="18" ry="34" fill="#dd1199" opacity="0.9"/>
-
-  <!-- Hair shine -->
-  <ellipse cx="80" cy="38" rx="20" ry="10" fill="white" opacity="0.2" transform="rotate(-15,80,38)"/>
-
-  <!-- Hair tuft -->
-  <circle cx="118" cy="20" r="9" fill="#ff88dd" filter="url(#glow)"/>
-  <path d="M108 34 Q116 16 118 10" stroke="#ff44cc" stroke-width="10" fill="none" stroke-linecap="round"/>
-
-  <!-- EARS -->
-  <ellipse cx="51" cy="88" rx="9" ry="12" fill="url(#nsg)"/>
-  <ellipse cx="149" cy="88" rx="9" ry="12" fill="url(#nsg)"/>
-  <ellipse cx="51" cy="88" rx="5" ry="7" fill="#f0b888" opacity="0.5"/>
-  <ellipse cx="149" cy="88" rx="5" ry="7" fill="#f0b888" opacity="0.5"/>
-
-  <!-- EYE WHITES — big Disney eyes -->
-  <ellipse cx="76" cy="88" rx="18" ry="22" fill="white"/>
-  <ellipse cx="124" cy="88" rx="18" ry="22" fill="white"/>
-
-  <!-- Eye shadow top -->
-  <ellipse cx="76" cy="76" rx="18" ry="8" fill="#cc88ff" opacity="0.3"/>
-  <ellipse cx="124" cy="76" rx="18" ry="8" fill="#cc88ff" opacity="0.3"/>
-
-  <!-- IRISES -->
-  <circle cx="76" cy="91" r="14" fill="url(#eyeg)"/>
-  <circle cx="124" cy="91" r="14" fill="url(#eyeg)"/>
-
-  <!-- Iris detail ring -->
-  <circle cx="76" cy="91" r="10" fill="none" stroke="#6633ff" stroke-width="1.5" opacity="0.5"/>
-  <circle cx="124" cy="91" r="10" fill="none" stroke="#6633ff" stroke-width="1.5" opacity="0.5"/>
-
-  <!-- PUPILS -->
-  <circle cx="76" cy="91" r="8" fill="#0a0020"/>
-  <circle cx="124" cy="91" r="8" fill="#0a0020"/>
-
-  <!-- Eye shines — big sparkles -->
-  <circle cx="83" cy="83" r="5" fill="white"/>
-  <circle cx="131" cy="83" r="5" fill="white"/>
-  <circle cx="71" cy="95" r="2.5" fill="white" opacity="0.7"/>
-  <circle cx="119" cy="95" r="2.5" fill="white" opacity="0.7"/>
-
-  <!-- Star sparkle in eye -->
-  <circle cx="85" cy="82" r="2" fill="white" filter="url(#glow)"/>
-  <circle cx="133" cy="82" r="2" fill="white" filter="url(#glow)"/>
-
-  <!-- EYELASHES top -->
-  <path d="M59 74 Q76 60 93 74" stroke="#220033" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <path d="M107 74 Q124 60 141 74" stroke="#220033" stroke-width="3" fill="none" stroke-linecap="round"/>
-
-  <!-- Lash details -->
-  <line x1="62" y1="74" x2="58" y2="66" stroke="#220033" stroke-width="2" stroke-linecap="round"/>
-  <line x1="70" y1="68" x2="68" y2="60" stroke="#220033" stroke-width="2" stroke-linecap="round"/>
-  <line x1="80" y1="65" x2="79" y2="57" stroke="#220033" stroke-width="2" stroke-linecap="round"/>
-  <line x1="110" y1="68" x2="108" y2="60" stroke="#220033" stroke-width="2" stroke-linecap="round"/>
-  <line x1="120" y1="65" x2="119" y2="57" stroke="#220033" stroke-width="2" stroke-linecap="round"/>
-  <line x1="130" y1="68" x2="132" y2="60" stroke="#220033" stroke-width="2" stroke-linecap="round"/>
-  <line x1="138" y1="74" x2="142" y2="66" stroke="#220033" stroke-width="2" stroke-linecap="round"/>
-
-  <!-- EYEBROWS -->
-  <path d="M60 67 Q76 58 91 65" stroke="#cc1199" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <path d="M109 65 Q124 58 140 67" stroke="#cc1199" stroke-width="3" fill="none" stroke-linecap="round"/>
-
-  <!-- NOSE -->
-  <ellipse cx="100" cy="104" rx="6" ry="5" fill="#e8a070" opacity="0.45"/>
-
-  <!-- MOUTH -->
-  <g id="nova-mouth">
-    <path d="M82 118 Q100 134 118 118" stroke="#ff3388" stroke-width="3" fill="none" stroke-linecap="round"/>
-    <path d="M86 120 Q100 130 114 120" fill="#ff6699" opacity="0.6"/>
-    <!-- Teeth hint -->
-    <path d="M88 121 Q100 128 112 121" fill="white" opacity="0.5"/>
-  </g>
-
-  <!-- CHEEKS blush -->
-  <ellipse cx="58" cy="106" rx="14" ry="10" fill="#ffaacc" opacity="0.45"/>
-  <ellipse cx="142" cy="106" rx="14" ry="10" fill="#ffaacc" opacity="0.45"/>
-
-  <!-- Sparkles around Nova -->
-  <circle cx="20" cy="60" r="3" fill="#ff6fd8" opacity="0.7" filter="url(#glow)"/>
-  <circle cx="180" cy="80" r="2.5" fill="#7c6fff" opacity="0.7" filter="url(#glow)"/>
-  <circle cx="22" cy="200" r="2" fill="#00d2ff" opacity="0.6" filter="url(#glow)"/>
-  <circle cx="178" cy="180" r="3" fill="#ff6fd8" opacity="0.5" filter="url(#glow)"/>
-  <text x="18" y="140" font-size="12" fill="#ff6fd8" opacity="0.6">✦</text>
-  <text x="175" y="140" font-size="10" fill="#7c6fff" opacity="0.6">✦</text>
-  <text x="10" y="260" font-size="8" fill="#00d2ff" opacity="0.5">✦</text>
-  `;
-}
+  // OUTRO
+  {t:60000,  lyric:"Hello, hello!",               action:'clap',      emoji:'👏',  pts:100, label:'ONE MORE CLAP!'},
+  {t:65000,  lyric:"Can you clap your hands?",    action:'clap',      emoji:'👏',  pts:100, label:'CLAP!'},
+  {t:70000,  lyric:"Can you stretch up high?",    action:'armsUp',    emoji:'🙌',  pts:100, label:'STRETCH UP!'},
+  {t:75000,  lyric:"Can you say... Hello!",       action:'wave',      emoji:'👋',  pts:100, label:'WAVE HELLO!'},
+  {t:82000,  lyric:"🌟 Amazing! 🌟",              action:null,        emoji:null,  pts:0},
+];
 
 // ══════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════
-let score=0, stars=5, active=false, talking=false;
-let moves={lUp:false, rUp:false};
-let detector=null;
-let musicOn=false, audioCtx=null, beatTimer=null;
-let gamePhase='idle', currentMoveIdx=0, currentMove=null, judgeTimer=null;
-let novaIdleT=0, kidIdleT=0;
-let novaLRot=0.3, novaRRot=-0.3, novaLTarget=0.3, novaRTarget=-0.3;
-let kidLRot=0.3, kidRRot=-0.3, kidLTarget=0.3, kidRTarget=-0.3;
-let animFrame=0;
+let score=0, stars=5;
+let detector=null, active=false;
+let moves={lUp:false, rUp:false, clap:false};
+let songStartTime=0, songTimer=null;
+let timelineIdx=0;
+let currentAction=null, actionWindow=false;
+let actionDetected=false;
+let novaIdleT=0, talking=false;
+let novaLRot=0.3, novaRRot=-0.3;
+let novaLTarget=0.3, novaRTarget=-0.3;
+let audioCtx=null;
+let novaMode='idle';
 
 // ══════════════════════════════════════════
-// MOVES
+// NOVA SVG
 // ══════════════════════════════════════════
-const MOVES=[
-  {name:'🙌 Both Arms UP!',instr:'Raise BOTH arms above your head!',check:m=>m.lUp&&m.rUp,pts:300,teach:"Watch me! Raise BOTH arms up high!",lArm:'up',rArm:'up'},
-  {name:'👈 Left Arm UP!',instr:'Raise your LEFT arm!',check:m=>m.lUp&&!m.rUp,pts:200,teach:"Left arm UP — right arm stays down!",lArm:'up',rArm:'down'},
-  {name:'👉 Right Arm UP!',instr:'Raise your RIGHT arm!',check:m=>m.rUp&&!m.lUp,pts:200,teach:"Right arm UP this time!",lArm:'down',rArm:'up'},
-  {name:'🙌 BOTH ARMS AGAIN!',instr:'Both arms UP — maximum energy!',check:m=>m.lUp&&m.rUp,pts:400,teach:"BOTH ARMS UP — give it everything!",lArm:'up',rArm:'up'},
-];
+function buildNovaSVG(){
+  return `
+  <defs>
+    <radialGradient id="nsg" cx="38%" cy="32%" r="65%"><stop offset="0%" stop-color="#ffe8cc"/><stop offset="100%" stop-color="#f0b888"/></radialGradient>
+    <radialGradient id="nhg" cx="40%" cy="25%" r="65%"><stop offset="0%" stop-color="#ff88dd"/><stop offset="100%" stop-color="#cc1199"/></radialGradient>
+    <radialGradient id="nog" cx="40%" cy="25%" r="65%"><stop offset="0%" stop-color="#bb77ff"/><stop offset="100%" stop-color="#5511cc"/></radialGradient>
+    <radialGradient id="eyeg" cx="35%" cy="30%" r="65%"><stop offset="0%" stop-color="#8855ff"/><stop offset="60%" stop-color="#3311aa"/><stop offset="100%" stop-color="#110044"/></radialGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <ellipse cx="100" cy="335" rx="70" ry="10" fill="#7c6fff" opacity="0.15"/>
+  <ellipse cx="78" cy="328" rx="20" ry="8" fill="#fff" opacity="0.95"/>
+  <ellipse cx="122" cy="328" rx="20" ry="8" fill="#fff" opacity="0.95"/>
+  <rect x="68" y="255" width="22" height="75" rx="11" fill="#1a0f4a"/>
+  <rect x="110" y="255" width="22" height="75" rx="11" fill="#1a0f4a"/>
+  <rect x="55" y="242" width="90" height="20" rx="13" fill="#3a1888"/>
+  <path d="M58 248 Q55 285 42 300 L158 300 Q145 285 142 248 Z" fill="url(#nog)" opacity="0.9"/>
+  <rect x="60" y="155" width="80" height="92" rx="26" fill="url(#nog)"/>
+  <ellipse cx="85" cy="170" rx="18" ry="8" fill="white" opacity="0.12" transform="rotate(-20,85,170)"/>
+  <ellipse cx="100" cy="158" rx="30" ry="7" fill="none" stroke="#dd99ff" stroke-width="2.5" opacity="0.9"/>
+  <text x="100" y="205" text-anchor="middle" font-size="16" fill="white" opacity="0.35">✦</text>
+  <g id="nova-larm" style="transform-origin:72px 172px">
+    <path d="M68 178 Q44 210 32 248" stroke="url(#nog)" stroke-width="20" fill="none" stroke-linecap="round"/>
+    <path d="M68 178 Q44 210 32 248" stroke="#aa55ff" stroke-width="14" fill="none" stroke-linecap="round" opacity="0.4"/>
+    <circle cx="30" cy="253" r="13" fill="url(#nsg)"/>
+  </g>
+  <g id="nova-rarm" style="transform-origin:128px 172px">
+    <path d="M132 178 Q156 210 168 248" stroke="url(#nog)" stroke-width="20" fill="none" stroke-linecap="round"/>
+    <path d="M132 178 Q156 210 168 248" stroke="#aa55ff" stroke-width="14" fill="none" stroke-linecap="round" opacity="0.4"/>
+    <circle cx="170" cy="253" r="13" fill="url(#nsg)"/>
+  </g>
+  <rect x="86" y="138" width="28" height="22" rx="13" fill="url(#nsg)"/>
+  <ellipse cx="100" cy="88" rx="54" ry="60" fill="#cc1199" opacity="0.55"/>
+  <ellipse cx="100" cy="84" rx="50" ry="56" fill="url(#nsg)"/>
+  <ellipse cx="100" cy="44" rx="52" ry="36" fill="url(#nhg)"/>
+  <ellipse cx="52" cy="82" rx="18" ry="34" fill="#dd1199" opacity="0.9"/>
+  <ellipse cx="148" cy="82" rx="18" ry="34" fill="#dd1199" opacity="0.9"/>
+  <ellipse cx="80" cy="38" rx="20" ry="10" fill="white" opacity="0.2" transform="rotate(-15,80,38)"/>
+  <circle cx="118" cy="20" r="9" fill="#ff88dd" filter="url(#glow)"/>
+  <path d="M108 34 Q116 16 118 10" stroke="#ff44cc" stroke-width="10" fill="none" stroke-linecap="round"/>
+  <ellipse cx="51" cy="88" rx="9" ry="12" fill="url(#nsg)"/>
+  <ellipse cx="149" cy="88" rx="9" ry="12" fill="url(#nsg)"/>
+  <ellipse cx="76" cy="88" rx="18" ry="22" fill="white"/>
+  <ellipse cx="124" cy="88" rx="18" ry="22" fill="white"/>
+  <ellipse cx="76" cy="76" rx="18" ry="8" fill="#cc88ff" opacity="0.3"/>
+  <ellipse cx="124" cy="76" rx="18" ry="8" fill="#cc88ff" opacity="0.3"/>
+  <circle cx="76" cy="91" r="14" fill="url(#eyeg)"/>
+  <circle cx="124" cy="91" r="14" fill="url(#eyeg)"/>
+  <circle cx="76" cy="91" r="8" fill="#0a0020"/>
+  <circle cx="124" cy="91" r="8" fill="#0a0020"/>
+  <circle cx="83" cy="83" r="5" fill="white"/>
+  <circle cx="131" cy="83" r="5" fill="white"/>
+  <circle cx="71" cy="95" r="2.5" fill="white" opacity="0.7"/>
+  <circle cx="119" cy="95" r="2.5" fill="white" opacity="0.7"/>
+  <path d="M59 74 Q76 60 93 74" stroke="#220033" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M107 74 Q124 60 141 74" stroke="#220033" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <line x1="62" y1="74" x2="58" y2="66" stroke="#220033" stroke-width="2" stroke-linecap="round"/>
+  <line x1="70" y1="68" x2="68" y2="60" stroke="#220033" stroke-width="2" stroke-linecap="round"/>
+  <line x1="80" y1="65" x2="79" y2="57" stroke="#220033" stroke-width="2" stroke-linecap="round"/>
+  <line x1="120" y1="65" x2="119" y2="57" stroke="#220033" stroke-width="2" stroke-linecap="round"/>
+  <line x1="130" y1="68" x2="132" y2="60" stroke="#220033" stroke-width="2" stroke-linecap="round"/>
+  <line x1="138" y1="74" x2="142" y2="66" stroke="#220033" stroke-width="2" stroke-linecap="round"/>
+  <path d="M60 67 Q76 58 91 65" stroke="#cc1199" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M109 65 Q124 58 140 67" stroke="#cc1199" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <ellipse cx="100" cy="104" rx="6" ry="5" fill="#e8a070" opacity="0.45"/>
+  <g id="nova-mouth">
+    <path d="M82 118 Q100 134 118 118" stroke="#ff3388" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M86 120 Q100 130 114 120" fill="#ff6699" opacity="0.6"/>
+    <path d="M88 121 Q100 128 112 121" fill="white" opacity="0.4"/>
+  </g>
+  <ellipse cx="58" cy="106" rx="14" ry="10" fill="#ffaacc" opacity="0.45"/>
+  <ellipse cx="142" cy="106" rx="14" ry="10" fill="#ffaacc" opacity="0.45"/>
+  <circle cx="20" cy="60" r="3" fill="#ff6fd8" opacity="0.6" filter="url(#glow)"/>
+  <circle cx="180" cy="80" r="2.5" fill="#7c6fff" opacity="0.6" filter="url(#glow)"/>
+  <text x="18" y="140" font-size="12" fill="#ff6fd8" opacity="0.5">✦</text>
+  <text x="175" y="140" font-size="10" fill="#7c6fff" opacity="0.5">✦</text>
+  `;
+}
 
 // ══════════════════════════════════════════
-// SPEECH
+// MUSIC — Hello Hello melody in Web Audio
 // ══════════════════════════════════════════
-const lines={
-  perfect:["PERFECT! You're amazing!","YES! That's exactly it!","INCREDIBLE! You're a star!"],
-  good:["Great job! Well done!","Yes! Keep going!","Awesome move!"],
-  miss:["Almost! Try next time!","Keep going — you've got this!"],
-  hype:["YES! You are ON FIRE!","INCREDIBLE energy right now!","You are GLOWING!"],
-  tip:["Roll your shoulders on the beat!","Feel the music in your whole body!","Arms wider — own the space!"],
-  go:["Your turn! GO!","Now YOU do it! GO!","Copy me! NOW!"],
-  ready:["Watch me carefully — then copy!","Pay attention — then YOU do it!"],
+function initAudio(){
+  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+}
+
+function playNote(freq, start, dur, vol=0.18, type='sine'){
+  if(!audioCtx) return;
+  const o=audioCtx.createOscillator();
+  const g=audioCtx.createGain();
+  const f=audioCtx.createBiquadFilter();
+  f.type='lowpass'; f.frequency.value=2000;
+  o.type=type; o.frequency.value=freq;
+  o.connect(f); f.connect(g); g.connect(audioCtx.destination);
+  g.gain.setValueAtTime(0,start);
+  g.gain.linearRampToValueAtTime(vol,start+0.02);
+  g.gain.setValueAtTime(vol,start+dur-0.04);
+  g.gain.linearRampToValueAtTime(0,start+dur);
+  o.start(start); o.stop(start+dur+0.01);
+}
+
+function playBeat(start, kick=true){
+  if(!audioCtx) return;
+  // Kick
+  if(kick){
+    const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+    o.connect(g);g.connect(audioCtx.destination);
+    o.frequency.setValueAtTime(150,start);
+    o.frequency.exponentialRampToValueAtTime(40,start+0.12);
+    g.gain.setValueAtTime(0.5,start);
+    g.gain.exponentialRampToValueAtTime(0.001,start+0.2);
+    o.start(start);o.stop(start+0.2);
+  }
+  // Hat
+  const b=audioCtx.createBuffer(1,audioCtx.sampleRate*0.05,audioCtx.sampleRate);
+  const d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+  const s=audioCtx.createBufferSource(),gn=audioCtx.createGain(),fl=audioCtx.createBiquadFilter();
+  fl.type='highpass';fl.frequency.value=7000;s.buffer=b;
+  s.connect(fl);fl.connect(gn);gn.connect(audioCtx.destination);
+  gn.gain.setValueAtTime(0.08,start);gn.gain.exponentialRampToValueAtTime(0.001,start+0.04);
+  s.start(start);
+}
+
+// Hello Hello melody — C major, notes map
+const N = {
+  C4:261.63, D4:293.66, E4:329.63, F4:349.23,
+  G4:392.00, A4:440.00, B4:493.88,
+  C5:523.25, D5:587.33, E5:659.25, G5:783.99
 };
 
-// ══════════════════════════════════════════
-// API KEYS — add yours here tomorrow
-// ══════════════════════════════════════════
-const ELEVENLABS_KEY = 'sk_0e751a9c5c9a159bfa840e96e432bf24b8ec27c9814ec83e';
-const ANTHROPIC_KEY  = ''; // add tomorrow
-// Sarah — warm, friendly, perfect for kids
-const ELEVENLABS_VOICE = 'EXAVITQu4vr4xnSDxMaL';
+function playSong(){
+  const audio = new Audio('hello.mp3');
+  audio.volume = 0.85;
+  audio.play().catch(e=>console.log('Audio play error:',e));
+  window._songAudio = audio;
+}
 
 // ══════════════════════════════════════════
-// SPEAK — ElevenLabs with browser fallback
+// SPEAK — ElevenLabs
 // ══════════════════════════════════════════
-function updateBubble(txt){
+function showBubble(txt){
   const b=document.getElementById('nova-bubble');
-  const bt=document.getElementById('btext');
-  const d=document.getElementById('bdots');
-  bt.textContent=txt;
+  document.getElementById('btext').textContent=txt;
   b.classList.add('show');
-  d.classList.add('show');
   talking=true;
+  setTimeout(()=>{b.classList.remove('show');talking=false},3000);
 }
 
-function onSpeakEnd(){
-  talking=false;
-  document.getElementById('bdots').classList.remove('show');
-}
-
-async function speakElevenLabs(txt){
+async function speak(txt){
+  showBubble(txt);
+  if(!ELEVENLABS_KEY){speakBrowser(txt);return;}
   try{
     const res=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE}/stream`,{
       method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'xi-api-key': ELEVENLABS_KEY
-      },
+      headers:{'Content-Type':'application/json','xi-api-key':ELEVENLABS_KEY},
       body:JSON.stringify({
-        text: txt,
-        model_id: 'eleven_turbo_v2_5',
-        voice_settings:{
-          stability: 0.55,
-          similarity_boost: 0.85,
-          style: 0.45,
-          use_speaker_boost: true,
-          speed: 0.85
-        }
+        text:txt, model_id:'eleven_turbo_v2_5',
+        voice_settings:{stability:0.55,similarity_boost:0.85,style:0.45,use_speaker_boost:true}
       })
     });
-    if(!res.ok) throw new Error('ElevenLabs failed');
+    if(!res.ok) throw new Error('EL failed');
     const blob=await res.blob();
     const url=URL.createObjectURL(blob);
     const audio=new Audio(url);
-    audio.onended=()=>{
-      onSpeakEnd();
-      URL.revokeObjectURL(url);
-    };
+    audio.onended=()=>{talking=false;URL.revokeObjectURL(url)};
     audio.play();
-  }catch(e){
-    // Fallback to browser speech
-    speakBrowser(txt);
-  }
+  }catch(e){speakBrowser(txt)}
 }
 
 function speakBrowser(txt){
-  if(!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
+  if(!window.speechSynthesis)return;
+  speechSynthesis.cancel();
   const u=new SpeechSynthesisUtterance(txt);
-  u.rate=0.88; u.pitch=1.15; u.volume=1;
+  u.rate=0.88;u.pitch=1.15;u.volume=1;
   const vs=speechSynthesis.getVoices();
-  const v=vs.find(x=>
-    x.name.includes('Samantha')||
-    x.name.includes('Google UK English Female')||
-    x.name.includes('Karen')||
-    x.name.includes('Victoria')||
-    x.name.includes('Moira')
-  );
-  if(v) u.voice=v;
-  u.onend=onSpeakEnd;
+  const v=vs.find(x=>x.name.includes('Samantha')||x.name.includes('Karen')||x.name.includes('Google UK English Female'));
+  if(v)u.voice=v;
+  u.onend=()=>talking=false;
   speechSynthesis.speak(u);
 }
 
-function speak(txt){
-  updateBubble(txt);
-  if(ELEVENLABS_KEY){
-    speakElevenLabs(txt);
-  } else {
-    speakBrowser(txt);
-  }
-}
-
-function pick(a){return a[Math.floor(Math.random()*a.length)]}
-function nova(type){
-  updateContext();
-  if(type==='hype') askNova(`Kid pressed hype button and wants maximum energy and encouragement! Go wild!`);
-  else if(type==='tip') askNova(`Kid asked for a tip. Give one specific helpful dance tip for ${currentMove?currentMove.name:'dancing'}.`);
-}
-
 // ══════════════════════════════════════════
-// CLAUDE HAIKU COACHING BRAIN
+// NOVA ANIMATION
 // ══════════════════════════════════════════
-let lastAICall=0;
-let aiCooldown=8000; // call AI max every 8 seconds
-let sessionContext={
-  kidName: '',
-  totalMoves: 0,
-  successMoves: 0,
-  missedMoves: 0,
-  currentStreak: 0,
-  lastMoveResult: '',
-  currentMove: '',
-  leftArmUp: false,
-  rightArmUp: false,
-};
+function animateNova(){
+  requestAnimationFrame(animateNova);
+  novaIdleT+=0.016;
 
-async function askNova(situation){
-  const now=Date.now();
-  if(now-lastAICall < aiCooldown) return;
-  if(talking) return;
-  lastAICall=now;
-
-  if(!ANTHROPIC_KEY){speak(pick(lines.good));return;}
-
-  try{
-    const response = await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key': ANTHROPIC_KEY,
-        'anthropic-version':'2023-06-01'
-      },
-      body: JSON.stringify({
-        model:'claude-haiku-4-5-20251001',
-        max_tokens:60,
-        system:`You are Nova, a fun and encouraging AI dance coach for kids aged 4-8. 
-Your personality: warm, excited, patient, uses simple words, lots of energy.
-Always respond in MAX 12 words. Be specific about what you see.
-Never say "I" — just speak directly to the kid.
-Use ONE emoji max at the end.`,
-        messages:[{
-          role:'user',
-          content:`Kid name: ${sessionContext.kidName}
-Current move to do: ${sessionContext.currentMove}
-Left arm up: ${sessionContext.leftArmUp}
-Right arm up: ${sessionContext.rightArmUp}
-Situation: ${situation}
-Streak: ${sessionContext.currentStreak}
-Success rate: ${sessionContext.successMoves}/${sessionContext.totalMoves}
-
-Give Nova's response (max 12 words, direct, encouraging):`
-        }]
-      })
-    });
-
-    const data=await response.json();
-    if(data.content && data.content[0] && data.content[0].text){
-      const text=data.content[0].text.trim();
-      speak(text);
-    }
-  }catch(e){
-    // Fallback to pre-written if API fails
-    speak(pick(lines.good));
-  }
-}
-
-// Update session context from game state
-function updateContext(){
-  sessionContext.kidName=avatarCfg.name||'Star';
-  sessionContext.leftArmUp=moves.lUp;
-  sessionContext.rightArmUp=moves.rUp;
-  sessionContext.currentMove=currentMove?currentMove.name:'';
-}
-
-// ══════════════════════════════════════════
-// GAME LOOP
-// ══════════════════════════════════════════
-function startRound(){
-  if(currentMoveIdx>=MOVES.length){
-    currentMoveIdx=0;
-    showShare();
-    return;
-  }
-  currentMove=MOVES[currentMoveIdx];
-  gamePhase='teach';
-  showBanner(currentMove.name);
-  speak(pick(lines.ready)+' '+currentMove.teach);
-  setNovaArms(currentMove.lArm,currentMove.rArm);
-  setTimeout(()=>{
-    hideBanner();
-    speak(pick(lines.go));
-    resetNovaArms();
-    startCountdown();
-  },7000);
-}
-
-function startCountdown(){
-  gamePhase='countdown';
-  let n=3; showCountdown(n);
-  const t=setInterval(()=>{
-    n--;
-    if(n>0)showCountdown(n);
-    else{hideCountdown();clearInterval(t);startJudge()}
-  },1000);
-}
-
-function startJudge(){
-  gamePhase='judge';
-  let judged=false;
-
-  // AI nudge after 2 seconds if not done yet
-  setTimeout(()=>{
-    if(!judged && gamePhase==='judge'){
-      updateContext();
-      const partial=moves.lUp||moves.rUp;
-      askNova(partial?`Kid is partially doing the move. ${moves.lUp?'Left arm is up':'Right arm is up'} but needs to complete it. Encourage!`:`Kid hasn't started the move yet. Give a fun nudge to try!`);
-    }
-  },2000);
-
-  const ci=setInterval(()=>{
-    if(currentMove.check(moves)&&!judged){
-      judged=true;clearInterval(ci);clearTimeout(judgeTimer);onSuccess();
-    }
-  },100);
-  judgeTimer=setTimeout(()=>{if(!judged){clearInterval(ci);onMiss()}},6000);
-}
-
-function onSuccess(){
-  gamePhase='result';
-  score+=currentMove.pts;
-  sessionContext.successMoves++;
-  sessionContext.totalMoves++;
-  sessionContext.currentStreak++;
-  sessionContext.lastMoveResult='success';
-  updateContext();
-  document.getElementById('top-score').textContent=score+' pts';
-  const perf=sessionContext.currentStreak>=3;
-  showJudge(perf?'PERFECT! 🔥':'GREAT! ✨',perf?'#ff6fd8':'#7c6fff');
-  showScorePop(currentMove.pts,perf?'#ff6fd8':'#7c6fff');
-  burst(perf?'#ff6fd8':'#7c6fff');
-  // Ask Claude for specific encouraging response
-  askNova(perf?`Kid nailed it with a ${sessionContext.currentStreak} move streak! Pure excellence!`:`Kid successfully did the move correctly. Celebrate them!`);
-  currentMoveIdx++;
-  setTimeout(()=>{hideJudge();startRound()},3000);
-}
-
-function onMiss(){
-  gamePhase='result';
-  sessionContext.missedMoves++;
-  sessionContext.totalMoves++;
-  sessionContext.currentStreak=0;
-  sessionContext.lastMoveResult='miss';
-  updateContext();
-  if(stars>1){stars--;updateStars()}
-  showJudge('MISS! 😅','#ff9d00');
-  // Ask Claude for patient encouraging response
-  const whyMissed=!moves.lUp&&!moves.rUp?'both arms were down':!moves.lUp?'left arm was not raised':!moves.rUp?'right arm was not raised':'timing was off';
-  askNova(`Kid missed the move. ${whyMissed}. Be patient and specific about what to fix next time.`);
-  currentMoveIdx++;
-  setTimeout(()=>{hideJudge();startRound()},2500);
-}
-
-function updateStars(){
-  const filled='⭐'.repeat(stars);
-  const empty='☆'.repeat(5-stars);
-  document.getElementById('top-stars').textContent=filled+empty;
-}
-
-// UI helpers
-function showBanner(t){const b=document.getElementById('move-banner');b.textContent=t;b.classList.add('show')}
-function hideBanner(){document.getElementById('move-banner').classList.remove('show')}
-function showCountdown(n){const c=document.getElementById('countdown');c.textContent=n;c.classList.remove('show');void c.offsetWidth;c.classList.add('show')}
-function hideCountdown(){document.getElementById('countdown').classList.remove('show')}
-function showJudge(t,c){const j=document.getElementById('judge-text');j.textContent=t;j.style.color=c;j.classList.add('show')}
-function hideJudge(){document.getElementById('judge-text').classList.remove('show')}
-function showScorePop(pts,c){
-  const el=document.getElementById('score-pop');
-  el.textContent='+'+pts;el.style.color=c;
-  el.classList.remove('show','hide');void el.offsetWidth;
-  el.classList.add('show');
-  setTimeout(()=>{el.classList.remove('show');el.classList.add('hide')},900);
-  setTimeout(()=>el.classList.remove('hide'),1300);
-}
-function burst(color){
-  const z=document.getElementById('split');
-  for(let i=0;i<14;i++){
-    const p=document.createElement('div');p.className='particle';
-    p.style.cssText=`width:${6+Math.random()*9}px;height:${6+Math.random()*9}px;background:${color};left:${15+Math.random()*70}%;bottom:${20+Math.random()*40}%;animation-delay:${Math.random()*0.4}s`;
-    z.appendChild(p);setTimeout(()=>p.remove(),1700);
-  }
-}
-
-// ══════════════════════════════════════════
-// AVATAR ARM CONTROL
-// ══════════════════════════════════════════
-let novaMode='idle';
-
-function setNovaArms(l,r){
-  novaMode='pose';
-  novaLTarget=l==='up'?-2.0:l==='side'?-0.8:0.3;
-  novaRTarget=r==='up'?2.0:r==='side'?0.8:-0.3;
-}
-
-function resetNovaArms(){novaMode='idle'}
-
-// ══════════════════════════════════════════
-// ANIMATION LOOP — avatar arms
-// ══════════════════════════════════════════
-function animateAvatars(){
-  requestAnimationFrame(animateAvatars);
-  novaIdleT+=0.016; kidIdleT+=0.016;
-
-  // Nova arm targets
   if(novaMode==='hype'||talking){
-    novaLTarget=-2.0+Math.sin(novaIdleT*5)*0.3;
-    novaRTarget=2.0+Math.sin(novaIdleT*5)*0.3;
+    novaLTarget=-1.8+Math.sin(novaIdleT*6)*0.3;
+    novaRTarget=1.8+Math.sin(novaIdleT*6)*0.3;
+  } else if(novaMode==='armsUp'){
+    novaLTarget=-1.9;
+    novaRTarget=1.9;
   } else if(novaMode==='idle'){
-    novaLTarget=0.3+Math.sin(novaIdleT*1.5)*0.2;
-    novaRTarget=-0.3+Math.sin(novaIdleT*1.5+1)*0.2;
+    novaLTarget=0.3+Math.sin(novaIdleT*1.5)*0.18;
+    novaRTarget=-0.3+Math.sin(novaIdleT*1.5+1)*0.18;
   }
-
-  // Kid avatar mirrors user's moves
-  kidLTarget=moves.lUp?-2.0:0.3+Math.sin(kidIdleT*1.2)*0.15;
-  kidRTarget=moves.rUp?2.0:-0.3+Math.sin(kidIdleT*1.2+1)*0.15;
 
   novaLRot+=(novaLTarget-novaLRot)*0.1;
   novaRRot+=(novaRTarget-novaRRot)*0.1;
-  kidLRot+=(kidLTarget-kidLRot)*0.12;
-  kidRRot+=(kidRTarget-kidRRot)*0.12;
 
-  // Apply to Nova SVG
   const nl=document.getElementById('nova-larm');
   const nr=document.getElementById('nova-rarm');
   const nm=document.getElementById('nova-mouth');
+  const ns=document.getElementById('nova-svg');
   if(nl) nl.style.transform=`rotate(${novaLRot}rad)`;
   if(nr) nr.style.transform=`rotate(${novaRRot}rad)`;
   if(nm){
-    const mouthOpen=talking?1+Math.abs(Math.sin(novaIdleT*12))*1.5:1;
-    nm.style.transform=`scaleY(${mouthOpen})`;
-    nm.style.transformOrigin='100px 130px';
+    const open=talking?1+Math.abs(Math.sin(novaIdleT*14))*1.4:1;
+    nm.style.transform=`scaleY(${open})`;
+    nm.style.transformOrigin='100px 126px';
   }
-
-  // Body bob Nova
-  const ns=document.getElementById('nova-svg');
   if(ns) ns.style.transform=`translateY(${Math.sin(novaIdleT*1.8)*6}px)`;
-
-  // Apply to Kid SVG
-  const kl=document.getElementById('larm-kid');
-  const kr=document.getElementById('rarm-kid');
-  if(kl) kl.style.transform=`rotate(${kidLRot}rad)`;
-  if(kr) kr.style.transform=`rotate(${kidRRot}rad)`;
-
-  // Body bob kid
-  const ks=document.getElementById('kid-svg');
-  if(ks) ks.style.transform=`translateY(${Math.sin(kidIdleT*1.8)*5}px)`;
 }
 
 // ══════════════════════════════════════════
 // POSE DETECTION
 // ══════════════════════════════════════════
 async function initDetector(){
-  const bar=document.getElementById('loading-bar-fill');
-  const msg=document.getElementById('loading-msg');
+  const bar=document.getElementById('load-bar');
   try{
-    msg.textContent='Loading AI tracking...';
     bar.style.width='40%';
-    if(typeof tf==='undefined'||typeof poseDetection==='undefined'){
-      throw new Error('TF not loaded');
-    }
-    await tf.ready();
+    const tfOk=await loadScript([
+      'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js',
+      'https://unpkg.com/@tensorflow/tfjs@4.2.0/dist/tf.min.js'
+    ]);
+    if(!tfOk) throw new Error('TF failed');
     bar.style.width='70%';
-    msg.textContent='Almost ready!';
+    const pdOk=await loadScript([
+      'https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js',
+      'https://unpkg.com/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js'
+    ]);
+    if(!pdOk) throw new Error('PD failed');
+    await tf.ready();
+    bar.style.width='90%';
     detector=await poseDetection.createDetector(
       poseDetection.SupportedModels.MoveNet,
       {modelType:poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING}
     );
     bar.style.width='100%';
-    msg.textContent='Ready!';
   }catch(e){
-    console.log('Tracking unavailable — game runs without it');
+    console.log('Tracking unavailable');
     bar.style.width='100%';
-    msg.textContent='Ready! (no tracking)';
     detector=null;
   }
 }
 
 async function poseLoop(){
   const video=document.getElementById('webcam');
-  if(!detector||!video.readyState){requestAnimationFrame(poseLoop);return}
+  if(!detector||!active||!video.readyState){requestAnimationFrame(poseLoop);return}
   try{
     const poses=await detector.estimatePoses(video,{flipHorizontal:false});
     if(poses.length>0) analyzePose(poses[0].keypoints);
@@ -1101,151 +586,261 @@ function analyzePose(kps){
   const get=n=>kps.find(k=>k.name===n);
   const ls=get('left_shoulder'),rs=get('right_shoulder');
   const lw=get('left_wrist'),rw=get('right_wrist');
-  if(!ls||!rs||!lw||!rw)return;
+  const le=get('left_elbow'),re=get('right_elbow');
+  if(!ls||!rs||!lw||!rw) return;
   const c=0.3;
-  moves.lUp=lw.score>c&&ls.score>c&&lw.y<ls.y-0.1;
-  moves.rUp=rw.score>c&&rs.score>c&&rw.y<rs.y-0.1;
-  document.getElementById('ls').textContent='L: '+(moves.lUp?'✅':'—');
-  document.getElementById('rs').textContent='R: '+(moves.rUp?'✅':'—');
-}
-
-// ══════════════════════════════════════════
-// MUSIC
-// ══════════════════════════════════════════
-function toggleMusic(){
-  if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-  const btn=document.getElementById('mbtn');
-  if(musicOn){clearInterval(beatTimer);musicOn=false;btn.textContent='🎵 Music';btn.classList.remove('on')}
-  else{playBeat();musicOn=true;btn.textContent='🔇 Stop';btn.classList.add('on')}
-}
-function playBeat(){
-  let step=0;const ms=(60/120/4)*1000;
-  function tick(){
-    const t=audioCtx.currentTime;
-    if(step%16===0||step%16===8)kick(t);
-    if(step%16===4||step%16===12)snare(t);
-    hat(t,step%2===0?0.12:0.05);
-    if(step%16===0)bass(t,60);if(step%16===8)bass(t,67);step++;
+  moves.lUp=lw.score>c&&ls.score>c&&lw.y<ls.y-0.05;
+  moves.rUp=rw.score>c&&rs.score>c&&rw.y<rs.y-0.05;
+  // Clap: both wrists close together horizontally at chest level
+  if(lw.score>c&&rw.score>c){
+    const dist=Math.abs(lw.x-rw.x);
+    const avgY=(lw.y+rw.y)/2;
+    const shoulderY=(ls.y+rs.y)/2;
+    moves.clap = dist<0.15 && avgY > shoulderY-0.1;
   }
-  tick();beatTimer=setInterval(tick,ms);
-}
-function kick(t){const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.frequency.setValueAtTime(160,t);o.frequency.exponentialRampToValueAtTime(40,t+0.15);g.gain.setValueAtTime(0.8,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.25);o.start(t);o.stop(t+0.25)}
-function snare(t){const b=audioCtx.createBuffer(1,audioCtx.sampleRate*0.1,audioCtx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const s=audioCtx.createBufferSource();s.buffer=b;const g=audioCtx.createGain(),f=audioCtx.createBiquadFilter();f.type='highpass';f.frequency.value=1000;s.connect(f);f.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(0.28,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.1);s.start(t)}
-function hat(t,v){const b=audioCtx.createBuffer(1,audioCtx.sampleRate*0.04,audioCtx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const s=audioCtx.createBufferSource();s.buffer=b;const g=audioCtx.createGain(),f=audioCtx.createBiquadFilter();f.type='highpass';f.frequency.value=8000;s.connect(f);f.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.035);s.start(t)}
-function bass(t,midi){const freq=440*Math.pow(2,(midi-69)/12),o=audioCtx.createOscillator(),g=audioCtx.createGain(),f=audioCtx.createBiquadFilter();o.type='sawtooth';o.frequency.value=freq;f.type='lowpass';f.frequency.value=280;o.connect(f);f.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(0.2,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.38);o.start(t);o.stop(t+0.38)}
+  // Arms down = wrists below hips (touch toes approximation)
+  moves.armsDown = lw.score>c && rw.score>c && lw.y>0.7 && rw.y>0.7;
+  // Wave = one arm up but not both
+  moves.wave = (moves.lUp||moves.rUp) && !(moves.lUp&&moves.rUp);
 
-// ══════════════════════════════════════════
-// SHARE
-// ══════════════════════════════════════════
-function showShare(){
-  document.getElementById('share-screen').style.display='flex';
-  document.getElementById('share-title').textContent=`Amazing, ${avatarCfg.name}! 🌟`;
-  document.getElementById('share-name-display').textContent=avatarCfg.name+' danced with Nova!';
-  const starCount=Math.max(1,stars);
-  document.getElementById('share-stars').textContent='⭐'.repeat(starCount)+'☆'.repeat(5-starCount);
+  document.getElementById('ls').textContent='L:'+(moves.lUp?'✅':'—');
+  document.getElementById('rs').textContent='R:'+(moves.rUp?'✅':'—');
 }
 
-function shareVideo(){
-  const text=`🕺 ${avatarCfg.name} just danced with Nova and scored ${score} points! ⭐\n\nTry Nova Dance: ${window.location.href}`;
-  if(navigator.share){
-    navigator.share({title:'Nova Dance',text,url:window.location.href}).catch(()=>{});
-  } else {
-    navigator.clipboard.writeText(text).then(()=>alert('Copied to clipboard! Share it! 🎉'));
+// ══════════════════════════════════════════
+// SONG FLOW
+// ══════════════════════════════════════════
+function checkAction(action){
+  if(!action) return false;
+  if(action==='clap') return moves.clap;
+  if(action==='armsUp') return moves.lUp&&moves.rUp;
+  if(action==='armsDown') return moves.armsDown;
+  if(action==='wave') return moves.wave||moves.lUp||moves.rUp;
+  return false;
+}
+
+function showLyric(txt){
+  const el=document.getElementById('lyric-text');
+  el.textContent=txt;
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+}
+
+function showActionCue(emoji,label,durationMs){
+  const cue=document.getElementById('action-cue');
+  document.getElementById('action-emoji').textContent=emoji;
+  document.getElementById('action-word').textContent=label;
+  cue.classList.add('show');
+  setTimeout(()=>cue.classList.remove('show'),durationMs);
+}
+
+function flashFeedback(type){
+  const f=document.getElementById('feedback-flash');
+  f.className='';
+  void f.offsetWidth;
+  f.className=type;
+  setTimeout(()=>f.className='',600);
+}
+
+function showScorePop(pts,color){
+  const el=document.getElementById('score-pop');
+  el.textContent='+'+pts;
+  el.style.color=color||'#ffd700';
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),900);
+}
+
+function burst(color){
+  const z=document.getElementById('split');
+  for(let i=0;i<10;i++){
+    const p=document.createElement('div');
+    p.className='particle';
+    const sz=5+Math.random()*8;
+    p.style.cssText=`width:${sz}px;height:${sz}px;background:${color};left:${20+Math.random()*60}%;bottom:${20+Math.random()*40}%;animation-delay:${Math.random()*0.3}s`;
+    z.appendChild(p);
+    setTimeout(()=>p.remove(),1500);
   }
+}
+
+function updateStars(){
+  document.getElementById('top-stars')='⭐'.repeat(stars)+'☆'.repeat(5-stars);
+}
+
+function startSong(){
+  timelineIdx=0;
+  songStartTime=Date.now();
+  playSong();
+
+  // Nova hype at start
+  novaMode='hype';
+  setTimeout(()=>novaMode='idle',2000);
+
+  songTimer=setInterval(()=>{
+    // Progress bar — use real audio time if available
+    const elapsed = window._songAudio 
+      ? window._songAudio.currentTime * 1000 
+      : Date.now()-songStartTime;
+    // Progress bar
+    document.getElementById('progress-fill').style.width=
+      Math.min(100,(elapsed/SONG_DURATION)*100)+'%';
+
+    // Check timeline
+    while(timelineIdx<TIMELINE.length && elapsed>=TIMELINE[timelineIdx].t){
+      const entry=TIMELINE[timelineIdx];
+      showLyric(entry.lyric);
+
+      if(entry.action && entry.emoji){
+        currentAction=entry;
+        actionDetected=false;
+        actionWindow=true;
+
+        // Show action cue
+        showActionCue(entry.emoji, entry.label||entry.lyric, 2500);
+
+        // Nova mirrors the action
+        if(entry.action==='armsUp') novaMode='armsUp';
+        else novaMode='hype';
+        setTimeout(()=>novaMode='idle',2500);
+
+        // Check during action window (2.5 seconds)
+        let checks=0;
+        const checker=setInterval(()=>{
+          checks++;
+          if(actionDetected||checks>25){clearInterval(checker);return}
+          if(checkAction(currentAction.action)){
+            actionDetected=true;
+            clearInterval(checker);
+            // SUCCESS
+            score+=currentAction.pts;
+            document.getElementById('top-score').textContent=score+' pts';
+            flashFeedback('success');
+            showScorePop(currentAction.pts,'#00ff99');
+            burst('#ff6fd8');
+            novaMode='hype';
+            setTimeout(()=>novaMode='idle',1000);
+          }
+        },100);
+
+        // After window — if missed
+        setTimeout(()=>{
+          if(!actionDetected && actionWindow){
+            flashFeedback('miss');
+            if(stars>1){stars--;document.getElementById('top-stars').textContent='⭐'.repeat(stars)+'☆'.repeat(5-stars)}
+          }
+          actionWindow=false;
+        },2600);
+      }
+      timelineIdx++;
+    }
+
+    // Song end
+    if(elapsed>=SONG_DURATION){
+      clearInterval(songTimer);
+      setTimeout(showEndScreen,1000);
+    }
+  },100);
+}
+
+function showEndScreen(){
+  document.getElementById('end-screen').style.display='flex';
+  const s=Math.max(1,stars);
+  document.getElementById('end-stars').textContent='⭐'.repeat(s)+'☆'.repeat(5-s);
+  document.getElementById('end-score').textContent=score+' pts';
+  const titles=['Keep trying!','Good job!','Great!','Amazing!','PERFECT! 🔥'];
+  document.getElementById('end-title').textContent=titles[s-1]||'Amazing!';
+  document.getElementById('end-words').textContent=
+    `You sang Hello Hello with Nova and got ${score} points!`;
+  // Nova celebrates
+  novaMode='hype';
+  speak("Wow! You did amazing! Let's do it again!");
 }
 
 function playAgain(){
-  document.getElementById('share-screen').style.display='none';
-  score=0; stars=5; currentMoveIdx=0;
+  document.getElementById('end-screen').style.display='none';
+  score=0; stars=5;
   document.getElementById('top-score').textContent='0 pts';
-  updateStars();
-  startRound();
+  document.getElementById('top-stars').textContent='⭐⭐⭐⭐⭐';
+  document.getElementById('progress-fill').style.width='0%';
+  document.getElementById('lyric-text').textContent='';
+  startSong();
+}
+
+function shareResult(){
+  const txt=`🎵 I sang Hello Hello with Nova and scored ${score} points! ${('⭐'.repeat(stars))}\n\nTry it: ${window.location.href}`;
+  if(navigator.share) navigator.share({title:'Nova Dance',text:txt}).catch(()=>{});
+  else navigator.clipboard.writeText(txt).then(()=>alert('Copied! Share it! 🎉'));
 }
 
 // ══════════════════════════════════════════
 // CAMERA
 // ══════════════════════════════════════════
+function startCameraSetup(){
+  document.getElementById('intro-screen').style.display='none';
+  document.getElementById('cam-screen').style.display='flex';
+}
+
 async function requestCamera(){
   try{
-    const stream=await navigator.mediaDevices.getUserMedia({
-      video:{width:640,height:480,facingMode:'user'},audio:false
-    });
+    const stream=await navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'},audio:false});
     const video=document.getElementById('webcam');
     video.srcObject=stream;
     await new Promise(r=>video.onloadedmetadata=r);
     await video.play();
     video.style.opacity='1';
-    const nc=document.getElementById('no-cam-msg');
-    if(nc) nc.style.display='none';
-    document.getElementById('cam-permission').style.display='none';
+    document.getElementById('cam-screen').style.display='none';
     active=true;
     poseLoop();
-    // Start Nova greeting immediately with browser speech (no Claude needed)
-    setTimeout(()=>{
-      speak("Hi! I'm Nova! Watch me do a move — then YOU copy it! Ready? Let's go!");
-      setTimeout(startRound, 4000);
-    }, 500);
+    beginSession();
   }catch(e){
     const err=document.getElementById('cam-err');
-    if(err){
-      err.style.display='block';
-      err.textContent='Camera error: '+e.message+' — try refreshing and allow camera access';
-    }
-    // Start game anyway without camera
-    document.getElementById('cam-permission').style.display='none';
-    speak("Hi! I'm Nova! Let's dance! Watch me — then copy!");
-    setTimeout(startRound, 3500);
+    err.style.display='block';
+    err.textContent='Camera error — '+e.message;
   }
 }
 
-// ══════════════════════════════════════════
-// START GAME — skip creator, go straight in
-// ══════════════════════════════════════════
-function startGame(){
-  avatarCfg.name='Star';
+function skipCamera(){
+  document.getElementById('cam-screen').style.display='none';
+  beginSession();
+}
 
-  document.getElementById('creator-screen').style.display='none';
-  document.getElementById('game-screen').style.display='flex';
-
-  // Build Nova SVG
-  document.getElementById('nova-svg').innerHTML=buildNovaSVG();
-
-  // Spawn bg stars + orbs for Nova
-  const nobg=document.getElementById('nova-bg-anim');
-  for(let i=0;i<20;i++){
-    const s=document.createElement('div');
-    s.className='bg-star';
-    const sz=1+Math.random()*3;
-    s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*80}%;animation-delay:${Math.random()*3}s;animation-duration:${1.5+Math.random()*2.5}s`;
-    nobg.appendChild(s);
-  }
-  const orbColors=['rgba(255,111,216,0.12)','rgba(124,111,255,0.12)','rgba(0,210,255,0.08)'];
-  for(let i=0;i<3;i++){
-    const o=document.createElement('div');
-    o.className='bg-orb';
-    const sz=80+Math.random()*120;
-    o.style.cssText=`width:${sz}px;height:${sz}px;background:${orbColors[i]};left:${10+Math.random()*80}%;top:${10+Math.random()*60}%;animation-delay:${i*1.5}s;animation-duration:${4+i}s`;
-    nobg.appendChild(o);
-  }
-
-  animateAvatars();
-  document.getElementById('cam-permission').style.display='flex';
+async function beginSession(){
+  initAudio();
+  await speak("Hi! I'm Nova! Let's sing Hello Hello together! Watch the screen and copy the moves!");
+  setTimeout(startSong, 3500);
 }
 
 // ══════════════════════════════════════════
-// BOOT — skip straight to game
+// BOOT
 // ══════════════════════════════════════════
-window.addEventListener('load', async()=>{
+window.addEventListener('load',async()=>{
   speechSynthesis.getVoices();
   speechSynthesis.onvoiceschanged=()=>speechSynthesis.getVoices();
 
-  try{
-    await initDetector();
-  }catch(e){console.log('TF load error:',e)}
+  document.getElementById('nova-svg').innerHTML=buildNovaSVG();
 
-  document.getElementById('loading-overlay').style.display='none';
-  // Skip creator — go straight to game
-  startGame();
+  // Spawn bg stars
+  const bg=document.getElementById('nova-bg');
+  for(let i=0;i<18;i++){
+    const s=document.createElement('div');s.className='bg-star';
+    const sz=1+Math.random()*2.5;
+    s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*80}%;animation-delay:${Math.random()*3}s;animation-duration:${1.5+Math.random()*2}s`;
+    bg.appendChild(s);
+  }
+  ['rgba(255,111,216,0.1)','rgba(124,111,255,0.1)','rgba(0,210,255,0.07)'].forEach((c,i)=>{
+    const o=document.createElement('div');o.className='bg-orb';
+    const sz=80+Math.random()*100;
+    o.style.cssText=`width:${sz}px;height:${sz}px;background:${c};left:${10+Math.random()*80}%;top:${10+Math.random()*60}%;animation-delay:${i*1.5}s;animation-duration:${4+i}s`;
+    bg.appendChild(o);
+  });
+
+  animateNova();
+  await initDetector();
+
+  document.getElementById('loading').style.display='none';
+  document.getElementById('intro-screen').style.display='flex';
 });
 </script>
 </body>
