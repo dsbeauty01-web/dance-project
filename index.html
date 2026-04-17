@@ -457,8 +457,20 @@ const N = {
 function playSong(){
   const audio = new Audio('hello.mp3');
   audio.volume = 0.85;
-  audio.play().catch(e=>console.log('Audio play error:',e));
+  audio.load();
+  const playPromise = audio.play();
+  if(playPromise){
+    playPromise.catch(e=>{
+      console.log('Audio error:',e);
+      // Try again after tiny delay
+      setTimeout(()=>audio.play().catch(()=>{}), 500);
+    });
+  }
   window._songAudio = audio;
+  // End song when audio ends
+  audio.onended = ()=>{
+    setTimeout(showEndScreen, 800);
+  };
 }
 
 // ══════════════════════════════════════════
@@ -736,10 +748,9 @@ function startSong(){
       timelineIdx++;
     }
 
-    // Song end
-    if(elapsed>=SONG_DURATION){
+    // Song end check
+    if(window._songAudio && window._songAudio.ended){
       clearInterval(songTimer);
-      setTimeout(showEndScreen,1000);
     }
   },100);
 }
@@ -808,8 +819,15 @@ function skipCamera(){
 
 async function beginSession(){
   initAudio();
-  await speak("Hi! I'm Nova! Let's sing Hello Hello together! Watch the screen and copy the moves!");
-  setTimeout(startSong, 3500);
+  // Show bubble immediately
+  showBubble("Hi! Let's sing Hello Hello! 🎵");
+  // Speak via ElevenLabs
+  speak("Hi! I'm Nova! Let's sing Hello Hello together! Watch the screen and copy the moves!");
+  // Start song after fixed delay — works regardless of voice timing
+  setTimeout(()=>{
+    showBubble("Here we go! 🎵");
+    setTimeout(startSong, 1500);
+  }, 5000);
 }
 
 // ══════════════════════════════════════════
