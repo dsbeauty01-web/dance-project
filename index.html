@@ -455,22 +455,49 @@ const N = {
 };
 
 function playSong(){
+  // Try MP3 first
   const audio = new Audio('hello.mp3');
   audio.volume = 0.85;
-  audio.load();
-  const playPromise = audio.play();
-  if(playPromise){
-    playPromise.catch(e=>{
-      console.log('Audio error:',e);
-      // Try again after tiny delay
-      setTimeout(()=>audio.play().catch(()=>{}), 500);
-    });
-  }
-  window._songAudio = audio;
-  // End song when audio ends
-  audio.onended = ()=>{
-    setTimeout(showEndScreen, 800);
+  
+  audio.oncanplaythrough = ()=>{
+    audio.play().catch(()=>playWebAudio());
+    window._songAudio = audio;
+    audio.onended = ()=>setTimeout(showEndScreen, 1000);
   };
+  
+  audio.onerror = ()=>{
+    console.log('MP3 not found — using Web Audio');
+    playWebAudio();
+  };
+
+  // Timeout fallback — if MP3 not loading after 3s
+  setTimeout(()=>{
+    if(!window._songAudio){
+      console.log('MP3 timeout — using Web Audio');
+      playWebAudio();
+    }
+  }, 3000);
+
+  audio.load();
+}
+
+function playWebAudio(){
+  if(!audioCtx) return;
+  // Simple beat to keep rhythm
+  const t0 = audioCtx.currentTime;
+  for(let i=0;i<80;i++){
+    const t = t0 + i*0.5;
+    if(i%8===0||i%8===4){
+      const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+      o.connect(g);g.connect(audioCtx.destination);
+      o.frequency.setValueAtTime(160,t);
+      o.frequency.exponentialRampToValueAtTime(40,t+0.1);
+      g.gain.setValueAtTime(0.4,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.15);
+      o.start(t);o.stop(t+0.15);
+    }
+  }
+  // End after song duration
+  setTimeout(showEndScreen, SONG_DURATION + 1000);
 }
 
 // ══════════════════════════════════════════
@@ -819,15 +846,18 @@ function skipCamera(){
 
 async function beginSession(){
   initAudio();
-  // Show bubble immediately
+  // Use browser speech only for intro — reliable, no async issues
+  const intro = new SpeechSynthesisUtterance("Hi! Let's sing Hello Hello! Watch the screen and copy the moves! Here we go!");
+  intro.rate = 0.88;
+  intro.pitch = 1.2;
+  intro.volume = 1;
+  const vs = speechSynthesis.getVoices();
+  const v = vs.find(x=>x.name.includes('Samantha')||x.name.includes('Karen')||x.name.includes('Google UK English Female'));
+  if(v) intro.voice = v;
   showBubble("Hi! Let's sing Hello Hello! 🎵");
-  // Speak via ElevenLabs
-  speak("Hi! I'm Nova! Let's sing Hello Hello together! Watch the screen and copy the moves!");
-  // Start song after fixed delay — works regardless of voice timing
-  setTimeout(()=>{
-    showBubble("Here we go! 🎵");
-    setTimeout(startSong, 1500);
-  }, 5000);
+  // Start song 5 seconds after page loads regardless
+  setTimeout(startSong, 5000);
+  speechSynthesis.speak(intro);
 }
 
 // ══════════════════════════════════════════
