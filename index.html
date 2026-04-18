@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -74,14 +75,19 @@ body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
 #lyric-text.show{opacity:1}
 
 /* Action cue — big center */
-#action-cue{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);
-  z-index:25;text-align:center;pointer-events:none;transition:all .3s cubic-bezier(.34,1.56,.64,1)}
+#action-cue{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%) scale(0);
+  z-index:25;text-align:center;pointer-events:none;transition:all .3s cubic-bezier(.34,1.56,.64,1);
+  background:rgba(0,0,0,0.75);border-radius:28px;padding:16px 28px;
+  border:3px solid rgba(255,111,216,0.6);backdrop-filter:blur(8px);
+  box-shadow:0 0 40px rgba(255,111,216,0.3);min-width:200px}
 #action-cue.show{transform:translate(-50%,-50%) scale(1)}
-#action-emoji{font-size:clamp(60px,14vw,100px);display:block;
-  filter:drop-shadow(0 0 20px rgba(255,255,255,0.5));animation:pulseEmoji 0.6s ease-in-out infinite alternate}
-@keyframes pulseEmoji{0%{transform:scale(1)}100%{transform:scale(1.08)}}
-#action-word{font-family:'Fredoka One',cursive;font-size:clamp(22px,5vw,36px);
-  color:#fff;text-shadow:0 0 30px currentColor;margin-top:4px;display:block}
+#action-emoji{font-size:clamp(48px,10vw,80px);display:block;
+  animation:pulseEmoji 0.5s ease-in-out infinite alternate}
+@keyframes pulseEmoji{0%{transform:scale(1)}100%{transform:scale(1.1)}}
+#action-word{font-family:'Fredoka One',cursive;font-size:clamp(20px,4.5vw,32px);
+  color:#ff6fd8;text-shadow:0 0 20px rgba(255,111,216,0.8);margin-top:4px;display:block}
+#action-instruction{font-family:'Nunito',sans-serif;font-size:clamp(13px,2.5vw,18px);
+  color:rgba(255,255,255,0.85);font-weight:700;margin-top:6px;display:block;line-height:1.3}
 
 /* Progress bar */
 #progress-bar{position:absolute;bottom:0;left:0;right:0;height:4px;background:rgba(255,255,255,0.1);z-index:30}
@@ -219,6 +225,7 @@ body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
     <div id="action-cue">
       <span id="action-emoji">👏</span>
       <span id="action-word">CLAP!</span>
+      <span id="action-instruction">Clap your hands!</span>
     </div>
     <div id="feedback-flash"></div>
     <div id="score-pop">+100</div>
@@ -270,41 +277,43 @@ const ELEVENLABS_VOICE = 'EXAVITQu4vr4xnSDxMaL'; // Sarah
 // Each entry: [startMs, endMs, lyric, action, emoji, points]
 // action: null = just lyrics, 'clap','armsUp','armsDown','wave'
 // ══════════════════════════════════════════
-const SONG_DURATION = 91000; // 91 seconds — real song
+const SONG_DURATION = 91000;
 
-// Timeline matched to actual Hello Hello Super Simple Songs
-// Song structure: intro (8s) → verse1 (38s) → verse2 (38s) → outro (7s)
 const TIMELINE = [
-  // INTRO
-  {t:0,      lyric:"🎵 Hello Hello! 🎵",         action:null,        emoji:null,  pts:0},
-  {t:4000,   lyric:"Get ready to move!",          action:null,        emoji:null,  pts:0},
+  {t:0,      lyric:"🎵 Hello Hello! 🎵",            action:null,          emoji:null,  pts:0},
+  {t:4000,   lyric:"Get ready! Watch Nova!",         action:null,          emoji:null,  pts:0},
 
-  // VERSE 1 — "Can you clap your hands?"
-  {t:8000,   lyric:"Hello, hello!",               action:null,        emoji:null,  pts:0},
-  {t:10500,  lyric:"Can you clap your hands?",    action:'clap',      emoji:'👏',  pts:150, label:'CLAP!'},
-  {t:14000,  lyric:"Hello, hello!",               action:null,        emoji:null,  pts:0},
-  {t:16500,  lyric:"Can you clap your hands?",    action:'clap',      emoji:'👏',  pts:150, label:'CLAP!'},
-  {t:20000,  lyric:"Can you stretch up high?",    action:'armsUp',    emoji:'🙌',  pts:200, label:'STRETCH UP!'},
-  {t:23500,  lyric:"Can you touch your toes?",    action:'armsDown',  emoji:'👇',  pts:200, label:'TOUCH TOES!'},
-  {t:27000,  lyric:"Can you turn around?",        action:null,        emoji:'🔄',  pts:0},
-  {t:30000,  lyric:"Can you say... Hello!",       action:'wave',      emoji:'👋',  pts:150, label:'WAVE HELLO!'},
+  // VERSE 1
+  {t:8000,   lyric:"Hello,",      action:'oneArm', emoji:'👋', pts:100, label:'HELLO!',       instruction:'Raise ONE arm up!'},
+  {t:10000,  lyric:"hello!",      action:'oneArm', emoji:'👋', pts:100, label:'HELLO!',       instruction:'Raise ONE arm up!'},
+  {t:11500,  lyric:"Can you clap your hands?", action:'clap', emoji:'👏', pts:150, label:'CLAP!', instruction:'Clap your hands twice!'},
+  {t:14000,  lyric:"Hello,",      action:'oneArm', emoji:'👋', pts:100, label:'HELLO!',       instruction:'Raise ONE arm up!'},
+  {t:15500,  lyric:"hello!",      action:'oneArm', emoji:'👋', pts:100, label:'HELLO!',       instruction:'Raise ONE arm up!'},
+  {t:17000,  lyric:"Can you clap your hands?", action:'clap', emoji:'👏', pts:150, label:'CLAP!', instruction:'Clap your hands twice!'},
+  {t:20000,  lyric:"Can you stretch up high?", action:'armsUp', emoji:'🙌', pts:200, label:'STRETCH UP!', instruction:'Both arms UP — hold it!'},
+  {t:24000,  lyric:"Can you touch your toes?", action:'armsDown', emoji:'👇', pts:150, label:'TOUCH TOES!', instruction:'Reach both arms DOWN low!'},
+  {t:27500,  lyric:"Can you turn around?",     action:'shrug', emoji:'🤷', pts:100, label:'SHRUG!',      instruction:'Raise both shoulders up!'},
+  {t:30500,  lyric:"Can you say... Hello!",    action:'oneArm', emoji:'👋', pts:150, label:'WAVE HELLO!', instruction:'Wave one arm — say Hello!'},
 
-  // VERSE 2 — "Can you stamp your feet?"
-  {t:34000,  lyric:"Hello, hello!",               action:null,        emoji:null,  pts:0},
-  {t:36500,  lyric:"Can you stamp your feet?",    action:'clap',      emoji:'👏',  pts:150, label:'CLAP ALONG!'},
-  {t:40000,  lyric:"Hello, hello!",               action:null,        emoji:null,  pts:0},
-  {t:42500,  lyric:"Can you stamp your feet?",    action:'clap',      emoji:'👏',  pts:150, label:'CLAP ALONG!'},
-  {t:46000,  lyric:"Can you stretch up high?",    action:'armsUp',    emoji:'🙌',  pts:200, label:'STRETCH UP!'},
-  {t:49500,  lyric:"Can you touch your toes?",    action:'armsDown',  emoji:'👇',  pts:200, label:'TOUCH TOES!'},
-  {t:53000,  lyric:"Can you turn around?",        action:null,        emoji:'🔄',  pts:0},
-  {t:56000,  lyric:"Can you say... Hello!",       action:'wave',      emoji:'👋',  pts:150, label:'WAVE HELLO!'},
+  // VERSE 2
+  {t:34500,  lyric:"Hello,",      action:'oneArm', emoji:'👋', pts:100, label:'HELLO!',       instruction:'Raise ONE arm up!'},
+  {t:36000,  lyric:"hello!",      action:'oneArm', emoji:'👋', pts:100, label:'HELLO!',       instruction:'Raise ONE arm up!'},
+  {t:37500,  lyric:"Can you stamp your feet?", action:'shrug', emoji:'🤷', pts:100, label:'SHRUG!',      instruction:'Raise both shoulders up!'},
+  {t:40500,  lyric:"Hello,",      action:'oneArm', emoji:'👋', pts:100, label:'HELLO!',       instruction:'Raise ONE arm up!'},
+  {t:42000,  lyric:"hello!",      action:'oneArm', emoji:'👋', pts:100, label:'HELLO!',       instruction:'Raise ONE arm up!'},
+  {t:43500,  lyric:"Can you stamp your feet?", action:'shrug', emoji:'🤷', pts:100, label:'SHRUG!',      instruction:'Raise both shoulders up!'},
+  {t:46500,  lyric:"Can you stretch up high?", action:'armsUp', emoji:'🙌', pts:200, label:'STRETCH UP!', instruction:'Both arms UP — hold it!'},
+  {t:50000,  lyric:"Can you touch your toes?", action:'armsDown', emoji:'👇', pts:150, label:'TOUCH TOES!', instruction:'Reach both arms DOWN low!'},
+  {t:53500,  lyric:"Can you turn around?",     action:'shrug', emoji:'🤷', pts:100, label:'SHRUG!',      instruction:'Raise both shoulders up!'},
+  {t:56500,  lyric:"Can you say... Hello!",    action:'oneArm', emoji:'👋', pts:150, label:'WAVE HELLO!', instruction:'Wave one arm — say Hello!'},
 
   // OUTRO
-  {t:60000,  lyric:"Hello, hello!",               action:'clap',      emoji:'👏',  pts:100, label:'ONE MORE CLAP!'},
-  {t:65000,  lyric:"Can you clap your hands?",    action:'clap',      emoji:'👏',  pts:100, label:'CLAP!'},
-  {t:70000,  lyric:"Can you stretch up high?",    action:'armsUp',    emoji:'🙌',  pts:100, label:'STRETCH UP!'},
-  {t:75000,  lyric:"Can you say... Hello!",       action:'wave',      emoji:'👋',  pts:100, label:'WAVE HELLO!'},
-  {t:82000,  lyric:"🌟 Amazing! 🌟",              action:null,        emoji:null,  pts:0},
+  {t:60000,  lyric:"Hello,",      action:'oneArm', emoji:'👋', pts:100, label:'HELLO!',       instruction:'Raise ONE arm up!'},
+  {t:62000,  lyric:"hello!",      action:'oneArm', emoji:'👋', pts:100, label:'HELLO!',       instruction:'Raise ONE arm up!'},
+  {t:64000,  lyric:"Can you clap?", action:'clap', emoji:'👏', pts:150, label:'CLAP!',        instruction:'Clap your hands!'},
+  {t:67000,  lyric:"Stretch up high!", action:'armsUp', emoji:'🙌', pts:200, label:'STRETCH UP!', instruction:'Both arms UP — hold it!'},
+  {t:71000,  lyric:"Say... Hello!", action:'oneArm', emoji:'👋', pts:150, label:'WAVE HELLO!', instruction:'Wave one arm — say Hello!'},
+  {t:80000,  lyric:"🌟 Amazing! 🌟", action:null, emoji:null, pts:0},
 ];
 
 // ══════════════════════════════════════════
@@ -546,38 +555,106 @@ function speakBrowser(txt){
 }
 
 // ══════════════════════════════════════════
-// NOVA ANIMATION
+// NOVA ANIMATION — proper arm positions per move
 // ══════════════════════════════════════════
+
+// Arm rotation values (radians)
+// Left arm: negative = up, positive = down
+// Right arm: positive = up, negative = down
+const ARM_POSES = {
+  idle:     { l: 0.3,   r: -0.3  }, // natural hanging
+  leftUp:   { l: -1.6,  r: -0.3  }, // left arm up, right idle
+  rightUp:  { l: 0.3,   r: 1.6   }, // right arm up, left idle
+  bothUp:   { l: -1.85, r: 1.85  }, // both straight up
+  bothDown: { l: 1.2,   r: -1.2  }, // both arms sweep down/forward
+  wideOpen: { l: -0.8,  r: 0.8   }, // arms out to sides (shrug)
+  clap1:    { l: -0.5,  r: 0.5   }, // clap position 1 - arms in
+  clap2:    { l: -1.0,  r: 1.0   }, // clap position 2 - arms out
+  waveL:    { l: -1.6,  r: -0.3  }, // wave left
+  hype:     { l: -1.5,  r: 1.5   }, // both up hype
+};
+
+let novaPose = 'idle';
+let novaAnimTimer = null;
+let clapPhase = 0;
+
+function setNovaPose(pose, durationMs) {
+  novaPose = pose;
+  if(novaAnimTimer) clearTimeout(novaAnimTimer);
+  if(durationMs) {
+    novaAnimTimer = setTimeout(()=>{ novaPose='idle'; }, durationMs);
+  }
+}
+
+// Special clap animation — rapid back and forth
+function novaDoClap(times) {
+  let count = 0;
+  const interval = setInterval(()=>{
+    novaPose = count % 2 === 0 ? 'clap1' : 'clap2';
+    count++;
+    if(count >= times * 2) {
+      clearInterval(interval);
+      novaPose = 'idle';
+    }
+  }, 200);
+}
+
+// Wave animation — arm goes up and wiggles
+function novaDoWave() {
+  novaPose = 'waveL';
+  let w = 0;
+  const waving = setInterval(()=>{
+    w++;
+    novaLTarget = w % 2 === 0 ? -1.6 : -1.2;
+    if(w >= 6) { clearInterval(waving); novaPose='idle'; }
+  }, 200);
+}
+
 function animateNova(){
   requestAnimationFrame(animateNova);
-  novaIdleT+=0.016;
+  novaIdleT += 0.016;
 
-  if(novaMode==='hype'||talking){
-    novaLTarget=-1.8+Math.sin(novaIdleT*6)*0.3;
-    novaRTarget=1.8+Math.sin(novaIdleT*6)*0.3;
-  } else if(novaMode==='armsUp'){
-    novaLTarget=-1.9;
-    novaRTarget=1.9;
-  } else if(novaMode==='idle'){
-    novaLTarget=0.3+Math.sin(novaIdleT*1.5)*0.18;
-    novaRTarget=-0.3+Math.sin(novaIdleT*1.5+1)*0.18;
+  // Get target from current pose
+  const pose = ARM_POSES[novaPose] || ARM_POSES.idle;
+
+  // Add idle breathing to idle pose
+  if(novaPose === 'idle') {
+    novaLTarget = pose.l + Math.sin(novaIdleT * 1.5) * 0.15;
+    novaRTarget = pose.r + Math.sin(novaIdleT * 1.5 + 1) * 0.15;
+  } else if(novaPose === 'hype') {
+    novaLTarget = pose.l + Math.sin(novaIdleT * 8) * 0.25;
+    novaRTarget = pose.r + Math.sin(novaIdleT * 8) * 0.25;
+  } else {
+    novaLTarget = pose.l;
+    novaRTarget = pose.r;
   }
 
-  novaLRot+=(novaLTarget-novaLRot)*0.1;
-  novaRRot+=(novaRTarget-novaRRot)*0.1;
+  // Smooth interpolation — faster for action moves
+  const speed = novaPose === 'idle' ? 0.08 : 0.15;
+  novaLRot += (novaLTarget - novaLRot) * speed;
+  novaRRot += (novaRTarget - novaRRot) * speed;
 
-  const nl=document.getElementById('nova-larm');
-  const nr=document.getElementById('nova-rarm');
-  const nm=document.getElementById('nova-mouth');
-  const ns=document.getElementById('nova-svg');
-  if(nl) nl.style.transform=`rotate(${novaLRot}rad)`;
-  if(nr) nr.style.transform=`rotate(${novaRRot}rad)`;
+  const nl = document.getElementById('nova-larm');
+  const nr = document.getElementById('nova-rarm');
+  const nm = document.getElementById('nova-mouth');
+  const ns = document.getElementById('nova-svg');
+
+  if(nl) nl.style.transform = `rotate(${novaLRot}rad)`;
+  if(nr) nr.style.transform = `rotate(${novaRRot}rad)`;
+
+  // Mouth opens when talking
   if(nm){
-    const open=talking?1+Math.abs(Math.sin(novaIdleT*14))*1.4:1;
-    nm.style.transform=`scaleY(${open})`;
-    nm.style.transformOrigin='100px 126px';
+    const open = talking ? 1 + Math.abs(Math.sin(novaIdleT * 14)) * 1.4 : 1;
+    nm.style.transform = `scaleY(${open})`;
+    nm.style.transformOrigin = '100px 126px';
   }
-  if(ns) ns.style.transform=`translateY(${Math.sin(novaIdleT*1.8)*6}px)`;
+
+  // Body bob
+  if(ns){
+    const bobSpeed = novaPose === 'hype' ? 4 : 1.8;
+    const bobAmt = novaPose === 'hype' ? 10 : 6;
+    ns.style.transform = `translateY(${Math.sin(novaIdleT * bobSpeed) * bobAmt}px)`;
+  }
 }
 
 // ══════════════════════════════════════════
@@ -749,24 +826,31 @@ function analyzePose(kps){
   const ls=get('left_shoulder'),rs=get('right_shoulder');
   const lw=get('left_wrist'),rw=get('right_wrist');
   const le=get('left_elbow'),re=get('right_elbow');
+  const nose=get('nose');
   if(!ls||!rs||!lw||!rw) return;
   const c=0.3;
+
+  // Arms up
   moves.lUp=lw.score>c&&ls.score>c&&lw.y<ls.y-0.05;
   moves.rUp=rw.score>c&&rs.score>c&&rw.y<rs.y-0.05;
-  // Clap: both wrists close together horizontally at chest level
-  if(lw.score>c&&rw.score>c){
-    const dist=Math.abs(lw.x-rw.x);
-    const avgY=(lw.y+rw.y)/2;
-    const shoulderY=(ls.y+rs.y)/2;
-    moves.clap = dist<0.15 && avgY > shoulderY-0.1;
+
+  // Arms down low (touch toes)
+  moves.armsDown=lw.score>c&&rw.score>c&&lw.y>0.7&&rw.y>0.7;
+
+  // Wave = one arm up
+  moves.wave=(moves.lUp||moves.rUp)&&!(moves.lUp&&moves.rUp);
+
+  // Shrug = both shoulders elevated (y decreases = moves up on screen)
+  // Compare shoulder Y to nose Y — if shoulders close to nose = shrug
+  if(nose&&nose.score>c&&ls.score>c&&rs.score>c){
+    const avgShoulderY=(ls.y+rs.y)/2;
+    const distToNose=avgShoulderY-nose.y;
+    moves.shrug=distToNose<0.15; // shoulders very close to nose = shrug
   }
-  // Arms down = wrists below hips (touch toes approximation)
-  moves.armsDown = lw.score>c && rw.score>c && lw.y>0.7 && rw.y>0.7;
-  // Wave = one arm up but not both
-  moves.wave = (moves.lUp||moves.rUp) && !(moves.lUp&&moves.rUp);
 
   document.getElementById('ls').textContent='L:'+(moves.lUp?'✅':'—');
   document.getElementById('rs').textContent='R:'+(moves.rUp?'✅':'—');
+  document.getElementById('cs').textContent='👏:'+(clapDetected?'✅':'—');
 }
 
 // ══════════════════════════════════════════
@@ -774,10 +858,12 @@ function analyzePose(kps){
 // ══════════════════════════════════════════
 function checkAction(action){
   if(!action) return false;
-  if(action==='clap') return clapDetected; // mic detection!
+  if(action==='clap') return clapDetected;
+  if(action==='oneArm') return moves.lUp||moves.rUp;
   if(action==='armsUp') return moves.lUp&&moves.rUp;
   if(action==='armsDown') return moves.armsDown;
-  if(action==='wave') return moves.wave||moves.lUp||moves.rUp;
+  if(action==='wave') return moves.lUp||moves.rUp;
+  if(action==='shrug') return moves.shrug;
   return false;
 }
 
@@ -789,10 +875,11 @@ function showLyric(txt){
   el.classList.add('show');
 }
 
-function showActionCue(emoji,label,durationMs){
+function showActionCue(emoji, label, instruction, durationMs){
   const cue=document.getElementById('action-cue');
   document.getElementById('action-emoji').textContent=emoji;
   document.getElementById('action-word').textContent=label;
+  document.getElementById('action-instruction').textContent=instruction||'';
   cue.classList.add('show');
   setTimeout(()=>cue.classList.remove('show'),durationMs);
 }
@@ -837,8 +924,7 @@ function startSong(){
   playSong();
 
   // Nova hype at start
-  novaMode='hype';
-  setTimeout(()=>novaMode='idle',2000);
+  setNovaPose('hype', 2000);
 
   songTimer=setInterval(()=>{
     // Progress bar — use real audio time if available
@@ -860,36 +946,63 @@ function startSong(){
         actionWindow=true;
 
         // Show action cue
-        showActionCue(entry.emoji, entry.label||entry.lyric, 2500);
+        showActionCue(entry.emoji, entry.label||entry.lyric, entry.instruction||'', 2800);
 
-        // Nova mirrors the action
-        if(entry.action==='armsUp') novaMode='armsUp';
-        else novaMode='hype';
-        setTimeout(()=>novaMode='idle',2500);
+        // Nova mirrors the action with correct pose
+        if(entry.action==='armsUp'){
+          setNovaPose('bothUp', 4000);
+        } else if(entry.action==='oneArm'||entry.action==='wave'){
+          // Alternate between left and right for hello
+          setNovaPose(Math.random()>0.5?'leftUp':'rightUp', 2500);
+        } else if(entry.action==='armsDown'){
+          setNovaPose('bothDown', 2500);
+        } else if(entry.action==='clap'){
+          novaDoClap(3);
+        } else if(entry.action==='shrug'){
+          setNovaPose('wideOpen', 2500);
+        }
 
         // Check during action window
         let checks=0;
+        let holdCount=0; // for armsUp hold detection
         const checker=setInterval(()=>{
           checks++;
-          if(actionDetected||checks>25){clearInterval(checker);return}
-          if(checkAction(currentAction.action)){
-            actionDetected=true;
-            clearInterval(checker);
-            // SUCCESS
-            score+=currentAction.pts;
-            document.getElementById('top-score').textContent=score+' pts';
-            flashFeedback('success');
-            showScorePop(currentAction.pts,'#00ff99');
-            burst('#ff6fd8');
-            novaMode='hype';
-            setTimeout(()=>novaMode='idle',1000);
-            // Play reaction clip based on action
-            const reactionMap={
-              clap:'clap', armsUp:'stretch',
-              armsDown:'amazing', wave:'hello'
-            };
-            const clipKey=reactionMap[currentAction.action]||'yes';
-            setTimeout(()=>playClip(clipKey), 200);
+          if(actionDetected||checks>35){clearInterval(checker);return}
+          const detected=checkAction(currentAction.action);
+          if(detected){
+            // armsUp needs to be held for ~2 seconds (20 checks at 100ms)
+            if(currentAction.action==='armsUp'){
+              holdCount++;
+              if(holdCount>=20){ // 2 seconds held
+                actionDetected=true;
+                clearInterval(checker);
+                score+=currentAction.pts;
+                document.getElementById('top-score').textContent=score+' pts';
+                flashFeedback('success');
+                showScorePop(currentAction.pts,'#00ff99');
+                burst('#ff6fd8');
+                setNovaPose('hype',1200);
+                setTimeout(()=>playClip('stretch'),200);
+              }
+            } else {
+              actionDetected=true;
+              clearInterval(checker);
+              score+=currentAction.pts;
+              document.getElementById('top-score').textContent=score+' pts';
+              flashFeedback('success');
+              showScorePop(currentAction.pts,'#00ff99');
+              burst('#ff6fd8');
+              setNovaPose('hype',1200);
+              const reactionMap={
+                clap:'clap', armsUp:'stretch',
+                armsDown:'amazing', wave:'hello',
+                oneArm:'yes', shrug:'great'
+              };
+              const clipKey=reactionMap[currentAction.action]||'yes';
+              setTimeout(()=>playClip(clipKey),200);
+            }
+          } else {
+            holdCount=0; // reset hold if arms drop
           }
         },100);
 
@@ -924,7 +1037,7 @@ function showEndScreen(){
   document.getElementById('end-title').textContent=titles[s-1]||'Amazing!';
   document.getElementById('end-words').textContent=
     `You sang Hello Hello with Nova and got ${score} points!`;
-  novaMode='hype';
+  setNovaPose('hype', 99999);
   setTimeout(()=>playClip('end'), 500);
 }
 
@@ -954,12 +1067,39 @@ function startCameraSetup(){
 
 async function requestCamera(){
   try{
-    const stream=await navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'},audio:false});
+    // Request camera + mic together in ONE call — browser only asks once
+    const stream=await navigator.mediaDevices.getUserMedia({
+      video:{width:640,height:480,facingMode:'user'},
+      audio:true  // mic requested here with camera
+    });
+
+    // Split streams
+    const videoTrack=stream.getVideoTracks()[0];
+    const audioTrack=stream.getAudioTracks()[0];
+
+    // Set up video
     const video=document.getElementById('webcam');
-    video.srcObject=stream;
+    const videoStream=new MediaStream([videoTrack]);
+    video.srcObject=videoStream;
     await new Promise(r=>video.onloadedmetadata=r);
     await video.play();
     video.style.opacity='1';
+
+    // Set up mic from same stream
+    if(audioTrack){
+      const micCtx=new(window.AudioContext||window.webkitAudioContext)();
+      const source=micCtx.createMediaStreamSource(new MediaStream([audioTrack]));
+      micAnalyser=micCtx.createAnalyser();
+      micAnalyser.fftSize=256;
+      micAnalyser.smoothingTimeConstant=0.3;
+      source.connect(micAnalyser);
+      micData=new Uint8Array(micAnalyser.frequencyBinCount);
+      micLoop();
+      const tag=document.getElementById('cam-tag');
+      if(tag) tag.textContent='You 🎯 🎤';
+      console.log('✅ Camera + Mic ready');
+    }
+
     document.getElementById('cam-screen').style.display='none';
     active=true;
     poseLoop();
@@ -967,7 +1107,7 @@ async function requestCamera(){
   }catch(e){
     const err=document.getElementById('cam-err');
     err.style.display='block';
-    err.textContent='Camera error — '+e.message;
+    err.textContent='Error: '+e.message+' — please allow camera and mic access';
   }
 }
 
@@ -978,16 +1118,12 @@ function skipCamera(){
 
 async function beginSession(){
   initAudio();
-  const micOk=await initMic();
-  if(micOk){
-    const tag=document.getElementById('cam-tag');
-    if(tag) tag.textContent='You 🎯 🎤';
-  }
-  // Generate clips in background while user waits
   preloadClips();
-  // Play intro immediately
   showBubble("Hi! Let's sing Hello Hello! 🎵");
   speakBrowser("Hi! I am Nova! Lets sing Hello Hello together! Watch the screen and copy the moves!");
+  setTimeout(()=>playClip('hype'), 35000);
+  setTimeout(startSong, 5000);
+}
   // Hype mid-song
   setTimeout(()=>playClip('hype'), 35000);
   // Start song after 5 seconds
