@@ -3,22 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova — Hello Hello!</title>
+<title>Nova — Hello Hello! v11</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;800&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column}
 
-/* ── TOP BAR ── */
 #topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:rgba(0,0,0,0.4);flex-shrink:0;backdrop-filter:blur(8px);z-index:10}
 #top-logo{font-family:'Fredoka One',cursive;font-size:18px;background:linear-gradient(135deg,#ff6fd8,#7c6fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 #top-stars{font-size:18px;letter-spacing:2px}
 #top-score{font-family:'Fredoka One',cursive;font-size:16px;color:#ffd700}
+#combo-badge{display:none;font-family:'Fredoka One',cursive;font-size:14px;color:#ff6fd8;padding:2px 10px;border-radius:12px;background:rgba(255,111,216,0.15);border:1px solid rgba(255,111,216,0.4);animation:comboPulse 0.5s ease-in-out infinite alternate}
+#combo-badge.show{display:inline-block}
+@keyframes comboPulse{from{transform:scale(1)}to{transform:scale(1.08)}}
 
-/* ── SPLIT ── */
 #split{display:grid;grid-template-columns:1fr 1fr;flex:1;min-height:0;position:relative}
 
-/* ── NOVA SIDE ── */
 #nova-side{position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
   background:radial-gradient(ellipse at 50% 20%, #3a0a6a 0%, #1a0340 50%, #0a0120 100%)}
 #nova-bg{position:absolute;inset:0;pointer-events:none}
@@ -26,17 +26,14 @@ body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
 @keyframes twinkle{0%,100%{opacity:.08}50%{opacity:.5}}
 .bg-orb{position:absolute;border-radius:50%;filter:blur(40px);animation:orbFloat 5s ease-in-out infinite}
 @keyframes orbFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-15px)}}
-/* Spotlight */
 #nova-side::before{content:'';position:absolute;top:-10%;left:50%;transform:translateX(-50%);width:200%;height:120%;
   background:radial-gradient(ellipse at 50% 0%,rgba(255,150,255,0.15) 0%,transparent 65%);pointer-events:none}
-/* Floor glow */
 #nova-side::after{content:'';position:absolute;bottom:40px;left:50%;transform:translateX(-50%);
   width:180px;height:20px;background:radial-gradient(ellipse,rgba(255,111,216,0.4),transparent 70%);
   border-radius:50%;pointer-events:none}
-#nova-wrap{position:relative;width:min(220px,46vw);flex-shrink:0;margin-bottom:44px}
+#nova-wrap{position:relative;width:min(240px,48vw);flex-shrink:0;margin-bottom:48px}
 #nova-svg{width:100%;height:auto;filter:drop-shadow(0 0 28px rgba(255,111,216,0.5))}
 
-/* Nova bubble */
 #nova-bubble{position:absolute;top:10px;left:8px;right:8px;background:rgba(124,111,255,0.93);
   border-radius:16px;padding:8px 12px;font-size:13px;font-weight:700;color:#fff;
   text-align:center;line-height:1.5;opacity:0;transition:opacity .3s;pointer-events:none;
@@ -51,7 +48,6 @@ body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
   backdrop-filter:blur(8px);white-space:nowrap}
 #nova-tag span{background:linear-gradient(135deg,#ff6fd8,#b8b0ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 
-/* ── CAMERA SIDE ── */
 #cam-side{position:relative;background:#0a0a1a;overflow:hidden}
 #webcam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);opacity:0;transition:opacity 1s}
 #cam-side::after{content:'';position:absolute;bottom:0;left:0;right:0;height:30%;
@@ -62,18 +58,15 @@ body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
 #track-pills{position:absolute;top:10px;right:10px;z-index:3;display:flex;flex-direction:column;gap:4px}
 .tpill{background:rgba(0,0,0,0.6);border-radius:8px;padding:3px 8px;font-size:10px;font-weight:700;display:flex;align-items:center;gap:4px}
 
-/* ── SONG OVERLAY ── */
 #song-overlay{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:0;pointer-events:none}
 
-/* Lyrics display */
 #lyric-box{position:absolute;bottom:56px;left:0;right:0;text-align:center;padding:0 12px;pointer-events:none;z-index:22}
 #lyric-text{font-family:'Fredoka One',cursive;font-size:clamp(16px,4vw,26px);
   color:#fff;text-shadow:0 0 20px rgba(255,111,216,0.8),0 2px 8px rgba(0,0,0,0.9);
   opacity:0;transition:opacity .3s;line-height:1.3}
 #lyric-text.show{opacity:1}
 
-/* Action cue — big center */
 #action-cue{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%) scale(0);
   z-index:25;text-align:center;pointer-events:none;transition:all .3s cubic-bezier(.34,1.56,.64,1);
   background:rgba(0,0,0,0.75);border-radius:28px;padding:16px 28px;
@@ -82,34 +75,30 @@ body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
 #action-cue.show{transform:translate(-50%,-50%) scale(1)}
 #action-emoji{font-size:clamp(48px,10vw,80px);display:block;
   animation:pulseEmoji 0.5s ease-in-out infinite alternate}
-@keyframes pulseEmoji{0%{transform:scale(1)}100%{transform:scale(1.1)}}
+@keyframes pulseEmoji{0%{transform:scale(1)}100%{transform:scale(1.15)}}
 #action-word{font-family:'Fredoka One',cursive;font-size:clamp(20px,4.5vw,32px);
   color:#ff6fd8;text-shadow:0 0 20px rgba(255,111,216,0.8);margin-top:4px;display:block}
 #action-instruction{font-family:'Nunito',sans-serif;font-size:clamp(13px,2.5vw,18px);
   color:rgba(255,255,255,0.85);font-weight:700;margin-top:6px;display:block;line-height:1.3}
 
-/* Progress bar */
 #progress-bar{position:absolute;bottom:0;left:0;right:0;height:4px;background:rgba(255,255,255,0.1);z-index:30}
 #progress-fill{height:100%;width:0%;background:linear-gradient(90deg,#ff6fd8,#7c6fff,#00d2ff);transition:width .1s linear;border-radius:0 2px 2px 0}
 
-/* Feedback flash */
 #feedback-flash{position:absolute;inset:0;z-index:28;opacity:0;pointer-events:none;transition:opacity .15s;border-radius:0}
 #feedback-flash.success{background:rgba(0,255,150,0.18);opacity:1}
+#feedback-flash.great{background:rgba(255,215,0,0.22);opacity:1}
 #feedback-flash.miss{background:rgba(255,150,0,0.12);opacity:1}
 
-/* Score pop */
 #score-pop{position:absolute;top:30%;left:50%;transform:translateX(-50%) scale(0);
   font-family:'Fredoka One',cursive;font-size:48px;z-index:30;pointer-events:none;
   transition:all .25s cubic-bezier(.34,1.56,.64,1);text-shadow:0 0 20px currentColor}
 #score-pop.show{transform:translateX(-50%) scale(1)}
 
-/* Particles */
 .particle{position:absolute;pointer-events:none;border-radius:50%;
   animation:pfloat 1.2s ease-out forwards;z-index:29}
 @keyframes pfloat{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-80px) scale(0)}}
 
-/* ── SCREENS ── */
-/* Intro */
+/* ── Intro ── */
 #intro-screen{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:20px;padding:24px;
   background:radial-gradient(ellipse at 50% 30%,#2d0a5a,#1a0533)}
@@ -120,13 +109,13 @@ body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
   padding:14px 40px;font-family:'Fredoka One',cursive;font-size:22px;color:#fff;cursor:pointer;
   box-shadow:0 6px 28px rgba(124,111,255,0.5);transition:transform .2s;width:100%;max-width:320px}
 .big-btn:hover{transform:scale(1.04)}
-.action-preview{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.action-preview{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:340px}
 .ap-item{display:flex;flex-direction:column;align-items:center;gap:4px;
-  background:rgba(255,255,255,0.08);border-radius:16px;padding:12px 16px}
-.ap-emoji{font-size:32px}
-.ap-label{font-size:12px;font-weight:700;color:rgba(255,255,255,0.6)}
+  background:rgba(255,255,255,0.08);border-radius:16px;padding:10px 8px}
+.ap-emoji{font-size:28px}
+.ap-label{font-size:11px;font-weight:700;color:rgba(255,255,255,0.6);text-align:center}
 
-/* Camera permission */
+/* ── Camera permission ── */
 #cam-screen{position:fixed;inset:0;z-index:45;display:none;flex-direction:column;
   align-items:center;justify-content:center;gap:16px;padding:24px;background:rgba(0,0,0,0.92)}
 #cam-screen h2{font-family:'Fredoka One',cursive;font-size:22px;text-align:center}
@@ -134,7 +123,17 @@ body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
 #cam-err{display:none;background:rgba(255,50,50,0.15);border:1px solid rgba(255,50,50,0.3);
   border-radius:10px;padding:10px;font-size:12px;color:#ff8080;text-align:center;max-width:280px}
 
-/* End screen */
+/* ── Calibration ── */
+#cal-screen{position:fixed;inset:0;z-index:46;display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;padding:24px;background:radial-gradient(ellipse at 50% 30%,#2d0a5a,#1a0533)}
+#cal-screen h2{font-family:'Fredoka One',cursive;font-size:24px;text-align:center;color:#ffd700}
+#cal-screen p{font-size:14px;color:rgba(255,255,255,0.7);text-align:center;max-width:320px;line-height:1.6}
+#cal-preview{width:220px;height:165px;border-radius:12px;object-fit:cover;transform:scaleX(-1);background:#000;border:3px solid rgba(255,215,0,0.4)}
+#cal-status{font-family:'Fredoka One',cursive;font-size:20px;color:#ffd700;min-height:28px;text-align:center}
+#cal-bar{width:260px;height:6px;background:rgba(255,255,255,0.1);border-radius:6px;overflow:hidden}
+#cal-bar-fill{height:100%;width:0%;background:linear-gradient(90deg,#ffd700,#ff8a00);transition:width .1s}
+
+/* ── End ── */
 #end-screen{position:fixed;inset:0;z-index:55;display:none;flex-direction:column;
   align-items:center;justify-content:center;gap:18px;padding:24px;
   background:radial-gradient(ellipse at 50% 30%,#2d0a5a,#1a0533)}
@@ -144,7 +143,7 @@ body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
 #end-score{font-family:'Fredoka One',cursive;font-size:28px;color:#ffd700}
 #end-words{font-size:15px;color:rgba(255,255,255,0.7);text-align:center;max-width:300px;line-height:1.6}
 
-/* Loading */
+/* ── Loading ── */
 #loading{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:14px;background:#1a0533}
 #loading h2{font-family:'Fredoka One',cursive;font-size:22px;color:#ff6fd8}
@@ -153,6 +152,10 @@ body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
 @keyframes spin{to{transform:rotate(360deg)}}
 #load-bar-wrap{width:260px;height:5px;background:rgba(255,255,255,0.1);border-radius:5px;overflow:hidden}
 #load-bar{height:100%;width:0%;background:linear-gradient(90deg,#ff6fd8,#7c6fff);border-radius:5px;transition:width .3s}
+
+/* ── Dev mode ── */
+#devtime{position:fixed;top:4px;right:4px;font-family:monospace;font-size:10px;color:rgba(255,255,255,0.4);background:rgba(0,0,0,0.5);padding:2px 6px;border-radius:4px;z-index:100;display:none}
+#devtime.show{display:block}
 </style>
 </head>
 <body>
@@ -165,21 +168,23 @@ body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
   <p id="load-msg" style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:8px">Starting up...</p>
 </div>
 
-<!-- INTRO SCREEN -->
+<!-- INTRO -->
 <div id="intro-screen" style="display:none">
-  <div style="font-size:64px">🎵</div>
+  <div style="font-size:56px">🎵</div>
   <h1>Hello Hello!</h1>
   <p>Sing and move along with Nova! Watch for the action — then YOU do it!</p>
   <div class="action-preview">
+    <div class="ap-item"><div class="ap-emoji">👋</div><div class="ap-label">Wave</div></div>
+    <div class="ap-item"><div class="ap-emoji">🙌</div><div class="ap-label">Hands Up</div></div>
     <div class="ap-item"><div class="ap-emoji">👏</div><div class="ap-label">Clap!</div></div>
-    <div class="ap-item"><div class="ap-emoji">🙌</div><div class="ap-label">Stretch Up!</div></div>
-    <div class="ap-item"><div class="ap-emoji">👇</div><div class="ap-label">Touch Toes!</div></div>
-    <div class="ap-item"><div class="ap-emoji">👋</div><div class="ap-label">Say Hello!</div></div>
+    <div class="ap-item"><div class="ap-emoji">🙆</div><div class="ap-label">Head</div></div>
+    <div class="ap-item"><div class="ap-emoji">🤷</div><div class="ap-label">Shrug</div></div>
+    <div class="ap-item"><div class="ap-emoji">⭐</div><div class="ap-label">Star</div></div>
   </div>
   <button class="big-btn" onclick="startCameraSetup()">Let's Go! 🎉</button>
 </div>
 
-<!-- CAMERA SCREEN -->
+<!-- CAMERA -->
 <div id="cam-screen">
   <div style="font-size:56px">📷🎤</div>
   <h2>Nova needs camera + mic!</h2>
@@ -189,17 +194,27 @@ body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
   <button onclick="skipCamera()" style="background:none;border:none;color:rgba(255,255,255,0.3);font-size:13px;cursor:pointer;margin-top:-8px">Skip camera →</button>
 </div>
 
-<!-- MAIN GAME -->
+<!-- CALIBRATION -->
+<div id="cal-screen">
+  <div style="font-size:56px">🧍📏</div>
+  <h2>Let's get ready!</h2>
+  <video id="cal-preview" autoplay playsinline muted></video>
+  <p>Stand up straight, arms at your sides. Hold still!</p>
+  <div id="cal-status">Get ready...</div>
+  <div id="cal-bar"><div id="cal-bar-fill"></div></div>
+</div>
+
+<!-- GAME -->
 <div id="topbar">
   <div id="top-logo">🌟 Nova</div>
   <div style="display:flex;align-items:center;gap:10px">
+    <div id="combo-badge">🔥 x1</div>
     <div id="top-stars">⭐⭐⭐⭐⭐</div>
     <div id="top-score">0 pts</div>
   </div>
 </div>
 
 <div id="split">
-  <!-- NOVA -->
   <div id="nova-side">
     <div id="nova-bg"></div>
     <div id="nova-wrap">
@@ -209,20 +224,19 @@ body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
     <div id="nova-tag"><span>Nova ✨</span></div>
   </div>
 
-  <!-- CAMERA -->
   <div id="cam-side">
     <video id="webcam" autoplay playsinline muted></video>
     <div id="cam-tag">You 🎯</div>
     <div id="track-pills">
-      <div class="tpill"><div style="width:5px;height:5px;border-radius:50%;background:#ff6fd8"></div><span id="ls">L:—</span></div>
-      <div class="tpill"><div style="width:5px;height:5px;border-radius:50%;background:#7c6fff"></div><span id="rs">R:—</span></div>
-      <div class="tpill"><div style="width:5px;height:5px;border-radius:50%;background:#ffd700"></div><span id="cs">👏:—</span></div>
-      <div class="tpill"><div style="width:5px;height:5px;border-radius:50%;background:#00ff99"></div><span id="ss">🤷:—</span></div>
-      <div class="tpill"><div style="width:5px;height:5px;border-radius:50%;background:#ff9d00"></div><span id="ds">👇:—</span></div>
+      <div class="tpill"><div style="width:5px;height:5px;border-radius:50%;background:#ff6fd8"></div><span id="p-wave">👋:—</span></div>
+      <div class="tpill"><div style="width:5px;height:5px;border-radius:50%;background:#7c6fff"></div><span id="p-both">🙌:—</span></div>
+      <div class="tpill"><div style="width:5px;height:5px;border-radius:50%;background:#ffd700"></div><span id="p-clap">👏:—</span></div>
+      <div class="tpill"><div style="width:5px;height:5px;border-radius:50%;background:#00ff99"></div><span id="p-head">🙆:—</span></div>
+      <div class="tpill"><div style="width:5px;height:5px;border-radius:50%;background:#ff9d00"></div><span id="p-shrug">🤷:—</span></div>
+      <div class="tpill"><div style="width:5px;height:5px;border-radius:50%;background:#00d2ff"></div><span id="p-star">⭐:—</span></div>
     </div>
   </div>
 
-  <!-- SONG OVERLAY (spans both sides) -->
   <div id="song-overlay">
     <div id="action-cue">
       <span id="action-emoji">👏</span>
@@ -233,12 +247,11 @@ body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
     <div id="score-pop">+100</div>
   </div>
 
-  <!-- Lyrics + progress (bottom) -->
   <div id="lyric-box"><div id="lyric-text"></div></div>
   <div id="progress-bar"><div id="progress-fill"></div></div>
 </div>
 
-<!-- END SCREEN -->
+<!-- END -->
 <div id="end-screen">
   <div style="font-size:72px">🎉</div>
   <h1 id="end-title">Amazing!</h1>
@@ -249,8 +262,14 @@ body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
   <button class="big-btn" onclick="shareResult()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);margin-top:-8px">📤 Share!</button>
 </div>
 
-<!-- TF -->
+<div id="devtime">t=0.0s</div>
+
 <script>
+// Dev mode: press D to show current song time (for fine-tuning timeline)
+window.addEventListener('keydown',e=>{
+  if(e.key==='d'||e.key==='D') document.getElementById('devtime').classList.toggle('show');
+});
+
 async function loadScript(urls){
   for(const url of urls){
     try{
@@ -271,68 +290,79 @@ async function loadScript(urls){
 // CONFIG
 // ══════════════════════════════════════════
 const ELEVENLABS_KEY = 'sk_0e751a9c5c9a159bfa840e96e432bf24b8ec27c9814ec83e';
-const ELEVENLABS_VOICE = 'EXAVITQu4vr4xnSDxMaL'; // Sarah
+const ELEVENLABS_VOICE = 'EXAVITQu4vr4xnSDxMaL';
+
+const SONG_DURATION = 91500; // 91.5 sec from MP3 analysis
 
 // ══════════════════════════════════════════
-// SONG TIMELINE
-// Hello Hello — one verse, ~50 seconds
-// Each entry: [startMs, endMs, lyric, action, emoji, points]
-// action: null = just lyrics, 'clap','armsUp','armsDown','wave'
+// TIMELINE — based on MP3 analysis + real lyrics
+// Real song: intro 0-14s, verse 1 14-38s, verse 2 40-66s, outro 72-88s
+// Each "Can you X" line is roughly 3 seconds
+// Action window = 2.5 sec after cue
 // ══════════════════════════════════════════
-const SONG_DURATION = 91000;
-
 const TIMELINE = [
-  {t:0,      lyric:"🎵 Hello Hello! 🎵",            action:null,          emoji:null,  pts:0},
-  {t:4000,   lyric:"Get ready! Watch Nova!",         action:null,          emoji:null,  pts:0},
+  {t:1000,  lyric:"🎵 Hello Hello! 🎵",             action:null},
+  {t:5000,  lyric:"Get ready! Watch Nova!",          action:null},
+  {t:10000, lyric:"Here we go!",                     action:null},
 
-  // VERSE 1
-  {t:8000,   lyric:"Hello,",      action:'oneArm', emoji:'👋', pts:100, label:'HELLO!',       instruction:'Raise ONE arm up!'},
-  {t:10000,  lyric:"hello!",      action:'oneArm', emoji:'👋', pts:100, label:'HELLO!',       instruction:'Raise ONE arm up!'},
-  {t:11500,  lyric:"Can you clap your hands?", action:'clap', emoji:'👏', pts:150, label:'CLAP!', instruction:'Clap your hands twice!'},
-  {t:14000,  lyric:"Hello,",      action:'oneArm', emoji:'👋', pts:100, label:'HELLO!',       instruction:'Raise ONE arm up!'},
-  {t:15500,  lyric:"hello!",      action:'oneArm', emoji:'👋', pts:100, label:'HELLO!',       instruction:'Raise ONE arm up!'},
-  {t:17000,  lyric:"Can you clap your hands?", action:'clap', emoji:'👏', pts:150, label:'CLAP!', instruction:'Clap your hands twice!'},
-  {t:20000,  lyric:"Can you stretch up high?", action:'armsUp', emoji:'🙌', pts:200, label:'STRETCH UP!', instruction:'Both arms UP — hold it!'},
-  {t:24000,  lyric:"Can you touch your toes?", action:'armsDown', emoji:'👇', pts:150, label:'TOUCH TOES!', instruction:'Reach both arms DOWN low!'},
-  {t:27500,  lyric:"Can you turn around?",     action:'shrug', emoji:'🤷', pts:100, label:'SHRUG!',      instruction:'Raise both shoulders up!'},
-  {t:30500,  lyric:"Can you say... Hello!",    action:'oneArm', emoji:'👋', pts:150, label:'WAVE HELLO!', instruction:'Wave one arm — say Hello!'},
+  // VERSE 1 — starts ~14s
+  {t:14000, lyric:"Hello, hello!",                   action:'wave',  emoji:'👋', label:'WAVE!',      instruction:'Wave one hand up!',   pts:100},
+  {t:17500, lyric:"Can you clap your hands?",        action:'clap',  emoji:'👏', label:'CLAP!',      instruction:'Clap your hands!',    pts:150},
+  {t:21000, lyric:"Hello, hello!",                   action:'wave',  emoji:'👋', label:'WAVE!',      instruction:'Wave one hand up!',   pts:100},
+  {t:24500, lyric:"Can you clap your hands?",        action:'clap',  emoji:'👏', label:'CLAP!',      instruction:'Clap your hands!',    pts:150},
+  {t:28000, lyric:"Can you stretch up high?",        action:'both',  emoji:'🙌', label:'STRETCH!',   instruction:'BOTH arms UP HIGH!',  pts:200},
+  {t:31500, lyric:"Can you touch your head?",        action:'head',  emoji:'🙆', label:'TOUCH HEAD!',instruction:'Hands on your head!', pts:150},
+  {t:35000, lyric:"Can you turn around?",            action:'star',  emoji:'⭐', label:'STAR POSE!', instruction:'Arms out wide!',      pts:150},
+  {t:38500, lyric:"Can you say... Hello!",           action:'wave',  emoji:'👋', label:'HELLO!',     instruction:'Wave hello!',         pts:150},
 
-  // VERSE 2
-  {t:34500,  lyric:"Hello,",      action:'oneArm', emoji:'👋', pts:100, label:'HELLO!',       instruction:'Raise ONE arm up!'},
-  {t:36000,  lyric:"hello!",      action:'oneArm', emoji:'👋', pts:100, label:'HELLO!',       instruction:'Raise ONE arm up!'},
-  {t:37500,  lyric:"Can you stamp your feet?", action:'shrug', emoji:'🤷', pts:100, label:'SHRUG!',      instruction:'Raise both shoulders up!'},
-  {t:40500,  lyric:"Hello,",      action:'oneArm', emoji:'👋', pts:100, label:'HELLO!',       instruction:'Raise ONE arm up!'},
-  {t:42000,  lyric:"hello!",      action:'oneArm', emoji:'👋', pts:100, label:'HELLO!',       instruction:'Raise ONE arm up!'},
-  {t:43500,  lyric:"Can you stamp your feet?", action:'shrug', emoji:'🤷', pts:100, label:'SHRUG!',      instruction:'Raise both shoulders up!'},
-  {t:46500,  lyric:"Can you stretch up high?", action:'armsUp', emoji:'🙌', pts:200, label:'STRETCH UP!', instruction:'Both arms UP — hold it!'},
-  {t:50000,  lyric:"Can you touch your toes?", action:'armsDown', emoji:'👇', pts:150, label:'TOUCH TOES!', instruction:'Reach both arms DOWN low!'},
-  {t:53500,  lyric:"Can you turn around?",     action:'shrug', emoji:'🤷', pts:100, label:'SHRUG!',      instruction:'Raise both shoulders up!'},
-  {t:56500,  lyric:"Can you say... Hello!",    action:'oneArm', emoji:'👋', pts:150, label:'WAVE HELLO!', instruction:'Wave one arm — say Hello!'},
+  // VERSE 2 — starts ~42s
+  {t:42000, lyric:"Hello, hello!",                   action:'wave',  emoji:'👋', label:'WAVE!',      instruction:'Wave one hand up!',   pts:100},
+  {t:45500, lyric:"Can you stamp your feet?",        action:'shrug', emoji:'🤷', label:'SHRUG!',     instruction:'Shoulders UP!',       pts:150},
+  {t:49000, lyric:"Hello, hello!",                   action:'wave',  emoji:'👋', label:'WAVE!',      instruction:'Wave one hand up!',   pts:100},
+  {t:52500, lyric:"Can you stamp your feet?",        action:'shrug', emoji:'🤷', label:'SHRUG!',     instruction:'Shoulders UP!',       pts:150},
+  {t:56000, lyric:"Can you stretch up high?",        action:'both',  emoji:'🙌', label:'STRETCH!',   instruction:'BOTH arms UP HIGH!',  pts:200},
+  {t:59500, lyric:"Can you touch your head?",        action:'head',  emoji:'🙆', label:'TOUCH HEAD!',instruction:'Hands on your head!', pts:150},
+  {t:63000, lyric:"Can you turn around?",            action:'star',  emoji:'⭐', label:'STAR POSE!', instruction:'Arms out wide!',      pts:150},
+  {t:66500, lyric:"Can you say... Hello!",           action:'wave',  emoji:'👋', label:'HELLO!',     instruction:'Wave hello!',         pts:150},
 
-  // OUTRO
-  {t:60000,  lyric:"Hello,",      action:'oneArm', emoji:'👋', pts:100, label:'HELLO!',       instruction:'Raise ONE arm up!'},
-  {t:62000,  lyric:"hello!",      action:'oneArm', emoji:'👋', pts:100, label:'HELLO!',       instruction:'Raise ONE arm up!'},
-  {t:64000,  lyric:"Can you clap?", action:'clap', emoji:'👏', pts:150, label:'CLAP!',        instruction:'Clap your hands!'},
-  {t:67000,  lyric:"Stretch up high!", action:'armsUp', emoji:'🙌', pts:200, label:'STRETCH UP!', instruction:'Both arms UP — hold it!'},
-  {t:71000,  lyric:"Say... Hello!", action:'oneArm', emoji:'👋', pts:150, label:'WAVE HELLO!', instruction:'Wave one arm — say Hello!'},
-  {t:80000,  lyric:"🌟 Amazing! 🌟", action:null, emoji:null, pts:0},
+  // OUTRO — starts ~72s
+  {t:72000, lyric:"Hello, hello!",                   action:'wave',  emoji:'👋', label:'WAVE!',      instruction:'Wave one hand up!',   pts:100},
+  {t:75500, lyric:"Can you clap your hands?",        action:'clap',  emoji:'👏', label:'CLAP!',      instruction:'Clap your hands!',    pts:150},
+  {t:79000, lyric:"Hello, hello!",                   action:'wave',  emoji:'👋', label:'WAVE!',      instruction:'Wave one hand up!',   pts:100},
+  {t:82500, lyric:"Can you stamp your feet?",        action:'shrug', emoji:'🤷', label:'SHRUG!',     instruction:'Shoulders UP!',       pts:150},
+
+  {t:87000, lyric:"🌟 Amazing! 🌟",                 action:null},
 ];
 
 // ══════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════
-let score=0, stars=5;
+let score=0, stars=5, combo=0, maxCombo=0, hits=0, attempts=0;
 let detector=null, active=false;
-let moves={lUp:false, rUp:false, clap:false};
+let moves={wave:false, both:false, head:false, shrug:false, star:false};
+let clapDetected=false;
 let songStartTime=0, songTimer=null;
 let timelineIdx=0;
 let currentAction=null, actionWindow=false;
-let actionDetected=false;
+let actionDetected=false, actionStartTime=0;
 let novaIdleT=0, talking=false;
 let novaLRot=0.3, novaRRot=-0.3;
 let novaLTarget=0.3, novaRTarget=-0.3;
 let audioCtx=null;
-let novaMode='idle';
+let micAnalyser=null, micData=null;
+let lastClapTime=0;
+const CLAP_THRESHOLD = 60;
+
+// Calibration data
+let baseline = null;
+
+// Smoothing for pose keypoints
+const smoothedKp = {};
+const SMOOTH = 0.6;
+
+// Hold filter for moves
+const moveHold = { wave:0, both:0, head:0, shrug:0, star:0 };
+const HOLD_FRAMES = 3;
 
 // ══════════════════════════════════════════
 // NOVA SVG
@@ -368,6 +398,7 @@ function buildNovaSVG(){
     <circle cx="170" cy="253" r="13" fill="url(#nsg)"/>
   </g>
   <rect x="86" y="138" width="28" height="22" rx="13" fill="url(#nsg)"/>
+  <g id="nova-head">
   <ellipse cx="100" cy="88" rx="54" ry="60" fill="#cc1199" opacity="0.55"/>
   <ellipse cx="100" cy="84" rx="50" ry="56" fill="url(#nsg)"/>
   <ellipse cx="100" cy="44" rx="52" ry="36" fill="url(#nhg)"/>
@@ -408,6 +439,7 @@ function buildNovaSVG(){
   </g>
   <ellipse cx="58" cy="106" rx="14" ry="10" fill="#ffaacc" opacity="0.45"/>
   <ellipse cx="142" cy="106" rx="14" ry="10" fill="#ffaacc" opacity="0.45"/>
+  </g>
   <circle cx="20" cy="60" r="3" fill="#ff6fd8" opacity="0.6" filter="url(#glow)"/>
   <circle cx="180" cy="80" r="2.5" fill="#7c6fff" opacity="0.6" filter="url(#glow)"/>
   <text x="18" y="140" font-size="12" fill="#ff6fd8" opacity="0.5">✦</text>
@@ -416,180 +448,64 @@ function buildNovaSVG(){
 }
 
 // ══════════════════════════════════════════
-// MUSIC — Hello Hello melody in Web Audio
-// ══════════════════════════════════════════
-function initAudio(){
-  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-}
-
-function playNote(freq, start, dur, vol=0.18, type='sine'){
-  if(!audioCtx) return;
-  const o=audioCtx.createOscillator();
-  const g=audioCtx.createGain();
-  const f=audioCtx.createBiquadFilter();
-  f.type='lowpass'; f.frequency.value=2000;
-  o.type=type; o.frequency.value=freq;
-  o.connect(f); f.connect(g); g.connect(audioCtx.destination);
-  g.gain.setValueAtTime(0,start);
-  g.gain.linearRampToValueAtTime(vol,start+0.02);
-  g.gain.setValueAtTime(vol,start+dur-0.04);
-  g.gain.linearRampToValueAtTime(0,start+dur);
-  o.start(start); o.stop(start+dur+0.01);
-}
-
-function playBeat(start, kick=true){
-  if(!audioCtx) return;
-  // Kick
-  if(kick){
-    const o=audioCtx.createOscillator(),g=audioCtx.createGain();
-    o.connect(g);g.connect(audioCtx.destination);
-    o.frequency.setValueAtTime(150,start);
-    o.frequency.exponentialRampToValueAtTime(40,start+0.12);
-    g.gain.setValueAtTime(0.5,start);
-    g.gain.exponentialRampToValueAtTime(0.001,start+0.2);
-    o.start(start);o.stop(start+0.2);
-  }
-  // Hat
-  const b=audioCtx.createBuffer(1,audioCtx.sampleRate*0.05,audioCtx.sampleRate);
-  const d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
-  const s=audioCtx.createBufferSource(),gn=audioCtx.createGain(),fl=audioCtx.createBiquadFilter();
-  fl.type='highpass';fl.frequency.value=7000;s.buffer=b;
-  s.connect(fl);fl.connect(gn);gn.connect(audioCtx.destination);
-  gn.gain.setValueAtTime(0.08,start);gn.gain.exponentialRampToValueAtTime(0.001,start+0.04);
-  s.start(start);
-}
-
-// Hello Hello melody — C major, notes map
-const N = {
-  C4:261.63, D4:293.66, E4:329.63, F4:349.23,
-  G4:392.00, A4:440.00, B4:493.88,
-  C5:523.25, D5:587.33, E5:659.25, G5:783.99
-};
-
-function playSong(){
-  // Try MP3 first
-  const audio = new Audio('hello.mp3');
-  audio.volume = 0.85;
-  
-  audio.oncanplaythrough = ()=>{
-    audio.play().catch(()=>playWebAudio());
-    window._songAudio = audio;
-    audio.onended = ()=>setTimeout(showEndScreen, 1000);
-  };
-  
-  audio.onerror = ()=>{
-    console.log('MP3 not found — using Web Audio');
-    playWebAudio();
-  };
-
-  // Timeout fallback — if MP3 not loading after 3s
-  setTimeout(()=>{
-    if(!window._songAudio){
-      console.log('MP3 timeout — using Web Audio');
-      playWebAudio();
-    }
-  }, 3000);
-
-  audio.load();
-}
-
-function playWebAudio(){
-  if(!audioCtx) return;
-  // Simple beat to keep rhythm
-  const t0 = audioCtx.currentTime;
-  for(let i=0;i<80;i++){
-    const t = t0 + i*0.5;
-    if(i%8===0||i%8===4){
-      const o=audioCtx.createOscillator(),g=audioCtx.createGain();
-      o.connect(g);g.connect(audioCtx.destination);
-      o.frequency.setValueAtTime(160,t);
-      o.frequency.exponentialRampToValueAtTime(40,t+0.1);
-      g.gain.setValueAtTime(0.4,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.15);
-      o.start(t);o.stop(t+0.15);
-    }
-  }
-  // End after song duration
-  setTimeout(showEndScreen, SONG_DURATION + 1000);
-}
-
-// ══════════════════════════════════════════
-// SPEAK — ElevenLabs
-// ══════════════════════════════════════════
-function showBubble(txt){
-  const b=document.getElementById('nova-bubble');
-  document.getElementById('btext').textContent=txt;
-  b.classList.add('show');
-  talking=true;
-  setTimeout(()=>{b.classList.remove('show');talking=false},3000);
-}
-
-async function speak(txt){
-  showBubble(txt);
-  if(!ELEVENLABS_KEY){speakBrowser(txt);return;}
-  try{
-    const res=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE}/stream`,{
-      method:'POST',
-      headers:{'Content-Type':'application/json','xi-api-key':ELEVENLABS_KEY},
-      body:JSON.stringify({
-        text:txt, model_id:'eleven_turbo_v2_5',
-        voice_settings:{stability:0.55,similarity_boost:0.85,style:0.45,use_speaker_boost:true}
-      })
-    });
-    if(!res.ok) throw new Error('EL failed');
-    const blob=await res.blob();
-    const url=URL.createObjectURL(blob);
-    const audio=new Audio(url);
-    audio.onended=()=>{talking=false;URL.revokeObjectURL(url)};
-    audio.play();
-  }catch(e){speakBrowser(txt)}
-}
-
-function speakBrowser(txt){
-  if(!window.speechSynthesis)return;
-  speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(txt);
-  u.rate=0.88;u.pitch=1.15;u.volume=1;
-  const vs=speechSynthesis.getVoices();
-  const v=vs.find(x=>x.name.includes('Samantha')||x.name.includes('Karen')||x.name.includes('Google UK English Female'));
-  if(v)u.voice=v;
-  u.onend=()=>talking=false;
-  speechSynthesis.speak(u);
-}
-
-// ══════════════════════════════════════════
-// NOVA ANIMATION — proper arm positions per move
+// NOVA POSES — bigger, clearer, more kid-readable
+// l/r = arm rotation in radians (0=down, -PI/2=up-left, +PI/2=up-right)
 // ══════════════════════════════════════════
 const ARM_POSES = {
-  idle:     { l: 0.3,   r: -0.3  },
-  leftUp:   { l: -1.6,  r: -0.3  },
-  rightUp:  { l: 0.3,   r: 1.6   },
-  bothUp:   { l: -1.85, r: 1.85  },
-  bothDown: { l: 1.2,   r: -1.2  },
-  wideOpen: { l: -0.8,  r: 0.8   },
-  clap1:    { l: -0.5,  r: 0.5   },
-  clap2:    { l: -1.0,  r: 1.0   },
-  waveL:    { l: -1.6,  r: -0.3  },
-  hype:     { l: -1.5,  r: 1.5   },
+  idle:      { l: 0.3,   r: -0.3  },
+  waveL:     { l: -1.9,  r: -0.3  },   // left arm UP and waving
+  waveR:     { l: 0.3,   r: 1.9   },   // right arm UP and waving
+  bothUp:    { l: -2.0,  r: 2.0   },   // YAY stretch
+  clap1:     { l: -0.5,  r: 0.5   },   // hands in front close
+  clap2:     { l: -1.1,  r: 1.1   },   // hands apart
+  head:      { l: -1.6,  r: 1.6   },   // hands near head (slightly above shoulders, inward)
+  shrug:     { l: -0.9,  r: 0.9   },   // shoulders up, arms wide-low
+  star:      { l: -1.57, r: 1.57  },   // arms straight out sideways
+  hype:      { l: -1.5,  r: 1.5   },   // celebration
 };
 
 let novaPose = 'idle';
 let novaAnimTimer = null;
+let clapInterval = null;
 
 function setNovaPose(pose, durationMs){
   novaPose = pose;
   if(novaAnimTimer) clearTimeout(novaAnimTimer);
+  if(clapInterval){ clearInterval(clapInterval); clapInterval=null; }
   if(durationMs){
     novaAnimTimer = setTimeout(()=>{ novaPose='idle'; }, durationMs);
   }
 }
 
 function novaDoClap(times){
+  if(clapInterval) clearInterval(clapInterval);
   let count=0;
-  const interval=setInterval(()=>{
+  clapInterval=setInterval(()=>{
     novaPose = count%2===0 ? 'clap1' : 'clap2';
     count++;
-    if(count>=times*2){ clearInterval(interval); novaPose='idle'; }
+    if(count>=times*2){ clearInterval(clapInterval); clapInterval=null; novaPose='idle'; }
   },180);
+}
+
+function novaDoWave(side){
+  // Alternates wave arm back and forth
+  setNovaPose(side==='L' ? 'waveL' : 'waveR', 3000);
+}
+
+// Song tempo constants (from MP3 analysis)
+const SONG_BPM = 80;                     // actual tempo
+const SONG_FIRST_BEAT = 0.5;             // seconds — first beat lands here
+const BEAT_PERIOD = 60 / SONG_BPM;       // 0.75 sec per beat
+
+function getSongBeatPhase(){
+  // Returns a phase value 0→2π that pulses on each song beat
+  // Uses actual audio time if song is playing, else falls back to local time
+  if(window._songAudio && !window._songAudio.paused && window._songAudio.currentTime > 0){
+    const t = window._songAudio.currentTime - SONG_FIRST_BEAT;
+    return (t / BEAT_PERIOD) * 2 * Math.PI;
+  }
+  // Fallback: use local timer so Nova still dances before the song starts
+  return novaIdleT * (Math.PI * 2 / BEAT_PERIOD);
 }
 
 function animateNova(){
@@ -599,20 +515,44 @@ function animateNova(){
   const pose = ARM_POSES[novaPose] || ARM_POSES.idle;
   const t = novaIdleT;
 
+  // Beat-synced phase — this is the KEY change: Nova's dance follows song time
+  const beatPhase = getSongBeatPhase();
+  const beat = Math.sin(beatPhase);              // main beat (every 0.75s)
+  const halfBeat = Math.sin(beatPhase / 2);      // slower sway (every 1.5s)
+  const doubleBeat = Math.sin(beatPhase * 2);    // faster pulse (every 0.375s)
+
   if(novaPose==='idle'){
-    // Continuous dance — alternating arm raises to the beat
-    const beat = Math.sin(t * 3.5); // ~110 BPM feel
-    novaLTarget = pose.l + beat * 0.35;
-    novaRTarget = pose.r - beat * 0.35;
+    // BIG beat dance — arms alternate perfectly on the song beat
+    novaLTarget = pose.l + beat * 0.8;
+    novaRTarget = pose.r - beat * 0.8;
+  } else if(novaPose==='waveL'){
+    // Wave = arm up + wiggle on beat
+    novaLTarget = pose.l + beat * 0.4;
+    novaRTarget = pose.r;
+  } else if(novaPose==='waveR'){
+    novaLTarget = pose.l;
+    novaRTarget = pose.r + beat * 0.4;
   } else if(novaPose==='hype'){
-    novaLTarget = pose.l + Math.sin(t*8)*0.3;
-    novaRTarget = pose.r + Math.sin(t*8)*0.3;
+    // Super excited — double-time bounce on the beat
+    novaLTarget = pose.l + doubleBeat * 0.3;
+    novaRTarget = pose.r + doubleBeat * 0.3;
+  } else if(novaPose==='bothUp'){
+    // Hold up high, but wiggle slightly on beat
+    novaLTarget = pose.l + beat * 0.15;
+    novaRTarget = pose.r + beat * 0.15;
+  } else if(novaPose==='star'){
+    // Star with slight wave on beat
+    novaLTarget = pose.l + beat * 0.1;
+    novaRTarget = pose.r - beat * 0.1;
+  } else if(novaPose==='shrug'){
+    novaLTarget = pose.l;
+    novaRTarget = pose.r;
   } else {
     novaLTarget = pose.l;
     novaRTarget = pose.r;
   }
 
-  const speed = novaPose==='idle' ? 0.1 : 0.18;
+  const speed = novaPose==='idle' ? 0.12 : 0.2; // slightly faster idle tracking so arms hit beat
   novaLRot += (novaLTarget - novaLRot) * speed;
   novaRRot += (novaRTarget - novaRRot) * speed;
 
@@ -620,49 +560,86 @@ function animateNova(){
   const nr=document.getElementById('nova-rarm');
   const nm=document.getElementById('nova-mouth');
   const ns=document.getElementById('nova-svg');
+  const nh=document.getElementById('nova-head');
 
   if(nl) nl.style.transform=`rotate(${novaLRot}rad)`;
   if(nr) nr.style.transform=`rotate(${novaRRot}rad)`;
 
   if(nm){
-    const open=talking?1+Math.abs(Math.sin(t*14))*1.4:1;
+    const open=talking?1+Math.abs(Math.sin(t*14))*1.8:1;
     nm.style.transform=`scaleY(${open})`;
     nm.style.transformOrigin='100px 126px';
   }
 
+  // Head bob — ON THE BEAT
+  if(nh){
+    const headBob = novaPose==='shrug'
+      ? doubleBeat * 5                // excited double-bob when shrugging
+      : Math.abs(beat) * 4;           // nod down on every beat
+    nh.style.transform = `translateY(${headBob}px)`;
+  }
+
+  // Body bob + sway — ALL beat-synced
   if(ns){
-    const bobAmt = novaPose==='hype' ? 10 : 5;
-    const bobSpeed = novaPose==='hype' ? 5 : 3.5;
-    ns.style.transform=`translateY(${Math.sin(t*bobSpeed)*bobAmt}px)`;
+    const bobAmt = novaPose==='hype' ? 12 : (novaPose==='idle' ? 8 : 5);
+    // Body bobs DOWN on beat (like a real dancer's knees bend on the beat)
+    const bodyBob = Math.abs(beat) * bobAmt;
+    // Side-sway moves on half-beat (2× slower) for natural hip-style movement
+    const sway = novaPose==='idle' ? halfBeat * 6 : 0;
+    ns.style.transform=`translate(${sway}px,${bodyBob}px)`;
   }
 }
 
 // ══════════════════════════════════════════
-// AUDIO CLIPS — generated from ElevenLabs on first load
+// SPEAK / BUBBLE
+// ══════════════════════════════════════════
+function showBubble(txt){
+  const b=document.getElementById('nova-bubble');
+  document.getElementById('btext').textContent=txt;
+  b.classList.add('show');
+  talking=true;
+  setTimeout(()=>{b.classList.remove('show');talking=false},3000);
+}
+
+function speakBrowser(txt){
+  if(!window.speechSynthesis||!txt) return;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(txt);
+  u.rate=0.9; u.pitch=1.2; u.volume=1;
+  const vs=speechSynthesis.getVoices();
+  const v=vs.find(x=>x.name.includes('Samantha')||x.name.includes('Karen')||x.name.includes('Google UK English Female'));
+  if(v) u.voice=v;
+  speechSynthesis.speak(u);
+}
+
+// ══════════════════════════════════════════
+// AUDIO CLIPS (ElevenLabs preloaded)
 // ══════════════════════════════════════════
 const audioCache={};
 let clipPlaying=false;
 
 const CLIP_TEXTS={
-  intro: "Hi! I am Nova! Lets sing Hello Hello together! Watch the screen and copy the moves!",
+  intro: "Hi! I'm Nova! Let's sing Hello Hello together! Watch me and copy the moves!",
   yes: "Yes!",
   amazing: "Amazing!",
   great: "Great job!",
   woohoo: "Woo hoo!",
-  clap: "Yes! Clap clap clap!",
+  clap: "Yeah! Clap clap clap!",
   stretch: "Stretch up high!",
-  hype: "You are doing great!",
-  end: "Wow! You are a superstar!",
+  hype: "You're doing great!",
+  end: "Wow! You're a superstar!",
   hello: "Hello! Hello!",
-  try: "Try again!"
+  try: "Try it with me!",
+  combo: "Awesome combo!"
 };
 
 const CLIP_BUBBLES={
-  intro:"Hi! Let's sing Hello Hello! 🎵",
+  intro:"Hi! Let's sing! 🎵",
   yes:"Yes! ✅", amazing:"Amazing! 🌟", great:"Great job! 👏",
-  woohoo:"Woo hoo! 🎉", clap:"Clap clap clap! 👏",
-  stretch:"Stretch up high! 🙌", hype:"You're doing great! 🔥",
-  end:"You're a superstar! ⭐", hello:"Hello! Hello! 👋", try:"Try again! 💪"
+  woohoo:"Woo hoo! 🎉", clap:"Clap clap! 👏",
+  stretch:"Stretch up! 🙌", hype:"You're amazing! 🔥",
+  end:"Superstar! ⭐", hello:"Hello! 👋", try:"Try it! 💪",
+  combo:"Combo! 🔥"
 };
 
 async function generateClip(key){
@@ -688,7 +665,6 @@ async function generateClip(key){
 
 async function preloadClips(){
   if(!ELEVENLABS_KEY) return;
-  // Generate all clips in parallel
   console.log('🎤 Generating Nova voice clips...');
   await Promise.all(Object.keys(CLIP_TEXTS).map(key=>generateClip(key)));
   console.log('✅ Voice clips ready');
@@ -699,7 +675,6 @@ function playClip(key){
   if(CLIP_BUBBLES[key]) showBubble(CLIP_BUBBLES[key]);
   const audio=audioCache[key];
   if(!audio){
-    // Fallback to browser speech
     speakBrowser(CLIP_TEXTS[key]||'');
     return;
   }
@@ -710,35 +685,25 @@ function playClip(key){
   clone.onended=()=>clipPlaying=false;
 }
 
-function speakBrowser(txt){
-  if(!window.speechSynthesis||!txt) return;
-  speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(txt);
-  u.rate=0.88; u.pitch=1.2; u.volume=1;
-  const vs=speechSynthesis.getVoices();
-  const v=vs.find(x=>x.name.includes('Samantha')||x.name.includes('Karen')||x.name.includes('Google UK English Female'));
-  if(v) u.voice=v;
-  speechSynthesis.speak(u);
-}
-let micStream=null, micAnalyser=null, micData=null;
-let lastClapTime=0, clapCooldown=400; // ms between claps
-let clapDetected=false;
-
-async function initMic(){
+// ══════════════════════════════════════════
+// MIC
+// ══════════════════════════════════════════
+function initMicFromTrack(audioTrack){
   try{
-    micStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
-    const micCtx=new(window.AudioContext||window.webkitAudioContext)();
-    const source=micCtx.createMediaStreamSource(micStream);
-    micAnalyser=micCtx.createAnalyser();
-    micAnalyser.fftSize=256;
-    micAnalyser.smoothingTimeConstant=0.3;
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    if(ctx.state === 'suspended') ctx.resume();
+    audioCtx = ctx;
+    const source = ctx.createMediaStreamSource(new MediaStream([audioTrack]));
+    micAnalyser = ctx.createAnalyser();
+    micAnalyser.fftSize = 256;
+    micAnalyser.smoothingTimeConstant = 0.3;
     source.connect(micAnalyser);
-    micData=new Uint8Array(micAnalyser.frequencyBinCount);
+    micData = new Uint8Array(micAnalyser.frequencyBinCount);
     micLoop();
-    console.log('🎤 Mic ready');
+    console.log('🎤 Mic ready (threshold='+CLAP_THRESHOLD+')');
     return true;
   }catch(e){
-    console.log('Mic not available:',e.message);
+    console.log('Mic init failed:', e.message);
     return false;
   }
 }
@@ -747,21 +712,24 @@ function micLoop(){
   if(!micAnalyser) return;
   requestAnimationFrame(micLoop);
   micAnalyser.getByteFrequencyData(micData);
-  // Clap = sudden high volume spike across all frequencies
-  const avg=micData.reduce((a,b)=>a+b,0)/micData.length;
-  const now=Date.now();
-  if(avg>80 && now-lastClapTime>clapCooldown){
-    lastClapTime=now;
-    clapDetected=true;
-    const cs=document.getElementById('cs');
-    if(cs) cs.textContent='👏:✅';
+  const avg = micData.reduce((a,b)=>a+b,0)/micData.length;
+  const now = Date.now();
+  if(avg > CLAP_THRESHOLD && now - lastClapTime > 300){
+    lastClapTime = now;
+    clapDetected = true;
+    const cp = document.getElementById('p-clap');
+    if(cp) cp.textContent = `👏:✅ ${avg.toFixed(0)}`;
     setTimeout(()=>{
-      clapDetected=false;
-      const cs=document.getElementById('cs');
-      if(cs) cs.textContent='👏:—';
-    },300);
+      clapDetected = false;
+      const cp = document.getElementById('p-clap');
+      if(cp) cp.textContent = '👏:—';
+    }, 350);
   }
 }
+
+// ══════════════════════════════════════════
+// POSE DETECTION
+// ══════════════════════════════════════════
 async function initDetector(){
   const bar=document.getElementById('load-bar');
   const msg=document.getElementById('load-msg');
@@ -769,17 +737,12 @@ async function initDetector(){
     if(msg) msg.textContent='Loading AI tracking...';
     bar.style.width='30%';
 
-    // 5 second timeout per script load
-    const withTimeout=(promise,ms)=>Promise.race([
-      promise,
-      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))
-    ]);
+    const withTimeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]);
 
     const tfOk=await withTimeout(loadScript([
       'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js',
       'https://unpkg.com/@tensorflow/tfjs@4.2.0/dist/tf.min.js'
-    ]),5000).catch(()=>false);
-
+    ]),8000).catch(()=>false);
     if(!tfOk) throw new Error('TF failed');
     bar.style.width='60%';
     if(msg) msg.textContent='Loading pose detection...';
@@ -787,8 +750,7 @@ async function initDetector(){
     const pdOk=await withTimeout(loadScript([
       'https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js',
       'https://unpkg.com/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js'
-    ]),5000).catch(()=>false);
-
+    ]),8000).catch(()=>false);
     if(!pdOk) throw new Error('PD failed');
     bar.style.width='85%';
     if(msg) msg.textContent='Almost ready!';
@@ -808,6 +770,17 @@ async function initDetector(){
   }
 }
 
+function smoothKp(name, kp){
+  if(!smoothedKp[name]){
+    smoothedKp[name] = {x:kp.x, y:kp.y, score:kp.score};
+  } else {
+    smoothedKp[name].x = smoothedKp[name].x * SMOOTH + kp.x * (1-SMOOTH);
+    smoothedKp[name].y = smoothedKp[name].y * SMOOTH + kp.y * (1-SMOOTH);
+    smoothedKp[name].score = smoothedKp[name].score * SMOOTH + kp.score * (1-SMOOTH);
+  }
+  return smoothedKp[name];
+}
+
 async function poseLoop(){
   const video=document.getElementById('webcam');
   if(!detector||!active||!video.readyState){requestAnimationFrame(poseLoop);return}
@@ -818,38 +791,99 @@ async function poseLoop(){
   requestAnimationFrame(poseLoop);
 }
 
+// Calibration collection
+let calibrating = false;
+let calSamples = [];
+
 function analyzePose(kps){
   const get=n=>kps.find(k=>k.name===n);
-  const ls=get('left_shoulder'),rs=get('right_shoulder');
-  const lw=get('left_wrist'),rw=get('right_wrist');
-  const le=get('left_elbow'),re=get('right_elbow');
-  const nose=get('nose');
-  if(!ls||!rs||!lw||!rw) return;
-  const c=0.3;
+  const rawLs=get('left_shoulder'), rawRs=get('right_shoulder');
+  const rawLw=get('left_wrist'), rawRw=get('right_wrist');
+  const rawNose=get('nose');
+  if(!rawLs||!rawRs||!rawLw||!rawRw) return;
 
-  // Arms up
-  moves.lUp=lw.score>c&&ls.score>c&&lw.y<ls.y-0.05;
-  moves.rUp=rw.score>c&&rs.score>c&&rw.y<rs.y-0.05;
+  const ls=smoothKp('ls',rawLs);
+  const rs=smoothKp('rs',rawRs);
+  const lw=smoothKp('lw',rawLw);
+  const rw=smoothKp('rw',rawRw);
+  const nose=rawNose?smoothKp('nose',rawNose):null;
 
-  // Arms down low (touch toes)
-  moves.armsDown=lw.score>c&&rw.score>c&&lw.y>0.7&&rw.y>0.7;
+  const MIN_SCORE = 0.3;
 
-  // Wave = one arm up
-  moves.wave=(moves.lUp||moves.rUp)&&!(moves.lUp&&moves.rUp);
-
-  // Shrug = both shoulders elevated (y decreases = moves up on screen)
-  // Compare shoulder Y to nose Y — if shoulders close to nose = shrug
-  if(nose&&nose.score>c&&ls.score>c&&rs.score>c){
-    const avgShoulderY=(ls.y+rs.y)/2;
-    const distToNose=avgShoulderY-nose.y;
-    moves.shrug=distToNose<0.15; // shoulders very close to nose = shrug
+  // Calibration sample
+  if(calibrating && ls.score>MIN_SCORE && rs.score>MIN_SCORE){
+    calSamples.push({
+      ls_y: ls.y, rs_y: rs.y,
+      nose_y: nose ? nose.y : 0,
+      shoulderWidth: Math.abs(ls.x - rs.x)
+    });
   }
 
-  document.getElementById('ls').textContent='L:'+(moves.lUp?'✅':'—');
-  document.getElementById('rs').textContent='R:'+(moves.rUp?'✅':'—');
-  document.getElementById('cs').textContent='👏:'+(clapDetected?'✅':'—');
-  document.getElementById('ss').textContent='🤷:'+(moves.shrug?'✅':'—');
-  document.getElementById('ds').textContent='👇:'+(moves.armsDown?'✅':'—');
+  const shoulderWidth = Math.abs(ls.x - rs.x);
+  const scale = shoulderWidth > 20 ? shoulderWidth : 100;
+
+  // WAVE — one arm up
+  const armRaiseThr = scale * 0.3;
+  const lUp = lw.score>MIN_SCORE && (ls.y - lw.y) > armRaiseThr;
+  const rUp = rw.score>MIN_SCORE && (rs.y - rw.y) > armRaiseThr;
+  const waveRaw = (lUp || rUp) && !(lUp && rUp);
+
+  // BOTH UP
+  const bothRaw = lUp && rUp;
+
+  // HANDS ON HEAD
+  let headRaw = false;
+  if(nose && nose.score>MIN_SCORE){
+    const lAbove = lw.score>MIN_SCORE && (ls.y - lw.y) > scale * 0.4;
+    const rAbove = rw.score>MIN_SCORE && (rs.y - rw.y) > scale * 0.4;
+    const lNear = lw.score>MIN_SCORE && Math.abs(lw.x - nose.x) < scale * 1.0;
+    const rNear = rw.score>MIN_SCORE && Math.abs(rw.x - nose.x) < scale * 1.0;
+    headRaw = lAbove && rAbove && lNear && rNear;
+  }
+
+  // SHRUG
+  let shrugRaw = false;
+  if(baseline){
+    const currentShY = (ls.y + rs.y) / 2;
+    const baseShY = (baseline.ls_y + baseline.rs_y) / 2;
+    const rise = baseShY - currentShY;
+    const shrugThr = scale * 0.22;
+    shrugRaw = rise > shrugThr && !lUp && !rUp;
+  }
+
+  // STAR — arms out sideways
+  let starRaw = false;
+  if(lw.score>MIN_SCORE && rw.score>MIN_SCORE){
+    const lNearLevel = Math.abs(lw.y - ls.y) < scale * 0.4;
+    const rNearLevel = Math.abs(rw.y - rs.y) < scale * 0.4;
+    const wristSpan = Math.abs(lw.x - rw.x);
+    const wide = wristSpan > scale * 2.0;
+    starRaw = lNearLevel && rNearLevel && wide;
+  }
+
+  // Hold filter
+  const hold = (raw, key) => {
+    if(raw) moveHold[key] = Math.min(moveHold[key]+1, 10);
+    else    moveHold[key] = Math.max(moveHold[key]-1, 0);
+    return moveHold[key] >= HOLD_FRAMES;
+  };
+
+  moves.wave  = hold(waveRaw, 'wave');
+  moves.both  = bothRaw; // instant
+  moves.head  = hold(headRaw, 'head');
+  moves.shrug = hold(shrugRaw, 'shrug');
+  moves.star  = hold(starRaw, 'star');
+
+  // Tracking pills
+  const set = (id, on) => {
+    const e = document.getElementById(id);
+    if(e) e.textContent = id.replace('p-','').replace('wave','👋').replace('both','🙌').replace('head','🙆').replace('shrug','🤷').replace('star','⭐') + ':' + (on?'✅':'—');
+  };
+  set('p-wave', moves.wave);
+  set('p-both', moves.both);
+  set('p-head', moves.head);
+  set('p-shrug', moves.shrug);
+  set('p-star', moves.star);
 }
 
 // ══════════════════════════════════════════
@@ -857,12 +891,12 @@ function analyzePose(kps){
 // ══════════════════════════════════════════
 function checkAction(action){
   if(!action) return false;
-  if(action==='clap') return clapDetected;
-  if(action==='oneArm') return moves.lUp||moves.rUp;
-  if(action==='armsUp') return moves.lUp&&moves.rUp;
-  if(action==='armsDown') return moves.armsDown;
-  if(action==='wave') return moves.lUp||moves.rUp;
+  if(action==='clap')  return clapDetected;
+  if(action==='wave')  return moves.wave;
+  if(action==='both')  return moves.both;
+  if(action==='head')  return moves.head;
   if(action==='shrug') return moves.shrug;
+  if(action==='star')  return moves.star;
   return false;
 }
 
@@ -891,9 +925,9 @@ function flashFeedback(type){
   setTimeout(()=>f.className='',600);
 }
 
-function showScorePop(pts,color){
+function showScorePop(pts, color, label){
   const el=document.getElementById('score-pop');
-  el.textContent='+'+pts;
+  el.textContent = (label?label+' ':'') + '+'+pts;
   el.style.color=color||'#ffd700';
   el.classList.remove('show');
   void el.offsetWidth;
@@ -903,7 +937,7 @@ function showScorePop(pts,color){
 
 function burst(color){
   const z=document.getElementById('split');
-  for(let i=0;i<10;i++){
+  for(let i=0;i<12;i++){
     const p=document.createElement('div');
     p.className='particle';
     const sz=5+Math.random()*8;
@@ -913,200 +947,249 @@ function burst(color){
   }
 }
 
-function updateStars(){
-  document.getElementById('top-stars')='⭐'.repeat(stars)+'☆'.repeat(5-stars);
+function updateCombo(){
+  const b = document.getElementById('combo-badge');
+  if(combo >= 3){
+    b.textContent = `🔥 x${combo}`;
+    b.classList.add('show');
+  } else {
+    b.classList.remove('show');
+  }
+}
+
+function getComboMultiplier(){
+  if(combo >= 10) return 3;
+  if(combo >= 5) return 2;
+  if(combo >= 3) return 1.5;
+  return 1;
+}
+
+function playNovaAction(action){
+  if(action==='wave'){
+    novaDoWave(Math.random()>0.5?'L':'R');
+  } else if(action==='both'){
+    setNovaPose('bothUp', 3500);
+  } else if(action==='clap'){
+    novaDoClap(4);
+  } else if(action==='head'){
+    setNovaPose('head', 3500);
+  } else if(action==='shrug'){
+    setNovaPose('shrug', 3500);
+  } else if(action==='star'){
+    setNovaPose('star', 3500);
+  }
 }
 
 function startSong(){
-  timelineIdx=0;
-  songStartTime=Date.now();
-  playSong();
+  timelineIdx = 0;
+  songStartTime = Date.now();
 
-  // Nova hype at start
+  const audio = new Audio('hello.mp3');
+  audio.volume = 0.85;
+  window._songAudio = audio;
+
+  audio.play().catch(err=>{
+    console.log('MP3 play failed, continuing silently:', err);
+  });
+  audio.onended = ()=>setTimeout(showEndScreen, 800);
+
   setNovaPose('hype', 2000);
 
-  songTimer=setInterval(()=>{
-    // Progress bar — use real audio time if available
-    const elapsed = window._songAudio 
-      ? window._songAudio.currentTime * 1000 
-      : Date.now()-songStartTime;
-    // Progress bar
-    document.getElementById('progress-fill').style.width=
-      Math.min(100,(elapsed/SONG_DURATION)*100)+'%';
+  songTimer = setInterval(()=>{
+    const elapsed = window._songAudio && !window._songAudio.paused
+      ? window._songAudio.currentTime * 1000
+      : Date.now() - songStartTime;
 
-    // Check timeline
-    while(timelineIdx<TIMELINE.length && elapsed>=TIMELINE[timelineIdx].t){
-      const entry=TIMELINE[timelineIdx];
+    // Dev time display
+    const dt = document.getElementById('devtime');
+    if(dt) dt.textContent = `t=${(elapsed/1000).toFixed(1)}s  idx=${timelineIdx}`;
+
+    document.getElementById('progress-fill').style.width =
+      Math.min(100, (elapsed/SONG_DURATION)*100) + '%';
+
+    while(timelineIdx < TIMELINE.length && elapsed >= TIMELINE[timelineIdx].t){
+      const entry = TIMELINE[timelineIdx];
       showLyric(entry.lyric);
 
-      if(entry.action && entry.emoji){
-        currentAction=entry;
-        actionDetected=false;
-        actionWindow=true;
+      if(entry.action){
+        currentAction = entry;
+        actionDetected = false;
+        actionWindow = true;
+        actionStartTime = Date.now();
+        attempts++;
 
-        // Show action cue
-        showActionCue(entry.emoji, entry.label||entry.lyric, entry.instruction||'', 2800);
+        showActionCue(entry.emoji, entry.label, entry.instruction, 2800);
+        playNovaAction(entry.action);
 
-        // Nova mirrors the action with correct pose
-        if(entry.action==='armsUp'){
-          setNovaPose('bothUp', 4000);
-        } else if(entry.action==='oneArm'||entry.action==='wave'){
-          // Alternate between left and right for hello
-          setNovaPose(Math.random()>0.5?'leftUp':'rightUp', 2500);
-        } else if(entry.action==='armsDown'){
-          setNovaPose('bothDown', 2500);
-        } else if(entry.action==='clap'){
-          novaDoClap(3);
-        } else if(entry.action==='shrug'){
-          setNovaPose('wideOpen', 2500);
-        }
-
-        // Check during action window
-        let checks=0;
-        let holdCount=0; // for armsUp hold detection
-        const checker=setInterval(()=>{
+        // Check during action window (3 sec)
+        let checks = 0;
+        let holdCount = 0; // for 'both' hold
+        const checker = setInterval(()=>{
           checks++;
-          if(actionDetected||checks>35){clearInterval(checker);return}
-          const detected=checkAction(currentAction.action);
+          if(actionDetected || checks > 30){ clearInterval(checker); return; }
+          const detected = checkAction(currentAction.action);
           if(detected){
-            // armsUp needs to be held for ~2 seconds (20 checks at 100ms)
-            if(currentAction.action==='armsUp'){
+            // 'both' needs short hold (0.5 sec = 5 checks)
+            if(currentAction.action === 'both'){
               holdCount++;
-              if(holdCount>=20){ // 2 seconds held
-                actionDetected=true;
-                clearInterval(checker);
-                score+=currentAction.pts;
-                document.getElementById('top-score').textContent=score+' pts';
-                flashFeedback('success');
-                showScorePop(currentAction.pts,'#00ff99');
-                burst('#ff6fd8');
-                setNovaPose('hype',1200);
-                setTimeout(()=>playClip('stretch'),200);
-              }
-            } else {
-              actionDetected=true;
-              clearInterval(checker);
-              score+=currentAction.pts;
-              document.getElementById('top-score').textContent=score+' pts';
-              flashFeedback('success');
-              showScorePop(currentAction.pts,'#00ff99');
-              burst('#ff6fd8');
-              setNovaPose('hype',1200);
-              const reactionMap={
-                clap:'clap', armsUp:'stretch',
-                armsDown:'amazing', wave:'hello',
-                oneArm:'yes', shrug:'great'
-              };
-              const clipKey=reactionMap[currentAction.action]||'yes';
-              setTimeout(()=>playClip(clipKey),200);
+              if(holdCount < 5) return;
             }
-          } else {
-            holdCount=0; // reset hold if arms drop
-          }
-        },100);
+            actionDetected = true;
+            clearInterval(checker);
 
-        // After window — if missed
+            // Score
+            const elapsed = Date.now() - actionStartTime;
+            const isGreat = elapsed < 1000;
+            const mult = getComboMultiplier();
+            let pts = currentAction.pts;
+            if(isGreat) pts = Math.round(pts * 1.5);
+            pts = Math.round(pts * mult);
+
+            combo++;
+            maxCombo = Math.max(maxCombo, combo);
+            hits++;
+            score += pts;
+
+            document.getElementById('top-score').textContent = score + ' pts';
+            flashFeedback(isGreat ? 'great' : 'success');
+            showScorePop(pts, isGreat?'#ffd700':'#00ff99', isGreat?'GREAT!':'');
+            burst(isGreat?'#ffd700':'#ff6fd8');
+            updateCombo();
+
+            // Special celebration at combo milestones
+            if(combo === 3 || combo === 5 || combo === 10){
+              setNovaPose('hype', 1500);
+              setTimeout(()=>playClip('combo'), 200);
+            } else {
+              setNovaPose('hype', 1000);
+            }
+
+            const reactionMap = {
+              clap:'clap', both:'stretch', wave:'hello',
+              head:'amazing', shrug:'yes', star:'woohoo'
+            };
+            const clipKey = reactionMap[currentAction.action] || 'yes';
+            if(combo !== 3 && combo !== 5 && combo !== 10){
+              setTimeout(()=>playClip(clipKey), 200);
+            }
+          } else if(currentAction.action === 'both'){
+            holdCount = 0;
+          }
+        }, 100);
+
+        // Miss check at 3 sec
         setTimeout(()=>{
           if(!actionDetected && actionWindow){
+            combo = 0;
+            updateCombo();
             flashFeedback('miss');
-            if(stars>1){stars--;document.getElementById('top-stars').textContent='⭐'.repeat(stars)+'☆'.repeat(5-stars)}
-            // gentle try again — only sometimes
-            if(Math.random()>0.5) setTimeout(()=>playClip('try'),300);
+            if(stars > 1 && attempts > 3){
+              stars--;
+              document.getElementById('top-stars').textContent='⭐'.repeat(stars)+'☆'.repeat(5-stars);
+            }
+            if(Math.random() > 0.6) setTimeout(()=>playClip('try'), 300);
           }
-          actionWindow=false;
-        },2600);
+          actionWindow = false;
+        }, 3000);
       }
       timelineIdx++;
     }
-
-    // Song end check
-    if(window._songAudio && window._songAudio.ended){
-      clearInterval(songTimer);
-    }
-  },100);
+  }, 100);
 }
 
 function showEndScreen(){
   clearInterval(songTimer);
   document.getElementById('end-screen').style.display='flex';
-  const s=Math.max(1,stars);
-  document.getElementById('end-stars').textContent='⭐'.repeat(s)+'☆'.repeat(5-s);
-  document.getElementById('end-score').textContent=score+' pts';
+
+  // Final star calc based on hit rate
+  const rate = attempts > 0 ? hits/attempts : 0;
+  let finalStars = 1;
+  if(rate >= 0.95) finalStars = 5;
+  else if(rate >= 0.75) finalStars = 4;
+  else if(rate >= 0.5) finalStars = 3;
+  else if(rate >= 0.25) finalStars = 2;
+
+  document.getElementById('end-stars').textContent = '⭐'.repeat(finalStars) + '☆'.repeat(5-finalStars);
+  document.getElementById('end-score').textContent = score + ' pts';
+
   const titles=['Keep trying!','Good job!','Great!','Amazing!','PERFECT! 🔥'];
-  document.getElementById('end-title').textContent=titles[s-1]||'Amazing!';
-  document.getElementById('end-words').textContent=
-    `You sang Hello Hello with Nova and got ${score} points!`;
+  document.getElementById('end-title').textContent = titles[finalStars-1] || 'Amazing!';
+  document.getElementById('end-words').textContent =
+    `You hit ${hits} of ${attempts} moves! Best combo: ${maxCombo}🔥`;
+
   setNovaPose('hype', 99999);
   setTimeout(()=>playClip('end'), 500);
 }
 
 function playAgain(){
   document.getElementById('end-screen').style.display='none';
-  score=0; stars=5;
+  score=0; stars=5; combo=0; maxCombo=0; hits=0; attempts=0;
   document.getElementById('top-score').textContent='0 pts';
   document.getElementById('top-stars').textContent='⭐⭐⭐⭐⭐';
   document.getElementById('progress-fill').style.width='0%';
   document.getElementById('lyric-text').textContent='';
+  document.getElementById('combo-badge').classList.remove('show');
+  if(window._songAudio){ window._songAudio.pause(); window._songAudio.currentTime=0; window._songAudio=null; }
   startSong();
 }
 
 function shareResult(){
-  const txt=`🎵 I sang Hello Hello with Nova and scored ${score} points! ${('⭐'.repeat(stars))}\n\nTry it: ${window.location.href}`;
+  const txt = `🎵 I scored ${score} pts on Nova Dance! (${hits}/${attempts} moves, ${maxCombo}🔥 combo)\n\n${window.location.href}`;
   if(navigator.share) navigator.share({title:'Nova Dance',text:txt}).catch(()=>{});
   else navigator.clipboard.writeText(txt).then(()=>alert('Copied! Share it! 🎉'));
 }
 
 // ══════════════════════════════════════════
-// CAMERA
+// CAMERA + CALIBRATION FLOW
 // ══════════════════════════════════════════
 function startCameraSetup(){
   document.getElementById('intro-screen').style.display='none';
   document.getElementById('cam-screen').style.display='flex';
 }
 
+let sharedStream = null;
+
 async function requestCamera(){
   try{
-    // Request camera + mic together in ONE call — browser only asks once
-    const stream=await navigator.mediaDevices.getUserMedia({
-      video:{width:640,height:480,facingMode:'user'},
-      audio:true  // mic requested here with camera
+    // Get camera + mic in same call (fixes mic issue)
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {width:640,height:480,facingMode:'user'},
+      audio: true
     });
+    sharedStream = stream;
 
-    // Split streams
-    const videoTrack=stream.getVideoTracks()[0];
-    const audioTrack=stream.getAudioTracks()[0];
+    const videoTrack = stream.getVideoTracks()[0];
+    const audioTrack = stream.getAudioTracks()[0];
 
-    // Set up video
-    const video=document.getElementById('webcam');
-    const videoStream=new MediaStream([videoTrack]);
-    video.srcObject=videoStream;
+    // Main webcam
+    const video = document.getElementById('webcam');
+    const vs1 = new MediaStream([videoTrack]);
+    video.srcObject = vs1;
     await new Promise(r=>video.onloadedmetadata=r);
     await video.play();
-    video.style.opacity='1';
+    video.style.opacity = '1';
 
-    // Set up mic from same stream
-    if(audioTrack){
-      const micCtx=new(window.AudioContext||window.webkitAudioContext)();
-      const source=micCtx.createMediaStreamSource(new MediaStream([audioTrack]));
-      micAnalyser=micCtx.createAnalyser();
-      micAnalyser.fftSize=256;
-      micAnalyser.smoothingTimeConstant=0.3;
-      source.connect(micAnalyser);
-      micData=new Uint8Array(micAnalyser.frequencyBinCount);
-      micLoop();
-      const tag=document.getElementById('cam-tag');
-      if(tag) tag.textContent='You 🎯 🎤';
-      console.log('✅ Camera + Mic ready');
-    }
+    // Calibration preview (same track)
+    const calPrev = document.getElementById('cal-preview');
+    calPrev.srcObject = new MediaStream([videoTrack]);
+    await calPrev.play().catch(()=>{});
+
+    // Init mic
+    if(audioTrack) initMicFromTrack(audioTrack);
 
     document.getElementById('cam-screen').style.display='none';
-    active=true;
+
+    // Start pose loop
+    active = true;
     poseLoop();
-    beginSession();
+
+    // Now calibrate
+    startCalibration();
+
   }catch(e){
     const err=document.getElementById('cam-err');
     err.style.display='block';
-    err.textContent='Error: '+e.message+' — please allow camera and mic access';
+    err.textContent='Error: '+e.message+' — please allow camera and mic';
   }
 }
 
@@ -1115,13 +1198,72 @@ function skipCamera(){
   beginSession();
 }
 
+function startCalibration(){
+  document.getElementById('cal-screen').style.display='flex';
+  const status = document.getElementById('cal-status');
+  const bar = document.getElementById('cal-bar-fill');
+
+  calibrating = false;
+  calSamples = [];
+
+  let countdown = 3;
+  status.textContent = `Starting in ${countdown}...`;
+  bar.style.width = '0%';
+
+  const cd = setInterval(()=>{
+    countdown--;
+    if(countdown > 0){
+      status.textContent = `Starting in ${countdown}...`;
+    } else {
+      clearInterval(cd);
+      status.textContent = '📏 Measuring... hold still!';
+      calibrating = true;
+      calSamples = [];
+
+      let t = 0;
+      const measureInterval = setInterval(()=>{
+        t += 100;
+        bar.style.width = (t/2000*100) + '%';
+        if(t >= 2000){
+          clearInterval(measureInterval);
+          calibrating = false;
+
+          if(calSamples.length >= 10){
+            // Average samples
+            const avg = { ls_y:0, rs_y:0, nose_y:0, shoulderWidth:0 };
+            calSamples.forEach(s => {
+              avg.ls_y += s.ls_y; avg.rs_y += s.rs_y;
+              avg.nose_y += s.nose_y;
+              avg.shoulderWidth += s.shoulderWidth;
+            });
+            const n = calSamples.length;
+            Object.keys(avg).forEach(k => avg[k] /= n);
+            baseline = avg;
+            status.textContent = '✅ Ready! Let\'s dance!';
+            console.log('Baseline:', avg);
+            setTimeout(()=>{
+              document.getElementById('cal-screen').style.display='none';
+              beginSession();
+            }, 1000);
+          } else {
+            status.textContent = '❌ Couldn\'t see you! Try again...';
+            setTimeout(startCalibration, 1500);
+          }
+        }
+      }, 100);
+    }
+  }, 1000);
+}
+
 async function beginSession(){
-  initAudio();
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+  }
   preloadClips();
   showBubble("Hi! Let's sing Hello Hello! 🎵");
-  speakBrowser("Hi! I am Nova! Lets sing Hello Hello together! Watch the screen and copy the moves!");
-  setTimeout(()=>playClip('hype'), 35000);
-  setTimeout(startSong, 5000);
+  speakBrowser("Hi! I'm Nova! Let's sing Hello Hello together!");
+  setTimeout(startSong, 4000);
 }
 
 // ══════════════════════════════════════════
@@ -1150,7 +1292,6 @@ window.addEventListener('load',async()=>{
 
   animateNova();
 
-  // Max 8 seconds loading — then proceed regardless
   const loadTimeout = setTimeout(()=>{
     document.getElementById('loading').style.display='none';
     document.getElementById('intro-screen').style.display='flex';
