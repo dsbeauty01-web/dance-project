@@ -581,54 +581,87 @@ function animateNova(){
 }
 
 // ══════════════════════════════════════════
-// AUDIO CLIPS — pre-generated reactions
+// AUDIO CLIPS — generated from ElevenLabs on first load
 // ══════════════════════════════════════════
-const CLIPS = {
-  yes:     'nova-yes.mp3',
-  amazing: 'nova-amazing.mp3',
-  great:   'nova-great.mp3',
-  woohoo:  'nova-woohoo.mp3',
-  perfect: 'nova-perfect.mp3',
-  clap:    'nova-clap.mp3',
-  stretch: 'nova-stretch.mp3',
-  hype:    'nova-hype.mp3',
-  end:     'nova-end.mp3',
-  hello:   'nova-hello.mp3',
-  try:     'nova-try.mp3',
-  intro:   'nova-intro.mp3',
+const audioCache={};
+let clipPlaying=false;
+
+const CLIP_TEXTS={
+  intro: "Hi! I am Nova! Lets sing Hello Hello together! Watch the screen and copy the moves!",
+  yes: "Yes!",
+  amazing: "Amazing!",
+  great: "Great job!",
+  woohoo: "Woo hoo!",
+  clap: "Yes! Clap clap clap!",
+  stretch: "Stretch up high!",
+  hype: "You are doing great!",
+  end: "Wow! You are a superstar!",
+  hello: "Hello! Hello!",
+  try: "Try again!"
 };
 
-// Preload all clips
-const audioCache={};
-function preloadClips(){
-  Object.entries(CLIPS).forEach(([key,file])=>{
-    const a=new Audio(file);
-    a.preload='auto';
-    a.load();
-    audioCache[key]=a;
-  });
+const CLIP_BUBBLES={
+  intro:"Hi! Let's sing Hello Hello! 🎵",
+  yes:"Yes! ✅", amazing:"Amazing! 🌟", great:"Great job! 👏",
+  woohoo:"Woo hoo! 🎉", clap:"Clap clap clap! 👏",
+  stretch:"Stretch up high! 🙌", hype:"You're doing great! 🔥",
+  end:"You're a superstar! ⭐", hello:"Hello! Hello! 👋", try:"Try again! 💪"
+};
+
+async function generateClip(key){
+  if(!ELEVENLABS_KEY) return null;
+  try{
+    const res=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE}`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','xi-api-key':ELEVENLABS_KEY},
+      body:JSON.stringify({
+        text:CLIP_TEXTS[key],
+        model_id:'eleven_turbo_v2_5',
+        voice_settings:{stability:0.55,similarity_boost:0.85,style:0.5,use_speaker_boost:true}
+      })
+    });
+    if(!res.ok) return null;
+    const blob=await res.blob();
+    const url=URL.createObjectURL(blob);
+    const audio=new Audio(url);
+    audioCache[key]=audio;
+    return audio;
+  }catch(e){return null}
 }
 
-let clipPlaying=false;
+async function preloadClips(){
+  if(!ELEVENLABS_KEY) return;
+  // Generate all clips in parallel
+  console.log('🎤 Generating Nova voice clips...');
+  await Promise.all(Object.keys(CLIP_TEXTS).map(key=>generateClip(key)));
+  console.log('✅ Voice clips ready');
+}
+
 function playClip(key){
-  if(clipPlaying) return; // don't interrupt
-  const a=audioCache[key];
-  if(!a) return;
-  // Clone so we can overlap if needed
-  const clone=a.cloneNode();
-  clipPlaying=true;
+  if(clipPlaying) return;
+  if(CLIP_BUBBLES[key]) showBubble(CLIP_BUBBLES[key]);
+  const audio=audioCache[key];
+  if(!audio){
+    // Fallback to browser speech
+    speakBrowser(CLIP_TEXTS[key]||'');
+    return;
+  }
+  const clone=audio.cloneNode();
   clone.volume=0.9;
-  clone.play().catch(()=>{});
-  clone.onended=()=>{clipPlaying=false};
-  // Show bubble with matching text
-  const texts={
-    yes:'Yes! ✅', amazing:'Amazing! 🌟', great:'Great job! 👏',
-    woohoo:'Woo hoo! 🎉', perfect:'Perfect! 💫', clap:'Clap clap clap! 👏',
-    stretch:'Stretch up high! 🙌', hype:"You're doing great! 🔥",
-    end:"You're a superstar! ⭐", hello:'Hello! Hello! 👋', try:'Try again! 💪',
-    intro:"Hi! Let's sing Hello Hello! 🎵"
-  };
-  if(texts[key]) showBubble(texts[key]);
+  clipPlaying=true;
+  clone.play().catch(()=>{clipPlaying=false});
+  clone.onended=()=>clipPlaying=false;
+}
+
+function speakBrowser(txt){
+  if(!window.speechSynthesis||!txt) return;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(txt);
+  u.rate=0.88; u.pitch=1.2; u.volume=1;
+  const vs=speechSynthesis.getVoices();
+  const v=vs.find(x=>x.name.includes('Samantha')||x.name.includes('Karen')||x.name.includes('Google UK English Female'));
+  if(v) u.voice=v;
+  speechSynthesis.speak(u);
 }
 let micStream=null, micAnalyser=null, micData=null;
 let lastClapTime=0, clapCooldown=400; // ms between claps
@@ -945,27 +978,19 @@ function skipCamera(){
 
 async function beginSession(){
   initAudio();
-  preloadClips();
-  // Init mic for clap detection
   const micOk=await initMic();
   if(micOk){
     const tag=document.getElementById('cam-tag');
     if(tag) tag.textContent='You 🎯 🎤';
   }
-  // Play intro clip — fall back to browser speech if not found
-  setTimeout(()=>{
-    const introAudio=new Audio('nova-intro.mp3');
-    introAudio.play().catch(()=>{
-      // Fallback browser speech
-      const u=new SpeechSynthesisUtterance("Hi! Let's sing Hello Hello! Watch the screen and copy the moves!");
-      u.rate=0.88; u.pitch=1.2;
-      speechSynthesis.speak(u);
-    });
-    showBubble("Hi! Let's sing Hello Hello! 🎵");
-  }, 300);
+  // Generate clips in background while user waits
+  preloadClips();
+  // Play intro immediately
+  showBubble("Hi! Let's sing Hello Hello! 🎵");
+  speakBrowser("Hi! I am Nova! Lets sing Hello Hello together! Watch the screen and copy the moves!");
   // Hype mid-song
   setTimeout(()=>playClip('hype'), 35000);
-  // Start song
+  // Start song after 5 seconds
   setTimeout(startSong, 5000);
 }
 
