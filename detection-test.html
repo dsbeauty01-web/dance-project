@@ -3,32 +3,43 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova Detection Test</title>
+<title>Nova Detection Test v2</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #1a0533; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; gap: 16px; }
-h1 { color: #ff6fd8; font-size: 20px; }
+body { background: #1a0533; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 16px; gap: 12px; }
+h1 { color: #ff6fd8; font-size: 18px; }
 video { width: 320px; height: 240px; border-radius: 12px; transform: scaleX(-1); background: #000; }
-.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 320px; }
-.box { background: rgba(255,255,255,0.06); border: 2px solid rgba(255,255,255,0.15); border-radius: 12px; padding: 16px; text-align: center; transition: all 0.2s; }
-.box.active { background: rgba(0,255,150,0.2); border-color: #00ff99; }
-.box.active.clap { background: rgba(255,200,0,0.2); border-color: #ffd700; }
-.emoji { font-size: 36px; display: block; margin-bottom: 6px; }
-.label { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.6); }
-.status { font-size: 11px; margin-top: 4px; color: rgba(255,255,255,0.3); }
-button { background: linear-gradient(135deg,#ff6fd8,#7c6fff); border: none; border-radius: 50px; padding: 12px 32px; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; }
-#mic-bar-wrap { width: 320px; height: 10px; background: rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 340px; }
+.box { background: rgba(255,255,255,0.06); border: 2px solid rgba(255,255,255,0.15); border-radius: 12px; padding: 12px; text-align: center; transition: all 0.15s; min-height: 95px; display: flex; flex-direction: column; justify-content: center; }
+.box.active { background: rgba(0,255,150,0.25); border-color: #00ff99; transform: scale(1.03); }
+.box.active.clap { background: rgba(255,200,0,0.3); border-color: #ffd700; }
+.emoji { font-size: 30px; display: block; margin-bottom: 4px; }
+.label { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.8); }
+.status { font-size: 10px; margin-top: 4px; color: rgba(255,255,255,0.5); font-family: monospace; }
+button { background: linear-gradient(135deg,#ff6fd8,#7c6fff); border: none; border-radius: 50px; padding: 10px 22px; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; }
+button.cal { background: linear-gradient(135deg,#ffd700,#ff8a00); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+#mic-bar-wrap { width: 340px; height: 10px; background: rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden; }
 #mic-bar { height: 100%; width: 0%; background: linear-gradient(90deg,#ff6fd8,#ffd700); border-radius: 10px; transition: width 0.05s; }
-#log { width: 320px; background: rgba(0,0,0,0.4); border-radius: 10px; padding: 10px; font-size: 11px; color: rgba(255,255,255,0.5); height: 80px; overflow-y: auto; }
+#log { width: 340px; background: rgba(0,0,0,0.4); border-radius: 10px; padding: 8px; font-size: 10px; color: rgba(255,255,255,0.5); height: 70px; overflow-y: auto; font-family: monospace; }
+#cal-status { font-size: 12px; color: #ffd700; font-weight: 700; }
+.row { display: flex; gap: 8px; align-items: center; }
 </style>
 </head>
 <body>
 
-<h1>🔬 Nova Detection Test</h1>
+<h1>🔬 Nova Detection Test v2</h1>
 <video id="cam" autoplay playsinline muted></video>
 
-<div style="font-size:12px;color:rgba(255,255,255,0.4)">🎤 Mic volume:</div>
+<div style="font-size:11px;color:rgba(255,255,255,0.4)">🎤 Mic volume:</div>
 <div id="mic-bar-wrap"><div id="mic-bar"></div></div>
+
+<div id="cal-status">👉 Stand normally, then press "Calibrate"</div>
+
+<div class="row">
+  <button onclick="start()" id="start-btn">Start Camera 🚀</button>
+  <button onclick="calibrate()" id="cal-btn" class="cal" disabled>Calibrate 📏</button>
+</div>
 
 <div class="grid">
   <div class="box" id="box-lup">
@@ -48,7 +59,7 @@ button { background: linear-gradient(135deg,#ff6fd8,#7c6fff); border: none; bord
   </div>
   <div class="box" id="box-down">
     <span class="emoji">👇</span>
-    <div class="label">Arms Down</div>
+    <div class="label">Arms Down (toes)</div>
     <div class="status" id="stat-down">—</div>
   </div>
   <div class="box" id="box-shrug">
@@ -63,31 +74,67 @@ button { background: linear-gradient(135deg,#ff6fd8,#7c6fff); border: none; bord
   </div>
 </div>
 
-<div id="log">Waiting for camera + mic...</div>
-<button onclick="start()">Start Test 🚀</button>
+<div id="log">Waiting...</div>
 
 <script>
+// ════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════
 let detector = null;
 let micAnalyser = null;
 let micData = null;
 let lastClap = 0;
 
+// Smoothed keypoints (reduces jitter)
+const smoothed = {};
+const SMOOTH = 0.6; // higher = smoother but laggier
+
+// Baseline (captured during calibration)
+let baseline = null;
+let calibrating = false;
+let calSamples = [];
+
+// Per-move hold counters (requires N frames in a row to trigger)
+const hold = { lup:0, rup:0, both:0, down:0, shrug:0 };
+const HOLD_FRAMES = 3; // ~100ms at 30fps
+
+// ════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════
 function log(msg){
   const el = document.getElementById('log');
-  el.innerHTML = msg + '<br>' + el.innerHTML;
+  const time = new Date().toLocaleTimeString().slice(3);
+  el.innerHTML = `[${time}] ${msg}<br>` + el.innerHTML.split('<br>').slice(0,8).join('<br>');
 }
 
 function setBox(id, active, statText){
-  document.getElementById('box-'+id).className = 'box' + (active?' active':'') + (id==='clap'?' clap':'');
-  document.getElementById('stat-'+id).textContent = statText || (active?'✅ DETECTED':'—');
+  const box = document.getElementById('box-'+id);
+  const newClass = 'box' + (active?' active':'') + (id==='clap'?' clap':'');
+  if(box.className !== newClass) box.className = newClass;
+  const stat = document.getElementById('stat-'+id);
+  if(stat.textContent !== statText) stat.textContent = statText;
 }
 
+function smooth(name, newVal){
+  if(!smoothed[name]){
+    smoothed[name] = {x:newVal.x, y:newVal.y, score:newVal.score};
+  } else {
+    smoothed[name].x = smoothed[name].x * SMOOTH + newVal.x * (1-SMOOTH);
+    smoothed[name].y = smoothed[name].y * SMOOTH + newVal.y * (1-SMOOTH);
+    smoothed[name].score = smoothed[name].score * SMOOTH + newVal.score * (1-SMOOTH);
+  }
+  return smoothed[name];
+}
+
+// ════════════════════════════════════════════
+// START (camera + mic + tf)
+// ════════════════════════════════════════════
 async function start(){
-  document.querySelector('button').textContent = 'Loading...';
-  document.querySelector('button').disabled = true;
+  const btn = document.getElementById('start-btn');
+  btn.textContent = 'Loading...';
+  btn.disabled = true;
 
   try {
-    // Camera + Mic together
     const stream = await navigator.mediaDevices.getUserMedia({
       video: {width:640, height:480, facingMode:'user'},
       audio: true
@@ -98,12 +145,12 @@ async function start(){
     video.srcObject = videoStream;
     await new Promise(r => video.onloadedmetadata = r);
     await video.play();
-    log('✅ Camera ready');
+    log('✅ Camera ready ('+video.videoWidth+'x'+video.videoHeight+')');
 
-    // Mic
     const audioTrack = stream.getAudioTracks()[0];
     if(audioTrack){
       const ctx = new AudioContext();
+      if(ctx.state === 'suspended') await ctx.resume();
       const src = ctx.createMediaStreamSource(new MediaStream([audioTrack]));
       micAnalyser = ctx.createAnalyser();
       micAnalyser.fftSize = 256;
@@ -111,12 +158,9 @@ async function start(){
       src.connect(micAnalyser);
       micData = new Uint8Array(micAnalyser.frequencyBinCount);
       log('✅ Mic ready');
-    } else {
-      log('❌ No mic access');
     }
 
-    // Load TF
-    log('Loading TF...');
+    log('Loading TensorFlow...');
     await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js');
     await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js');
     await tf.ready();
@@ -126,16 +170,17 @@ async function start(){
       poseDetection.SupportedModels.MoveNet,
       {modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING}
     );
-    log('✅ MoveNet ready — move around!');
-    document.querySelector('button').textContent = 'Running ✅';
+    log('✅ MoveNet ready — press Calibrate!');
+    btn.textContent = 'Running ✅';
+    document.getElementById('cal-btn').disabled = false;
 
     detectionLoop(video);
     micLoop();
 
   } catch(e) {
     log('❌ Error: ' + e.message);
-    document.querySelector('button').disabled = false;
-    document.querySelector('button').textContent = 'Try Again';
+    btn.disabled = false;
+    btn.textContent = 'Try Again';
   }
 }
 
@@ -147,6 +192,54 @@ function loadScript(url){
   });
 }
 
+// ════════════════════════════════════════════
+// CALIBRATION — capture baseline pose for 2 sec
+// ════════════════════════════════════════════
+function calibrate(){
+  calibrating = true;
+  calSamples = [];
+  const status = document.getElementById('cal-status');
+  const btn = document.getElementById('cal-btn');
+  btn.disabled = true;
+  let countdown = 3;
+  status.textContent = `🧍 Stand normally! Starting in ${countdown}...`;
+
+  const cd = setInterval(()=>{
+    countdown--;
+    if(countdown > 0){
+      status.textContent = `🧍 Stand normally! Starting in ${countdown}...`;
+    } else {
+      clearInterval(cd);
+      status.textContent = '📏 Measuring... hold still for 2 sec!';
+      setTimeout(()=>{
+        if(calSamples.length < 10){
+          status.textContent = '❌ Not enough samples. Try again!';
+          calibrating = false;
+          btn.disabled = false;
+          return;
+        }
+        // Average the samples
+        const avg = { ls_y:0, rs_y:0, nose_y:0, lw_y:0, rw_y:0, shoulderWidth:0 };
+        calSamples.forEach(s => {
+          avg.ls_y += s.ls_y; avg.rs_y += s.rs_y; avg.nose_y += s.nose_y;
+          avg.lw_y += s.lw_y; avg.rw_y += s.rw_y;
+          avg.shoulderWidth += s.shoulderWidth;
+        });
+        const n = calSamples.length;
+        Object.keys(avg).forEach(k => avg[k] /= n);
+        baseline = avg;
+        log(`✅ Baseline: sh_y=${avg.ls_y.toFixed(0)},${avg.rs_y.toFixed(0)} nose_y=${avg.nose_y.toFixed(0)} width=${avg.shoulderWidth.toFixed(0)}`);
+        status.textContent = '✅ Calibrated! Try moves now.';
+        calibrating = false;
+        btn.disabled = false;
+      }, 2000);
+    }
+  }, 1000);
+}
+
+// ════════════════════════════════════════════
+// DETECTION LOOP
+// ════════════════════════════════════════════
 async function detectionLoop(video){
   if(!detector){ requestAnimationFrame(()=>detectionLoop(video)); return; }
   try{
@@ -158,36 +251,97 @@ async function detectionLoop(video){
 
 function analyze(kps){
   const get = n => kps.find(k=>k.name===n);
-  const ls=get('left_shoulder'), rs=get('right_shoulder');
-  const lw=get('left_wrist'), rw=get('right_wrist');
-  const nose=get('nose');
-  if(!ls||!rs||!lw||!rw) return;
+  const rawLs=get('left_shoulder'), rawRs=get('right_shoulder');
+  const rawLw=get('left_wrist'), rawRw=get('right_wrist');
+  const rawNose=get('nose');
+  if(!rawLs||!rawRs||!rawLw||!rawRw) return;
 
-  const c = 0.3;
-  const lUp = lw.score>c && ls.score>c && lw.y < ls.y-0.05;
-  const rUp = rw.score>c && rs.score>c && rw.y < rs.y-0.05;
-  const armsDown = lw.score>c && rw.score>c && lw.y>0.7 && rw.y>0.7;
+  // Smooth everything
+  const ls = smooth('ls', rawLs);
+  const rs = smooth('rs', rawRs);
+  const lw = smooth('lw', rawLw);
+  const rw = smooth('rw', rawRw);
+  const nose = rawNose ? smooth('nose', rawNose) : null;
 
-  let shrug = false;
-  if(nose && nose.score>c){
-    const avgShoulder = (ls.y+rs.y)/2;
-    shrug = (avgShoulder - nose.y) < 0.15;
+  const MIN_SCORE = 0.3;
+
+  // Calibration sample
+  if(calibrating && ls.score>MIN_SCORE && rs.score>MIN_SCORE){
+    calSamples.push({
+      ls_y: ls.y, rs_y: rs.y,
+      nose_y: nose ? nose.y : 0,
+      lw_y: lw.y, rw_y: rw.y,
+      shoulderWidth: Math.abs(ls.x - rs.x)
+    });
   }
 
-  setBox('lup', lUp, lUp ? `✅ wrist.y=${lw.y.toFixed(2)} sh.y=${ls.y.toFixed(2)}` : `wrist=${lw.y.toFixed(2)} sh=${ls.y.toFixed(2)}`);
-  setBox('rup', rUp, rUp ? `✅ wrist.y=${rw.y.toFixed(2)} sh.y=${rs.y.toFixed(2)}` : `wrist=${rw.y.toFixed(2)} sh=${rs.y.toFixed(2)}`);
-  setBox('both', lUp&&rUp);
-  setBox('down', armsDown, armsDown ? `✅ lw=${lw.y.toFixed(2)} rw=${rw.y.toFixed(2)}` : `lw=${lw.y.toFixed(2)} rw=${rw.y.toFixed(2)}`);
-  setBox('shrug', shrug, shrug ? `✅ sh-nose=${nose?(((ls.y+rs.y)/2)-nose.y).toFixed(2):'?'}` : `sh-nose=${nose?(((ls.y+rs.y)/2)-nose.y).toFixed(2):'?'}`);
+  // Shoulder width = a natural scale unit (doesn't change with zoom/distance)
+  const shoulderWidth = Math.abs(ls.x - rs.x);
+  const scale = shoulderWidth > 20 ? shoulderWidth : 100;
+
+  // ── MOVE DETECTION (pixel-based, scale-normalized) ──
+
+  // Arm UP: wrist significantly above shoulder (y is smaller = higher on screen)
+  // Require wrist at least 0.3 shoulder-widths above shoulder
+  const armRaiseThreshold = scale * 0.3;
+  const lUpRaw = lw.score>MIN_SCORE && ls.score>MIN_SCORE && (ls.y - lw.y) > armRaiseThreshold;
+  const rUpRaw = rw.score>MIN_SCORE && rs.score>MIN_SCORE && (rs.y - rw.y) > armRaiseThreshold;
+
+  // Arms DOWN low: wrists below shoulders by at least 1.5 shoulder-widths (reaching toes)
+  const armDownThreshold = scale * 1.5;
+  const armsDownRaw = lw.score>MIN_SCORE && rw.score>MIN_SCORE
+    && (lw.y - ls.y) > armDownThreshold
+    && (rw.y - rs.y) > armDownThreshold;
+
+  // Shrug: if we have baseline, shoulders raised above baseline by 0.15 of shoulder-width
+  let shrugRaw = false;
+  let shrugInfo = 'need calibration';
+  if(baseline){
+    const currentShY = (ls.y + rs.y) / 2;
+    const baseShY = (baseline.ls_y + baseline.rs_y) / 2;
+    const rise = baseShY - currentShY; // positive = shoulders went up
+    const shrugThreshold = scale * 0.15;
+    shrugRaw = rise > shrugThreshold && !lUpRaw && !rUpRaw; // not just raising arms
+    shrugInfo = `rise=${rise.toFixed(0)}px need>${shrugThreshold.toFixed(0)}`;
+  } else if(nose && nose.score>MIN_SCORE) {
+    // Fallback without calibration
+    const avgShoulderY = (ls.y + rs.y) / 2;
+    const noseToShoulderGap = avgShoulderY - nose.y;
+    // Typical gap is ~0.8-1.2 shoulder widths. Shrug = gap shrinks.
+    shrugRaw = noseToShoulderGap < scale * 0.6 && !lUpRaw && !rUpRaw;
+    shrugInfo = `gap=${noseToShoulderGap.toFixed(0)} need<${(scale*0.6).toFixed(0)}`;
+  }
+
+  // ── HOLD FILTERING (reduce flicker) ──
+  const check = (raw, key) => {
+    if(raw) hold[key] = Math.min(hold[key]+1, 10);
+    else    hold[key] = Math.max(hold[key]-1, 0);
+    return hold[key] >= HOLD_FRAMES;
+  };
+
+  const lUp = check(lUpRaw, 'lup');
+  const rUp = check(rUpRaw, 'rup');
+  const bothUp = lUp && rUp;
+  const armsDown = check(armsDownRaw, 'down');
+  const shrug = check(shrugRaw, 'shrug');
+
+  // ── UI UPDATE ──
+  setBox('lup', lUp, `gap=${(ls.y-lw.y).toFixed(0)}px need>${armRaiseThreshold.toFixed(0)}`);
+  setBox('rup', rUp, `gap=${(rs.y-rw.y).toFixed(0)}px need>${armRaiseThreshold.toFixed(0)}`);
+  setBox('both', bothUp, bothUp?'✅ BOTH UP':'—');
+  setBox('down', armsDown, `lw=${(lw.y-ls.y).toFixed(0)} rw=${(rw.y-rs.y).toFixed(0)} need>${armDownThreshold.toFixed(0)}`);
+  setBox('shrug', shrug, shrugInfo);
 }
 
+// ════════════════════════════════════════════
+// MIC LOOP
+// ════════════════════════════════════════════
 function micLoop(){
   if(!micAnalyser){ return; }
   requestAnimationFrame(micLoop);
   micAnalyser.getByteFrequencyData(micData);
   const avg = micData.reduce((a,b)=>a+b,0)/micData.length;
 
-  // Update mic bar
   document.getElementById('mic-bar').style.width = Math.min(100, avg*2) + '%';
 
   const now = Date.now();
