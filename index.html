@@ -163,6 +163,7 @@ body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
   <div class="spin"></div>
   <h2>Loading Nova... 🌟</h2>
   <div id="load-bar-wrap"><div id="load-bar"></div></div>
+  <p id="load-msg" style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:8px">Starting up...</p>
 </div>
 
 <!-- INTRO SCREEN -->
@@ -784,29 +785,46 @@ function micLoop(){
 }
 async function initDetector(){
   const bar=document.getElementById('load-bar');
+  const msg=document.getElementById('load-msg');
   try{
-    bar.style.width='40%';
-    const tfOk=await loadScript([
+    if(msg) msg.textContent='Loading AI tracking...';
+    bar.style.width='30%';
+
+    // 5 second timeout per script load
+    const withTimeout=(promise,ms)=>Promise.race([
+      promise,
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))
+    ]);
+
+    const tfOk=await withTimeout(loadScript([
       'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js',
       'https://unpkg.com/@tensorflow/tfjs@4.2.0/dist/tf.min.js'
-    ]);
+    ]),5000).catch(()=>false);
+
     if(!tfOk) throw new Error('TF failed');
-    bar.style.width='70%';
-    const pdOk=await loadScript([
+    bar.style.width='60%';
+    if(msg) msg.textContent='Loading pose detection...';
+
+    const pdOk=await withTimeout(loadScript([
       'https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js',
       'https://unpkg.com/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js'
-    ]);
+    ]),5000).catch(()=>false);
+
     if(!pdOk) throw new Error('PD failed');
+    bar.style.width='85%';
+    if(msg) msg.textContent='Almost ready!';
+
     await tf.ready();
-    bar.style.width='90%';
     detector=await poseDetection.createDetector(
       poseDetection.SupportedModels.MoveNet,
       {modelType:poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING}
     );
     bar.style.width='100%';
+    if(msg) msg.textContent='Ready! 🌟';
   }catch(e){
-    console.log('Tracking unavailable');
+    console.log('Tracking unavailable:',e.message);
     bar.style.width='100%';
+    if(msg) msg.textContent='Ready! (no tracking)';
     detector=null;
   }
 }
@@ -1124,11 +1142,6 @@ async function beginSession(){
   setTimeout(()=>playClip('hype'), 35000);
   setTimeout(startSong, 5000);
 }
-  // Hype mid-song
-  setTimeout(()=>playClip('hype'), 35000);
-  // Start song after 5 seconds
-  setTimeout(startSong, 5000);
-}
 
 // ══════════════════════════════════════════
 // BOOT
@@ -1155,8 +1168,16 @@ window.addEventListener('load',async()=>{
   });
 
   animateNova();
+
+  // Max 8 seconds loading — then proceed regardless
+  const loadTimeout = setTimeout(()=>{
+    document.getElementById('loading').style.display='none';
+    document.getElementById('intro-screen').style.display='flex';
+  }, 8000);
+
   await initDetector();
 
+  clearTimeout(loadTimeout);
   document.getElementById('loading').style.display='none';
   document.getElementById('intro-screen').style.display='flex';
 });
