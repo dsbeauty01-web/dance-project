@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova Detection Test</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a0533; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; gap: 16px; }
+h1 { color: #ff6fd8; font-size: 20px; }
+video { width: 320px; height: 240px; border-radius: 12px; transform: scaleX(-1); background: #000; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 320px; }
+.box { background: rgba(255,255,255,0.06); border: 2px solid rgba(255,255,255,0.15); border-radius: 12px; padding: 16px; text-align: center; transition: all 0.2s; }
+.box.active { background: rgba(0,255,150,0.2); border-color: #00ff99; }
+.box.active.clap { background: rgba(255,200,0,0.2); border-color: #ffd700; }
+.emoji { font-size: 36px; display: block; margin-bottom: 6px; }
+.label { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.6); }
+.status { font-size: 11px; margin-top: 4px; color: rgba(255,255,255,0.3); }
+button { background: linear-gradient(135deg,#ff6fd8,#7c6fff); border: none; border-radius: 50px; padding: 12px 32px; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; }
+#mic-bar-wrap { width: 320px; height: 10px; background: rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden; }
+#mic-bar { height: 100%; width: 0%; background: linear-gradient(90deg,#ff6fd8,#ffd700); border-radius: 10px; transition: width 0.05s; }
+#log { width: 320px; background: rgba(0,0,0,0.4); border-radius: 10px; padding: 10px; font-size: 11px; color: rgba(255,255,255,0.5); height: 80px; overflow-y: auto; }
+</style>
+</head>
+<body>
+
+<h1>🔬 Nova Detection Test</h1>
+<video id="cam" autoplay playsinline muted></video>
+
+<div style="font-size:12px;color:rgba(255,255,255,0.4)">🎤 Mic volume:</div>
+<div id="mic-bar-wrap"><div id="mic-bar"></div></div>
+
+<div class="grid">
+  <div class="box" id="box-lup">
+    <span class="emoji">👈</span>
+    <div class="label">Left Arm Up</div>
+    <div class="status" id="stat-lup">—</div>
+  </div>
+  <div class="box" id="box-rup">
+    <span class="emoji">👉</span>
+    <div class="label">Right Arm Up</div>
+    <div class="status" id="stat-rup">—</div>
+  </div>
+  <div class="box" id="box-both">
+    <span class="emoji">🙌</span>
+    <div class="label">Both Arms Up</div>
+    <div class="status" id="stat-both">—</div>
+  </div>
+  <div class="box" id="box-down">
+    <span class="emoji">👇</span>
+    <div class="label">Arms Down</div>
+    <div class="status" id="stat-down">—</div>
+  </div>
+  <div class="box" id="box-shrug">
+    <span class="emoji">🤷</span>
+    <div class="label">Shrug</div>
+    <div class="status" id="stat-shrug">—</div>
+  </div>
+  <div class="box clap" id="box-clap">
+    <span class="emoji">👏</span>
+    <div class="label">Clap (mic)</div>
+    <div class="status" id="stat-clap">—</div>
+  </div>
+</div>
+
+<div id="log">Waiting for camera + mic...</div>
+<button onclick="start()">Start Test 🚀</button>
+
+<script>
+let detector = null;
+let micAnalyser = null;
+let micData = null;
+let lastClap = 0;
+
+function log(msg){
+  const el = document.getElementById('log');
+  el.innerHTML = msg + '<br>' + el.innerHTML;
+}
+
+function setBox(id, active, statText){
+  document.getElementById('box-'+id).className = 'box' + (active?' active':'') + (id==='clap'?' clap':'');
+  document.getElementById('stat-'+id).textContent = statText || (active?'✅ DETECTED':'—');
+}
+
+async function start(){
+  document.querySelector('button').textContent = 'Loading...';
+  document.querySelector('button').disabled = true;
+
+  try {
+    // Camera + Mic together
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {width:640, height:480, facingMode:'user'},
+      audio: true
+    });
+
+    const video = document.getElementById('cam');
+    const videoStream = new MediaStream([stream.getVideoTracks()[0]]);
+    video.srcObject = videoStream;
+    await new Promise(r => video.onloadedmetadata = r);
+    await video.play();
+    log('✅ Camera ready');
+
+    // Mic
+    const audioTrack = stream.getAudioTracks()[0];
+    if(audioTrack){
+      const ctx = new AudioContext();
+      const src = ctx.createMediaStreamSource(new MediaStream([audioTrack]));
+      micAnalyser = ctx.createAnalyser();
+      micAnalyser.fftSize = 256;
+      micAnalyser.smoothingTimeConstant = 0.3;
+      src.connect(micAnalyser);
+      micData = new Uint8Array(micAnalyser.frequencyBinCount);
+      log('✅ Mic ready');
+    } else {
+      log('❌ No mic access');
+    }
+
+    // Load TF
+    log('Loading TF...');
+    await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js');
+    await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js');
+    await tf.ready();
+    log('✅ TF loaded');
+
+    detector = await poseDetection.createDetector(
+      poseDetection.SupportedModels.MoveNet,
+      {modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING}
+    );
+    log('✅ MoveNet ready — move around!');
+    document.querySelector('button').textContent = 'Running ✅';
+
+    detectionLoop(video);
+    micLoop();
+
+  } catch(e) {
+    log('❌ Error: ' + e.message);
+    document.querySelector('button').disabled = false;
+    document.querySelector('button').textContent = 'Try Again';
+  }
+}
+
+function loadScript(url){
+  return new Promise((res,rej)=>{
+    const s = document.createElement('script');
+    s.src = url; s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+
+async function detectionLoop(video){
+  if(!detector){ requestAnimationFrame(()=>detectionLoop(video)); return; }
+  try{
+    const poses = await detector.estimatePoses(video);
+    if(poses.length > 0) analyze(poses[0].keypoints);
+  } catch(e){}
+  requestAnimationFrame(()=>detectionLoop(video));
+}
+
+function analyze(kps){
+  const get = n => kps.find(k=>k.name===n);
+  const ls=get('left_shoulder'), rs=get('right_shoulder');
+  const lw=get('left_wrist'), rw=get('right_wrist');
+  const nose=get('nose');
+  if(!ls||!rs||!lw||!rw) return;
+
+  const c = 0.3;
+  const lUp = lw.score>c && ls.score>c && lw.y < ls.y-0.05;
+  const rUp = rw.score>c && rs.score>c && rw.y < rs.y-0.05;
+  const armsDown = lw.score>c && rw.score>c && lw.y>0.7 && rw.y>0.7;
+
+  let shrug = false;
+  if(nose && nose.score>c){
+    const avgShoulder = (ls.y+rs.y)/2;
+    shrug = (avgShoulder - nose.y) < 0.15;
+  }
+
+  setBox('lup', lUp, lUp ? `✅ wrist.y=${lw.y.toFixed(2)} sh.y=${ls.y.toFixed(2)}` : `wrist=${lw.y.toFixed(2)} sh=${ls.y.toFixed(2)}`);
+  setBox('rup', rUp, rUp ? `✅ wrist.y=${rw.y.toFixed(2)} sh.y=${rs.y.toFixed(2)}` : `wrist=${rw.y.toFixed(2)} sh=${rs.y.toFixed(2)}`);
+  setBox('both', lUp&&rUp);
+  setBox('down', armsDown, armsDown ? `✅ lw=${lw.y.toFixed(2)} rw=${rw.y.toFixed(2)}` : `lw=${lw.y.toFixed(2)} rw=${rw.y.toFixed(2)}`);
+  setBox('shrug', shrug, shrug ? `✅ sh-nose=${nose?(((ls.y+rs.y)/2)-nose.y).toFixed(2):'?'}` : `sh-nose=${nose?(((ls.y+rs.y)/2)-nose.y).toFixed(2):'?'}`);
+}
+
+function micLoop(){
+  if(!micAnalyser){ return; }
+  requestAnimationFrame(micLoop);
+  micAnalyser.getByteFrequencyData(micData);
+  const avg = micData.reduce((a,b)=>a+b,0)/micData.length;
+
+  // Update mic bar
+  document.getElementById('mic-bar').style.width = Math.min(100, avg*2) + '%';
+
+  const now = Date.now();
+  if(avg > 80 && now - lastClap > 400){
+    lastClap = now;
+    setBox('clap', true, `✅ vol=${avg.toFixed(0)}`);
+    setTimeout(()=>setBox('clap', false, `vol=${avg.toFixed(0)}`), 300);
+    log(`👏 Clap! volume=${avg.toFixed(0)}`);
+  }
+}
+</script>
+</body>
+</html>
