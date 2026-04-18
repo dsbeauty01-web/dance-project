@@ -175,9 +175,9 @@ body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
 
 <!-- CAMERA SCREEN -->
 <div id="cam-screen">
-  <div style="font-size:56px">📷</div>
-  <h2>Nova needs your camera!</h2>
-  <p>So she can see your amazing moves!</p>
+  <div style="font-size:56px">📷🎤</div>
+  <h2>Nova needs camera + mic!</h2>
+  <p>Camera sees your moves — mic hears your claps!</p>
   <button class="big-btn" onclick="requestCamera()" style="font-size:18px;padding:12px 32px">Allow Camera 🎉</button>
   <div id="cam-err"></div>
   <button onclick="skipCamera()" style="background:none;border:none;color:rgba(255,255,255,0.3);font-size:13px;cursor:pointer;margin-top:-8px">Skip camera →</button>
@@ -210,6 +210,7 @@ body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;height:100vh;
     <div id="track-pills">
       <div class="tpill"><div style="width:5px;height:5px;border-radius:50%;background:#ff6fd8"></div><span id="ls">L:—</span></div>
       <div class="tpill"><div style="width:5px;height:5px;border-radius:50%;background:#7c6fff"></div><span id="rs">R:—</span></div>
+      <div class="tpill"><div style="width:5px;height:5px;border-radius:50%;background:#ffd700"></div><span id="cs">👏:—</span></div>
     </div>
   </div>
 
@@ -580,8 +581,97 @@ function animateNova(){
 }
 
 // ══════════════════════════════════════════
-// POSE DETECTION
+// AUDIO CLIPS — pre-generated reactions
 // ══════════════════════════════════════════
+const CLIPS = {
+  yes:     'nova-yes.mp3',
+  amazing: 'nova-amazing.mp3',
+  great:   'nova-great.mp3',
+  woohoo:  'nova-woohoo.mp3',
+  perfect: 'nova-perfect.mp3',
+  clap:    'nova-clap.mp3',
+  stretch: 'nova-stretch.mp3',
+  hype:    'nova-hype.mp3',
+  end:     'nova-end.mp3',
+  hello:   'nova-hello.mp3',
+  try:     'nova-try.mp3',
+  intro:   'nova-intro.mp3',
+};
+
+// Preload all clips
+const audioCache={};
+function preloadClips(){
+  Object.entries(CLIPS).forEach(([key,file])=>{
+    const a=new Audio(file);
+    a.preload='auto';
+    a.load();
+    audioCache[key]=a;
+  });
+}
+
+let clipPlaying=false;
+function playClip(key){
+  if(clipPlaying) return; // don't interrupt
+  const a=audioCache[key];
+  if(!a) return;
+  // Clone so we can overlap if needed
+  const clone=a.cloneNode();
+  clipPlaying=true;
+  clone.volume=0.9;
+  clone.play().catch(()=>{});
+  clone.onended=()=>{clipPlaying=false};
+  // Show bubble with matching text
+  const texts={
+    yes:'Yes! ✅', amazing:'Amazing! 🌟', great:'Great job! 👏',
+    woohoo:'Woo hoo! 🎉', perfect:'Perfect! 💫', clap:'Clap clap clap! 👏',
+    stretch:'Stretch up high! 🙌', hype:"You're doing great! 🔥",
+    end:"You're a superstar! ⭐", hello:'Hello! Hello! 👋', try:'Try again! 💪',
+    intro:"Hi! Let's sing Hello Hello! 🎵"
+  };
+  if(texts[key]) showBubble(texts[key]);
+}
+let micStream=null, micAnalyser=null, micData=null;
+let lastClapTime=0, clapCooldown=400; // ms between claps
+let clapDetected=false;
+
+async function initMic(){
+  try{
+    micStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+    const micCtx=new(window.AudioContext||window.webkitAudioContext)();
+    const source=micCtx.createMediaStreamSource(micStream);
+    micAnalyser=micCtx.createAnalyser();
+    micAnalyser.fftSize=256;
+    micAnalyser.smoothingTimeConstant=0.3;
+    source.connect(micAnalyser);
+    micData=new Uint8Array(micAnalyser.frequencyBinCount);
+    micLoop();
+    console.log('🎤 Mic ready');
+    return true;
+  }catch(e){
+    console.log('Mic not available:',e.message);
+    return false;
+  }
+}
+
+function micLoop(){
+  if(!micAnalyser) return;
+  requestAnimationFrame(micLoop);
+  micAnalyser.getByteFrequencyData(micData);
+  // Clap = sudden high volume spike across all frequencies
+  const avg=micData.reduce((a,b)=>a+b,0)/micData.length;
+  const now=Date.now();
+  if(avg>80 && now-lastClapTime>clapCooldown){
+    lastClapTime=now;
+    clapDetected=true;
+    const cs=document.getElementById('cs');
+    if(cs) cs.textContent='👏:✅';
+    setTimeout(()=>{
+      clapDetected=false;
+      const cs=document.getElementById('cs');
+      if(cs) cs.textContent='👏:—';
+    },300);
+  }
+}
 async function initDetector(){
   const bar=document.getElementById('load-bar');
   try{
@@ -651,7 +741,7 @@ function analyzePose(kps){
 // ══════════════════════════════════════════
 function checkAction(action){
   if(!action) return false;
-  if(action==='clap') return moves.clap;
+  if(action==='clap') return clapDetected; // mic detection!
   if(action==='armsUp') return moves.lUp&&moves.rUp;
   if(action==='armsDown') return moves.armsDown;
   if(action==='wave') return moves.wave||moves.lUp||moves.rUp;
@@ -744,7 +834,7 @@ function startSong(){
         else novaMode='hype';
         setTimeout(()=>novaMode='idle',2500);
 
-        // Check during action window (2.5 seconds)
+        // Check during action window
         let checks=0;
         const checker=setInterval(()=>{
           checks++;
@@ -760,6 +850,13 @@ function startSong(){
             burst('#ff6fd8');
             novaMode='hype';
             setTimeout(()=>novaMode='idle',1000);
+            // Play reaction clip based on action
+            const reactionMap={
+              clap:'clap', armsUp:'stretch',
+              armsDown:'amazing', wave:'hello'
+            };
+            const clipKey=reactionMap[currentAction.action]||'yes';
+            setTimeout(()=>playClip(clipKey), 200);
           }
         },100);
 
@@ -768,6 +865,8 @@ function startSong(){
           if(!actionDetected && actionWindow){
             flashFeedback('miss');
             if(stars>1){stars--;document.getElementById('top-stars').textContent='⭐'.repeat(stars)+'☆'.repeat(5-stars)}
+            // gentle try again — only sometimes
+            if(Math.random()>0.5) setTimeout(()=>playClip('try'),300);
           }
           actionWindow=false;
         },2600);
@@ -783,6 +882,7 @@ function startSong(){
 }
 
 function showEndScreen(){
+  clearInterval(songTimer);
   document.getElementById('end-screen').style.display='flex';
   const s=Math.max(1,stars);
   document.getElementById('end-stars').textContent='⭐'.repeat(s)+'☆'.repeat(5-s);
@@ -791,9 +891,8 @@ function showEndScreen(){
   document.getElementById('end-title').textContent=titles[s-1]||'Amazing!';
   document.getElementById('end-words').textContent=
     `You sang Hello Hello with Nova and got ${score} points!`;
-  // Nova celebrates
   novaMode='hype';
-  speak("Wow! You did amazing! Let's do it again!");
+  setTimeout(()=>playClip('end'), 500);
 }
 
 function playAgain(){
@@ -846,18 +945,28 @@ function skipCamera(){
 
 async function beginSession(){
   initAudio();
-  // Use browser speech only for intro — reliable, no async issues
-  const intro = new SpeechSynthesisUtterance("Hi! Let's sing Hello Hello! Watch the screen and copy the moves! Here we go!");
-  intro.rate = 0.88;
-  intro.pitch = 1.2;
-  intro.volume = 1;
-  const vs = speechSynthesis.getVoices();
-  const v = vs.find(x=>x.name.includes('Samantha')||x.name.includes('Karen')||x.name.includes('Google UK English Female'));
-  if(v) intro.voice = v;
-  showBubble("Hi! Let's sing Hello Hello! 🎵");
-  // Start song 5 seconds after page loads regardless
+  preloadClips();
+  // Init mic for clap detection
+  const micOk=await initMic();
+  if(micOk){
+    const tag=document.getElementById('cam-tag');
+    if(tag) tag.textContent='You 🎯 🎤';
+  }
+  // Play intro clip — fall back to browser speech if not found
+  setTimeout(()=>{
+    const introAudio=new Audio('nova-intro.mp3');
+    introAudio.play().catch(()=>{
+      // Fallback browser speech
+      const u=new SpeechSynthesisUtterance("Hi! Let's sing Hello Hello! Watch the screen and copy the moves!");
+      u.rate=0.88; u.pitch=1.2;
+      speechSynthesis.speak(u);
+    });
+    showBubble("Hi! Let's sing Hello Hello! 🎵");
+  }, 300);
+  // Hype mid-song
+  setTimeout(()=>playClip('hype'), 35000);
+  // Start song
   setTimeout(startSong, 5000);
-  speechSynthesis.speak(intro);
 }
 
 // ══════════════════════════════════════════
