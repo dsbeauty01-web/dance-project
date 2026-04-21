@@ -21,7 +21,7 @@ body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;display:flex;
 
 #stage{flex:1;display:flex;position:relative;min-height:0}
 #cam-wrap{flex:1;position:relative;background:#000}
-#cam{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
+#cam{width:100%;height:100%;object-fit:contain;transform:scaleX(-1);display:block;background:#000}
 #pills{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;z-index:10}
 .pill{background:rgba(0,0,0,0.75);padding:5px 10px;border-radius:12px;font-size:11px;font-weight:700;color:#fff;font-family:monospace}
 .pill.on{background:#00ff99;color:#000}
@@ -191,10 +191,17 @@ function speak(text, rate=1.0){
 // ── CAMERA + POSE ──
 async function initCamera(){
   video = document.getElementById('cam');
-  const stream = await navigator.mediaDevices.getUserMedia({ video:{width:1280,height:720}, audio:false });
+  // Request widest possible feed so user can stand close without being cropped
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { width: { ideal: 1920 }, height: { ideal: 1080 }, facingMode: 'user' },
+    audio: false
+  });
   video.srcObject = stream;
   await new Promise(r => video.onloadedmetadata = r);
   await video.play();
+  const track = stream.getVideoTracks()[0];
+  const settings = track.getSettings();
+  sessionLog.log('camera_ready', { width: settings.width, height: settings.height });
 }
 
 async function initDetector(){
@@ -361,49 +368,64 @@ async function runAction(action, windowMs){
   }
   setCount('');
   setCue('', '');
+  await sleep(100); // tiny settle so countdown text clears before GO
 
-  setFlash('open');
-  setCue(action.emoji, `GO! ${action.name}`);
+  // === OPEN: green flash ON at exact same moment timer starts ===
   const tf = document.getElementById('timerfill');
-  tf.style.animation = 'none';
-  void tf.offsetWidth;
-  tf.style.animation = `shrink ${windowMs}ms linear forwards`;
+  const flash = document.getElementById('flash');
 
+  // Prepare timer bar but don't animate yet
+  tf.style.animation = 'none';
+  tf.style.transform = 'scaleX(1)';
+  void tf.offsetWidth;
+
+  // Atomic start: set green + start timer + record time in same frame
+  setCue(action.emoji, `GO! ${action.name}`);
+  flash.className = 'open';
+  tf.style.animation = `shrink ${windowMs}ms linear forwards`;
+  const startT = performance.now();
   windowOpen = true;
   windowStartTime = Date.now();
   currentKey = action.key;
-  sessionLog.log('open', { action: action.key, windowMs });
+  sessionLog.log('open', { action: action.key, windowMs, startT: Math.round(startT) });
   speak('Now!');
 
+  // Poll for detection until EXACTLY windowMs elapses
   let reactionMs = null;
-  const poll = 40;
-  let elapsed = 0;
-  while(elapsed < windowMs){
+  const poll = 30;
+  while(true){
+    const elapsed = performance.now() - startT;
+    if(elapsed >= windowMs) break;
     if(action.check()){
-      reactionMs = Date.now() - windowStartTime;
+      reactionMs = Math.round(elapsed);
       break;
     }
     await sleep(poll);
-    elapsed += poll;
   }
-  windowOpen = false;
+
+  // === CLOSE: green flash OFF at exact window end ===
+  const actualDuration = Math.round(performance.now() - startT);
+  flash.className = '';  // green OFF immediately
   tf.style.animation = 'none';
   tf.style.transform = 'scaleX(0)';
+  windowOpen = false;
+  sessionLog.log('close', { action: action.key, actualDurationMs: actualDuration });
 
+  // === RESULT flash (separate from green window) ===
+  await sleep(50);
   if(reactionMs !== null){
     const isLate = reactionMs > windowMs * 0.7;
-    setFlash('hit');
+    flash.className = 'hit';
     setCue('✅', `${action.name} — ${reactionMs}ms${isLate?' (late)':''}`);
     sessionLog.log(isLate ? 'late' : 'hit', { action: action.key, reactionMs });
   } else {
-    setFlash('miss');
+    flash.className = 'miss';
     setCue('❌', `Missed: ${action.name}`);
     sessionLog.log('miss', { action: action.key });
   }
-  await sleep(1500);
-  setFlash('');
+  await sleep(1200);
+  flash.className = '';
   setCue('', '');
-  tf.style.transform = 'scaleX(1)';
 }
 
 window.startFlow = async function(windowMs){
