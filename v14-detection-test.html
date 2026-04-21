@@ -84,6 +84,7 @@ button:disabled{opacity:0.4}
       <div id="count"></div>
     </div>
     <div id="timerbar"><div id="timerfill"></div></div>
+    <div id="debug-strip" style="position:absolute;bottom:14px;left:10px;right:10px;text-align:center;font-family:monospace;font-size:11px;color:#fff;background:rgba(0,0,0,0.65);padding:4px;border-radius:6px;z-index:20">waiting...</div>
   </div>
 </div>
 
@@ -189,19 +190,50 @@ function speak(text, rate=1.0){
 }
 
 // ── CAMERA + POSE ──
-async function initCamera(){
+// Combined camera + mic permission in ONE request — browser asks for both at once
+let combinedStream = null;
+
+async function initMedia(){
+  setStatus('Requesting camera + mic permission...');
+  try {
+    combinedStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1920 }, height: { ideal: 1080 }, facingMode: 'user' },
+      audio: true
+    });
+  } catch(e) {
+    setStatus('❌ Permission denied: ' + e.message);
+    sessionLog.log('permission_error', { error: e.message });
+    alert('Camera + microphone permission needed.\nPlease allow both and refresh the page.\n\nError: ' + e.message);
+    throw e;
+  }
+
+  // Set up camera from combined stream
   video = document.getElementById('cam');
-  // Request widest possible feed so user can stand close without being cropped
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { width: { ideal: 1920 }, height: { ideal: 1080 }, facingMode: 'user' },
-    audio: false
-  });
-  video.srcObject = stream;
+  const videoOnly = new MediaStream(combinedStream.getVideoTracks());
+  video.srcObject = videoOnly;
   await new Promise(r => video.onloadedmetadata = r);
   await video.play();
-  const track = stream.getVideoTracks()[0];
-  const settings = track.getSettings();
-  sessionLog.log('camera_ready', { width: settings.width, height: settings.height });
+  const vTrack = combinedStream.getVideoTracks()[0];
+  const vSettings = vTrack.getSettings();
+  sessionLog.log('camera_ready', { width: vSettings.width, height: vSettings.height });
+
+  // Set up mic from combined stream
+  const audioTracks = combinedStream.getAudioTracks();
+  if(audioTracks.length === 0){
+    sessionLog.log('mic_fail', { err: 'no audio track in stream' });
+    setStatus('⚠️ Camera OK but no microphone');
+    return;
+  }
+  const audioOnly = new MediaStream(audioTracks);
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const src = ctx.createMediaStreamSource(audioOnly);
+  micAnalyser = ctx.createAnalyser();
+  micAnalyser.fftSize = 512;
+  src.connect(micAnalyser);
+  micData = new Uint8Array(micAnalyser.frequencyBinCount);
+  micLoop();
+  sessionLog.log('mic_ready', { label: audioTracks[0].label });
+  setStatus('✅ Camera + mic ready');
 }
 
 async function initDetector(){
@@ -236,7 +268,10 @@ function analyzePose(kps){
   const get = n => kps.find(k => k.name === n);
   const ls = get('left_shoulder'), rs = get('right_shoulder');
   const lw = get('left_wrist'), rw = get('right_wrist');
-  if(!ls || !rs || !lw || !rw) return;
+  if(!ls || !rs || !lw || !rw) {
+    window._lastDetect = { err: 'no_keypoints' };
+    return;
+  }
 
   const sLs = smoothKp('ls', ls), sRs = smoothKp('rs', rs);
   const sLw = smoothKp('lw', lw), sRw = smoothKp('rw', rw);
@@ -245,8 +280,23 @@ function analyzePose(kps){
   const scale = Math.max(Math.abs(sLs.x - sRs.x), 60);
   const thr = scale * 0.24;
 
-  const lUp = sLw.score > MIN && (sLs.y - sLw.y) > thr;
-  const rUp = sRw.score > MIN && (sRs.y - sRw.y) > thr;
+  const lDelta = sLs.y - sLw.y; // positive = left wrist above left shoulder
+  const rDelta = sRs.y - sRw.y; // positive = right wrist above right shoulder
+
+  const lUp = sLw.score > MIN && lDelta > thr;
+  const rUp = sRw.score > MIN && rDelta > thr;
+
+  // Store raw stats for live debug + hit logs
+  window._lastDetect = {
+    lScore: sLw.score.toFixed(2),
+    rScore: sRw.score.toFixed(2),
+    shScore: Math.min(sLs.score, sRs.score).toFixed(2),
+    scale: Math.round(scale),
+    thr: Math.round(thr),
+    lDelta: Math.round(lDelta),
+    rDelta: Math.round(rDelta),
+    lUp, rUp
+  };
 
   const hold = (raw, key) => {
     holdCount[key] = raw ? Math.min(holdCount[key]+1, 10) : Math.max(holdCount[key]-1, 0);
@@ -260,6 +310,12 @@ function analyzePose(kps){
   setPill('p-left', '👈 LEFT', moves.left);
   setPill('p-right', '👉 RIGHT', moves.right);
   setPill('p-both', '🙌 BOTH', moves.both);
+
+  // Update live debug strip
+  const dbg = document.getElementById('debug-strip');
+  if(dbg){
+    dbg.textContent = `L:${Math.round(lDelta)}/${Math.round(thr)} ${lUp?'UP':'--'}  R:${Math.round(rDelta)}/${Math.round(thr)} ${rUp?'UP':'--'}  conf:${Math.min(sLw.score,sRw.score).toFixed(2)}`;
+  }
 }
 
 function setPill(id, label, on){
@@ -274,18 +330,7 @@ function setPill(id, label, on){
 
 // ── MIC / CLAP ──
 async function initMic(){
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const src = ctx.createMediaStreamSource(stream);
-    micAnalyser = ctx.createAnalyser();
-    micAnalyser.fftSize = 512;
-    src.connect(micAnalyser);
-    micData = new Uint8Array(micAnalyser.frequencyBinCount);
-    micLoop();
-  } catch(e){
-    sessionLog.log('mic_fail', { err: e.message });
-  }
+  // Now handled by initMedia() which requests camera + mic together
 }
 
 async function calibrateMic(){
@@ -409,7 +454,7 @@ async function runAction(action, windowMs){
   tf.style.animation = 'none';
   tf.style.transform = 'scaleX(0)';
   windowOpen = false;
-  sessionLog.log('close', { action: action.key, actualDurationMs: actualDuration });
+  sessionLog.log('close', { action: action.key, actualDurationMs: actualDuration, finalPose: window._lastDetect });
 
   // === RESULT flash (separate from green window) ===
   await sleep(50);
@@ -464,10 +509,7 @@ window.startFlow = async function(windowMs){
 // ── BOOT ──
 (async function(){
   try {
-    setStatus('Starting camera…');
-    await initCamera();
-    setStatus('Starting mic…');
-    await initMic();
+    await initMedia();  // requests camera + mic permission in ONE prompt
     setStatus('Loading pose model…');
     await initDetector();
     poseLoop();
