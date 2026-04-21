@@ -57,11 +57,8 @@ button:disabled{opacity:0.4}
   <h1>🧪 Nova v14 Detection Test</h1>
   <p>Four moves: <b>right arm, left arm, clap, both arms</b>.<br>
   Stand back so your head, shoulders and hands are all visible.</p>
-  <p style="font-size:11px;opacity:0.6">Browser English speech. No song, no flicker.</p>
-  <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
-    <button onclick="startFlow(3000)">▶️ 3-second window</button>
-    <button class="alt" onclick="startFlow(2000)">▶️ 2-second window</button>
-  </div>
+  <p style="font-size:11px;opacity:0.6">Browser English speech. No song.</p>
+  <button onclick="startFlow(3000)" style="font-size:16px;padding:14px 28px">▶️ Start Test</button>
 </div>
 
 <div id="topbar">
@@ -89,8 +86,7 @@ button:disabled{opacity:0.4}
 </div>
 
 <div id="controls">
-  <button onclick="startFlow(3000)">3-sec flow</button>
-  <button class="alt" onclick="startFlow(2000)">2-sec flow</button>
+  <button onclick="startFlow(3000)">▶️ Start</button>
   <button onclick="toggleLog()">📋 Log</button>
   <button class="copy" onclick="copyReport()">📎 Copy report</button>
 </div>
@@ -207,26 +203,25 @@ async function initMedia(){
     throw e;
   }
 
-  // Set up camera from combined stream
+  // Use combined stream DIRECTLY on video element — muted so no audio plays out
   video = document.getElementById('cam');
-  const videoOnly = new MediaStream(combinedStream.getVideoTracks());
-  video.srcObject = videoOnly;
+  video.muted = true;
+  video.srcObject = combinedStream;
   await new Promise(r => video.onloadedmetadata = r);
   await video.play();
   const vTrack = combinedStream.getVideoTracks()[0];
   const vSettings = vTrack.getSettings();
   sessionLog.log('camera_ready', { width: vSettings.width, height: vSettings.height });
 
-  // Set up mic from combined stream
+  // Set up mic using the SAME stream — AudioContext can tap it separately
   const audioTracks = combinedStream.getAudioTracks();
   if(audioTracks.length === 0){
     sessionLog.log('mic_fail', { err: 'no audio track in stream' });
     setStatus('⚠️ Camera OK but no microphone');
     return;
   }
-  const audioOnly = new MediaStream(audioTracks);
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const src = ctx.createMediaStreamSource(audioOnly);
+  const src = ctx.createMediaStreamSource(combinedStream);
   micAnalyser = ctx.createAnalyser();
   micAnalyser.fftSize = 512;
   src.connect(micAnalyser);
