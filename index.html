@@ -17,7 +17,15 @@ body.window-open{background:#004422}
 
 #split{flex:1;display:grid;grid-template-columns:1fr 1fr;min-height:0;position:relative}
 
-/* NOVA SIDE */
+/* CRITICAL FIX: SVG transform-origin defaults to SVG canvas origin (0,0) in Chrome.
+   transform-box:fill-box makes it relative to the element itself (shoulder joint). */
+#nova-larm, #nova-rarm, #nova-head, #nova-svg {
+  transform-box: fill-box;
+}
+#nova-larm { transform-origin: 50% 0%; }  /* top of arm = shoulder */
+#nova-rarm { transform-origin: 50% 0%; }
+#nova-head { transform-origin: 50% 50%; }
+#nova-svg  { transform-origin: 50% 50%; }
 #nova-side{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;
   background:radial-gradient(ellipse at 50% 30%,#3a0a6a 0%,#1a0340 60%,#0a0120 100%)}
 #nova-wrap{width:min(260px,48vw)}
@@ -324,11 +332,11 @@ function buildNova(){
   <path d="M58 248 Q55 285 42 300 L158 300 Q145 285 142 248 Z" fill="url(#nog)" opacity="0.9"/>
   <rect x="60" y="155" width="80" height="92" rx="26" fill="url(#nog)"/>
   <!-- Arms -->
-  <g id="nova-larm" style="transform-origin:72px 172px">
+  <g id="nova-larm">
     <path d="M68 178 Q44 210 32 248" stroke="url(#nog)" stroke-width="20" fill="none" stroke-linecap="round"/>
     <circle cx="30" cy="253" r="13" fill="url(#nsg)"/>
   </g>
-  <g id="nova-rarm" style="transform-origin:128px 172px">
+  <g id="nova-rarm">
     <path d="M132 178 Q156 210 168 248" stroke="url(#nog)" stroke-width="20" fill="none" stroke-linecap="round"/>
     <circle cx="170" cy="253" r="13" fill="url(#nsg)"/>
   </g>
@@ -381,14 +389,25 @@ function setNovaPose(pose, durationMs){
 
 function novaHelloArm(side){
   if(novaPose !== 'idle') return;
-  const was = novaPose;
   if(side === 'L'){
-    novaLTarget = -2.0;
-    setTimeout(() => { if(novaPose==='idle') novaLTarget = 0.3; }, 900);
+    novaLRot = -120;
+    setTimeout(() => { if(novaPose==='idle') novaLRot = 0; }, 900);
   } else {
-    novaRTarget = 2.0;
-    setTimeout(() => { if(novaPose==='idle') novaRTarget = -0.3; }, 900);
+    novaRRot = 120;
+    setTimeout(() => { if(novaPose==='idle') novaRRot = 0; }, 900);
   }
+}
+
+// Shoulder pivot points in SVG coordinates
+const L_PIVOT = { x: 68, y: 178 };  // left arm shoulder joint
+const R_PIVOT = { x: 132, y: 178 }; // right arm shoulder joint
+
+function setArmRotation(side, angleDeg){
+  const el = document.getElementById(side === 'L' ? 'nova-larm' : 'nova-rarm');
+  if(!el) return;
+  const p = side === 'L' ? L_PIVOT : R_PIVOT;
+  // SVG rotate(angle, cx, cy) — rotates around exact pivot point
+  el.setAttribute('transform', `rotate(${angleDeg}, ${p.x}, ${p.y})`);
 }
 
 function animateNova(){
@@ -399,43 +418,52 @@ function animateNova(){
   const pose = POSES[novaPose] || POSES.idle;
   const songPlaying = window._songAudio && !window._songAudio.paused;
 
+  // Target angles in DEGREES (not radians — SVG rotate uses degrees)
+  let lTarget, rTarget;
   if(novaPose === 'idle'){
-    // Beat-synced arm swing (108 BPM)
+    // Beat-synced gentle sway — small angles
     const beat = Math.sin(t * Math.PI * (108/60) * 2);
-    novaLTarget = pose.l + beat * 0.7;
-    novaRTarget = pose.r - beat * 0.7;
+    lTarget = beat * 20;   // ±20 degrees
+    rTarget = -beat * 20;
+  } else if(novaPose === 'left'){
+    lTarget = -130;  // arm raised up-left
+    rTarget = 10;
+  } else if(novaPose === 'right'){
+    lTarget = -10;
+    rTarget = 130;   // arm raised up-right
+  } else if(novaPose === 'both'){
+    lTarget = -140;  // both arms up
+    rTarget = 140;
   } else if(novaPose === 'hype'){
-    novaLTarget = pose.l + Math.sin(t*9)*0.3;
-    novaRTarget = pose.r + Math.sin(t*9)*0.3;
+    const jitter = Math.sin(t * 9) * 15;
+    lTarget = -110 + jitter;
+    rTarget = 110 - jitter;
   } else {
-    novaLTarget = pose.l;
-    novaRTarget = pose.r;
+    lTarget = 0;
+    rTarget = 0;
   }
 
-  const speed = novaPose === 'idle' ? 0.10 : 0.22;
-  novaLRot += (novaLTarget - novaLRot) * speed;
-  novaRRot += (novaRTarget - novaRRot) * speed;
+  const speed = novaPose === 'idle' ? 0.12 : 0.22;
+  novaLRot += (lTarget - novaLRot) * speed;
+  novaRRot += (rTarget - novaRRot) * speed;
 
-  const nl = document.getElementById('nova-larm');
-  const nr = document.getElementById('nova-rarm');
-  const nh = document.getElementById('nova-head');
-  const ns = document.getElementById('nova-svg');
-
-  if(nl) nl.style.transform = `rotate(${novaLRot}rad)`;
-  if(nr) nr.style.transform = `rotate(${novaRRot}rad)`;
+  setArmRotation('L', novaLRot);
+  setArmRotation('R', novaRRot);
 
   // Head bob
+  const nh = document.getElementById('nova-head');
   if(nh){
-    const bob = novaPose==='hype' ? Math.sin(t*8)*5 : Math.sin(t*2.5)*2.5;
-    nh.style.transform = `translateY(${bob}px)`;
+    const bob = novaPose==='hype' ? Math.sin(t*8)*5 : Math.sin(t*2.5)*2;
+    nh.setAttribute('transform', `translate(0, ${bob})`);
   }
 
   // Body bounce + sway
+  const ns = document.getElementById('nova-svg');
   if(ns && songPlaying){
     const beat = Math.sin(t * Math.PI * (108/60) * 2);
-    const bob = -Math.abs(beat) * 7;
-    const sway = Math.sin(t*1.8) * 4;
-    ns.style.transform = `translate(${sway}px,${bob}px)`;
+    const bob = -Math.abs(beat) * 6;
+    const sway = Math.sin(t*1.8) * 3;
+    ns.style.transform = `translate(${sway}px, ${bob}px)`;
   }
 }
 
