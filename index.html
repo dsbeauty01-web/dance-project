@@ -17,19 +17,9 @@ body.window-open{background:#004422}
 
 #split{flex:1;display:grid;grid-template-columns:1fr 1fr;min-height:0;position:relative}
 
-/* CRITICAL FIX: SVG transform-origin defaults to SVG canvas origin (0,0) in Chrome.
-   transform-box:fill-box makes it relative to the element itself (shoulder joint). */
-#nova-larm, #nova-rarm, #nova-head, #nova-svg {
-  transform-box: fill-box;
-}
-#nova-larm { transform-origin: 50% 0%; }  /* top of arm = shoulder */
-#nova-rarm { transform-origin: 50% 0%; }
-#nova-head { transform-origin: 50% 50%; }
-#nova-svg  { transform-origin: 50% 50%; }
+#rive-canvas{width:100%;height:100%;display:block}
 #nova-side{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;
   background:radial-gradient(ellipse at 50% 30%,#3a0a6a 0%,#1a0340 60%,#0a0120 100%)}
-#nova-wrap{width:min(260px,48vw)}
-#nova-svg{width:100%;height:auto;filter:drop-shadow(0 0 24px rgba(255,111,216,0.5))}
 #nova-label{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
   background:rgba(0,0,0,0.5);border:1px solid rgba(255,111,216,0.4);
   border-radius:20px;padding:3px 14px;font-family:'Fredoka One',cursive;font-size:12px;
@@ -123,9 +113,7 @@ body.window-open{background:#004422}
 
 <div id="split">
   <div id="nova-side">
-    <div id="nova-wrap">
-      <svg id="nova-svg" viewBox="0 0 200 340" xmlns="http://www.w3.org/2000/svg"></svg>
-    </div>
+    <canvas id="rive-canvas"></canvas>
     <div id="nova-label">Nova ✨</div>
   </div>
 
@@ -163,7 +151,7 @@ body.window-open{background:#004422}
   <button class="start-btn" onclick="restartGame()" style="font-size:18px;padding:12px 32px">🔄 Play Again</button>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/animejs@3.2.2/lib/anime.min.js"></script>
+<script src="https://unpkg.com/@rive-app/canvas@2.17.3/rive.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 
@@ -315,222 +303,59 @@ let novaPoseTimer = null;
 // ══════════════════════════════════════════════
 // NOVA SVG
 // ══════════════════════════════════════════════
-function buildNova(){
-  document.getElementById('nova-svg').innerHTML = `
-  <defs>
-    <radialGradient id="nsg" cx="38%" cy="32%" r="65%"><stop offset="0%" stop-color="#ffe8cc"/><stop offset="100%" stop-color="#f0b888"/></radialGradient>
-    <radialGradient id="nhg" cx="40%" cy="25%" r="65%"><stop offset="0%" stop-color="#ff88dd"/><stop offset="100%" stop-color="#cc1199"/></radialGradient>
-    <radialGradient id="nog" cx="40%" cy="25%" r="65%"><stop offset="0%" stop-color="#bb77ff"/><stop offset="100%" stop-color="#5511cc"/></radialGradient>
-    <radialGradient id="eyeg" cx="35%" cy="30%" r="65%"><stop offset="0%" stop-color="#8855ff"/><stop offset="60%" stop-color="#3311aa"/><stop offset="100%" stop-color="#110044"/></radialGradient>
-    <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-  </defs>
-  <!-- Legs -->
-  <rect x="68" y="255" width="22" height="75" rx="11" fill="#1a0f4a"/>
-  <rect x="110" y="255" width="22" height="75" rx="11" fill="#1a0f4a"/>
-  <!-- Skirt -->
-  <rect x="55" y="242" width="90" height="20" rx="13" fill="#3a1888"/>
-  <!-- Body -->
-  <path d="M58 248 Q55 285 42 300 L158 300 Q145 285 142 248 Z" fill="url(#nog)" opacity="0.9"/>
-  <rect x="60" y="155" width="80" height="92" rx="26" fill="url(#nog)"/>
-  <!-- Arms -->
-  <g id="nova-larm">
-    <path d="M68 178 Q44 210 32 248" stroke="url(#nog)" stroke-width="20" fill="none" stroke-linecap="round"/>
-    <circle cx="30" cy="253" r="13" fill="url(#nsg)"/>
-  </g>
-  <g id="nova-rarm">
-    <path d="M132 178 Q156 210 168 248" stroke="url(#nog)" stroke-width="20" fill="none" stroke-linecap="round"/>
-    <circle cx="170" cy="253" r="13" fill="url(#nsg)"/>
-  </g>
-  <!-- Neck -->
-  <rect x="86" y="138" width="28" height="22" rx="13" fill="url(#nsg)"/>
-  <!-- Head -->
-  <g id="nova-head">
-    <ellipse cx="100" cy="84" rx="50" ry="56" fill="url(#nsg)"/>
-    <ellipse cx="100" cy="44" rx="52" ry="36" fill="url(#nhg)"/>
-    <ellipse cx="52" cy="82" rx="18" ry="34" fill="#dd1199" opacity="0.9"/>
-    <ellipse cx="148" cy="82" rx="18" ry="34" fill="#dd1199" opacity="0.9"/>
-    <circle cx="118" cy="20" r="9" fill="#ff88dd" filter="url(#glow)"/>
-    <path d="M108 34 Q116 16 118 10" stroke="#ff44cc" stroke-width="10" fill="none" stroke-linecap="round"/>
-    <!-- Eyes -->
-    <circle cx="76" cy="91" r="14" fill="url(#eyeg)"/>
-    <circle cx="124" cy="91" r="14" fill="url(#eyeg)"/>
-    <circle cx="76" cy="91" r="8" fill="#0a0020"/>
-    <circle cx="124" cy="91" r="8" fill="#0a0020"/>
-    <circle cx="83" cy="83" r="5" fill="white"/>
-    <circle cx="131" cy="83" r="5" fill="white"/>
-    <!-- Eyebrows -->
-    <path d="M59 74 Q76 60 93 74" stroke="#220033" stroke-width="3" fill="none" stroke-linecap="round"/>
-    <path d="M107 74 Q124 60 141 74" stroke="#220033" stroke-width="3" fill="none" stroke-linecap="round"/>
-    <!-- Mouth -->
-    <g id="nova-mouth">
-      <path d="M82 118 Q100 134 118 118" stroke="#ff3388" stroke-width="3" fill="none" stroke-linecap="round"/>
-    </g>
-    <!-- Cheeks -->
-    <ellipse cx="58" cy="106" rx="14" ry="10" fill="#ffaacc" opacity="0.45"/>
-    <ellipse cx="142" cy="106" rx="14" ry="10" fill="#ffaacc" opacity="0.45"/>
-  </g>`;
-}
-
+// RIVE NOVA
 // ══════════════════════════════════════════════
-// NOVA ANIMATION
-// ══════════════════════════════════════════════
-const POSES = {
-  idle:  { l:0.3,   r:-0.3  },
-  left:  { l:-2.0,  r:-0.3  },  // left arm UP
-  right: { l:0.3,   r:2.0   },  // right arm UP
-  both:  { l:-2.1,  r:2.1   },  // both arms UP
-  hype:  { l:-1.8,  r:1.8   },
-};
+let riveInstance = null;
 
-function setNovaPose(pose, durationMs){
-  novaPose = pose;
-  if(novaPoseTimer) clearTimeout(novaPoseTimer);
-  if(durationMs) novaPoseTimer = setTimeout(() => { novaPose='idle'; }, durationMs);
-}
+function initRive(){
+  const canvas = document.getElementById('rive-canvas');
+  // Size canvas to fill nova-side
+  const side = document.getElementById('nova-side');
+  canvas.width  = side.clientWidth  || 400;
+  canvas.height = side.clientHeight || 500;
 
-function novaHelloArm(side){
-  if(novaPose !== 'idle') return;
-  if(side === 'L'){
-    novaLRot = -120;
-    setTimeout(() => { if(novaPose==='idle') novaLRot = 0; }, 900);
-  } else {
-    novaRRot = 120;
-    setTimeout(() => { if(novaPose==='idle') novaRRot = 0; }, 900);
-  }
-}
-
-// ══════════════════════════════════════════════
-// NOVA ANIMATION — powered by Anime.js
-// Anime.js handles SVG transform-origin correctly across browsers
-// ══════════════════════════════════════════════
-let idleArmAnim = null;
-let idleBodyAnim = null;
-
-function startIdleDance(){
-  // Stop any existing idle
-  if(idleArmAnim) idleArmAnim.pause();
-  if(idleBodyAnim) idleBodyAnim.pause();
-
-  // Arms swing side to side to beat (108 BPM = 555ms per beat)
-  // Use SVG transform rotate with exact pivot
-  idleArmAnim = anime({
-    targets: '#nova-larm',
-    rotate: [
-      { value: -15, duration: 555 },
-      { value: 15, duration: 555 }
-    ],
-    direction: 'alternate',
-    loop: true,
-    easing: 'easeInOutSine',
-    transformOrigin: '68px 178px'
-  });
-  anime({
-    targets: '#nova-rarm',
-    rotate: [
-      { value: 15, duration: 555 },
-      { value: -15, duration: 555 }
-    ],
-    direction: 'alternate',
-    loop: true,
-    easing: 'easeInOutSine',
-    transformOrigin: '132px 178px'
-  });
-
-  // Body bounce
-  idleBodyAnim = anime({
-    targets: '#nova-svg',
-    translateY: [
-      { value: 0, duration: 277 },
-      { value: -8, duration: 277 }
-    ],
-    direction: 'alternate',
-    loop: true,
-    easing: 'easeInOutSine'
-  });
-
-  // Head bob
-  anime({
-    targets: '#nova-head',
-    translateY: [
-      { value: 0, duration: 400 },
-      { value: 3, duration: 400 }
-    ],
-    direction: 'alternate',
-    loop: true,
-    easing: 'easeInOutSine',
-    transformOrigin: '100px 90px'
-  });
-}
-
-function setArmPose(leftDeg, rightDeg, duration){
-  anime.remove('#nova-larm');
-  anime.remove('#nova-rarm');
-  anime({
-    targets: '#nova-larm',
-    rotate: leftDeg,
-    duration: duration || 350,
-    easing: 'easeOutBack',
-    transformOrigin: '68px 178px'
-  });
-  anime({
-    targets: '#nova-rarm',
-    rotate: rightDeg,
-    duration: duration || 350,
-    easing: 'easeOutBack',
-    transformOrigin: '132px 178px'
+  riveInstance = new rive.Rive({
+    src: 'nova.riv',
+    canvas: canvas,
+    autoplay: true,
+    // Play first animation by default
+    onLoad: () => {
+      console.log('Rive loaded ✅');
+      console.log('Animations:', riveInstance.animationNames);
+      // Play the first animation available
+      const anims = riveInstance.animationNames;
+      if(anims && anims.length > 0) riveInstance.play(anims[0]);
+    },
+    onLoadError: (e) => console.error('Rive load error:', e)
   });
 }
 
 function setNovaPose(pose, durationMs){
   novaPose = pose;
   if(novaPoseTimer) clearTimeout(novaPoseTimer);
+  if(!riveInstance) return;
 
-  if(pose === 'idle'){
-    startIdleDance();
-    return;
-  }
-  if(pose === 'left')  setArmPose(-130, 0);    // left arm up
-  if(pose === 'right') setArmPose(0, 130);     // right arm up
-  if(pose === 'both')  setArmPose(-140, 140);  // both up
-  if(pose === 'hype')  setArmPose(-120, 120);
+  const anims = riveInstance.animationNames;
+  if(!anims || anims.length === 0) return;
 
-  if(durationMs){
-    novaPoseTimer = setTimeout(() => {
-      novaPose = 'idle';
-      startIdleDance();
-    }, durationMs);
-  }
+  // Map pose to animation index — we'll discover names on first load
+  // For now play whatever animations exist by index
+  try {
+    if(pose === 'idle')  riveInstance.play(anims[0]);
+    else if(anims[1] && (pose === 'both' || pose === 'hype')) riveInstance.play(anims[1]);
+    else if(anims[2] && pose === 'left')  riveInstance.play(anims[2]);
+    else if(anims[3] && pose === 'right') riveInstance.play(anims[3]);
+    else riveInstance.play(anims[0]);
+  } catch(e){}
+
+  if(durationMs) novaPoseTimer = setTimeout(() => setNovaPose('idle'), durationMs);
 }
 
-function novaHelloArm(side){
-  if(novaPose !== 'idle') return;
-  if(side === 'L'){
-    anime.remove('#nova-larm');
-    anime({
-      targets: '#nova-larm',
-      rotate: [
-        { value: -120, duration: 250, easing: 'easeOutBack' },
-        { value: 0, duration: 600, easing: 'easeInOutSine' }
-      ],
-      transformOrigin: '68px 178px',
-      complete: () => { if(novaPose === 'idle') startIdleDance(); }
-    });
-  } else {
-    anime.remove('#nova-rarm');
-    anime({
-      targets: '#nova-rarm',
-      rotate: [
-        { value: 120, duration: 250, easing: 'easeOutBack' },
-        { value: 0, duration: 600, easing: 'easeInOutSine' }
-      ],
-      transformOrigin: '132px 178px',
-      complete: () => { if(novaPose === 'idle') startIdleDance(); }
-    });
-  }
-}
-
-// No-op — anime.js drives everything now
+function novaHelloArm(side){ setNovaPose(side==='L'?'left':'right', 900); }
+function startIdleDance(){ setNovaPose('idle'); }
 function animateNova(){}
+
+
 
 // ══════════════════════════════════════════════
 // POSE DETECTION (from v14 — proven working)
@@ -831,11 +656,9 @@ window.beginGame = async function(){
 
 // Draw Nova when page loads
 window.addEventListener('load', () => {
-  buildNova();
+  initRive();
   speechSynthesis.getVoices();
   speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
-  // Start the idle dance immediately so Nova is alive on start screen
-  setTimeout(() => startIdleDance(), 100);
 });
 </script>
 </body>
