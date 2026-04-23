@@ -10,24 +10,36 @@
 html,body{height:100%;overflow:hidden}
 body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;display:flex;flex-direction:column;transition:background 0.15s}
 body.window-open{background:#003322}
+
 #topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);z-index:10;flex-shrink:0}
 #logo{font-family:'Fredoka One',cursive;font-size:18px;background:linear-gradient(135deg,#ff6fd8,#7c6fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 #score-display{font-family:'Fredoka One',cursive;font-size:16px;color:#ffd700}
+
 #split{flex:1;display:grid;grid-template-columns:1fr 1fr;min-height:0;position:relative}
+
 #nova-side{position:relative;overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#3a0a6a 0%,#1a0340 60%,#0a0120 100%)}
 #avatar-canvas{width:100%;height:100%;display:block}
 #nova-label{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.5);border:1px solid rgba(255,111,216,0.4);border-radius:20px;padding:3px 14px;font-family:'Fredoka One',cursive;font-size:12px;color:#ff6fd8;white-space:nowrap;z-index:2}
+
+/* Speech bubble above Nova */
+#nova-bubble{position:absolute;top:8px;left:8px;right:8px;background:rgba(124,111,255,0.95);border-radius:16px;padding:10px 14px;font-family:'Fredoka One',cursive;font-size:14px;color:#fff;text-align:center;line-height:1.4;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:3;backdrop-filter:blur(8px)}
+#nova-bubble.show{opacity:1}
+#nova-bubble::after{content:'';position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);border-left:8px solid transparent;border-right:8px solid transparent;border-top:8px solid rgba(124,111,255,0.95)}
+
 #cam-side{position:relative;background:#0a0a1a;overflow:hidden}
 #webcam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
 #cam-label{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:3;background:rgba(0,0,0,0.5);border:1px solid rgba(0,210,255,0.4);border-radius:20px;padding:3px 14px;font-family:'Fredoka One',cursive;font-size:12px;color:#00d2ff}
 #pills{position:absolute;top:8px;left:8px;z-index:3;display:flex;flex-direction:column;gap:4px}
 .pill{background:rgba(0,0,0,0.7);border-radius:8px;padding:3px 8px;font-size:10px;font-weight:700;font-family:monospace}
 .pill.on{background:#00ff99;color:#000}
+
 #green-flash{position:fixed;inset:0;background:#00ff88;opacity:0;pointer-events:none;z-index:4;transition:opacity 0.08s}
 #green-flash.show{opacity:0.3}
+
 #lyric-box{position:absolute;bottom:52px;left:0;right:0;text-align:center;z-index:5;pointer-events:none}
 #lyric-text{font-family:'Fredoka One',cursive;font-size:clamp(18px,3.5vw,28px);color:#fff;text-shadow:0 2px 12px rgba(0,0,0,0.9);opacity:0;transition:opacity 0.25s}
 #lyric-text.show{opacity:1}
+
 #action-cue{position:absolute;top:35%;left:50%;transform:translate(-50%,-50%) scale(0);z-index:6;text-align:center;pointer-events:none;transition:transform 0.25s cubic-bezier(.34,1.56,.64,1);background:rgba(0,0,0,0.88);border-radius:24px;padding:14px 22px;border:3px solid rgba(255,111,216,0.6);backdrop-filter:blur(8px);min-width:180px}
 #action-cue.show{transform:translate(-50%,-50%) scale(1)}
 #action-cue.live{border-color:#00ff99;box-shadow:0 0 40px rgba(0,255,150,0.5)}
@@ -37,18 +49,22 @@ body.window-open{background:#003322}
 #cue-timer{height:5px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden;margin-top:8px}
 #cue-timer-fill{height:100%;width:100%;transform-origin:left;background:#00ff99}
 @keyframes timerShrink{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+
 #feedback{position:absolute;inset:0;opacity:0;pointer-events:none;z-index:7;transition:opacity 0.12s}
 #feedback.hit{background:rgba(0,255,150,0.2);opacity:1}
 #feedback.miss{background:rgba(255,100,0,0.15);opacity:1}
 #score-pop{position:absolute;top:28%;left:50%;transform:translateX(-50%) scale(0);font-family:'Fredoka One',cursive;font-size:52px;z-index:8;pointer-events:none;transition:transform 0.2s cubic-bezier(.34,1.56,.64,1);text-shadow:0 0 20px currentColor}
 #score-pop.show{transform:translateX(-50%) scale(1)}
+
 #progress-bar{position:absolute;bottom:0;left:0;right:0;height:4px;background:rgba(255,255,255,0.1);z-index:9}
 #progress-fill{height:100%;width:0%;background:linear-gradient(90deg,#ff6fd8,#7c6fff,#00d2ff);transition:width 0.1s linear}
+
 #start-screen{position:fixed;inset:0;z-index:50;background:radial-gradient(ellipse at 50% 30%,#2d0a5a,#1a0533);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:24px;text-align:center}
 #start-screen h1{font-family:'Fredoka One',cursive;font-size:clamp(28px,6vw,44px);background:linear-gradient(135deg,#ff6fd8,#7c6fff,#00d2ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 #start-screen p{font-size:14px;color:rgba(255,255,255,0.7);max-width:360px;line-height:1.6}
 .start-btn{background:linear-gradient(135deg,#ff6fd8,#7c6fff);border:none;border-radius:50px;padding:14px 40px;font-family:'Fredoka One',cursive;font-size:22px;color:#fff;cursor:pointer;box-shadow:0 6px 28px rgba(124,111,255,0.5);transition:transform .2s;width:100%;max-width:320px}
 .start-btn:hover{transform:scale(1.04)}
+
 #end-screen{position:fixed;inset:0;z-index:55;background:radial-gradient(ellipse at 50% 30%,#2d0a5a,#1a0533);display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px;text-align:center}
 #end-screen h1{font-family:'Fredoka One',cursive;font-size:clamp(28px,6vw,42px);background:linear-gradient(135deg,#ff6fd8,#ffd700);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 #end-stars{font-size:48px;letter-spacing:6px}
@@ -58,27 +74,31 @@ body.window-open{background:#003322}
 </head>
 <body>
 <div id="green-flash"></div>
+
 <div id="start-screen">
   <div style="font-size:64px">&#127775;</div>
   <h1>Nova Dance!</h1>
-  <p>Dance with Nova! Raise your <b>left arm</b>, <b>right arm</b>, or <b>both arms</b> when the screen turns green!</p>
+  <p>Dance with Nova!<br>Raise your arms when the screen turns <b style="color:#00ff99">green</b>!</p>
   <button class="start-btn" onclick="beginGame()">Let's Go! &#127881;</button>
 </div>
+
 <div id="topbar">
   <div id="logo">&#127775; Nova</div>
   <div id="score-display">0 pts</div>
 </div>
+
 <div id="split">
   <div id="nova-side">
     <canvas id="avatar-canvas"></canvas>
+    <div id="nova-bubble"><span id="bubble-text">Hi! Let's dance!</span></div>
     <div id="nova-label">Nova &#10024;</div>
   </div>
   <div id="cam-side">
     <video id="webcam" autoplay playsinline muted></video>
     <div id="pills">
-      <div class="pill" id="p-left">L arm</div>
-      <div class="pill" id="p-right">R arm</div>
-      <div class="pill" id="p-both">BOTH</div>
+      <div class="pill" id="p-left">L arm --</div>
+      <div class="pill" id="p-right">R arm --</div>
+      <div class="pill" id="p-both">BOTH --</div>
     </div>
     <div id="cam-label">You &#127919;</div>
   </div>
@@ -93,13 +113,14 @@ body.window-open{background:#003322}
   <div id="score-pop">+200</div>
   <div id="progress-bar"><div id="progress-fill"></div></div>
 </div>
+
 <div id="end-screen">
   <div style="font-size:72px">&#127881;</div>
   <h1 id="end-title">Amazing!</h1>
   <div id="end-stars">&#11088;&#11088;&#11088;&#11088;&#11088;</div>
   <div id="end-score">0 pts</div>
   <div id="end-detail"></div>
-  <button class="start-btn" onclick="restartGame()" style="font-size:18px;padding:12px 32px">Play Again</button>
+  <button class="start-btn" onclick="restartGame()" style="font-size:18px;padding:12px 32px">&#128260; Play Again</button>
 </div>
 
 <script type="importmap">
@@ -107,290 +128,554 @@ body.window-open{background:#003322}
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 
-const SONG_DURATION=92000;
-const VRM_URL='https://cdn.jsdelivr.net/gh/pixiv/three-vrm@release/packages/three-vrm/examples/models/VRM1_Constraint_Twist_Sample.vrm';
+// ═══════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════
+const SONG_DURATION = 92000;
+// Cute girl VRM - pixiv's own demo model, confirmed working
+const VRM_URL = 'https://cdn.jsdelivr.net/gh/pixiv/three-vrm@release/packages/three-vrm/examples/models/VRM1_Constraint_Twist_Sample.vrm';
 
-const TIMELINE=[
-  {t:1000,type:'lyric',text:'Hello Hello!'},
+// ═══════════════════════════════════════════
+// LLM — Claude Haiku via Anthropic API
+// Generates Nova's reactions in real time
+// ═══════════════════════════════════════════
+async function novaThink(context) {
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 60,
+        system: `You are Nova, a super fun and encouraging AI dance teacher for young kids aged 3-8. 
+You speak in short, punchy, VERY enthusiastic sentences. Max 8 words. 
+Use simple words. Be warm, funny and celebratory.
+Never say anything negative. Always encourage.`,
+        messages: [{ role: 'user', content: context }]
+      })
+    });
+    const data = await res.json();
+    return data.content?.[0]?.text || '';
+  } catch(e) {
+    return '';
+  }
+}
+
+// ═══════════════════════════════════════════
+// TIMELINE
+// ═══════════════════════════════════════════
+const TIMELINE = [
+  {t:1000,type:'lyric',text:'&#127925; Hello Hello! &#127925;'},
   {t:3500,type:'lyric',text:'Watch Nova then YOU do it!'},
   {t:5000,type:'helloL',lyric:'Hello,'},
   {t:6100,type:'helloR',lyric:'hello.'},
   {t:7200,type:'lyric',text:'Can you clap your hands?'},
-  {t:7200,type:'demo',action:'both',emoji:'BOTH',label:'BOTH UP!',instr:'Watch Nova!'},
-  {t:9800,type:'open',action:'both',emoji:'BOTH',label:'BOTH UP!',instr:'Raise BOTH arms!',pts:150},
+  {t:7200,type:'demo',action:'both',emoji:'&#128588;',label:'BOTH UP!',instr:'Watch Nova!'},
+  {t:9800,type:'open',action:'both',emoji:'&#128588;',label:'BOTH UP!',instr:'Raise BOTH arms!',pts:150},
   {t:12300,type:'close',action:'both'},
   {t:12500,type:'helloL',lyric:'Hello,'},
   {t:13600,type:'helloR',lyric:'hello.'},
   {t:14700,type:'lyric',text:'Can you clap your hands?'},
-  {t:14700,type:'demo',action:'right',emoji:'RIGHT',label:'RIGHT ARM!',instr:'Watch Nova!'},
-  {t:17200,type:'open',action:'right',emoji:'RIGHT',label:'RIGHT ARM!',instr:'Raise your RIGHT arm!',pts:150},
+  {t:14700,type:'demo',action:'right',emoji:'&#128073;',label:'RIGHT ARM!',instr:'Watch Nova!'},
+  {t:17200,type:'open',action:'right',emoji:'&#128073;',label:'RIGHT ARM!',instr:'Raise your RIGHT arm!',pts:150},
   {t:19700,type:'close',action:'right'},
   {t:20000,type:'lyric',text:'Can you stretch up high?'},
-  {t:20000,type:'demo',action:'both',emoji:'BOTH',label:'STRETCH UP!',instr:'Watch Nova!'},
-  {t:22500,type:'open',action:'both',emoji:'BOTH',label:'STRETCH UP!',instr:'BOTH arms HIGH!',pts:200},
+  {t:20000,type:'demo',action:'both',emoji:'&#128588;',label:'STRETCH UP!',instr:'Watch Nova!'},
+  {t:22500,type:'open',action:'both',emoji:'&#128588;',label:'STRETCH UP!',instr:'BOTH arms HIGH!',pts:200},
   {t:25000,type:'close',action:'both'},
   {t:25200,type:'lyric',text:'Can you touch your toes?'},
-  {t:25200,type:'demo',action:'left',emoji:'LEFT',label:'LEFT ARM!',instr:'Watch Nova!'},
-  {t:27500,type:'open',action:'left',emoji:'LEFT',label:'LEFT ARM!',instr:'Raise your LEFT arm!',pts:150},
+  {t:25200,type:'demo',action:'left',emoji:'&#128072;',label:'LEFT ARM!',instr:'Watch Nova!'},
+  {t:27500,type:'open',action:'left',emoji:'&#128072;',label:'LEFT ARM!',instr:'Raise your LEFT arm!',pts:150},
   {t:30000,type:'close',action:'left'},
   {t:30200,type:'lyric',text:'Can you turn around?'},
-  {t:30200,type:'demo',action:'both',emoji:'BOTH',label:'BOTH UP!',instr:'Watch Nova!'},
-  {t:32500,type:'open',action:'both',emoji:'BOTH',label:'BOTH UP!',instr:'BOTH arms UP!',pts:150},
+  {t:30200,type:'demo',action:'both',emoji:'&#128588;',label:'BOTH UP!',instr:'Watch Nova!'},
+  {t:32500,type:'open',action:'both',emoji:'&#128588;',label:'BOTH UP!',instr:'BOTH arms UP!',pts:150},
   {t:35000,type:'close',action:'both'},
   {t:35200,type:'lyric',text:'Can you say Hello!'},
-  {t:35200,type:'demo',action:'right',emoji:'RIGHT',label:'RIGHT ARM!',instr:'Watch Nova!'},
-  {t:37500,type:'open',action:'right',emoji:'RIGHT',label:'RIGHT ARM!',instr:'Wave your RIGHT arm!',pts:150},
+  {t:35200,type:'demo',action:'right',emoji:'&#128073;',label:'RIGHT ARM!',instr:'Watch Nova!'},
+  {t:37500,type:'open',action:'right',emoji:'&#128073;',label:'RIGHT ARM!',instr:'Wave your RIGHT arm!',pts:150},
   {t:40000,type:'close',action:'right'},
   {t:40500,type:'helloL',lyric:'Hello,'},
   {t:41600,type:'helloR',lyric:'hello.'},
   {t:42700,type:'lyric',text:'Can you stamp your feet?'},
-  {t:42700,type:'demo',action:'left',emoji:'LEFT',label:'LEFT ARM!',instr:'Watch Nova!'},
-  {t:45200,type:'open',action:'left',emoji:'LEFT',label:'LEFT ARM!',instr:'Raise your LEFT arm!',pts:150},
+  {t:42700,type:'demo',action:'left',emoji:'&#128072;',label:'LEFT ARM!',instr:'Watch Nova!'},
+  {t:45200,type:'open',action:'left',emoji:'&#128072;',label:'LEFT ARM!',instr:'Raise your LEFT arm!',pts:150},
   {t:47700,type:'close',action:'left'},
   {t:48000,type:'helloL',lyric:'Hello,'},
   {t:49100,type:'helloR',lyric:'hello.'},
   {t:50200,type:'lyric',text:'Can you stamp your feet?'},
-  {t:50200,type:'demo',action:'both',emoji:'BOTH',label:'BOTH UP!',instr:'Watch Nova!'},
-  {t:52700,type:'open',action:'both',emoji:'BOTH',label:'BOTH UP!',instr:'BOTH arms UP!',pts:150},
+  {t:50200,type:'demo',action:'both',emoji:'&#128588;',label:'BOTH UP!',instr:'Watch Nova!'},
+  {t:52700,type:'open',action:'both',emoji:'&#128588;',label:'BOTH UP!',instr:'BOTH arms UP!',pts:150},
   {t:55200,type:'close',action:'both'},
   {t:55500,type:'lyric',text:'Can you stretch up high?'},
-  {t:55500,type:'demo',action:'right',emoji:'RIGHT',label:'RIGHT ARM!',instr:'Watch Nova!'},
-  {t:58000,type:'open',action:'right',emoji:'RIGHT',label:'RIGHT ARM!',instr:'Raise RIGHT arm!',pts:200},
+  {t:55500,type:'demo',action:'right',emoji:'&#128073;',label:'RIGHT ARM!',instr:'Watch Nova!'},
+  {t:58000,type:'open',action:'right',emoji:'&#128073;',label:'RIGHT ARM!',instr:'Raise RIGHT arm!',pts:200},
   {t:60500,type:'close',action:'right'},
   {t:60700,type:'lyric',text:'Can you touch your toes?'},
-  {t:60700,type:'demo',action:'left',emoji:'LEFT',label:'LEFT ARM!',instr:'Watch Nova!'},
-  {t:63200,type:'open',action:'left',emoji:'LEFT',label:'LEFT ARM!',instr:'Raise LEFT arm!',pts:150},
+  {t:60700,type:'demo',action:'left',emoji:'&#128072;',label:'LEFT ARM!',instr:'Watch Nova!'},
+  {t:63200,type:'open',action:'left',emoji:'&#128072;',label:'LEFT ARM!',instr:'Raise LEFT arm!',pts:150},
   {t:65700,type:'close',action:'left'},
   {t:66000,type:'lyric',text:'Can you turn around?'},
-  {t:66000,type:'demo',action:'both',emoji:'BOTH',label:'BOTH UP!',instr:'Watch Nova!'},
-  {t:68500,type:'open',action:'both',emoji:'BOTH',label:'BOTH UP!',instr:'BOTH arms UP!',pts:150},
+  {t:66000,type:'demo',action:'both',emoji:'&#128588;',label:'BOTH UP!',instr:'Watch Nova!'},
+  {t:68500,type:'open',action:'both',emoji:'&#128588;',label:'BOTH UP!',instr:'BOTH arms UP!',pts:150},
   {t:71000,type:'close',action:'both'},
   {t:71200,type:'lyric',text:'Can you say Hello!'},
-  {t:71200,type:'demo',action:'right',emoji:'RIGHT',label:'RIGHT ARM!',instr:'Watch Nova!'},
-  {t:73500,type:'open',action:'right',emoji:'RIGHT',label:'RIGHT ARM!',instr:'Wave your RIGHT!',pts:150},
+  {t:71200,type:'demo',action:'right',emoji:'&#128073;',label:'RIGHT ARM!',instr:'Watch Nova!'},
+  {t:73500,type:'open',action:'right',emoji:'&#128073;',label:'RIGHT ARM!',instr:'Wave your RIGHT!',pts:150},
   {t:76000,type:'close',action:'right'},
   {t:76500,type:'helloL',lyric:'Hello,'},
   {t:77600,type:'helloR',lyric:'hello.'},
   {t:78700,type:'lyric',text:'Can you clap your hands?'},
-  {t:78700,type:'demo',action:'both',emoji:'BOTH',label:'BOTH UP!',instr:'Watch Nova!'},
-  {t:81200,type:'open',action:'both',emoji:'BOTH',label:'BOTH UP!',instr:'BOTH arms UP!',pts:150},
+  {t:78700,type:'demo',action:'both',emoji:'&#128588;',label:'BOTH UP!',instr:'Watch Nova!'},
+  {t:81200,type:'open',action:'both',emoji:'&#128588;',label:'BOTH UP!',instr:'BOTH arms UP!',pts:150},
   {t:83700,type:'close',action:'both'},
   {t:84000,type:'helloL',lyric:'Hello,'},
   {t:85100,type:'helloR',lyric:'hello.'},
   {t:86200,type:'lyric',text:'Can you stamp your feet?'},
-  {t:86200,type:'demo',action:'left',emoji:'LEFT',label:'LEFT ARM!',instr:'Watch Nova!'},
-  {t:88700,type:'open',action:'left',emoji:'LEFT',label:'LEFT ARM!',instr:'Raise LEFT arm!',pts:150},
+  {t:86200,type:'demo',action:'left',emoji:'&#128072;',label:'LEFT ARM!',instr:'Watch Nova!'},
+  {t:88700,type:'open',action:'left',emoji:'&#128072;',label:'LEFT ARM!',instr:'Raise LEFT arm!',pts:150},
   {t:91000,type:'close',action:'left'},
-  {t:92000,type:'lyric',text:'Amazing! Great job!'},
+  {t:92000,type:'lyric',text:'&#127775; Amazing! Great job! &#127775;'},
 ];
 
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
 let score=0,hits=0,attempts=0,combo=0,maxCombo=0;
 let timelineIdx=0,songTimer=null;
 let currentAction=null,actionDetected=false,actionWindow=false,actionStartTime=0;
 let novaPose='idle',novaPoseTimer=null;
 
-const canvas=document.getElementById('avatar-canvas');
-const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
-renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-renderer.outputColorSpace=THREE.SRGBColorSpace;
-const scene=new THREE.Scene();
-scene.add(new THREE.AmbientLight(0xffffff,0.8));
-const kl=new THREE.DirectionalLight(0xfff0e0,1.2);kl.position.set(2,4,3);scene.add(kl);
-const fl=new THREE.DirectionalLight(0xffc0e0,0.5);fl.position.set(-2,2,2);scene.add(fl);
-const camera=new THREE.PerspectiveCamera(30,1,0.1,100);
-camera.position.set(0,1.0,3.5);camera.lookAt(0,1.0,0);
+// ═══════════════════════════════════════════
+// THREE.JS SCENE
+// ═══════════════════════════════════════════
+const canvas = document.getElementById('avatar-canvas');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 
-function resizeRenderer(){const w=canvas.clientWidth,h=canvas.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
-window.addEventListener('resize',resizeRenderer);
+const scene = new THREE.Scene();
+// Nice warm Pixar-style lighting
+const ambient = new THREE.AmbientLight(0xffffff, 1.0);
+scene.add(ambient);
+const keyLight = new THREE.DirectionalLight(0xffe8d0, 1.4);
+keyLight.position.set(1, 3, 2);
+scene.add(keyLight);
+const fillLight = new THREE.DirectionalLight(0xd0e8ff, 0.6);
+fillLight.position.set(-2, 1, 1);
+scene.add(fillLight);
+const rimLight = new THREE.DirectionalLight(0xff88cc, 0.4);
+rimLight.position.set(0, 2, -3);
+scene.add(rimLight);
 
-let vrm=null,expressionManager=null;
-const targetPose={};
-const clock=new THREE.Clock();
-let danceTime=0;
-const VISEMES=['aa','ih','ou','ee','oh'];
-let visemeActive=false,currentViseme='aa',visemeTimer=0;
+// Camera zoomed in on face + upper body for big expressive face
+const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 100);
+camera.position.set(0, 1.45, 2.2);
+camera.lookAt(0, 1.4, 0);
+
+function resizeRenderer(){
+  const w=canvas.clientWidth, h=canvas.clientHeight;
+  if(!w||!h) return;
+  renderer.setSize(w, h, false);
+  camera.aspect = w/h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resizeRenderer);
+
+// ═══════════════════════════════════════════
+// VRM AVATAR
+// ═══════════════════════════════════════════
+let vrm=null, expressionManager=null;
+const targetPose = {};
+const clock = new THREE.Clock();
+let danceTime = 0;
+const VISEMES = ['aa','ih','ou','ee','oh'];
+let visemeActive=false, currentViseme='aa', visemeTimer=0;
+let mouthOpenAmt = 0; // smooth mouth open for lipsync
 
 async function loadVRM(){
-  const loader=new GLTFLoader();
-  loader.register(p=>new VRMLoaderPlugin(p));
-  return new Promise((res,rej)=>{
-    loader.load(VRM_URL,gltf=>{
-      vrm=gltf.userData.vrm;
+  const loader = new GLTFLoader();
+  loader.register(p => new VRMLoaderPlugin(p));
+  return new Promise((res, rej) => {
+    loader.load(VRM_URL, gltf => {
+      vrm = gltf.userData.vrm;
       VRMUtils.removeUnnecessaryVertices(gltf.scene);
       VRMUtils.removeUnnecessaryJoints(gltf.scene);
-      vrm.scene.traverse(o=>o.frustumCulled=false);
-      vrm.scene.rotation.y=0;
+      vrm.scene.traverse(o => o.frustumCulled = false);
+      vrm.scene.rotation.y = 0; // face forward
       scene.add(vrm.scene);
-      expressionManager=vrm.expressionManager;
+      expressionManager = vrm.expressionManager;
+      console.log('VRM loaded. Expressions:', expressionManager?.expressions?.map(e=>e.expressionName));
       res();
-    },null,rej);
+    }, null, rej);
   });
 }
 
-function getBone(n){return vrm?.humanoid?.getNormalizedBoneNode(n)||null;}
-function setBone(n,x,y,z){targetPose[n]=new THREE.Euler(x,y,z);}
-function clearPose(){Object.keys(targetPose).forEach(k=>delete targetPose[k]);}
+function getBone(n){ return vrm?.humanoid?.getNormalizedBoneNode(n) || null; }
+function setBone(n,x,y,z){ targetPose[n] = new THREE.Euler(x,y,z); }
+function clearPose(){ Object.keys(targetPose).forEach(k=>delete targetPose[k]); }
 
 function applyPose(pose){
   clearPose();
-  if(pose==='left') setBone('leftUpperArm',0,0,2.0);
-  else if(pose==='right') setBone('rightUpperArm',0,0,-2.0);
-  else if(pose==='both'||pose==='hype'){setBone('leftUpperArm',0,0,2.3);setBone('rightUpperArm',0,0,-2.3);}
+  if(pose === 'left'){
+    // Left arm raises UP — forward rotation on x axis
+    setBone('leftUpperArm', -1.6, 0, 0.15);
+    setBone('leftLowerArm', -0.3, 0, 0);
+  } else if(pose === 'right'){
+    // Right arm raises UP
+    setBone('rightUpperArm', -1.6, 0, -0.15);
+    setBone('rightLowerArm', -0.3, 0, 0);
+  } else if(pose === 'both' || pose === 'hype'){
+    // Both arms UP
+    setBone('leftUpperArm', -1.7, 0, 0.15);
+    setBone('leftLowerArm', -0.2, 0, 0);
+    setBone('rightUpperArm', -1.7, 0, -0.15);
+    setBone('rightLowerArm', -0.2, 0, 0);
+  }
+  // idle = no targets set, lerps to 0 naturally
 }
 
-function setNovaPose(pose,durationMs){
-  novaPose=pose;
-  if(novaPoseTimer)clearTimeout(novaPoseTimer);
+function setNovaPose(pose, durationMs){
+  novaPose = pose;
+  if(novaPoseTimer) clearTimeout(novaPoseTimer);
   applyPose(pose);
-  if(durationMs)novaPoseTimer=setTimeout(()=>{novaPose='idle';clearPose();},durationMs);
+  if(durationMs) novaPoseTimer = setTimeout(() => { novaPose='idle'; clearPose(); }, durationMs);
 }
 
 function novaHelloArm(side){
-  if(novaPose!=='idle')return;
-  if(side==='L'){setBone('leftUpperArm',0,0,2.0);setTimeout(()=>{if(novaPose==='idle')delete targetPose['leftUpperArm'];},800);}
-  else{setBone('rightUpperArm',0,0,-2.0);setTimeout(()=>{if(novaPose==='idle')delete targetPose['rightUpperArm'];},800);}
+  if(novaPose !== 'idle') return;
+  if(side === 'L'){
+    setBone('leftUpperArm', -1.6, 0, 0.1);
+    setBone('leftLowerArm', -0.3, 0, 0);
+    setTimeout(() => { if(novaPose==='idle'){ delete targetPose['leftUpperArm']; delete targetPose['leftLowerArm']; } }, 800);
+  } else {
+    setBone('rightUpperArm', -1.6, 0, -0.1);
+    setBone('rightLowerArm', -0.3, 0, 0);
+    setTimeout(() => { if(novaPose==='idle'){ delete targetPose['rightUpperArm']; delete targetPose['rightLowerArm']; } }, 800);
+  }
 }
 
 function updateVRM(dt){
-  if(!vrm)return;
-  danceTime+=dt;
-  const bHz=(108/60)*Math.PI*2,beat=Math.sin(danceTime*bHz);
-  const hips=getBone('hips');
-  // no hip dance
-  const spine=getBone('spine');
-  // no spine dance
-  // no idle arm sway
-  ['leftUpperArm','rightUpperArm','leftLowerArm','rightLowerArm','spine','chest','neck','head'].forEach(n=>{
-    const b=getBone(n);if(!b)return;
-    const t=targetPose[n],s=0.18;
-    if(t){b.rotation.x+=(t.x-b.rotation.x)*s;b.rotation.y+=(t.y-b.rotation.y)*s;b.rotation.z+=(t.z-b.rotation.z)*s;}
-    else{b.rotation.x+=(0-b.rotation.x)*0.1;b.rotation.y+=(0-b.rotation.y)*0.1;b.rotation.z+=(0-b.rotation.z)*0.1;}
+  if(!vrm) return;
+  danceTime += dt;
+
+  // Subtle head bob — alive but not distracting
+  const head = getBone('head');
+  if(head){
+    head.rotation.y = Math.sin(danceTime * 0.8) * 0.05;
+    head.rotation.z = Math.sin(danceTime * 1.1) * 0.02;
+  }
+
+  // Gentle spine sway — alive feel
+  const spine = getBone('spine');
+  if(spine){
+    spine.rotation.z = Math.sin(danceTime * 0.9) * 0.015;
+  }
+
+  // Smooth lerp for all arm bones
+  ['leftUpperArm','rightUpperArm','leftLowerArm','rightLowerArm','spine','chest','neck','head'].forEach(n => {
+    const bone = getBone(n);
+    if(!bone) return;
+    const tgt = targetPose[n];
+    const spd = 0.14;
+    if(tgt){
+      bone.rotation.x += (tgt.x - bone.rotation.x) * spd;
+      bone.rotation.y += (tgt.y - bone.rotation.y) * spd;
+      bone.rotation.z += (tgt.z - bone.rotation.z) * spd;
+    } else {
+      bone.rotation.x += (0 - bone.rotation.x) * 0.08;
+      bone.rotation.y += (0 - bone.rotation.y) * 0.08;
+      bone.rotation.z += (0 - bone.rotation.z) * 0.08;
+    }
   });
+
+  // LIPSYNC — smooth mouth open/close
   if(expressionManager){
-    VISEMES.forEach(v=>{try{expressionManager.setValue(v,0);}catch(e){}});
-    if(visemeActive){visemeTimer+=dt;try{expressionManager.setValue(currentViseme,Math.abs(Math.sin(visemeTimer*12))*0.8);}catch(e){}}
-    if(Math.random()<0.003&&!window._blinking){
-      window._blinking=true;const t0=Date.now();
-      const blink=()=>{const e=Date.now()-t0;if(e>180){try{expressionManager.setValue('blink',0);}catch(e){}window._blinking=false;return;}const v=e<80?e/80:Math.max(0,1-(e-80)/100);try{expressionManager.setValue('blink',v);}catch(e){}requestAnimationFrame(blink);};
+    VISEMES.forEach(v => { try{ expressionManager.setValue(v, 0); }catch(e){} });
+
+    if(visemeActive){
+      visemeTimer += dt;
+      // Natural mouth movement — sine wave with varying freq
+      const wave = Math.abs(Math.sin(visemeTimer * 8 + Math.sin(visemeTimer * 3) * 0.5));
+      mouthOpenAmt += (wave * 0.9 - mouthOpenAmt) * 0.25;
+      try{ expressionManager.setValue(currentViseme, mouthOpenAmt); }catch(e){}
+    } else {
+      mouthOpenAmt += (0 - mouthOpenAmt) * 0.15;
+      try{ expressionManager.setValue('aa', mouthOpenAmt); }catch(e){}
+    }
+
+    // Natural blinking
+    if(Math.random() < 0.003 && !window._blinking){
+      window._blinking = true;
+      const t0 = Date.now();
+      const blink = () => {
+        const e = Date.now() - t0;
+        if(e > 200){ try{expressionManager.setValue('blink', 0);}catch(e){} window._blinking=false; return; }
+        const v = e < 80 ? e/80 : Math.max(0, 1-(e-80)/120);
+        try{ expressionManager.setValue('blink', v); }catch(e){}
+        requestAnimationFrame(blink);
+      };
       blink();
     }
+
+    // Happy expression on hit
+    if(window._showHappy){
+      window._showHappy -= dt;
+      try{ expressionManager.setValue('happy', Math.min(1, window._showHappy * 2)); }catch(e){}
+    } else {
+      try{ expressionManager.setValue('happy', 0); }catch(e){}
+    }
   }
+
   vrm.update(dt);
 }
-function renderLoop(){requestAnimationFrame(renderLoop);updateVRM(clock.getDelta());renderer.render(scene,camera);}
 
-let detector=null;
-const moves={left:false,right:false,both:false};
-const holdCount={left:0,right:0,both:0};
-const smooth={};
-
-async function initDetector(){
-  await tf.setBackend('webgl');await tf.ready();
-  detector=await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,{modelType:poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING});
+function renderLoop(){
+  requestAnimationFrame(renderLoop);
+  updateVRM(clock.getDelta());
+  renderer.render(scene, camera);
 }
 
-function smoothKp(key,kp){
-  if(!smooth[key])smooth[key]={x:kp.x,y:kp.y,score:kp.score};
-  const a=0.7;smooth[key].x=smooth[key].x*a+kp.x*(1-a);smooth[key].y=smooth[key].y*a+kp.y*(1-a);smooth[key].score=kp.score;
+// ═══════════════════════════════════════════
+// POSE DETECTION
+// ═══════════════════════════════════════════
+let detector = null;
+const moves = { left:false, right:false, both:false };
+const holdCount = { left:0, right:0, both:0 };
+const smooth = {};
+
+async function initDetector(){
+  await tf.setBackend('webgl');
+  await tf.ready();
+  detector = await poseDetection.createDetector(
+    poseDetection.SupportedModels.MoveNet,
+    { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+  );
+}
+
+function smoothKp(key, kp){
+  if(!smooth[key]) smooth[key] = {x:kp.x,y:kp.y,score:kp.score};
+  const a = 0.7;
+  smooth[key].x = smooth[key].x*a + kp.x*(1-a);
+  smooth[key].y = smooth[key].y*a + kp.y*(1-a);
+  smooth[key].score = kp.score;
   return smooth[key];
 }
 
 async function poseLoop(){
-  const v=document.getElementById('webcam');
-  if(!detector||!v||v.readyState<2){requestAnimationFrame(poseLoop);return;}
-  try{const p=await detector.estimatePoses(v,{flipHorizontal:false});if(p.length>0)analyzePose(p[0].keypoints);}catch(e){}
+  const v = document.getElementById('webcam');
+  if(!detector||!v||v.readyState<2){ requestAnimationFrame(poseLoop); return; }
+  try{
+    const p = await detector.estimatePoses(v, {flipHorizontal:false});
+    if(p.length > 0) analyzePose(p[0].keypoints);
+  }catch(e){}
   requestAnimationFrame(poseLoop);
 }
 
 function analyzePose(kps){
-  const g=n=>kps.find(k=>k.name===n);
+  const g = n => kps.find(k=>k.name===n);
   const ls=g('left_shoulder'),rs=g('right_shoulder'),lw=g('left_wrist'),rw=g('right_wrist');
-  if(!ls||!rs||!lw||!rw)return;
+  if(!ls||!rs||!lw||!rw) return;
   const sLs=smoothKp('ls',ls),sRs=smoothKp('rs',rs),sLw=smoothKp('lw',lw),sRw=smoothKp('rw',rw);
-  const MIN=0.3,scale=Math.max(Math.abs(sLs.x-sRs.x),60),thr=scale*0.24;
-  const lUp=sLw.score>MIN&&(sLs.y-sLw.y)>thr,rUp=sRw.score>MIN&&(sRs.y-sRw.y)>thr;
-  const hold=(raw,key)=>{holdCount[key]=raw?Math.min(holdCount[key]+1,10):Math.max(holdCount[key]-1,0);return holdCount[key]>=2;};
-  moves.left=hold(lUp&&!rUp,'left');moves.right=hold(rUp&&!lUp,'right');moves.both=lUp&&rUp;
-  const sp=(id,lbl,on)=>{const el=document.getElementById(id);if(!el)return;el.classList.toggle('on',on);el.textContent=lbl+(on?' ON':' --');};
-  sp('p-left','L arm',moves.left);sp('p-right','R arm',moves.right);sp('p-both','BOTH',moves.both);
+  const MIN=0.3, scale=Math.max(Math.abs(sLs.x-sRs.x),60), thr=scale*0.24;
+  const lUp=sLw.score>MIN&&(sLs.y-sLw.y)>thr;
+  const rUp=sRw.score>MIN&&(sRs.y-sRw.y)>thr;
+  const hold=(raw,key)=>{ holdCount[key]=raw?Math.min(holdCount[key]+1,10):Math.max(holdCount[key]-1,0); return holdCount[key]>=2; };
+  moves.left  = hold(lUp&&!rUp,'left');
+  moves.right = hold(rUp&&!lUp,'right');
+  moves.both  = lUp&&rUp;
+  const sp=(id,lbl,on)=>{ const el=document.getElementById(id); if(!el)return; el.classList.toggle('on',on); el.textContent=lbl+(on?' ON':'--'); };
+  sp('p-left','L arm ',moves.left);
+  sp('p-right','R arm ',moves.right);
+  sp('p-both','BOTH ',moves.both);
 }
 
-function checkAction(a){return a==='left'?moves.left:a==='right'?moves.right:a==='both'?moves.both:false;}
+function checkAction(a){ return a==='left'?moves.left:a==='right'?moves.right:a==='both'?moves.both:false; }
 
-function showLyric(t){const el=document.getElementById('lyric-text');el.textContent=t;el.classList.remove('show');void el.offsetWidth;el.classList.add('show');}
+// ═══════════════════════════════════════════
+// SPEECH + LIPSYNC + LLM BUBBLE
+// ═══════════════════════════════════════════
+let speechQueue = [];
+let isSpeaking = false;
+
+async function novaSpeak(text, llmContext){
+  // Show bubble
+  if(llmContext){
+    // Ask LLM for a fun reaction
+    novaThink(llmContext).then(reply => {
+      if(reply) showBubble(reply);
+    });
+  } else {
+    showBubble(text);
+  }
+
+  // TTS with lipsync
+  speechQueue.push(text);
+  if(isSpeaking) return;
+  processSpeechQueue();
+}
+
+function processSpeechQueue(){
+  if(!speechQueue.length){ isSpeaking=false; return; }
+  isSpeaking = true;
+  const text = speechQueue.shift();
+  try{
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; u.rate = 0.95; u.pitch = 1.3; u.volume = 1.0;
+    const voices = speechSynthesis.getVoices().filter(v=>v.lang.startsWith('en'));
+    const pref = voices.find(v=>/Samantha|Karen|Google.*Female|Zira/i.test(v.name)) || voices[0];
+    if(pref) u.voice = pref;
+    visemeActive = true; currentViseme = 'aa'; visemeTimer = 0;
+    u.onboundary = () => { currentViseme = VISEMES[Math.floor(Math.random()*VISEMES.length)]; };
+    u.onend = () => { visemeActive = false; setTimeout(processSpeechQueue, 200); };
+    speechSynthesis.speak(u);
+  }catch(e){ isSpeaking=false; }
+}
+
+function showBubble(text){
+  const b = document.getElementById('nova-bubble');
+  document.getElementById('bubble-text').textContent = text;
+  b.classList.add('show');
+  setTimeout(() => b.classList.remove('show'), 3500);
+}
+
+// ═══════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════
+function showLyric(t){ const el=document.getElementById('lyric-text'); el.textContent=t; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); }
+
 function showCue(emoji,label,instr,isLive,ms){
-  const c=document.getElementById('action-cue');
-  document.getElementById('cue-emoji').textContent=emoji;
-  document.getElementById('cue-label').textContent=label;
-  document.getElementById('cue-instr').textContent=instr;
+  const c = document.getElementById('action-cue');
+  document.getElementById('cue-emoji').textContent = emoji;
+  document.getElementById('cue-label').textContent = label;
+  document.getElementById('cue-instr').textContent = instr;
   c.classList.add('show');
-  if(isLive){c.classList.add('live');const tf=document.getElementById('cue-timer-fill');tf.style.animation='none';void tf.offsetWidth;tf.style.animation='timerShrink '+ms+'ms linear forwards';}
-  else c.classList.remove('live');
+  if(isLive){
+    c.classList.add('live');
+    const tf = document.getElementById('cue-timer-fill');
+    tf.style.animation = 'none'; void tf.offsetWidth;
+    tf.style.animation = 'timerShrink '+ms+'ms linear forwards';
+  } else {
+    c.classList.remove('live');
+  }
 }
-function hideCue(){document.getElementById('action-cue').classList.remove('show','live');}
-function flashFeedback(t){const f=document.getElementById('feedback');f.className=t;setTimeout(()=>f.className='',600);}
-function showScorePop(pts,color){const el=document.getElementById('score-pop');el.textContent='+'+pts;el.style.color=color||'#ffd700';el.classList.remove('show');void el.offsetWidth;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),900);}
-function setGreenFlash(on){document.getElementById('green-flash').classList.toggle('show',on);document.body.classList.toggle('window-open',on);}
-function speak(text){
-  try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=1.0;u.pitch=1.2;
-    const voices=speechSynthesis.getVoices().filter(v=>v.lang.startsWith('en'));
-    const pref=voices.find(v=>/Samantha|Karen|Google.*Female|Zira/i.test(v.name))||voices[0];if(pref)u.voice=pref;
-    visemeActive=true;currentViseme='aa';visemeTimer=0;u.onend=()=>{visemeActive=false;};speechSynthesis.speak(u);}catch(e){}
+
+function hideCue(){ document.getElementById('action-cue').classList.remove('show','live'); }
+
+function flashFeedback(t){ const f=document.getElementById('feedback'); f.className=t; setTimeout(()=>f.className='',600); }
+
+function showScorePop(pts,color){ const el=document.getElementById('score-pop'); el.textContent='+'+pts; el.style.color=color||'#ffd700'; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),900); }
+
+function setGreenFlash(on){ document.getElementById('green-flash').classList.toggle('show',on); document.body.classList.toggle('window-open',on); }
+
+// ═══════════════════════════════════════════
+// SONG LOOP
+// ═══════════════════════════════════════════
+// LLM reaction phrases — called async so they don't block game
+const HIT_CONTEXTS = [
+  'The child just raised their arm correctly! React with excitement! Max 6 words.',
+  'Great job! The kid nailed the move! 6 words of celebration!',
+  'The child is doing amazing at dancing! 6 words!',
+];
+const MISS_CONTEXTS = [
+  'The child missed the move but encourage them! 6 words.',
+  'Keep going! The child needs encouragement! Max 6 words.',
+];
+
+let llmCooldown = false;
+function maybeLLM(context){
+  if(llmCooldown) return;
+  llmCooldown = true;
+  setTimeout(()=>llmCooldown=false, 8000); // max once per 8 sec
+  novaSpeak('', context);
 }
 
 function startSong(){
-  timelineIdx=0;
-  const audio=new Audio('hello.mp3');audio.volume=0.85;window._songAudio=audio;
+  timelineIdx = 0;
+  const audio = new Audio('hello.mp3');
+  audio.volume = 0.85;
+  window._songAudio = audio;
   audio.play().catch(()=>{});
-  audio.onended=()=>setTimeout(endGame,1000);
-  setNovaPose('hype',1800);
-  songTimer=setInterval(()=>{
-    const elapsed=window._songAudio&&!window._songAudio.paused?window._songAudio.currentTime*1000:0;
-    document.getElementById('progress-fill').style.width=Math.min(100,(elapsed/SONG_DURATION)*100)+'%';
-    while(timelineIdx<TIMELINE.length&&elapsed>=TIMELINE[timelineIdx].t){
-      const e=TIMELINE[timelineIdx];
-      if(e.type==='lyric')showLyric(e.text);
-      else if(e.type==='helloL'){showLyric(e.lyric||'Hello,');novaHelloArm('L');}
-      else if(e.type==='helloR'){showLyric(e.lyric||'hello.');novaHelloArm('R');}
-      else if(e.type==='demo'){setNovaPose(e.action,2400);showCue(e.emoji,e.label,e.instr,false,0);}
+  audio.onended = () => setTimeout(endGame, 1000);
+  setNovaPose('hype', 1800);
+
+  songTimer = setInterval(()=>{
+    const elapsed = window._songAudio&&!window._songAudio.paused ? window._songAudio.currentTime*1000 : 0;
+    document.getElementById('progress-fill').style.width = Math.min(100,(elapsed/SONG_DURATION)*100)+'%';
+
+    while(timelineIdx<TIMELINE.length && elapsed>=TIMELINE[timelineIdx].t){
+      const e = TIMELINE[timelineIdx];
+      if(e.type==='lyric') showLyric(e.text);
+      else if(e.type==='helloL'){ showLyric(e.lyric||'Hello,'); novaHelloArm('L'); }
+      else if(e.type==='helloR'){ showLyric(e.lyric||'hello.'); novaHelloArm('R'); }
+      else if(e.type==='demo'){ setNovaPose(e.action, 2400); showCue(e.emoji, e.label, e.instr, false, 0); }
       else if(e.type==='open'){
-        currentAction=e;actionDetected=false;actionWindow=true;actionStartTime=Date.now();attempts++;
-        let wMs=2500;for(let j=timelineIdx+1;j<TIMELINE.length;j++){if(TIMELINE[j].type==='close'&&TIMELINE[j].action===e.action){wMs=TIMELINE[j].t-e.t;break;}}
-        setGreenFlash(true);showCue(e.emoji,e.label,e.instr,true,wMs);setNovaPose(e.action,wMs);
-        let el2=0;const chk=setInterval(()=>{el2+=80;if(!actionWindow||actionDetected||el2>wMs+200){clearInterval(chk);return;}
-          if(checkAction(e.action)){actionDetected=true;clearInterval(chk);
-            const rm=Date.now()-actionStartTime,isGreat=rm<1000,pts=isGreat?Math.round(e.pts*1.5):e.pts;
-            score+=pts;hits++;combo++;maxCombo=Math.max(maxCombo,combo);
+        currentAction=e; actionDetected=false; actionWindow=true;
+        actionStartTime=Date.now(); attempts++;
+        let wMs=2500;
+        for(let j=timelineIdx+1;j<TIMELINE.length;j++){
+          if(TIMELINE[j].type==='close'&&TIMELINE[j].action===e.action){ wMs=TIMELINE[j].t-e.t; break; }
+        }
+        setGreenFlash(true);
+        showCue(e.emoji, e.label, e.instr, true, wMs);
+        setNovaPose(e.action, wMs);
+        let el2=0;
+        const chk = setInterval(()=>{
+          el2+=80;
+          if(!actionWindow||actionDetected||el2>wMs+200){ clearInterval(chk); return; }
+          if(checkAction(e.action)){
+            actionDetected=true; clearInterval(chk);
+            const rm=Date.now()-actionStartTime, isGreat=rm<1000;
+            const pts=isGreat?Math.round(e.pts*1.5):e.pts;
+            score+=pts; hits++; combo++; maxCombo=Math.max(maxCombo,combo);
             document.getElementById('score-display').textContent=score+' pts';
-            flashFeedback('hit');showScorePop(pts,isGreat?'#ffd700':'#00ff99');
-            setNovaPose('hype',1000);speak(isGreat?'Great!':'Yes!');}
-        },80);
+            flashFeedback('hit'); showScorePop(pts, isGreat?'#ffd700':'#00ff99');
+            setNovaPose('hype',1200);
+            window._showHappy = 1.5; // trigger happy expression
+            // LLM reaction
+            maybeLLM(HIT_CONTEXTS[Math.floor(Math.random()*HIT_CONTEXTS.length)]);
+          }
+        }, 80);
       }
-      else if(e.type==='close'){setGreenFlash(false);hideCue();if(!actionDetected&&actionWindow){combo=0;flashFeedback('miss');}actionWindow=false;}
+      else if(e.type==='close'){
+        setGreenFlash(false); hideCue();
+        if(!actionDetected&&actionWindow){
+          combo=0; flashFeedback('miss');
+          maybeLLM(MISS_CONTEXTS[Math.floor(Math.random()*MISS_CONTEXTS.length)]);
+        }
+        actionWindow=false;
+      }
       timelineIdx++;
     }
-  },80);
+  }, 80);
 }
 
 function endGame(){
-  clearInterval(songTimer);setGreenFlash(false);
-  if(window._songAudio)window._songAudio.pause();
-  setNovaPose('hype',99999);
-  const rate=attempts>0?hits/attempts:0,stars=rate>=0.9?5:rate>=0.7?4:rate>=0.5?3:rate>=0.3?2:1;
-  document.getElementById('end-title').textContent=['Keep trying!','Good job!','Great!','Amazing!','PERFECT!'][stars-1];
-  document.getElementById('end-stars').textContent='*'.repeat(stars);
+  clearInterval(songTimer); setGreenFlash(false);
+  if(window._songAudio) window._songAudio.pause();
+  setNovaPose('hype', 99999);
+  const rate=attempts>0?hits/attempts:0;
+  const stars=rate>=0.9?5:rate>=0.7?4:rate>=0.5?3:rate>=0.3?2:1;
+  document.getElementById('end-title').textContent=['Keep trying!','Good job!','Great!','Amazing!','PERFECT! &#128293;'][stars-1];
+  document.getElementById('end-stars').textContent='&#11088;'.repeat(stars)+'&#9734;'.repeat(5-stars);
   document.getElementById('end-score').textContent=score+' pts';
   document.getElementById('end-detail').textContent=hits+' of '+attempts+' moves. Best combo: '+maxCombo;
   document.getElementById('end-screen').style.display='flex';
-  speak('Amazing! You hit '+hits+' out of '+attempts+' moves!');
+  // Ask LLM for end message
+  novaThink('The dance session ended! The child hit '+hits+' out of '+attempts+' moves. Give an amazing celebration! 8 words max.').then(msg=>{
+    if(msg) novaSpeak(msg);
+    else novaSpeak('You are a superstar dancer!');
+  });
 }
 
-window.restartGame=function(){
+window.restartGame = function(){
   score=0;hits=0;attempts=0;combo=0;maxCombo=0;
   document.getElementById('score-display').textContent='0 pts';
   document.getElementById('progress-fill').style.width='0%';
@@ -398,26 +683,34 @@ window.restartGame=function(){
   startSong();
 };
 
-window.beginGame=async function(){
+window.beginGame = async function(){
   document.getElementById('start-screen').style.display='none';
   try{
-    const stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:1280},height:{ideal:720},facingMode:'user'},audio:false});
-    const v=document.getElementById('webcam');v.srcObject=stream;
-    await new Promise(r=>v.onloadedmetadata=r);await v.play();
-  }catch(e){alert('Camera needed: '+e.message);return;}
-  try{await initDetector();}catch(e){console.log('No pose detection:',e);}
+    const stream = await navigator.mediaDevices.getUserMedia({video:{width:{ideal:1280},height:{ideal:720},facingMode:'user'},audio:false});
+    const v = document.getElementById('webcam');
+    v.srcObject=stream; await new Promise(r=>v.onloadedmetadata=r); await v.play();
+  }catch(e){ alert('Camera needed: '+e.message); return; }
+  try{ await initDetector(); }catch(e){ console.log('No detection:',e); }
   poseLoop();
   speechSynthesis.getVoices();
-  speak("Let's dance with Nova! Watch me then copy!");
-  setTimeout(startSong,2500);
+  // LLM welcome message
+  novaThink("A child is starting a dance game! Say a super fun welcome! Max 8 words.").then(msg=>{
+    novaSpeak(msg || "Hi! Let's dance together! Yay!");
+  });
+  setTimeout(startSong, 3000);
 };
 
-window.addEventListener('load',async()=>{
+// BOOT — load VRM at page load so it's ready
+window.addEventListener('load', async()=>{
   speechSynthesis.getVoices();
-  speechSynthesis.onvoiceschanged=()=>speechSynthesis.getVoices();
+  speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
   resizeRenderer();
-  try{await loadVRM();console.log('VRM loaded');}
-  catch(e){console.error('VRM failed:',e.message);}
+  try{
+    await loadVRM();
+    console.log('VRM ready');
+  } catch(e){
+    console.error('VRM failed:', e.message);
+  }
   renderLoop();
 });
 </script>
