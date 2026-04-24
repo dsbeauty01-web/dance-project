@@ -29,7 +29,7 @@ body.window-open{background:#003322}
 #nova-face{
   position:absolute;
   top:50%;left:50%;
-  transform:translate(-50%,-50%) scale(0);
+  transform:translate(-50%,-50%) scale(1);
   width:min(70%,320px);
   aspect-ratio:1/1;
   border-radius:50%;
@@ -177,8 +177,9 @@ body.window-open{background:#003322}
     <!-- Nova face reaction circle -->
     <div id="nova-face">
       <div style="width:100%;height:100%;background:radial-gradient(ellipse at 40% 35%,#ff88dd,#cc1199 50%,#880077);
-        display:flex;align-items:center;justify-content:center;font-size:80px;border-radius:50%">
-        🌟
+        display:flex;align-items:center;justify-content:center;flex-direction:column;border-radius:50%;gap:4px">
+        <div style="font-size:70px;line-height:1">🌟</div>
+        <div style="font-family:'Fredoka One',cursive;font-size:18px;color:white;text-shadow:0 2px 8px rgba(0,0,0,0.5)">Nova</div>
       </div>
     </div>
 
@@ -521,6 +522,11 @@ function startSong(){
   audio.volume = 0.85;
   window._songAudio = audio;
 
+  // Hide face when song starts — video takes over
+  document.getElementById('nova-face').classList.remove('show');
+  document.getElementById('nova-face').style.transform = 'translate(-50%,-50%) scale(0)';
+  document.getElementById('nova-speech').classList.remove('show');
+  
   // Play Kling video in sync
   const vid = document.getElementById('nova-video');
   vid.currentTime = 0;
@@ -634,7 +640,13 @@ window.beginGame = async function(){
     });
     const v=document.getElementById('webcam');
     v.srcObject=stream;await new Promise(r=>v.onloadedmetadata=r);await v.play();
-  }catch(e){alert('Camera needed: '+e.message);return;}
+  }catch(e){
+    console.error('Camera error:', e.name, e.message);
+    if(e.name === 'NotReadableError') alert('Camera is being used by another app. Close Zoom/Teams/etc and retry.');
+    else if(e.name === 'NotAllowedError') alert('Camera permission denied. Allow camera in browser settings.');
+    else alert('Camera error: '+e.message);
+    return;
+  }
 
   // Detection
   try{await initDetector();}catch(e){console.log('Detection:',e);}
@@ -673,10 +685,12 @@ window.beginGame = async function(){
 window.addEventListener('load',()=>{
   speechSynthesis.getVoices();
   speechSynthesis.onvoiceschanged=()=>speechSynthesis.getVoices();
-  // Try to autoplay video silently on load
   const vid = document.getElementById('nova-video');
   vid.muted = true;
-  vid.play().catch(e => console.log('Video autoplay:', e));
+  vid.addEventListener('error', e => console.error('VIDEO ERROR:', vid.error?.message, vid.error?.code));
+  vid.addEventListener('loadeddata', () => console.log('VIDEO LOADED OK'));
+  vid.addEventListener('canplay', () => { console.log('VIDEO CAN PLAY'); vid.play().catch(e=>console.log('play err:',e)); });
+  vid.load();
 });
 </script>
 </body>
