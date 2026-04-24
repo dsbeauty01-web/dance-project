@@ -30,22 +30,16 @@ body.window-open{background:#003322}
   position:absolute;
   top:50%;left:50%;
   transform:translate(-50%,-50%) scale(0);
-  width:min(85%,420px);
+  width:min(70%,320px);
   aspect-ratio:1/1;
   border-radius:50%;
   overflow:hidden;
   z-index:20;
   transition:transform 0.35s cubic-bezier(.34,1.56,.64,1);
-  box-shadow:0 0 60px rgba(255,111,216,0.8), 0 0 120px rgba(124,111,255,0.5);
-  border:4px solid rgba(255,111,216,0.8);
+  box-shadow:0 0 60px rgba(255,111,216,0.9), 0 0 120px rgba(124,111,255,0.6);
+  border:5px solid rgba(255,111,216,0.9);
 }
 #nova-face.show{transform:translate(-50%,-50%) scale(1)}
-#nova-face iframe{
-  position:absolute;
-  width:280%;height:280%;
-  top:-60%;left:-90%;
-  border:none;pointer-events:none;
-}
 /* Glowing ring */
 #nova-face::after{
   content:'';position:absolute;inset:0;border-radius:50%;
@@ -55,7 +49,7 @@ body.window-open{background:#003322}
 /* Speech bubble next to face */
 #nova-speech{
   position:absolute;
-  bottom:8%;left:50%;
+  bottom:5%;left:50%;
   transform:translateX(-50%) scale(0);
   background:white;color:#1a0030;
   border-radius:20px;padding:12px 20px;
@@ -160,44 +154,38 @@ body.window-open{background:#003322}
 
 <!-- START -->
 <div id="start-screen">
-  <div style="font-size:72px">&#127775;</div>
+  <div style="font-size:72px">🌟</div>
   <h1>Nova Dance!</h1>
   <p>Dance with Nova!<br>Raise your arms when the screen turns <b style="color:#00ff99">green</b>!</p>
-  <button class="start-btn" onclick="beginGame()">&#127881; Let's Dance!</button>
+  <button class="start-btn" onclick="beginGame()">🎉 Let's Dance!</button>
   <div id="version-tag">v20 — OPTION B — Nova Face Overlay + Kling Body + LLM</div>
 </div>
 
 <!-- GAME -->
 <div id="topbar">
-  <div id="logo">&#127775; Nova Dance</div>
+  <div id="logo">🌟 Nova Dance</div>
   <div id="score-display">0 pts</div>
 </div>
 
 <div id="split">
   <!-- NOVA SIDE: Kling video body + D-ID face overlay -->
   <div id="nova-side">
-    <video id="nova-video" loop playsinline>
+    <video id="nova-video" loop playsinline muted autoplay style="width:100%;height:100%;object-fit:cover;display:block">
       <source src="nova-dance.mp4" type="video/mp4">
     </video>
 
-    <!-- D-ID face bursts in on reactions -->
+    <!-- Nova face reaction circle -->
     <div id="nova-face">
-      <script type="module"
-        src="https://agent.d-id.com/v2/index.js"
-        data-mode="fabio"
-        data-client-key="Z29vZ2xlLW9hdXRoMnwxMDg1MzgzO"
-        data-agent-id="v2_agt_LxzjMQLP"
-        data-name="did-agent"
-        data-monitor="true"
-        data-orientation="portrait"
-        data-open-mode="expanded">
-      </script>
+      <div style="width:100%;height:100%;background:radial-gradient(ellipse at 40% 35%,#ff88dd,#cc1199 50%,#880077);
+        display:flex;align-items:center;justify-content:center;font-size:80px;border-radius:50%">
+        🌟
+      </div>
     </div>
 
     <!-- Speech bubble -->
     <div id="nova-speech"><span id="nova-speech-text">Hi! Let's dance!</span></div>
 
-    <div id="nova-label">Nova &#10024;</div>
+    <div id="nova-label">Nova ✨</div>
   </div>
 
   <!-- CAM SIDE -->
@@ -208,13 +196,13 @@ body.window-open{background:#003322}
       <div class="pill" id="p-right">R arm --</div>
       <div class="pill" id="p-both">BOTH --</div>
     </div>
-    <div id="cam-label">You &#127919;</div>
+    <div id="cam-label">You 🎯</div>
   </div>
 
   <div id="lyric-box"><div id="lyric-text"></div></div>
 
   <div id="action-cue">
-    <span id="cue-emoji">&#128588;</span>
+    <span id="cue-emoji">🙌</span>
     <span id="cue-label">BOTH UP!</span>
     <span id="cue-instr">Raise both arms!</span>
     <div id="cue-timer"><div id="cue-timer-fill"></div></div>
@@ -227,12 +215,12 @@ body.window-open{background:#003322}
 
 <!-- END -->
 <div id="end-screen">
-  <div style="font-size:72px">&#127881;</div>
+  <div style="font-size:72px">🎉</div>
   <h1 id="end-title">Amazing!</h1>
-  <div id="end-stars">&#11088;&#11088;&#11088;&#11088;&#11088;</div>
+  <div id="end-stars">⭐⭐⭐⭐⭐</div>
   <div id="end-score">0 pts</div>
   <div id="end-detail"></div>
-  <button class="start-btn" onclick="restartGame()" style="font-size:18px;padding:12px 32px">&#128260; Play Again</button>
+  <button class="start-btn" onclick="restartGame()" style="font-size:18px;padding:12px 32px">🔄 Play Again</button>
 </div>
 
 <!-- DETECTION -->
@@ -295,29 +283,29 @@ function getMemoryContext() {
 }
 
 const TIMELINE = [
-  {t:1000,type:'lyric',text:'&#127925; Hello Hello! &#127925;'},
+  {t:1000,type:'lyric',text:'🎵 Hello Hello! 🎵'},
   {t:3000,type:'lyric',text:'Watch Nova then YOU do it!'},
   {t:4000,type:'helloL',lyric:'Hello,'},
   {t:5000,type:'helloR',lyric:'hello.'},
   {t:6000,type:'lyric',text:'Can you clap your hands?'},
-  {t:6000,type:'demo',action:'both',emoji:'&#128588;',label:'BOTH UP!',instr:'Watch Nova!'},
-  {t:8500,type:'open',action:'both',emoji:'&#128588;',label:'BOTH UP!',instr:'Raise BOTH arms!',pts:150},
+  {t:6000,type:'demo',action:'both',emoji:'🙌',label:'BOTH UP!',instr:'Watch Nova!'},
+  {t:8500,type:'open',action:'both',emoji:'🙌',label:'BOTH UP!',instr:'Raise BOTH arms!',pts:150},
   {t:11000,type:'close',action:'both'},
   {t:11500,type:'helloL',lyric:'Hello,'},
   {t:12500,type:'helloR',lyric:'hello.'},
   {t:13500,type:'lyric',text:'Can you stretch up high?'},
-  {t:13500,type:'demo',action:'right',emoji:'&#128073;',label:'RIGHT ARM!',instr:'Watch Nova!'},
-  {t:16000,type:'open',action:'right',emoji:'&#128073;',label:'RIGHT ARM!',instr:'Raise RIGHT arm!',pts:150},
+  {t:13500,type:'demo',action:'right',emoji:'👉',label:'RIGHT ARM!',instr:'Watch Nova!'},
+  {t:16000,type:'open',action:'right',emoji:'👉',label:'RIGHT ARM!',instr:'Raise RIGHT arm!',pts:150},
   {t:18500,type:'close',action:'right'},
   {t:19000,type:'lyric',text:'Can you touch your toes?'},
-  {t:19000,type:'demo',action:'left',emoji:'&#128072;',label:'LEFT ARM!',instr:'Watch Nova!'},
-  {t:21500,type:'open',action:'left',emoji:'&#128072;',label:'LEFT ARM!',instr:'Raise LEFT arm!',pts:150},
+  {t:19000,type:'demo',action:'left',emoji:'👈',label:'LEFT ARM!',instr:'Watch Nova!'},
+  {t:21500,type:'open',action:'left',emoji:'👈',label:'LEFT ARM!',instr:'Raise LEFT arm!',pts:150},
   {t:24000,type:'close',action:'left'},
   {t:24500,type:'lyric',text:'Can you turn around?'},
-  {t:24500,type:'demo',action:'both',emoji:'&#128588;',label:'BOTH UP!',instr:'Watch Nova!'},
-  {t:27000,type:'open',action:'both',emoji:'&#128588;',label:'BOTH UP!',instr:'BOTH arms UP!',pts:200},
+  {t:24500,type:'demo',action:'both',emoji:'🙌',label:'BOTH UP!',instr:'Watch Nova!'},
+  {t:27000,type:'open',action:'both',emoji:'🙌',label:'BOTH UP!',instr:'BOTH arms UP!',pts:200},
   {t:29500,type:'close',action:'both'},
-  {t:30000,type:'lyric',text:'&#127775; Amazing! Great job! &#127775;'},
+  {t:30000,type:'lyric',text:'🌟 Amazing! Great job! 🌟'},
 ];
 
 // STATE
@@ -609,7 +597,7 @@ function endGame(){
   const rate=attempts>0?hits/attempts:0;
   const stars=rate>=0.9?5:rate>=0.7?4:rate>=0.5?3:rate>=0.3?2:1;
   document.getElementById('end-title').textContent=['Keep trying!','Good job!','Great!','Amazing!','PERFECT!'][stars-1];
-  document.getElementById('end-stars').textContent='&#11088;'.repeat(stars)+'&#9734;'.repeat(5-stars);
+  document.getElementById('end-stars').textContent='⭐'.repeat(stars)+'☆'.repeat(5-stars);
   document.getElementById('end-score').textContent=score+' pts';
   document.getElementById('end-detail').textContent=hits+' of '+attempts+' moves. Best combo: '+maxCombo;
   document.getElementById('end-screen').style.display='flex';
@@ -685,6 +673,10 @@ window.beginGame = async function(){
 window.addEventListener('load',()=>{
   speechSynthesis.getVoices();
   speechSynthesis.onvoiceschanged=()=>speechSynthesis.getVoices();
+  // Try to autoplay video silently on load
+  const vid = document.getElementById('nova-video');
+  vid.muted = true;
+  vid.play().catch(e => console.log('Video autoplay:', e));
 });
 </script>
 </body>
