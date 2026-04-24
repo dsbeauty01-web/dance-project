@@ -8,7 +8,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;800&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden}
-body{background:#1a0533;color:#fff;font-family:'Nunito',sans-serif;display:flex;flex-direction:column;transition:background 0.15s}
+body{background:#ff69b4;color:#fff;font-family:'Nunito',sans-serif;display:flex;flex-direction:column;transition:background 0.15s}
 body.window-open{background:#003322}
 #topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);z-index:10;flex-shrink:0}
 #logo{font-family:'Fredoka One',cursive;font-size:18px;background:linear-gradient(135deg,#ff6fd8,#7c6fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
@@ -78,12 +78,12 @@ body.window-open{background:#003322}
 #score-pop.show{transform:translateX(-50%) scale(1)}
 #progress-bar{position:absolute;bottom:0;left:0;right:0;height:4px;background:rgba(255,255,255,0.1);z-index:9}
 #progress-fill{height:100%;width:0%;background:linear-gradient(90deg,#ff6fd8,#7c6fff,#00d2ff);transition:width 0.1s linear}
-#start-screen{position:fixed;inset:0;z-index:50;background:radial-gradient(ellipse at 50% 30%,#2d0a5a,#1a0533);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:24px;text-align:center}
+#start-screen{position:fixed;inset:0;z-index:50;background:radial-gradient(ellipse at 50% 30%,#ff1493,#cc0066);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:24px;text-align:center}
 #start-screen h1{font-family:'Fredoka One',cursive;font-size:clamp(28px,6vw,44px);background:linear-gradient(135deg,#ff6fd8,#7c6fff,#00d2ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 #start-screen p{font-size:14px;color:rgba(255,255,255,0.7);max-width:360px;line-height:1.6}
 .start-btn{background:linear-gradient(135deg,#ff6fd8,#7c6fff);border:none;border-radius:50px;padding:14px 40px;font-family:'Fredoka One',cursive;font-size:22px;color:#fff;cursor:pointer;box-shadow:0 6px 28px rgba(124,111,255,0.5);transition:transform .2s;width:100%;max-width:320px}
 .start-btn:hover{transform:scale(1.04)}
-#end-screen{position:fixed;inset:0;z-index:55;background:radial-gradient(ellipse at 50% 30%,#2d0a5a,#1a0533);display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px;text-align:center}
+#end-screen{position:fixed;inset:0;z-index:55;background:radial-gradient(ellipse at 50% 30%,#ff1493,#cc0066);display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px;text-align:center}
 #end-screen h1{font-family:'Fredoka One',cursive;font-size:clamp(28px,6vw,42px);background:linear-gradient(135deg,#ff6fd8,#ffd700);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 #end-stars{font-size:48px;letter-spacing:6px}
 #end-score{font-family:'Fredoka One',cursive;font-size:28px;color:#ffd700}
@@ -261,20 +261,38 @@ async function loadVRM(){
       vrm.scene.rotation.y=0;
       scene.add(vrm.scene);
       expressionManager=vrm.expressionManager;
+      // Set arms down immediately on load
+      applyPose('idle');
       res();
     },null,rej);
   });
 }
 
 function getBone(n){return vrm?.humanoid?.getNormalizedBoneNode(n)||null;}
-function setBone(n,x,y,z){targetPose[n]=new THREE.Euler(x,y,z);}
-function clearPose(){Object.keys(targetPose).forEach(k=>delete targetPose[k]);}
+
+// Target pose is always fully specified — arms DOWN by default
+const REST = { leftUpperArm:[0,0,1.4], rightUpperArm:[0,0,-1.4] };
 
 function applyPose(pose){
-  clearPose();
-  if(pose==='left') setBone('leftUpperArm',-1.8,0,0.2);
-  else if(pose==='right') setBone('rightUpperArm',-1.8,0,-0.2);
-  else if(pose==='both'||pose==='hype'){setBone('leftUpperArm',-1.8,0,0.2);setBone('rightUpperArm',-1.8,0,-0.2);}
+  // Always reset both arms to down first
+  targetPose['leftUpperArm']  = new THREE.Euler(0, 0, 1.4);
+  targetPose['rightUpperArm'] = new THREE.Euler(0, 0, -1.4);
+  targetPose['leftLowerArm']  = new THREE.Euler(0, 0, 0);
+  targetPose['rightLowerArm'] = new THREE.Euler(0, 0, 0);
+
+  if(pose === 'left'){
+    targetPose['leftUpperArm'] = new THREE.Euler(-1.5, 0, 0.1);
+    targetPose['leftLowerArm'] = new THREE.Euler(-0.2, 0, 0);
+  } else if(pose === 'right'){
+    targetPose['rightUpperArm'] = new THREE.Euler(-1.5, 0, -0.1);
+    targetPose['rightLowerArm'] = new THREE.Euler(-0.2, 0, 0);
+  } else if(pose === 'both' || pose === 'hype'){
+    targetPose['leftUpperArm']  = new THREE.Euler(-1.5, 0, 0.1);
+    targetPose['leftLowerArm']  = new THREE.Euler(-0.2, 0, 0);
+    targetPose['rightUpperArm'] = new THREE.Euler(-1.5, 0, -0.1);
+    targetPose['rightLowerArm'] = new THREE.Euler(-0.2, 0, 0);
+  }
+  // idle = stays at REST (arms down)
 }
 
 function setNovaPose(pose,durationMs){
@@ -299,11 +317,15 @@ function updateVRM(dt){
   const spine=getBone('spine');
   // no spine dance
   // no idle arm sway
-  ['leftUpperArm','rightUpperArm','leftLowerArm','rightLowerArm','spine','chest','neck','head'].forEach(n=>{
-    const b=getBone(n);if(!b)return;
-    const t=targetPose[n],s=0.18;
-    if(t){b.rotation.x+=(t.x-b.rotation.x)*s;b.rotation.y+=(t.y-b.rotation.y)*s;b.rotation.z+=(t.z-b.rotation.z)*s;}
-    else{b.rotation.x+=(0-b.rotation.x)*0.1;b.rotation.y+=(0-b.rotation.y)*0.1;b.rotation.z+=(0-b.rotation.z)*0.1;}
+  const S = 0.14;
+  ['leftUpperArm','rightUpperArm','leftLowerArm','rightLowerArm'].forEach(n=>{
+    const b=getBone(n); if(!b) return;
+    const t=targetPose[n];
+    if(t){
+      b.rotation.x+=(t.x-b.rotation.x)*S;
+      b.rotation.y+=(t.y-b.rotation.y)*S;
+      b.rotation.z+=(t.z-b.rotation.z)*S;
+    }
   });
   if(expressionManager){
     VISEMES.forEach(v=>{try{expressionManager.setValue(v,0);}catch(e){}});
