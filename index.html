@@ -637,7 +637,7 @@ function startGame(){
   audio.play().catch(()=>{});
   audio.onended=()=>setTimeout(endGame,800);
 
-  novaReact('Song just started! 4-word hype!','Let's go! Woo!','💃');
+  novaReact("Song just started! 4-word hype!","Lets go! Woo!","💃");
 
   songTimer=setInterval(()=>{
     const elapsed=(window._audio?.currentTime||0)*1000;
@@ -709,10 +709,10 @@ function endGame(){
 }
 
 // ═══════════════════════════════════════════════
-// Expose to window for HTML onclick
-window._startGame = startGame;
-window._sendChat = window.sendChat;
-window._toggleMic = window.toggleMic;
+// Expose to window via events (module boundary safe)
+document.addEventListener('nova-start-game', startGame);
+window.sendChat = sendChat;
+window.toggleMic = toggleMic;
 
 // BOOT
 // ═══════════════════════════════════════════════
@@ -746,10 +746,20 @@ function startCountdown(){
   const num=document.getElementById('countdown-num');
   ov.style.display='flex';
   let c=3;num.textContent=c;
-  const iv=setInterval(()=>{c--;if(c<=0){clearInterval(iv);ov.style.display='none';window._startGame();}else num.textContent=c;},1000);
+  const iv=setInterval(()=>{
+    c--;
+    if(c<=0){
+      clearInterval(iv);
+      ov.style.display='none';
+      // Use event to cross module boundary
+      document.dispatchEvent(new CustomEvent('nova-start-game'));
+    } else {
+      num.textContent=c;
+    }
+  },1000);
 }
-function sendChat(){window._sendChat&&window._sendChat();}
-function toggleMic(){window._toggleMic&&window._toggleMic();}
+function sendChat(){window.sendChat&&window.sendChat();}
+function toggleMic(){window.toggleMic&&window.toggleMic();}
 </script>
 </body>
 </html>
