@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova — D-ID SDK Test</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:#1a0030;color:#fff;font-family:"Nunito",sans-serif}
+#app{display:grid;grid-template-columns:1fr 1fr;height:100vh}
+
+/* LEFT — D-ID avatar */
+#nova-side{position:relative;background:#0a0018;overflow:hidden;display:flex;align-items:center;justify-content:center}
+#nova-video{width:100%;height:100%;object-fit:cover;display:block}
+#did-status{position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,0.7);border-radius:20px;padding:5px 16px;
+  font-size:12px;color:#ff6fd8;white-space:nowrap;backdrop-filter:blur(8px)}
+#nova-label{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,0.6);border:1px solid rgba(255,111,216,0.4);
+  border-radius:20px;padding:4px 16px;font-family:"Fredoka One",cursive;
+  font-size:13px;color:#ff6fd8}
+
+/* RIGHT — Chat panel */
+#chat-side{display:flex;flex-direction:column;background:rgba(255,255,255,0.04);
+  border-left:1px solid rgba(255,111,216,0.15)}
+#chat-header{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.08);
+  font-family:"Fredoka One",cursive;font-size:20px;
+  background:linear-gradient(135deg,#ff6fd8,#7c6fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#chat-log{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+.msg-nova{background:rgba(124,111,255,0.2);border:1px solid rgba(124,111,255,0.3);
+  border-radius:16px 16px 16px 4px;padding:10px 14px;font-size:14px;
+  color:#e0d0ff;max-width:85%;line-height:1.5}
+.msg-user{background:rgba(0,210,255,0.15);border:1px solid rgba(0,210,255,0.25);
+  border-radius:16px 16px 4px 16px;padding:10px 14px;font-size:14px;
+  color:#d0f0ff;max-width:85%;align-self:flex-end;line-height:1.5}
+.msg-system{text-align:center;font-size:11px;color:rgba(255,255,255,0.3);padding:4px 0}
+
+#controls{padding:16px;border-top:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:10px}
+#thinking{text-align:center;font-size:12px;color:#ff6fd8;height:16px;transition:opacity .3s;opacity:0}
+#thinking.show{opacity:1}
+#mic-row{display:flex;gap:10px;align-items:center}
+#mic-btn{background:linear-gradient(135deg,#ff6fd8,#7c6fff);border:none;border-radius:50%;
+  width:56px;height:56px;font-size:24px;cursor:pointer;flex-shrink:0;
+  box-shadow:0 4px 20px rgba(124,111,255,0.5);transition:transform .15s}
+#mic-btn:hover{transform:scale(1.08)}
+#mic-btn.listening{background:linear-gradient(135deg,#ff4444,#cc0000);
+  animation:mp 1s ease-in-out infinite}
+@keyframes mp{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+#text-input{flex:1;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);
+  border-radius:12px;padding:10px 14px;color:#fff;font-size:14px;font-family:"Nunito",sans-serif;
+  outline:none}
+#text-input:focus{border-color:rgba(255,111,216,0.5)}
+#text-input::placeholder{color:rgba(255,255,255,0.3)}
+#send-btn{background:rgba(124,111,255,0.4);border:1px solid rgba(124,111,255,0.4);
+  border-radius:12px;padding:10px 16px;color:#fff;cursor:pointer;font-size:14px;white-space:nowrap}
+#send-btn:hover{background:rgba(124,111,255,0.6)}
+#mic-status{font-size:11px;color:rgba(255,255,255,0.4);text-align:center}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- LEFT: D-ID Avatar -->
+  <div id="nova-side">
+    <video id="nova-video" autoplay playsinline></video>
+    <div id="did-status">⏳ Connecting Nova...</div>
+    <div id="nova-label">Nova ✨</div>
+  </div>
+
+  <!-- RIGHT: Chat -->
+  <div id="chat-side">
+    <div id="chat-header">🌟 Talk to Nova</div>
+    <div id="chat-log">
+      <div class="msg-system">Nova is warming up...</div>
+    </div>
+    <div id="controls">
+      <div id="thinking">Nova is thinking... ✨</div>
+      <div id="mic-row">
+        <button id="mic-btn" onclick="toggleMic()" title="Hold to speak">🎤</button>
+        <input id="text-input" type="text" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendText()">
+        <button id="send-btn" onclick="sendText()">Send</button>
+      </div>
+      <div id="mic-status">Tap mic or type to talk to Nova</div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+// ═══════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════
+const CLIENT_KEY = "Z29vZ2xlLW9hdXRoMnwxMDg1MzgzODIxMDg4OTU5MjE2MzA6dUtILVVlUFhjeFNUZS1lNjV2VG5t";
+const AGENT_ID   = "v2_agt_Z7uYXWFx";
+const WORKER_URL = "https://long-art-8269r.dsbeauty01.workers.dev/";
+
+const NOVA_SYSTEM = `You are Nova — a magical, warm and wildly fun AI dance and movement teacher for young children aged 3-8.
+You speak in SHORT punchy sentences — max 2 sentences, simple words.
+You are always positive, excited, and encouraging. Never negative.
+Ask the child their name, get them excited about dancing.
+Use: Woohoo! Yay! Boom! naturally.
+Respond ONLY with what Nova says — no quotes, no labels, no asterisks.`;
+
+// ═══════════════════════════════════════════════
+// MEMORY + LLM
+// ═══════════════════════════════════════════════
+const history = [];
+let llmBusy = false;
+
+async function novaThink(userText) {
+  if(llmBusy) return null;
+  llmBusy = true;
+  showThinking(true);
+  try {
+    history.push({role:"user", content: userText});
+    if(history.length > 20) history.splice(0, 2);
+    const res = await fetch(WORKER_URL, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        model:"claude-haiku-4-5-20251001",
+        max_tokens:100,
+        system: NOVA_SYSTEM,
+        messages: history
+      })
+    });
+    const data = await res.json();
+    const reply = data.content?.[0]?.text?.trim() || null;
+    if(reply) history.push({role:"assistant", content: reply});
+    return reply;
+  } catch(e) {
+    console.log("LLM error:", e);
+    return null;
+  } finally {
+    llmBusy = false;
+    showThinking(false);
+    setTimeout(()=>llmBusy=false, 2000);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// D-ID SDK
+// ═══════════════════════════════════════════════
+let agentManager = null;
+let didReady = false;
+
+async function initDID() {
+  setStatus("⏳ Connecting Nova...");
+  try {
+    const { createAgentManager } = await import("https://esm.sh/@d-id/client-sdk@1.1.53");
+
+    agentManager = await createAgentManager(AGENT_ID, {
+      auth: { type:"key", clientKey: CLIENT_KEY },
+      streamOptions: {
+        compatibilityMode: "auto",
+        streamWarmup: true,
+      },
+      callbacks: {
+        onSrcObjectReady(value) {
+          // Live stream ready — show it
+          const vid = document.getElementById("nova-video");
+          vid.srcObject = value;
+          vid.play().catch(()=>{});
+          setStatus("✅ Nova is live!");
+          didReady = true;
+        },
+        onConnectionStateChange(state) {
+          console.log("D-ID state:", state);
+          if(state === "connected") setStatus("✅ Nova connected");
+          if(state === "disconnected") { didReady = false; setStatus("🔴 Disconnected"); }
+        },
+        onVideoStateChange(state) {
+          console.log("D-ID video:", state);
+          if(state === "STOP") {
+            // Switch to idle video when not speaking
+            const vid = document.getElementById("nova-video");
+            const idleUrl = agentManager?.agent?.presenter?.idle_video;
+            if(idleUrl && vid.srcObject) {
+              vid.srcObject = null;
+              vid.src = idleUrl;
+              vid.loop = true;
+              vid.play().catch(()=>{});
+            }
+          }
+          if(state === "PLAY") {
+            // Switch back to live stream
+            const vid = document.getElementById("nova-video");
+            if(vid.src && agentManager?.srcObject) {
+              vid.src = "";
+              vid.srcObject = agentManager.srcObject;
+              vid.play().catch(()=>{});
+            }
+          }
+        },
+        onError(error, errorData) {
+          console.log("D-ID error:", error, errorData);
+          setStatus("⚠️ D-ID error — using voice only");
+        }
+      }
+    });
+
+    await agentManager.connect();
+    setStatus("✅ Nova ready!");
+
+  } catch(e) {
+    console.log("D-ID failed:", e.message);
+    setStatus("⚠️ Avatar offline — voice only");
+    // Don't block — chat still works
+  }
+}
+
+async function novaSay(text) {
+  addMsg(text, "nova");
+  // Try D-ID speak
+  if(agentManager && didReady) {
+    try {
+      // Switch back to srcObject for live stream
+      const vid = document.getElementById("nova-video");
+      if(vid.src && agentManager.srcObject) {
+        vid.src = "";
+        vid.srcObject = agentManager.srcObject;
+        vid.play().catch(()=>{});
+      }
+      await agentManager.speak({ type:"text", input: text });
+      return;
+    } catch(e) {
+      console.log("Speak failed:", e);
+    }
+  }
+  // Fallback TTS
+  tts(text);
+}
+
+// ═══════════════════════════════════════════════
+// SPEECH RECOGNITION
+// ═══════════════════════════════════════════════
+let recognition = null;
+let isListening = false;
+
+function initSpeech() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR) { document.getElementById("mic-btn").style.opacity="0.3"; return; }
+  recognition = new SR();
+  recognition.lang = "en-US";
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.onresult = async (e) => {
+    const text = e.results[0][0].transcript.trim();
+    if(!text) return;
+    setMic(false);
+    addMsg(text, "user");
+    const reply = await novaThink(text);
+    await novaSay(reply || "That sounds amazing! Tell me more!");
+  };
+  recognition.onerror = () => setMic(false);
+  recognition.onend = () => setMic(false);
+}
+
+window.toggleMic = function() {
+  if(!recognition) initSpeech();
+  if(isListening) { recognition?.stop(); setMic(false); }
+  else { try{ recognition?.start(); setMic(true); }catch(e){} }
+};
+
+function setMic(on) {
+  isListening = on;
+  const btn = document.getElementById("mic-btn");
+  btn.textContent = on ? "🔴" : "🎤";
+  btn.classList.toggle("listening", on);
+  document.getElementById("mic-status").textContent = on ? "Listening... speak now!" : "Tap mic or type to talk to Nova";
+}
+
+// ═══════════════════════════════════════════════
+// TEXT INPUT
+// ═══════════════════════════════════════════════
+window.sendText = async function() {
+  const inp = document.getElementById("text-input");
+  const text = inp.value.trim();
+  if(!text) return;
+  inp.value = "";
+  addMsg(text, "user");
+  const reply = await novaThink(text);
+  await novaSay(reply || "Woohoo! Let's dance together!");
+};
+
+// ═══════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════
+function addMsg(text, who) {
+  const log = document.getElementById("chat-log");
+  const div = document.createElement("div");
+  div.className = who === "nova" ? "msg-nova" : "msg-user";
+  div.textContent = text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function addSystem(text) {
+  const log = document.getElementById("chat-log");
+  const div = document.createElement("div");
+  div.className = "msg-system";
+  div.textContent = text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function setStatus(text) {
+  document.getElementById("did-status").textContent = text;
+}
+
+function showThinking(on) {
+  document.getElementById("thinking").classList.toggle("show", on);
+}
+
+function tts(text) {
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang="en-US"; u.rate=0.92; u.pitch=1.3;
+    const voices=speechSynthesis.getVoices().filter(v=>v.lang.startsWith("en"));
+    const pref=voices.find(v=>/Samantha|Karen|Google.*Female|Zira/i.test(v.name))||voices[0];
+    if(pref) u.voice=pref;
+    speechSynthesis.speak(u);
+  } catch(e){}
+}
+
+// ═══════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════
+speechSynthesis.getVoices();
+speechSynthesis.onvoiceschanged = ()=>speechSynthesis.getVoices();
+initSpeech();
+
+// Init D-ID (non-blocking)
+initDID().then(async () => {
+  addSystem("Nova connected ✅");
+  // Greeting from LLM
+  const greeting = await novaThink("Greet the child warmly! Introduce yourself as Nova the dance teacher. Ask their name! Max 2 sentences.");
+  await novaSay(greeting || "Hi! I'm Nova, your dance teacher! What's your name? 🌟");
+}).catch(e => {
+  addSystem("Nova voice ready (avatar offline)");
+  novaThink("Greet warmly as Nova!").then(r => novaSay(r || "Hi! I'm Nova! Ready to dance? 🌟"));
+});
+</script>
+</body>
+</html>
