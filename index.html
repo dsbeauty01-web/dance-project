@@ -624,7 +624,7 @@ let score=0,hits=0,attempts=0,combo=0,maxCombo=0,timelineIdx=0,songTimer=null;
 let actionDetected=false,actionWindow=false,actionStartTime=0;
 
 function startGame(){
-  window.showPhase('phase-game');
+  showPhase('phase-game');
   score=0;hits=0;attempts=0;combo=0;maxCombo=0;timelineIdx=0;
   document.getElementById('score-display').textContent='0 pts';
   document.getElementById('progress-fill').style.width='0%';
@@ -695,7 +695,7 @@ function endGame(){
   document.getElementById('nova-video').pause();
   const rate=attempts>0?hits/attempts:0;
   const stars=rate>=0.9?5:rate>=0.7?4:rate>=0.5?3:rate>=0.3?2:1;
-  window.showPhase('phase-end');
+  showPhase('phase-end');
   document.getElementById('end-title').textContent=['Keep going!','Good job!','Great!','Amazing!','PERFECT! 🔥'][stars-1];
   document.getElementById('end-stars').textContent='⭐'.repeat(stars)+'☆'.repeat(5-stars);
   document.getElementById('end-score-big').textContent=score+' pts';
@@ -709,6 +709,11 @@ function endGame(){
 }
 
 // ═══════════════════════════════════════════════
+// Expose to window for HTML onclick
+window._startGame = startGame;
+window._sendChat = window.sendChat;
+window._toggleMic = window.toggleMic;
+
 // BOOT
 // ═══════════════════════════════════════════════
 speechSynthesis.getVoices();
@@ -728,6 +733,23 @@ navigator.mediaDevices.getUserMedia({
 
 initDetector().then(()=>poseLoop()).catch(e=>console.log('Detection:',e));
 
+</script>
+<script>
+// Bridge for HTML onclick handlers — module functions aren't accessible from onclick
+function showPhase(id){
+  document.querySelectorAll('#phase-start,#phase-intro,#phase-game,#phase-end')
+    .forEach(el=>el.style.display='none');
+  document.getElementById(id).style.display='flex';
+}
+function startCountdown(){
+  const ov=document.getElementById('countdown');
+  const num=document.getElementById('countdown-num');
+  ov.style.display='flex';
+  let c=3;num.textContent=c;
+  const iv=setInterval(()=>{c--;if(c<=0){clearInterval(iv);ov.style.display='none';window._startGame();}else num.textContent=c;},1000);
+}
+function sendChat(){window._sendChat&&window._sendChat();}
+function toggleMic(){window._toggleMic&&window._toggleMic();}
 </script>
 </body>
 </html>
