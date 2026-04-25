@@ -1,412 +1,545 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AI Receptionist</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'DM Sans', sans-serif;
-      background: #0a0a0f;
-      color: #e8e8ec;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px;
-    }
-    #app {
-      width: 100%;
-      max-width: 520px;
-      display: flex;
-      flex-direction: column;
-      height: calc(100vh - 40px);
-    }
-    #avatar-section {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 16px 0;
-      flex-shrink: 0;
-    }
-    h1 { font-size: 1rem; font-weight: 500; color: #999; margin-bottom: 10px; }
-    #avatar-wrap {
-      width: 200px; height: 200px;
-      border-radius: 50%;
-      overflow: hidden;
-      background: #111;
-      border: 2px solid #222;
-      box-shadow: 0 0 40px rgba(212,175,55,0.1);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    #avatar-video { width: 100%; height: 100%; object-fit: cover; display: none; }
-    #avatar-placeholder {
-      font-size: 4rem;
-      opacity: 0.3;
-    }
-    #status { font-size: .75rem; color: #666; margin-top: 8px; text-align: center; min-height: 1.2em; }
-    #chat-area {
-      flex: 1;
-      overflow-y: auto;
-      padding: 12px 0;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      scrollbar-width: thin;
-      scrollbar-color: #222 transparent;
-    }
-    #chat-area::-webkit-scrollbar { width: 4px; }
-    #chat-area::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-    .msg {
-      max-width: 85%;
-      padding: 10px 14px;
-      border-radius: 16px;
-      font-size: 0.9rem;
-      line-height: 1.5;
-      word-wrap: break-word;
-      animation: fadeIn 0.25s ease;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .msg-user { align-self: flex-end; background: #d4af37; color: #0a0a0f; border-bottom-right-radius: 4px; }
-    .msg-bot  { align-self: flex-start; background: #1a1a24; color: #d0d0d8; border: 1px solid #252530; border-bottom-left-radius: 4px; }
-    .msg-bot a { color: #d4af37; text-decoration: none; border-bottom: 1px solid rgba(212,175,55,0.3); transition: border-color 0.2s; }
-    .msg-bot a:hover { border-color: #d4af37; }
-    .msg-bot strong { color: #e8e8ec; }
-    .msg-thinking { align-self: flex-start; color: #555; font-style: italic; padding: 8px 14px; font-size: 0.85rem; }
-    #chat-box {
-      display: flex;
-      gap: 8px;
-      padding: 12px 0 4px;
-      flex-shrink: 0;
-      border-top: 1px solid #1a1a24;
-    }
-    #user-input {
-      flex: 1; padding: 12px 16px;
-      background: #12121a; border: 1px solid #252530;
-      border-radius: 999px; color: #e8e8ec; font-size: 0.9rem;
-      font-family: 'DM Sans', sans-serif;
-      outline: none; transition: border-color 0.2s;
-    }
-    #user-input:focus { border-color: #d4af37; }
-    #user-input:disabled { opacity: .35; }
-    #mic-btn {
-      width: 44px; height: 44px;
-      background: #1a1a24; border: 1px solid #252530;
-      border-radius: 50%; color: #888; font-size: 1.2rem;
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      transition: all 0.2s;
-    }
-    #mic-btn:hover { border-color: #d4af37; color: #d4af37; }
-    #mic-btn.recording { background: #d4af37; color: #0a0a0f; border-color: #d4af37; animation: pulse 1.5s infinite; }
-    #mic-btn:disabled { opacity: .35; cursor: not-allowed; }
-    @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(212,175,55,0.4); }
-      50% { box-shadow: 0 0 0 10px rgba(212,175,55,0); }
-    }
-    #send-btn {
-      padding: 12px 20px; background: #d4af37; color: #0a0a0f;
-      border: none; border-radius: 999px; font-size: 0.9rem;
-      font-family: 'DM Sans', sans-serif; font-weight: 600;
-      cursor: pointer; transition: background 0.2s;
-    }
-    #send-btn:hover:not(:disabled) { background: #c4a030; }
-    #send-btn:disabled { opacity: .35; cursor: not-allowed; }
-    #mic-unsupported { display: none; font-size: 0.7rem; color: #555; text-align: center; padding-top: 4px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova Dance</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;800&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:#1a0030}
+body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:column}
+body.window-open{background:#003322}
+
+/* ═══ PHASES ═══ */
+#phase-start,#phase-intro,#phase-game,#phase-end{
+  position:fixed;inset:0;display:none;flex-direction:column}
+#phase-start{display:flex}
+
+/* START */
+#phase-start{align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 30%,#3d0a6a,#1a0030);
+  gap:24px;padding:24px;text-align:center;z-index:10}
+#phase-start h1{font-family:"Fredoka One",cursive;font-size:clamp(36px,8vw,60px);
+  background:linear-gradient(135deg,#ff6fd8,#7c6fff,#00d2ff);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#phase-start p{font-size:15px;color:rgba(255,255,255,0.75);max-width:380px;line-height:1.8}
+.big-btn{background:linear-gradient(135deg,#ff6fd8,#7c6fff);border:none;border-radius:50px;
+  padding:18px 48px;font-family:"Fredoka One",cursive;font-size:26px;color:#fff;
+  cursor:pointer;box-shadow:0 8px 36px rgba(124,111,255,0.7);
+  transition:transform .15s;width:100%;max-width:360px}
+.big-btn:hover{transform:scale(1.04)}
+
+/* INTRO — just a nice background, D-ID widget floats on top naturally */
+#phase-intro{z-index:9;
+  background:radial-gradient(ellipse at 30% 50%,#2d0a5a,#1a0030)}
+#intro-instructions{position:absolute;top:50%;right:5%;transform:translateY(-50%);
+  width:min(40%,320px);display:flex;flex-direction:column;gap:16px;
+  background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);
+  border:1px solid rgba(255,111,216,0.2);border-radius:24px;padding:24px}
+#intro-instructions h2{font-family:"Fredoka One",cursive;font-size:20px;color:#ff6fd8}
+#intro-instructions p{font-size:14px;color:rgba(255,255,255,0.7);line-height:1.6}
+#dance-btn{background:linear-gradient(135deg,#00ff99,#00d2ff);border:none;
+  border-radius:50px;padding:14px 28px;font-family:"Fredoka One",cursive;
+  font-size:18px;color:#000;cursor:pointer;box-shadow:0 4px 20px rgba(0,255,150,0.4)}
+
+/* Countdown overlay */
+#countdown{position:fixed;inset:0;z-index:200;display:none;
+  background:rgba(0,0,0,0.88);align-items:center;justify-content:center;flex-direction:column;gap:12px}
+#countdown-num{font-family:"Fredoka One",cursive;font-size:140px;color:#ff6fd8;
+  text-shadow:0 0 80px rgba(255,111,216,0.8)}
+#countdown-label{font-family:"Fredoka One",cursive;font-size:24px;color:#fff;opacity:0.8}
+
+/* GAME */
+#phase-game{z-index:8;flex-direction:column}
+#topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;
+  background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);z-index:10;flex-shrink:0}
+#logo{font-family:"Fredoka One",cursive;font-size:18px;
+  background:linear-gradient(135deg,#ff6fd8,#7c6fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#score-display{font-family:"Fredoka One",cursive;font-size:16px;color:#ffd700}
+#split{flex:1;display:grid;grid-template-columns:1fr 1fr;min-height:0;position:relative}
+#nova-side{position:relative;overflow:hidden;background:#0a0018}
+#nova-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#0a0018}
+#react-bubble{position:absolute;bottom:20px;left:50%;transform:translateX(-50%) scale(0);
+  z-index:15;background:rgba(0,0,0,0.9);border:3px solid #ff6fd8;
+  border-radius:20px;padding:12px 22px;font-family:"Fredoka One",cursive;
+  font-size:clamp(14px,2.5vw,20px);color:#fff;max-width:92%;
+  box-shadow:0 0 40px rgba(255,111,216,0.5);
+  transition:transform 0.3s cubic-bezier(.34,1.56,.64,1);white-space:nowrap}
+#react-bubble.show{transform:translateX(-50%) scale(1)}
+#cam-side{position:relative;background:#0a0a1a;overflow:hidden}
+#webcam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#cam-label{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:3;
+  background:rgba(0,0,0,0.5);border:1px solid rgba(0,210,255,0.4);
+  border-radius:20px;padding:3px 14px;font-family:"Fredoka One",cursive;font-size:12px;color:#00d2ff}
+#pills{position:absolute;top:8px;left:8px;z-index:3;display:flex;flex-direction:column;gap:4px}
+.pill{background:rgba(0,0,0,0.7);border-radius:8px;padding:3px 8px;
+  font-size:10px;font-weight:700;font-family:monospace}
+.pill.on{background:#00ff99;color:#000}
+#green-flash{position:fixed;inset:0;background:#00ff88;opacity:0;
+  pointer-events:none;z-index:4;transition:opacity 0.08s}
+#green-flash.show{opacity:0.28}
+#lyric-box{position:absolute;bottom:52px;left:0;right:0;
+  text-align:center;z-index:5;pointer-events:none}
+#lyric-text{font-family:"Fredoka One",cursive;font-size:clamp(18px,3.5vw,28px);
+  color:#fff;text-shadow:0 2px 12px rgba(0,0,0,0.9);opacity:0;transition:opacity 0.25s}
+#lyric-text.show{opacity:1}
+#action-cue{position:absolute;top:32%;left:50%;transform:translate(-50%,-50%) scale(0);
+  z-index:6;text-align:center;pointer-events:none;
+  transition:transform 0.25s cubic-bezier(.34,1.56,.64,1);
+  background:rgba(0,0,0,0.88);border-radius:24px;padding:14px 22px;
+  border:3px solid rgba(255,111,216,0.6);backdrop-filter:blur(8px);min-width:180px}
+#action-cue.show{transform:translate(-50%,-50%) scale(1)}
+#action-cue.live{border-color:#00ff99;box-shadow:0 0 40px rgba(0,255,150,0.5)}
+#cue-emoji{font-size:clamp(44px,8vw,68px);display:block}
+#cue-label{font-family:"Fredoka One",cursive;font-size:clamp(18px,3.5vw,26px);
+  color:#ff6fd8;display:block;margin-top:4px}
+#cue-instr{font-size:clamp(11px,2vw,15px);color:rgba(255,255,255,0.85);
+  font-weight:700;display:block;margin-top:4px}
+#cue-timer{height:5px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden;margin-top:8px}
+#cue-timer-fill{height:100%;width:100%;transform-origin:left;background:#00ff99}
+@keyframes timerShrink{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+#feedback{position:absolute;inset:0;opacity:0;pointer-events:none;z-index:7;transition:opacity 0.15s}
+#feedback.hit{background:rgba(0,255,150,0.18);opacity:1}
+#feedback.miss{background:rgba(255,80,0,0.12);opacity:1}
+#score-pop{position:absolute;top:25%;left:50%;transform:translateX(-50%) scale(0);
+  font-family:"Fredoka One",cursive;font-size:52px;z-index:8;pointer-events:none;
+  transition:transform 0.2s cubic-bezier(.34,1.56,.64,1);text-shadow:0 0 20px currentColor}
+#score-pop.show{transform:translateX(-50%) scale(1)}
+#progress-bar{position:absolute;bottom:0;left:0;right:0;height:4px;
+  background:rgba(255,255,255,0.1);z-index:9}
+#progress-fill{height:100%;width:0%;
+  background:linear-gradient(90deg,#ff6fd8,#7c6fff,#00d2ff);transition:width 0.1s linear}
+.cp{position:absolute;border-radius:2px;animation:cf 1.4s ease-in forwards;pointer-events:none;z-index:25}
+@keyframes cf{0%{transform:translateY(-20px) rotate(0deg);opacity:1}
+  100%{transform:translateY(500px) rotate(720deg);opacity:0}}
+
+/* END */
+#phase-end{z-index:10;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 20%,#3d0a6a,#1a0030);
+  gap:16px;padding:24px;text-align:center}
+#phase-end h1{font-family:"Fredoka One",cursive;font-size:clamp(28px,7vw,48px);
+  background:linear-gradient(135deg,#ff6fd8,#ffd700);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#end-stars{font-size:52px;letter-spacing:8px}
+#end-score-big{font-family:"Fredoka One",cursive;font-size:30px;color:#ffd700}
+#end-detail{font-size:15px;color:rgba(255,255,255,0.7)}
+#end-nova-say{background:rgba(255,111,216,0.1);border:2px solid rgba(255,111,216,0.35);
+  border-radius:20px;padding:16px 24px;font-family:"Fredoka One",cursive;
+  font-size:18px;color:#fff;max-width:420px;line-height:1.5}
+
+/* ═══ D-ID WIDGET CONTROL ═══
+   The widget floats naturally — we just show/hide it via this wrapper */
+#did-widget-wrap{position:fixed;inset:0;z-index:50;pointer-events:none}
+#did-widget-wrap.hidden{display:none}
+#did-widget-wrap > *{pointer-events:all}
+</style>
 </head>
 <body>
+<div id="green-flash"></div>
 
-  <div id="app">
-    <div id="avatar-section">
-      <h1>Book Your Appointment</h1>
-      <div id="avatar-wrap">
-        <video id="avatar-video" autoplay playsinline muted></video>
-        <div id="avatar-placeholder">💆‍♀️</div>
-      </div>
-      <div id="status">Starting...</div>
-    </div>
-    <div id="chat-area"></div>
-    <div id="chat-box">
-      <input id="user-input" type="text" placeholder="Type or tap 🎤 to speak…"/>
-      <button id="mic-btn" title="Tap to speak">🎤</button>
-      <button id="send-btn">Send</button>
-    </div>
-    <div id="mic-unsupported">Voice input not supported in this browser</div>
-  </div>
-
-  <script type="module">
-    import { createAgentManager } from 'https://esm.sh/@d-id/client-sdk@1.1.53';
-
-    const AGENT_ID    = 'v2_agt_Z7uYXWFx';
-    const CLIENT_KEY  = 'Z29vZ2xlLW9hdXRoMnwxMDg1MzgzODIxMDg4OTU5MjE2MzA6dUtILVVlUFhjeFNUZS1lNjV2VG5t';
-    const N8N_WEBHOOK = 'https://rafa5555.app.n8n.cloud/webhook/salon-bot/v1/chat/completions';
-
-    const videoEl       = document.getElementById('avatar-video');
-    const placeholderEl = document.getElementById('avatar-placeholder');
-    const inputEl       = document.getElementById('user-input');
-    const btnEl         = document.getElementById('send-btn');
-    const micBtn        = document.getElementById('mic-btn');
-    const statusEl      = document.getElementById('status');
-    const chatArea      = document.getElementById('chat-area');
-
-    let agentManager = null;
-    let connected    = false;  // D-ID connected
-    let stream       = null;
-
-    // ── Chat is ALWAYS enabled — not waiting for D-ID ──
-    inputEl.disabled = false;
-    btnEl.disabled   = false;
-
-    // ── Text helpers ──
-    function cleanForSpeech(text) {
-      return text
-        .replace(/\*\*([^*]+)\*\*/g, '$1')
-        .replace(/\*([^*]+)\*/g, '$1')
-        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-        .replace(/^[\s]*[-•*]\s*/gm, '')
-        .replace(/^[\s]*\d+\.\s*/gm, '')
-        .replace(/^#+\s*/gm, '')
-        .replace(/https?:\/\/[^\s)]+/g, '')
-        .replace(/[#*_~`|>]/g, '')
-        .replace(/\n{2,}/g, '. ')
-        .replace(/\n/g, '. ')
-        .replace(/\s{2,}/g, ' ')
-        .replace(/\.\s*\./g, '.')
-        .trim();
-    }
-
-    function shortenForVoice(text, maxChars = 300) {
-      const cleaned = cleanForSpeech(text);
-      if (cleaned.length <= maxChars) return cleaned;
-      const sentences = cleaned.split(/(?<=[.!?])\s+/);
-      let result = '';
-      for (const sentence of sentences) {
-        if ((result + ' ' + sentence).length > maxChars) break;
-        result += (result ? ' ' : '') + sentence;
-      }
-      if (result.length < cleaned.length) result += ' Check the chat below for full details.';
-      return result || cleaned.substring(0, maxChars) + '... Check the chat for details.';
-    }
-
-    function formatReply(text) {
-      return text
-        .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-        .replace(/\n/g, '<br>');
-    }
-
-    function setStatus(s) { statusEl.textContent = s; }
-
-    function addMessage(text, type) {
-      const div = document.createElement('div');
-      div.className = 'msg msg-' + type;
-      if (type === 'bot') div.innerHTML = formatReply(text);
-      else div.textContent = text;
-      chatArea.appendChild(div);
-      chatArea.scrollTop = chatArea.scrollHeight;
-      return div;
-    }
-
-    function removeThinking() {
-      const el = chatArea.querySelector('.msg-thinking');
-      if (el) el.remove();
-    }
-
-    // ── Speech Recognition ──
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    let recognition = null;
-    let isRecording = false;
-
-    if (SpeechRecognition) {
-      recognition = new SpeechRecognition();
-      recognition.lang = 'en-US';
-      recognition.interimResults = true;
-      recognition.continuous = false;
-      recognition.onresult = function(event) {
-        let transcript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          transcript += event.results[i][0].transcript;
-        }
-        inputEl.value = transcript;
-        if (event.results[event.results.length - 1].isFinal) {
-          stopRecording();
-          if (transcript.trim()) send();
-        }
-      };
-      recognition.onerror = function() { stopRecording(); };
-      recognition.onend   = function() { stopRecording(); };
-    } else {
-      document.getElementById('mic-unsupported').style.display = 'block';
-      micBtn.style.display = 'none';
-    }
-
-    function startRecording() {
-      if (!recognition || isRecording) return;
-      isRecording = true;
-      micBtn.classList.add('recording');
-      micBtn.textContent = '⏹';
-      inputEl.placeholder = 'Listening...';
-      inputEl.value = '';
-      try { recognition.start(); } catch(e) { stopRecording(); }
-    }
-    function stopRecording() {
-      if (!isRecording) return;
-      isRecording = false;
-      micBtn.classList.remove('recording');
-      micBtn.textContent = '🎤';
-      inputEl.placeholder = 'Type or tap 🎤 to speak…';
-      try { recognition.stop(); } catch(e) {}
-    }
-    micBtn.addEventListener('click', function() {
-      if (isRecording) stopRecording(); else startRecording();
-    });
-
-    // ── Unmute on first interaction ──
-    function unmute() {
-      videoEl.muted = false;
-      document.removeEventListener('click', unmute);
-      document.removeEventListener('keydown', unmute);
-    }
-    document.addEventListener('click', unmute);
-    document.addEventListener('keydown', unmute);
-
-    // ── D-ID callbacks ──
-    const callbacks = {
-      onSrcObjectReady(value) {
-        stream = value;
-        videoEl.srcObject = value;
-        videoEl.muted = true;
-        videoEl.style.display = 'block';
-        placeholderEl.style.display = 'none';
-        videoEl.play().catch(() => {});
-      },
-      onConnectionStateChange(state) {
-        if (state === 'connected') {
-          connected = true;
-          setStatus('Connected ✓');
-        } else if (state === 'disconnected' || state === 'closed') {
-          connected = false;
-          setStatus('Avatar offline — chat still works');
-          setTimeout(() => agentManager?.reconnect(), 3000);
-        } else if (state === 'failed') {
-          connected = false;
-          setStatus('Avatar offline — chat still works');
-        } else {
-          setStatus(state);
-        }
-      },
-      onVideoStateChange(state) {
-        if (state === 'STOP') {
-          const idle = agentManager?.agent?.presenter?.idle_video;
-          if (idle) {
-            videoEl.srcObject = null;
-            videoEl.src = idle;
-            videoEl.loop = true;
-            videoEl.muted = false;
-            videoEl.play().catch(() => {});
-          }
-          if (connected) setStatus('Connected ✓');
-        } else {
-          videoEl.src = '';
-          videoEl.srcObject = stream;
-          videoEl.muted = false;
-          setStatus('Speaking...');
-        }
-      },
-      onError(e) {
-        console.error('D-ID:', e);
-        setStatus('Avatar offline — chat still works');
-      }
-    };
-
-    // ── Init D-ID (non-blocking — chat works regardless) ──
-    function initDID() {
-      setStatus('Connecting avatar...');
-      createAgentManager(AGENT_ID, {
-        auth: { type: 'key', clientKey: CLIENT_KEY },
-        callbacks,
-        streamOptions: { compatibilityMode: 'auto', streamWarmup: true }
-      }).then(function(manager) {
-        agentManager = manager;
-        return agentManager.connect();
-      }).catch(function(e) {
-        console.error('D-ID init failed:', e);
-        setStatus('Avatar offline — chat still works');
-        setTimeout(initDID, 10000); // retry every 10s quietly
-      });
-    }
-
-    initDID();
-
-    // ── Send — always works via n8n, avatar speaks if connected ──
-    async function send() {
-      const text = inputEl.value.trim();
-      if (!text) return;
-
-      inputEl.value = '';
-      inputEl.disabled = true;
-      btnEl.disabled = true;
-
-      addMessage(text, 'user');
-
-      const thinkEl = document.createElement('div');
-      thinkEl.className = 'msg msg-thinking';
-      thinkEl.textContent = 'Thinking...';
-      chatArea.appendChild(thinkEl);
-      chatArea.scrollTop = chatArea.scrollHeight;
-
-      if (connected) videoEl.muted = false;
-
-      try {
-        const res = await fetch(N8N_WEBHOOK, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: [{ role: 'user', content: text }],
-            stream: false
-          })
-        });
-
-        if (!res.ok) throw new Error('n8n error ' + res.status);
-        const data = await res.json();
-
-        let reply = data.reply ?? data.output ?? data.text ?? data.message
-                 ?? data.choices?.[0]?.message?.content;
-        if (reply) reply = reply.replace(/^=/, '').trim();
-        if (!reply) throw new Error('Empty reply');
-
-        removeThinking();
-        addMessage(reply, 'bot');
-
-        // Speak via avatar if D-ID is connected
-        if (connected && agentManager) {
-          const speechText = shortenForVoice(reply);
-          agentManager.speak({ type: 'text', input: speechText })
-            .catch(e => console.error('speak error:', e));
-        }
-
-      } catch(e) {
-        removeThinking();
-        addMessage('Sorry, something went wrong. Please try again.', 'bot');
-        console.error('send error:', e);
-      }
-
-      inputEl.disabled = false;
-      btnEl.disabled = false;
-      inputEl.focus();
-    }
-
-    btnEl.addEventListener('click', send);
-    inputEl.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); send(); }
-    });
+<!-- D-ID Widget — always in DOM, shown/hidden via wrapper -->
+<div id="did-widget-wrap">
+  <script type="module"
+    src="https://agent.d-id.com/v2/index.js"
+    data-mode="fabio"
+    data-client-key="Z29vZ2xlLW9hdXRoMnwxMDg1MzgzODIxMDg4OTU5MjE2MzA6dUtILVVlUFhjeFNUZS1lNjV2VG5t"
+    data-agent-id="v2_agt_Z7uYXWFx"
+    data-name="nova-agent"
+    data-monitor="true"
+    data-orientation="portrait"
+    data-position="left"
+    data-open-mode="expanded">
   </script>
+</div>
+
+<div id="countdown">
+  <div id="countdown-num">3</div>
+  <div id="countdown-label">Get ready to dance! 💃</div>
+</div>
+
+<!-- START -->
+<div id="phase-start">
+  <div style="font-size:80px">🌟</div>
+  <h1>Nova Dance!</h1>
+  <p>Meet Nova your magical dance teacher!<br>
+  Talk to her first, then dance together!</p>
+  <button class="big-btn" onclick="startIntro()">✨ Meet Nova!</button>
+  <div style="font-size:11px;color:rgba(255,255,255,0.25);margin-top:-12px">v23 — D-ID Widget + Kling + Claude</div>
+</div>
+
+<!-- INTRO — D-ID floats, instructions on right -->
+<div id="phase-intro">
+  <div id="intro-instructions">
+    <h2>🌟 Talk to Nova!</h2>
+    <p>Nova is your dance teacher. Say hi, tell her your name, ask her anything!</p>
+    <p style="margin-top:8px;font-size:13px;color:rgba(255,255,255,0.5)">
+      Use the microphone button on Nova's widget to speak with her.</p>
+    <button id="dance-btn" onclick="startCountdown()">💃 Start Dancing!</button>
+  </div>
+</div>
+
+<!-- GAME -->
+<div id="phase-game">
+  <div id="topbar">
+    <div id="logo">🌟 Nova Dance</div>
+    <div id="score-display">0 pts</div>
+  </div>
+  <div id="split">
+    <div id="nova-side">
+      <video id="nova-video" loop playsinline muted>
+        <source src="nova-dance.mp4" type="video/mp4">
+      </video>
+      <div id="react-bubble">🌟 Amazing!</div>
+    </div>
+    <div id="cam-side">
+      <video id="webcam" autoplay playsinline muted></video>
+      <div id="pills">
+        <div class="pill" id="p-left">👈 L --</div>
+        <div class="pill" id="p-right">👉 R --</div>
+        <div class="pill" id="p-both">🙌 --</div>
+      </div>
+      <div id="cam-label">You 🎯</div>
+    </div>
+    <div id="lyric-box"><div id="lyric-text"></div></div>
+    <div id="action-cue">
+      <span id="cue-emoji">🙌</span>
+      <span id="cue-label">BOTH UP!</span>
+      <span id="cue-instr">Raise both arms!</span>
+      <div id="cue-timer"><div id="cue-timer-fill"></div></div>
+    </div>
+    <div id="feedback"></div>
+    <div id="score-pop">+200</div>
+    <div id="progress-bar"><div id="progress-fill"></div></div>
+  </div>
+</div>
+
+<!-- END -->
+<div id="phase-end">
+  <div style="font-size:72px">🎉</div>
+  <h1 id="end-title">Amazing!</h1>
+  <div id="end-stars">⭐⭐⭐⭐⭐</div>
+  <div id="end-score-big">0 pts</div>
+  <div id="end-detail"></div>
+  <div id="end-nova-say">Loading Nova's message...</div>
+  <button class="big-btn" onclick="location.reload()"
+    style="font-size:18px;padding:12px 32px;max-width:280px">🔄 Play Again</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<script>
+const WORKER_URL  = "https://long-art-8269r.dsbeauty01.workers.dev/";
+const SONG_DURATION = 30000;
+
+// ═══ NOVA BRAIN ═══
+const NOVA_SYSTEM = `You are Nova — a magical, warm and wildly fun AI dance teacher for kids aged 3-8.
+SHORT sentences — max 2 sentences. Simple words. Always positive.
+Never negative. Use: Woohoo! Yay! Boom! naturally.
+Respond ONLY with what Nova says — no quotes, no labels.`;
+
+const mem = {hits:0,attempts:0,streak:0,moments:[],history:[],name:null};
+
+async function novaThink(prompt, maxTok=80) {
+  try {
+    mem.history.push({role:"user", content:prompt});
+    if(mem.history.length>16) mem.history=mem.history.slice(-16);
+    const res = await fetch(WORKER_URL, {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        model:"claude-haiku-4-5-20251001", max_tokens:maxTok,
+        system:NOVA_SYSTEM, messages:mem.history
+      })
+    });
+    const data = await res.json();
+    const reply = data.content?.[0]?.text?.trim()||null;
+    if(reply) mem.history.push({role:"assistant",content:reply});
+    return reply;
+  } catch(e){ return null; }
+}
+
+// ═══ TTS (during game — widget not visible) ═══
+function speak(text) {
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang="en-US"; u.rate=0.92; u.pitch=1.3;
+    const v=speechSynthesis.getVoices().filter(v=>v.lang.startsWith("en"));
+    const p=v.find(v=>/Samantha|Karen|Google.*Female|Zira/i.test(v.name))||v[0];
+    if(p) u.voice=p;
+    speechSynthesis.speak(u);
+  } catch(e){}
+}
+
+// ═══ PHASE CONTROL ═══
+function showPhase(id) {
+  document.querySelectorAll("#phase-start,#phase-intro,#phase-game,#phase-end")
+    .forEach(el=>el.style.display="none");
+  document.getElementById(id).style.display="flex";
+}
+
+function showDID(on) {
+  document.getElementById("did-widget-wrap").classList.toggle("hidden", !on);
+}
+
+window.startIntro = async function() {
+  showPhase("phase-intro");
+  showDID(true);
+  // Camera in background
+  try {
+    const s=await navigator.mediaDevices.getUserMedia({
+      video:{width:{ideal:1280},height:{ideal:720},facingMode:"user"},audio:false});
+    document.getElementById("webcam").srcObject=s;
+  } catch(e){}
+  // Detection in background
+  try { await initDetector(); } catch(e){}
+  poseLoop();
+  speechSynthesis.getVoices();
+};
+
+window.startCountdown = function() {
+  showDID(false); // Hide D-ID widget during game
+  const ov=document.getElementById("countdown");
+  const num=document.getElementById("countdown-num");
+  ov.style.display="flex";
+  let c=3; num.textContent=c; speak(c+"!");
+  const iv=setInterval(()=>{
+    c--;
+    if(c<=0){ clearInterval(iv); ov.style.display="none"; startGame(); }
+    else { num.textContent=c; speak(c+"!"); }
+  },1000);
+};
+
+// ═══ TIMELINE ═══
+const TIMELINE=[
+  {t:500,type:"lyric",text:"🎵 Hello Hello! 🎵"},
+  {t:2500,type:"lyric",text:"Copy Nova when it turns green!"},
+  {t:4000,type:"helloL",lyric:"Hello,"},
+  {t:5000,type:"helloR",lyric:"hello."},
+  {t:6000,type:"lyric",text:"Can you clap your hands?"},
+  {t:6000,type:"demo",action:"both",emoji:"🙌",label:"BOTH UP!",instr:"Watch Nova!"},
+  {t:8500,type:"open",action:"both",emoji:"🙌",label:"BOTH UP!",instr:"Raise BOTH arms!",pts:150},
+  {t:11000,type:"close",action:"both"},
+  {t:11500,type:"helloL",lyric:"Hello,"},
+  {t:12500,type:"helloR",lyric:"hello."},
+  {t:13500,type:"lyric",text:"Can you stretch up high?"},
+  {t:13500,type:"demo",action:"right",emoji:"👉",label:"RIGHT ARM!",instr:"Watch Nova!"},
+  {t:16000,type:"open",action:"right",emoji:"👉",label:"RIGHT ARM!",instr:"Raise RIGHT arm!",pts:150},
+  {t:18500,type:"close",action:"right"},
+  {t:19000,type:"lyric",text:"Can you touch your toes?"},
+  {t:19000,type:"demo",action:"left",emoji:"👈",label:"LEFT ARM!",instr:"Watch Nova!"},
+  {t:21500,type:"open",action:"left",emoji:"👈",label:"LEFT ARM!",instr:"Raise LEFT arm!",pts:150},
+  {t:24000,type:"close",action:"left"},
+  {t:24500,type:"lyric",text:"Can you turn around?"},
+  {t:24500,type:"demo",action:"both",emoji:"🙌",label:"BOTH UP!",instr:"Watch Nova!"},
+  {t:27000,type:"open",action:"both",emoji:"🙌",label:"BOTH UP!",instr:"BOTH arms UP!",pts:200},
+  {t:29500,type:"close",action:"both"},
+  {t:30000,type:"lyric",text:"🌟 You are AMAZING! 🌟"},
+];
+
+// ═══ DETECTION ═══
+let detector=null;
+const moves={left:false,right:false,both:false};
+const holdCount={left:0,right:0,both:0};
+const smooth={};
+
+async function initDetector(){
+  await tf.setBackend("webgl"); await tf.ready();
+  detector=await poseDetection.createDetector(
+    poseDetection.SupportedModels.MoveNet,
+    {modelType:poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING});
+}
+
+function smoothKp(key,kp){
+  if(!smooth[key]) smooth[key]={x:kp.x,y:kp.y,score:kp.score};
+  const a=0.7;
+  smooth[key].x=smooth[key].x*a+kp.x*(1-a);
+  smooth[key].y=smooth[key].y*a+kp.y*(1-a);
+  smooth[key].score=kp.score;
+  return smooth[key];
+}
+
+async function poseLoop(){
+  const v=document.getElementById("webcam");
+  if(!detector||!v||v.readyState<2){requestAnimationFrame(poseLoop);return;}
+  try{
+    const p=await detector.estimatePoses(v,{flipHorizontal:false});
+    if(p.length>0) analyzePose(p[0].keypoints);
+  }catch(e){}
+  requestAnimationFrame(poseLoop);
+}
+
+function analyzePose(kps){
+  const g=n=>kps.find(k=>k.name===n);
+  const ls=g("left_shoulder"),rs=g("right_shoulder"),lw=g("left_wrist"),rw=g("right_wrist");
+  if(!ls||!rs||!lw||!rw) return;
+  const sLs=smoothKp("ls",ls),sRs=smoothKp("rs",rs),sLw=smoothKp("lw",lw),sRw=smoothKp("rw",rw);
+  const MIN=0.3,scale=Math.max(Math.abs(sLs.x-sRs.x),60),thr=scale*0.24;
+  const lUp=sLw.score>MIN&&(sLs.y-sLw.y)>thr;
+  const rUp=sRw.score>MIN&&(sRs.y-sRw.y)>thr;
+  const hold=(raw,key)=>{holdCount[key]=raw?Math.min(holdCount[key]+1,10):Math.max(holdCount[key]-1,0);return holdCount[key]>=2;};
+  moves.left=hold(lUp&&!rUp,"left");
+  moves.right=hold(rUp&&!lUp,"right");
+  moves.both=lUp&&rUp;
+  const sp=(id,lbl,on)=>{const el=document.getElementById(id);if(!el)return;el.classList.toggle("on",on);el.textContent=lbl+(on?" ✅":"--");};
+  sp("p-left","👈 L",moves.left);
+  sp("p-right","👉 R",moves.right);
+  sp("p-both","🙌",moves.both);
+}
+
+function checkAction(a){return a==="left"?moves.left:a==="right"?moves.right:a==="both"?moves.both:false;}
+
+// ═══ UI ═══
+function showLyric(t){const el=document.getElementById("lyric-text");el.textContent=t;el.classList.remove("show");void el.offsetWidth;el.classList.add("show");}
+
+function showCue(emoji,label,instr,isLive,ms){
+  const c=document.getElementById("action-cue");
+  document.getElementById("cue-emoji").textContent=emoji;
+  document.getElementById("cue-label").textContent=label;
+  document.getElementById("cue-instr").textContent=instr;
+  c.classList.add("show");
+  if(isLive){
+    c.classList.add("live");
+    const tf=document.getElementById("cue-timer-fill");
+    tf.style.animation="none";void tf.offsetWidth;
+    tf.style.animation="timerShrink "+ms+"ms linear forwards";
+  } else c.classList.remove("live");
+}
+
+function hideCue(){document.getElementById("action-cue").classList.remove("show","live");}
+function flashFeedback(t){const f=document.getElementById("feedback");f.className=t;setTimeout(()=>f.className="",700);}
+function showScorePop(pts,color){
+  const el=document.getElementById("score-pop");
+  el.textContent="+"+pts;el.style.color=color||"#ffd700";
+  el.classList.remove("show");void el.offsetWidth;el.classList.add("show");
+  setTimeout(()=>el.classList.remove("show"),900);
+}
+function setGreenFlash(on){
+  document.getElementById("green-flash").classList.toggle("show",on);
+  document.body.classList.toggle("window-open",on);
+}
+function confetti(){
+  const colors=["#ff6fd8","#ffd700","#00ff99","#7c6fff","#ff4444","#00d2ff"];
+  const side=document.getElementById("nova-side");
+  for(let i=0;i<20;i++){
+    const el=document.createElement("div");el.className="cp";
+    el.style.cssText=`left:${Math.random()*100}%;top:${-5+Math.random()*20}%;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      animation-delay:${Math.random()*0.5}s;
+      width:${6+Math.random()*10}px;height:${6+Math.random()*10}px;`;
+    side.appendChild(el);setTimeout(()=>el.remove(),2000);
+  }
+}
+
+let reactionTimer=null;
+async function novaReact(prompt,fallback,emoji){
+  const reply=await novaThink(prompt,50);
+  const text=reply||fallback;
+  const b=document.getElementById("react-bubble");
+  b.textContent=(emoji||"🌟")+" "+text;
+  b.classList.add("show");
+  if(reactionTimer) clearTimeout(reactionTimer);
+  reactionTimer=setTimeout(()=>b.classList.remove("show"),3000);
+  speak(text);
+}
+
+// ═══ GAME ═══
+let score=0,hits=0,attempts=0,combo=0,maxCombo=0,timelineIdx=0,songTimer=null;
+let actionDetected=false,actionWindow=false,actionStartTime=0;
+
+function startGame(){
+  showPhase("phase-game");
+  score=0;hits=0;attempts=0;combo=0;maxCombo=0;timelineIdx=0;
+  document.getElementById("score-display").textContent="0 pts";
+  document.getElementById("progress-fill").style.width="0%";
+
+  const vid=document.getElementById("nova-video");
+  vid.currentTime=0; vid.play().catch(()=>{});
+
+  const audio=new Audio("hello.mp3");
+  audio.volume=0.85; window._audio=audio;
+  audio.play().catch(()=>{});
+  audio.onended=()=>setTimeout(endGame,800);
+
+  novaReact("Song just started! 4-word hype!","Let's go! Woo!","💃");
+
+  songTimer=setInterval(()=>{
+    const elapsed=(window._audio?.currentTime||0)*1000;
+    document.getElementById("progress-fill").style.width=Math.min(100,(elapsed/SONG_DURATION)*100)+"%";
+    while(timelineIdx<TIMELINE.length&&elapsed>=TIMELINE[timelineIdx].t){
+      const e=TIMELINE[timelineIdx];
+      if(e.type==="lyric") showLyric(e.text);
+      else if(e.type==="helloL"||e.type==="helloR") showLyric(e.lyric||"Hello,");
+      else if(e.type==="demo") showCue(e.emoji,e.label,e.instr,false,0);
+      else if(e.type==="open"){
+        actionDetected=false;actionWindow=true;actionStartTime=Date.now();attempts++;mem.attempts++;
+        let wMs=2500;
+        for(let j=timelineIdx+1;j<TIMELINE.length;j++){
+          if(TIMELINE[j].type==="close"&&TIMELINE[j].action===e.action){wMs=TIMELINE[j].t-e.t;break;}
+        }
+        setGreenFlash(true);showCue(e.emoji,e.label,e.instr,true,wMs);
+        let el2=0;
+        const chk=setInterval(()=>{
+          el2+=80;
+          if(!actionWindow||actionDetected||el2>wMs+200){clearInterval(chk);return;}
+          if(checkAction(e.action)){
+            actionDetected=true;clearInterval(chk);
+            const rm=Date.now()-actionStartTime,isGreat=rm<1000;
+            const pts=isGreat?Math.round(e.pts*1.5):e.pts;
+            score+=pts;hits++;combo++;maxCombo=Math.max(maxCombo,combo);
+            mem.hits++;mem.streak++;
+            if(mem.streak>=2) mem.moments.push(mem.streak+"-move streak");
+            if(isGreat) mem.moments.push("lightning fast");
+            document.getElementById("score-display").textContent=score+" pts";
+            flashFeedback("hit");showScorePop(pts,isGreat?"#ffd700":"#00ff99");confetti();
+            novaReact(
+              isGreat?"Child nailed move super fast! 5 words!":"Child did move correctly! 5 words.",
+              isGreat?"WOW! Incredible! Yes!":"Great job! You did it!",
+              isGreat?"🔥":"🌟"
+            );
+          }
+        },80);
+      }
+      else if(e.type==="close"){
+        setGreenFlash(false);hideCue();
+        if(!actionDetected&&actionWindow){
+          combo=0;mem.streak=0;flashFeedback("miss");
+          novaReact("Child missed. Encourage! 5 words.","Try again! You got this!","💪");
+        }
+        actionWindow=false;
+      }
+      timelineIdx++;
+    }
+  },80);
+}
+
+function endGame(){
+  clearInterval(songTimer);setGreenFlash(false);
+  window._audio?.pause();
+  document.getElementById("nova-video").pause();
+  const rate=attempts>0?hits/attempts:0;
+  const stars=rate>=0.9?5:rate>=0.7?4:rate>=0.5?3:rate>=0.3?2:1;
+  showPhase("phase-end");
+  // Show D-ID again at end
+  showDID(true);
+  document.getElementById("end-title").textContent=["Keep going!","Good job!","Great!","Amazing!","PERFECT! 🔥"][stars-1];
+  document.getElementById("end-stars").textContent="⭐".repeat(stars)+"☆".repeat(5-stars);
+  document.getElementById("end-score-big").textContent=score+" pts";
+  document.getElementById("end-detail").textContent=hits+" of "+attempts+" moves · Best streak: "+maxCombo;
+  const endPrompt=`Dance done! ${mem.name?"Child "+mem.name+" hit":"Hit"} ${hits}/${attempts} moves.${mem.moments.length?" Highlights: "+mem.moments.slice(-2).join(", ")+".":" "} Warm personal celebration! 2 sentences.`;
+  novaThink(endPrompt,100).then(r=>{
+    const msg=r||(hits>=attempts*0.7?"You are an incredible dancer! I am so proud of you!":"Amazing effort today! You danced beautifully!");
+    document.getElementById("end-nova-say").textContent=msg;
+    speak(msg);
+  });
+}
+
+window.addEventListener("load",()=>{
+  speechSynthesis.getVoices();
+  speechSynthesis.onvoiceschanged=()=>speechSynthesis.getVoices();
+  document.getElementById("nova-video").load();
+  showDID(false); // Hidden until intro
+});
+</script>
 </body>
 </html>
