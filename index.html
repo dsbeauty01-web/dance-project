@@ -1,49 +1,671 @@
-export default {
-  async fetch(request, env) {
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova Dance</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;800&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:#1a0030}
+body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:column}
 
-    // Allow CORS from your GitHub Pages site
-    const corsHeaders = {
-      "Access-Control-Allow-Origin": "https://dsbeauty01-web.github.io",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    };
+/* ═══ PHASES ═══ */
+/* Each phase is a fixed full-screen layer */
+#phase-start{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 30%,#3d0a6a,#1a0030);gap:24px;padding:24px;text-align:center}
+#phase-start h1{font-family:"Fredoka One",cursive;font-size:clamp(36px,8vw,60px);
+  background:linear-gradient(135deg,#ff6fd8,#7c6fff,#00d2ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#phase-start p{font-size:16px;color:rgba(255,255,255,0.75);max-width:380px;line-height:1.7}
+.big-btn{background:linear-gradient(135deg,#ff6fd8,#7c6fff);border:none;border-radius:50px;
+  padding:18px 48px;font-family:"Fredoka One",cursive;font-size:26px;color:#fff;cursor:pointer;
+  box-shadow:0 8px 36px rgba(124,111,255,0.7);transition:transform .15s,box-shadow .15s;width:100%;max-width:360px}
+.big-btn:active{transform:scale(0.97)}
+.big-btn:hover{transform:scale(1.04);box-shadow:0 12px 44px rgba(124,111,255,0.9)}
 
-    // Handle preflight
-    if (request.method === "OPTIONS") {
-      return new Response(null, { headers: corsHeaders });
-    }
+/* INTRO PHASE — D-ID fullscreen */
+#phase-intro{position:fixed;inset:0;z-index:90;display:none;flex-direction:column;
+  background:radial-gradient(ellipse at 50% 20%,#2d0a5a,#1a0030)}
+#intro-did-wrap{flex:1;position:relative;overflow:hidden}
+#intro-did-wrap iframe,#intro-did-wrap > div{width:100%;height:100%;border:none}
+#intro-skip-btn{position:absolute;bottom:24px;right:24px;z-index:5;
+  background:rgba(255,255,255,0.15);border:2px solid rgba(255,255,255,0.3);
+  border-radius:50px;padding:10px 24px;font-family:"Fredoka One",cursive;
+  font-size:16px;color:#fff;cursor:pointer;backdrop-filter:blur(8px);transition:all .2s}
+#intro-skip-btn:hover{background:rgba(255,255,255,0.25)}
+#intro-status{position:absolute;top:16px;left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,0.6);border-radius:20px;padding:6px 18px;
+  font-family:"Fredoka One",cursive;font-size:14px;color:#ff6fd8;z-index:5;
+  backdrop-filter:blur(8px);white-space:nowrap}
+/* Countdown ring before song */
+#countdown-wrap{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,0.7);z-index:6;flex-direction:column;gap:12px}
+#countdown-num{font-family:"Fredoka One",cursive;font-size:120px;color:#ff6fd8;
+  text-shadow:0 0 60px rgba(255,111,216,0.8);animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+#countdown-label{font-family:"Fredoka One",cursive;font-size:24px;color:#fff;opacity:0.8}
 
-    if (request.method !== "POST") {
-      return new Response("Method not allowed", { status: 405 });
-    }
+/* GAME PHASE */
+#phase-game{position:fixed;inset:0;z-index:80;display:none;flex-direction:column}
+body.window-open #phase-game{background:#003322}
+#topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;
+  background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);z-index:10;flex-shrink:0}
+#logo{font-family:"Fredoka One",cursive;font-size:18px;
+  background:linear-gradient(135deg,#ff6fd8,#7c6fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#score-display{font-family:"Fredoka One",cursive;font-size:16px;color:#ffd700}
+#split{flex:1;display:grid;grid-template-columns:1fr 1fr;min-height:0;position:relative}
 
-    try {
-      const body = await request.json();
+/* Nova video side */
+#nova-side{position:relative;overflow:hidden;background:#0a0018}
+#nova-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#0a0018}
 
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": env.ANTHROPIC_KEY,   // ← stored in Cloudflare, never exposed
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify(body),
-      });
+/* Nova face reaction bubble */
+#nova-bubble{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%) scale(0);
+  z-index:15;display:flex;flex-direction:column;align-items:center;gap:12px;
+  transition:transform 0.3s cubic-bezier(.34,1.56,.64,1);
+  pointer-events:none;
+}
+#nova-bubble.show{transform:translate(-50%,-50%) scale(1)}
+#nova-bubble-face{
+  width:min(55vw,220px);aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(ellipse at 40% 35%,#ff99ee,#dd1199 55%,#880066);
+  display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px;
+  border:4px solid rgba(255,111,216,0.9);
+  box-shadow:0 0 50px rgba(255,111,216,0.8),0 0 100px rgba(124,111,255,0.5);
+}
+#nova-bubble-face span{font-size:56px;line-height:1}
+#nova-bubble-text{
+  background:#fff;color:#1a0030;border-radius:20px;padding:12px 20px;
+  font-family:"Fredoka One",cursive;font-size:clamp(16px,3vw,22px);
+  text-align:center;max-width:min(80vw,300px);
+  box-shadow:0 4px 20px rgba(0,0,0,0.4);
+}
+#nova-bubble-text b{color:#7c6fff}
 
-      const data = await response.json();
+/* Cam side */
+#cam-side{position:relative;background:#0a0a1a;overflow:hidden}
+#webcam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#cam-label{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:3;
+  background:rgba(0,0,0,0.5);border:1px solid rgba(0,210,255,0.4);
+  border-radius:20px;padding:3px 14px;font-family:"Fredoka One",cursive;font-size:12px;color:#00d2ff}
+#pills{position:absolute;top:8px;left:8px;z-index:3;display:flex;flex-direction:column;gap:4px}
+.pill{background:rgba(0,0,0,0.7);border-radius:8px;padding:3px 8px;font-size:10px;font-weight:700;font-family:monospace}
+.pill.on{background:#00ff99;color:#000}
 
-      return new Response(JSON.stringify(data), {
-        headers: {
-          "Content-Type": "application/json",
-          ...corsHeaders,
-        },
-      });
+/* Green flash */
+#green-flash{position:fixed;inset:0;background:#00ff88;opacity:0;pointer-events:none;z-index:4;transition:opacity 0.08s}
+#green-flash.show{opacity:0.28}
 
-    } catch (err) {
-      return new Response(JSON.stringify({ error: err.message }), {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-  }
+/* Lyrics */
+#lyric-box{position:absolute;bottom:52px;left:0;right:0;text-align:center;z-index:5;pointer-events:none}
+#lyric-text{font-family:"Fredoka One",cursive;font-size:clamp(18px,3.5vw,28px);
+  color:#fff;text-shadow:0 2px 12px rgba(0,0,0,0.9);opacity:0;transition:opacity 0.25s}
+#lyric-text.show{opacity:1}
+
+/* Action cue */
+#action-cue{position:absolute;top:32%;left:50%;transform:translate(-50%,-50%) scale(0);
+  z-index:6;text-align:center;pointer-events:none;
+  transition:transform 0.25s cubic-bezier(.34,1.56,.64,1);
+  background:rgba(0,0,0,0.88);border-radius:24px;padding:14px 22px;
+  border:3px solid rgba(255,111,216,0.6);backdrop-filter:blur(8px);min-width:180px}
+#action-cue.show{transform:translate(-50%,-50%) scale(1)}
+#action-cue.live{border-color:#00ff99;box-shadow:0 0 40px rgba(0,255,150,0.5)}
+#cue-emoji{font-size:clamp(44px,8vw,68px);display:block}
+#cue-label{font-family:"Fredoka One",cursive;font-size:clamp(18px,3.5vw,26px);color:#ff6fd8;display:block;margin-top:4px}
+#cue-instr{font-size:clamp(11px,2vw,15px);color:rgba(255,255,255,0.85);font-weight:700;display:block;margin-top:4px}
+#cue-timer{height:5px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden;margin-top:8px}
+#cue-timer-fill{height:100%;width:100%;transform-origin:left;background:#00ff99}
+@keyframes timerShrink{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+
+#feedback{position:absolute;inset:0;opacity:0;pointer-events:none;z-index:7;transition:opacity 0.15s}
+#feedback.hit{background:rgba(0,255,150,0.18);opacity:1}
+#feedback.miss{background:rgba(255,80,0,0.12);opacity:1}
+#score-pop{position:absolute;top:25%;left:50%;transform:translateX(-50%) scale(0);
+  font-family:"Fredoka One",cursive;font-size:52px;z-index:8;pointer-events:none;
+  transition:transform 0.2s cubic-bezier(.34,1.56,.64,1);text-shadow:0 0 20px currentColor}
+#score-pop.show{transform:translateX(-50%) scale(1)}
+#progress-bar{position:absolute;bottom:0;left:0;right:0;height:4px;background:rgba(255,255,255,0.1);z-index:9}
+#progress-fill{height:100%;width:0%;background:linear-gradient(90deg,#ff6fd8,#7c6fff,#00d2ff);transition:width 0.1s linear}
+
+/* Confetti */
+.confetti-piece{position:absolute;border-radius:2px;
+  animation:confettiFall 1.4s ease-in forwards;pointer-events:none;z-index:25}
+@keyframes confettiFall{
+  0%{transform:translateY(-20px) rotate(0deg);opacity:1}
+  100%{transform:translateY(500px) rotate(720deg);opacity:0}}
+
+/* END PHASE */
+#phase-end{position:fixed;inset:0;z-index:95;display:none;flex-direction:column;
+  background:radial-gradient(ellipse at 50% 20%,#3d0a6a,#1a0030);
+  align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center}
+#phase-end h1{font-family:"Fredoka One",cursive;font-size:clamp(28px,7vw,48px);
+  background:linear-gradient(135deg,#ff6fd8,#ffd700);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#end-stars{font-size:52px;letter-spacing:8px}
+#end-score{font-family:"Fredoka One",cursive;font-size:30px;color:#ffd700}
+#end-detail{font-size:15px;color:rgba(255,255,255,0.7)}
+#end-nova-msg{background:rgba(255,111,216,0.15);border:2px solid rgba(255,111,216,0.4);
+  border-radius:20px;padding:16px 24px;font-family:"Fredoka One",cursive;
+  font-size:20px;color:#fff;max-width:400px;line-height:1.5;margin:8px 0}
+</style>
+</head>
+<body>
+
+<div id="green-flash"></div>
+
+<!-- ══ PHASE 1: START ══ -->
+<div id="phase-start">
+  <div style="font-size:80px">🌟</div>
+  <h1>Nova Dance!</h1>
+  <p>Meet Nova — your magical dance teacher!<br>
+  She will talk to you, dance with you,<br>and cheer you on!</p>
+  <button class="big-btn" onclick="startIntro()">🎉 Meet Nova!</button>
+  <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:-8px">v21b — New D-ID + Video Fixed</div>
+</div>
+
+<!-- ══ PHASE 2: INTRO (D-ID) ══ -->
+<div id="phase-intro">
+  <div id="intro-did-wrap">
+    <!-- D-ID agent — full screen, mic enabled -->
+    <script type="module"
+      src="https://agent.d-id.com/v2/index.js"
+      data-mode="fabio"
+      data-client-key="Z29vZ2xlLW9hdXRoMnwxMDg1MzgzODIxMDg4OTU5MjE2MzA6dUtILVVlUFhjeFNUZS1lNjV2VG5t"
+      data-agent-id="v2_agt_Z7uYXWFx"
+      data-name="nova-agent"
+      data-monitor="true"
+      data-orientation="portrait"
+      data-open-mode="expanded">
+    </script>
+  </div>
+  <div id="intro-status">🎤 Nova is ready — say hi!</div>
+  <button id="intro-skip-btn" onclick="startCountdown()">Let's Dance! 💃</button>
+  <!-- Countdown overlay -->
+  <div id="countdown-wrap">
+    <div id="countdown-num">3</div>
+    <div id="countdown-label">Get ready to dance!</div>
+  </div>
+</div>
+
+<!-- ══ PHASE 3: GAME ══ -->
+<div id="phase-game">
+  <div id="topbar">
+    <div id="logo">🌟 Nova Dance</div>
+    <div id="score-display">0 pts</div>
+  </div>
+  <div id="split">
+    <div id="nova-side">
+      <video id="nova-video" loop playsinline muted autoplay>
+        <source src="nova-dance.mp4" type="video/mp4">
+      </video>
+      <!-- Reaction bubble -->
+      <div id="nova-bubble">
+        <div id="nova-bubble-face"><span>🌟</span></div>
+        <div id="nova-bubble-text"><b id="nova-bubble-msg">Amazing!</b></div>
+      </div>
+    </div>
+    <div id="cam-side">
+      <video id="webcam" autoplay playsinline muted></video>
+      <div id="pills">
+        <div class="pill" id="p-left">L arm --</div>
+        <div class="pill" id="p-right">R arm --</div>
+        <div class="pill" id="p-both">BOTH --</div>
+      </div>
+      <div id="cam-label">You 🎯</div>
+    </div>
+    <div id="lyric-box"><div id="lyric-text"></div></div>
+    <div id="action-cue">
+      <span id="cue-emoji">🙌</span>
+      <span id="cue-label">BOTH UP!</span>
+      <span id="cue-instr">Raise both arms!</span>
+      <div id="cue-timer"><div id="cue-timer-fill"></div></div>
+    </div>
+    <div id="feedback"></div>
+    <div id="score-pop">+200</div>
+    <div id="progress-bar"><div id="progress-fill"></div></div>
+  </div>
+</div>
+
+<!-- ══ PHASE 4: END ══ -->
+<div id="phase-end">
+  <div style="font-size:72px">🎉</div>
+  <h1 id="end-title">Amazing!</h1>
+  <div id="end-stars">⭐⭐⭐⭐⭐</div>
+  <div id="end-score">0 pts</div>
+  <div id="end-detail"></div>
+  <div id="end-nova-msg">Loading Nova's message...</div>
+  <button class="big-btn" onclick="restartGame()" style="font-size:18px;padding:12px 32px;max-width:280px">🔄 Play Again</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════
+// API key stored securely in Cloudflare Worker — not exposed here
+const SONG_DURATION = 30000;
+
+// ═══════════════════════════════════════════════
+// NOVA BRAIN — system prompt + memory
+// ═══════════════════════════════════════════════
+const NOVA_SYSTEM = `You are Nova — a magical, warm, wildly fun AI dance and movement teacher for young children aged 3-8.
+
+YOUR PERSONALITY:
+- Best friend who happens to be the most exciting teacher ever
+- Warm, patient, celebratory, full of genuine joy
+- You remember everything in the session and react personally
+- SHORT sentences — max 6-8 words for reactions, 2 sentences for intro/end
+- Simple words a 3-year-old understands
+- NEVER negative — every attempt is celebrated
+- Use: Woohoo! Yay! Boom! Wowza! naturally
+
+YOUR ROLE:
+- Before song: warmly welcome child, get them excited, briefly explain the game
+- During song: react instantly to moves with genuine excitement  
+- After correct move: celebrate LOUDLY
+- After missed move: encourage GENTLY, never criticize
+- After song: personal celebration based on exactly how they did
+
+Always respond with ONLY what Nova says — no quotes, no labels, just the words.`;
+
+const memory = {
+  hits: 0, attempts: 0, streak: 0, maxStreak: 0,
+  moments: [], history: [], phase: "intro"
 };
+
+function memCtx() {
+  const p = [];
+  if(memory.attempts > 0) p.push(memory.hits + "/" + memory.attempts + " moves hit.");
+  if(memory.streak >= 2) p.push(memory.streak + "-move streak!");
+  if(memory.moments.length) p.push("Highlights: " + memory.moments.slice(-2).join(", "));
+  return p.length ? " [Session: " + p.join(" ") + "]" : "";
+}
+
+let llmBusy = false;
+async function novaThink(prompt, maxTok = 60) {
+  if(llmBusy) return null;
+  llmBusy = true;
+  try {
+    const msg = {role:"user", content: prompt + memCtx()};
+    memory.history.push(msg);
+    if(memory.history.length > 14) memory.history = memory.history.slice(-14);
+    const res = await fetch("https://long-art-8269r.dsbeauty01.workers.dev/", {
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+      },
+      body: JSON.stringify({
+        model:"claude-haiku-4-5-20251001",
+        max_tokens: maxTok,
+        system: NOVA_SYSTEM,
+        messages: memory.history
+      })
+    });
+    const data = await res.json();
+    const reply = data.content?.[0]?.text?.trim() || null;
+    if(reply) memory.history.push({role:"assistant", content: reply});
+    return reply;
+  } catch(e) {
+    console.log("LLM:", e);
+    return null;
+  } finally {
+    setTimeout(() => llmBusy = false, 3500);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// SPEECH (browser TTS fallback)
+// ═══════════════════════════════════════════════
+function speak(text) {
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-US"; u.rate = 0.95; u.pitch = 1.3;
+    const voices = speechSynthesis.getVoices().filter(v => v.lang.startsWith("en"));
+    const pref = voices.find(v => /Samantha|Karen|Google.*Female|Zira/i.test(v.name)) || voices[0];
+    if(pref) u.voice = pref;
+    speechSynthesis.speak(u);
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════
+// NOVA REACTION BUBBLE
+// ═══════════════════════════════════════════════
+let bubbleTimer = null;
+function novaBurst(text, emoji, dur = 3000) {
+  const b = document.getElementById("nova-bubble");
+  const msg = document.getElementById("nova-bubble-msg");
+  const face = document.getElementById("nova-bubble-face");
+  face.querySelector("span").textContent = emoji || "🌟";
+  msg.textContent = text;
+  b.classList.add("show");
+  speak(text);
+  if(bubbleTimer) clearTimeout(bubbleTimer);
+  bubbleTimer = setTimeout(() => b.classList.remove("show"), dur);
+}
+
+async function novaReact(prompt, fallback, emoji) {
+  const reply = await novaThink(prompt);
+  novaBurst(reply || fallback, emoji || "🌟");
+}
+
+// ═══════════════════════════════════════════════
+// CONFETTI
+// ═══════════════════════════════════════════════
+function confetti() {
+  const colors = ["#ff6fd8","#ffd700","#00ff99","#7c6fff","#ff4444","#00d2ff","#ffaa00"];
+  const side = document.getElementById("nova-side");
+  for(let i = 0; i < 22; i++){
+    const el = document.createElement("div");
+    el.className = "confetti-piece";
+    el.style.cssText = `left:${Math.random()*100}%;top:${-5+Math.random()*20}%;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      animation-delay:${Math.random()*0.5}s;
+      width:${6+Math.random()*10}px;height:${6+Math.random()*10}px;`;
+    side.appendChild(el);
+    setTimeout(() => el.remove(), 2000);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// POSE DETECTION
+// ═══════════════════════════════════════════════
+let detector = null;
+const moves = {left:false,right:false,both:false};
+const holdCount = {left:0,right:0,both:0};
+const smooth = {};
+
+async function initDetector() {
+  await tf.setBackend("webgl"); await tf.ready();
+  detector = await poseDetection.createDetector(
+    poseDetection.SupportedModels.MoveNet,
+    {modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING}
+  );
+}
+
+function smoothKp(key, kp) {
+  if(!smooth[key]) smooth[key] = {x:kp.x,y:kp.y,score:kp.score};
+  const a = 0.7;
+  smooth[key].x = smooth[key].x*a + kp.x*(1-a);
+  smooth[key].y = smooth[key].y*a + kp.y*(1-a);
+  smooth[key].score = kp.score;
+  return smooth[key];
+}
+
+async function poseLoop() {
+  const v = document.getElementById("webcam");
+  if(!detector||!v||v.readyState<2){requestAnimationFrame(poseLoop);return;}
+  try {
+    const p = await detector.estimatePoses(v,{flipHorizontal:false});
+    if(p.length > 0) analyzePose(p[0].keypoints);
+  } catch(e){}
+  requestAnimationFrame(poseLoop);
+}
+
+function analyzePose(kps) {
+  const g = n => kps.find(k => k.name === n);
+  const ls=g("left_shoulder"),rs=g("right_shoulder"),lw=g("left_wrist"),rw=g("right_wrist");
+  if(!ls||!rs||!lw||!rw) return;
+  const sLs=smoothKp("ls",ls),sRs=smoothKp("rs",rs),sLw=smoothKp("lw",lw),sRw=smoothKp("rw",rw);
+  const MIN=0.3, scale=Math.max(Math.abs(sLs.x-sRs.x),60), thr=scale*0.24;
+  const lUp = sLw.score>MIN && (sLs.y-sLw.y)>thr;
+  const rUp = sRw.score>MIN && (sRs.y-sRw.y)>thr;
+  const hold = (raw,key) => {holdCount[key]=raw?Math.min(holdCount[key]+1,10):Math.max(holdCount[key]-1,0);return holdCount[key]>=2;};
+  moves.left  = hold(lUp&&!rUp,"left");
+  moves.right = hold(rUp&&!lUp,"right");
+  moves.both  = lUp&&rUp;
+  const sp = (id,lbl,on) => {const el=document.getElementById(id);if(!el)return;el.classList.toggle("on",on);el.textContent=lbl+(on?" ✅":"--");};
+  sp("p-left","👈 L",moves.left);
+  sp("p-right","👉 R",moves.right);
+  sp("p-both","🙌",moves.both);
+}
+
+function checkAction(a){return a==="left"?moves.left:a==="right"?moves.right:a==="both"?moves.both:false;}
+
+// ═══════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════
+function showLyric(t){const el=document.getElementById("lyric-text");el.textContent=t;el.classList.remove("show");void el.offsetWidth;el.classList.add("show");}
+
+function showCue(emoji,label,instr,isLive,ms){
+  const c=document.getElementById("action-cue");
+  document.getElementById("cue-emoji").textContent=emoji;
+  document.getElementById("cue-label").textContent=label;
+  document.getElementById("cue-instr").textContent=instr;
+  c.classList.add("show");
+  if(isLive){
+    c.classList.add("live");
+    const tf=document.getElementById("cue-timer-fill");
+    tf.style.animation="none";void tf.offsetWidth;
+    tf.style.animation="timerShrink "+ms+"ms linear forwards";
+  } else c.classList.remove("live");
+}
+
+function hideCue(){document.getElementById("action-cue").classList.remove("show","live");}
+function flashFeedback(t){const f=document.getElementById("feedback");f.className=t;setTimeout(()=>f.className="",700);}
+function showScorePop(pts,color){
+  const el=document.getElementById("score-pop");
+  el.textContent="+"+pts;el.style.color=color||"#ffd700";
+  el.classList.remove("show");void el.offsetWidth;el.classList.add("show");
+  setTimeout(()=>el.classList.remove("show"),900);
+}
+function setGreenFlash(on){
+  document.getElementById("green-flash").classList.toggle("show",on);
+  document.body.classList.toggle("window-open",on);
+}
+
+// ═══════════════════════════════════════════════
+// TIMELINE
+// ═══════════════════════════════════════════════
+const TIMELINE = [
+  {t:1000,type:"lyric",text:"🎵 Hello Hello! 🎵"},
+  {t:3000,type:"lyric",text:"Copy Nova when it turns green!"},
+  {t:4500,type:"helloL",lyric:"Hello,"},
+  {t:5500,type:"helloR",lyric:"hello."},
+  {t:6500,type:"lyric",text:"Can you clap your hands?"},
+  {t:6500,type:"demo",action:"both",emoji:"🙌",label:"BOTH UP!",instr:"Watch Nova!"},
+  {t:9000,type:"open",action:"both",emoji:"🙌",label:"BOTH UP!",instr:"Raise BOTH arms!",pts:150},
+  {t:11500,type:"close",action:"both"},
+  {t:12000,type:"helloL",lyric:"Hello,"},
+  {t:13000,type:"helloR",lyric:"hello."},
+  {t:14000,type:"lyric",text:"Can you stretch up high?"},
+  {t:14000,type:"demo",action:"right",emoji:"👉",label:"RIGHT ARM!",instr:"Watch Nova!"},
+  {t:16500,type:"open",action:"right",emoji:"👉",label:"RIGHT ARM!",instr:"Raise RIGHT arm!",pts:150},
+  {t:19000,type:"close",action:"right"},
+  {t:19500,type:"lyric",text:"Can you touch your toes?"},
+  {t:19500,type:"demo",action:"left",emoji:"👈",label:"LEFT ARM!",instr:"Watch Nova!"},
+  {t:22000,type:"open",action:"left",emoji:"👈",label:"LEFT ARM!",instr:"Raise LEFT arm!",pts:150},
+  {t:24500,type:"close",action:"left"},
+  {t:25000,type:"lyric",text:"Can you turn around?"},
+  {t:25000,type:"demo",action:"both",emoji:"🙌",label:"BOTH UP!",instr:"Watch Nova!"},
+  {t:27500,type:"open",action:"both",emoji:"🙌",label:"BOTH UP!",instr:"BOTH arms UP!",pts:200},
+  {t:30000,type:"close",action:"both"},
+  {t:30000,type:"lyric",text:"🌟 You are AMAZING! 🌟"},
+];
+
+// ═══════════════════════════════════════════════
+// PHASE TRANSITIONS
+// ═══════════════════════════════════════════════
+function showPhase(id) {
+  ["phase-start","phase-intro","phase-game","phase-end"].forEach(p => {
+    document.getElementById(p).style.display = "none";
+  });
+  document.getElementById(id).style.display = "flex";
+}
+
+// PHASE 1 → 2: Meet Nova
+window.startIntro = async function() {
+  showPhase("phase-intro");
+  // Request mic
+  try { window._mic = await navigator.mediaDevices.getUserMedia({audio:true}); } catch(e) {}
+  // Request camera in background
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video:{width:{ideal:1280},height:{ideal:720},facingMode:"user"}, audio:false
+    });
+    const v = document.getElementById("webcam");
+    v.srcObject = stream;
+    await new Promise(r => v.onloadedmetadata = r);
+    await v.play();
+  } catch(e) { console.log("Cam:", e.message); }
+  // Load detection in background
+  try { await initDetector(); } catch(e) {}
+  poseLoop();
+  // Update status after a moment
+  setTimeout(() => {
+    document.getElementById("intro-status").textContent = "🎤 Talk to Nova! Ask her anything!";
+  }, 2000);
+};
+
+// PHASE 2 → 3: Countdown then song
+window.startCountdown = function() {
+  const wrap = document.getElementById("countdown-wrap");
+  const num = document.getElementById("countdown-num");
+  wrap.style.display = "flex";
+  let count = 3;
+  num.textContent = count;
+  speak("3!");
+  const iv = setInterval(() => {
+    count--;
+    if(count <= 0) {
+      clearInterval(iv);
+      wrap.style.display = "none";
+      startGame();
+    } else {
+      num.textContent = count;
+      speak(count + "!");
+    }
+  }, 1000);
+};
+
+// ═══════════════════════════════════════════════
+// GAME
+// ═══════════════════════════════════════════════
+let score=0,hits=0,attempts=0,combo=0,maxCombo=0;
+let timelineIdx=0,songTimer=null;
+let actionDetected=false,actionWindow=false,actionStartTime=0,currentAction=null;
+
+function startGame() {
+  showPhase("phase-game");
+  memory.phase = "song";
+  timelineIdx = 0; score = 0; hits = 0; attempts = 0; combo = 0; maxCombo = 0;
+  document.getElementById("score-display").textContent = "0 pts";
+  document.getElementById("progress-fill").style.width = "0%";
+
+  const vid = document.getElementById("nova-video");
+  vid.currentTime = 0;
+  vid.play().catch(()=>{});
+
+  const audio = new Audio("hello.mp3");
+  audio.volume = 0.85;
+  window._songAudio = audio;
+  audio.play().catch(()=>{});
+  audio.onended = () => setTimeout(endGame, 800);
+
+  // LLM: Nova gives quick encouragement as song starts
+  novaThink("The dance song just started! Give a super quick 4-word hype-up!").then(r => {
+    if(r) novaBurst(r, "💃", 2000);
+  });
+
+  songTimer = setInterval(() => {
+    const elapsed = (window._songAudio?.currentTime || 0) * 1000;
+    document.getElementById("progress-fill").style.width = Math.min(100,(elapsed/SONG_DURATION)*100) + "%";
+
+    while(timelineIdx < TIMELINE.length && elapsed >= TIMELINE[timelineIdx].t) {
+      const e = TIMELINE[timelineIdx];
+      if(e.type==="lyric") showLyric(e.text);
+      else if(e.type==="helloL"||e.type==="helloR") showLyric(e.lyric||"Hello,");
+      else if(e.type==="demo") showCue(e.emoji,e.label,e.instr,false,0);
+      else if(e.type==="open") {
+        currentAction=e; actionDetected=false; actionWindow=true;
+        actionStartTime=Date.now(); attempts++; memory.attempts++;
+        let wMs=2500;
+        for(let j=timelineIdx+1;j<TIMELINE.length;j++){
+          if(TIMELINE[j].type==="close"&&TIMELINE[j].action===e.action){wMs=TIMELINE[j].t-e.t;break;}
+        }
+        setGreenFlash(true);
+        showCue(e.emoji,e.label,e.instr,true,wMs);
+        let el2=0;
+        const chk=setInterval(()=>{
+          el2+=80;
+          if(!actionWindow||actionDetected||el2>wMs+200){clearInterval(chk);return;}
+          if(checkAction(e.action)){
+            actionDetected=true;clearInterval(chk);
+            const rm=Date.now()-actionStartTime, isGreat=rm<1000;
+            const pts=isGreat?Math.round(e.pts*1.5):e.pts;
+            score+=pts; hits++; combo++; maxCombo=Math.max(maxCombo,combo);
+            memory.hits++; memory.streak++;
+            if(memory.streak>=2) memory.moments.push(memory.streak+"-move streak");
+            if(isGreat) memory.moments.push("lightning fast "+e.action+" move");
+            memory.maxStreak=Math.max(memory.maxStreak,memory.streak);
+            document.getElementById("score-display").textContent=score+" pts";
+            flashFeedback("hit");
+            showScorePop(pts,isGreat?"#ffd700":"#00ff99");
+            confetti();
+            const prompt = isGreat
+              ? "Child nailed a dance move super fast! Short explosive reaction! 5 words!"
+              : "Child did a dance move correctly! Celebrate! 5 words!";
+            novaReact(prompt, isGreat?"WOW! Incredible! Yes!":"Great job! You did it!", isGreat?"🔥":"🌟");
+          }
+        },80);
+      }
+      else if(e.type==="close"){
+        setGreenFlash(false); hideCue();
+        if(!actionDetected&&actionWindow){
+          combo=0; memory.streak=0; flashFeedback("miss");
+          novaReact("Child missed a dance move. Encourage them! Stay warm! 5 words.","Try again! You got this!","💪");
+        }
+        actionWindow=false;
+      }
+      timelineIdx++;
+    }
+  }, 80);
+}
+
+// ═══════════════════════════════════════════════
+// END GAME
+// ═══════════════════════════════════════════════
+function endGame() {
+  clearInterval(songTimer); setGreenFlash(false);
+  if(window._songAudio) window._songAudio.pause();
+  document.getElementById("nova-video").pause();
+  memory.phase = "end";
+
+  const rate = attempts>0 ? hits/attempts : 0;
+  const stars = rate>=0.9?5:rate>=0.7?4:rate>=0.5?3:rate>=0.3?2:1;
+  showPhase("phase-end");
+  document.getElementById("end-title").textContent = ["Keep going!","Good job!","Great work!","Amazing!","PERFECT! 🔥"][stars-1];
+  document.getElementById("end-stars").textContent = "⭐".repeat(stars)+"☆".repeat(5-stars);
+  document.getElementById("end-score").textContent = score+" pts";
+  document.getElementById("end-detail").textContent = hits+" of "+attempts+" moves · Best streak: "+maxCombo;
+
+  const endPrompt = `Dance session done! Child hit ${hits} out of ${attempts} moves.${memory.moments.length?" Special moments: "+memory.moments.join(", "):""} Give a warm personal celebration! 2 sentences max.`;
+  novaThink(endPrompt, 100).then(r => {
+    document.getElementById("end-nova-msg").textContent = r || (hits >= attempts*0.7 ? "You are an incredible dancer! I am SO proud of you!" : "Amazing effort today! You danced so beautifully!");
+    speak(document.getElementById("end-nova-msg").textContent);
+  });
+}
+
+window.restartGame = function() {
+  memory.hits=0;memory.attempts=0;memory.streak=0;memory.maxStreak=0;memory.moments=[];memory.history=[];
+  startGame();
+};
+
+// ═══════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════
+window.addEventListener("load", () => {
+  speechSynthesis.getVoices();
+  speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+  // Preload video
+  const vid = document.getElementById("nova-video");
+  vid.load();
+  vid.addEventListener("loadeddata", () => console.log("✅ Video ready"));
+  vid.addEventListener("error", e => console.error("❌ Video error:", vid.error));
+});
+</script>
+</body>
+</html>
