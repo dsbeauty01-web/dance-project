@@ -275,7 +275,7 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
   <h1>Nova Dance</h1>
   <p>Your magical AI dance teacher is waiting!<br>Talk to Nova, then dance together.</p>
   <button class="btn-primary" onclick="showPhase('phase-intro')">Meet Nova ✨</button>
-  <div class="version">v27 — UX cleanup</div>
+  <div class="version">v28 — Hello Hello song + new detections</div>
 </div>
 
 <!-- ═══ INTRO ═══ -->
@@ -349,6 +349,9 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
         <div class="pill" id="p-left">👈</div>
         <div class="pill" id="p-right">👉</div>
         <div class="pill" id="p-both">🙌</div>
+        <div class="pill" id="p-clap">👏</div>
+        <div class="pill" id="p-head">🙆</div>
+        <div class="pill" id="p-freeze">❄️</div>
       </div>
     </div>
   </div>
@@ -406,15 +409,28 @@ import { createAgentManager } from 'https://esm.sh/@d-id/client-sdk@1.1.53';
 const AGENT_ID   = 'v2_agt_Z7uYXWFx';
 const CLIENT_KEY = 'Z29vZ2xlLW9hdXRoMnwxMDg1MzgzODIxMDg4OTU5MjE2MzA6dUtILVVlUFhjeFNUZS1lNjV2VG5t';
 const WORKER_URL = 'https://long-art-8269r.dsbeauty01.workers.dev/';
-const SONG_DURATION = 30000;
+const SONG_DURATION = 60000;
 
-const NOVA_SYSTEM = `You are Nova — a magical, warm, wildly fun AI dance teacher for kids aged 3-8.
-SHORT sentences — max 2 sentences per reply. Simple words only. Always positive.
-Never say anything negative. Use: Woohoo! Yay! Boom! naturally.
-When the child first arrives, greet them warmly and ask their name.
-Get them excited about dancing together.
-When they want to start, encourage them to press the Start Dancing button.
-Reply ONLY with what Nova says — no quotes, no labels, no asterisks.`;
+const NOVA_SYSTEM = `You are Nova — a magical, warm, wildly fun AI dance and movement teacher for kids aged 3-8.
+
+YOUR PERSONALITY:
+- Best friend who is the most exciting teacher ever
+- Genuine joy, warm, celebratory, patient
+- Use simple words a 3-year-old understands
+- Sound words: Woohoo! Yay! Boom! Wowza! Whee!
+- NEVER negative — every attempt is celebrated
+
+YOUR ROLE:
+- Before the song: warmly greet, ask their name, get them excited
+- During the song: react in 4-6 words to each correct/missed move
+- After the song: personal celebration mentioning specific moments
+- When child says they're ready, tell them to press the green Start Dancing button
+
+VOICE RULES:
+- Reactions: 4-6 words MAX
+- Conversation: 2 sentences MAX
+- Always end with energy
+- Reply ONLY with what Nova says — no quotes, no labels, no asterisks`;
 
 // Memory
 const mem={hits:0,attempts:0,streak:0,maxStreak:0,moments:[],history:[],name:null};
@@ -625,8 +641,8 @@ function tts(text){
 
 // Detection
 let detector=null;
-const moves={left:false,right:false,both:false};
-const holdCount={left:0,right:0,both:0};
+const moves={left:false,right:false,both:false,clap:false,head:false,freeze:false,wave:false};
+const holdCount={left:0,right:0,both:0,clap:0,head:0,freeze:0,wave:0};
 const smooth={};
 async function initDetector(){
   await tf.setBackend('webgl');await tf.ready();
@@ -653,20 +669,86 @@ async function poseLoop(){
 }
 function analyzePose(kps){
   const g=n=>kps.find(k=>k.name===n);
-  const ls=g('left_shoulder'),rs=g('right_shoulder'),lw=g('left_wrist'),rw=g('right_wrist');
+  const ls=g('left_shoulder'),rs=g('right_shoulder');
+  const lw=g('left_wrist'),rw=g('right_wrist');
+  const le=g('left_elbow'),re=g('right_elbow');
+  const nose=g('nose');
   if(!ls||!rs||!lw||!rw) return;
-  const sLs=smoothKp('ls',ls),sRs=smoothKp('rs',rs),sLw=smoothKp('lw',lw),sRw=smoothKp('rw',rw);
-  const MIN=0.3,scale=Math.max(Math.abs(sLs.x-sRs.x),60),thr=scale*0.24;
+  
+  const sLs=smoothKp('ls',ls),sRs=smoothKp('rs',rs);
+  const sLw=smoothKp('lw',lw),sRw=smoothKp('rw',rw);
+  const sNose=nose?smoothKp('nose',nose):null;
+  
+  const MIN=0.3;
+  const scale=Math.max(Math.abs(sLs.x-sRs.x),60);
+  const thr=scale*0.24;
+  
+  // ═══ ARM RAISES ═══
   const lUp=sLw.score>MIN&&(sLs.y-sLw.y)>thr;
   const rUp=sRw.score>MIN&&(sRs.y-sRw.y)>thr;
-  const hold=(raw,key)=>{holdCount[key]=raw?Math.min(holdCount[key]+1,10):Math.max(holdCount[key]-1,0);return holdCount[key]>=2;};
+  
+  const hold=(raw,key)=>{holdCount[key]=raw?Math.min(holdCount[key]+1,10):Math.max(holdCount[key]-1,0);return holdCount[key]>=1;};
+  
   moves.left=hold(lUp&&!rUp,'left');
   moves.right=hold(rUp&&!lUp,'right');
   moves.both=lUp&&rUp;
+  
+  // ═══ CLAP — wrists meet near chest ═══
+  // Both wrists at chest height, close together horizontally
+  const wristY=(sLw.y+sRw.y)/2;
+  const shoulderY=(sLs.y+sRs.y)/2;
+  const wristGap=Math.abs(sLw.x-sRw.x);
+  const isClap=sLw.score>MIN&&sRw.score>MIN&&
+    wristGap<scale*0.55 && // wrists close together (more forgiving)
+    wristY>shoulderY-scale*0.3 && // not above shoulders
+    wristY<shoulderY+scale*1.0; // not below waist
+  moves.clap=hold(isClap,'clap');
+  
+  // ═══ HANDS ON HEAD — both wrists above shoulders, near nose X ═══
+  const isHead=sNose&&sLw.score>MIN&&sRw.score>MIN&&
+    sLw.y<sLs.y && sRw.y<sRs.y && // wrists above shoulders
+    Math.abs(sLw.x-sNose.x)<scale*0.9 && // near face X (more forgiving)
+    Math.abs(sRw.x-sNose.x)<scale*0.9;
+  moves.head=hold(isHead,'head');
+  
+  // ═══ FREEZE — track wrist movement variance ═══
+  if(!window._freezeBuf) window._freezeBuf={lwx:[],lwy:[],rwx:[],rwy:[]};
+  const buf=window._freezeBuf;
+  buf.lwx.push(sLw.x);buf.lwy.push(sLw.y);
+  buf.rwx.push(sRw.x);buf.rwy.push(sRw.y);
+  if(buf.lwx.length>20){buf.lwx.shift();buf.lwy.shift();buf.rwx.shift();buf.rwy.shift();}
+  if(buf.lwx.length>=15){
+    const variance=arr=>{
+      const m=arr.reduce((a,b)=>a+b,0)/arr.length;
+      return arr.reduce((s,v)=>s+(v-m)**2,0)/arr.length;
+    };
+    const totalVar=variance(buf.lwx)+variance(buf.lwy)+variance(buf.rwx)+variance(buf.rwy);
+    moves.freeze=totalVar<scale*scale*0.012; // very low movement
+  } else moves.freeze=false;
+  
+  // ═══ WAVE — just shows hands visible (used at song start) ═══
+  moves.wave=lUp||rUp||moves.both;
+  
+  // Update pills
   const sp=(id,on)=>{const el=document.getElementById(id);if(!el)return;el.classList.toggle('on',on);};
-  sp('p-left',moves.left);sp('p-right',moves.right);sp('p-both',moves.both);
+  sp('p-left',moves.left);
+  sp('p-right',moves.right);
+  sp('p-both',moves.both);
+  sp('p-clap',moves.clap);
+  sp('p-head',moves.head);
+  sp('p-freeze',moves.freeze);
 }
-function checkAction(a){return a==='left'?moves.left:a==='right'?moves.right:a==='both'?moves.both:false;}
+
+function checkAction(a){
+  if(a==='left') return moves.left;
+  if(a==='right') return moves.right;
+  if(a==='both') return moves.both;
+  if(a==='clap') return moves.clap;
+  if(a==='head') return moves.head;
+  if(a==='freeze') return moves.freeze;
+  if(a==='wave') return moves.wave;
+  return false;
+}
 
 // UI
 function showLyric(t){
@@ -759,29 +841,102 @@ async function novaReact(prompt,fallback,emoji){
 
 // Timeline
 const TIMELINE=[
-  {t:500,type:'lyric',text:'Hello Hello! 🌟'},
-  {t:2500,type:'lyric',text:'Watch the green window — copy Nova!'},
-  {t:4000,type:'helloL',lyric:'Hello,'},
-  {t:5000,type:'helloR',lyric:'hello.'},
-  {t:6000,type:'lyric',text:'Raise both your arms!'},
-  {t:6000,type:'demo',action:'both',emoji:'🙌',label:'BOTH UP!',instr:'Watch Nova!'},
-  {t:8500,type:'open',action:'both',emoji:'🙌',label:'BOTH UP!',instr:'Raise BOTH arms!',pts:150},
-  {t:11000,type:'close',action:'both'},
-  {t:11500,type:'helloL',lyric:'Hello,'},
-  {t:12500,type:'helloR',lyric:'hello.'},
-  {t:13500,type:'lyric',text:'Raise your RIGHT arm!'},
-  {t:13500,type:'demo',action:'right',emoji:'👉',label:'RIGHT ARM!',instr:'Watch Nova!'},
-  {t:16000,type:'open',action:'right',emoji:'👉',label:'RIGHT ARM!',instr:'Raise RIGHT arm!',pts:150},
-  {t:18500,type:'close',action:'right'},
-  {t:19000,type:'lyric',text:'Raise your LEFT arm!'},
-  {t:19000,type:'demo',action:'left',emoji:'👈',label:'LEFT ARM!',instr:'Watch Nova!'},
-  {t:21500,type:'open',action:'left',emoji:'👈',label:'LEFT ARM!',instr:'Raise LEFT arm!',pts:150},
-  {t:24000,type:'close',action:'left'},
-  {t:24500,type:'lyric',text:'BOTH arms UP high!'},
-  {t:24500,type:'demo',action:'both',emoji:'🙌',label:'BOTH UP!',instr:'Watch Nova!'},
-  {t:27000,type:'open',action:'both',emoji:'🙌',label:'BOTH UP!',instr:'BOTH arms UP!',pts:200},
-  {t:29500,type:'close',action:'both'},
-  {t:30000,type:'lyric',text:'You are AMAZING!'},
+  // ═══ Hello Hello song — 60 sec, 15 actions ═══
+  // Each action: demo (1s) → open detection window → close
+  
+  // 0-3: "Hello hello, look at me" — Nova waves both hands
+  {t:200,type:'lyric',text:'🎵 Hello hello, look at me!'},
+  {t:500,type:'demo',action:'wave',emoji:'👋',label:'Wave!',instr:'Watch Nova!'},
+  
+  // 3-6: "Raise your right hand"
+  {t:3000,type:'lyric',text:'Raise your right hand! 👉'},
+  {t:3000,type:'demo',action:'right',emoji:'👉',label:'RIGHT HAND!',instr:'Watch Nova first!'},
+  {t:3800,type:'open',action:'right',emoji:'👉',label:'RIGHT HAND!',instr:'Raise your RIGHT hand!',pts:150},
+  {t:5800,type:'close',action:'right'},
+  
+  // 6-9: "Raise your left hand"
+  {t:6000,type:'lyric',text:'Raise your left hand! 👈'},
+  {t:6000,type:'demo',action:'left',emoji:'👈',label:'LEFT HAND!',instr:'Watch Nova first!'},
+  {t:6800,type:'open',action:'left',emoji:'👈',label:'LEFT HAND!',instr:'Raise your LEFT hand!',pts:150},
+  {t:8800,type:'close',action:'left'},
+  
+  // 9-12: "Clap clap"
+  {t:9000,type:'lyric',text:'Clap clap! 👏'},
+  {t:9000,type:'demo',action:'clap',emoji:'👏',label:'CLAP!',instr:'Watch Nova first!'},
+  {t:9800,type:'open',action:'clap',emoji:'👏',label:'CLAP!',instr:'Clap your hands!',pts:150},
+  {t:11800,type:'close',action:'clap'},
+  
+  // 12-15: "Both hands up"
+  {t:12000,type:'lyric',text:'Both hands up! 🙌'},
+  {t:12000,type:'demo',action:'both',emoji:'🙌',label:'BOTH UP!',instr:'Watch Nova!'},
+  {t:12800,type:'open',action:'both',emoji:'🙌',label:'BOTH UP!',instr:'BOTH hands up!',pts:200},
+  {t:14800,type:'close',action:'both'},
+  
+  // 15-18: "Raise your right hand"
+  {t:15000,type:'lyric',text:'Right hand again! 👉'},
+  {t:15000,type:'demo',action:'right',emoji:'👉',label:'RIGHT HAND!',instr:'Watch!'},
+  {t:15800,type:'open',action:'right',emoji:'👉',label:'RIGHT HAND!',instr:'RIGHT hand!',pts:150},
+  {t:17800,type:'close',action:'right'},
+  
+  // 18-21: "Clap clap"
+  {t:18000,type:'lyric',text:'Clap clap again! 👏'},
+  {t:18000,type:'demo',action:'clap',emoji:'👏',label:'CLAP!',instr:'Watch!'},
+  {t:18800,type:'open',action:'clap',emoji:'👏',label:'CLAP!',instr:'Clap clap!',pts:150},
+  {t:20800,type:'close',action:'clap'},
+  
+  // 21-24: "Raise your left hand"
+  {t:21000,type:'lyric',text:'Left hand up! 👈'},
+  {t:21000,type:'demo',action:'left',emoji:'👈',label:'LEFT HAND!',instr:'Watch!'},
+  {t:21800,type:'open',action:'left',emoji:'👈',label:'LEFT HAND!',instr:'LEFT hand!',pts:150},
+  {t:23800,type:'close',action:'left'},
+  
+  // 24-27: "Hands on head"
+  {t:24000,type:'lyric',text:'Hands on head! 🙆'},
+  {t:24000,type:'demo',action:'head',emoji:'🙆',label:'HANDS ON HEAD!',instr:'Watch Nova!'},
+  {t:24800,type:'open',action:'head',emoji:'🙆',label:'HANDS ON HEAD!',instr:'Touch your head!',pts:200},
+  {t:26800,type:'close',action:'head'},
+  
+  // 27-30: "Both hands up"
+  {t:27000,type:'lyric',text:'Both hands up! 🙌'},
+  {t:27000,type:'demo',action:'both',emoji:'🙌',label:'BOTH UP!',instr:'Watch!'},
+  {t:27800,type:'open',action:'both',emoji:'🙌',label:'BOTH UP!',instr:'BOTH up high!',pts:150},
+  {t:29800,type:'close',action:'both'},
+  
+  // 30-33: "Clap clap"
+  {t:30000,type:'lyric',text:'Clap! 👏'},
+  {t:30000,type:'demo',action:'clap',emoji:'👏',label:'CLAP!',instr:'Watch!'},
+  {t:30800,type:'open',action:'clap',emoji:'👏',label:'CLAP!',instr:'Clap clap!',pts:150},
+  {t:32800,type:'close',action:'clap'},
+  
+  // 33-36: "Right hand up"
+  {t:33000,type:'lyric',text:'Right hand! 👉'},
+  {t:33000,type:'demo',action:'right',emoji:'👉',label:'RIGHT HAND!',instr:'Watch!'},
+  {t:33800,type:'open',action:'right',emoji:'👉',label:'RIGHT HAND!',instr:'RIGHT hand up!',pts:150},
+  {t:35800,type:'close',action:'right'},
+  
+  // 36-39: "Left hand up"
+  {t:36000,type:'lyric',text:'Left hand! 👈'},
+  {t:36000,type:'demo',action:'left',emoji:'👈',label:'LEFT HAND!',instr:'Watch!'},
+  {t:36800,type:'open',action:'left',emoji:'👈',label:'LEFT HAND!',instr:'LEFT hand up!',pts:150},
+  {t:38800,type:'close',action:'left'},
+  
+  // 39-42: "Hands on head"
+  {t:39000,type:'lyric',text:'Hands on head! 🙆'},
+  {t:39000,type:'demo',action:'head',emoji:'🙆',label:'HANDS ON HEAD!',instr:'Watch!'},
+  {t:39800,type:'open',action:'head',emoji:'🙆',label:'HANDS ON HEAD!',instr:'Touch your head!',pts:200},
+  {t:41800,type:'close',action:'head'},
+  
+  // 42-45: "Freeze!"
+  {t:42000,type:'lyric',text:'❄️ FREEZE! ❄️'},
+  {t:42000,type:'demo',action:'freeze',emoji:'❄️',label:'FREEZE!',instr:"Don't move!"},
+  {t:42500,type:'open',action:'freeze',emoji:'❄️',label:'FREEZE!',instr:"DON'T MOVE!",pts:300},
+  {t:44800,type:'close',action:'freeze'},
+  
+  // 45-60: "Great job!"
+  {t:45000,type:'lyric',text:'🌟 Great job! 🌟'},
+  {t:48000,type:'lyric',text:'You are AMAZING! 🎉'},
+  {t:52000,type:'lyric',text:'High five! ✋'},
+  {t:56000,type:'lyric',text:'Dance party! 💃'},
 ];
 
 // Game
@@ -798,15 +953,19 @@ function startGame(){
   const vid=document.getElementById('nova-video');
   vid.currentTime=0;vid.loop=true;vid.play().catch(()=>{});
 
-  // JS-based timer instead of song audio
-  const gameStartTime=Date.now();
-  window._gameStart=gameStartTime;
+  // Play hello.mp3 song — drives the timeline
+  const audio=new Audio('hello.mp3');
+  audio.volume=0.85;
+  window._audio=audio;
+  audio.play().catch(()=>{});
+  audio.onended=()=>setTimeout(endGame,1200);
 
-  novaReact('Game just started! 4-word excitement burst!','Lets go! Dance time!','💃');
+  novaReact('Game just started! 4-word excitement burst!','Lets dance together!','💃');
 
+  window._freezeBuf=null; // reset so freeze detection re-builds
   songTimer=setInterval(()=>{
-    const elapsed=Date.now()-window._gameStart;
-    if(elapsed>=SONG_DURATION+500){endGame();return;}
+    const a=window._audio;
+    const elapsed=a&&!a.paused?a.currentTime*1000:0;
     const pct=Math.min(100,(elapsed/SONG_DURATION)*100);
     
     document.getElementById('progress-fill').style.width=pct+'%';
@@ -863,6 +1022,7 @@ function startGame(){
 
 function endGame(){
   clearInterval(songTimer);setGreenFlash(false);
+  if(window._audio){try{window._audio.pause();}catch(e){}}
   document.getElementById('nova-video').pause();
   const rate=attempts>0?hits/attempts:0;
   const stars=rate>=0.9?5:rate>=0.7?4:rate>=0.5?3:rate>=0.3?2:1;
