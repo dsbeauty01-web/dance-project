@@ -36,7 +36,7 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
 #intro-inner{display:flex;height:100%;width:100%}
 
 /* Avatar left — 60% */
-#av-col{width:60%;display:flex;flex-direction:column;align-items:center;
+#av-col{width:65%;display:flex;flex-direction:column;align-items:center;
   justify-content:center;gap:20px;padding:32px;position:relative}
 #av-ring{width:min(320px,48vw);aspect-ratio:1;border-radius:50%;overflow:hidden;
   background:#0a0018;
@@ -44,8 +44,16 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
   box-shadow:0 0 80px rgba(255,111,216,0.25),0 0 160px rgba(124,111,255,0.15);
   position:relative}
 #av-video{width:100%;height:100%;object-fit:cover;display:none}
-#av-idle{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  font-size:80px;background:radial-gradient(ellipse at 50% 40%,#2d0a5a,#0a0018)}
+#av-idle{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:16px;background:radial-gradient(ellipse at 50% 40%,#2d0a5a,#0a0018)}
+#av-idle-emoji{font-size:72px;animation:avFloat 2s ease-in-out infinite}
+#av-idle-dots{display:flex;gap:6px}
+#av-idle-dots span{width:8px;height:8px;border-radius:50%;background:rgba(255,111,216,0.5);
+  animation:avDot 1.2s ease-in-out infinite}
+#av-idle-dots span:nth-child(2){animation-delay:.2s}
+#av-idle-dots span:nth-child(3){animation-delay:.4s}
+@keyframes avFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes avDot{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
 #av-status{font-size:13px;color:rgba(255,111,216,0.7);text-align:center;
   background:rgba(0,0,0,0.4);border-radius:20px;padding:5px 16px}
 #av-name{font-family:"Fredoka One",cursive;font-size:28px;color:#ff6fd8;
@@ -54,7 +62,7 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
 /* Chat right — 40% */
 #chat-col{flex:1;display:flex;flex-direction:column;padding:24px 20px;gap:14px;
   background:rgba(0,0,0,0.35);border-left:1px solid rgba(255,111,216,0.1)}
-#chat-header{font-family:"Fredoka One",cursive;font-size:20px;color:#a78bfa;flex-shrink:0}
+#chat-header{font-family:"Fredoka One",cursive;font-size:20px;color:#ff6fd8;flex-shrink:0;padding-bottom:8px;border-bottom:1px solid rgba(255,111,216,0.15)}
 #chat-log{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;
   padding-right:4px;scrollbar-width:thin;scrollbar-color:rgba(255,111,216,0.3) transparent}
 .bubble-nova{background:rgba(124,111,255,0.15);border:1px solid rgba(124,111,255,0.25);
@@ -119,11 +127,11 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
   transition:width .1s linear;border-radius:3px}
 
 /* Split — 65/35 */
-#split{flex:1;display:grid;grid-template-columns:65fr 35fr;min-height:0;position:relative}
+#split{flex:1;display:grid;grid-template-columns:70fr 30fr;min-height:0;position:relative}
 
 /* NOVA SIDE */
 #nova-side{position:relative;overflow:hidden;background:#0a0018}
-#nova-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#0a0018}
+#nova-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#0a0018}
 
 /* Reaction bubble — bottom of nova side */
 #react-bubble{position:absolute;bottom:70px;left:50%;transform:translateX(-50%) scale(0);
@@ -253,7 +261,10 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
       <div id="av-name">Nova</div>
       <div id="av-ring">
         <video id="av-video" autoplay playsinline muted></video>
-        <div id="av-idle">🌟</div>
+        <div id="av-idle">
+  <div id="av-idle-emoji">🌟</div>
+  <div id="av-idle-dots"><span></span><span></span><span></span></div>
+</div>
       </div>
       <div id="av-status">Connecting...</div>
     </div>
@@ -457,7 +468,7 @@ const didCallbacks={
 };
 
 function initDID(){
-  avStatus.textContent='Connecting Nova...';
+  avStatus.textContent='Connecting...';
   createAgentManager(AGENT_ID,{
     auth:{type:'key',clientKey:CLIENT_KEY},
     callbacks:didCallbacks,
@@ -503,6 +514,7 @@ function novaSpeak(text){
 }
 
 async function novaGreet(){
+  window._greeted=true;
   const reply=await novaThink(
     'A child just opened your dance game! Greet them warmly, introduce yourself as Nova the dance teacher. Ask their name! 2 sentences max.',
     100
@@ -839,6 +851,20 @@ speechSynthesis.onvoiceschanged=()=>speechSynthesis.getVoices();
 document.getElementById('nova-video').load();
 initSpeech();
 initDID();
+
+// Greet immediately via LLM + TTS — don't wait for D-ID
+setTimeout(async()=>{
+  if(!window._greeted){
+    window._greeted=true;
+    const reply=await novaThink(
+      'A child just opened your dance game! Greet them warmly, introduce yourself as Nova the dance teacher. Ask their name! 2 sentences max.',100
+    );
+    const text=reply||"Hi! I am Nova your magical dance teacher! What is your name?";
+    addBubble(text,'nova');
+    tts(text);
+    document.getElementById('dance-btn').classList.add('ready');
+  }
+},800);
 
 navigator.mediaDevices.getUserMedia({
   video:{width:{ideal:1280},height:{ideal:720},facingMode:'user'},audio:false
