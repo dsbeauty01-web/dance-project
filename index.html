@@ -110,19 +110,17 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
 /* GAME */
 #phase-game{z-index:8;background:#0f0020}
 
-/* D-ID Nova face — sits ON THE BORDER between nova and cam panels */
-/* Positioned at 60% width line (where the split is), centered vertically in upper area */
-#game-nova-face{position:absolute;top:18%;left:60%;
-  transform:translate(-50%,-50%);z-index:30;
-  width:min(22vw,220px);height:min(22vw,220px);
+/* D-ID Nova face — top-left corner of Nova panel */
+#game-nova-face{position:absolute;top:16px;left:16px;z-index:30;
+  width:140px;height:140px;
   border-radius:50%;overflow:hidden;
   background:#0a0018;border:4px solid rgba(255,111,216,0.85);
-  box-shadow:0 0 40px rgba(255,111,216,0.6),0 0 90px rgba(124,111,255,0.4);
+  box-shadow:0 6px 30px rgba(0,0,0,0.3),0 0 40px rgba(255,111,216,0.5);
   transition:all .35s cubic-bezier(.34,1.56,.64,1)}
 #game-nova-face.speaking{
   border-color:#00ff99;
-  box-shadow:0 0 60px rgba(0,255,150,0.7),0 0 120px rgba(124,111,255,0.5);
-  width:min(26vw,260px);height:min(26vw,260px)}
+  box-shadow:0 6px 30px rgba(0,0,0,0.3),0 0 60px rgba(0,255,150,0.7);
+  width:200px;height:200px}
 #game-nova-face video{width:100%;height:100%;object-fit:cover;display:block}
 #game-nova-idle{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   font-size:60px;background:radial-gradient(ellipse at 50% 40%,#2d0a5a,#0a0018)}
@@ -133,8 +131,11 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
 #logo{font-family:"Fredoka One",cursive;font-size:18px;
   background:linear-gradient(135deg,#ff6fd8,#7c6fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 #streak-badge{background:linear-gradient(135deg,#ffd700,#ff9900);
-  border-radius:20px;padding:2px 10px;font-family:"Fredoka One",cursive;
-  font-size:13px;color:#000;display:none}
+  border-radius:20px;padding:4px 14px;font-family:"Fredoka One",cursive;
+  font-size:14px;color:#000;display:none;
+  box-shadow:0 0 20px rgba(255,215,0,0.5);
+  animation:streakPulse 1.5s ease-in-out infinite}
+@keyframes streakPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 #streak-badge.show{display:block}
 #tbar-right{display:flex;align-items:center;gap:14px}
 #score-display{font-family:"Fredoka One",cursive;font-size:18px;color:#ffd700;
@@ -147,46 +148,52 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
 #split{flex:1;display:grid;grid-template-columns:60fr 40fr;min-height:0;position:relative}
 
 /* NOVA SIDE */
-#nova-side{position:relative;overflow:hidden;background:#f5f0f8}
-#nova-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#f5f0f8}
+#nova-side{position:relative;overflow:hidden;
+  background:linear-gradient(135deg,#fce7f3 0%,#fef3c7 35%,#e0e7ff 70%,#fce7f3 100%);
+  background-size:400% 400%;animation:bgShift 12s ease infinite}
+@keyframes bgShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+#nova-video{position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;object-position:center 30%;background:transparent}
 
 /* Reaction bubble — bottom of nova side */
-#react-bubble{position:absolute;bottom:80px;left:50%;transform:translateX(-50%) scale(0);
-  z-index:15;background:rgba(0,0,0,0.92);border:2px solid #ff6fd8;
+#react-bubble{position:absolute;bottom:24px;left:50%;transform:translateX(-50%) scale(0);
+  z-index:15;background:rgba(255,255,255,0.95);border:3px solid #ff6fd8;
   border-radius:22px;padding:12px 24px;font-family:"Fredoka One",cursive;
-  font-size:clamp(15px,2.2vw,20px);color:#fff;max-width:88%;
-  box-shadow:0 0 50px rgba(255,111,216,0.4);
+  font-size:clamp(15px,2.2vw,22px);color:#1a0030;max-width:88%;
+  box-shadow:0 8px 30px rgba(255,111,216,0.4);
   transition:transform .3s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;text-align:center}
 #react-bubble.show{transform:translateX(-50%) scale(1)}
 
 /* Action cue — on nova side, upper area */
-#action-cue{position:absolute;top:55%;left:50%;transform:translate(-50%,-50%) scale(0);
+#action-cue{position:absolute;top:16px;right:16px;transform:scale(0);
   z-index:16;text-align:center;pointer-events:none;
   transition:transform .3s cubic-bezier(.34,1.56,.64,1);
-  background:rgba(0,0,0,0.9);border-radius:28px;padding:18px 28px;
-  border:3px solid rgba(255,111,216,0.6);
-  box-shadow:0 0 60px rgba(255,111,216,0.2);min-width:200px}
-#action-cue.show{transform:translate(-50%,-50%) scale(1)}
+  background:rgba(0,0,0,0.9);border-radius:20px;padding:12px 18px;
+  border:3px solid rgba(255,111,216,0.7);
+  box-shadow:0 4px 20px rgba(0,0,0,0.3);min-width:160px;transform-origin:top right}
+#action-cue.show{transform:scale(1)}
 #action-cue.live{border-color:#00ff99;box-shadow:0 0 60px rgba(0,255,150,0.4)}
-#cue-emoji{font-size:clamp(56px,9vw,88px);display:block;line-height:1}
-#cue-label{font-family:"Fredoka One",cursive;font-size:clamp(20px,3.5vw,28px);
-  color:#ff6fd8;display:block;margin-top:6px}
-#cue-instr{font-size:clamp(12px,1.8vw,15px);color:rgba(255,255,255,0.75);
-  font-weight:700;display:block;margin-top:4px}
+#cue-emoji{font-size:clamp(36px,5vw,52px);display:block;line-height:1}
+#cue-label{font-family:"Fredoka One",cursive;font-size:clamp(16px,2.5vw,22px);
+  color:#ff6fd8;display:block;margin-top:4px}
+#cue-instr{font-size:clamp(11px,1.5vw,13px);color:rgba(255,255,255,0.75);
+  font-weight:700;display:block;margin-top:2px}
 #cue-timer{height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;margin-top:10px}
 #cue-bar{height:100%;width:100%;transform-origin:left;background:linear-gradient(90deg,#00ff99,#00d2ff)}
 @keyframes timerShrink{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 
 /* Lyrics — full width, bottom */
-#lyric-box{position:absolute;bottom:20px;left:0;right:0;text-align:center;z-index:5;pointer-events:none}
-#lyric-text{font-family:"Fredoka One",cursive;font-size:clamp(20px,3.8vw,32px);
-  color:#fff;text-shadow:0 2px 20px rgba(0,0,0,0.9);opacity:0;
-  transition:opacity .3s;padding:0 16px}
+#lyric-box{position:absolute;top:170px;left:0;right:0;text-align:center;z-index:5;pointer-events:none;padding:0 16px}
+#lyric-text{font-family:"Fredoka One",cursive;font-size:clamp(22px,4vw,38px);
+  background:linear-gradient(135deg,#ff6fd8,#7c6fff);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  text-shadow:0 4px 20px rgba(0,0,0,0.15);opacity:0;
+  transition:opacity .3s;padding:0 16px;letter-spacing:.02em}
 #lyric-text.show{opacity:1}
 
 /* CAM SIDE */
 #cam-side{position:relative;background:#080812;overflow:hidden}
-#webcam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#webcam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);filter:brightness(1.25) contrast(1.05)}
 /* Glowing border on detection */
 #cam-border{position:absolute;inset:0;border:3px solid transparent;
   border-radius:0;pointer-events:none;z-index:3;transition:border-color .12s,box-shadow .12s}
@@ -268,7 +275,7 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
   <h1>Nova Dance</h1>
   <p>Your magical AI dance teacher is waiting!<br>Talk to Nova, then dance together.</p>
   <button class="btn-primary" onclick="showPhase('phase-intro')">Meet Nova ✨</button>
-  <div class="version">v26 — Bridge layout</div>
+  <div class="version">v27 — UX cleanup</div>
 </div>
 
 <!-- ═══ INTRO ═══ -->
