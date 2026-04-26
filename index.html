@@ -109,6 +109,22 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
 
 /* GAME */
 #phase-game{z-index:8;background:#0f0020}
+
+/* Nova face bubble — always visible in game corner */
+#game-nova-face{position:absolute;top:16px;left:16px;z-index:18;
+  width:120px;height:120px;border-radius:50%;overflow:hidden;
+  background:#0a0018;border:3px solid rgba(255,111,216,0.7);
+  box-shadow:0 0 30px rgba(255,111,216,0.4);
+  transition:all .35s cubic-bezier(.34,1.56,.64,1)}
+#game-nova-face.bursting{
+  width:min(45vw,360px);height:min(45vw,360px);
+  top:50%;left:50%;transform:translate(-50%,-50%);
+  border-width:5px;
+  box-shadow:0 0 80px rgba(255,111,216,0.8),0 0 160px rgba(124,111,255,0.5)}
+#game-nova-face video{width:100%;height:100%;object-fit:cover;display:block}
+#game-nova-idle{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:48px;background:radial-gradient(ellipse at 50% 40%,#2d0a5a,#0a0018)}
+#game-nova-face.bursting #game-nova-idle{font-size:120px}
 #topbar{display:flex;align-items:center;justify-content:space-between;
   padding:8px 18px;background:rgba(0,0,0,0.7);backdrop-filter:blur(12px);
   z-index:10;flex-shrink:0;border-bottom:1px solid rgba(255,111,216,0.1)}
@@ -127,7 +143,7 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
   transition:width .1s linear;border-radius:3px}
 
 /* Split — 65/35 */
-#split{flex:1;display:grid;grid-template-columns:70fr 30fr;min-height:0;position:relative}
+#split{flex:1;display:grid;grid-template-columns:75fr 25fr;min-height:0;position:relative}
 
 /* NOVA SIDE */
 #nova-side{position:relative;overflow:hidden;background:#0a0018}
@@ -301,6 +317,11 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
       <video id="nova-video" loop playsinline muted>
         <source src="nova-dance.mp4" type="video/mp4">
       </video>
+      <!-- Always-visible Nova face bubble -->
+      <div id="game-nova-face">
+        <video id="game-nova-video" autoplay playsinline muted loop></video>
+        <div id="game-nova-idle">🌟</div>
+      </div>
       <div id="action-cue">
         <span id="cue-emoji">🙌</span>
         <span id="cue-label">BOTH UP!</span>
@@ -419,6 +440,11 @@ function showIdleVideo(){
     // Also set end screen video
     endAvVideo.src=idle;
     endAvVideo.play().catch(()=>{});
+    // And the in-game face bubble
+    const gv=document.getElementById('game-nova-video');
+    if(gv){gv.src=idle;gv.play().catch(()=>{});}
+    document.getElementById('game-nova-idle').style.display='none';
+    gv.style.display='block';
   }
 }
 
@@ -707,9 +733,20 @@ async function novaReact(prompt,fallback,emoji){
   const b=document.getElementById('react-bubble');
   b.textContent=(emoji||'🌟')+' '+text;
   b.classList.add('show');
+  // Burst the face bubble big!
+  const face=document.getElementById('game-nova-face');
+  face.classList.add('bursting');
   if(reactionTimer) clearTimeout(reactionTimer);
-  reactionTimer=setTimeout(()=>b.classList.remove('show'),3200);
-  tts(text);
+  reactionTimer=setTimeout(()=>{
+    b.classList.remove('show');
+    face.classList.remove('bursting');
+  },3200);
+  // Try to make D-ID speak it (with lipsync!)
+  if(connected&&agentManager){
+    agentManager.speak({type:'text',input:text}).catch(()=>{});
+  } else {
+    tts(text);
+  }
 }
 
 // Timeline
