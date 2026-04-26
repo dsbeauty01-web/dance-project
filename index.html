@@ -110,21 +110,20 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
 /* GAME */
 #phase-game{z-index:8;background:#0f0020}
 
-/* Nova face bubble — always visible in game corner */
-#game-nova-face{position:absolute;top:16px;left:16px;z-index:18;
-  width:120px;height:120px;border-radius:50%;overflow:hidden;
-  background:#0a0018;border:3px solid rgba(255,111,216,0.7);
-  box-shadow:0 0 30px rgba(255,111,216,0.4);
+/* D-ID Nova face — always visible in center, medium size */
+#game-nova-face{position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);z-index:18;
+  width:min(28vw,240px);height:min(28vw,240px);
+  border-radius:50%;overflow:hidden;
+  background:#0a0018;border:4px solid rgba(255,111,216,0.7);
+  box-shadow:0 0 40px rgba(255,111,216,0.4),0 0 80px rgba(124,111,255,0.25);
   transition:all .35s cubic-bezier(.34,1.56,.64,1)}
-#game-nova-face.bursting{
-  width:min(45vw,360px);height:min(45vw,360px);
-  top:50%;left:50%;transform:translate(-50%,-50%);
-  border-width:5px;
-  box-shadow:0 0 80px rgba(255,111,216,0.8),0 0 160px rgba(124,111,255,0.5)}
+#game-nova-face.speaking{
+  border-color:#00ff99;
+  box-shadow:0 0 60px rgba(0,255,150,0.5),0 0 120px rgba(124,111,255,0.4)}
 #game-nova-face video{width:100%;height:100%;object-fit:cover;display:block}
 #game-nova-idle{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  font-size:48px;background:radial-gradient(ellipse at 50% 40%,#2d0a5a,#0a0018)}
-#game-nova-face.bursting #game-nova-idle{font-size:120px}
+  font-size:80px;background:radial-gradient(ellipse at 50% 40%,#2d0a5a,#0a0018)}
 #topbar{display:flex;align-items:center;justify-content:space-between;
   padding:8px 18px;background:rgba(0,0,0,0.7);backdrop-filter:blur(12px);
   z-index:10;flex-shrink:0;border-bottom:1px solid rgba(255,111,216,0.1)}
@@ -143,14 +142,14 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
   transition:width .1s linear;border-radius:3px}
 
 /* Split — 65/35 */
-#split{flex:1;display:grid;grid-template-columns:75fr 25fr;min-height:0;position:relative}
+#split{flex:1;display:grid;grid-template-columns:70fr 30fr;min-height:0;position:relative}
 
 /* NOVA SIDE */
 #nova-side{position:relative;overflow:hidden;background:#0a0018}
-#nova-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#0a0018}
+#nova-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:radial-gradient(ellipse at 50% 30%,#2d0a5a,#0a0018)}
 
 /* Reaction bubble — bottom of nova side */
-#react-bubble{position:absolute;bottom:70px;left:50%;transform:translateX(-50%) scale(0);
+#react-bubble{position:absolute;bottom:80px;left:50%;transform:translateX(-50%) scale(0);
   z-index:15;background:rgba(0,0,0,0.92);border:2px solid #ff6fd8;
   border-radius:22px;padding:12px 24px;font-family:"Fredoka One",cursive;
   font-size:clamp(15px,2.2vw,20px);color:#fff;max-width:88%;
@@ -159,7 +158,7 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
 #react-bubble.show{transform:translateX(-50%) scale(1)}
 
 /* Action cue — on nova side, upper area */
-#action-cue{position:absolute;top:38%;left:50%;transform:translate(-50%,-50%) scale(0);
+#action-cue{position:absolute;top:14%;left:50%;transform:translate(-50%,-50%) scale(0);
   z-index:16;text-align:center;pointer-events:none;
   transition:transform .3s cubic-bezier(.34,1.56,.64,1);
   background:rgba(0,0,0,0.9);border-radius:28px;padding:18px 28px;
@@ -267,7 +266,7 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
   <h1>Nova Dance</h1>
   <p>Your magical AI dance teacher is waiting!<br>Talk to Nova, then dance together.</p>
   <button class="btn-primary" onclick="showPhase('phase-intro')">Meet Nova ✨</button>
-  <div class="version">v24 — redesigned</div>
+  <div class="version">v25 — D-ID center always live</div>
 </div>
 
 <!-- ═══ INTRO ═══ -->
@@ -733,13 +732,13 @@ async function novaReact(prompt,fallback,emoji){
   const b=document.getElementById('react-bubble');
   b.textContent=(emoji||'🌟')+' '+text;
   b.classList.add('show');
-  // Burst the face bubble big!
+  // Face glows green when Nova speaks
   const face=document.getElementById('game-nova-face');
-  face.classList.add('bursting');
+  face.classList.add('speaking');
   if(reactionTimer) clearTimeout(reactionTimer);
   reactionTimer=setTimeout(()=>{
     b.classList.remove('show');
-    face.classList.remove('bursting');
+    face.classList.remove('speaking');
   },3200);
   // Try to make D-ID speak it (with lipsync!)
   if(connected&&agentManager){
@@ -751,25 +750,25 @@ async function novaReact(prompt,fallback,emoji){
 
 // Timeline
 const TIMELINE=[
-  {t:500,type:'lyric',text:'🎵 Hello Hello! 🎵'},
-  {t:2500,type:'lyric',text:'Copy Nova when it turns green!'},
+  {t:500,type:'lyric',text:'Hello Hello! 🌟'},
+  {t:2500,type:'lyric',text:'Watch the green window — copy Nova!'},
   {t:4000,type:'helloL',lyric:'Hello,'},
   {t:5000,type:'helloR',lyric:'hello.'},
-  {t:6000,type:'lyric',text:'Can you clap your hands?'},
+  {t:6000,type:'lyric',text:'Raise both your arms!'},
   {t:6000,type:'demo',action:'both',emoji:'🙌',label:'BOTH UP!',instr:'Watch Nova!'},
   {t:8500,type:'open',action:'both',emoji:'🙌',label:'BOTH UP!',instr:'Raise BOTH arms!',pts:150},
   {t:11000,type:'close',action:'both'},
   {t:11500,type:'helloL',lyric:'Hello,'},
   {t:12500,type:'helloR',lyric:'hello.'},
-  {t:13500,type:'lyric',text:'Can you stretch up high?'},
+  {t:13500,type:'lyric',text:'Raise your RIGHT arm!'},
   {t:13500,type:'demo',action:'right',emoji:'👉',label:'RIGHT ARM!',instr:'Watch Nova!'},
   {t:16000,type:'open',action:'right',emoji:'👉',label:'RIGHT ARM!',instr:'Raise RIGHT arm!',pts:150},
   {t:18500,type:'close',action:'right'},
-  {t:19000,type:'lyric',text:'Can you touch your toes?'},
+  {t:19000,type:'lyric',text:'Raise your LEFT arm!'},
   {t:19000,type:'demo',action:'left',emoji:'👈',label:'LEFT ARM!',instr:'Watch Nova!'},
   {t:21500,type:'open',action:'left',emoji:'👈',label:'LEFT ARM!',instr:'Raise LEFT arm!',pts:150},
   {t:24000,type:'close',action:'left'},
-  {t:24500,type:'lyric',text:'Can you turn around?'},
+  {t:24500,type:'lyric',text:'BOTH arms UP high!'},
   {t:24500,type:'demo',action:'both',emoji:'🙌',label:'BOTH UP!',instr:'Watch Nova!'},
   {t:27000,type:'open',action:'both',emoji:'🙌',label:'BOTH UP!',instr:'BOTH arms UP!',pts:200},
   {t:29500,type:'close',action:'both'},
@@ -788,18 +787,19 @@ function startGame(){
   document.getElementById('prog-fill').style.width='0%';
 
   const vid=document.getElementById('nova-video');
-  vid.currentTime=0;vid.play().catch(()=>{});
+  vid.currentTime=0;vid.loop=true;vid.play().catch(()=>{});
 
-  const audio=new Audio('hello.mp3');
-  audio.volume=0.8;window._audio=audio;
-  audio.play().catch(()=>{});
-  audio.onended=()=>setTimeout(endGame,800);
+  // JS-based timer instead of song audio
+  const gameStartTime=Date.now();
+  window._gameStart=gameStartTime;
 
-  novaReact('Song just started! 4-word excitement burst!','Lets go! Dance time!','💃');
+  novaReact('Game just started! 4-word excitement burst!','Lets go! Dance time!','💃');
 
   songTimer=setInterval(()=>{
-    const elapsed=(window._audio?.currentTime||0)*1000;
+    const elapsed=Date.now()-window._gameStart;
+    if(elapsed>=SONG_DURATION+500){endGame();return;}
     const pct=Math.min(100,(elapsed/SONG_DURATION)*100);
+    
     document.getElementById('progress-fill').style.width=pct+'%';
     document.getElementById('prog-fill').style.width=pct+'%';
 
@@ -854,7 +854,6 @@ function startGame(){
 
 function endGame(){
   clearInterval(songTimer);setGreenFlash(false);
-  window._audio?.pause();
   document.getElementById('nova-video').pause();
   const rate=attempts>0?hits/attempts:0;
   const stars=rate>=0.9?5:rate>=0.7?4:rate>=0.5?3:rate>=0.3?2:1;
