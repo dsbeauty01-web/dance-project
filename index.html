@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -110,20 +111,22 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
 /* GAME */
 #phase-game{z-index:8;background:#0f0020}
 
-/* D-ID Nova face — always visible in center, medium size */
-#game-nova-face{position:absolute;top:50%;left:50%;
-  transform:translate(-50%,-50%);z-index:18;
-  width:min(28vw,240px);height:min(28vw,240px);
+/* D-ID Nova face — sits ON THE BORDER between nova and cam panels */
+/* Positioned at 60% width line (where the split is), centered vertically in upper area */
+#game-nova-face{position:absolute;top:18%;left:60%;
+  transform:translate(-50%,-50%);z-index:30;
+  width:min(18vw,180px);height:min(18vw,180px);
   border-radius:50%;overflow:hidden;
-  background:#0a0018;border:4px solid rgba(255,111,216,0.7);
-  box-shadow:0 0 40px rgba(255,111,216,0.4),0 0 80px rgba(124,111,255,0.25);
+  background:#0a0018;border:4px solid rgba(255,111,216,0.85);
+  box-shadow:0 0 40px rgba(255,111,216,0.6),0 0 90px rgba(124,111,255,0.4);
   transition:all .35s cubic-bezier(.34,1.56,.64,1)}
 #game-nova-face.speaking{
   border-color:#00ff99;
-  box-shadow:0 0 60px rgba(0,255,150,0.5),0 0 120px rgba(124,111,255,0.4)}
+  box-shadow:0 0 60px rgba(0,255,150,0.7),0 0 120px rgba(124,111,255,0.5);
+  width:min(22vw,220px);height:min(22vw,220px)}
 #game-nova-face video{width:100%;height:100%;object-fit:cover;display:block}
 #game-nova-idle{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  font-size:80px;background:radial-gradient(ellipse at 50% 40%,#2d0a5a,#0a0018)}
+  font-size:60px;background:radial-gradient(ellipse at 50% 40%,#2d0a5a,#0a0018)}
 #topbar{display:flex;align-items:center;justify-content:space-between;
   padding:8px 18px;background:rgba(0,0,0,0.7);backdrop-filter:blur(12px);
   z-index:10;flex-shrink:0;border-bottom:1px solid rgba(255,111,216,0.1)}
@@ -142,11 +145,11 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
   transition:width .1s linear;border-radius:3px}
 
 /* Split — 65/35 */
-#split{flex:1;display:grid;grid-template-columns:70fr 30fr;min-height:0;position:relative}
+#split{flex:1;display:grid;grid-template-columns:60fr 40fr;min-height:0;position:relative}
 
 /* NOVA SIDE */
-#nova-side{position:relative;overflow:hidden;background:#0a0018}
-#nova-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:radial-gradient(ellipse at 50% 30%,#2d0a5a,#0a0018)}
+#nova-side{position:relative;overflow:hidden;background:linear-gradient(135deg,#fce7f3 0%,#e9d5ff 50%,#dbeafe 100%)}
+#nova-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:transparent}
 
 /* Reaction bubble — bottom of nova side */
 #react-bubble{position:absolute;bottom:80px;left:50%;transform:translateX(-50%) scale(0);
@@ -158,7 +161,7 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
 #react-bubble.show{transform:translateX(-50%) scale(1)}
 
 /* Action cue — on nova side, upper area */
-#action-cue{position:absolute;top:14%;left:50%;transform:translate(-50%,-50%) scale(0);
+#action-cue{position:absolute;top:55%;left:50%;transform:translate(-50%,-50%) scale(0);
   z-index:16;text-align:center;pointer-events:none;
   transition:transform .3s cubic-bezier(.34,1.56,.64,1);
   background:rgba(0,0,0,0.9);border-radius:28px;padding:18px 28px;
@@ -266,7 +269,7 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
   <h1>Nova Dance</h1>
   <p>Your magical AI dance teacher is waiting!<br>Talk to Nova, then dance together.</p>
   <button class="btn-primary" onclick="showPhase('phase-intro')">Meet Nova ✨</button>
-  <div class="version">v25 — D-ID center always live</div>
+  <div class="version">v26 — Bridge layout</div>
 </div>
 
 <!-- ═══ INTRO ═══ -->
@@ -312,15 +315,15 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
     </div>
   </div>
   <div id="split">
+    <!-- D-ID face floats on border between nova and camera -->
+    <div id="game-nova-face">
+      <video id="game-nova-video" autoplay playsinline muted loop></video>
+      <div id="game-nova-idle">🌟</div>
+    </div>
     <div id="nova-side">
       <video id="nova-video" loop playsinline muted>
         <source src="nova-dance.mp4" type="video/mp4">
       </video>
-      <!-- Always-visible Nova face bubble -->
-      <div id="game-nova-face">
-        <video id="game-nova-video" autoplay playsinline muted loop></video>
-        <div id="game-nova-idle">🌟</div>
-      </div>
       <div id="action-cue">
         <span id="cue-emoji">🙌</span>
         <span id="cue-label">BOTH UP!</span>
