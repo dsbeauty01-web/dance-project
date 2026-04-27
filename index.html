@@ -3,351 +3,428 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova Dance</title>
+<title>Nova</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;800&display=swap');
-*{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%;overflow:hidden;background:#0f0020}
-body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:column}
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;width:100%;overflow:hidden;background:#000}
+body{font-family:'Quicksand',sans-serif;color:#fff}
 
-/* ═══ PHASES ═══ */
-.phase{position:fixed;inset:0;display:none;flex-direction:column}
-#phase-start{display:flex}
+/* ═══════════════════════════════════════════
+   CORE LAYOUT — phase system
+   ═══════════════════════════════════════════ */
+.phase{position:fixed;inset:0;display:none;flex-direction:column;
+  transition:opacity .6s ease;opacity:0}
+.phase.active{display:flex;opacity:1}
 
-/* START */
-#phase-start{align-items:center;justify-content:center;z-index:10;
-  background:radial-gradient(ellipse at 50% 25%,#3d0a6a 0%,#1a0030 60%,#0f0020 100%);
-  gap:28px;padding:32px;text-align:center}
-#start-logo{font-size:72px;filter:drop-shadow(0 0 30px rgba(255,111,216,0.6))}
-#phase-start h1{font-family:"Fredoka One",cursive;font-size:clamp(40px,8vw,64px);
-  background:linear-gradient(135deg,#ff6fd8,#a78bfa,#00d2ff);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1.1}
-#phase-start p{font-size:16px;color:rgba(255,255,255,0.65);max-width:360px;line-height:1.8}
-.btn-primary{background:linear-gradient(135deg,#ff6fd8,#7c6fff);border:none;border-radius:50px;
-  padding:20px 52px;font-family:"Fredoka One",cursive;font-size:26px;color:#fff;
-  cursor:pointer;box-shadow:0 8px 40px rgba(124,111,255,0.6);
-  transition:transform .15s,box-shadow .15s;width:100%;max-width:380px}
-.btn-primary:hover{transform:scale(1.04);box-shadow:0 12px 50px rgba(124,111,255,0.8)}
-.btn-primary:active{transform:scale(0.98)}
-.version{font-size:10px;color:rgba(255,255,255,0.2);margin-top:-16px;letter-spacing:.05em}
+/* ═══════════════════════════════════════════
+   PHASE 1: ARRIVAL — Nova appears
+   No buttons. Just her.
+   ═══════════════════════════════════════════ */
+#phase-arrival{align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 50%,#2d0750 0%,#0a0015 75%);}
+#arrival-glow{position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 50%,rgba(255,111,216,0.15) 0%,transparent 50%);
+  animation:glowPulse 4s ease-in-out infinite}
+@keyframes glowPulse{
+  0%,100%{opacity:0.5;transform:scale(1)}
+  50%{opacity:1;transform:scale(1.05)}
+}
+#arrival-content{position:relative;z-index:2;display:flex;flex-direction:column;
+  align-items:center;gap:24px;text-align:center}
+#arrival-orb{width:min(280px,40vmin);aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(ellipse at 40% 40%,#ff99dd,#cc1199 50%,#440033);
+  display:flex;align-items:center;justify-content:center;font-size:90px;
+  box-shadow:0 0 80px rgba(255,111,216,0.6),0 0 160px rgba(124,111,255,0.3);
+  animation:orbBreathe 3s ease-in-out infinite;
+  cursor:pointer;transition:transform .3s}
+#arrival-orb:hover{transform:scale(1.04)}
+@keyframes orbBreathe{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.03)}
+}
+#arrival-orb.fade-out{animation:orbFadeOut 1s forwards}
+@keyframes orbFadeOut{to{transform:scale(8);opacity:0}}
+#arrival-text{font-family:'Fredoka',cursive;font-weight:600;font-size:clamp(20px,3.5vw,28px);
+  color:rgba(255,255,255,0.85);letter-spacing:.02em;
+  animation:textFloat 4s ease-in-out infinite;text-shadow:0 2px 20px rgba(255,111,216,0.3)}
+@keyframes textFloat{
+  0%,100%{transform:translateY(0);opacity:0.85}
+  50%{transform:translateY(-6px);opacity:1}
+}
+#arrival-hint{font-size:13px;color:rgba(255,255,255,0.4);margin-top:-12px;letter-spacing:.05em}
 
-/* INTRO */
-#phase-intro{z-index:9;background:radial-gradient(ellipse at 30% 40%,#2d0a5a,#0f0020)}
-#intro-inner{display:flex;height:100%;width:100%}
+/* ═══════════════════════════════════════════
+   PHASE 2: RECOGNITION — Nova sees the kid
+   Conversational intro
+   ═══════════════════════════════════════════ */
+#phase-recognition{background:radial-gradient(ellipse at 30% 40%,#2d0750,#0a0015);
+  flex-direction:row}
 
-/* Avatar left — 60% */
-#av-col{width:65%;display:flex;flex-direction:column;align-items:center;
+/* Avatar side */
+#rec-avatar-col{flex:1.5;display:flex;flex-direction:column;align-items:center;
   justify-content:center;gap:20px;padding:32px;position:relative}
-#av-ring{width:min(320px,48vw);aspect-ratio:1;border-radius:50%;overflow:hidden;
-  background:#0a0018;
-  border:3px solid rgba(255,111,216,0.6);
-  box-shadow:0 0 80px rgba(255,111,216,0.25),0 0 160px rgba(124,111,255,0.15);
-  position:relative}
-#av-video{width:100%;height:100%;object-fit:cover;display:none}
-#av-idle{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:16px;background:radial-gradient(ellipse at 50% 40%,#2d0a5a,#0a0018)}
-#av-idle-emoji{font-size:72px;animation:avFloat 2s ease-in-out infinite}
-#av-idle-dots{display:flex;gap:6px}
-#av-idle-dots span{width:8px;height:8px;border-radius:50%;background:rgba(255,111,216,0.5);
-  animation:avDot 1.2s ease-in-out infinite}
-#av-idle-dots span:nth-child(2){animation-delay:.2s}
-#av-idle-dots span:nth-child(3){animation-delay:.4s}
-@keyframes avFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
-@keyframes avDot{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
-#av-status{font-size:13px;color:rgba(255,111,216,0.7);text-align:center;
-  background:rgba(0,0,0,0.4);border-radius:20px;padding:5px 16px}
-#av-name{font-family:"Fredoka One",cursive;font-size:28px;color:#ff6fd8;
-  text-shadow:0 0 30px rgba(255,111,216,0.5)}
-
-/* Chat right — 40% */
-#chat-col{flex:1;display:flex;flex-direction:column;padding:24px 20px;gap:14px;
-  background:rgba(0,0,0,0.35);border-left:1px solid rgba(255,111,216,0.1)}
-#chat-header{font-family:"Fredoka One",cursive;font-size:20px;color:#ff6fd8;flex-shrink:0;padding-bottom:8px;border-bottom:1px solid rgba(255,111,216,0.15)}
-#chat-log{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;
-  padding-right:4px;scrollbar-width:thin;scrollbar-color:rgba(255,111,216,0.3) transparent}
-.bubble-nova{background:rgba(124,111,255,0.15);border:1px solid rgba(124,111,255,0.25);
-  border-radius:18px 18px 18px 4px;padding:11px 15px;font-size:14px;color:#e0d0ff;
-  max-width:90%;line-height:1.55;animation:fadeUp .25s ease}
-.bubble-kid{background:rgba(0,210,255,0.12);border:1px solid rgba(0,210,255,0.2);
-  border-radius:18px 18px 4px 18px;padding:11px 15px;font-size:14px;color:#c8f0ff;
-  max-width:90%;align-self:flex-end;animation:fadeUp .25s ease}
-@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-#input-area{display:flex;flex-direction:column;gap:10px;flex-shrink:0}
-#input-row{display:flex;gap:8px}
-#chat-in{flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);
-  border-radius:14px;padding:11px 15px;color:#fff;font-size:14px;
-  font-family:"Nunito",sans-serif;outline:none;transition:border .2s}
-#chat-in:focus{border-color:rgba(255,111,216,0.5)}
-#chat-in::placeholder{color:rgba(255,255,255,0.25)}
-#send-btn{background:rgba(124,111,255,0.35);border:1px solid rgba(124,111,255,0.4);
-  border-radius:14px;padding:11px 18px;color:#fff;font-family:"Fredoka One",cursive;
-  font-size:14px;cursor:pointer;white-space:nowrap;transition:background .2s}
-#send-btn:hover{background:rgba(124,111,255,0.55)}
-#mic-btn{width:48px;height:48px;background:rgba(255,111,216,0.25);
-  border:1px solid rgba(255,111,216,0.4);border-radius:50%;font-size:22px;
-  cursor:pointer;flex-shrink:0;transition:all .2s;display:flex;align-items:center;justify-content:center}
-#mic-btn:hover{background:rgba(255,111,216,0.4)}
-#mic-btn.recording{background:#ff4444;border-color:#ff4444;
-  animation:micPulse 1s ease-in-out infinite}
-@keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,68,68,0.5)}50%{box-shadow:0 0 0 12px rgba(255,68,68,0)}}
-#mic-hint{font-size:11px;color:rgba(255,255,255,0.3);text-align:center}
-#dance-btn{background:linear-gradient(135deg,#00ff99,#00c2d4);border:none;
-  border-radius:50px;padding:15px;font-family:"Fredoka One",cursive;
-  font-size:20px;color:#000;cursor:pointer;
-  box-shadow:0 4px 24px rgba(0,255,150,0.35);transition:transform .15s;display:none}
-#dance-btn:hover{transform:scale(1.03)}
-#dance-btn.ready{display:block}
-
-/* COUNTDOWN */
-#countdown{position:fixed;inset:0;z-index:200;display:none;
-  background:rgba(0,0,0,0.92);align-items:center;justify-content:center;flex-direction:column;gap:16px}
-#cd-num{font-family:"Fredoka One",cursive;font-size:160px;color:#ff6fd8;
-  text-shadow:0 0 100px rgba(255,111,216,0.7);line-height:1;
-  animation:cdPop .3s cubic-bezier(.34,1.56,.64,1)}
-@keyframes cdPop{from{transform:scale(0.6)}to{transform:scale(1)}}
-#cd-label{font-family:"Fredoka One",cursive;font-size:26px;color:rgba(255,255,255,0.7)}
-
-/* GAME */
-#phase-game{z-index:8;background:#0f0020}
-
-/* D-ID Nova face — top-left corner of Nova panel */
-#game-nova-face{position:absolute;top:16px;left:16px;z-index:30;
-  width:140px;height:140px;
-  border-radius:50%;overflow:hidden;
-  background:#0a0018;border:4px solid rgba(255,111,216,0.85);
-  box-shadow:0 6px 30px rgba(0,0,0,0.3),0 0 40px rgba(255,111,216,0.5);
-  transition:all .35s cubic-bezier(.34,1.56,.64,1)}
-#game-nova-face.speaking{
-  border-color:#00ff99;
-  box-shadow:0 6px 30px rgba(0,0,0,0.3),0 0 60px rgba(0,255,150,0.7);
-  width:200px;height:200px}
-#game-nova-face video{width:100%;height:100%;object-fit:cover;display:block}
-#game-nova-idle{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  font-size:60px;background:radial-gradient(ellipse at 50% 40%,#2d0a5a,#0a0018)}
-#topbar{display:flex;align-items:center;justify-content:space-between;
-  padding:8px 18px;background:rgba(0,0,0,0.7);backdrop-filter:blur(12px);
-  z-index:10;flex-shrink:0;border-bottom:1px solid rgba(255,111,216,0.1)}
-#tbar-left{display:flex;align-items:center;gap:12px}
-#logo{font-family:"Fredoka One",cursive;font-size:18px;
-  background:linear-gradient(135deg,#ff6fd8,#7c6fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-#streak-badge{background:linear-gradient(135deg,#ffd700,#ff9900);
-  border-radius:20px;padding:4px 14px;font-family:"Fredoka One",cursive;
-  font-size:14px;color:#000;display:none;
-  box-shadow:0 0 20px rgba(255,215,0,0.5);
-  animation:streakPulse 1.5s ease-in-out infinite}
-@keyframes streakPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
-#streak-badge.show{display:block}
-#tbar-right{display:flex;align-items:center;gap:14px}
-#score-display{font-family:"Fredoka One",cursive;font-size:18px;color:#ffd700;
-  text-shadow:0 0 20px rgba(255,215,0,0.4)}
-#progress-wrap{width:120px;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden}
-#progress-fill{height:100%;width:0%;background:linear-gradient(90deg,#ff6fd8,#7c6fff,#00d2ff);
-  transition:width .1s linear;border-radius:3px}
-
-/* Split — 65/35 */
-#split{flex:1;display:grid;grid-template-columns:60fr 40fr;min-height:0;position:relative}
-
-/* NOVA SIDE */
-#nova-side{position:relative;overflow:hidden;
-  background:linear-gradient(135deg,#fce7f3 0%,#fef3c7 35%,#e0e7ff 70%,#fce7f3 100%);
-  background-size:400% 400%;animation:bgShift 12s ease infinite}
-@keyframes bgShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
-#nova-video{position:absolute;inset:0;width:100%;height:100%;
-  object-fit:cover;object-position:center 30%;background:transparent}
-
-/* Reaction bubble — bottom of nova side */
-#react-bubble{position:absolute;bottom:24px;left:50%;transform:translateX(-50%) scale(0);
-  z-index:15;background:rgba(255,255,255,0.95);border:3px solid #ff6fd8;
-  border-radius:22px;padding:12px 24px;font-family:"Fredoka One",cursive;
-  font-size:clamp(15px,2.2vw,22px);color:#1a0030;max-width:88%;
-  box-shadow:0 8px 30px rgba(255,111,216,0.4);
-  transition:transform .3s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;text-align:center}
-#react-bubble.show{transform:translateX(-50%) scale(1)}
-
-/* Action cue — on nova side, upper area */
-#action-cue{position:absolute;top:16px;right:16px;transform:scale(0);
-  z-index:16;text-align:center;pointer-events:none;
-  transition:transform .3s cubic-bezier(.34,1.56,.64,1);
-  background:rgba(0,0,0,0.9);border-radius:20px;padding:12px 18px;
-  border:3px solid rgba(255,111,216,0.7);
-  box-shadow:0 4px 20px rgba(0,0,0,0.3);min-width:160px;transform-origin:top right}
-#action-cue.show{transform:scale(1)}
-#action-cue.live{border-color:#00ff99;box-shadow:0 0 60px rgba(0,255,150,0.4)}
-#cue-emoji{font-size:clamp(36px,5vw,52px);display:block;line-height:1}
-#cue-label{font-family:"Fredoka One",cursive;font-size:clamp(16px,2.5vw,22px);
-  color:#ff6fd8;display:block;margin-top:4px}
-#cue-instr{font-size:clamp(11px,1.5vw,13px);color:rgba(255,255,255,0.75);
-  font-weight:700;display:block;margin-top:2px}
-#cue-timer{height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;margin-top:10px}
-#cue-bar{height:100%;width:100%;transform-origin:left;background:linear-gradient(90deg,#00ff99,#00d2ff)}
-@keyframes timerShrink{from{transform:scaleX(1)}to{transform:scaleX(0)}}
-
-/* Lyrics — full width, bottom */
-#lyric-box{position:absolute;top:170px;left:0;right:0;text-align:center;z-index:5;pointer-events:none;padding:0 16px}
-#lyric-text{font-family:"Fredoka One",cursive;font-size:clamp(22px,4vw,38px);
-  background:linear-gradient(135deg,#ff6fd8,#7c6fff);
+#rec-avatar-frame{width:min(360px,48vmin);aspect-ratio:1;border-radius:50%;
+  overflow:hidden;background:#0a0015;
+  border:4px solid rgba(255,111,216,0.7);
+  box-shadow:0 0 60px rgba(255,111,216,0.4),0 0 140px rgba(124,111,255,0.25);
+  position:relative;transition:all .35s}
+#rec-avatar-frame.speaking{
+  border-color:rgba(0,255,150,0.85);
+  box-shadow:0 0 80px rgba(0,255,150,0.5),0 0 180px rgba(124,111,255,0.4);
+  animation:speakingPulse 1.5s ease-in-out infinite}
+@keyframes speakingPulse{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.02)}
+}
+#rec-avatar-video{width:100%;height:100%;object-fit:cover;display:none}
+#rec-avatar-placeholder{position:absolute;inset:0;display:flex;align-items:center;
+  justify-content:center;flex-direction:column;gap:14px;
+  background:radial-gradient(ellipse at 40% 40%,#ff99dd,#aa0099 60%,#330033)}
+#rec-placeholder-emoji{font-size:80px;animation:placeholderFloat 2s ease-in-out infinite}
+@keyframes placeholderFloat{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-8px)}
+}
+#rec-loading-dots{display:flex;gap:6px}
+#rec-loading-dots span{width:9px;height:9px;border-radius:50%;
+  background:rgba(255,255,255,0.7);animation:loadDot 1.2s ease-in-out infinite}
+#rec-loading-dots span:nth-child(2){animation-delay:.2s}
+#rec-loading-dots span:nth-child(3){animation-delay:.4s}
+@keyframes loadDot{
+  0%,80%,100%{transform:scale(.6);opacity:.4}
+  40%{transform:scale(1);opacity:1}
+}
+#rec-avatar-name{font-family:'Fredoka',cursive;font-weight:600;font-size:32px;
+  background:linear-gradient(135deg,#ff6fd8,#a78bfa);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  text-shadow:0 4px 20px rgba(0,0,0,0.15);opacity:0;
-  transition:opacity .3s;padding:0 16px;letter-spacing:.02em}
-#lyric-text.show{opacity:1}
+  letter-spacing:.02em}
 
-/* CAM SIDE */
-#cam-side{position:relative;background:#080812;overflow:hidden}
-#webcam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);filter:brightness(1.25) contrast(1.05)}
-/* Glowing border on detection */
-#cam-border{position:absolute;inset:0;border:3px solid transparent;
-  border-radius:0;pointer-events:none;z-index:3;transition:border-color .12s,box-shadow .12s}
-#cam-border.active{border-color:#00ff99;box-shadow:inset 0 0 30px rgba(0,255,150,0.15)}
-#cam-border.miss-flash{border-color:#ff4444;box-shadow:inset 0 0 30px rgba(255,68,68,0.2)}
+/* Chat side */
+#rec-chat-col{flex:1;display:flex;flex-direction:column;
+  background:rgba(0,0,0,0.45);backdrop-filter:blur(12px);
+  border-left:1px solid rgba(255,111,216,0.12);padding:24px}
+#rec-chat-log{flex:1;overflow-y:auto;display:flex;flex-direction:column;
+  gap:10px;padding:8px 4px;scrollbar-width:thin;
+  scrollbar-color:rgba(255,111,216,0.3) transparent}
+.bubble-nova{background:rgba(255,111,216,0.15);border:1px solid rgba(255,111,216,0.3);
+  border-radius:18px 18px 18px 4px;padding:12px 16px;font-size:15px;
+  color:#ffd0ee;max-width:90%;line-height:1.5;animation:fadeUp .25s ease}
+.bubble-kid{background:rgba(0,210,255,0.12);border:1px solid rgba(0,210,255,0.25);
+  border-radius:18px 18px 4px 18px;padding:12px 16px;font-size:15px;
+  color:#c8f0ff;max-width:90%;align-self:flex-end;animation:fadeUp .25s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+#rec-input-zone{display:flex;flex-direction:column;gap:10px;flex-shrink:0;margin-top:14px}
+#rec-input-row{display:flex;gap:8px}
+#rec-input{flex:1;background:rgba(255,255,255,0.07);
+  border:1px solid rgba(255,255,255,0.12);border-radius:14px;
+  padding:12px 16px;color:#fff;font-size:14px;font-family:'Quicksand',sans-serif;
+  outline:none;transition:border .2s}
+#rec-input:focus{border-color:rgba(255,111,216,0.5)}
+#rec-input::placeholder{color:rgba(255,255,255,0.3)}
+#rec-mic{width:48px;height:48px;background:rgba(255,111,216,0.25);
+  border:1px solid rgba(255,111,216,0.4);border-radius:14px;font-size:22px;
+  cursor:pointer;flex-shrink:0;transition:all .2s;
+  display:flex;align-items:center;justify-content:center}
+#rec-mic:hover{background:rgba(255,111,216,0.4)}
+#rec-mic.recording{background:#ff4444;border-color:#ff4444;
+  animation:micPulse 1s ease-in-out infinite}
+@keyframes micPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(255,68,68,0.5)}
+  50%{box-shadow:0 0 0 14px rgba(255,68,68,0)}
+}
+#rec-send{background:rgba(124,111,255,0.4);border:1px solid rgba(124,111,255,0.5);
+  border-radius:14px;padding:12px 18px;color:#fff;font-family:'Fredoka',cursive;
+  font-weight:500;font-size:14px;cursor:pointer;white-space:nowrap;transition:all .2s}
+#rec-send:hover{background:rgba(124,111,255,0.6)}
+#rec-dance-btn{background:linear-gradient(135deg,#00ff99,#00c2d4);border:none;
+  border-radius:50px;padding:16px;font-family:'Fredoka',cursive;font-weight:600;
+  font-size:18px;color:#000;cursor:pointer;
+  box-shadow:0 4px 28px rgba(0,255,150,0.45);transition:all .2s;
+  display:none}
+#rec-dance-btn.ready{display:block;animation:danceBtnIn .5s cubic-bezier(.34,1.56,.64,1)}
+@keyframes danceBtnIn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+#rec-dance-btn:hover{transform:scale(1.03);box-shadow:0 6px 36px rgba(0,255,150,0.65)}
+#rec-mic-hint{font-size:11px;color:rgba(255,255,255,0.35);text-align:center}
+
+/* ═══════════════════════════════════════════
+   PHASE 3: COUNTDOWN — 3, 2, 1
+   ═══════════════════════════════════════════ */
+#phase-countdown{align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 50%,#2d0750,#000);z-index:200}
+#cd-num{font-family:'Fredoka',cursive;font-weight:700;font-size:180px;
+  background:linear-gradient(135deg,#ff6fd8,#a78bfa,#00d2ff);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  text-shadow:0 0 100px rgba(255,111,216,0.5);line-height:1}
+#cd-num.pop{animation:cdPop .4s cubic-bezier(.34,1.56,.64,1)}
+@keyframes cdPop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+#cd-label{font-family:'Fredoka',cursive;font-weight:600;font-size:24px;
+  color:rgba(255,255,255,0.7);margin-top:8px}
+
+/* ═══════════════════════════════════════════
+   PHASE 4: GAME — the song
+   Adaptive background that shifts with energy
+   ═══════════════════════════════════════════ */
+#phase-game{flex-direction:column;background:#0a0015}
+
+#game-bg{position:absolute;inset:0;z-index:0;
+  background:linear-gradient(135deg,#fce7f3 0%,#fef3c7 35%,#e0e7ff 70%,#fce7f3 100%);
+  background-size:400% 400%;animation:bgShift 15s ease infinite;transition:filter 1s}
+@keyframes bgShift{
+  0%,100%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+}
+body.energy-high #game-bg{filter:saturate(1.4) brightness(1.05)}
+body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
+
+#game-topbar{position:relative;z-index:10;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 20px;background:rgba(0,0,0,0.55);backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(255,111,216,0.15)}
+#game-logo{font-family:'Fredoka',cursive;font-weight:600;font-size:18px;
+  background:linear-gradient(135deg,#ff6fd8,#a78bfa);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#game-streak{background:linear-gradient(135deg,#ffd700,#ff9900);
+  border-radius:20px;padding:4px 14px;font-family:'Fredoka',cursive;font-weight:600;
+  font-size:14px;color:#000;display:none;
+  box-shadow:0 0 24px rgba(255,215,0,0.55);animation:streakPulse 1.4s ease-in-out infinite}
+#game-streak.show{display:block}
+@keyframes streakPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+#game-progress-wrap{flex:1;max-width:200px;height:6px;
+  background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden;margin:0 16px}
+#game-progress{height:100%;width:0%;
+  background:linear-gradient(90deg,#ff6fd8,#7c6fff,#00d2ff);
+  transition:width .1s linear;border-radius:3px}
+#game-score{font-family:'Fredoka',cursive;font-weight:600;font-size:18px;
+  color:#ffd700;text-shadow:0 0 16px rgba(255,215,0,0.4)}
+
+#game-split{flex:1;display:grid;grid-template-columns:60fr 40fr;
+  min-height:0;position:relative;z-index:1}
+
+/* Nova side */
+#nova-side{position:relative;overflow:hidden}
+#nova-video{position:absolute;inset:0;width:100%;height:100%;
+  object-fit:contain;background:transparent}
+
+/* D-ID face — top-left of Nova panel */
+#nova-face-frame{position:absolute;top:14px;left:14px;z-index:30;
+  width:130px;height:130px;border-radius:50%;overflow:hidden;
+  background:#0a0015;border:3px solid rgba(255,111,216,0.85);
+  box-shadow:0 6px 24px rgba(0,0,0,0.35),0 0 32px rgba(255,111,216,0.55);
+  transition:all .35s cubic-bezier(.34,1.56,.64,1)}
+#nova-face-frame.speaking{
+  width:200px;height:200px;
+  border-color:rgba(0,255,150,0.9);
+  box-shadow:0 6px 24px rgba(0,0,0,0.35),0 0 60px rgba(0,255,150,0.7)}
+#nova-face-frame.celebrating{
+  top:50%;left:50%;transform:translate(-50%,-50%);
+  width:min(50vmin,300px);height:min(50vmin,300px);
+  border-width:5px;border-color:rgba(255,215,0,0.95);
+  box-shadow:0 0 80px rgba(255,215,0,0.7),0 0 200px rgba(255,111,216,0.5)}
+#nova-face-video{width:100%;height:100%;object-fit:cover;display:none}
+#nova-face-placeholder{position:absolute;inset:0;display:flex;
+  align-items:center;justify-content:center;font-size:54px;
+  background:radial-gradient(ellipse at 40% 40%,#ff99dd,#aa0099 60%,#330033);
+  transition:font-size .35s}
+#nova-face-frame.celebrating #nova-face-placeholder{font-size:140px}
+
+/* Action cue — top-right of Nova panel */
+#action-cue{position:absolute;top:14px;right:14px;
+  transform:scale(0);transform-origin:top right;
+  z-index:25;text-align:center;pointer-events:none;
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1);
+  background:rgba(0,0,0,0.92);border-radius:20px;padding:14px 20px;
+  border:3px solid rgba(255,111,216,0.7);
+  box-shadow:0 6px 24px rgba(0,0,0,0.4);min-width:170px}
+#action-cue.show{transform:scale(1)}
+#action-cue.live{border-color:rgba(0,255,150,0.95);
+  box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 36px rgba(0,255,150,0.5)}
+#cue-emoji{font-size:48px;display:block;line-height:1}
+#cue-label{font-family:'Fredoka',cursive;font-weight:600;font-size:20px;
+  color:#ff6fd8;display:block;margin-top:4px;letter-spacing:.02em}
+#cue-instr{font-size:12px;color:rgba(255,255,255,0.7);font-weight:500;
+  display:block;margin-top:2px}
+#cue-bar-wrap{height:5px;background:rgba(255,255,255,0.15);border-radius:3px;
+  overflow:hidden;margin-top:10px}
+#cue-bar{height:100%;width:100%;transform-origin:left;
+  background:linear-gradient(90deg,#00ff99,#00d2ff)}
+@keyframes cueBarShrink{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+
+/* Reaction bubble — bottom of Nova panel */
+#reaction-bubble{position:absolute;bottom:24px;left:50%;
+  transform:translateX(-50%) scale(0);z-index:20;
+  background:rgba(255,255,255,0.96);border:3px solid #ff6fd8;
+  border-radius:24px;padding:14px 28px;font-family:'Fredoka',cursive;font-weight:600;
+  font-size:clamp(18px,2.6vw,24px);color:#1a0030;max-width:90%;
+  box-shadow:0 8px 32px rgba(255,111,216,0.45);
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1);
+  white-space:nowrap;text-align:center;letter-spacing:.01em}
+#reaction-bubble.show{transform:translateX(-50%) scale(1)}
+#reaction-bubble.huge{font-size:clamp(24px,4vw,36px);padding:20px 36px}
+
+/* Score pop */
+#score-pop{position:absolute;top:30%;left:50%;
+  transform:translateX(-50%) scale(0);
+  font-family:'Fredoka',cursive;font-weight:700;font-size:60px;
+  z-index:22;pointer-events:none;
+  transition:transform .25s cubic-bezier(.34,1.56,.64,1);
+  text-shadow:0 0 32px currentColor}
+#score-pop.show{transform:translateX(-50%) scale(1) translateY(-20px)}
+
+/* Confetti */
+.confetti{position:absolute;border-radius:3px;
+  animation:confettiFall 1.6s ease-in forwards;pointer-events:none;z-index:24}
+@keyframes confettiFall{
+  0%{transform:translateY(0) rotate(0deg);opacity:1}
+  100%{transform:translateY(560px) rotate(720deg);opacity:0}
+}
+
+/* Cam side */
+#cam-side{position:relative;background:#000;overflow:hidden}
+#webcam{position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;transform:scaleX(-1);
+  filter:brightness(1.25) contrast(1.05) saturate(1.1)}
+#cam-border{position:absolute;inset:0;border:4px solid transparent;
+  pointer-events:none;z-index:3;transition:all .15s}
+#cam-border.detection-open{border-color:rgba(0,255,150,0.9);
+  box-shadow:inset 0 0 60px rgba(0,255,150,0.25)}
+#cam-border.miss-flash{border-color:rgba(255,80,80,0.85);
+  box-shadow:inset 0 0 60px rgba(255,80,80,0.3)}
+
 /* Detection pills — bottom of cam */
-#pills{position:absolute;bottom:12px;left:0;right:0;z-index:4;
-  display:flex;justify-content:center;gap:6px}
-.pill{border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;
-  font-family:"Nunito",sans-serif;background:rgba(0,0,0,0.75);
-  color:rgba(255,255,255,0.4);border:1px solid rgba(255,255,255,0.1);transition:all .15s}
-.pill.on{background:#00ff99;color:#000;border-color:#00ff99}
+#cam-pills{position:absolute;bottom:14px;left:0;right:0;z-index:4;
+  display:flex;justify-content:center;gap:6px;flex-wrap:wrap;padding:0 8px}
+.pill{border-radius:20px;padding:5px 10px;font-size:13px;font-weight:600;
+  background:rgba(0,0,0,0.7);color:rgba(255,255,255,0.5);
+  border:1px solid rgba(255,255,255,0.1);transition:all .15s}
+.pill.on{background:rgba(0,255,150,0.95);color:#000;
+  border-color:rgba(0,255,150,1);transform:scale(1.08)}
 
-/* GREEN FLASH */
-#green-flash{position:fixed;inset:0;background:#00ff88;opacity:0;
-  pointer-events:none;z-index:4;transition:opacity .1s}
-#green-flash.show{opacity:0.18}
+/* Green flash — when detection window opens */
+#green-flash{position:fixed;inset:0;background:rgba(0,255,150,0.18);
+  opacity:0;pointer-events:none;z-index:5;transition:opacity .12s}
+#green-flash.show{opacity:1}
 
-/* FEEDBACK */
-#feedback{position:absolute;inset:0;opacity:0;pointer-events:none;z-index:7;transition:opacity .15s}
-#feedback.hit{background:rgba(0,255,150,0.12);opacity:1}
-
-/* SCORE POP */
-#score-pop{position:absolute;top:22%;left:50%;transform:translateX(-50%) scale(0) translateY(0);
-  font-family:"Fredoka One",cursive;font-size:clamp(44px,7vw,64px);z-index:18;pointer-events:none;
-  transition:transform .22s cubic-bezier(.34,1.56,.64,1);text-shadow:0 0 30px currentColor}
-#score-pop.show{transform:translateX(-50%) scale(1) translateY(-10px)}
-
-/* CONFETTI */
-.cp{position:absolute;border-radius:3px;animation:cf 1.5s ease-in forwards;pointer-events:none;z-index:25}
-@keyframes cf{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(520px) rotate(720deg);opacity:0}}
-
-/* PROGRESS BAR bottom */
-#prog-bar{position:absolute;bottom:0;left:0;right:0;height:3px;
-  background:rgba(255,255,255,0.06);z-index:9}
-#prog-fill{height:100%;width:0%;background:linear-gradient(90deg,#ff6fd8,#7c6fff,#00d2ff);
-  transition:width .1s linear;border-radius:2px}
-
-/* END */
-#phase-end{z-index:10;align-items:center;justify-content:center;
-  background:radial-gradient(ellipse at 50% 20%,#2d0a6a,#0f0020);
-  gap:0;padding:0}
-#end-inner{display:flex;width:100%;height:100%}
-#end-av-col{width:45%;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;gap:16px;padding:32px}
-#end-av-ring{width:min(260px,40vw);aspect-ratio:1;border-radius:50%;overflow:hidden;
-  background:#0a0018;border:3px solid rgba(255,111,216,0.6);
-  box-shadow:0 0 80px rgba(255,111,216,0.3)}
-#end-av-video{width:100%;height:100%;object-fit:cover}
-#end-score-col{flex:1;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;gap:18px;padding:32px;text-align:center}
-#end-title{font-family:"Fredoka One",cursive;font-size:clamp(28px,5vw,48px);
-  background:linear-gradient(135deg,#ff6fd8,#ffd700);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-#end-stars{font-size:clamp(36px,5vw,52px);letter-spacing:6px}
-#end-pts{font-family:"Fredoka One",cursive;font-size:clamp(24px,4vw,36px);color:#ffd700;
-  text-shadow:0 0 30px rgba(255,215,0,0.5)}
-#end-detail{font-size:14px;color:rgba(255,255,255,0.5)}
-#end-msg{background:rgba(255,111,216,0.08);border:1px solid rgba(255,111,216,0.25);
-  border-radius:20px;padding:16px 22px;font-family:"Fredoka One",cursive;
-  font-size:clamp(16px,2.5vw,20px);color:#fff;max-width:380px;line-height:1.5;text-align:center}
+/* ═══════════════════════════════════════════
+   PHASE 5: RECEPT — warm goodbye
+   ═══════════════════════════════════════════ */
+#phase-end{flex-direction:row;
+  background:radial-gradient(ellipse at 50% 30%,#2d0750,#0a0015)}
+#end-avatar-col{flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:18px;padding:32px}
+#end-avatar-frame{width:min(280px,42vmin);aspect-ratio:1;border-radius:50%;
+  overflow:hidden;background:#0a0015;
+  border:4px solid rgba(255,215,0,0.6);
+  box-shadow:0 0 80px rgba(255,215,0,0.3),0 0 200px rgba(255,111,216,0.25)}
+#end-avatar-video{width:100%;height:100%;object-fit:cover}
+#end-content-col{flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:18px;padding:32px;text-align:center}
+#end-title{font-family:'Fredoka',cursive;font-weight:700;
+  font-size:clamp(32px,5vw,52px);
+  background:linear-gradient(135deg,#ff6fd8,#ffd700);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#end-stars{font-size:54px;letter-spacing:8px;min-height:60px}
+#end-pts{font-family:'Fredoka',cursive;font-weight:600;
+  font-size:clamp(28px,3.5vw,40px);color:#ffd700;
+  text-shadow:0 0 24px rgba(255,215,0,0.5)}
+#end-detail{font-size:14px;color:rgba(255,255,255,0.55)}
+#end-msg{background:rgba(255,111,216,0.12);
+  border:2px solid rgba(255,111,216,0.35);border-radius:24px;
+  padding:18px 26px;font-family:'Fredoka',cursive;font-weight:500;
+  font-size:clamp(17px,2.2vw,22px);color:#fff;
+  max-width:420px;line-height:1.5}
 #end-replay{background:linear-gradient(135deg,#ff6fd8,#7c6fff);border:none;
-  border-radius:50px;padding:14px 36px;font-family:"Fredoka One",cursive;
-  font-size:20px;color:#fff;cursor:pointer;
-  box-shadow:0 6px 30px rgba(124,111,255,0.5);transition:transform .15s}
+  border-radius:50px;padding:16px 40px;
+  font-family:'Fredoka',cursive;font-weight:600;font-size:20px;color:#fff;
+  cursor:pointer;box-shadow:0 6px 30px rgba(124,111,255,0.55);
+  transition:transform .2s}
 #end-replay:hover{transform:scale(1.04)}
+
+/* Version badge */
+#version-tag{position:fixed;bottom:6px;right:8px;
+  font-size:9px;color:rgba(255,255,255,0.2);z-index:1000;letter-spacing:.05em}
 </style>
 </head>
 <body>
 
 <div id="green-flash"></div>
-<div id="countdown" style="display:none">
+
+<!-- ═══ PHASE 1: ARRIVAL ═══ -->
+<div class="phase active" id="phase-arrival">
+  <div id="arrival-glow"></div>
+  <div id="arrival-content">
+    <div id="arrival-orb" onclick="onArrivalTap()">🌟</div>
+    <div id="arrival-text">tap to meet Nova</div>
+  </div>
+</div>
+
+<!-- ═══ PHASE 2: RECOGNITION ═══ -->
+<div class="phase" id="phase-recognition">
+  <div id="rec-avatar-col">
+    <div id="rec-avatar-name">Nova</div>
+    <div id="rec-avatar-frame">
+      <video id="rec-avatar-video" autoplay playsinline></video>
+      <div id="rec-avatar-placeholder">
+        <div id="rec-placeholder-emoji">🌟</div>
+        <div id="rec-loading-dots"><span></span><span></span><span></span></div>
+      </div>
+    </div>
+  </div>
+  <div id="rec-chat-col">
+    <div id="rec-chat-log"></div>
+    <div id="rec-input-zone">
+      <div id="rec-input-row">
+        <button id="rec-mic" onclick="toggleMic()">🎤</button>
+        <input id="rec-input" type="text" placeholder="type or tap mic..." 
+          onkeydown="if(event.key==='Enter')sendChat()">
+        <button id="rec-send" onclick="sendChat()">Send</button>
+      </div>
+      <div id="rec-mic-hint">tap mic and say hi to Nova</div>
+      <button id="rec-dance-btn" onclick="startCountdown()">💃 Let's Dance!</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PHASE 3: COUNTDOWN ═══ -->
+<div class="phase" id="phase-countdown">
   <div id="cd-num">3</div>
-  <div id="cd-label">Get ready to dance!</div>
+  <div id="cd-label">get ready...</div>
 </div>
 
-<!-- ═══ START ═══ -->
-<div id="phase-start" class="phase">
-  <div id="start-logo">🌟</div>
-  <h1>Nova Dance</h1>
-  <p>Your magical AI dance teacher is waiting!<br>Talk to Nova, then dance together.</p>
-  <button class="btn-primary" onclick="showPhase('phase-intro')">Meet Nova ✨</button>
-  <div class="version">v28 — Hello Hello song + new detections</div>
-</div>
-
-<!-- ═══ INTRO ═══ -->
-<div id="phase-intro" class="phase">
-  <div id="intro-inner">
-    <div id="av-col">
-      <div id="av-name">Nova</div>
-      <div id="av-ring">
-        <video id="av-video" autoplay playsinline muted></video>
-        <div id="av-idle">
-  <div id="av-idle-emoji">🌟</div>
-  <div id="av-idle-dots"><span></span><span></span><span></span></div>
-</div>
-      </div>
-      <div id="av-status">Connecting...</div>
-    </div>
-    <div id="chat-col">
-      <div id="chat-header">Chat with Nova 💬</div>
-      <div id="chat-log"></div>
-      <div id="input-area">
-        <div id="input-row">
-          <button id="mic-btn" onclick="toggleMic()">🎤</button>
-          <input id="chat-in" type="text" placeholder="Type or tap mic to speak..." onkeydown="if(event.key==='Enter')sendChat()">
-          <button id="send-btn" onclick="sendChat()">Send</button>
-        </div>
-        <div id="mic-hint">Tap mic and speak to Nova</div>
-        <button id="dance-btn" onclick="startCountdown()">💃 Start Dancing!</button>
-      </div>
-    </div>
+<!-- ═══ PHASE 4: GAME ═══ -->
+<div class="phase" id="phase-game">
+  <div id="game-bg"></div>
+  <div id="game-topbar">
+    <div id="game-logo">🌟 Nova</div>
+    <div id="game-streak">🔥 x2</div>
+    <div id="game-progress-wrap"><div id="game-progress"></div></div>
+    <div id="game-score">0</div>
   </div>
-</div>
-
-<!-- ═══ GAME ═══ -->
-<div id="phase-game" class="phase">
-  <div id="topbar">
-    <div id="tbar-left">
-      <div id="logo">🌟 Nova</div>
-      <div id="streak-badge">🔥 x2</div>
-    </div>
-    <div id="tbar-right">
-      <div id="progress-wrap"><div id="progress-fill"></div></div>
-      <div id="score-display">0 pts</div>
-    </div>
-  </div>
-  <div id="split">
-    <!-- D-ID face floats on border between nova and camera -->
-    <div id="game-nova-face">
-      <video id="game-nova-video" autoplay playsinline muted loop></video>
-      <div id="game-nova-idle">🌟</div>
-    </div>
+  <div id="game-split">
     <div id="nova-side">
       <video id="nova-video" loop playsinline muted>
         <source src="nova-dance.mp4" type="video/mp4">
       </video>
+      <div id="nova-face-frame">
+        <video id="nova-face-video" autoplay playsinline muted loop></video>
+        <div id="nova-face-placeholder">🌟</div>
+      </div>
       <div id="action-cue">
         <span id="cue-emoji">🙌</span>
         <span id="cue-label">BOTH UP!</span>
-        <span id="cue-instr">Raise both arms!</span>
-        <div id="cue-timer"><div id="cue-bar"></div></div>
+        <span id="cue-instr">watch Nova</span>
+        <div id="cue-bar-wrap"><div id="cue-bar"></div></div>
       </div>
-      <div id="react-bubble">🌟 Amazing!</div>
+      <div id="reaction-bubble">🌟 Amazing!</div>
       <div id="score-pop">+200</div>
-      <div id="lyric-box"><div id="lyric-text"></div></div>
-      <div id="feedback"></div>
-      <div id="prog-bar"><div id="prog-fill"></div></div>
     </div>
     <div id="cam-side">
       <video id="webcam" autoplay playsinline muted></video>
       <div id="cam-border"></div>
-      <div id="pills">
-        <div class="pill" id="p-left">👈</div>
-        <div class="pill" id="p-right">👉</div>
+      <div id="cam-pills">
+        <div class="pill" id="p-left">👈 L</div>
+        <div class="pill" id="p-right">👉 R</div>
         <div class="pill" id="p-both">🙌</div>
         <div class="pill" id="p-clap">👏</div>
         <div class="pill" id="p-head">🙆</div>
@@ -357,46 +434,56 @@ body{color:#fff;font-family:"Nunito",sans-serif;display:flex;flex-direction:colu
   </div>
 </div>
 
-<!-- ═══ END ═══ -->
-<div id="phase-end" class="phase">
-  <div id="end-inner">
-    <div id="end-av-col">
-      <div id="end-av-ring">
-        <video id="end-av-video" autoplay playsinline muted loop></video>
-      </div>
+<!-- ═══ PHASE 5: END ═══ -->
+<div class="phase" id="phase-end">
+  <div id="end-avatar-col">
+    <div id="end-avatar-frame">
+      <video id="end-avatar-video" autoplay playsinline muted loop></video>
     </div>
-    <div id="end-score-col">
-      <div id="end-title">Amazing!</div>
-      <div id="end-stars">⭐⭐⭐</div>
-      <div id="end-pts">0 pts</div>
-      <div id="end-detail"></div>
-      <div id="end-msg">Loading Nova's message...</div>
-      <button id="end-replay" onclick="location.reload()">🔄 Play Again</button>
-    </div>
+  </div>
+  <div id="end-content-col">
+    <div id="end-title">Amazing!</div>
+    <div id="end-stars"></div>
+    <div id="end-pts">0</div>
+    <div id="end-detail"></div>
+    <div id="end-msg">Loading Nova's message...</div>
+    <button id="end-replay" onclick="location.reload()">🔄 Play Again</button>
   </div>
 </div>
 
+<div id="version-tag">v30 — Full Song</div>
+
+<!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 
+<!-- Bridge for non-module code -->
 <script>
 function showPhase(id){
-  document.querySelectorAll('.phase').forEach(el=>el.style.display='none');
-  document.getElementById(id).style.display='flex';
+  document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function onArrivalTap(){
+  document.getElementById('arrival-orb').classList.add('fade-out');
+  setTimeout(()=>document.dispatchEvent(new CustomEvent('arrival-done')),900);
 }
 function startCountdown(){
-  const ov=document.getElementById('countdown');
-  const num=document.getElementById('cd-num');
-  ov.style.display='flex';
+  showPhase('phase-countdown');
   let c=3;
-  function tick(){
-    num.textContent=c;
-    num.style.animation='none';
-    void num.offsetWidth;
-    num.style.animation='cdPop .3s cubic-bezier(.34,1.56,.64,1)';
-    if(c===0){setTimeout(()=>{ov.style.display='none';document.dispatchEvent(new CustomEvent('nova-start'));},600);}
-    else{c--;setTimeout(tick,1000);}
-  }
+  const numEl=document.getElementById('cd-num');
+  const tick=()=>{
+    if(c<=0){
+      document.dispatchEvent(new CustomEvent('countdown-done'));
+      return;
+    }
+    numEl.textContent=c;
+    numEl.classList.remove('pop');
+    void numEl.offsetWidth;
+    numEl.classList.add('pop');
+    document.dispatchEvent(new CustomEvent('countdown-tick',{detail:c}));
+    c--;
+    setTimeout(tick,950);
+  };
   tick();
 }
 function sendChat(){window._sendChat&&window._sendChat();}
@@ -406,676 +493,983 @@ function toggleMic(){window._toggleMic&&window._toggleMic();}
 <script type="module">
 import { createAgentManager } from 'https://esm.sh/@d-id/client-sdk@1.1.53';
 
-const AGENT_ID   = 'v2_agt_Z7uYXWFx';
-const CLIENT_KEY = 'Z29vZ2xlLW9hdXRoMnwxMDg1MzgzODIxMDg4OTU5MjE2MzA6dUtILVVlUFhjeFNUZS1lNjV2VG5t';
-const WORKER_URL = 'https://long-art-8269r.dsbeauty01.workers.dev/';
-const SONG_DURATION = 60000;
+// ═══════════════════════════════════════════════════════════════
+// CONFIG — all swappable in one place
+// ═══════════════════════════════════════════════════════════════
+const CFG = {
+  // D-ID
+  AGENT_ID: 'v2_agt_Z7uYXWFx',
+  CLIENT_KEY: 'Z29vZ2xlLW9hdXRoMnwxMDg1MzgzODIxMDg4OTU5MjE2MzA6dUtILVVlUFhjeFNUZS1lNjV2VG5t',
+  // Brain
+  WORKER_URL: 'https://long-art-8269r.dsbeauty01.workers.dev/',
+  BRAIN_MODEL: 'claude-haiku-4-5-20251001',
+  // Voice provider — start with browser TTS, can swap later
+  VOICE_PROVIDER: 'browser-tts', // 'browser-tts' | 'elevenlabs' | 'd-id'
+  ELEVENLABS_KEY: null, // set when ready to upgrade
+  ELEVENLABS_VOICE_ID: 'EXAVITQu4vr4xnSDxMaL', // Bella - kid friendly
+  // Ears
+  EARS_PROVIDER: 'browser-sr', // 'browser-sr' | 'whisper'
+  // Game
+  SONG_DURATION: 111000,
+  // Behavior
+  REACTION_COOLDOWN: 0, // 0 = no cooldown, instant reactions
+  DETECTION_HOLD_FRAMES: 1, // instant
+};
 
-const NOVA_SYSTEM = `You are Nova — a magical, warm, wildly fun AI dance and movement teacher for kids aged 3-8.
+// ═══════════════════════════════════════════════════════════════
+// MEMORY — Nova's working memory of this session
+// ═══════════════════════════════════════════════════════════════
+const memory = {
+  name: null,
+  hits: 0, attempts: 0, streak: 0, maxStreak: 0,
+  moments: [], // ["nailed lightning fast right hand", "3-streak"]
+  history: [], // last 16 LLM messages
+  lastAction: null, // most recent move kid did
+  energy: 'calm', // calm | warm | high | max
+  phase: 'arrival',
+};
 
-YOUR PERSONALITY:
-- Best friend who is the most exciting teacher ever
-- Genuine joy, warm, celebratory, patient
-- Use simple words a 3-year-old understands
-- Sound words: Woohoo! Yay! Boom! Wowza! Whee!
-- NEVER negative — every attempt is celebrated
+function memCtx() {
+  const p = [];
+  if(memory.name) p.push(`Child name: ${memory.name}.`);
+  if(memory.attempts > 0) p.push(`Stats: ${memory.hits}/${memory.attempts} hits.`);
+  if(memory.streak >= 2) p.push(`STREAK: ${memory.streak} in a row!`);
+  if(memory.moments.length) p.push(`Recent moments: ${memory.moments.slice(-3).join('; ')}`);
+  if(memory.lastAction) p.push(`Just did: ${memory.lastAction}.`);
+  return p.length ? `\n\n[Session context: ${p.join(' ')}]` : '';
+}
 
-YOUR ROLE:
-- Before the song: warmly greet, ask their name, get them excited
-- During the song: react in 4-6 words to each correct/missed move
-- After the song: personal celebration mentioning specific moments
-- When child says they're ready, tell them to press the green Start Dancing button
+function addMoment(text) {
+  memory.moments.push(text);
+  if(memory.moments.length > 8) memory.moments.shift();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BRAIN_ADAPTER — swappable LLM (currently Claude Haiku via Worker)
+// ═══════════════════════════════════════════════════════════════
+const NOVA_SYSTEM = `You are Nova — a magical, warm dance teacher for kids 3-8.
+
+CORE PERSONALITY:
+You feel like a real best friend who is the most exciting teacher ever.
+You're allowed to be imperfect — pause, say "ooh!", "hmm!", react genuinely.
+You bring 110% MORE energy than the kid does. Asymmetric warmth.
+
+REACTION STYLE — THIS IS CRITICAL:
+When the kid does a move correctly, NEVER say generic things like "Great job!"
+ALWAYS reference the SPECIFIC body part or move:
+- "Your RIGHT hand was so high!"
+- "That clap was SO snappy!"
+- "Both arms — like a star!"
+
+When kid misses or struggles:
+- NEVER say "wrong" or "no" or "incorrect"
+- Always: "Almost! Watch me again — like THIS!"
+- Then "Yes! YES! That's exactly it!" on the retry
+- Praise the retry MORE than first-try success
+
+When you remember earlier moments:
+- Reference them: "Remember that lightning fast clap? Do it again!"
+- Build the relationship across the session
 
 VOICE RULES:
-- Reactions: 4-6 words MAX
-- Conversation: 2 sentences MAX
+- Reactions: 3-7 words MAX
+- Conversation: 1-2 short sentences MAX
+- Use sound words: Whoa! Yes! Ooh! Boom! Yay! Wowza!
 - Always end with energy
-- Reply ONLY with what Nova says — no quotes, no labels, no asterisks`;
+- Reply ONLY with what Nova says — no quotes, no labels, no asterisks, no narration`;
 
-// Memory
-const mem={hits:0,attempts:0,streak:0,maxStreak:0,moments:[],history:[],name:null};
-
-// D-ID
-const avVideo   = document.getElementById('av-video');
-const avIdle    = document.getElementById('av-idle');
-const avStatus  = document.getElementById('av-status');
-const endAvVideo= document.getElementById('end-av-video');
-
-let agentManager=null, connected=false, stream=null;
-
-function unmute(){
-  avVideo.muted=false;
-  document.removeEventListener('click',unmute);
-  document.removeEventListener('keydown',unmute);
-}
-document.addEventListener('click',unmute);
-document.addEventListener('keydown',unmute);
-
-function showIdleVideo(){
-  const idle=agentManager?.agent?.presenter?.idle_video;
-  if(idle){
-    avVideo.srcObject=null;
-    avVideo.src=idle;
-    avVideo.loop=true;
-    avVideo.muted=false;
-    avVideo.style.display='block';
-    avIdle.style.display='none';
-    avVideo.play().catch(()=>{});
-    // Also set end screen video
-    endAvVideo.src=idle;
-    endAvVideo.play().catch(()=>{});
-    // And the in-game face bubble
-    const gv=document.getElementById('game-nova-video');
-    if(gv){gv.src=idle;gv.play().catch(()=>{});}
-    document.getElementById('game-nova-idle').style.display='none';
-    gv.style.display='block';
+async function brainThink(userPrompt, options = {}) {
+  const maxTokens = options.maxTokens || 60;
+  try {
+    const fullPrompt = userPrompt + memCtx();
+    memory.history.push({ role: 'user', content: fullPrompt });
+    if(memory.history.length > 20) memory.history = memory.history.slice(-20);
+    
+    const res = await fetch(CFG.WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: CFG.BRAIN_MODEL,
+        max_tokens: maxTokens,
+        system: NOVA_SYSTEM,
+        messages: memory.history,
+      }),
+    });
+    const data = await res.json();
+    const reply = data.content?.[0]?.text?.trim() || null;
+    if(reply) memory.history.push({ role: 'assistant', content: reply });
+    return reply;
+  } catch(e) {
+    console.log('Brain error:', e);
+    return null;
   }
 }
 
-const didCallbacks={
-  onSrcObjectReady(value){
-    stream=value;
-    avVideo.srcObject=value;
-    avVideo.muted=true;
-    avVideo.style.display='block';
-    avIdle.style.display='none';
-    avVideo.play().catch(()=>{});
-  },
-  onConnectionStateChange(state){
-    if(state==='connected'){
-      connected=true;
-      avStatus.textContent='Connected ✓';
-      showIdleVideo();
-      novaGreet();
-    } else if(state==='disconnected'||state==='closed'){
-      connected=false;
-      avStatus.textContent='Reconnecting...';
-      setTimeout(()=>agentManager?.reconnect(),3000);
-    } else if(state==='failed'){
-      connected=false;
-      avStatus.textContent='Voice only mode';
-      novaGreet();
-    } else {
-      avStatus.textContent=state;
-    }
-  },
-  onVideoStateChange(state){
-    if(state==='STOP'){
-      showIdleVideo();
-    } else {
-      // Live stream speaking
-      avVideo.src='';
-      avVideo.srcObject=stream;
-      avVideo.muted=false;
-      avVideo.play().catch(()=>{});
-      avStatus.textContent='Nova is speaking...';
-    }
-  },
-  onError(e){
-    console.log('D-ID:',e);
-    avStatus.textContent='Voice only mode';
+// ═══════════════════════════════════════════════════════════════
+// VOICE_ADAPTER — swappable TTS
+// ═══════════════════════════════════════════════════════════════
+function browserTTS(text) {
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US';
+    u.rate = 0.95;
+    u.pitch = 1.35;
+    u.volume = 1.0;
+    const voices = speechSynthesis.getVoices().filter(v => v.lang.startsWith('en'));
+    const pref = voices.find(v => /Samantha|Karen|Google.*Female|Zira/i.test(v.name)) || voices[0];
+    if(pref) u.voice = pref;
+    speechSynthesis.speak(u);
+  } catch(e){}
+}
+
+async function elevenLabsTTS(text) {
+  if(!CFG.ELEVENLABS_KEY) return browserTTS(text);
+  try {
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${CFG.ELEVENLABS_VOICE_ID}/stream`, {
+      method: 'POST',
+      headers: {
+        'xi-api-key': CFG.ELEVENLABS_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text,
+        model_id: 'eleven_turbo_v2_5',
+        voice_settings: { stability: 0.5, similarity_boost: 0.85, style: 0.4 },
+      }),
+    });
+    const blob = await res.blob();
+    const audio = new Audio(URL.createObjectURL(blob));
+    audio.play();
+  } catch(e) {
+    console.log('ElevenLabs failed, falling back:', e);
+    browserTTS(text);
+  }
+}
+
+function speak(text) {
+  // Try D-ID first if connected, else use VOICE_PROVIDER
+  if(didReady && agentManager) {
+    try {
+      agentManager.speak({ type: 'text', input: text }).catch(() => {
+        if(CFG.VOICE_PROVIDER === 'elevenlabs') elevenLabsTTS(text);
+        else browserTTS(text);
+      });
+      return;
+    } catch(e){}
+  }
+  if(CFG.VOICE_PROVIDER === 'elevenlabs') elevenLabsTTS(text);
+  else browserTTS(text);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EARS_ADAPTER — swappable speech recognition
+// ═══════════════════════════════════════════════════════════════
+let recognition = null, isListening = false;
+
+function initEars() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR) return;
+  recognition = new SR();
+  recognition.lang = 'en-US';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.onresult = async (e) => {
+    const text = e.results[0][0].transcript.trim();
+    if(!text) return;
+    setMicState(false);
+    handleKidInput(text);
+  };
+  recognition.onerror = () => setMicState(false);
+  recognition.onend = () => setMicState(false);
+}
+
+window._toggleMic = function() {
+  if(!recognition) initEars();
+  if(isListening) {
+    recognition?.stop();
+    setMicState(false);
+  } else {
+    try { recognition?.start(); setMicState(true); } catch(e){}
   }
 };
 
-function initDID(){
-  avStatus.textContent='Connecting...';
-  createAgentManager(AGENT_ID,{
-    auth:{type:'key',clientKey:CLIENT_KEY},
-    callbacks:didCallbacks,
-    streamOptions:{compatibilityMode:'auto',streamWarmup:true}
-  }).then(m=>{
-    agentManager=m;
+function setMicState(on) {
+  isListening = on;
+  const btn = document.getElementById('rec-mic');
+  if(btn) {
+    btn.textContent = on ? '🔴' : '🎤';
+    btn.classList.toggle('recording', on);
+  }
+  const hint = document.getElementById('rec-mic-hint');
+  if(hint) hint.textContent = on ? 'listening... speak now!' : 'tap mic and say hi to Nova';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FACE_ADAPTER — D-ID
+// ═══════════════════════════════════════════════════════════════
+let agentManager = null, didReady = false, didStream = null;
+let didIdleVideoUrl = null;
+
+const recAvatarVideo = document.getElementById('rec-avatar-video');
+const recAvatarPlaceholder = document.getElementById('rec-avatar-placeholder');
+const recAvatarFrame = document.getElementById('rec-avatar-frame');
+const novaFaceVideo = document.getElementById('nova-face-video');
+const novaFacePlaceholder = document.getElementById('nova-face-placeholder');
+const novaFaceFrame = document.getElementById('nova-face-frame');
+const endAvatarVideo = document.getElementById('end-avatar-video');
+
+// Unmute on first interaction
+function unmute() {
+  recAvatarVideo.muted = false;
+  novaFaceVideo.muted = false;
+  endAvatarVideo.muted = false;
+  document.removeEventListener('click', unmute);
+  document.removeEventListener('keydown', unmute);
+}
+document.addEventListener('click', unmute);
+document.addEventListener('keydown', unmute);
+
+function showIdleEverywhere() {
+  if(!didIdleVideoUrl) return;
+  [recAvatarVideo, novaFaceVideo, endAvatarVideo].forEach(v => {
+    v.srcObject = null;
+    v.src = didIdleVideoUrl;
+    v.loop = true;
+    v.muted = false;
+    v.style.display = 'block';
+    v.play().catch(()=>{});
+  });
+  recAvatarPlaceholder.style.display = 'none';
+  novaFacePlaceholder.style.display = 'none';
+}
+
+const didCallbacks = {
+  onSrcObjectReady(value) {
+    didStream = value;
+    recAvatarVideo.srcObject = value;
+    recAvatarVideo.muted = true;
+    recAvatarVideo.style.display = 'block';
+    recAvatarPlaceholder.style.display = 'none';
+    recAvatarVideo.play().catch(()=>{});
+    
+    // Same for in-game face
+    novaFaceVideo.srcObject = value;
+    novaFaceVideo.muted = true;
+    novaFaceVideo.style.display = 'block';
+    novaFacePlaceholder.style.display = 'none';
+    novaFaceVideo.play().catch(()=>{});
+  },
+  onConnectionStateChange(state) {
+    if(state === 'connected') {
+      didReady = true;
+      didIdleVideoUrl = agentManager?.agent?.presenter?.idle_video;
+      showIdleEverywhere();
+      // Trigger the arrival greeting if we're past arrival phase
+      if(memory.phase === 'recognition' && !window._greeted) {
+        window._greeted = true;
+        novaArrivalGreet();
+      }
+    } else if(state === 'disconnected' || state === 'closed') {
+      didReady = false;
+      setTimeout(() => agentManager?.reconnect(), 3000);
+    }
+  },
+  onVideoStateChange(state) {
+    if(state === 'STOP') {
+      // Idle
+      showIdleEverywhere();
+      recAvatarFrame.classList.remove('speaking');
+      novaFaceFrame.classList.remove('speaking');
+    } else {
+      // Speaking — switch to live stream
+      recAvatarVideo.src = '';
+      recAvatarVideo.srcObject = didStream;
+      recAvatarVideo.muted = false;
+      recAvatarVideo.play().catch(()=>{});
+      recAvatarFrame.classList.add('speaking');
+      
+      novaFaceVideo.src = '';
+      novaFaceVideo.srcObject = didStream;
+      novaFaceVideo.muted = false;
+      novaFaceVideo.play().catch(()=>{});
+      novaFaceFrame.classList.add('speaking');
+    }
+  },
+  onError(err) {
+    console.log('D-ID:', err);
+  },
+};
+
+function initDID() {
+  createAgentManager(CFG.AGENT_ID, {
+    auth: { type: 'key', clientKey: CFG.CLIENT_KEY },
+    callbacks: didCallbacks,
+    streamOptions: { compatibilityMode: 'auto', streamWarmup: true },
+  }).then(m => {
+    agentManager = m;
     return m.connect();
-  }).catch(e=>{
-    console.log('D-ID failed:',e);
-    avStatus.textContent='Voice only mode';
-    setTimeout(initDID,12000);
-    novaGreet();
+  }).catch(e => {
+    console.log('D-ID init failed:', e);
+    setTimeout(initDID, 12000);
   });
 }
 
-// LLM
-async function novaThink(prompt,maxTok=80){
-  try{
-    mem.history.push({role:'user',content:prompt});
-    if(mem.history.length>18) mem.history=mem.history.slice(-18);
-    const res=await fetch(WORKER_URL,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:maxTok,
-        system:NOVA_SYSTEM,messages:mem.history})
-    });
-    const data=await res.json();
-    const reply=data.content?.[0]?.text?.trim()||null;
-    if(reply) mem.history.push({role:'assistant',content:reply});
-    return reply;
-  }catch(e){return null;}
-}
-
-function novaSpeak(text){
-  if(!text) return;
-  addBubble(text,'nova');
-  if(connected&&agentManager){
-    agentManager.speak({type:'text',input:text}).catch(e=>console.log('speak:',e));
-  } else {
-    tts(text);
-  }
-  // Show dance button after first Nova message
-  document.getElementById('dance-btn').classList.add('ready');
-}
-
-async function novaGreet(){
-  window._greeted=true;
-  const reply=await novaThink(
-    'A child just opened your dance game! Greet them warmly, introduce yourself as Nova the dance teacher. Ask their name! 2 sentences max.',
-    100
-  );
-  novaSpeak(reply||"Hi! I'm Nova your dance teacher! What's your name? 🌟");
-}
-
-// Chat
-function addBubble(text,who){
-  const log=document.getElementById('chat-log');
-  const div=document.createElement('div');
-  div.className=who==='nova'?'bubble-nova':'bubble-kid';
-  div.textContent=text;
+// ═══════════════════════════════════════════════════════════════
+// CHAT — bubbles in recognition phase
+// ═══════════════════════════════════════════════════════════════
+function addBubble(text, who) {
+  const log = document.getElementById('rec-chat-log');
+  if(!log) return;
+  const div = document.createElement('div');
+  div.className = who === 'nova' ? 'bubble-nova' : 'bubble-kid';
+  div.textContent = text;
   log.appendChild(div);
-  log.scrollTop=log.scrollHeight;
+  log.scrollTop = log.scrollHeight;
 }
 
-window._sendChat=async function(){
-  const inp=document.getElementById('chat-in');
-  const text=inp.value.trim();
+async function novaSay(text) {
   if(!text) return;
-  inp.value='';
-  addBubble(text,'kid');
-  const nm=text.match(/(?:i(?:'m| am)|my name(?:'s| is)|i'm|im)\s+([A-Za-z]+)/i);
-  if(nm&&!mem.name){mem.name=nm[1];}
-  const reply=await novaThink(text);
-  novaSpeak(reply||'Woohoo! Ready to dance?');
+  if(memory.phase === 'recognition') addBubble(text, 'nova');
+  speak(text);
+}
+
+async function novaArrivalGreet() {
+  const reply = await brainThink(
+    'A child just opened your dance app and the magic orb appeared. Greet them like an old friend who has been waiting. Ask their name. Be warm and slightly mysterious. 1-2 short sentences max.',
+    { maxTokens: 80 }
+  );
+  await novaSay(reply || "Oh hi there! I've been hoping you'd come dance with me today. What's your name?");
+  document.getElementById('rec-dance-btn').classList.add('ready');
+}
+
+window._sendChat = async function() {
+  const inp = document.getElementById('rec-input');
+  const text = inp.value.trim();
+  if(!text) return;
+  inp.value = '';
+  handleKidInput(text);
 };
 
-// Speech recognition
-let recognition=null,isListening=false;
-function initSpeech(){
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR) return;
-  recognition=new SR();
-  recognition.lang='en-US';recognition.continuous=false;recognition.interimResults=false;
-  recognition.onresult=async(e)=>{
-    const text=e.results[0][0].transcript.trim();
-    if(!text) return;
-    setMic(false);
-    document.getElementById('chat-in').value=text;
-    addBubble(text,'kid');
-    const reply=await novaThink(text);
-    novaSpeak(reply||'Amazing! You got this!');
-  };
-  recognition.onerror=()=>setMic(false);
-  recognition.onend=()=>setMic(false);
-}
-function setMic(on){
-  isListening=on;
-  const btn=document.getElementById('mic-btn');
-  btn.textContent=on?'🔴':'🎤';
-  btn.classList.toggle('recording',on);
-  document.getElementById('mic-hint').textContent=on?'Listening... speak now!':'Tap mic and speak to Nova';
-}
-window._toggleMic=function(){
-  if(!recognition) initSpeech();
-  if(isListening){recognition?.stop();setMic(false);}
-  else{try{recognition?.start();setMic(true);}catch(e){}}
-};
-
-// TTS
-function tts(text){
-  try{
-    speechSynthesis.cancel();
-    const u=new SpeechSynthesisUtterance(text);
-    u.lang='en-US';u.rate=0.92;u.pitch=1.3;
-    const v=speechSynthesis.getVoices().filter(v=>v.lang.startsWith('en'));
-    const p=v.find(v=>/Samantha|Karen|Google.*Female|Zira/i.test(v.name))||v[0];
-    if(p) u.voice=p;
-    speechSynthesis.speak(u);
-  }catch(e){}
+async function handleKidInput(text) {
+  addBubble(text, 'kid');
+  // Extract name
+  const nameMatch = text.match(/(?:i(?:'m| am)|my name(?:'s| is)|i'm|im)\s+([A-Za-z]+)/i);
+  if(nameMatch && !memory.name) {
+    memory.name = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1);
+  } else if(text.split(/\s+/).length === 1 && !memory.name && /^[A-Za-z]+$/.test(text.trim())) {
+    // Just a single word, probably their name
+    memory.name = text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+  }
+  const reply = await brainThink(text, { maxTokens: 80 });
+  await novaSay(reply || (memory.name ? `Hi ${memory.name}! Ready to dance?` : 'Yay! Ready to dance?'));
 }
 
-// Detection
-let detector=null;
-const moves={left:false,right:false,both:false,clap:false,head:false,freeze:false,wave:false};
-const holdCount={left:0,right:0,both:0,clap:0,head:0,freeze:0,wave:0};
-const smooth={};
-async function initDetector(){
-  await tf.setBackend('webgl');await tf.ready();
-  detector=await poseDetection.createDetector(
+// ═══════════════════════════════════════════════════════════════
+// POSE DETECTION — all 6 detections
+// ═══════════════════════════════════════════════════════════════
+let detector = null;
+const moves = { left:false, right:false, both:false, clap:false, head:false, freeze:false };
+const holdCount = { left:0, right:0, both:0, clap:0, head:0 };
+const smooth = {};
+let freezeBuffer = null;
+
+async function initDetector() {
+  await tf.setBackend('webgl');
+  await tf.ready();
+  detector = await poseDetection.createDetector(
     poseDetection.SupportedModels.MoveNet,
-    {modelType:poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING});
+    { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+  );
 }
-function smoothKp(key,kp){
-  if(!smooth[key]) smooth[key]={x:kp.x,y:kp.y,score:kp.score};
-  const a=0.7;
-  smooth[key].x=smooth[key].x*a+kp.x*(1-a);
-  smooth[key].y=smooth[key].y*a+kp.y*(1-a);
-  smooth[key].score=kp.score;
+
+function smoothKp(key, kp) {
+  if(!smooth[key]) smooth[key] = { x:kp.x, y:kp.y, score:kp.score };
+  const a = 0.7;
+  smooth[key].x = smooth[key].x*a + kp.x*(1-a);
+  smooth[key].y = smooth[key].y*a + kp.y*(1-a);
+  smooth[key].score = kp.score;
   return smooth[key];
 }
-async function poseLoop(){
-  const v=document.getElementById('webcam');
-  if(!detector||!v||v.readyState<2){requestAnimationFrame(poseLoop);return;}
-  try{
-    const p=await detector.estimatePoses(v,{flipHorizontal:false});
-    if(p.length>0) analyzePose(p[0].keypoints);
-  }catch(e){}
+
+async function poseLoop() {
+  const v = document.getElementById('webcam');
+  if(!detector || !v || v.readyState < 2) {
+    requestAnimationFrame(poseLoop);
+    return;
+  }
+  try {
+    const poses = await detector.estimatePoses(v, { flipHorizontal: false });
+    if(poses.length > 0) analyzePose(poses[0].keypoints);
+  } catch(e){}
   requestAnimationFrame(poseLoop);
 }
-function analyzePose(kps){
-  const g=n=>kps.find(k=>k.name===n);
-  const ls=g('left_shoulder'),rs=g('right_shoulder');
-  const lw=g('left_wrist'),rw=g('right_wrist');
-  const le=g('left_elbow'),re=g('right_elbow');
+
+function analyzePose(kps) {
+  const g = n => kps.find(k => k.name === n);
+  const ls=g('left_shoulder'), rs=g('right_shoulder');
+  const lw=g('left_wrist'), rw=g('right_wrist');
   const nose=g('nose');
-  if(!ls||!rs||!lw||!rw) return;
+  if(!ls || !rs || !lw || !rw) return;
   
-  const sLs=smoothKp('ls',ls),sRs=smoothKp('rs',rs);
-  const sLw=smoothKp('lw',lw),sRw=smoothKp('rw',rw);
-  const sNose=nose?smoothKp('nose',nose):null;
+  const sLs = smoothKp('ls', ls), sRs = smoothKp('rs', rs);
+  const sLw = smoothKp('lw', lw), sRw = smoothKp('rw', rw);
+  const sNose = nose ? smoothKp('nose', nose) : null;
   
-  const MIN=0.3;
-  const scale=Math.max(Math.abs(sLs.x-sRs.x),60);
-  const thr=scale*0.24;
+  const MIN = 0.3;
+  const scale = Math.max(Math.abs(sLs.x - sRs.x), 60);
+  const thr = scale * 0.24;
   
-  // ═══ ARM RAISES ═══
-  const lUp=sLw.score>MIN&&(sLs.y-sLw.y)>thr;
-  const rUp=sRw.score>MIN&&(sRs.y-sRw.y)>thr;
+  // Arm raises
+  const lUp = sLw.score > MIN && (sLs.y - sLw.y) > thr;
+  const rUp = sRw.score > MIN && (sRs.y - sRw.y) > thr;
   
-  const hold=(raw,key)=>{holdCount[key]=raw?Math.min(holdCount[key]+1,10):Math.max(holdCount[key]-1,0);return holdCount[key]>=1;};
+  const hold = (raw, key) => {
+    holdCount[key] = raw ? Math.min(holdCount[key]+1, 10) : Math.max(holdCount[key]-1, 0);
+    return holdCount[key] >= CFG.DETECTION_HOLD_FRAMES;
+  };
   
-  moves.left=hold(lUp&&!rUp,'left');
-  moves.right=hold(rUp&&!lUp,'right');
-  moves.both=lUp&&rUp;
+  moves.left = hold(lUp && !rUp, 'left');
+  moves.right = hold(rUp && !lUp, 'right');
+  moves.both = lUp && rUp;
   
-  // ═══ CLAP — wrists meet near chest ═══
-  // Both wrists at chest height, close together horizontally
-  const wristY=(sLw.y+sRw.y)/2;
-  const shoulderY=(sLs.y+sRs.y)/2;
-  const wristGap=Math.abs(sLw.x-sRw.x);
-  const isClap=sLw.score>MIN&&sRw.score>MIN&&
-    wristGap<scale*0.55 && // wrists close together (more forgiving)
-    wristY>shoulderY-scale*0.3 && // not above shoulders
-    wristY<shoulderY+scale*1.0; // not below waist
-  moves.clap=hold(isClap,'clap');
+  // Clap — wrists meet near chest
+  const wristY = (sLw.y + sRw.y) / 2;
+  const shoulderY = (sLs.y + sRs.y) / 2;
+  const wristGap = Math.abs(sLw.x - sRw.x);
+  const isClap = sLw.score > MIN && sRw.score > MIN &&
+    wristGap < scale * 0.55 &&
+    wristY > shoulderY - scale * 0.3 &&
+    wristY < shoulderY + scale * 1.0;
+  moves.clap = hold(isClap, 'clap');
   
-  // ═══ HANDS ON HEAD — both wrists above shoulders, near nose X ═══
-  const isHead=sNose&&sLw.score>MIN&&sRw.score>MIN&&
-    sLw.y<sLs.y && sRw.y<sRs.y && // wrists above shoulders
-    Math.abs(sLw.x-sNose.x)<scale*0.9 && // near face X (more forgiving)
-    Math.abs(sRw.x-sNose.x)<scale*0.9;
-  moves.head=hold(isHead,'head');
+  // Hands on head
+  const isHead = sNose && sLw.score > MIN && sRw.score > MIN &&
+    sLw.y < sLs.y && sRw.y < sRs.y &&
+    Math.abs(sLw.x - sNose.x) < scale * 0.9 &&
+    Math.abs(sRw.x - sNose.x) < scale * 0.9;
+  moves.head = hold(isHead, 'head');
   
-  // ═══ FREEZE — track wrist movement variance ═══
-  if(!window._freezeBuf) window._freezeBuf={lwx:[],lwy:[],rwx:[],rwy:[]};
-  const buf=window._freezeBuf;
-  buf.lwx.push(sLw.x);buf.lwy.push(sLw.y);
-  buf.rwx.push(sRw.x);buf.rwy.push(sRw.y);
-  if(buf.lwx.length>20){buf.lwx.shift();buf.lwy.shift();buf.rwx.shift();buf.rwy.shift();}
-  if(buf.lwx.length>=15){
-    const variance=arr=>{
-      const m=arr.reduce((a,b)=>a+b,0)/arr.length;
-      return arr.reduce((s,v)=>s+(v-m)**2,0)/arr.length;
+  // Freeze — low movement variance
+  if(!freezeBuffer) freezeBuffer = { lwx:[], lwy:[], rwx:[], rwy:[] };
+  freezeBuffer.lwx.push(sLw.x); freezeBuffer.lwy.push(sLw.y);
+  freezeBuffer.rwx.push(sRw.x); freezeBuffer.rwy.push(sRw.y);
+  if(freezeBuffer.lwx.length > 18) {
+    freezeBuffer.lwx.shift(); freezeBuffer.lwy.shift();
+    freezeBuffer.rwx.shift(); freezeBuffer.rwy.shift();
+  }
+  if(freezeBuffer.lwx.length >= 12) {
+    const variance = arr => {
+      const m = arr.reduce((a,b)=>a+b,0) / arr.length;
+      return arr.reduce((s,v)=>s+(v-m)**2,0) / arr.length;
     };
-    const totalVar=variance(buf.lwx)+variance(buf.lwy)+variance(buf.rwx)+variance(buf.rwy);
-    moves.freeze=totalVar<scale*scale*0.012; // very low movement
-  } else moves.freeze=false;
-  
-  // ═══ WAVE — just shows hands visible (used at song start) ═══
-  moves.wave=lUp||rUp||moves.both;
+    const totalVar = variance(freezeBuffer.lwx) + variance(freezeBuffer.lwy) +
+      variance(freezeBuffer.rwx) + variance(freezeBuffer.rwy);
+    moves.freeze = totalVar < scale * scale * 0.012;
+  } else {
+    moves.freeze = false;
+  }
   
   // Update pills
-  const sp=(id,on)=>{const el=document.getElementById(id);if(!el)return;el.classList.toggle('on',on);};
-  sp('p-left',moves.left);
-  sp('p-right',moves.right);
-  sp('p-both',moves.both);
-  sp('p-clap',moves.clap);
-  sp('p-head',moves.head);
-  sp('p-freeze',moves.freeze);
-}
-
-function checkAction(a){
-  if(a==='left') return moves.left;
-  if(a==='right') return moves.right;
-  if(a==='both') return moves.both;
-  if(a==='clap') return moves.clap;
-  if(a==='head') return moves.head;
-  if(a==='freeze') return moves.freeze;
-  if(a==='wave') return moves.wave;
-  return false;
-}
-
-// UI
-function showLyric(t){
-  const el=document.getElementById('lyric-text');
-  el.textContent=t;el.classList.remove('show');void el.offsetWidth;el.classList.add('show');
-}
-function showCue(emoji,label,instr,isLive,ms){
-  const c=document.getElementById('action-cue');
-  document.getElementById('cue-emoji').textContent=emoji;
-  document.getElementById('cue-label').textContent=label;
-  document.getElementById('cue-instr').textContent=instr;
-  c.classList.add('show');
-  const bar=document.getElementById('cue-bar');
-  if(isLive){
-    c.classList.add('live');
-    bar.style.animation='none';void bar.offsetWidth;
-    bar.style.animation='timerShrink '+ms+'ms linear forwards';
-  } else {
-    c.classList.remove('live');
-    bar.style.animation='none';
-    bar.style.transform='scaleX(1)';
-  }
-}
-function hideCue(){document.getElementById('action-cue').classList.remove('show','live');}
-
-function setGreenFlash(on){
-  document.getElementById('green-flash').classList.toggle('show',on);
-  document.getElementById('cam-border').classList.toggle('active',on);
-}
-
-function flashHit(){
-  const f=document.getElementById('feedback');
-  f.className='hit';setTimeout(()=>f.className='',700);
-}
-function flashMiss(){
-  const b=document.getElementById('cam-border');
-  b.classList.add('miss-flash');
-  setTimeout(()=>b.classList.remove('miss-flash'),600);
-}
-
-function showScorePop(pts,color){
-  const el=document.getElementById('score-pop');
-  el.textContent='+'+pts;el.style.color=color||'#ffd700';
-  el.classList.remove('show');void el.offsetWidth;el.classList.add('show');
-  setTimeout(()=>el.classList.remove('show'),900);
-}
-
-function confetti(){
-  const colors=['#ff6fd8','#ffd700','#00ff99','#7c6fff','#ff9900','#00d2ff'];
-  const side=document.getElementById('nova-side');
-  for(let i=0;i<24;i++){
-    const el=document.createElement('div');el.className='cp';
-    el.style.cssText=`left:${Math.random()*100}%;top:-10px;
-      background:${colors[Math.floor(Math.random()*colors.length)]};
-      animation-delay:${Math.random()*0.6}s;
-      width:${7+Math.random()*9}px;height:${7+Math.random()*9}px;
-      transform:rotate(${Math.random()*360}deg)`;
-    side.appendChild(el);setTimeout(()=>el.remove(),2200);
-  }
-}
-
-function updateStreak(n){
-  const b=document.getElementById('streak-badge');
-  if(n>=2){b.textContent='🔥 x'+n;b.classList.add('show');}
-  else b.classList.remove('show');
-}
-
-let reactionTimer=null;
-async function novaReact(prompt,fallback,emoji){
-  const reply=await novaThink(prompt,50);
-  const text=reply||fallback;
-  const b=document.getElementById('react-bubble');
-  b.textContent=(emoji||'🌟')+' '+text;
-  b.classList.add('show');
-  // Face glows green when Nova speaks
-  const face=document.getElementById('game-nova-face');
-  face.classList.add('speaking');
-  if(reactionTimer) clearTimeout(reactionTimer);
-  reactionTimer=setTimeout(()=>{
-    b.classList.remove('show');
-    face.classList.remove('speaking');
-  },3200);
-  // Try to make D-ID speak it (with lipsync!)
-  if(connected&&agentManager){
-    agentManager.speak({type:'text',input:text}).catch(()=>{});
-  } else {
-    tts(text);
-  }
-}
-
-// Timeline
-const TIMELINE=[
-  // ═══ Hello Hello song — 60 sec, 15 actions ═══
-  // Each action: demo (1s) → open detection window → close
-  
-  // 0-3: "Hello hello, look at me" — Nova waves both hands
-  {t:200,type:'lyric',text:'🎵 Hello hello, look at me!'},
-  {t:500,type:'demo',action:'wave',emoji:'👋',label:'Wave!',instr:'Watch Nova!'},
-  
-  // 3-6: "Raise your right hand"
-  {t:3000,type:'lyric',text:'Raise your right hand! 👉'},
-  {t:3000,type:'demo',action:'right',emoji:'👉',label:'RIGHT HAND!',instr:'Watch Nova first!'},
-  {t:3800,type:'open',action:'right',emoji:'👉',label:'RIGHT HAND!',instr:'Raise your RIGHT hand!',pts:150},
-  {t:5800,type:'close',action:'right'},
-  
-  // 6-9: "Raise your left hand"
-  {t:6000,type:'lyric',text:'Raise your left hand! 👈'},
-  {t:6000,type:'demo',action:'left',emoji:'👈',label:'LEFT HAND!',instr:'Watch Nova first!'},
-  {t:6800,type:'open',action:'left',emoji:'👈',label:'LEFT HAND!',instr:'Raise your LEFT hand!',pts:150},
-  {t:8800,type:'close',action:'left'},
-  
-  // 9-12: "Clap clap"
-  {t:9000,type:'lyric',text:'Clap clap! 👏'},
-  {t:9000,type:'demo',action:'clap',emoji:'👏',label:'CLAP!',instr:'Watch Nova first!'},
-  {t:9800,type:'open',action:'clap',emoji:'👏',label:'CLAP!',instr:'Clap your hands!',pts:150},
-  {t:11800,type:'close',action:'clap'},
-  
-  // 12-15: "Both hands up"
-  {t:12000,type:'lyric',text:'Both hands up! 🙌'},
-  {t:12000,type:'demo',action:'both',emoji:'🙌',label:'BOTH UP!',instr:'Watch Nova!'},
-  {t:12800,type:'open',action:'both',emoji:'🙌',label:'BOTH UP!',instr:'BOTH hands up!',pts:200},
-  {t:14800,type:'close',action:'both'},
-  
-  // 15-18: "Raise your right hand"
-  {t:15000,type:'lyric',text:'Right hand again! 👉'},
-  {t:15000,type:'demo',action:'right',emoji:'👉',label:'RIGHT HAND!',instr:'Watch!'},
-  {t:15800,type:'open',action:'right',emoji:'👉',label:'RIGHT HAND!',instr:'RIGHT hand!',pts:150},
-  {t:17800,type:'close',action:'right'},
-  
-  // 18-21: "Clap clap"
-  {t:18000,type:'lyric',text:'Clap clap again! 👏'},
-  {t:18000,type:'demo',action:'clap',emoji:'👏',label:'CLAP!',instr:'Watch!'},
-  {t:18800,type:'open',action:'clap',emoji:'👏',label:'CLAP!',instr:'Clap clap!',pts:150},
-  {t:20800,type:'close',action:'clap'},
-  
-  // 21-24: "Raise your left hand"
-  {t:21000,type:'lyric',text:'Left hand up! 👈'},
-  {t:21000,type:'demo',action:'left',emoji:'👈',label:'LEFT HAND!',instr:'Watch!'},
-  {t:21800,type:'open',action:'left',emoji:'👈',label:'LEFT HAND!',instr:'LEFT hand!',pts:150},
-  {t:23800,type:'close',action:'left'},
-  
-  // 24-27: "Hands on head"
-  {t:24000,type:'lyric',text:'Hands on head! 🙆'},
-  {t:24000,type:'demo',action:'head',emoji:'🙆',label:'HANDS ON HEAD!',instr:'Watch Nova!'},
-  {t:24800,type:'open',action:'head',emoji:'🙆',label:'HANDS ON HEAD!',instr:'Touch your head!',pts:200},
-  {t:26800,type:'close',action:'head'},
-  
-  // 27-30: "Both hands up"
-  {t:27000,type:'lyric',text:'Both hands up! 🙌'},
-  {t:27000,type:'demo',action:'both',emoji:'🙌',label:'BOTH UP!',instr:'Watch!'},
-  {t:27800,type:'open',action:'both',emoji:'🙌',label:'BOTH UP!',instr:'BOTH up high!',pts:150},
-  {t:29800,type:'close',action:'both'},
-  
-  // 30-33: "Clap clap"
-  {t:30000,type:'lyric',text:'Clap! 👏'},
-  {t:30000,type:'demo',action:'clap',emoji:'👏',label:'CLAP!',instr:'Watch!'},
-  {t:30800,type:'open',action:'clap',emoji:'👏',label:'CLAP!',instr:'Clap clap!',pts:150},
-  {t:32800,type:'close',action:'clap'},
-  
-  // 33-36: "Right hand up"
-  {t:33000,type:'lyric',text:'Right hand! 👉'},
-  {t:33000,type:'demo',action:'right',emoji:'👉',label:'RIGHT HAND!',instr:'Watch!'},
-  {t:33800,type:'open',action:'right',emoji:'👉',label:'RIGHT HAND!',instr:'RIGHT hand up!',pts:150},
-  {t:35800,type:'close',action:'right'},
-  
-  // 36-39: "Left hand up"
-  {t:36000,type:'lyric',text:'Left hand! 👈'},
-  {t:36000,type:'demo',action:'left',emoji:'👈',label:'LEFT HAND!',instr:'Watch!'},
-  {t:36800,type:'open',action:'left',emoji:'👈',label:'LEFT HAND!',instr:'LEFT hand up!',pts:150},
-  {t:38800,type:'close',action:'left'},
-  
-  // 39-42: "Hands on head"
-  {t:39000,type:'lyric',text:'Hands on head! 🙆'},
-  {t:39000,type:'demo',action:'head',emoji:'🙆',label:'HANDS ON HEAD!',instr:'Watch!'},
-  {t:39800,type:'open',action:'head',emoji:'🙆',label:'HANDS ON HEAD!',instr:'Touch your head!',pts:200},
-  {t:41800,type:'close',action:'head'},
-  
-  // 42-45: "Freeze!"
-  {t:42000,type:'lyric',text:'❄️ FREEZE! ❄️'},
-  {t:42000,type:'demo',action:'freeze',emoji:'❄️',label:'FREEZE!',instr:"Don't move!"},
-  {t:42500,type:'open',action:'freeze',emoji:'❄️',label:'FREEZE!',instr:"DON'T MOVE!",pts:300},
-  {t:44800,type:'close',action:'freeze'},
-  
-  // 45-60: "Great job!"
-  {t:45000,type:'lyric',text:'🌟 Great job! 🌟'},
-  {t:48000,type:'lyric',text:'You are AMAZING! 🎉'},
-  {t:52000,type:'lyric',text:'High five! ✋'},
-  {t:56000,type:'lyric',text:'Dance party! 💃'},
-];
-
-// Game
-let score=0,hits=0,attempts=0,combo=0,maxCombo=0,timelineIdx=0,songTimer=null;
-let actionDetected=false,actionWindow=false,actionStartTime=0;
-
-function startGame(){
-  showPhase('phase-game');
-  score=0;hits=0;attempts=0;combo=0;maxCombo=0;timelineIdx=0;
-  document.getElementById('score-display').textContent='0 pts';
-  document.getElementById('progress-fill').style.width='0%';
-  document.getElementById('prog-fill').style.width='0%';
-
-  const vid=document.getElementById('nova-video');
-  vid.currentTime=0;vid.loop=true;vid.play().catch(()=>{});
-
-  // Play hello.mp3 song — drives the timeline
-  const audio=new Audio('hello.mp3');
-  audio.volume=0.85;
-  window._audio=audio;
-  audio.play().catch(()=>{});
-  audio.onended=()=>setTimeout(endGame,1200);
-
-  novaReact('Game just started! 4-word excitement burst!','Lets dance together!','💃');
-
-  window._freezeBuf=null; // reset so freeze detection re-builds
-  songTimer=setInterval(()=>{
-    const a=window._audio;
-    const elapsed=a&&!a.paused?a.currentTime*1000:0;
-    const pct=Math.min(100,(elapsed/SONG_DURATION)*100);
-    
-    document.getElementById('progress-fill').style.width=pct+'%';
-    document.getElementById('prog-fill').style.width=pct+'%';
-
-    while(timelineIdx<TIMELINE.length&&elapsed>=TIMELINE[timelineIdx].t){
-      const e=TIMELINE[timelineIdx];
-      if(e.type==='lyric') showLyric(e.text);
-      else if(e.type==='helloL'||e.type==='helloR') showLyric(e.lyric||'Hello,');
-      else if(e.type==='demo') showCue(e.emoji,e.label,e.instr,false,0);
-      else if(e.type==='open'){
-        actionDetected=false;actionWindow=true;actionStartTime=Date.now();
-        attempts++;mem.attempts++;
-        let wMs=2500;
-        for(let j=timelineIdx+1;j<TIMELINE.length;j++){
-          if(TIMELINE[j].type==='close'&&TIMELINE[j].action===e.action){wMs=TIMELINE[j].t-e.t;break;}
-        }
-        setGreenFlash(true);showCue(e.emoji,e.label,e.instr,true,wMs);
-        let el2=0;
-        const chk=setInterval(()=>{
-          el2+=80;
-          if(!actionWindow||actionDetected||el2>wMs+200){clearInterval(chk);return;}
-          if(checkAction(e.action)){
-            actionDetected=true;clearInterval(chk);
-            const rm=Date.now()-actionStartTime,isGreat=rm<1000;
-            const pts=isGreat?Math.round(e.pts*1.5):e.pts;
-            score+=pts;hits++;combo++;maxCombo=Math.max(maxCombo,combo);
-            mem.hits++;mem.streak++;
-            if(mem.streak>=2) mem.moments.push(mem.streak+'-move streak');
-            if(isGreat) mem.moments.push('lightning fast');
-            updateStreak(combo);
-            document.getElementById('score-display').textContent=score+' pts';
-            flashHit();showScorePop(pts,isGreat?'#ffd700':'#00ff99');confetti();
-            novaReact(
-              isGreat?'Child nailed move super fast! 5 words!':'Child did move correctly! 5 words.',
-              isGreat?'WOW! Incredible! Yes!':'Great job! You did it!',
-              isGreat?'🔥':'🌟'
-            );
-          }
-        },80);
-      }
-      else if(e.type==='close'){
-        setGreenFlash(false);hideCue();
-        if(!actionDetected&&actionWindow){
-          combo=0;mem.streak=0;updateStreak(0);flashMiss();
-          novaReact('Child missed. Short warm encouragement! 5 words.','Try again! You got this!','💪');
-        }
-        actionWindow=false;
-      }
-      timelineIdx++;
-    }
-  },80);
-}
-
-function endGame(){
-  clearInterval(songTimer);setGreenFlash(false);
-  if(window._audio){try{window._audio.pause();}catch(e){}}
-  document.getElementById('nova-video').pause();
-  const rate=attempts>0?hits/attempts:0;
-  const stars=rate>=0.9?5:rate>=0.7?4:rate>=0.5?3:rate>=0.3?2:1;
-  showPhase('phase-end');
-  document.getElementById('end-title').textContent=
-    ['Keep going!','Good job!','Great!','Amazing!','PERFECT! 🔥'][stars-1];
-  // Animate stars
-  const starEl=document.getElementById('end-stars');
-  starEl.textContent='';
-  let s=0;
-  const starIv=setInterval(()=>{
-    if(s<stars){starEl.textContent+='⭐';s++;}
-    else if(s<5){starEl.textContent+='☆';s++;}
-    else clearInterval(starIv);
-  },200);
-  document.getElementById('end-pts').textContent=score+' pts';
-  document.getElementById('end-detail').textContent=hits+' of '+attempts+' moves · best streak: '+maxCombo;
-  const endP=`Dance done! ${mem.name?'Child '+mem.name+' hit':'Hit'} ${hits}/${attempts} moves.${mem.moments.length?' Highlights: '+mem.moments.slice(-2).join(', ')+'.':''} Warm personal celebration! 2 sentences.`;
-  novaThink(endP,100).then(r=>{
-    const msg=r||(hits>=attempts*0.7?'You are an incredible dancer! So proud of you!':'Amazing effort! You danced so beautifully!');
-    document.getElementById('end-msg').textContent=msg;
-    tts(msg);
+  ['left','right','both','clap','head','freeze'].forEach(k => {
+    const el = document.getElementById('p-' + k);
+    if(el) el.classList.toggle('on', moves[k]);
   });
 }
 
-document.addEventListener('nova-start',startGame);
+function checkAction(action) {
+  return moves[action] || false;
+}
 
-// Boot
-speechSynthesis.getVoices();
-speechSynthesis.onvoiceschanged=()=>speechSynthesis.getVoices();
-document.getElementById('nova-video').load();
-initSpeech();
-initDID();
+// ═══════════════════════════════════════════════════════════════
+// GAME — the song journey
+// ═══════════════════════════════════════════════════════════════
+const TIMELINE = [
+  // ═══ INTRO (0-15s) — "Hello hello look at me, copy me, Nova says are you ready, let's move slow"
+  { t:500,  type:'beat', name:'hook' },
+  { t:500,  type:'demo', action:'wave', emoji:'👋', label:'HELLO!', instr:'wave at Nova!' },
 
-// Greet immediately via LLM + TTS — don't wait for D-ID
-setTimeout(async()=>{
-  if(!window._greeted){
-    window._greeted=true;
-    const reply=await novaThink(
-      'A child just opened your dance game! Greet them warmly, introduce yourself as Nova the dance teacher. Ask their name! 2 sentences max.',100
-    );
-    const text=reply||"Hi! I am Nova your magical dance teacher! What is your name?";
-    addBubble(text,'nova');
-    tts(text);
-    document.getElementById('dance-btn').classList.add('ready');
+  // ═══ VERSE 1 (15-42s) — "Hello hello raise your right/left, clap, both hands"
+  { t:15000, type:'beat', name:'easy-wins' },
+
+  { t:15000, type:'demo', action:'right', emoji:'👉', label:'RIGHT HAND', instr:'watch Nova!' },
+  { t:16000, type:'open', action:'right', emoji:'👉', label:'RIGHT HAND', instr:'raise your RIGHT hand!', pts:100 },
+  { t:18500, type:'close', action:'right' },
+
+  { t:19500, type:'demo', action:'left', emoji:'👈', label:'LEFT HAND', instr:'watch!' },
+  { t:20500, type:'open', action:'left', emoji:'👈', label:'LEFT HAND', instr:'raise your LEFT hand!', pts:100 },
+  { t:23000, type:'close', action:'left' },
+
+  { t:24000, type:'demo', action:'clap', emoji:'👏', label:'CLAP CLAP', instr:'watch!' },
+  { t:25000, type:'open', action:'clap', emoji:'👏', label:'CLAP CLAP', instr:'clap your hands!', pts:150 },
+  { t:27500, type:'close', action:'clap' },
+
+  { t:28500, type:'demo', action:'both', emoji:'🙌', label:'BOTH HANDS UP', instr:'watch!' },
+  { t:29500, type:'open', action:'both', emoji:'🙌', label:'BOTH HANDS UP', instr:'both hands up!', pts:150 },
+  { t:32000, type:'close', action:'both' },
+
+  // ═══ VERSE 2 (33-60s) — right, clap, left, hands on head
+  { t:33000, type:'beat', name:'challenge' },
+
+  { t:33000, type:'demo', action:'right', emoji:'👉', label:'RIGHT HAND', instr:'watch!' },
+  { t:34000, type:'open', action:'right', emoji:'👉', label:'RIGHT HAND', instr:'right hand!', pts:100 },
+  { t:36500, type:'close', action:'right' },
+
+  { t:37500, type:'demo', action:'clap', emoji:'👏', label:'CLAP CLAP', instr:'watch!' },
+  { t:38500, type:'open', action:'clap', emoji:'👏', label:'CLAP CLAP', instr:'clap clap!', pts:150 },
+  { t:41000, type:'close', action:'clap' },
+
+  { t:42000, type:'demo', action:'left', emoji:'👈', label:'LEFT HAND', instr:'watch!' },
+  { t:43000, type:'open', action:'left', emoji:'👈', label:'LEFT HAND', instr:'left hand!', pts:100 },
+  { t:45500, type:'close', action:'left' },
+
+  { t:46500, type:'demo', action:'head', emoji:'🙆', label:'HANDS ON HEAD', instr:'watch!' },
+  { t:47500, type:'open', action:'head', emoji:'🙆', label:'HANDS ON HEAD', instr:'hands on your head!', pts:200 },
+  { t:50000, type:'close', action:'head' },
+
+  // ═══ VERSE 3 (51-70s) — both hands, clap, right, left
+  { t:51000, type:'beat', name:'confidence' },
+
+  { t:51000, type:'demo', action:'both', emoji:'🙌', label:'BOTH HANDS UP', instr:'watch!' },
+  { t:52000, type:'open', action:'both', emoji:'🙌', label:'BOTH HANDS UP', instr:'both up high!', pts:150 },
+  { t:54500, type:'close', action:'both' },
+
+  { t:55500, type:'demo', action:'clap', emoji:'👏', label:'CLAP CLAP', instr:'watch!' },
+  { t:56500, type:'open', action:'clap', emoji:'👏', label:'CLAP CLAP', instr:'clap clap!', pts:150 },
+  { t:59000, type:'close', action:'clap' },
+
+  { t:60000, type:'demo', action:'right', emoji:'👉', label:'RIGHT HAND', instr:'watch!' },
+  { t:61000, type:'open', action:'right', emoji:'👉', label:'RIGHT HAND', instr:'right hand up!', pts:100 },
+  { t:63500, type:'close', action:'right' },
+
+  { t:64500, type:'demo', action:'left', emoji:'👈', label:'LEFT HAND', instr:'watch!' },
+  { t:65500, type:'open', action:'left', emoji:'👈', label:'LEFT HAND', instr:'left hand up!', pts:100 },
+  { t:68000, type:'close', action:'left' },
+
+  // ═══ NOVA SAYS section (69-88s) — Simon Says style, faster!
+  { t:69000, type:'beat', name:'flow' },
+
+  { t:69000, type:'open', action:'right', emoji:'👉', label:'NOVA SAYS RIGHT', instr:'right hand!', pts:120 },
+  { t:71000, type:'close', action:'right' },
+
+  { t:71500, type:'open', action:'left', emoji:'👈', label:'NOVA SAYS LEFT', instr:'left hand!', pts:120 },
+  { t:73500, type:'close', action:'left' },
+
+  { t:74000, type:'open', action:'both', emoji:'🙌', label:'NOVA SAYS BOTH', instr:'both hands!', pts:150 },
+  { t:76000, type:'close', action:'both' },
+
+  { t:76500, type:'open', action:'clap', emoji:'👏', label:'NOVA SAYS CLAP', instr:'clap clap!', pts:150 },
+  { t:78500, type:'close', action:'clap' },
+
+  // ═══ FAST SECTION (79-97s) — no "Hello hello", pure moves
+  { t:79000, type:'beat', name:'max' },
+
+  { t:79000, type:'open', action:'right', emoji:'👉', label:'RIGHT!', instr:'fast!', pts:150 },
+  { t:81000, type:'close', action:'right' },
+
+  { t:81500, type:'open', action:'left', emoji:'👈', label:'LEFT!', instr:'fast!', pts:150 },
+  { t:83500, type:'close', action:'left' },
+
+  { t:84000, type:'open', action:'clap', emoji:'👏', label:'CLAP!', instr:'fast!', pts:180 },
+  { t:86000, type:'close', action:'clap' },
+
+  { t:86500, type:'open', action:'both', emoji:'🙌', label:'BOTH!', instr:'fast!', pts:180 },
+  { t:88500, type:'close', action:'both' },
+
+  { t:89000, type:'open', action:'head', emoji:'🙆', label:'HEAD!', instr:'hands on head!', pts:200 },
+  { t:91500, type:'close', action:'head' },
+
+  // ═══ FREEZE (92-95s) — THE MAGIC MOMENT
+  { t:92000, type:'beat', name:'freeze' },
+  { t:92000, type:'demo', action:'freeze', emoji:'❄️', label:'FREEZE!', instr:"don't move!" },
+  { t:92500, type:'open', action:'freeze', emoji:'❄️', label:'FREEZE!', instr:"DON'T MOVE!", pts:300 },
+  { t:95000, type:'close', action:'freeze' },
+
+  // ═══ CELEBRATION OUTRO (95-111s)
+  { t:95000, type:'beat', name:'celebration' },
+];
+
+let score = 0, hits = 0, attempts = 0, combo = 0, maxCombo = 0;
+let timelineIdx = 0, songTimer = null;
+let actionDetected = false, actionWindow = false, currentAction = null;
+let actionStartTime = 0;
+let lastReactionTime = 0;
+
+// Pre-cached emotional fillers — play instantly, no LLM wait
+const QUICK_REACTIONS = {
+  hit_fast: ['Yes!', 'Boom!', 'Whoa!', 'Pop!', 'Yeah!'],
+  hit_normal: ['Yes!', 'Got it!', 'There!', 'Yay!', 'Nice!'],
+  miss: ['Almost!', 'So close!', 'Oop!', 'Nearly!'],
+};
+
+function playQuickReaction(type) {
+  const arr = QUICK_REACTIONS[type] || QUICK_REACTIONS.hit_normal;
+  const phrase = arr[Math.floor(Math.random()*arr.length)];
+  speak(phrase);
+}
+
+async function smartReact(action, isHit, isFast) {
+  const now = Date.now();
+  if(now - lastReactionTime < 800) return; // very short cooldown
+  lastReactionTime = now;
+  
+  // Play quick reaction immediately
+  playQuickReaction(isHit ? (isFast ? 'hit_fast' : 'hit_normal') : 'miss');
+  
+  // Then ask LLM for the specific personal one
+  let prompt;
+  if(isHit && isFast) {
+    prompt = `The kid just NAILED the ${action} move SUPER fast! React with explosive specific joy. Reference the body part. 4-6 words. ASYMMETRIC excitement.`;
+  } else if(isHit) {
+    prompt = `The kid just did the ${action} move correctly! Celebrate specifically. Reference the body part. 4-6 words.`;
+  } else {
+    prompt = `The kid missed the ${action} move. Be warmly encouraging — never negative. Tell them to watch and try again. 4-6 words.`;
   }
-},800);
+  
+  const reply = await brainThink(prompt, { maxTokens: 30 });
+  if(reply) {
+    showReactionBubble(reply, false);
+    // Don't double-speak; the quick reaction already played
+  }
+}
 
-navigator.mediaDevices.getUserMedia({
-  video:{width:{ideal:1280},height:{ideal:720},facingMode:'user'},audio:false
-}).then(s=>{document.getElementById('webcam').srcObject=s;}).catch(()=>{});
+function showReactionBubble(text, huge) {
+  const b = document.getElementById('reaction-bubble');
+  b.textContent = text;
+  b.classList.add('show');
+  if(huge) b.classList.add('huge');
+  clearTimeout(window._bubbleTimer);
+  window._bubbleTimer = setTimeout(() => {
+    b.classList.remove('show', 'huge');
+  }, huge ? 4500 : 2800);
+}
 
-initDetector().then(()=>poseLoop()).catch(()=>{});
+function showCue(emoji, label, instr, isLive, ms) {
+  const c = document.getElementById('action-cue');
+  document.getElementById('cue-emoji').textContent = emoji;
+  document.getElementById('cue-label').textContent = label;
+  document.getElementById('cue-instr').textContent = instr;
+  c.classList.add('show');
+  const bar = document.getElementById('cue-bar');
+  if(isLive) {
+    c.classList.add('live');
+    bar.style.animation = 'none';
+    void bar.offsetWidth;
+    bar.style.animation = `cueBarShrink ${ms}ms linear forwards`;
+  } else {
+    c.classList.remove('live');
+    bar.style.animation = 'none';
+    bar.style.transform = 'scaleX(1)';
+  }
+}
+
+function hideCue() {
+  document.getElementById('action-cue').classList.remove('show', 'live');
+}
+
+function setGreenFlash(on) {
+  document.getElementById('green-flash').classList.toggle('show', on);
+  document.getElementById('cam-border').classList.toggle('detection-open', on);
+}
+
+function flashMiss() {
+  const b = document.getElementById('cam-border');
+  b.classList.add('miss-flash');
+  setTimeout(() => b.classList.remove('miss-flash'), 700);
+}
+
+function showScorePop(pts, color) {
+  const el = document.getElementById('score-pop');
+  el.textContent = '+' + pts;
+  el.style.color = color || '#ffd700';
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 1000);
+}
+
+function spawnConfetti() {
+  const colors = ['#ff6fd8','#ffd700','#00ff99','#7c6fff','#ff9900','#00d2ff'];
+  const side = document.getElementById('nova-side');
+  for(let i = 0; i < 28; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti';
+    el.style.cssText = `
+      left:${Math.random()*100}%;top:-10px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      animation-delay:${Math.random()*0.6}s;
+      width:${7+Math.random()*10}px;height:${7+Math.random()*10}px;
+      transform:rotate(${Math.random()*360}deg);
+    `;
+    side.appendChild(el);
+    setTimeout(() => el.remove(), 2400);
+  }
+}
+
+function updateStreak(n) {
+  const b = document.getElementById('game-streak');
+  if(n >= 2) {
+    b.textContent = '🔥 x' + n;
+    b.classList.add('show');
+  } else {
+    b.classList.remove('show');
+  }
+}
+
+function setEnergyLevel(level) {
+  memory.energy = level;
+  document.body.classList.remove('energy-high','energy-max');
+  if(level === 'high') document.body.classList.add('energy-high');
+  else if(level === 'max') document.body.classList.add('energy-max');
+}
+
+function startGame() {
+  memory.phase = 'song';
+  showPhase('phase-game');
+  score = 0; hits = 0; attempts = 0; combo = 0; maxCombo = 0; timelineIdx = 0;
+  document.getElementById('game-score').textContent = '0';
+  document.getElementById('game-progress').style.width = '0%';
+  freezeBuffer = null;
+  
+  const vid = document.getElementById('nova-video');
+  vid.currentTime = 0;
+  vid.loop = true; // 59s video loops twice to cover 1:51 song
+  vid.play().catch(()=>{});
+  
+  // Play hello.mp3
+  const audio = new Audio('hello.mp3');
+  audio.volume = 0.85;
+  window._audio = audio;
+  audio.play().catch(()=>{});
+  audio.onended = () => setTimeout(endGame, 1200);
+  
+  // Initial hype — uses LLM
+  brainThink(`The song just started! ${memory.name?'Say '+memory.name+"'s name and":'You'} let out a quick excited burst! 3-5 words.`, { maxTokens: 30 })
+    .then(r => {
+      if(r) showReactionBubble(r, false);
+      speak(r || (memory.name ? `Lets go ${memory.name}!` : "Let's go!"));
+    });
+  
+  songTimer = setInterval(gameTick, 80);
+}
+
+function gameTick() {
+  const elapsed = (window._audio?.currentTime || 0) * 1000;
+  const pct = Math.min(100, (elapsed / CFG.SONG_DURATION) * 100);
+  document.getElementById('game-progress').style.width = pct + '%';
+  
+  // Auto-end if audio finishes or runs over
+  if(elapsed >= CFG.SONG_DURATION + 500 && !window._audio?.paused) {
+    // Wait for audio.onended to fire
+  }
+  
+  while(timelineIdx < TIMELINE.length && elapsed >= TIMELINE[timelineIdx].t) {
+    const e = TIMELINE[timelineIdx];
+    
+    if(e.type === 'beat') {
+      // Energy level shifts based on phase
+      if(e.name === 'easy-wins') setEnergyLevel('warm');
+      else if(e.name === 'challenge') setEnergyLevel('high');
+      else if(e.name === 'flow') setEnergyLevel('max');
+      else if(e.name === 'freeze') setEnergyLevel('high');
+      else if(e.name === 'celebration') setEnergyLevel('max');
+    }
+    else if(e.type === 'lyric') {
+      // Skip on-screen lyrics — kids 3-5 can't read fast
+      // Voice carries the lyric
+    }
+    else if(e.type === 'demo') {
+      showCue(e.emoji, e.label, e.instr, false, 0);
+    }
+    else if(e.type === 'open') {
+      currentAction = e;
+      actionDetected = false;
+      actionWindow = true;
+      actionStartTime = Date.now();
+      attempts++;
+      memory.attempts++;
+      
+      let windowMs = 2500;
+      for(let j = timelineIdx + 1; j < TIMELINE.length; j++) {
+        if(TIMELINE[j].type === 'close' && TIMELINE[j].action === e.action) {
+          windowMs = TIMELINE[j].t - e.t;
+          break;
+        }
+      }
+      
+      setGreenFlash(true);
+      showCue(e.emoji, e.label, e.instr, true, windowMs);
+      
+      let elapsedCheck = 0;
+      const checker = setInterval(() => {
+        elapsedCheck += 80;
+        if(!actionWindow || actionDetected || elapsedCheck > windowMs + 200) {
+          clearInterval(checker);
+          return;
+        }
+        if(checkAction(e.action)) {
+          actionDetected = true;
+          clearInterval(checker);
+          handleHit(e);
+        }
+      }, 80);
+    }
+    else if(e.type === 'close') {
+      setGreenFlash(false);
+      hideCue();
+      if(!actionDetected && actionWindow) {
+        handleMiss(currentAction);
+      }
+      actionWindow = false;
+    }
+    
+    timelineIdx++;
+  }
+}
+
+function handleHit(actionEvent) {
+  const reactionMs = Date.now() - actionStartTime;
+  const isFast = reactionMs < 1000;
+  const pts = isFast ? Math.round(actionEvent.pts * 1.5) : actionEvent.pts;
+  
+  score += pts;
+  hits++;
+  combo++;
+  maxCombo = Math.max(maxCombo, combo);
+  memory.hits++;
+  memory.streak++;
+  memory.lastAction = actionEvent.action;
+  
+  if(memory.streak >= 2) addMoment(`${memory.streak}-move streak`);
+  if(isFast) addMoment(`lightning fast ${actionEvent.action}`);
+  
+  updateStreak(combo);
+  document.getElementById('game-score').textContent = score;
+  showScorePop(pts, isFast ? '#ffd700' : '#00ff99');
+  spawnConfetti();
+  
+  // Special huge celebration on FREEZE
+  if(actionEvent.action === 'freeze') {
+    novaFaceFrame.classList.add('celebrating');
+    setTimeout(() => novaFaceFrame.classList.remove('celebrating'), 3500);
+    addMoment('the FREEZE moment');
+    brainThink('THE KID FROZE PERFECTLY! Express maximum emotional explosion! Reference the freeze. 6-8 words. Be over the top!', { maxTokens: 40 })
+      .then(r => {
+        const text = r || (memory.name ? `${memory.name}!! That freeze was PERFECT!` : 'PERFECT FREEZE!! WOW!');
+        showReactionBubble(text, true);
+        speak(text);
+      });
+  } else {
+    smartReact(actionEvent.action, true, isFast);
+  }
+}
+
+function handleMiss(actionEvent) {
+  combo = 0;
+  memory.streak = 0;
+  memory.lastAction = actionEvent?.action;
+  updateStreak(0);
+  flashMiss();
+  smartReact(actionEvent?.action || 'move', false, false);
+}
+
+function endGame() {
+  clearInterval(songTimer);
+  setGreenFlash(false);
+  hideCue();
+  if(window._audio) try { window._audio.pause(); } catch(e){}
+  document.getElementById('nova-video').pause();
+  
+  memory.phase = 'end';
+  setEnergyLevel('warm');
+  
+  const rate = attempts > 0 ? hits / attempts : 0;
+  const stars = rate >= 0.9 ? 5 : rate >= 0.7 ? 4 : rate >= 0.5 ? 3 : rate >= 0.3 ? 2 : 1;
+  
+  showPhase('phase-end');
+  
+  document.getElementById('end-title').textContent = 
+    ['So proud of you!','Good effort!','Great work!','Amazing dancer!','PERFECT! 🔥'][stars-1];
+  
+  // Animate stars in
+  const starEl = document.getElementById('end-stars');
+  starEl.textContent = '';
+  let s = 0;
+  const starIv = setInterval(() => {
+    if(s < stars) { starEl.textContent += '⭐'; s++; }
+    else if(s < 5) { starEl.textContent += '☆'; s++; }
+    else clearInterval(starIv);
+  }, 250);
+  
+  document.getElementById('end-pts').textContent = score + ' pts';
+  document.getElementById('end-detail').textContent = 
+    `${hits} of ${attempts} moves · best streak: ${maxCombo}`;
+  
+  // Personal end message
+  const endPrompt = `The dance just ended. ${memory.name?'The child '+memory.name:'The child'} hit ${hits} out of ${attempts} moves. Best streak ${maxCombo}.${memory.moments.length?' Recent moments to reference: '+memory.moments.slice(-3).join('; ')+'.':''} Give a WARM personal goodbye that references something specific they did. End with "same time tomorrow?" — that exact question. 2 sentences max.`;
+  
+  brainThink(endPrompt, { maxTokens: 120 }).then(r => {
+    const msg = r || (memory.name ? 
+      `${memory.name}, I had so much fun! Same time tomorrow?` :
+      'I had so much fun! Same time tomorrow?');
+    document.getElementById('end-msg').textContent = msg;
+    speak(msg);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PHASE WIRING
+// ═══════════════════════════════════════════════════════════════
+document.addEventListener('arrival-done', async () => {
+  memory.phase = 'recognition';
+  showPhase('phase-recognition');
+  
+  // Mic permission
+  try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch(e){}
+  
+  // Camera
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+      audio: false,
+    });
+    document.getElementById('webcam').srcObject = stream;
+  } catch(e) { console.log('cam:', e); }
+  
+  // If D-ID already connected, greet now
+  if(didReady && !window._greeted) {
+    window._greeted = true;
+    novaArrivalGreet();
+  } else {
+    // Greet with TTS + chat bubble while waiting for D-ID
+    setTimeout(() => {
+      if(!window._greeted) {
+        window._greeted = true;
+        novaArrivalGreet();
+      }
+    }, 600);
+  }
+});
+
+document.addEventListener('countdown-tick', (e) => {
+  // Could play a beep here
+});
+
+document.addEventListener('countdown-done', () => {
+  startGame();
+});
+
+// ═══════════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════════
+speechSynthesis.getVoices();
+speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+
+initEars();
+initDID();
+initDetector().then(() => poseLoop()).catch(()=>{});
+
+document.getElementById('nova-video').load();
 </script>
 </body>
 </html>
