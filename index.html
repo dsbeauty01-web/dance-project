@@ -350,6 +350,12 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 
 <div id="green-flash"></div>
 
+<!-- Nova face — fixed on split border, bursts on reaction -->
+<div id="nova-face-frame">
+  <video id="nova-face-video" autoplay playsinline muted loop></video>
+  <div id="nova-face-placeholder">🌟</div>
+</div>
+
 <!-- ═══ PHASE 1: ARRIVAL ═══ -->
 <div class="phase active" id="phase-arrival">
   <div id="arrival-glow"></div>
@@ -406,10 +412,6 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
       <video id="nova-video" loop playsinline muted>
         <source src="nova-dance (3).mp4" type="video/mp4">
       </video>
-      <div id="nova-face-frame">
-        <video id="nova-face-video" autoplay playsinline muted loop></video>
-        <div id="nova-face-placeholder">🌟</div>
-      </div>
       <div id="action-cue">
         <span id="cue-emoji">🙌</span>
         <span id="cue-label">BOTH UP!</span>
@@ -451,7 +453,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">v30b — skill applied</div>
+<div id="version-tag">v30c — face bursts on border</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
@@ -715,7 +717,7 @@ const recAvatarPlaceholder = document.getElementById('rec-avatar-placeholder');
 const recAvatarFrame = document.getElementById('rec-avatar-frame');
 const novaFaceVideo = document.getElementById('nova-face-video');
 const novaFacePlaceholder = document.getElementById('nova-face-placeholder');
-const novaFaceFrame = document.getElementById('nova-face-frame');
+// nova-face-frame accessed via burstFace() helper
 const endAvatarVideo = document.getElementById('end-avatar-video');
 
 // Unmute on first interaction
@@ -779,7 +781,6 @@ const didCallbacks = {
       // Idle
       showIdleEverywhere();
       recAvatarFrame.classList.remove('speaking');
-      novaFaceFrame.classList.remove('speaking');
     } else {
       // Speaking — switch to live stream
       recAvatarVideo.src = '';
@@ -792,7 +793,6 @@ const didCallbacks = {
       novaFaceVideo.srcObject = didStream;
       novaFaceVideo.muted = false;
       novaFaceVideo.play().catch(()=>{});
-      novaFaceFrame.classList.add('speaking');
     }
   },
   onError(err) {
@@ -1118,12 +1118,13 @@ async function smartReact(action, isHit, isFast) {
   if(now - lastReactionTime < 800) return; // very short cooldown
   lastReactionTime = now;
   
-  // Play quick reaction immediately — action-specific if available
+  // Burst face + play quick reaction instantly
+  burstFace(isHit ? 'hit' : 'miss', 2800);
   const actionKey = isHit ? action : 'miss';
   const quickArr = QUICK_REACTIONS[actionKey] || QUICK_REACTIONS[isHit?(isFast?'hit_fast':'hit_normal'):'miss'];
   const quickText = quickArr[Math.floor(Math.random()*quickArr.length)];
   speak(quickText);
-  showReactionBubble(quickText, false);
+  showReactionBubble(quickText, false, isHit?'hit':'miss');
   
   // Then ask LLM for the specific personal one
   let prompt;
@@ -1146,7 +1147,7 @@ async function smartReact(action, isHit, isFast) {
   }
 }
 
-function showReactionBubble(text, huge) {
+function showReactionBubble(text, huge, type) {
   const b = document.getElementById('reaction-bubble');
   b.textContent = text;
   b.classList.add('show');
@@ -1155,6 +1156,18 @@ function showReactionBubble(text, huge) {
   window._bubbleTimer = setTimeout(() => {
     b.classList.remove('show', 'huge');
   }, huge ? 4500 : 2800);
+}
+
+function burstFace(type, duration) {
+  // type: 'hit' | 'miss' | 'celebrating'
+  const f = document.getElementById('nova-face-frame');
+  f.classList.remove('burst','hit','miss','celebrating');
+  void f.offsetWidth; // reflow
+  f.classList.add('burst', type || 'hit');
+  clearTimeout(window._faceTimer);
+  window._faceTimer = setTimeout(() => {
+    f.classList.remove('burst','hit','miss','celebrating');
+  }, duration || 2800);
 }
 
 function showCue(emoji, label, instr, isLive, ms) {
@@ -1363,8 +1376,7 @@ function handleHit(actionEvent) {
   
   // Special huge celebration on FREEZE
   if(actionEvent.action === 'freeze') {
-    novaFaceFrame.classList.add('celebrating');
-    setTimeout(() => novaFaceFrame.classList.remove('celebrating'), 3500);
+    burstFace('celebrating', 4500);
     addMoment('the FREEZE moment');
     brainThink('THE KID FROZE PERFECTLY! Express maximum emotional explosion! Reference the freeze. 6-8 words. Be over the top!', { maxTokens: 40 })
       .then(r => {
