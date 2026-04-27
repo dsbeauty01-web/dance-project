@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Hello Hello — Karaoke</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:#0a0015;overflow:hidden;
+  font-family:'Fredoka',sans-serif;color:#fff;
+  display:flex;align-items:center;justify-content:center;text-align:center}
+#screen{width:100%;padding:20px}
+#timer{position:fixed;top:20px;right:24px;font-size:18px;color:#ff6fd8;font-weight:600;font-family:monospace}
+#start-screen{display:flex;flex-direction:column;gap:24px;align-items:center}
+#start-btn{background:linear-gradient(135deg,#ff6fd8,#7c6fff);border:none;border-radius:50px;
+  padding:24px 60px;font-family:'Fredoka',sans-serif;font-weight:700;font-size:32px;color:#fff;
+  cursor:pointer;box-shadow:0 8px 40px rgba(124,111,255,0.6)}
+#start-btn:hover{transform:scale(1.04)}
+#title{font-size:60px;background:linear-gradient(135deg,#ff6fd8,#7c6fff,#00d2ff);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#subtitle{font-size:18px;color:rgba(255,255,255,0.5);max-width:500px;line-height:1.6}
+#lyric{font-size:120px;font-weight:700;
+  background:linear-gradient(135deg,#ff6fd8,#a78bfa,#00d2ff);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  text-shadow:0 0 80px rgba(255,111,216,0.4);
+  opacity:0;transition:opacity .25s,transform .35s cubic-bezier(.34,1.56,.64,1);
+  transform:scale(.7);line-height:1.1}
+#lyric.show{opacity:1;transform:scale(1)}
+#lyric.huge{font-size:160px}
+#countdown-num{font-size:200px;font-weight:700;color:#ff6fd8;
+  text-shadow:0 0 100px rgba(255,111,216,0.6)}
+#progress{position:fixed;bottom:0;left:0;height:6px;
+  background:linear-gradient(90deg,#ff6fd8,#7c6fff,#00d2ff);width:0%;transition:width .1s linear}
+.next-preview{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);
+  font-size:24px;color:rgba(255,255,255,0.35);font-weight:600;letter-spacing:.05em}
+</style>
+</head>
+<body>
+<div id="screen">
+  <div id="start-screen">
+    <div id="title">🎵 Hello Hello</div>
+    <div id="subtitle">Karaoke teleprompter for filming yourself dancing.<br>
+    Tap start, count down 3 seconds, then dance and lip-sync to each line.<br>
+    Total 60 seconds.</div>
+    <button id="start-btn" onclick="start()">▶️ Start</button>
+  </div>
+</div>
+
+<div id="timer" style="display:none">0:00</div>
+<div id="progress" style="display:none"></div>
+<div class="next-preview" id="next-preview" style="display:none"></div>
+
+<script>
+const SCRIPT = [
+  {t:0,    text:"Hello hello,<br>look at me!", dur:3000},
+  {t:3000, text:"Raise your<br>RIGHT hand!", dur:3000},
+  {t:6000, text:"Raise your<br>LEFT hand!", dur:3000},
+  {t:9000, text:"Clap clap!", dur:3000},
+  {t:12000,text:"Both hands<br>UP!", dur:3000},
+  {t:15000,text:"Right hand!", dur:3000},
+  {t:18000,text:"Clap clap!", dur:3000},
+  {t:21000,text:"Left hand!", dur:3000},
+  {t:24000,text:"Hands on<br>HEAD!", dur:3000},
+  {t:27000,text:"Both hands<br>UP!", dur:3000},
+  {t:30000,text:"Clap clap!", dur:3000},
+  {t:33000,text:"Right hand!", dur:3000},
+  {t:36000,text:"Left hand!", dur:3000},
+  {t:39000,text:"Hands on<br>HEAD!", dur:3000},
+  {t:42000,text:"❄️ FREEZE! ❄️", dur:3000, huge:true},
+  {t:45000,text:"Great job!", dur:3000},
+  {t:48000,text:"You did it!", dur:3000},
+  {t:51000,text:"Amazing!", dur:3000},
+  {t:54000,text:"So proud!", dur:3000},
+  {t:57000,text:"🎉 The end! 🎉", dur:3000},
+];
+
+const TOTAL = 60000;
+
+function start() {
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('timer').style.display = 'block';
+  document.getElementById('progress').style.display = 'block';
+  document.getElementById('next-preview').style.display = 'block';
+  
+  const screen = document.getElementById('screen');
+  screen.innerHTML = '<div id="countdown-num">3</div>';
+  const cd = document.getElementById('countdown-num');
+  
+  let c = 3;
+  const cdIv = setInterval(() => {
+    c--;
+    if(c <= 0) {
+      clearInterval(cdIv);
+      runScript();
+    } else {
+      cd.textContent = c;
+    }
+  }, 1000);
+}
+
+function runScript() {
+  const screen = document.getElementById('screen');
+  screen.innerHTML = '<div id="lyric"></div>';
+  const lyricEl = document.getElementById('lyric');
+  const timerEl = document.getElementById('timer');
+  const progEl = document.getElementById('progress');
+  const nextEl = document.getElementById('next-preview');
+  
+  const startTime = Date.now();
+  let currentIdx = -1;
+  
+  const tick = setInterval(() => {
+    const elapsed = Date.now() - startTime;
+    
+    // Update timer + progress
+    const sec = Math.floor(elapsed / 1000);
+    timerEl.textContent = `0:${String(sec).padStart(2,'0')}`;
+    progEl.style.width = Math.min(100, (elapsed / TOTAL) * 100) + '%';
+    
+    // Show current line
+    let newIdx = -1;
+    for(let i = SCRIPT.length - 1; i >= 0; i--) {
+      if(elapsed >= SCRIPT[i].t) { newIdx = i; break; }
+    }
+    
+    if(newIdx !== currentIdx && newIdx >= 0) {
+      currentIdx = newIdx;
+      const line = SCRIPT[newIdx];
+      lyricEl.classList.remove('show', 'huge');
+      void lyricEl.offsetWidth;
+      lyricEl.innerHTML = line.text;
+      if(line.huge) lyricEl.classList.add('huge');
+      lyricEl.classList.add('show');
+      
+      // Show what's next
+      if(newIdx + 1 < SCRIPT.length) {
+        nextEl.textContent = '▶ next: ' + SCRIPT[newIdx+1].text.replace(/<br>/g, ' ');
+      } else {
+        nextEl.textContent = '✨ done! ✨';
+      }
+    }
+    
+    if(elapsed >= TOTAL) {
+      clearInterval(tick);
+      lyricEl.classList.remove('show');
+      setTimeout(() => {
+        lyricEl.innerHTML = '🎬 Done! 🎬';
+        lyricEl.classList.add('show');
+        nextEl.textContent = 'reload page to do another take';
+      }, 500);
+    }
+  }, 50);
+}
+</script>
+</body>
+</html>
