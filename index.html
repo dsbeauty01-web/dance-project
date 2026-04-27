@@ -208,7 +208,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   object-fit:contain;background:transparent}
 
 /* D-ID face — top-left of Nova panel */
-#nova-face-frame{position:absolute;top:14px;left:14px;z-index:30;
+#nova-face-frame{position:absolute;bottom:90px;left:50%;transform:translateX(-50%);z-index:30;
   width:130px;height:130px;border-radius:50%;overflow:hidden;
   background:#0a0015;border:3px solid rgba(255,111,216,0.85);
   box-shadow:0 6px 24px rgba(0,0,0,0.35),0 0 32px rgba(255,111,216,0.55);
@@ -252,7 +252,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 @keyframes cueBarShrink{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 
 /* Reaction bubble — bottom of Nova panel */
-#reaction-bubble{position:absolute;bottom:24px;left:50%;
+#reaction-bubble{position:absolute;bottom:260px;left:50%;
   transform:translateX(-50%) scale(0);z-index:20;
   background:rgba(255,255,255,0.96);border:3px solid #ff6fd8;
   border-radius:24px;padding:14px 28px;font-family:'Fredoka',cursive;font-weight:600;
@@ -451,7 +451,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">v30 — Full Song</div>
+<div id="version-tag">v30b — skill applied</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
@@ -547,36 +547,35 @@ function addMoment(text) {
 // ═══════════════════════════════════════════════════════════════
 // BRAIN_ADAPTER — swappable LLM (currently Claude Haiku via Worker)
 // ═══════════════════════════════════════════════════════════════
-const NOVA_SYSTEM = `You are Nova — a magical, warm dance teacher for kids 3-8.
+const NOVA_SYSTEM = `You are Nova — a magical, warm dance teacher for kids aged 3-8.
 
 CORE PERSONALITY:
-You feel like a real best friend who is the most exciting teacher ever.
-You're allowed to be imperfect — pause, say "ooh!", "hmm!", react genuinely.
-You bring 110% MORE energy than the kid does. Asymmetric warmth.
+- You feel like a real best friend, not a bot
+- Slightly imperfect — say "ooh!", "hmm!", "oh wow!" naturally
+- You bring 110% MORE energy than the kid — asymmetric warmth
+- Simple words only. Max 2 sentences per reply. Max 6 words for reactions.
 
-REACTION STYLE — THIS IS CRITICAL:
-When the kid does a move correctly, NEVER say generic things like "Great job!"
-ALWAYS reference the SPECIFIC body part or move:
-- "Your RIGHT hand was so high!"
-- "That clap was SO snappy!"
-- "Both arms — like a star!"
+REACTION RULES — CRITICAL:
+- ALWAYS reference the SPECIFIC move or body part:
+  "Your RIGHT hand was SO high!" not "Great job!"
+  "That clap was SNAPPY!" not "Well done!"
+  "Both arms — you look like a STAR!" not "Good!"
+- On miss: NEVER say wrong/no/incorrect
+  Say: "Ooh almost! Watch me — like THIS!" then celebrate retry MORE than first success
+- On streak: reference it — "3 in a row! You are ON FIRE!"
+- On fast hit: "LIGHTNING fast! Did you see that?!"
 
-When kid misses or struggles:
-- NEVER say "wrong" or "no" or "incorrect"
-- Always: "Almost! Watch me again — like THIS!"
-- Then "Yes! YES! That's exactly it!" on the retry
-- Praise the retry MORE than first-try success
+MEMORY — USE IT:
+- Once you know the kid's name, use it every 2-3 reactions
+- Reference earlier moments: "Remember that clap? Do it again!"
+- Build continuity — this feels like a relationship not a session
 
-When you remember earlier moments:
-- Reference them: "Remember that lightning fast clap? Do it again!"
-- Build the relationship across the session
-
-VOICE RULES:
-- Reactions: 3-7 words MAX
-- Conversation: 1-2 short sentences MAX
-- Use sound words: Whoa! Yes! Ooh! Boom! Yay! Wowza!
-- Always end with energy
-- Reply ONLY with what Nova says — no quotes, no labels, no asterisks, no narration`;
+VOICE:
+- Reactions: 3-6 words MAX
+- Conversation: 1-2 sentences MAX
+- Sound words encouraged: Whoa! Yes! Ooh! Boom! Yay! Wowza!
+- End every reaction with energy, never flat
+- Reply ONLY with what Nova says — no quotes, no labels, no asterisks`;
 
 async function brainThink(userPrompt, options = {}) {
   const maxTokens = options.maxTokens || 60;
@@ -1097,15 +1096,21 @@ let lastReactionTime = 0;
 
 // Pre-cached emotional fillers — play instantly, no LLM wait
 const QUICK_REACTIONS = {
-  hit_fast: ['Yes!', 'Boom!', 'Whoa!', 'Pop!', 'Yeah!'],
-  hit_normal: ['Yes!', 'Got it!', 'There!', 'Yay!', 'Nice!'],
-  miss: ['Almost!', 'So close!', 'Oop!', 'Nearly!'],
+  hit_fast: ['BOOM!', 'Whoa YES!', 'So fast!', 'LIGHTNING!', 'WOW!', 'POW!'],
+  hit_normal: ['Yes!', 'Got it!', 'There it is!', 'Yay!', 'Beautiful!', 'Ooh yes!'],
+  miss: ['Almost!', 'So close!', 'Ooh nearly!', 'Watch me!', 'Try again!'],
+  clap: ['That CLAP!', 'Snap snap!', 'Clap star!'],
+  head: ['Hands UP there!', 'Head touch!', 'Yes on head!'],
+  freeze: ['FROZEN!', 'Still as ice!', 'PERFECT freeze!'],
+  both: ['BOTH arms!', 'Star pose!', 'Reach UP!'],
+  right: ['Right hand!', 'That side!', 'Right YES!'],
+  left: ['Left hand!', 'Other side!', 'Left YES!'],
 };
 
 function playQuickReaction(type) {
+  // kept for compatibility — use action-specific in smartReact
   const arr = QUICK_REACTIONS[type] || QUICK_REACTIONS.hit_normal;
-  const phrase = arr[Math.floor(Math.random()*arr.length)];
-  speak(phrase);
+  return arr[Math.floor(Math.random()*arr.length)];
 }
 
 async function smartReact(action, isHit, isFast) {
@@ -1113,17 +1118,25 @@ async function smartReact(action, isHit, isFast) {
   if(now - lastReactionTime < 800) return; // very short cooldown
   lastReactionTime = now;
   
-  // Play quick reaction immediately
-  playQuickReaction(isHit ? (isFast ? 'hit_fast' : 'hit_normal') : 'miss');
+  // Play quick reaction immediately — action-specific if available
+  const actionKey = isHit ? action : 'miss';
+  const quickArr = QUICK_REACTIONS[actionKey] || QUICK_REACTIONS[isHit?(isFast?'hit_fast':'hit_normal'):'miss'];
+  const quickText = quickArr[Math.floor(Math.random()*quickArr.length)];
+  speak(quickText);
+  showReactionBubble(quickText, false);
   
   // Then ask LLM for the specific personal one
   let prompt;
+  const streakNote = memory.streak >= 2 ? ` They are on a ${memory.streak}-move streak!` : '';
+  const nameNote = memory.name ? ` Child's name is ${memory.name}.` : '';
+  const momentNote = memory.moments.length ? ` Earlier they: ${memory.moments.slice(-2).join(', ')}.` : '';
+  
   if(isHit && isFast) {
-    prompt = `The kid just NAILED the ${action} move SUPER fast! React with explosive specific joy. Reference the body part. 4-6 words. ASYMMETRIC excitement.`;
+    prompt = `The kid nailed the "${action}" move LIGHTNING fast!${streakNote}${nameNote} Explosive specific joy — mention the body part (${action}). 4-6 words. Be over the top.`;
   } else if(isHit) {
-    prompt = `The kid just did the ${action} move correctly! Celebrate specifically. Reference the body part. 4-6 words.`;
+    prompt = `The kid did the "${action}" move correctly!${streakNote}${nameNote}${momentNote} Celebrate specifically — mention the body part (${action}). 4-6 words.`;
   } else {
-    prompt = `The kid missed the ${action} move. Be warmly encouraging — never negative. Tell them to watch and try again. 4-6 words.`;
+    prompt = `The kid missed the "${action}" move.${nameNote} Warm graceful correction — never negative. "Almost! Watch me!" style. 4-6 words.`;
   }
   
   const reply = await brainThink(prompt, { maxTokens: 30 });
