@@ -273,6 +273,45 @@ body{font-family:'Nunito',sans-serif;color:#fff}
 #end-replay:hover{transform:scale(1.04)}
 
 #ver{position:fixed;bottom:5px;right:8px;font-size:9px;color:rgba(255,255,255,.2);z-index:999}
+
+/* ═══ GAME SELECTOR ═══ */
+#phase-selector{background:radial-gradient(ellipse at 50% 30%,#3d0a6a,#0a0015);
+  align-items:center;justify-content:center;padding:20px}
+#sel-title{font-family:'Fredoka',sans-serif;font-size:clamp(28px,4vw,42px);
+  background:linear-gradient(135deg,#ff6fd8,#a78bfa,#00d2ff);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  margin-bottom:8px;text-align:center}
+#sel-sub{font-size:15px;color:rgba(255,255,255,0.5);margin-bottom:32px;text-align:center}
+#sel-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;
+  max-width:780px;width:100%}
+.game-card{background:rgba(255,255,255,0.06);border:2px solid rgba(255,111,216,0.3);
+  border-radius:20px;padding:18px;cursor:pointer;transition:all .25s;
+  display:flex;flex-direction:column;gap:10px;text-align:center;
+  backdrop-filter:blur(10px)}
+.game-card:hover{transform:translateY(-4px);border-color:#ff6fd8;
+  background:rgba(255,111,216,0.1);box-shadow:0 8px 32px rgba(255,111,216,0.3)}
+.game-card.locked{opacity:0.4;cursor:not-allowed}
+.game-card.locked:hover{transform:none;border-color:rgba(255,111,216,0.3)}
+.gc-emoji{font-size:60px;line-height:1}
+.gc-title{font-family:'Fredoka',sans-serif;font-size:22px;color:#ff6fd8;font-weight:600}
+.gc-desc{font-size:12px;color:rgba(255,255,255,0.6);line-height:1.5}
+.gc-stats{font-size:11px;color:rgba(255,215,0,0.7);font-family:monospace;margin-top:4px}
+.gc-badge{position:absolute;top:8px;right:8px;background:#ffd700;
+  color:#000;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px}
+.game-card{position:relative}
+
+/* ═══ ACHIEVEMENT POPUP ═══ */
+#achievement{position:fixed;top:80px;left:50%;transform:translateX(-50%) translateY(-150px);
+  z-index:300;background:linear-gradient(135deg,#ffd700,#ff9900);
+  border-radius:60px;padding:14px 28px;display:flex;align-items:center;gap:12px;
+  box-shadow:0 8px 32px rgba(255,215,0,0.5);
+  transition:transform .5s cubic-bezier(.34,1.56,.64,1);font-family:'Fredoka',sans-serif}
+#achievement.show{transform:translateX(-50%) translateY(0)}
+#ach-emoji{font-size:36px}
+#ach-text{display:flex;flex-direction:column;color:#3a1a00}
+#ach-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;opacity:.7}
+#ach-name{font-size:18px;font-weight:700}
+
 </style>
 </head>
 <body>
@@ -319,8 +358,44 @@ body{font-family:'Nunito',sans-serif;color:#fff}
           <button id="rec-send" onclick="sendChat()">Send</button>
         </div>
         <div id="rec-hint">tap mic and speak — or type</div>
-        <button id="rec-dance-btn" onclick="goToCountdown()">💃 Start Dancing!</button>
+        <button id="rec-dance-btn" onclick="goToSelector()">💃 Pick a Game!</button>
       </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ACHIEVEMENT POPUP -->
+<div id="achievement">
+  <div id="ach-emoji">🏆</div>
+  <div id="ach-text">
+    <div id="ach-label">achievement</div>
+    <div id="ach-name">First Dance!</div>
+  </div>
+</div>
+
+<!-- GAME SELECTOR PHASE -->
+<div class="phase" id="phase-selector">
+  <div id="sel-title">Pick a game!</div>
+  <div id="sel-sub">What does <span id="sel-name">your</span> heart want to do?</div>
+  <div id="sel-grid">
+    <div class="game-card" onclick="pickGame('hello')">
+      <div class="gc-emoji">💃</div>
+      <div class="gc-title">Hello Hello</div>
+      <div class="gc-desc">Follow Nova through 16 fun moves with the song</div>
+      <div class="gc-stats" id="stats-hello">— plays</div>
+    </div>
+    <div class="game-card" onclick="pickGame('freeze')">
+      <div class="gc-emoji">❄️</div>
+      <div class="gc-title">Freeze Dance</div>
+      <div class="gc-desc">Dance freely... when music STOPS, FREEZE!</div>
+      <div class="gc-stats" id="stats-freeze">— plays</div>
+    </div>
+    <div class="game-card locked">
+      <div class="gc-emoji">⚡</div>
+      <div class="gc-title">Super Fun Flow</div>
+      <div class="gc-desc">Coming soon — fast moves & combos</div>
+      <div class="gc-stats">🔒 unlock soon</div>
     </div>
   </div>
 </div>
@@ -399,7 +474,7 @@ body{font-family:'Nunito',sans-serif;color:#fff}
   </div>
 </div>
 
-<div id="ver">v33 — smart Nova</div>
+<div id="ver">v35.1 — clap fix</div>
 
 <!-- TF -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
@@ -419,6 +494,30 @@ function _show(id){
   document.getElementById(id).style.display='flex';
 }
 window.goToRecognition=function(){_show('phase-recognition');window._onArrival&&window._onArrival();};
+window.goToSelector=function(){
+  _show('phase-selector');
+  // Update name in subtitle
+  const nameSpan = document.getElementById('sel-name');
+  if(nameSpan && window._kidName) nameSpan.textContent = window._kidName + "'s";
+  // Update play stats from localStorage
+  const stats = JSON.parse(localStorage.getItem('nova_stats') || '{}');
+  const helloPlays = (stats.hello || 0);
+  const freezePlays = (stats.freeze || 0);
+  document.getElementById('stats-hello').textContent = helloPlays + ' plays';
+  document.getElementById('stats-freeze').textContent = freezePlays + ' plays';
+};
+window.pickGame=function(gameId){
+  window._selectedGame = gameId;
+  // Track play count
+  const stats = JSON.parse(localStorage.getItem('nova_stats') || '{}');
+  stats[gameId] = (stats[gameId] || 0) + 1;
+  localStorage.setItem('nova_stats', JSON.stringify(stats));
+  // First play achievement
+  if(stats[gameId] === 1) {
+    setTimeout(() => showAchievement('🎉', gameId === 'freeze' ? 'First Freeze Dance!' : 'First Dance!'), 800);
+  }
+  goToCountdown();
+};
 window.goToCountdown=function(){
   _show('phase-countdown');
   let c=3;
@@ -432,6 +531,13 @@ window.goToCountdown=function(){
     else{c--;setTimeout(tick,950);}
   };
   tick();
+};
+window.showAchievement=function(emoji, name){
+  const el = document.getElementById('achievement');
+  document.getElementById('ach-emoji').textContent = emoji;
+  document.getElementById('ach-name').textContent = name;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3500);
 };
 function sendChat(){window._sendChat&&window._sendChat();}
 function toggleMic(){window._toggleMic&&window._toggleMic();}
@@ -744,17 +850,37 @@ async function novaGreet() {
 
 window._onArrival = async function() {
   M.phase = 'recognition';
-  // Camera + mic in one prompt
+  // Camera + mic with echo cancellation (so song doesn't trigger false claps)
   try {
     const s = await navigator.mediaDevices.getUserMedia({
       video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-      audio: true,
+      audio: {
+        echoCancellation: true,    // KEY: removes song audio from mic capture
+        noiseSuppression: true,    // removes background noise
+        autoGainControl: false,    // keep clap loudness intact
+      },
     });
-    // Use video track only for the video element
     const vidStream = new MediaStream(s.getVideoTracks());
     document.getElementById('g-webcam').srcObject = vidStream;
+    
+    // Set up audio analyser for mic-based clap detection
+    const audioTrack = s.getAudioTracks()[0];
+    if(audioTrack) {
+      try {
+        const ctx = window._audioCtx || (window._audioCtx = new (window.AudioContext||window.webkitAudioContext)());
+        if(ctx.state === 'suspended') await ctx.resume();
+        const src = ctx.createMediaStreamSource(new MediaStream([audioTrack]));
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.2;
+        src.connect(analyser);
+        window._micAnalyser = analyser;
+        window._micData = new Uint8Array(analyser.frequencyBinCount);
+        // Start mic clap detection loop
+        startMicClapDetection();
+      } catch(e) { console.log('Mic analyser failed:', e); }
+    }
   } catch(e) {
-    // Fallback: try video only
     try {
       const s = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
@@ -789,6 +915,7 @@ async function handleKidSpeech(text) {
   const wasFirstName = nameMatch && !M.name;
   if(nameMatch && !M.name) {
     M.name = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1).toLowerCase();
+    window._kidName = M.name;
   }
   const thinking = addBubble('...', 'thinking');
   // Smart: special prompt when learning name for first time
@@ -966,6 +1093,50 @@ async function poseLoop() {
   requestAnimationFrame(poseLoop);
 }
 
+
+// ═══════════════════════════════════════════════════════════════
+// MIC CLAP DETECTION — runs in parallel with vision clap
+// Either source triggering = clap counted (more forgiving)
+// ═══════════════════════════════════════════════════════════════
+let lastMicClap = 0;
+let micClapActive = false;
+
+function startMicClapDetection() {
+  function loop() {
+    if(!window._micAnalyser) return;
+    requestAnimationFrame(loop);
+    
+    window._micAnalyser.getByteFrequencyData(window._micData);
+    // Focus on high frequencies (claps are sharp transients)
+    const data = window._micData;
+    const highFreq = Array.from(data.slice(30, 80)).reduce((a,b)=>a+b,0) / 50;
+    
+    const now = Date.now();
+    // Threshold tuned for echo-cancelled mic during music
+    // Need a SHARP spike, not just loud music
+    if(highFreq > 75 && now - lastMicClap > 350) {
+      lastMicClap = now;
+      micClapActive = true;
+      // Briefly flag clap for game logic to pick up
+      moves.clap = true;
+      // Visual feedback
+      const pill = document.getElementById('gp-clap');
+      if(pill) {
+        pill.classList.add('on');
+        setTimeout(() => {
+          pill.classList.remove('on');
+          micClapActive = false;
+        }, 300);
+      }
+      console.log('🎤 Mic clap detected vol=' + highFreq.toFixed(0));
+    }
+  }
+  loop();
+}
+
+// Override the analyzePose result for clap to OR vision + mic
+const _origAnalyzePose = analyzePose;
+
 function analyzePose(kps) {
   const g = n => kps.find(k => k.name === n);
   const rls=g('left_shoulder'), rrs=g('right_shoulder');
@@ -982,7 +1153,7 @@ function analyzePose(kps) {
   moves.right = hld(rUp&&!lUp,'right');
   moves.both  = lUp&&rUp;
   const wGap=Math.abs(lw.x-rw.x), wY=(lw.y+rw.y)/2, shY=(ls.y+rs.y)/2;
-  moves.clap = hld(lw.score>MIN&&rw.score>MIN&&wGap<sc*.55&&wY>shY-sc*.25&&wY<shY+sc*1.1,'clap');
+  moves.clap = hld(lw.score>MIN&&rw.score>MIN&&wGap<sc*.65&&wY>shY-sc*.3&&wY<shY+sc*1.2,'clap');
   if(no&&lw.score>MIN&&rw.score>MIN){
     moves.head = hld(lw.y<ls.y&&rw.y<rs.y&&Math.abs(lw.x-no.x)<sc*.9&&Math.abs(rw.x-no.x)<sc*.9,'head');
   } else { moves.head = false; }
@@ -1174,12 +1345,20 @@ function gameTick() {
       let wMs=2500;
       for(let j=tlIdx+1;j<TL.length;j++){if(TL[j].type==='close'&&TL[j].action===e.action){wMs=TL[j].t-e.t;break;}}
       setGreen(true); showCue(e.emoji,e.label,e.sub,true,wMs);
+      // DUCK MUSIC during clap windows for better mic detection
+      if(e.action === 'clap' && window._audio) {
+        try { window._audio.volume = 0.30; } catch(_){}
+      }
       let el2=0;
       const chk=setInterval(()=>{
         el2+=80;
         if(!winOpen||actionDone||el2>wMs+200){clearInterval(chk);return;}
         if(check(e.action)){
           actionDone=true; clearInterval(chk);
+          // Restore music volume on successful hit
+          if(window._audio && window._audio.volume < 0.5) {
+            try { window._audio.volume = 0.85; } catch(_){}
+          }
           const ms=Date.now()-winStart, fast=ms<1000;
           // Track per-move stats BEFORE the if checks (so pm exists below)
           trackMove(e.action, true, ms);
@@ -1217,6 +1396,10 @@ function gameTick() {
     }
     else if(e.type==='close'){
       setGreen(false); hideCue();
+      // RESTORE music volume if it was ducked
+      if(window._audio && window._audio.volume < 0.5) {
+        try { window._audio.volume = 0.85; } catch(_){}
+      }
       if(!actionDone&&winOpen){
         combo=0; M.streak=0; M.missStreak++; updateStreak(0); flashMiss();
         if(curAction) trackMove(curAction.action, false, null);
@@ -1245,6 +1428,7 @@ function gameTick() {
 }
 
 function endGame() {
+  checkAchievements('hello');
   clearInterval(songTimer); setGreen(false); hideCue();
   try{window._audio?.pause();}catch(e){}
   document.getElementById('g-nova-video').pause();
@@ -1278,7 +1462,216 @@ WRITE A PERSONAL GOODBYE that references SPECIFIC moments — not generic stats.
   });
 }
 
-document.addEventListener('start-game', startGame);
+
+
+// ═══════════════════════════════════════════════════════════════
+// FREEZE DANCE MODE — different game type
+// 30 sec session: music plays, kid dances freely, music stops
+// suddenly → kid must FREEZE. 4-5 freeze rounds.
+// ═══════════════════════════════════════════════════════════════
+const FREEZE_TIMELINE = [
+  {t: 0,     type: 'beat',  name: 'intro'},
+  {t: 1000,  type: 'demo',  emoji: '💃', label: 'DANCE!', sub: 'just have fun!'},
+  {t: 5000,  type: 'freeze_warn'},
+  {t: 6500,  type: 'freeze_now'},
+  {t: 9500,  type: 'freeze_release'},
+  {t: 12000, type: 'demo',  emoji: '🕺', label: 'KEEP DANCING!', sub: 'feel the beat!'},
+  {t: 16000, type: 'freeze_warn'},
+  {t: 17500, type: 'freeze_now'},
+  {t: 20500, type: 'freeze_release'},
+  {t: 23000, type: 'demo',  emoji: '✨', label: 'BIG MOVES!', sub: 'go wild!'},
+  {t: 26000, type: 'freeze_warn'},
+  {t: 27000, type: 'freeze_now'},
+  {t: 30000, type: 'beat',  name: 'celebration'},
+];
+
+let isFreezeMode = false;
+let freezeRounds = 0, freezeRoundsHit = 0;
+
+function startFreezeDance() {
+  isFreezeMode = true;
+  freezeRounds = 0; freezeRoundsHit = 0;
+  M.phase = 'song';
+  _show('phase-game');
+  gDidFace.classList.add('idle');
+  score=0; hits=0; attempts=0; combo=0; maxCombo=0; tlIdx=0; freezeBuf=null;
+  document.getElementById('g-score').textContent='0';
+  document.getElementById('g-prog').style.width='0%';
+  
+  const vid = document.getElementById('g-nova-video');
+  vid.currentTime=0; vid.loop=true; vid.play().catch(()=>{});
+  
+  // Use same hello.mp3 but shorter section + we'll pause it on freeze
+  const audio = new Audio(CFG.SONG);
+  audio.volume = 0.85;
+  window._audio = audio;
+  audio.play().catch(()=>{});
+  
+  // Opening hype
+  think('Freeze Dance just started! Tell the kid to dance — when music stops they FREEZE! 5 words explosive!', 25)
+    .then(r => { if(r){showReaction(r,'hit'); novaSay(r);} });
+  
+  // 30 sec freeze dance
+  let elapsed = 0;
+  const FREEZE_DURATION = 30000;
+  let freezeIdx = 0;
+  
+  songTimer = setInterval(() => {
+    elapsed += 100;
+    document.getElementById('g-prog').style.width = Math.min(100, (elapsed/FREEZE_DURATION)*100) + '%';
+    
+    if(elapsed >= FREEZE_DURATION) {
+      clearInterval(songTimer);
+      try{audio.pause();}catch(e){}
+      setTimeout(endFreezeDance, 1500);
+      return;
+    }
+    
+    while(freezeIdx < FREEZE_TIMELINE.length && elapsed >= FREEZE_TIMELINE[freezeIdx].t) {
+      const e = FREEZE_TIMELINE[freezeIdx];
+      handleFreezeEvent(e, audio);
+      freezeIdx++;
+    }
+  }, 100);
+}
+
+function handleFreezeEvent(e, audio) {
+  if(e.type === 'demo') {
+    showCue(e.emoji, e.label, e.sub, false, 0);
+    if(audio.paused) try{audio.play();}catch(_){}
+  }
+  else if(e.type === 'freeze_warn') {
+    showCue('⚠️', 'GET READY...', 'music stops soon!', false, 0);
+  }
+  else if(e.type === 'freeze_now') {
+    // PAUSE the music
+    try{audio.pause();}catch(_){}
+    setGreen(true);
+    showCue('❄️', 'FREEZE!', "DON'T MOVE!", true, 3000);
+    freezeRounds++;
+    
+    // Check if kid freezes
+    setTimeout(() => {
+      if(moves.freeze) {
+        freezeRoundsHit++;
+        score += 200;
+        hits++; combo++;
+        document.getElementById('g-score').textContent = score;
+        scorePop(200, '#ffd700');
+        confetti();
+        playBeep('freeze');
+        saveMoment(`froze on round ${freezeRounds}`);
+        // Big celebration
+        gDidFace.classList.add('react-freeze');
+        setTimeout(() => gDidFace.classList.remove('react-freeze'), 2500);
+        think(`Child FROZE on round ${freezeRounds} of freeze dance! Celebrate the freeze specifically! 5-6 words!`, 30)
+          .then(r => {
+            const txt = r || 'PERFECT FREEZE!';
+            showReaction(txt, 'freeze');
+            novaSay(txt);
+          });
+      } else {
+        combo = 0;
+        flashMiss();
+        playBeep('miss');
+        think(`Child kept moving in freeze dance round ${freezeRounds}! Warm encouragement, not negative. 5 words.`, 25)
+          .then(r => { if(r){showReaction(r,'miss'); novaSay(r);} });
+      }
+    }, 1500);
+  }
+  else if(e.type === 'freeze_release') {
+    // RESUME music
+    setGreen(false);
+    hideCue();
+    if(audio.paused) try{audio.play();}catch(_){}
+    showCue('💃', 'KEEP DANCING!', 'music is back!', false, 0);
+  }
+  else if(e.type === 'beat' && e.name === 'celebration') {
+    showCue('🌟', 'AMAZING!', 'you did it!', false, 0);
+  }
+}
+
+function endFreezeDance() {
+  isFreezeMode = false;
+  setGreen(false); hideCue();
+  if(window._audio) try{window._audio.pause();}catch(e){}
+  document.getElementById('g-nova-video').pause();
+  M.phase = 'end';
+  
+  // Achievements check
+  checkAchievements('freeze');
+  
+  // Stars based on freeze success rate
+  const rate = freezeRounds > 0 ? freezeRoundsHit / freezeRounds : 0;
+  const stars = rate >= 0.9 ? 5 : rate >= 0.7 ? 4 : rate >= 0.5 ? 3 : rate >= 0.3 ? 2 : 1;
+  
+  _show('phase-end');
+  document.getElementById('end-title').textContent =
+    ['Keep practicing!', 'Good try!', 'Nice freezes!', 'Amazing freezes!', 'PERFECT FREEZER!'][stars-1];
+  
+  const starEl = document.getElementById('end-stars');
+  starEl.textContent = ''; let s = 0;
+  const si = setInterval(() => {
+    if(s < stars){starEl.textContent += '⭐'; s++;}
+    else if(s < 5){starEl.textContent += '☆'; s++;}
+    else clearInterval(si);
+  }, 200);
+  
+  document.getElementById('end-pts').textContent = score + ' pts';
+  document.getElementById('end-detail').textContent = `Froze ${freezeRoundsHit} of ${freezeRounds} rounds`;
+  
+  if(didIdleUrl) { endVideo.src = didIdleUrl; endVideo.play().catch(()=>{}); }
+  
+  const endP = `Freeze dance just ended. Child name: ${M.name||'(no name)'}. Froze on ${freezeRoundsHit} of ${freezeRounds} rounds. Specific moments: ${M.moments.slice(-3).join('; ')||'none'}. Personal goodbye referencing their best freeze. End with "Same time tomorrow?" exact. 2 sentences.`;
+  think(endP, 120).then(r => {
+    const msg = r || (M.name?`${M.name}, those freezes! Same time tomorrow?`:'Those freezes were amazing! Same time tomorrow?');
+    document.getElementById('end-msg').textContent = msg;
+    novaSay(msg);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ACHIEVEMENTS — localStorage tracked
+// ═══════════════════════════════════════════════════════════════
+const ACHIEVEMENTS = {
+  first_dance: {emoji:'🎉', name:'First Dance!', cond:(s) => s.totalGames >= 1},
+  three_streak: {emoji:'🔥', name:'3 in a row!', cond:(s) => s.maxStreak >= 3},
+  five_streak: {emoji:'⚡', name:'5-Streak Master!', cond:(s) => s.maxStreak >= 5},
+  perfect_freeze: {emoji:'❄️', name:'Perfect Freezer!', cond:(s) => s.freezeHits >= 5},
+  speed_demon: {emoji:'💨', name:'Speed Demon!', cond:(s) => s.fastHits >= 10},
+  ten_dances: {emoji:'🌟', name:'10 Dances!', cond:(s) => s.totalGames >= 10},
+  high_score: {emoji:'👑', name:'1000 Points!', cond:(s) => s.bestScore >= 1000},
+};
+
+function checkAchievements(gameType) {
+  const stats = JSON.parse(localStorage.getItem('nova_stats') || '{}');
+  stats.totalGames = (stats.totalGames || 0) + 1;
+  stats.maxStreak = Math.max(stats.maxStreak || 0, maxCombo);
+  stats.bestScore = Math.max(stats.bestScore || 0, score);
+  if(gameType === 'freeze') stats.freezeHits = (stats.freezeHits || 0) + freezeRoundsHit;
+  // Track fast hits across sessions
+  // Earned achievements
+  const earned = JSON.parse(localStorage.getItem('nova_achievements') || '[]');
+  Object.keys(ACHIEVEMENTS).forEach(key => {
+    if(!earned.includes(key) && ACHIEVEMENTS[key].cond(stats)) {
+      earned.push(key);
+      // Show achievement popup with delay
+      setTimeout(() => {
+        showAchievement(ACHIEVEMENTS[key].emoji, ACHIEVEMENTS[key].name);
+        playBeep('streak');
+      }, 1500 + Math.random()*1000);
+    }
+  });
+  localStorage.setItem('nova_stats', JSON.stringify(stats));
+  localStorage.setItem('nova_achievements', JSON.stringify(earned));
+}
+
+
+// Wire up game start based on selected game
+document.addEventListener('start-game', () => {
+  if(window._selectedGame === 'freeze') startFreezeDance();
+  else startGame();
+});
 
 // ═══════════════════════════════════════
 // BOOT
