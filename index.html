@@ -399,7 +399,7 @@ body{font-family:'Nunito',sans-serif;color:#fff}
   </div>
 </div>
 
-<div id="ver">v32 — production voice patterns</div>
+<div id="ver">v33 — smart Nova</div>
 
 <!-- TF -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
@@ -456,23 +456,78 @@ const CFG = {
 // MEMORY — the relationship layer
 // ═══════════════════════════════════════
 const M = {
+  // Identity
   name: null,
+  // Performance
   hits: 0, attempts: 0, streak: 0, maxStreak: 0,
-  moments: [],     // specific things that happened
-  history: [],     // LLM conversation history (last 20)
+  missStreak: 0,                  // consecutive misses for pattern detection
+  // Per-move performance tracking (for comparison memory)
+  perMove: {},                    // {right: {hits:0, attempts:0, fastest:null, lastTime:null}}
+  // Emotional moments
+  moments: [],                    // specific notable things
+  recentPhrases: [],              // last 5 things Nova said (anti-repetition)
+  // Conversation
+  history: [],
+  // Real-time
   phase: 'arrival',
   lastAction: null,
   energy: 'warm',
+  // Smart mechanic: Nova's backstory state — randomized per session
+  novaMood: pickNovaMood(),       // 'excited' | 'curious' | 'mischievous' | 'warm'
+  novaPracticing: pickPracticeMove(),  // what she was "practicing" before kid arrived
 };
+
+function pickNovaMood() {
+  const moods = ['excited','curious','mischievous','warm','sparkly'];
+  return moods[Math.floor(Math.random()*moods.length)];
+}
+function pickPracticeMove() {
+  const moves = ['the freeze','my best clap','a new spin','the high-five','my star pose'];
+  return moves[Math.floor(Math.random()*moves.length)];
+}
 
 function memContext() {
   const p = [];
-  if(M.name)           p.push(`Child name: ${M.name}.`);
-  if(M.attempts > 0)   p.push(`Score: ${M.hits}/${M.attempts} moves hit.`);
-  if(M.streak >= 2)    p.push(`Current streak: ${M.streak}!`);
-  if(M.moments.length) p.push(`Memorable moments: ${M.moments.slice(-3).join('; ')}.`);
-  if(M.lastAction)     p.push(`Last move: ${M.lastAction}.`);
-  return p.length ? `\n\n[Session memory: ${p.join(' ')}]` : '';
+  if(M.name) p.push(`Child name: ${M.name}.`);
+  // Backstory state — Nova was doing things before kid arrived
+  if(M.novaMood) p.push(`Your mood today: ${M.novaMood}.`);
+  if(M.novaPracticing && M.phase==='recognition') p.push(`Before they arrived, you were practicing ${M.novaPracticing}.`);
+  // Performance
+  if(M.attempts > 0) p.push(`Score: ${M.hits}/${M.attempts}.`);
+  if(M.streak >= 2) p.push(`HOT streak: ${M.streak} in a row!`);
+  if(M.missStreak >= 2) p.push(`They missed ${M.missStreak} in a row — be extra warm.`);
+  if(M.moments.length) p.push(`Memorable: ${M.moments.slice(-3).join('; ')}.`);
+  // Comparison memory — per-move stats
+  if(M.lastAction && M.perMove[M.lastAction]) {
+    const pm = M.perMove[M.lastAction];
+    if(pm.attempts >= 2) {
+      p.push(`They've tried ${M.lastAction} ${pm.attempts}x, hit ${pm.hits}.`);
+      if(pm.fastest) p.push(`Their fastest ${M.lastAction} was ${(pm.fastest/1000).toFixed(1)}s.`);
+    }
+  }
+  // Anti-repetition
+  if(M.recentPhrases.length) p.push(`Don't repeat or sound similar to: "${M.recentPhrases.slice(-3).join('", "')}".`);
+  if(M.lastAction) p.push(`Just did: ${M.lastAction}.`);
+  return p.length ? `\n\n[Session context: ${p.join(' ')}]` : '';
+}
+
+// Track per-move stats for comparison memory
+function trackMove(action, isHit, reactionMs) {
+  if(!M.perMove[action]) M.perMove[action] = {hits:0, attempts:0, fastest:null, lastTime:null};
+  const pm = M.perMove[action];
+  pm.attempts++;
+  if(isHit) {
+    pm.hits++;
+    if(reactionMs && (!pm.fastest || reactionMs < pm.fastest)) pm.fastest = reactionMs;
+    pm.lastTime = reactionMs;
+  }
+}
+
+// Anti-repetition tracking
+function trackPhrase(text) {
+  if(!text) return;
+  M.recentPhrases.push(text);
+  if(M.recentPhrases.length > 5) M.recentPhrases.shift();
 }
 
 function saveMoment(text) {
@@ -676,12 +731,12 @@ function addBubble(text, who) {
 
 async function novaGreet() {
   const thinking = addBubble('Nova is thinking...', 'thinking');
-  const reply = await think(
-    'You just appeared to a child in a magical dance app. Greet them like a best friend who has been waiting all day. Ask their name. Make them feel special. 1-2 short sentences.',
-    100
-  );
+  // Smart: use backstory state for first impression
+  const prompt = `A child just opened the dance app and you appeared. Your mood today is "${M.novaMood}". You were just practicing ${M.novaPracticing} before they arrived. Greet them with surprise and delight — like "Wait wait wait... you came!" — show you have a backstory, you weren't idle, you were doing things. Then ask their name with bursting excitement. 2 short sentences MAX. Front-load the answer.`;
+  const reply = await think(prompt, 100);
   thinking.remove();
-  const text = reply || "Oh hi there! I've been waiting for you! What's your name?";
+  const text = reply || "Wait wait wait... you came! I've been practicing all morning. What's your name?";
+  trackPhrase(text);
   novaSay(text);
   // Show dance button
   document.getElementById('rec-dance-btn').style.display = 'block';
@@ -731,13 +786,20 @@ async function handleKidSpeech(text) {
   // Extract name
   const nameMatch = text.match(/(?:i(?:'m| am)|my name(?:'s| is)|i'm|im|call me)\s+([A-Za-z]+)/i)
     || (text.trim().split(/\s+/).length === 1 && /^[A-Za-z]+$/.test(text.trim()) ? [null, text.trim()] : null);
+  const wasFirstName = nameMatch && !M.name;
   if(nameMatch && !M.name) {
     M.name = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1).toLowerCase();
   }
   const thinking = addBubble('...', 'thinking');
-  const reply = await think(text, 80);
+  // Smart: special prompt when learning name for first time
+  let prompt = text;
+  if(wasFirstName) {
+    prompt = `The child just told you their name is "${M.name}". React with REAL affection — repeat the name with feeling, like "${M.name}. Ohhh that's a good one." Then INITIATE — say "wanna see something cool I learned?" or similar. Show you're a real person, not a bot. 2 short sentences. Front-load.`;
+  }
+  const reply = await think(prompt, 80);
   thinking.remove();
   const text2 = reply || (M.name ? `${M.name}! Ready to dance?` : 'Ready to dance?');
+  trackPhrase(text2);
   novaSay(text2);
 }
 
@@ -838,7 +900,18 @@ async function novaReact(action, isHit, isFast) {
   const streak = M.streak >= 2 ? ' They are on a ' + M.streak + '-move streak!' : '';
   const name = M.name ? ' Child name: ' + M.name + '.' : '';
   let prompt;
-  if(isHit && isFast) {
+  // Smart: 25% of reactions = initiative (question/prediction/opinion), 75% = celebration
+  const useInitiative = Math.random() < 0.25 && isHit;
+  if(useInitiative) {
+    const initiativeStyles = [
+      'Ask a quick question instead of praise. Like "Wait, did you practice?!" or "Are you smiling?"',
+      'Make a comparison to before. Like "Way better than the first one!" or "That was your fastest!"',
+      'Share an opinion. Like "I LOVE when you do that!" or "You\'re getting good at that one."',
+      'Predict what comes next. Like "Bet you can\'t do TWO in a row!" or "Watch — bigger next time!"',
+    ];
+    const style = initiativeStyles[Math.floor(Math.random()*initiativeStyles.length)];
+    prompt = 'Child hit "' + action + '"!' + streak + name + ms + ' SMART REACTION: ' + style + ' 4-7 words MAX. Front-load.';
+  } else if(isHit && isFast) {
     prompt = 'Child nailed "' + action + '" LIGHTNING fast!' + streak + name + ms + ' Explosive specific joy — name the body part. 4-5 words MAX. Front-load answer.';
   } else if(isHit) {
     prompt = 'Child hit "' + action + '" correctly!' + streak + name + ms + ' Celebrate specifically — name the body part. 4-5 words MAX.';
@@ -847,6 +920,7 @@ async function novaReact(action, isHit, isFast) {
   }
   const reply = await think(prompt, 25);
   if(reply && reply !== quick) {
+    trackPhrase(reply);
     // Update bubble with the specific reaction 600ms after the quick one
     setTimeout(() => {
       if(document.getElementById('g-reaction').classList.contains('show')) {
@@ -1107,11 +1181,19 @@ function gameTick() {
         if(check(e.action)){
           actionDone=true; clearInterval(chk);
           const ms=Date.now()-winStart, fast=ms<1000;
+          // Track per-move stats BEFORE the if checks (so pm exists below)
+          trackMove(e.action, true, ms);
           const pts=fast?Math.round(e.pts*1.5):e.pts;
           score+=pts; hits++; combo++; maxCombo=Math.max(maxCombo,combo);
           M.hits++; M.streak++; M.lastAction=e.action;
           if(M.streak>=2) saveMoment(`${M.streak}-move streak`);
+          if(M.streak >= 3) playBeep('streak');
           if(fast) saveMoment(`lightning fast ${e.action}`);
+          // Personal best — fastest time on this move
+          const pm = M.perMove[e.action];
+          if(pm && pm.hits >= 2 && pm.fastest === ms) saveMoment(`new fastest ${e.action} ${(ms/1000).toFixed(1)}s`);
+          // First success after struggle — got it after 2+ tries
+          if(pm && pm.hits === 1 && pm.attempts >= 2) saveMoment(`finally got ${e.action} on try ${pm.attempts}`);
           updateStreak(combo);
           document.getElementById('g-score').textContent=score;
           scorePop(pts,fast?'#ffd700':'#00ff99');
@@ -1136,8 +1218,25 @@ function gameTick() {
     else if(e.type==='close'){
       setGreen(false); hideCue();
       if(!actionDone&&winOpen){
-        combo=0; M.streak=0; updateStreak(0); flashMiss();
+        combo=0; M.streak=0; M.missStreak++; updateStreak(0); flashMiss();
+        if(curAction) trackMove(curAction.action, false, null);
         novaReact(curAction?.action||'move',false,false);
+        // Pattern detection: 3 misses in a row → graceful bail-out
+        if(M.missStreak >= 3) {
+          saveMoment(`struggled with ${curAction?.action} - bailed out`);
+          // Trigger an extra-warm coaching moment
+          setTimeout(() => {
+            think(`The child has missed ${M.missStreak} moves in a row — they might be getting frustrated. Say something WARM and shift the energy. Like "You know what? Forget that. Let me show you something fun!" or "Hey ${M.name||'friend'}, let's just have fun — wave with me!" 1 sentence.`, 50)
+              .then(r => {
+                if(r) {
+                  showReaction(r, 'hit');
+                  novaSay(r);
+                  trackPhrase(r);
+                }
+              });
+            M.missStreak = 0; // reset after intervention
+          }, 1500);
+        }
       }
       winOpen=false;
     }
@@ -1166,11 +1265,15 @@ function endGame() {
   document.getElementById('end-detail').textContent=`${hits} of ${attempts} moves · best streak: ${maxCombo}`;
   // D-ID idle on end screen
   if(didIdleUrl) { endVideo.src=didIdleUrl; endVideo.play().catch(()=>{}); }
-  // Personal end message
-  const endP=`Dance is over. ${M.name?M.name:''} hit ${hits}/${attempts} moves. Best streak ${maxCombo}.${M.moments.length?' Special moments: '+M.moments.slice(-3).join('; ')+'.':''} Give a warm personal goodbye referencing something specific. End with exactly: "Same time tomorrow?" — that exact question. 2 sentences max.`;
-  think(endP,120).then(r=>{
-    const msg=r||(M.name?`${M.name}, you were incredible today! Same time tomorrow?`:'You were incredible today! Same time tomorrow?');
-    document.getElementById('end-msg').textContent=msg;
+  // Smart end message — references SPECIFIC moments not generic stats
+  const top3Moments = M.moments.slice(-3).join('; ');
+  const endP = `The dance just ended. Child name: ${M.name||'(no name)'}. They hit ${hits}/${attempts}. Best streak: ${maxCombo}. Specific moments to reference: ${top3Moments||'none captured'}. 
+
+WRITE A PERSONAL GOODBYE that references SPECIFIC moments — not generic stats. Like "${M.name||'You'}. ${M.name||'You'}. That freeze. I'm not okay." or "Best part? When you almost missed the clap and then NAILED it. I saw that." Then promise something for next time. End with exactly: "Same time tomorrow?" — must be that exact question. 3 sentences max.`;
+  think(endP, 150).then(r => {
+    const msg = r || (M.name ? `${M.name}. ${M.name}. That was incredible. Same time tomorrow?` : 'That was incredible. Same time tomorrow?');
+    document.getElementById('end-msg').textContent = msg;
+    trackPhrase(msg);
     novaSay(msg);
   });
 }
