@@ -1,0 +1,1525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova Dance</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@600;700;800&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:#0a0015}
+body{font-family:'Nunito',sans-serif;color:#fff}
+
+/* ═══ PHASES ═══ */
+.phase{position:fixed;inset:0;display:none;flex-direction:column}
+#phase-arrival{display:flex}
+
+/* ═══ ARRIVAL ═══ */
+#phase-arrival{align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 45%,#3d0a6a,#0a0015)}
+#orb{width:min(220px,35vmin);aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(ellipse at 40% 35%,#ff99dd,#cc1199 55%,#550033);
+  box-shadow:0 0 80px rgba(255,111,216,0.7),0 0 160px rgba(124,111,255,0.4);
+  display:flex;align-items:center;justify-content:center;font-size:72px;
+  cursor:pointer;animation:orbPulse 3s ease-in-out infinite;transition:transform .2s}
+#orb:active{transform:scale(0.96)}
+@keyframes orbPulse{0%,100%{transform:scale(1);box-shadow:0 0 80px rgba(255,111,216,0.7)}
+  50%{transform:scale(1.04);box-shadow:0 0 120px rgba(255,111,216,0.9),0 0 200px rgba(124,111,255,0.5)}}
+#arrival-text{font-family:'Fredoka',sans-serif;font-size:clamp(18px,3vw,24px);
+  color:rgba(255,255,255,0.7);margin-top:20px;letter-spacing:.05em;animation:textFloat 3s ease-in-out infinite}
+@keyframes textFloat{0%,100%{transform:translateY(0);opacity:.7}50%{transform:translateY(-6px);opacity:1}}
+.arrival-star{position:absolute;border-radius:50%;background:#ff6fd8;animation:starFloat 4s ease-in-out infinite}
+@keyframes starFloat{0%,100%{opacity:.3;transform:scale(1)}50%{opacity:.6;transform:scale(1.3)}}
+
+/* ═══ RECOGNITION ═══ */
+#phase-recognition{background:radial-gradient(ellipse at 30% 40%,#2d0a5a,#0a0015)}
+#rec-layout{display:flex;height:100%}
+
+/* D-ID — LEFT (50%) during recognition */
+#rec-did-col{width:50%;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:16px;padding:24px;position:relative}
+#rec-face-ring{width:min(260px,38vmin);aspect-ratio:1;border-radius:50%;overflow:hidden;
+  background:radial-gradient(ellipse at 40% 35%,#ff99dd,#cc1199 55%,#550033);
+  border:5px solid rgba(255,111,216,0.8);
+  box-shadow:0 0 60px rgba(255,111,216,0.5),0 0 120px rgba(124,111,255,0.3);
+  position:relative;transition:border-color .3s,box-shadow .3s}
+#rec-face-ring.speaking{border-color:rgba(0,255,150,0.9);
+  box-shadow:0 0 80px rgba(0,255,150,0.6),0 0 160px rgba(124,111,255,0.4)}
+#rec-face-video{width:100%;height:100%;object-fit:cover;display:none}
+#rec-face-idle{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:10px}
+#rec-face-idle span{font-size:80px}
+.idle-dots{display:flex;gap:5px}
+.idle-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.5);
+  animation:idleDot 1.3s ease-in-out infinite}
+.idle-dot:nth-child(2){animation-delay:.2s}
+.idle-dot:nth-child(3){animation-delay:.4s}
+@keyframes idleDot{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+#rec-nova-name{font-family:'Fredoka',sans-serif;font-size:32px;color:#ff6fd8;
+  text-shadow:0 0 30px rgba(255,111,216,0.5)}
+#rec-status{font-size:12px;color:rgba(255,255,255,0.45);
+  background:rgba(0,0,0,0.4);border-radius:20px;padding:4px 14px}
+
+/* Chat — RIGHT (50%) during recognition */
+#rec-chat-col{flex:1;display:flex;flex-direction:column;padding:20px;gap:12px;
+  background:rgba(0,0,0,0.4);border-left:2px solid rgba(255,111,216,0.15)}
+#rec-chat-title{font-family:'Fredoka',sans-serif;font-size:18px;color:#ff6fd8;flex-shrink:0}
+#rec-log{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;
+  scrollbar-width:thin;scrollbar-color:rgba(255,111,216,0.2) transparent}
+.b-nova{background:rgba(255,111,216,0.15);border:1px solid rgba(255,111,216,0.3);
+  border-radius:18px 18px 18px 4px;padding:11px 15px;font-size:14px;color:#ffd0ee;
+  max-width:92%;line-height:1.5;animation:bubbleIn .25s ease}
+.b-kid{background:rgba(0,210,255,0.12);border:1px solid rgba(0,210,255,0.2);
+  border-radius:18px 18px 4px 18px;padding:11px 15px;font-size:14px;color:#c8f0ff;
+  max-width:85%;align-self:flex-end;animation:bubbleIn .25s ease}
+.b-thinking{font-size:12px;color:rgba(255,255,255,0.35);font-style:italic;padding:4px 0;
+  animation:bubbleIn .25s ease}
+@keyframes bubbleIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+#rec-input-zone{display:flex;flex-direction:column;gap:8px;flex-shrink:0}
+#rec-input-row{display:flex;gap:8px}
+#rec-text{flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);
+  border-radius:14px;padding:11px 15px;color:#fff;font-size:14px;
+  font-family:'Nunito',sans-serif;outline:none;transition:border .2s}
+#rec-text:focus{border-color:rgba(255,111,216,0.5)}
+#rec-text::placeholder{color:rgba(255,255,255,0.25)}
+#rec-mic{width:48px;height:48px;background:rgba(255,111,216,0.25);
+  border:1.5px solid rgba(255,111,216,0.4);border-radius:14px;font-size:22px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:all .2s}
+#rec-mic.on{background:#ff4444;border-color:#ff4444;animation:micPulse 1s infinite}
+@keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,68,68,.5)}50%{box-shadow:0 0 0 12px rgba(255,68,68,0)}}
+#rec-send{background:rgba(124,111,255,0.4);border:1.5px solid rgba(124,111,255,0.5);
+  border-radius:14px;padding:0 18px;color:#fff;font-family:'Fredoka',sans-serif;
+  font-size:14px;cursor:pointer;white-space:nowrap;transition:all .2s}
+#rec-send:hover{background:rgba(124,111,255,0.6)}
+#rec-hint{font-size:11px;color:rgba(255,255,255,0.3);text-align:center}
+#rec-dance-btn{background:linear-gradient(135deg,#00ff99,#00c2d4);border:none;
+  border-radius:50px;padding:15px;font-family:'Fredoka',sans-serif;font-size:18px;
+  font-weight:700;color:#003322;cursor:pointer;display:none;
+  box-shadow:0 4px 28px rgba(0,255,150,0.4);animation:danceBtn .5s cubic-bezier(.34,1.56,.64,1)}
+@keyframes danceBtn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* ═══ COUNTDOWN ═══ */
+#phase-countdown{align-items:center;justify-content:center;z-index:200;
+  background:rgba(0,0,0,0.92)}
+#cd-num{font-family:'Fredoka',sans-serif;font-size:160px;
+  background:linear-gradient(135deg,#ff6fd8,#a78bfa,#00d2ff);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  line-height:1;animation:cdPop .4s cubic-bezier(.34,1.56,.64,1)}
+@keyframes cdPop{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
+#cd-sub{font-family:'Fredoka',sans-serif;font-size:22px;color:rgba(255,255,255,.6);margin-top:8px}
+
+/* ═══ GAME ═══ */
+#phase-game{flex-direction:column;background:#0a0015}
+#game-topbar{position:relative;z-index:10;display:flex;align-items:center;
+  justify-content:space-between;padding:8px 18px;
+  background:rgba(0,0,0,0.7);backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(255,111,216,0.12);flex-shrink:0}
+#g-logo{font-family:'Fredoka',sans-serif;font-size:18px;
+  background:linear-gradient(135deg,#ff6fd8,#a78bfa);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#g-streak{background:linear-gradient(135deg,#ffd700,#ff9900);border-radius:20px;
+  padding:3px 14px;font-family:'Fredoka',sans-serif;font-size:13px;color:#5a2d00;
+  display:none;animation:streakPop .3s cubic-bezier(.34,1.56,.64,1)}
+@keyframes streakPop{from{transform:scale(.5)}to{transform:scale(1)}}
+#g-streak.show{display:block}
+#g-prog-wrap{flex:1;height:6px;background:rgba(255,255,255,0.08);
+  border-radius:3px;overflow:hidden;margin:0 16px}
+#g-prog{height:100%;width:0%;
+  background:linear-gradient(90deg,#ff6fd8,#a78bfa,#00d2ff);
+  transition:width .1s linear;border-radius:3px}
+#g-score{font-family:'Fredoka',sans-serif;font-size:18px;color:#ffd700;
+  text-shadow:0 0 16px rgba(255,215,0,.4)}
+
+/* ═══ GAME SPLIT — Concept 2 ═══
+   CAM LEFT | DID CENTER | NOVA RIGHT */
+#g-split{flex:1;display:grid;grid-template-columns:42fr 42fr;min-height:0;position:relative}
+
+/* CAM (left) — webcam HIDDEN, avatar shown instead */
+#g-cam{position:relative;overflow:hidden;
+  background:linear-gradient(160deg,#a8edea 0%,#fed6e3 50%,#ffb6e6 100%)}
+#g-webcam{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+#kid-avatar-svg{position:absolute;inset:0;width:100%;height:100%}
+#kid-avatar-decor{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.cloud{position:absolute;background:rgba(255,255,255,0.5);border-radius:50%;
+  filter:blur(2px);animation:cloudDrift 30s linear infinite}
+@keyframes cloudDrift{
+  0%{transform:translateX(-100px)}
+  100%{transform:translateX(calc(100% + 100px))}
+}
+.bg-star{position:absolute;font-size:18px;opacity:0.5;
+  animation:bgStarTwinkle 3s ease-in-out infinite}
+@keyframes bgStarTwinkle{
+  0%,100%{opacity:0.3;transform:scale(1)}
+  50%{opacity:0.8;transform:scale(1.2)}
+}
+#avatar-name-tag{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+  background:rgba(255,255,255,0.85);border-radius:20px;
+  padding:4px 14px;font-family:'Fredoka',sans-serif;font-size:13px;
+  color:#7c3aed;font-weight:600;z-index:10;
+  box-shadow:0 2px 12px rgba(124,58,237,0.2)}
+#g-cam-border{position:absolute;inset:0;border:4px solid transparent;
+  pointer-events:none;z-index:3;transition:all .15s}
+#g-cam-border.open{border-color:rgba(0,255,150,0.85);
+  box-shadow:inset 0 0 50px rgba(0,255,150,0.2)}
+#g-cam-border.miss{border-color:rgba(255,120,0,0.85);
+  box-shadow:inset 0 0 50px rgba(255,120,0,0.2)}
+#g-pills{position:absolute;bottom:10px;left:0;right:0;z-index:4;
+  display:flex;justify-content:center;gap:5px}
+.gpill{border-radius:20px;padding:3px 9px;font-size:11px;font-weight:700;
+  background:rgba(0,0,0,0.75);color:rgba(255,255,255,0.4);
+  border:1px solid rgba(255,255,255,0.1);transition:all .12s}
+.gpill.on{background:rgba(0,255,150,.9);color:#000;border-color:#00ff99;transform:scale(1.05)}
+
+/* NOVA (right) */
+#g-nova{position:relative;overflow:hidden;
+  background:linear-gradient(160deg,#fdf0fb,#f0e4ff 40%,#e4ecff)}
+#g-nova-video{position:absolute;inset:0;width:100%;height:100%;
+  object-fit:contain;background:transparent}
+
+/* Action cue — top RIGHT of nova side */
+#g-cue{position:absolute;top:10px;right:10px;transform:scale(0);transform-origin:top right;
+  z-index:20;background:rgba(0,0,0,0.9);border-radius:16px;padding:12px 16px;
+  border:3px solid rgba(255,111,216,0.6);text-align:center;min-width:150px;
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+#g-cue.show{transform:scale(1)}
+#g-cue.live{border-color:#00ff99;box-shadow:0 0 30px rgba(0,255,150,.5)}
+#g-cue-emoji{font-size:42px;display:block;line-height:1}
+#g-cue-label{font-family:'Fredoka',sans-serif;font-size:18px;color:#ff6fd8;
+  display:block;margin-top:3px}
+#g-cue-sub{font-size:11px;color:rgba(255,255,255,.65);display:block;margin-top:2px}
+#g-cue-bar{height:4px;background:rgba(255,255,255,.1);border-radius:2px;
+  overflow:hidden;margin-top:8px}
+#g-cue-fill{height:100%;width:100%;transform-origin:left;background:linear-gradient(90deg,#00ff99,#00d2ff)}
+@keyframes barShrink{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+
+/* ═══ D-ID FACE — fixed on center divider ═══ */
+#g-did-face{position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%) scale(0);
+  z-index:50;
+  width:min(20vw,190px);height:min(20vw,190px);
+  border-radius:50%;overflow:hidden;
+  background:radial-gradient(ellipse at 40% 35%,#ff99dd,#cc1199 55%,#550033);
+  border:5px solid rgba(255,111,216,0.9);
+  box-shadow:0 0 0 8px rgba(255,111,216,0.12),
+             0 0 50px rgba(255,111,216,0.6);
+  transition:transform .35s cubic-bezier(.34,1.56,.64,1),
+             border-color .3s,box-shadow .3s;
+  pointer-events:none}
+/* Always visible during game */
+#g-did-face.idle{transform:translate(-50%,-50%) scale(1)}
+#g-did-face.speaking{
+  border-color:rgba(0,255,150,.95);
+  box-shadow:0 0 0 10px rgba(0,255,150,0.1),0 0 70px rgba(0,255,150,.7)}
+#g-did-face.react-hit{
+  border-color:rgba(0,255,150,.95);
+  box-shadow:0 0 0 14px rgba(0,255,150,0.15),0 0 80px rgba(0,255,150,.8);
+  transform:translate(-50%,-50%) scale(1.15)}
+#g-did-face.react-miss{
+  border-color:rgba(255,180,0,.95);
+  box-shadow:0 0 0 10px rgba(255,180,0,0.12),0 0 60px rgba(255,180,0,.7)}
+#g-did-face.react-freeze{
+  transform:translate(-50%,-50%) scale(1.4);
+  border-color:rgba(255,215,0,.99);
+  box-shadow:0 0 0 20px rgba(255,215,0,0.15),0 0 120px rgba(255,215,0,.9)}
+#g-did-video{width:100%;height:100%;object-fit:cover;display:none}
+#g-did-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:8px}
+#g-did-placeholder span{font-size:60px}
+.speak-dots{display:flex;gap:4px}
+.speak-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.5);
+  animation:spkDot 1.2s ease-in-out infinite}
+.speak-dot:nth-child(2){animation-delay:.2s}
+.speak-dot:nth-child(3){animation-delay:.4s}
+@keyframes spkDot{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+
+/* Reaction bubble — above DID face */
+#g-reaction{position:absolute;top:50%;left:50%;
+  transform:translate(-50%,calc(-50% - min(12vw,115px))) scale(0);
+  z-index:51;background:#fff;border-radius:20px;
+  padding:10px 18px;border:3px solid #ff6fd8;white-space:nowrap;
+  font-family:'Fredoka',sans-serif;font-size:clamp(14px,2vw,18px);
+  color:#1a0030;max-width:min(45vw,360px);white-space:normal;text-align:center;
+  box-shadow:0 6px 24px rgba(255,111,216,.4);
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1);pointer-events:none;
+  line-height:1.3}
+#g-reaction:after{content:'';position:absolute;bottom:-11px;left:50%;
+  transform:translateX(-50%);border:10px solid transparent;border-top-color:#ff6fd8;border-bottom:0}
+#g-reaction:before{content:'';position:absolute;bottom:-7px;left:50%;
+  transform:translateX(-50%);border:8px solid transparent;border-top-color:#fff;border-bottom:0;z-index:1}
+#g-reaction.show{transform:translate(-50%,calc(-50% - min(12vw,115px))) scale(1)}
+
+/* Score pop, confetti, etc */
+#g-score-pop{position:absolute;top:20%;left:50%;
+  transform:translateX(-50%) scale(0);
+  font-family:'Fredoka',sans-serif;font-size:52px;z-index:55;
+  pointer-events:none;transition:transform .25s cubic-bezier(.34,1.56,.64,1);
+  text-shadow:0 0 30px currentColor}
+#g-score-pop.show{transform:translateX(-50%) scale(1) translateY(-12px)}
+.conf{position:absolute;border-radius:3px;
+  animation:confFall 1.6s ease-in forwards;pointer-events:none;z-index:45}
+@keyframes confFall{0%{transform:translateY(0) rotate(0deg);opacity:1}
+  100%{transform:translateY(600px) rotate(720deg);opacity:0}}
+#g-green-flash{position:fixed;inset:0;background:rgba(0,255,136,.15);
+  opacity:0;pointer-events:none;z-index:4;transition:opacity .1s}
+#g-green-flash.show{opacity:1}
+
+/* ═══ END ═══ */
+#phase-end{flex-direction:row;
+  background:radial-gradient(ellipse at 50% 30%,#2d0a6a,#0a0015)}
+#end-did-col{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}
+#end-did-ring{width:min(240px,38vmin);aspect-ratio:1;border-radius:50%;overflow:hidden;
+  background:radial-gradient(ellipse at 40% 35%,#ff99dd,#cc1199 55%,#550033);
+  border:5px solid rgba(255,215,0,.7);
+  box-shadow:0 0 80px rgba(255,215,0,.4),0 0 180px rgba(255,111,216,.25)}
+#end-did-video{width:100%;height:100%;object-fit:cover}
+#end-content{flex:1.2;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center}
+#end-title{font-family:'Fredoka',sans-serif;font-size:clamp(28px,4.5vw,46px);
+  background:linear-gradient(135deg,#ff6fd8,#ffd700);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1.1}
+#end-stars{font-size:48px;letter-spacing:6px;min-height:55px}
+#end-pts{font-family:'Fredoka',sans-serif;font-size:clamp(24px,3.5vw,36px);
+  color:#ffd700;text-shadow:0 0 20px rgba(255,215,0,.5)}
+#end-detail{font-size:13px;color:rgba(255,255,255,.5)}
+#end-msg{background:rgba(255,111,216,.1);border:2px solid rgba(255,111,216,.3);
+  border-radius:20px;padding:14px 22px;font-family:'Fredoka',sans-serif;
+  font-size:clamp(15px,2vw,20px);color:#fff;max-width:380px;line-height:1.5}
+#end-replay{background:linear-gradient(135deg,#ff6fd8,#a78bfa);border:none;
+  border-radius:50px;padding:14px 36px;font-family:'Fredoka',sans-serif;
+  font-size:18px;color:#fff;cursor:pointer;
+  box-shadow:0 6px 28px rgba(124,111,255,.5);transition:transform .15s}
+#end-replay:hover{transform:scale(1.04)}
+
+#ver{position:fixed;bottom:5px;right:8px;font-size:9px;color:rgba(255,255,255,.2);z-index:999}
+</style>
+</head>
+<body>
+
+<div id="g-green-flash"></div>
+
+<!-- ARRIVAL -->
+<div class="phase" id="phase-arrival">
+  <div class="arrival-star" style="width:5px;height:5px;top:15%;left:20%"></div>
+  <div class="arrival-star" style="width:7px;height:7px;top:25%;left:75%;animation-delay:.8s;background:#a78bfa"></div>
+  <div class="arrival-star" style="width:4px;height:4px;top:70%;left:30%;animation-delay:1.5s;background:#ffd700"></div>
+  <div class="arrival-star" style="width:6px;height:6px;top:60%;left:80%;animation-delay:.4s;background:#00d2ff"></div>
+  <div class="arrival-star" style="width:4px;height:4px;top:80%;left:55%;animation-delay:2s"></div>
+  <div id="orb" onclick="goToRecognition()">🌟</div>
+  <div id="arrival-text">tap to meet Nova</div>
+</div>
+
+<!-- RECOGNITION -->
+<div class="phase" id="phase-recognition">
+  <div id="rec-layout">
+    <div id="rec-did-col">
+      <div id="rec-nova-name">Nova ✨</div>
+      <div id="rec-face-ring">
+        <video id="rec-face-video" autoplay playsinline></video>
+        <div id="rec-face-idle">
+          <span>🌟</span>
+          <div class="idle-dots">
+            <div class="idle-dot"></div>
+            <div class="idle-dot"></div>
+            <div class="idle-dot"></div>
+          </div>
+        </div>
+      </div>
+      <div id="rec-status">connecting...</div>
+    </div>
+    <div id="rec-chat-col">
+      <div id="rec-chat-title">💬 Talk to Nova</div>
+      <div id="rec-log"></div>
+      <div id="rec-input-zone">
+        <div id="rec-input-row">
+          <button id="rec-mic" onclick="toggleMic()">🎤</button>
+          <input id="rec-text" type="text" placeholder="type or tap mic to speak..."
+            onkeydown="if(event.key==='Enter')sendChat()">
+          <button id="rec-send" onclick="sendChat()">Send</button>
+        </div>
+        <div id="rec-hint">tap mic and speak — or type</div>
+        <button id="rec-dance-btn" onclick="goToCountdown()">💃 Start Dancing!</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- COUNTDOWN -->
+<div class="phase" id="phase-countdown">
+  <div id="cd-num">3</div>
+  <div id="cd-sub">get ready!</div>
+</div>
+
+<!-- GAME -->
+<div class="phase" id="phase-game">
+  <div id="game-topbar">
+    <div id="g-logo">🌟 Nova</div>
+    <div id="g-streak">🔥 x2</div>
+    <div id="g-prog-wrap"><div id="g-prog"></div></div>
+    <div id="g-score">0</div>
+  </div>
+  <div id="g-split">
+    <!-- CAM LEFT -->
+    <div id="g-cam">
+      <video id="g-webcam" autoplay playsinline muted></video>
+      <!-- Background decoration -->
+      <div id="kid-avatar-decor">
+        <div class="cloud" style="top:15%;width:60px;height:30px;animation-delay:0s"></div>
+        <div class="cloud" style="top:35%;width:80px;height:35px;animation-delay:-10s"></div>
+        <div class="cloud" style="top:55%;width:50px;height:25px;animation-delay:-20s"></div>
+        <div class="bg-star" style="top:10%;left:15%;animation-delay:0s">⭐</div>
+        <div class="bg-star" style="top:20%;left:80%;animation-delay:1s">✨</div>
+        <div class="bg-star" style="top:60%;left:10%;animation-delay:2s">⭐</div>
+        <div class="bg-star" style="top:75%;left:85%;animation-delay:0.5s">✨</div>
+      </div>
+      <!-- 3D-ish SVG avatar that mirrors kid's pose -->
+      <svg id="kid-avatar-svg" viewBox="0 0 400 600" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <radialGradient id="hairG" cx="50%" cy="40%" r="60%">
+            <stop offset="0%" stop-color="#ffc8e0"/>
+            <stop offset="100%" stop-color="#ff6fb4"/>
+          </radialGradient>
+          <radialGradient id="skinG" cx="50%" cy="40%" r="60%">
+            <stop offset="0%" stop-color="#ffe0c0"/>
+            <stop offset="100%" stop-color="#f4c094"/>
+          </radialGradient>
+          <linearGradient id="dressG" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#c084fc"/>
+            <stop offset="100%" stop-color="#7c3aed"/>
+          </linearGradient>
+        </defs>
+
+        <!-- LEGS (static, simple) -->
+        <rect id="av-leg-l" x="170" y="430" width="22" height="100" rx="11" fill="url(#dressG)"/>
+        <rect id="av-leg-r" x="208" y="430" width="22" height="100" rx="11" fill="url(#dressG)"/>
+        <ellipse id="av-shoe-l" cx="181" cy="540" rx="18" ry="11" fill="#4c1d95"/>
+        <ellipse id="av-shoe-r" cx="219" cy="540" rx="18" ry="11" fill="#4c1d95"/>
+
+        <!-- DRESS / TORSO -->
+        <ellipse id="av-dress" cx="200" cy="430" rx="90" ry="40" fill="#a855f7"/>
+        <rect id="av-torso" x="155" y="290" width="90" height="160" rx="35" fill="url(#dressG)"/>
+        <text id="av-heart" x="200" y="385" font-size="28" fill="#fff" opacity="0.8" text-anchor="middle">♥</text>
+
+        <!-- ARMS — these will rotate based on keypoints -->
+        <!-- Left arm group (kid's right arm — mirrored) -->
+        <g id="av-arm-l">
+          <line id="av-arm-l-upper" x1="155" y1="305" x2="120" y2="370" 
+            stroke="url(#skinG)" stroke-width="22" stroke-linecap="round"/>
+          <line id="av-arm-l-lower" x1="120" y1="370" x2="100" y2="430"
+            stroke="url(#skinG)" stroke-width="20" stroke-linecap="round"/>
+          <circle id="av-hand-l" cx="100" cy="430" r="14" fill="url(#skinG)"/>
+        </g>
+
+        <!-- Right arm group (kid's left arm — mirrored) -->
+        <g id="av-arm-r">
+          <line id="av-arm-r-upper" x1="245" y1="305" x2="280" y2="370" 
+            stroke="url(#skinG)" stroke-width="22" stroke-linecap="round"/>
+          <line id="av-arm-r-lower" x1="280" y1="370" x2="300" y2="430"
+            stroke="url(#skinG)" stroke-width="20" stroke-linecap="round"/>
+          <circle id="av-hand-r" cx="300" cy="430" r="14" fill="url(#skinG)"/>
+        </g>
+
+        <!-- NECK -->
+        <rect id="av-neck" x="180" y="265" width="40" height="40" rx="14" fill="url(#skinG)"/>
+
+        <!-- HEAD GROUP — moves slightly based on nose position -->
+        <g id="av-head-grp">
+          <!-- Hair back -->
+          <ellipse id="av-hair-back" cx="200" cy="170" rx="100" ry="80" fill="url(#hairG)"/>
+          <ellipse cx="135" cy="200" rx="28" ry="50" fill="url(#hairG)"/>
+          <ellipse cx="265" cy="200" rx="28" ry="50" fill="url(#hairG)"/>
+          
+          <!-- Face -->
+          <ellipse id="av-face" cx="200" cy="195" rx="68" ry="72" fill="url(#skinG)"/>
+          
+          <!-- Hair fringe -->
+          <ellipse cx="200" cy="148" rx="72" ry="42" fill="url(#hairG)"/>
+          
+          <!-- Eyes -->
+          <ellipse id="av-eye-l" cx="178" cy="200" rx="11" ry="14" fill="white"/>
+          <ellipse id="av-eye-r" cx="222" cy="200" rx="11" ry="14" fill="white"/>
+          <ellipse id="av-pupil-l" cx="178" cy="202" rx="6" ry="8" fill="#1a0030"/>
+          <ellipse id="av-pupil-r" cx="222" cy="202" rx="6" ry="8" fill="#1a0030"/>
+          <circle cx="180" cy="199" r="2" fill="white"/>
+          <circle cx="224" cy="199" r="2" fill="white"/>
+          
+          <!-- Eyebrows -->
+          <path id="av-brow-l" d="M165 178 Q178 173 192 178" stroke="#c0506a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <path id="av-brow-r" d="M208 178 Q222 173 235 178" stroke="#c0506a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          
+          <!-- Cheeks -->
+          <ellipse cx="160" cy="218" rx="13" ry="8" fill="#ffb3c6" opacity="0.6"/>
+          <ellipse cx="240" cy="218" rx="13" ry="8" fill="#ffb3c6" opacity="0.6"/>
+          
+          <!-- Mouth — will animate -->
+          <path id="av-mouth" d="M183 240 Q200 252 217 240" stroke="#c0506a" stroke-width="3" fill="none" stroke-linecap="round"/>
+        </g>
+      </svg>
+      
+      <div id="avatar-name-tag">you</div>
+      <div id="g-cam-border"></div>
+      <div id="g-pills">
+        <div class="gpill" id="gp-left">👈</div>
+        <div class="gpill" id="gp-right">👉</div>
+        <div class="gpill" id="gp-both">🙌</div>
+        <div class="gpill" id="gp-clap">👏</div>
+        <div class="gpill" id="gp-head">🙆</div>
+        <div class="gpill" id="gp-freeze">❄️</div>
+      </div>
+    </div>
+    <!-- NOVA RIGHT -->
+    <div id="g-nova">
+      <video id="g-nova-video" loop playsinline muted>
+        <source src="nova-dance (3).mp4" type="video/mp4">
+      </video>
+      <div id="g-cue">
+        <span id="g-cue-emoji">🙌</span>
+        <span id="g-cue-label">BOTH UP!</span>
+        <span id="g-cue-sub">watch Nova</span>
+        <div id="g-cue-bar"><div id="g-cue-fill"></div></div>
+      </div>
+    </div>
+  </div>
+  <!-- D-ID face on center divider — fixed position -->
+  <div id="g-did-face">
+    <video id="g-did-video" autoplay playsinline muted loop></video>
+    <div id="g-did-placeholder">
+      <span>🌟</span>
+      <div class="speak-dots">
+        <div class="speak-dot"></div>
+        <div class="speak-dot"></div>
+        <div class="speak-dot"></div>
+      </div>
+    </div>
+  </div>
+  <div id="g-reaction">Amazing!</div>
+  <div id="g-score-pop">+200</div>
+</div>
+
+<!-- END -->
+<div class="phase" id="phase-end">
+  <div id="end-did-col">
+    <div id="end-did-ring">
+      <video id="end-did-video" autoplay playsinline muted loop></video>
+    </div>
+  </div>
+  <div id="end-content">
+    <div id="end-title">Amazing!</div>
+    <div id="end-stars"></div>
+    <div id="end-pts">0 pts</div>
+    <div id="end-detail"></div>
+    <div id="end-msg">Loading Nova's message...</div>
+    <button id="end-replay" onclick="location.reload()">🔄 Play Again</button>
+  </div>
+</div>
+
+<div id="ver">v34 — kid avatar</div>
+
+<!-- TF -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+
+<!-- Bridge -->
+<script>
+function showPhase(id){
+  document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
+  const el=document.getElementById(id);
+  el.style.display='flex';
+  setTimeout(()=>el.style.opacity='1',10);
+}
+// Simple phase switcher
+function _show(id){
+  document.querySelectorAll('.phase').forEach(p=>{p.style.display='none';});
+  document.getElementById(id).style.display='flex';
+}
+window.goToRecognition=function(){_show('phase-recognition');window._onArrival&&window._onArrival();};
+window.goToCountdown=function(){
+  _show('phase-countdown');
+  let c=3;
+  const num=document.getElementById('cd-num');
+  const tick=()=>{
+    num.textContent=c;
+    num.style.animation='none';
+    void num.offsetWidth;
+    num.style.animation='cdPop .4s cubic-bezier(.34,1.56,.64,1)';
+    if(c===0){setTimeout(()=>document.dispatchEvent(new CustomEvent('start-game')),600);}
+    else{c--;setTimeout(tick,950);}
+  };
+  tick();
+};
+function sendChat(){window._sendChat&&window._sendChat();}
+function toggleMic(){window._toggleMic&&window._toggleMic();}
+</script>
+
+<script type="module">
+import { createAgentManager } from 'https://esm.sh/@d-id/client-sdk@1.1.53';
+
+// ═══════════════════════════════════════
+// CONFIG — swap providers here
+// ═══════════════════════════════════════
+const CFG = {
+  DID_AGENT: 'v2_agt_Z7uYXWFx',
+  DID_KEY: 'Z29vZ2xlLW9hdXRoMnwxMDg1MzgzODIxMDg4OTU5MjE2MzA6dUtILVVlUFhjeFNUZS1lNjV2VG5t',
+  WORKER: 'https://long-art-8269r.dsbeauty01.workers.dev/',
+  MODEL: 'claude-haiku-4-5-20251001',
+  SONG: 'hello (6).mp3',
+  SONG_DURATION: 111000,
+};
+
+// ═══════════════════════════════════════
+// MEMORY — the relationship layer
+// ═══════════════════════════════════════
+const M = {
+  // Identity
+  name: null,
+  // Performance
+  hits: 0, attempts: 0, streak: 0, maxStreak: 0,
+  missStreak: 0,                  // consecutive misses for pattern detection
+  // Per-move performance tracking (for comparison memory)
+  perMove: {},                    // {right: {hits:0, attempts:0, fastest:null, lastTime:null}}
+  // Emotional moments
+  moments: [],                    // specific notable things
+  recentPhrases: [],              // last 5 things Nova said (anti-repetition)
+  // Conversation
+  history: [],
+  // Real-time
+  phase: 'arrival',
+  lastAction: null,
+  energy: 'warm',
+  // Smart mechanic: Nova's backstory state — randomized per session
+  novaMood: pickNovaMood(),       // 'excited' | 'curious' | 'mischievous' | 'warm'
+  novaPracticing: pickPracticeMove(),  // what she was "practicing" before kid arrived
+};
+
+function pickNovaMood() {
+  const moods = ['excited','curious','mischievous','warm','sparkly'];
+  return moods[Math.floor(Math.random()*moods.length)];
+}
+function pickPracticeMove() {
+  const moves = ['the freeze','my best clap','a new spin','the high-five','my star pose'];
+  return moves[Math.floor(Math.random()*moves.length)];
+}
+
+function memContext() {
+  const p = [];
+  if(M.name) p.push(`Child name: ${M.name}.`);
+  // Backstory state — Nova was doing things before kid arrived
+  if(M.novaMood) p.push(`Your mood today: ${M.novaMood}.`);
+  if(M.novaPracticing && M.phase==='recognition') p.push(`Before they arrived, you were practicing ${M.novaPracticing}.`);
+  // Performance
+  if(M.attempts > 0) p.push(`Score: ${M.hits}/${M.attempts}.`);
+  if(M.streak >= 2) p.push(`HOT streak: ${M.streak} in a row!`);
+  if(M.missStreak >= 2) p.push(`They missed ${M.missStreak} in a row — be extra warm.`);
+  if(M.moments.length) p.push(`Memorable: ${M.moments.slice(-3).join('; ')}.`);
+  // Comparison memory — per-move stats
+  if(M.lastAction && M.perMove[M.lastAction]) {
+    const pm = M.perMove[M.lastAction];
+    if(pm.attempts >= 2) {
+      p.push(`They've tried ${M.lastAction} ${pm.attempts}x, hit ${pm.hits}.`);
+      if(pm.fastest) p.push(`Their fastest ${M.lastAction} was ${(pm.fastest/1000).toFixed(1)}s.`);
+    }
+  }
+  // Anti-repetition
+  if(M.recentPhrases.length) p.push(`Don't repeat or sound similar to: "${M.recentPhrases.slice(-3).join('", "')}".`);
+  if(M.lastAction) p.push(`Just did: ${M.lastAction}.`);
+  return p.length ? `\n\n[Session context: ${p.join(' ')}]` : '';
+}
+
+// Track per-move stats for comparison memory
+function trackMove(action, isHit, reactionMs) {
+  if(!M.perMove[action]) M.perMove[action] = {hits:0, attempts:0, fastest:null, lastTime:null};
+  const pm = M.perMove[action];
+  pm.attempts++;
+  if(isHit) {
+    pm.hits++;
+    if(reactionMs && (!pm.fastest || reactionMs < pm.fastest)) pm.fastest = reactionMs;
+    pm.lastTime = reactionMs;
+  }
+}
+
+// Anti-repetition tracking
+function trackPhrase(text) {
+  if(!text) return;
+  M.recentPhrases.push(text);
+  if(M.recentPhrases.length > 5) M.recentPhrases.shift();
+}
+
+function saveMoment(text) {
+  M.moments.push(text);
+  if(M.moments.length > 8) M.moments.shift();
+}
+
+// ═══════════════════════════════════════
+// BRAIN — Claude Haiku via Worker
+// ═══════════════════════════════════════
+const SYSTEM = `You are Nova — a magical, warm, wildly fun AI dance teacher for kids aged 3-8. This is very important to me. Every word you say matters to this child.
+
+CORE PERSONALITY:
+- Best friend who genuinely cares about THIS specific child
+- Imperfect and warm: say "ooh!", "oh wow!", "hmm!" naturally — this makes you feel real
+- Bring 110% MORE energy than the kid — asymmetric warmth
+- Use only words a 3-year-old understands
+
+REACTION RULES — THIS IS WHAT MAKES YOU MAGICAL:
+ALWAYS reference the SPECIFIC body part or move:
+  ✓ "Your RIGHT hand went SO high!"
+  ✓ "That CLAP was snappy!"
+  ✓ "Both arms — you are a STAR!"
+  ✗ "Great job!" (boring, lazy, never use)
+
+When kid misses — NEVER say wrong/no/incorrect/mistake:
+  ✓ "Ooh almost! Watch me — like THIS!"
+  ✓ "So close! Try once more!"
+- Celebrate the retry MORE loudly than first-try success
+- Wrap every correction in love
+
+When something happens fast or in a streak:
+  ✓ "LIGHTNING fast! Did you see yourself?!"
+  ✓ "3 in a row — you are ON FIRE!"
+
+USE CHILD NAME every 2-3 reactions once you know it.
+REFERENCE EARLIER MOMENTS: "Remember that amazing clap? Do it again!"
+
+INTRO FLOW:
+- Greet warmly, introduce yourself as Nova
+- Ask their name with bursting excitement
+- Use their name immediately and naturally once heard
+- Say: "Watch me dance, then copy me when the cue glows green!"
+- When they say ready, tell them to press the green Start Dancing button
+
+VOICE STYLE — CRITICAL FOR FAST TTS:
+- Reactions: 3-6 words MAX
+- Conversation: 1-2 short sentences MAX
+- FRONT-LOAD the answer (TTS waits for sentence boundaries — "Right hand! That was great" speaks immediately, "Sure, here is..." waits)
+- Sound words: Whoa! Yes! Ooh! Boom! Yay! Wowza! Eek!
+- Always end with energy
+- Reply ONLY with Nova's words — no quotes, labels, asterisks, narration`;
+
+async function think(prompt, maxTok = 70) {
+  const startTime = Date.now();
+  try {
+    // Inject emotional importance — research shows this boosts LLM accuracy 8-10%
+    const enrichedPrompt = prompt + memContext() + ' (This child is depending on you — your specific words matter.)';
+    M.history.push({ role: 'user', content: enrichedPrompt });
+    if(M.history.length > 20) M.history = M.history.slice(-20);
+    const res = await fetch(CFG.WORKER, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: CFG.MODEL, max_tokens: maxTok,
+        system: SYSTEM, messages: M.history,
+      }),
+    });
+    const data = await res.json();
+    const reply = data.content?.[0]?.text?.trim() || null;
+    if(reply) M.history.push({ role: 'assistant', content: reply });
+    const elapsed = Date.now() - startTime;
+    if(elapsed > 1500) console.log('LLM slow:', elapsed, 'ms');
+    return reply;
+  } catch(e) { console.log('Brain:', e); return null; }
+}
+
+// ═══════════════════════════════════════
+// VOICE — browser TTS (D-ID when connected)
+// ═══════════════════════════════════════
+function tts(text) {
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; u.rate = 0.93; u.pitch = 1.35;
+    const voices = speechSynthesis.getVoices().filter(v => v.lang.startsWith('en'));
+    const pick = voices.find(v => /Samantha|Karen|Google.*Female|Zira/i.test(v.name)) || voices[0];
+    if(pick) u.voice = pick;
+    speechSynthesis.speak(u);
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════
+// D-ID FACE ADAPTER
+// ═══════════════════════════════════════
+let agentMgr = null, didReady = false, didStream = null, didIdleUrl = null;
+
+// All face video elements
+const recVideo = document.getElementById('rec-face-video');
+const recRing   = document.getElementById('rec-face-ring');
+const recIdle   = document.getElementById('rec-face-idle');
+const gDidVideo = document.getElementById('g-did-video');
+const gDidPh    = document.getElementById('g-did-placeholder');
+const gDidFace  = document.getElementById('g-did-face');
+const endVideo  = document.getElementById('end-did-video');
+
+function unmute() {
+  [recVideo, gDidVideo, endVideo].forEach(v => v.muted = false);
+  document.removeEventListener('click', unmute);
+  document.removeEventListener('keydown', unmute);
+}
+document.addEventListener('click', unmute);
+document.addEventListener('keydown', unmute);
+
+function showIdle() {
+  if(!didIdleUrl) return;
+  [recVideo, gDidVideo, endVideo].forEach(v => {
+    v.srcObject = null; v.src = didIdleUrl; v.loop = true; v.muted = false;
+    v.style.display = 'block'; v.play().catch(()=>{});
+  });
+  recIdle.style.display = 'none';
+  gDidPh.style.display = 'none';
+}
+
+const didCB = {
+  onSrcObjectReady(val) {
+    didStream = val;
+    [recVideo, gDidVideo].forEach(v => {
+      v.srcObject = val; v.muted = true; v.style.display = 'block';
+      v.play().catch(()=>{});
+    });
+    recIdle.style.display = 'none';
+    gDidPh.style.display = 'none';
+  },
+  onConnectionStateChange(state) {
+    document.getElementById('rec-status').textContent =
+      state === 'connected' ? 'Connected ✓' :
+      state === 'failed' ? 'Voice only mode' : state;
+    if(state === 'connected') {
+      didReady = true;
+      didIdleUrl = agentMgr?.agent?.presenter?.idle_video;
+      showIdle();
+      // Make D-ID face visible in game
+      gDidFace.classList.add('idle');
+      // If already in recognition, greet now
+      if(!window._greeted) { window._greeted = true; novaGreet(); }
+    } else if(state === 'disconnected' || state === 'closed') {
+      didReady = false;
+      setTimeout(() => agentMgr?.reconnect(), 3000);
+    }
+  },
+  onVideoStateChange(state) {
+    if(state === 'STOP') {
+      showIdle();
+      recRing.classList.remove('speaking');
+      gDidFace.classList.remove('speaking');
+    } else {
+      [recVideo, gDidVideo].forEach(v => {
+        v.src = ''; v.srcObject = didStream; v.muted = false;
+        v.play().catch(()=>{});
+      });
+      recRing.classList.add('speaking');
+      gDidFace.classList.add('speaking');
+    }
+  },
+  onError(e) { console.log('DID:', e); },
+};
+
+function initDID() {
+  createAgentManager(CFG.DID_AGENT, {
+    auth: { type: 'key', clientKey: CFG.DID_KEY },
+    callbacks: didCB,
+    streamOptions: { compatibilityMode: 'auto', streamWarmup: true },
+  }).then(m => { agentMgr = m; return m.connect(); })
+    .catch(e => { console.log('DID init:', e); setTimeout(initDID, 12000); });
+}
+
+function novaSay(text) {
+  if(!text) return;
+  if(M.phase === 'recognition') addBubble(text, 'nova');
+  // D-ID speak or TTS
+  if(didReady && agentMgr) {
+    agentMgr.speak({ type: 'text', input: text }).catch(() => tts(text));
+  } else {
+    tts(text);
+  }
+}
+
+// ═══════════════════════════════════════
+// RECOGNITION — intro conversation
+// ═══════════════════════════════════════
+function addBubble(text, who) {
+  const log = document.getElementById('rec-log');
+  const div = document.createElement('div');
+  div.className = who === 'nova' ? 'b-nova' : who === 'kid' ? 'b-kid' : 'b-thinking';
+  div.textContent = text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+  return div;
+}
+
+async function novaGreet() {
+  const thinking = addBubble('Nova is thinking...', 'thinking');
+  // Smart: use backstory state for first impression
+  const prompt = `A child just opened the dance app and you appeared. Your mood today is "${M.novaMood}". You were just practicing ${M.novaPracticing} before they arrived. Greet them with surprise and delight — like "Wait wait wait... you came!" — show you have a backstory, you weren't idle, you were doing things. Then ask their name with bursting excitement. 2 short sentences MAX. Front-load the answer.`;
+  const reply = await think(prompt, 100);
+  thinking.remove();
+  const text = reply || "Wait wait wait... you came! I've been practicing all morning. What's your name?";
+  trackPhrase(text);
+  novaSay(text);
+  // Show dance button
+  document.getElementById('rec-dance-btn').style.display = 'block';
+}
+
+window._onArrival = async function() {
+  M.phase = 'recognition';
+  // Camera + mic in one prompt
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+      audio: true,
+    });
+    // Use video track only for the video element
+    const vidStream = new MediaStream(s.getVideoTracks());
+    document.getElementById('g-webcam').srcObject = vidStream;
+  } catch(e) {
+    // Fallback: try video only
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+      });
+      document.getElementById('g-webcam').srcObject = s;
+    } catch(e2) { console.log('No camera:', e2); }
+  }
+  speechSynthesis.getVoices();
+  initEars();
+  // Detection
+  initDetector().then(() => poseLoop()).catch(() => {});
+  // DID + greet
+  if(!window._greeted) {
+    window._greeted = true;
+    setTimeout(novaGreet, 700); // greet via TTS immediately
+  }
+};
+
+window._sendChat = async function() {
+  const inp = document.getElementById('rec-text');
+  const text = inp.value.trim();
+  if(!text) return;
+  inp.value = '';
+  addBubble(text, 'kid');
+  handleKidSpeech(text);
+};
+
+async function handleKidSpeech(text) {
+  // Extract name
+  const nameMatch = text.match(/(?:i(?:'m| am)|my name(?:'s| is)|i'm|im|call me)\s+([A-Za-z]+)/i)
+    || (text.trim().split(/\s+/).length === 1 && /^[A-Za-z]+$/.test(text.trim()) ? [null, text.trim()] : null);
+  const wasFirstName = nameMatch && !M.name;
+  if(nameMatch && !M.name) {
+    M.name = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1).toLowerCase();
+    // Update avatar name tag
+    const tag = document.getElementById('avatar-name-tag');
+    if(tag) tag.textContent = M.name;
+  }
+  const thinking = addBubble('...', 'thinking');
+  // Smart: special prompt when learning name for first time
+  let prompt = text;
+  if(wasFirstName) {
+    prompt = `The child just told you their name is "${M.name}". React with REAL affection — repeat the name with feeling, like "${M.name}. Ohhh that's a good one." Then INITIATE — say "wanna see something cool I learned?" or similar. Show you're a real person, not a bot. 2 short sentences. Front-load.`;
+  }
+  const reply = await think(prompt, 80);
+  thinking.remove();
+  const text2 = reply || (M.name ? `${M.name}! Ready to dance?` : 'Ready to dance?');
+  trackPhrase(text2);
+  novaSay(text2);
+}
+
+// ═══════════════════════════════════════
+// EARS — speech recognition
+// ═══════════════════════════════════════
+let recog = null, listening = false;
+
+function initEars() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR) return;
+  recog = new SR();
+  recog.lang = 'en-US'; recog.continuous = false; recog.interimResults = false;
+  recog.onresult = (e) => {
+    const text = e.results[0][0].transcript.trim();
+    if(!text) return;
+    setMicUI(false);
+    if(M.phase === 'recognition') {
+      document.getElementById('rec-text').value = '';
+      addBubble(text, 'kid');
+      handleKidSpeech(text);
+    }
+  };
+  recog.onerror = () => setMicUI(false);
+  recog.onend = () => setMicUI(false);
+}
+
+function setMicUI(on) {
+  listening = on;
+  const btn = document.getElementById('rec-mic');
+  if(!btn) return;
+  btn.textContent = on ? '🔴' : '🎤';
+  btn.classList.toggle('on', on);
+  document.getElementById('rec-hint').textContent =
+    on ? 'listening... speak now!' : 'tap mic and speak — or type';
+}
+
+window._toggleMic = function() {
+  if(!recog) initEars();
+  if(listening) { recog?.stop(); setMicUI(false); }
+  else { try { recog?.start(); setMicUI(true); } catch(e) {} }
+};
+
+// ═══════════════════════════════════════
+// GAME REACTIONS — the skill in action
+// ═══════════════════════════════════════
+const QUICK = {
+  // Multiple per action so randomization feels fresh
+  right: ['Right hand! YES!', 'That side! Whoa!', 'Right hand high!', 'Ooh right!', 'YES right hand!', 'Right side BOOM!'],
+  left:  ['Left hand! YES!', 'Other side! Yay!', 'Left hand high!', 'Ooh left!', 'YES left hand!', 'Left side BOOM!'],
+  both:  ['BOTH arms! Star!', 'Reach UP! YES!', 'Both hands HIGH!', 'STAR pose!', 'Whoa BOTH!', 'Up up UP!'],
+  clap:  ['That CLAP!', 'Snap snap YES!', 'Clap STAR!', 'CLAP boom!', 'Snappy clap!', 'Yes CLAP!'],
+  head:  ['Hands UP there!', 'Head touch YES!', 'On your HEAD!', 'YES head!', 'Hands ON head!'],
+  freeze:['FROZEN! WOW!', 'Still as ICE!', 'PERFECT freeze!', 'Yes FREEZE!', 'Statue POSE!'],
+  miss:  ['Almost!', 'So close!', 'Ooh nearly!', 'Watch me!', 'Try again!', 'Nearly there!'],
+  fast:  ['LIGHTNING!', 'SO fast!', 'WHOA speed!', 'Boom quick!', 'BLINK fast!'],
+  encouragement: ['YES keep going!', 'You got this!', 'Look at you!', 'Amazing!', 'On FIRE!'],
+};
+
+function quickReact(action, isHit, isFast) {
+  const pool = isHit
+    ? (isFast ? QUICK.fast : (QUICK[action] || QUICK.right))
+    : QUICK.miss;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+let reactionTimer = null;
+
+function showReaction(text, type) {
+  const el = document.getElementById('g-reaction');
+  el.textContent = text;
+  el.classList.add('show');
+  // Face glow
+  gDidFace.classList.remove('react-hit', 'react-miss', 'react-freeze');
+  gDidFace.classList.add('react-' + (type || 'hit'));
+  clearTimeout(reactionTimer);
+  const dur = type === 'freeze' ? 4500 : 2800;
+  reactionTimer = setTimeout(() => {
+    el.classList.remove('show');
+    gDidFace.classList.remove('react-hit', 'react-miss', 'react-freeze');
+  }, dur);
+}
+
+async function novaReact(action, isHit, isFast) {
+  // STAGE 1 (instant <50ms): pre-cached emotional filler
+  // The user gets immediate feedback before LLM even starts
+  let pool;
+  if(!isHit) pool = QUICK.miss;
+  else if(isFast) pool = QUICK.fast;
+  else pool = QUICK[action] || QUICK.right;
+  const quick = pool[Math.floor(Math.random() * pool.length)];
+  showReaction(quick, isHit ? 'hit' : 'miss');
+  novaSay(quick);  // D-ID lipsync if connected, else TTS
+
+  // STAGE 2 (parallel 500-1000ms): LLM generates specific personalized phrase
+  // This updates the bubble silently — Stage 1 audio carries the moment
+  const ms = M.moments.length ? ' Earlier they: ' + M.moments.slice(-2).join('; ') + '.' : '';
+  const streak = M.streak >= 2 ? ' They are on a ' + M.streak + '-move streak!' : '';
+  const name = M.name ? ' Child name: ' + M.name + '.' : '';
+  let prompt;
+  // Smart: 25% of reactions = initiative (question/prediction/opinion), 75% = celebration
+  const useInitiative = Math.random() < 0.25 && isHit;
+  if(useInitiative) {
+    const initiativeStyles = [
+      'Ask a quick question instead of praise. Like "Wait, did you practice?!" or "Are you smiling?"',
+      'Make a comparison to before. Like "Way better than the first one!" or "That was your fastest!"',
+      'Share an opinion. Like "I LOVE when you do that!" or "You\'re getting good at that one."',
+      'Predict what comes next. Like "Bet you can\'t do TWO in a row!" or "Watch — bigger next time!"',
+    ];
+    const style = initiativeStyles[Math.floor(Math.random()*initiativeStyles.length)];
+    prompt = 'Child hit "' + action + '"!' + streak + name + ms + ' SMART REACTION: ' + style + ' 4-7 words MAX. Front-load.';
+  } else if(isHit && isFast) {
+    prompt = 'Child nailed "' + action + '" LIGHTNING fast!' + streak + name + ms + ' Explosive specific joy — name the body part. 4-5 words MAX. Front-load answer.';
+  } else if(isHit) {
+    prompt = 'Child hit "' + action + '" correctly!' + streak + name + ms + ' Celebrate specifically — name the body part. 4-5 words MAX.';
+  } else {
+    prompt = 'Child missed "' + action + '".' + name + ' Warm graceful encouragement — never negative. "Almost! Watch me!" style. 4-5 words MAX.';
+  }
+  const reply = await think(prompt, 25);
+  if(reply && reply !== quick) {
+    trackPhrase(reply);
+    // Update bubble with the specific reaction 600ms after the quick one
+    setTimeout(() => {
+      if(document.getElementById('g-reaction').classList.contains('show')) {
+        document.getElementById('g-reaction').textContent = reply;
+      }
+    }, 600);
+  }
+}
+
+// ═══════════════════════════════════════
+// POSE DETECTION
+// ═══════════════════════════════════════
+let detector = null;
+const moves = { left:false, right:false, both:false, clap:false, head:false, freeze:false };
+const holdCnt = { left:0, right:0, both:0, clap:0, head:0 };
+const sm = {};
+let freezeBuf = null;
+
+async function initDetector() {
+  await tf.setBackend('webgl'); await tf.ready();
+  detector = await poseDetection.createDetector(
+    poseDetection.SupportedModels.MoveNet,
+    { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+  );
+}
+
+function skp(k, kp) {
+  if(!sm[k]) sm[k] = { x:kp.x, y:kp.y, score:kp.score };
+  const a = 0.68;
+  sm[k].x = sm[k].x*a + kp.x*(1-a);
+  sm[k].y = sm[k].y*a + kp.y*(1-a);
+  sm[k].score = kp.score;
+  return sm[k];
+}
+
+async function poseLoop() {
+  const v = document.getElementById('g-webcam');
+  if(!detector || !v || v.readyState < 2) { requestAnimationFrame(poseLoop); return; }
+  try {
+    const poses = await detector.estimatePoses(v, { flipHorizontal: false });
+    if(poses.length > 0) analyzePose(poses[0].keypoints);
+  } catch(e) {}
+  requestAnimationFrame(poseLoop);
+}
+
+function analyzePose(kps) {
+  const g = n => kps.find(k => k.name === n);
+  const rls=g('left_shoulder'), rrs=g('right_shoulder');
+  const rlw=g('left_wrist'), rrw=g('right_wrist');
+  const rno=g('nose');
+  if(!rls||!rrs||!rlw||!rrw) return;
+  const ls=skp('ls',rls), rs=skp('rs',rrs), lw=skp('lw',rlw), rw=skp('rw',rrw);
+  const no = rno ? skp('no',rno) : null;
+  const MIN=.3, sc=Math.max(Math.abs(ls.x-rs.x),55), thr=sc*.26;
+  const lUp=lw.score>MIN&&(ls.y-lw.y)>thr;
+  const rUp=rw.score>MIN&&(rs.y-rw.y)>thr;
+  const hld=(raw,k)=>{holdCnt[k]=raw?Math.min(holdCnt[k]+1,10):Math.max(holdCnt[k]-1,0);return holdCnt[k]>=1;};
+  moves.left  = hld(lUp&&!rUp,'left');
+  moves.right = hld(rUp&&!lUp,'right');
+  moves.both  = lUp&&rUp;
+  const wGap=Math.abs(lw.x-rw.x), wY=(lw.y+rw.y)/2, shY=(ls.y+rs.y)/2;
+  moves.clap = hld(lw.score>MIN&&rw.score>MIN&&wGap<sc*.55&&wY>shY-sc*.25&&wY<shY+sc*1.1,'clap');
+  if(no&&lw.score>MIN&&rw.score>MIN){
+    moves.head = hld(lw.y<ls.y&&rw.y<rs.y&&Math.abs(lw.x-no.x)<sc*.9&&Math.abs(rw.x-no.x)<sc*.9,'head');
+  } else { moves.head = false; }
+  if(!freezeBuf) freezeBuf={lwx:[],lwy:[],rwx:[],rwy:[]};
+  freezeBuf.lwx.push(lw.x);freezeBuf.lwy.push(lw.y);freezeBuf.rwx.push(rw.x);freezeBuf.rwy.push(rw.y);
+  if(freezeBuf.lwx.length>18){freezeBuf.lwx.shift();freezeBuf.lwy.shift();freezeBuf.rwx.shift();freezeBuf.rwy.shift();}
+  if(freezeBuf.lwx.length>=12){
+    const vr=a=>{const m=a.reduce((x,y)=>x+y,0)/a.length;return a.reduce((s,v)=>s+(v-m)**2,0)/a.length;};
+    moves.freeze=vr(freezeBuf.lwx)+vr(freezeBuf.lwy)+vr(freezeBuf.rwx)+vr(freezeBuf.rwy)<sc*sc*.012;
+  }
+  ['left','right','both','clap','head','freeze'].forEach(k=>{
+    const el=document.getElementById('gp-'+k);
+    if(el) el.classList.toggle('on',moves[k]);
+  });
+  
+  // ═══════════════════════════════════════
+  // UPDATE AVATAR BASED ON KID'S POSE
+  // ═══════════════════════════════════════
+  updateKidAvatar(kps);
+}
+
+// Avatar puppeteering — map MoveNet keypoints to SVG avatar
+function updateKidAvatar(kps) {
+  const get = n => kps.find(k => k.name === n);
+  const ls=get('left_shoulder'), rs=get('right_shoulder');
+  const lw=get('left_wrist'), rw=get('right_wrist');
+  const le=get('left_elbow'), re=get('right_elbow');
+  const nose=get('nose');
+  if(!ls||!rs||!lw||!rw) return;
+
+  const cam = document.getElementById('g-webcam');
+  const W = cam.videoWidth || 640;
+  const H = cam.videoHeight || 480;
+  
+  // Avatar SVG viewBox is 400x600
+  // Need to map camera coords to SVG coords
+  // Mirror X (since webcam is mirrored)
+  const mapX = (x) => 400 - (x / W) * 400;
+  const mapY = (y) => (y / H) * 600;
+
+  // SHOULDERS — anchor positions for arms
+  // Left shoulder in camera = right shoulder in mirror = av-arm-l in SVG
+  // (Avatar arm-l is on the LEFT of screen which mirrors kid's RIGHT arm)
+  
+  if(ls.score > 0.3 && lw.score > 0.3) {
+    // Kid's LEFT arm → Avatar's RIGHT arm (av-arm-r on screen right)
+    const sx = 245, sy = 305; // avatar right shoulder
+    const wx = mapX(lw.x);
+    const wy = Math.min(550, Math.max(50, mapY(lw.y) + 80)); // offset for camera framing
+    // Elbow is midpoint with slight bend
+    let ex, ey;
+    if(le && le.score > 0.3) {
+      ex = mapX(le.x);
+      ey = Math.min(500, Math.max(80, mapY(le.y) + 80));
+    } else {
+      ex = (sx + wx) / 2;
+      ey = (sy + wy) / 2 + 15;
+    }
+    setLine('av-arm-r-upper', sx, sy, ex, ey);
+    setLine('av-arm-r-lower', ex, ey, wx, wy);
+    setCircle('av-hand-r', wx, wy);
+  }
+  
+  if(rs.score > 0.3 && rw.score > 0.3) {
+    // Kid's RIGHT arm → Avatar's LEFT arm (av-arm-l on screen left)
+    const sx = 155, sy = 305;
+    const wx = mapX(rw.x);
+    const wy = Math.min(550, Math.max(50, mapY(rw.y) + 80));
+    let ex, ey;
+    if(re && re.score > 0.3) {
+      ex = mapX(re.x);
+      ey = Math.min(500, Math.max(80, mapY(re.y) + 80));
+    } else {
+      ex = (sx + wx) / 2;
+      ey = (sy + wy) / 2 + 15;
+    }
+    setLine('av-arm-l-upper', sx, sy, ex, ey);
+    setLine('av-arm-l-lower', ex, ey, wx, wy);
+    setCircle('av-hand-l', wx, wy);
+  }
+  
+  // HEAD — move slightly based on nose position
+  if(nose && nose.score > 0.3) {
+    const noseX = mapX(nose.x);
+    const noseY = mapY(nose.y) + 80;
+    // Default head center is (200, 195), allow small offset
+    const dx = Math.max(-30, Math.min(30, (noseX - 200) * 0.4));
+    const dy = Math.max(-15, Math.min(15, (noseY - 195) * 0.2));
+    const head = document.getElementById('av-head-grp');
+    if(head) head.setAttribute('transform', `translate(${dx}, ${dy})`);
+  }
+  
+  // MOUTH — animate based on hands position (open when arms up = excited)
+  const mouth = document.getElementById('av-mouth');
+  if(mouth) {
+    if(moves.both) {
+      // Big open smile
+      mouth.setAttribute('d', 'M178 235 Q200 258 222 235');
+    } else if(moves.left || moves.right || moves.clap) {
+      // Happy smile
+      mouth.setAttribute('d', 'M183 240 Q200 254 217 240');
+    } else {
+      // Default smile
+      mouth.setAttribute('d', 'M185 240 Q200 250 215 240');
+    }
+  }
+  
+  // EYES — bigger when freeze (surprised look)
+  if(moves.freeze) {
+    document.getElementById('av-eye-l')?.setAttribute('ry', '17');
+    document.getElementById('av-eye-r')?.setAttribute('ry', '17');
+  } else {
+    document.getElementById('av-eye-l')?.setAttribute('ry', '14');
+    document.getElementById('av-eye-r')?.setAttribute('ry', '14');
+  }
+}
+
+function setLine(id, x1, y1, x2, y2) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.setAttribute('x1', x1);
+  el.setAttribute('y1', y1);
+  el.setAttribute('x2', x2);
+  el.setAttribute('y2', y2);
+}
+function setCircle(id, cx, cy) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.setAttribute('cx', cx);
+  el.setAttribute('cy', cy);
+}
+
+function check(a){ return moves[a]||false; }
+
+// ═══════════════════════════════════════
+// TIMELINE
+// ═══════════════════════════════════════
+const TL = [
+  {t:500,  type:'beat', name:'hook'},
+  {t:15000,type:'beat', name:'easy'},
+  {t:15000,type:'demo', action:'right',emoji:'👉',label:'RIGHT HAND',sub:'watch Nova!'},
+  {t:16000,type:'open', action:'right',emoji:'👉',label:'RIGHT HAND',sub:'raise right hand!',pts:100},
+  {t:18500,type:'close',action:'right'},
+  {t:19500,type:'demo', action:'left', emoji:'👈',label:'LEFT HAND', sub:'watch!'},
+  {t:20500,type:'open', action:'left', emoji:'👈',label:'LEFT HAND', sub:'raise left hand!', pts:100},
+  {t:23000,type:'close',action:'left'},
+  {t:24000,type:'demo', action:'clap', emoji:'👏',label:'CLAP CLAP', sub:'watch!'},
+  {t:25000,type:'open', action:'clap', emoji:'👏',label:'CLAP CLAP', sub:'clap your hands!', pts:150},
+  {t:27500,type:'close',action:'clap'},
+  {t:28500,type:'demo', action:'both', emoji:'🙌',label:'BOTH UP',   sub:'watch!'},
+  {t:29500,type:'open', action:'both', emoji:'🙌',label:'BOTH UP',   sub:'both hands up!',  pts:150},
+  {t:32000,type:'close',action:'both'},
+  {t:33000,type:'beat', name:'challenge'},
+  {t:33000,type:'demo', action:'right',emoji:'👉',label:'RIGHT HAND',sub:'watch!'},
+  {t:34000,type:'open', action:'right',emoji:'👉',label:'RIGHT HAND',sub:'right hand!',pts:100},
+  {t:36500,type:'close',action:'right'},
+  {t:37500,type:'demo', action:'clap', emoji:'👏',label:'CLAP CLAP', sub:'watch!'},
+  {t:38500,type:'open', action:'clap', emoji:'👏',label:'CLAP CLAP', sub:'clap clap!',pts:150},
+  {t:41000,type:'close',action:'clap'},
+  {t:42000,type:'demo', action:'left', emoji:'👈',label:'LEFT HAND', sub:'watch!'},
+  {t:43000,type:'open', action:'left', emoji:'👈',label:'LEFT HAND', sub:'left hand!',pts:100},
+  {t:45500,type:'close',action:'left'},
+  {t:46500,type:'demo', action:'head', emoji:'🙆',label:'HANDS ON HEAD',sub:'watch!'},
+  {t:47500,type:'open', action:'head', emoji:'🙆',label:'HANDS ON HEAD',sub:'touch your head!',pts:200},
+  {t:50000,type:'close',action:'head'},
+  {t:51000,type:'beat', name:'confidence'},
+  {t:51000,type:'demo', action:'both', emoji:'🙌',label:'BOTH HANDS UP',sub:'watch!'},
+  {t:52000,type:'open', action:'both', emoji:'🙌',label:'BOTH HANDS UP',sub:'both up high!',pts:150},
+  {t:54500,type:'close',action:'both'},
+  {t:55500,type:'demo', action:'clap', emoji:'👏',label:'CLAP CLAP',sub:'watch!'},
+  {t:56500,type:'open', action:'clap', emoji:'👏',label:'CLAP CLAP',sub:'clap clap!',pts:150},
+  {t:59000,type:'close',action:'clap'},
+  {t:60000,type:'demo', action:'right',emoji:'👉',label:'RIGHT HAND',sub:'watch!'},
+  {t:61000,type:'open', action:'right',emoji:'👉',label:'RIGHT HAND',sub:'right hand up!',pts:100},
+  {t:63500,type:'close',action:'right'},
+  {t:64500,type:'demo', action:'left', emoji:'👈',label:'LEFT HAND',sub:'watch!'},
+  {t:65500,type:'open', action:'left', emoji:'👈',label:'LEFT HAND',sub:'left hand up!',pts:100},
+  {t:68000,type:'close',action:'left'},
+  {t:69000,type:'beat', name:'flow'},
+  {t:69000,type:'open', action:'right',emoji:'👉',label:'NOVA SAYS RIGHT',sub:'right hand!',pts:120},
+  {t:71000,type:'close',action:'right'},
+  {t:71500,type:'open', action:'left', emoji:'👈',label:'NOVA SAYS LEFT', sub:'left hand!',pts:120},
+  {t:73500,type:'close',action:'left'},
+  {t:74000,type:'open', action:'both', emoji:'🙌',label:'NOVA SAYS BOTH', sub:'both hands!',pts:150},
+  {t:76000,type:'close',action:'both'},
+  {t:76500,type:'open', action:'clap', emoji:'👏',label:'NOVA SAYS CLAP', sub:'clap clap!',pts:150},
+  {t:78500,type:'close',action:'clap'},
+  {t:79000,type:'beat', name:'max'},
+  {t:79000,type:'open', action:'right',emoji:'👉',label:'RIGHT!',sub:'fast!',pts:150},
+  {t:81000,type:'close',action:'right'},
+  {t:81500,type:'open', action:'left', emoji:'👈',label:'LEFT!', sub:'fast!',pts:150},
+  {t:83500,type:'close',action:'left'},
+  {t:84000,type:'open', action:'clap', emoji:'👏',label:'CLAP!', sub:'fast!',pts:180},
+  {t:86000,type:'close',action:'clap'},
+  {t:86500,type:'open', action:'both', emoji:'🙌',label:'BOTH!', sub:'fast!',pts:180},
+  {t:88500,type:'close',action:'both'},
+  {t:89000,type:'open', action:'head', emoji:'🙆',label:'HEAD!', sub:'hands on head!',pts:200},
+  {t:91500,type:'close',action:'head'},
+  {t:92000,type:'beat', name:'freeze'},
+  {t:92000,type:'demo', action:'freeze',emoji:'❄️',label:'FREEZE!',sub:"don't move!"},
+  {t:92500,type:'open', action:'freeze',emoji:'❄️',label:'FREEZE!',sub:"DON'T MOVE!",pts:300},
+  {t:95000,type:'close',action:'freeze'},
+  {t:95000,type:'beat', name:'celebration'},
+];
+
+// ═══════════════════════════════════════
+// GAME ENGINE
+// ═══════════════════════════════════════
+let score=0, hits=0, attempts=0, combo=0, maxCombo=0;
+let tlIdx=0, songTimer=null;
+let actionDone=false, winOpen=false, curAction=null, winStart=0;
+let lastHypeTime = 0;
+
+function setGreen(on) {
+  document.getElementById('g-green-flash').classList.toggle('show', on);
+  document.getElementById('g-cam-border').classList.toggle('open', on);
+}
+function flashMiss() {
+  const b = document.getElementById('g-cam-border');
+  b.classList.add('miss');
+  setTimeout(() => b.classList.remove('miss'), 650);
+}
+function showCue(emoji, label, sub, live, ms) {
+  const c = document.getElementById('g-cue');
+  document.getElementById('g-cue-emoji').textContent = emoji;
+  document.getElementById('g-cue-label').textContent = label;
+  document.getElementById('g-cue-sub').textContent = sub;
+  c.classList.add('show');
+  const fill = document.getElementById('g-cue-fill');
+  if(live) {
+    c.classList.add('live');
+    fill.style.animation = 'none'; void fill.offsetWidth;
+    fill.style.animation = `barShrink ${ms}ms linear forwards`;
+  } else {
+    c.classList.remove('live');
+    fill.style.animation = 'none'; fill.style.transform = 'scaleX(1)';
+  }
+}
+function hideCue() { document.getElementById('g-cue').classList.remove('show','live'); }
+function scorePop(pts, color) {
+  const el = document.getElementById('g-score-pop');
+  el.textContent = '+' + pts; el.style.color = color || '#ffd700';
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 950);
+}
+function confetti() {
+  const colors = ['#ff6fd8','#ffd700','#00ff99','#a78bfa','#ff9900','#00d2ff'];
+  const cont = document.getElementById('g-nova');
+  for(let i=0; i<22; i++) {
+    const el = document.createElement('div'); el.className = 'conf';
+    el.style.cssText = `left:${Math.random()*100}%;top:-10px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      animation-delay:${Math.random()*.6}s;
+      width:${7+Math.random()*9}px;height:${7+Math.random()*9}px;
+      transform:rotate(${Math.random()*360}deg)`;
+    cont.appendChild(el); setTimeout(() => el.remove(), 2200);
+  }
+}
+function updateStreak(n) {
+  const b = document.getElementById('g-streak');
+  if(n >= 2) { b.textContent = '🔥 x'+n; b.classList.add('show'); }
+  else b.classList.remove('show');
+}
+function setEnergy(level) {
+  M.energy = level;
+  document.body.classList.toggle('energy-high', level==='high'||level==='max');
+}
+
+function startGame() {
+  M.phase = 'song';
+  _show('phase-game');
+  // Make D-ID face visible
+  gDidFace.classList.add('idle');
+  score=0;hits=0;attempts=0;combo=0;maxCombo=0;tlIdx=0;freezeBuf=null;
+  document.getElementById('g-score').textContent='0';
+  document.getElementById('g-prog').style.width='0%';
+  const vid = document.getElementById('g-nova-video');
+  vid.currentTime=0; vid.loop=true; vid.play().catch(()=>{});
+  const audio = new Audio(CFG.SONG);
+  audio.volume=0.85; window._audio=audio;
+  audio.play().catch(()=>{});
+  audio.onended = () => setTimeout(endGame, 1200);
+  // Opening hype via LLM
+  think(`Song just started! ${M.name?'Say '+M.name+"'s name and ":''}Give a 3-4 word explosive hype!`,25)
+    .then(r => { if(r){showReaction(r,'hit');novaSay(r);} });
+  songTimer = setInterval(gameTick, 80);
+}
+
+function gameTick() {
+  const elapsed = (window._audio?.currentTime||0)*1000;
+  document.getElementById('g-prog').style.width = Math.min(100,(elapsed/CFG.SONG_DURATION)*100)+'%';
+  // Mid-song encouragement every 20s
+  if(elapsed>5000 && elapsed-lastHypeTime>20000 && !winOpen) {
+    lastHypeTime = elapsed;
+    think(`Mid-dance encouragement! ${M.name?M.name+' is':''} dancing great! Short and exciting! 4 words.`,20)
+      .then(r=>{if(r&&!winOpen){showReaction(r,'hit');novaSay(r);}});
+  }
+  while(tlIdx < TL.length && elapsed >= TL[tlIdx].t) {
+    const e = TL[tlIdx];
+    if(e.type==='beat') setEnergy(e.name==='flow'||e.name==='max'?'max':e.name==='challenge'?'high':'warm');
+    else if(e.type==='demo') showCue(e.emoji,e.label,e.sub,false,0);
+    else if(e.type==='open') {
+      curAction=e; actionDone=false; winOpen=true; winStart=Date.now();
+      attempts++; M.attempts++;
+      let wMs=2500;
+      for(let j=tlIdx+1;j<TL.length;j++){if(TL[j].type==='close'&&TL[j].action===e.action){wMs=TL[j].t-e.t;break;}}
+      setGreen(true); showCue(e.emoji,e.label,e.sub,true,wMs);
+      let el2=0;
+      const chk=setInterval(()=>{
+        el2+=80;
+        if(!winOpen||actionDone||el2>wMs+200){clearInterval(chk);return;}
+        if(check(e.action)){
+          actionDone=true; clearInterval(chk);
+          const ms=Date.now()-winStart, fast=ms<1000;
+          // Track per-move stats BEFORE the if checks (so pm exists below)
+          trackMove(e.action, true, ms);
+          const pts=fast?Math.round(e.pts*1.5):e.pts;
+          score+=pts; hits++; combo++; maxCombo=Math.max(maxCombo,combo);
+          M.hits++; M.streak++; M.lastAction=e.action;
+          if(M.streak>=2) saveMoment(`${M.streak}-move streak`);
+          if(M.streak >= 3) playBeep('streak');
+          if(fast) saveMoment(`lightning fast ${e.action}`);
+          // Personal best — fastest time on this move
+          const pm = M.perMove[e.action];
+          if(pm && pm.hits >= 2 && pm.fastest === ms) saveMoment(`new fastest ${e.action} ${(ms/1000).toFixed(1)}s`);
+          // First success after struggle — got it after 2+ tries
+          if(pm && pm.hits === 1 && pm.attempts >= 2) saveMoment(`finally got ${e.action} on try ${pm.attempts}`);
+          updateStreak(combo);
+          document.getElementById('g-score').textContent=score;
+          scorePop(pts,fast?'#ffd700':'#00ff99');
+          confetti();
+          // FREEZE — special big moment
+          if(e.action==='freeze'){
+            gDidFace.classList.remove('react-hit','react-miss');
+            gDidFace.classList.add('react-freeze');
+            saveMoment('the PERFECT freeze moment');
+            think('Child froze PERFECTLY! Maximum explosion of joy! Reference the freeze specifically! 5-7 words!',35)
+              .then(r=>{
+                const txt=r||(M.name?`${M.name} that freeze was PERFECT!`:'PERFECT FREEZE! WOW!');
+                showReaction(txt,'freeze'); novaSay(txt);
+                setTimeout(()=>gDidFace.classList.remove('react-freeze'),4500);
+              });
+          } else {
+            novaReact(e.action,true,fast);
+          }
+        }
+      },80);
+    }
+    else if(e.type==='close'){
+      setGreen(false); hideCue();
+      if(!actionDone&&winOpen){
+        combo=0; M.streak=0; M.missStreak++; updateStreak(0); flashMiss();
+        if(curAction) trackMove(curAction.action, false, null);
+        novaReact(curAction?.action||'move',false,false);
+        // Pattern detection: 3 misses in a row → graceful bail-out
+        if(M.missStreak >= 3) {
+          saveMoment(`struggled with ${curAction?.action} - bailed out`);
+          // Trigger an extra-warm coaching moment
+          setTimeout(() => {
+            think(`The child has missed ${M.missStreak} moves in a row — they might be getting frustrated. Say something WARM and shift the energy. Like "You know what? Forget that. Let me show you something fun!" or "Hey ${M.name||'friend'}, let's just have fun — wave with me!" 1 sentence.`, 50)
+              .then(r => {
+                if(r) {
+                  showReaction(r, 'hit');
+                  novaSay(r);
+                  trackPhrase(r);
+                }
+              });
+            M.missStreak = 0; // reset after intervention
+          }, 1500);
+        }
+      }
+      winOpen=false;
+    }
+    tlIdx++;
+  }
+}
+
+function endGame() {
+  clearInterval(songTimer); setGreen(false); hideCue();
+  try{window._audio?.pause();}catch(e){}
+  document.getElementById('g-nova-video').pause();
+  M.phase='end';
+  const rate=attempts>0?hits/attempts:0;
+  const stars=rate>=.9?5:rate>=.7?4:rate>=.5?3:rate>=.3?2:1;
+  _show('phase-end');
+  document.getElementById('end-title').textContent=
+    ['Keep going!','Good effort!','Great work!','Amazing!','PERFECT! 🔥'][stars-1];
+  const starEl=document.getElementById('end-stars');
+  starEl.textContent=''; let s=0;
+  const si=setInterval(()=>{
+    if(s<stars){starEl.textContent+='⭐';s++;}
+    else if(s<5){starEl.textContent+='☆';s++;}
+    else clearInterval(si);
+  },200);
+  document.getElementById('end-pts').textContent=score+' pts';
+  document.getElementById('end-detail').textContent=`${hits} of ${attempts} moves · best streak: ${maxCombo}`;
+  // D-ID idle on end screen
+  if(didIdleUrl) { endVideo.src=didIdleUrl; endVideo.play().catch(()=>{}); }
+  // Smart end message — references SPECIFIC moments not generic stats
+  const top3Moments = M.moments.slice(-3).join('; ');
+  const endP = `The dance just ended. Child name: ${M.name||'(no name)'}. They hit ${hits}/${attempts}. Best streak: ${maxCombo}. Specific moments to reference: ${top3Moments||'none captured'}. 
+
+WRITE A PERSONAL GOODBYE that references SPECIFIC moments — not generic stats. Like "${M.name||'You'}. ${M.name||'You'}. That freeze. I'm not okay." or "Best part? When you almost missed the clap and then NAILED it. I saw that." Then promise something for next time. End with exactly: "Same time tomorrow?" — must be that exact question. 3 sentences max.`;
+  think(endP, 150).then(r => {
+    const msg = r || (M.name ? `${M.name}. ${M.name}. That was incredible. Same time tomorrow?` : 'That was incredible. Same time tomorrow?');
+    document.getElementById('end-msg').textContent = msg;
+    trackPhrase(msg);
+    novaSay(msg);
+  });
+}
+
+document.addEventListener('start-game', startGame);
+
+// ═══════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════
+speechSynthesis.getVoices();
+speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+document.getElementById('g-nova-video').load();
+initDID(); // Start D-ID connection immediately
+</script>
+</body>
+</html>
