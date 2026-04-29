@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova — Parent Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,sans-serif;background:linear-gradient(160deg,#fce7f3 0%,#e0e7ff 100%);
+  color:#1e1b4b;min-height:100vh;padding:30px 20px}
+.container{max-width:900px;margin:0 auto}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;flex-wrap:wrap;gap:14px}
+h1{font-family:'Fredoka',sans-serif;font-size:32px;color:#7c3aed;display:flex;align-items:center;gap:10px}
+.back-btn{background:#fff;border:1px solid rgba(124,58,237,0.2);
+  padding:10px 20px;border-radius:50px;color:#7c3aed;text-decoration:none;font-weight:600;
+  transition:all .2s}
+.back-btn:hover{background:#f3e8ff;transform:translateX(-2px)}
+
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:30px}
+.stat-card{background:#fff;border-radius:20px;padding:24px;
+  box-shadow:0 4px 20px rgba(124,58,237,0.08);
+  border:1px solid rgba(255,255,255,0.5);transition:transform .2s}
+.stat-card:hover{transform:translateY(-3px)}
+.stat-icon{font-size:36px;margin-bottom:8px}
+.stat-value{font-family:'Fredoka',sans-serif;font-size:36px;color:#7c3aed;font-weight:700;line-height:1}
+.stat-label{font-size:13px;color:#64748b;margin-top:6px}
+
+.section{background:#fff;border-radius:24px;padding:28px;
+  box-shadow:0 4px 20px rgba(124,58,237,0.08);margin-bottom:24px}
+.section h2{font-family:'Fredoka',sans-serif;font-size:22px;color:#7c3aed;margin-bottom:18px;
+  display:flex;align-items:center;gap:10px}
+
+.achievement-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px}
+.ach-item{background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:16px;
+  padding:16px;text-align:center;border:1px solid rgba(245,158,11,0.2)}
+.ach-item.locked{background:#f8fafc;color:#94a3b8;opacity:.5}
+.ach-emoji{font-size:36px;display:block;margin-bottom:6px}
+.ach-name{font-family:'Fredoka',sans-serif;font-weight:600;font-size:14px;color:#92400e}
+.ach-item.locked .ach-name{color:#94a3b8}
+
+.empty{text-align:center;padding:40px 20px;color:#94a3b8}
+.empty-emoji{font-size:48px;margin-bottom:12px}
+
+.weekly-grid{display:flex;justify-content:space-between;gap:8px;margin-top:16px}
+.day-bar{flex:1;background:#f3e8ff;border-radius:8px;display:flex;flex-direction:column;
+  align-items:center;padding:8px 4px;min-height:80px;position:relative}
+.day-fill{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(180deg,#a78bfa,#7c3aed);
+  border-radius:0 0 8px 8px;transition:height .5s}
+.day-label{font-size:10px;color:#7c3aed;font-weight:600;z-index:2;margin-top:auto}
+.day-min{font-size:11px;color:#7c3aed;font-weight:700;z-index:2}
+
+.tip{background:linear-gradient(135deg,#dbeafe,#e0f2fe);border-left:4px solid #3b82f6;
+  padding:14px 18px;border-radius:0 12px 12px 0;font-size:14px;color:#1e3a8a;margin-top:16px}
+
+@media(max-width:600px){
+  h1{font-size:24px}
+  .stat-value{font-size:28px}
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>👨‍👩‍👧 Parent Dashboard</h1>
+    <a href="./" class="back-btn">← Back to Nova</a>
+  </div>
+  
+  <!-- Quick stats -->
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon">🎮</div>
+      <div class="stat-value" id="stat-games">0</div>
+      <div class="stat-label">Total games played</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">⏱️</div>
+      <div class="stat-value" id="stat-minutes">0</div>
+      <div class="stat-label">Minutes danced</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🔥</div>
+      <div class="stat-value" id="stat-streak">0</div>
+      <div class="stat-label">Best streak</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🏆</div>
+      <div class="stat-value" id="stat-score">0</div>
+      <div class="stat-label">Best score</div>
+    </div>
+  </div>
+  
+  <!-- Achievements -->
+  <div class="section">
+    <h2>🏆 Achievements</h2>
+    <div class="achievement-grid" id="achievement-grid">
+      <!-- Filled by JS -->
+    </div>
+  </div>
+  
+  <!-- Per-game stats -->
+  <div class="section">
+    <h2>🎵 Game Plays</h2>
+    <div class="achievement-grid">
+      <div class="ach-item">
+        <span class="ach-emoji">💃</span>
+        <div class="ach-name">Hello Hello</div>
+        <div style="font-family:'Fredoka',sans-serif;font-size:24px;color:#92400e;margin-top:4px" id="plays-hello">0</div>
+      </div>
+      <div class="ach-item">
+        <span class="ach-emoji">❄️</span>
+        <div class="ach-name">Freeze Dance</div>
+        <div style="font-family:'Fredoka',sans-serif;font-size:24px;color:#92400e;margin-top:4px" id="plays-freeze">0</div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Tips -->
+  <div class="section">
+    <h2>💡 Tips for Parents</h2>
+    <div class="tip">
+      <strong>📷 Camera tips:</strong> For best detection, make sure your child is well-lit with good light from the front, and stands 4-6 feet from the camera so their full upper body is visible.
+    </div>
+    <div class="tip" style="background:linear-gradient(135deg,#fef3c7,#fde68a);border-color:#f59e0b;color:#92400e">
+      <strong>🎵 Headphones:</strong> If clap detection isn't working well, try having your child wear headphones — this prevents the music from interfering with the microphone.
+    </div>
+    <div class="tip" style="background:linear-gradient(135deg,#dcfce7,#bbf7d0);border-color:#22c55e;color:#14532d">
+      <strong>⚙️ Difficulty:</strong> Open the settings (gear icon) to adjust difficulty. Easy mode gives kids more time to do each move — perfect for younger children!
+    </div>
+  </div>
+  
+  <!-- Reset section -->
+  <div class="section" style="text-align:center;background:rgba(254,242,242,0.5)">
+    <h2 style="color:#dc2626">⚠️ Reset</h2>
+    <p style="color:#991b1b;font-size:13px;margin-bottom:14px">Clear all stats and achievements (cannot be undone)</p>
+    <button onclick="resetAll()" style="background:#dc2626;color:#fff;border:none;padding:10px 24px;
+      border-radius:50px;cursor:pointer;font-weight:600">Clear all data</button>
+  </div>
+</div>
+
+<script>
+const ACHIEVEMENTS = {
+  first_dance: {emoji:'🎉', name:'First Dance!'},
+  three_streak: {emoji:'🔥', name:'3 in a row!'},
+  five_streak: {emoji:'⚡', name:'5-Streak Master!'},
+  perfect_freeze: {emoji:'❄️', name:'Perfect Freezer!'},
+  speed_demon: {emoji:'💨', name:'Speed Demon!'},
+  ten_dances: {emoji:'🌟', name:'10 Dances!'},
+  high_score: {emoji:'👑', name:'1000 Points!'},
+};
+
+function loadStats() {
+  const stats = JSON.parse(localStorage.getItem('nova_stats') || '{}');
+  const earned = JSON.parse(localStorage.getItem('nova_achievements') || '[]');
+  
+  document.getElementById('stat-games').textContent = stats.totalGames || 0;
+  // Estimate minutes: each game ~2 mins
+  document.getElementById('stat-minutes').textContent = Math.round((stats.totalGames || 0) * 2);
+  document.getElementById('stat-streak').textContent = stats.maxStreak || 0;
+  document.getElementById('stat-score').textContent = stats.bestScore || 0;
+  
+  document.getElementById('plays-hello').textContent = stats.hello || 0;
+  document.getElementById('plays-freeze').textContent = stats.freeze || 0;
+  
+  // Render achievements
+  const grid = document.getElementById('achievement-grid');
+  grid.innerHTML = '';
+  Object.entries(ACHIEVEMENTS).forEach(([key, data]) => {
+    const isEarned = earned.includes(key);
+    const div = document.createElement('div');
+    div.className = 'ach-item' + (isEarned ? '' : ' locked');
+    div.innerHTML = `
+      <span class="ach-emoji">${isEarned ? data.emoji : '🔒'}</span>
+      <div class="ach-name">${data.name}</div>
+    `;
+    grid.appendChild(div);
+  });
+  
+  if(!stats.totalGames || stats.totalGames === 0) {
+    document.querySelector('.stats-grid').innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:40px;background:#fff;border-radius:20px">
+        <div style="font-size:64px;margin-bottom:14px">🎵</div>
+        <h3 style="font-family:'Fredoka',sans-serif;color:#7c3aed;margin-bottom:8px">No dances yet!</h3>
+        <p style="color:#94a3b8">Play with Nova to start tracking stats here.</p>
+      </div>
+    `;
+  }
+}
+
+function resetAll() {
+  if(confirm('Are you sure? This will clear all stats and achievements.')) {
+    localStorage.removeItem('nova_stats');
+    localStorage.removeItem('nova_achievements');
+    loadStats();
+    alert('✅ All data cleared.');
+  }
+}
+
+window.resetAll = resetAll;
+loadStats();
+</script>
+
+</body>
+</html>

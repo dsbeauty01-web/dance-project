@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova Admin — Status</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,sans-serif;
+  background:linear-gradient(160deg,#0f172a 0%,#1e1b4b 100%);
+  color:#fff;min-height:100vh;padding:30px 20px}
+.container{max-width:900px;margin:0 auto}
+h1{font-family:'Fredoka',sans-serif;font-size:32px;color:#a78bfa;margin-bottom:8px}
+.subtitle{color:#94a3b8;font-size:14px;margin-bottom:30px}
+
+.status-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:24px}
+.status-card{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+  border-radius:16px;padding:20px;backdrop-filter:blur(10px)}
+.status-card h3{font-family:'Fredoka',sans-serif;font-size:18px;margin-bottom:12px;
+  display:flex;align-items:center;gap:10px}
+.indicator{width:10px;height:10px;border-radius:50%;background:#94a3b8}
+.indicator.ok{background:#22c55e;box-shadow:0 0 8px #22c55e}
+.indicator.bad{background:#ef4444;box-shadow:0 0 8px #ef4444}
+.indicator.warn{background:#f59e0b;box-shadow:0 0 8px #f59e0b}
+.indicator.checking{background:#3b82f6;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.status-detail{font-size:13px;color:rgba(255,255,255,0.6);margin-top:8px;line-height:1.5}
+.status-detail code{background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;font-size:12px}
+.btn{background:linear-gradient(135deg,#a78bfa,#7c3aed);border:none;color:#fff;
+  padding:8px 16px;border-radius:50px;cursor:pointer;font-size:13px;font-weight:600;
+  margin-top:10px;font-family:'Fredoka',sans-serif}
+.btn:hover{transform:translateY(-1px)}
+.btn.secondary{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2)}
+.btn.danger{background:#dc2626}
+
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px}
+
+#log{background:rgba(0,0,0,0.4);border-radius:12px;padding:14px;
+  font-family:monospace;font-size:11px;max-height:300px;overflow-y:auto;
+  border:1px solid rgba(255,255,255,0.1)}
+.log-line{padding:2px 0;color:rgba(255,255,255,0.7)}
+.log-line.error{color:#fca5a5}
+.log-line.ok{color:#86efac}
+.log-line.info{color:#93c5fd}
+
+.tip{background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(139,92,246,0.15));
+  border-left:3px solid #3b82f6;padding:12px 16px;border-radius:0 8px 8px 0;
+  font-size:13px;line-height:1.6;margin-top:14px}
+
+a.back{color:#a78bfa;text-decoration:none;font-size:13px;display:inline-flex;align-items:center;gap:6px}
+a.back:hover{color:#fff}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <a href="./" class="back">← Back to Nova</a>
+  <h1 style="margin-top:14px">⚙️ Nova Admin</h1>
+  <div class="subtitle">Service status + diagnostics</div>
+  
+  <div class="actions">
+    <button class="btn" onclick="runAllChecks()">🔄 Run all checks</button>
+    <button class="btn secondary" onclick="clearAllStorage()">🗑️ Clear localStorage</button>
+    <a href="./" class="btn secondary" style="text-decoration:none;display:inline-block">🏠 Open app</a>
+  </div>
+  
+  <div class="status-grid">
+    <!-- Cloudflare Worker -->
+    <div class="status-card">
+      <h3><span class="indicator" id="i-worker"></span>🧠 Cloudflare Worker (Brain)</h3>
+      <div class="status-detail" id="d-worker">Click "Run all checks" to test</div>
+      <button class="btn" onclick="checkWorker()">Test Worker</button>
+    </div>
+    
+    <!-- ElevenLabs -->
+    <div class="status-card">
+      <h3><span class="indicator" id="i-eleven"></span>🎤 ElevenLabs (Voice)</h3>
+      <div class="status-detail" id="d-eleven">Click to verify subscription</div>
+      <button class="btn" onclick="checkElevenLabs()">Test Voice</button>
+    </div>
+    
+    <!-- D-ID -->
+    <div class="status-card">
+      <h3><span class="indicator" id="i-did"></span>👤 D-ID (Avatar)</h3>
+      <div class="status-detail" id="d-did">D-ID is initialized inside the main app, not here. Open app to see status.</div>
+      <a href="https://studio.d-id.com" target="_blank" class="btn">Check D-ID dashboard</a>
+    </div>
+    
+    <!-- Browser -->
+    <div class="status-card">
+      <h3><span class="indicator" id="i-browser"></span>🌐 Browser Capabilities</h3>
+      <div class="status-detail" id="d-browser">Camera, mic, audio context...</div>
+      <button class="btn" onclick="checkBrowser()">Check browser</button>
+    </div>
+    
+    <!-- Storage -->
+    <div class="status-card">
+      <h3><span class="indicator" id="i-storage"></span>💾 Local Storage</h3>
+      <div class="status-detail" id="d-storage">Stats, settings, achievements</div>
+      <button class="btn" onclick="checkStorage()">Show data</button>
+    </div>
+    
+    <!-- Network -->
+    <div class="status-card">
+      <h3><span class="indicator" id="i-network"></span>📡 Network</h3>
+      <div class="status-detail" id="d-network">Internet, latency, etc.</div>
+      <button class="btn" onclick="checkNetwork()">Test latency</button>
+    </div>
+  </div>
+  
+  <div class="status-card">
+    <h3>📜 Diagnostic Log</h3>
+    <div id="log"></div>
+  </div>
+  
+  <div class="tip">
+    💡 <strong>Tip:</strong> If D-ID shows static face only, refresh the main app and check browser console (F12) for CORS errors. The most common issue is the domain not being approved in D-ID studio.
+  </div>
+</div>
+
+<script>
+const WORKER = 'https://long-art-8269r.dsbeauty01.workers.dev/';
+const EL_KEY = 'sk_9c93ed7e0ae747cf93d123051aa60b4cd5d56cf2b5a536da';
+
+function log(msg, type) {
+  const el = document.getElementById('log');
+  const line = document.createElement('div');
+  line.className = 'log-line' + (type ? ' ' + type : '');
+  const time = new Date().toLocaleTimeString();
+  line.textContent = `[${time}] ${msg}`;
+  el.insertBefore(line, el.firstChild);
+}
+
+function setStatus(id, status, detail) {
+  document.getElementById('i-' + id).className = 'indicator ' + status;
+  if(detail) document.getElementById('d-' + id).innerHTML = detail;
+}
+
+async function checkWorker() {
+  setStatus('worker', 'checking');
+  log('Testing Cloudflare Worker...', 'info');
+  try {
+    const start = Date.now();
+    const res = await fetch(WORKER, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 30,
+        system: 'Reply with one word.',
+        messages: [{ role: 'user', content: 'Say hi' }]
+      })
+    });
+    const elapsed = Date.now() - start;
+    if(res.ok) {
+      const data = await res.json();
+      const text = data.content?.[0]?.text || 'OK';
+      setStatus('worker', 'ok', `<strong>✓ Working</strong><br/>Latency: <code>${elapsed}ms</code><br/>Reply: "${text}"`);
+      log(`✓ Worker OK in ${elapsed}ms — "${text}"`, 'ok');
+    } else {
+      setStatus('worker', 'bad', `<strong>✗ Failed</strong><br/>Status: <code>${res.status}</code>`);
+      log(`✗ Worker failed: ${res.status}`, 'error');
+    }
+  } catch(e) {
+    setStatus('worker', 'bad', `<strong>✗ Error</strong><br/><code>${e.message}</code>`);
+    log(`✗ Worker error: ${e.message}`, 'error');
+  }
+}
+
+async function checkElevenLabs() {
+  setStatus('eleven', 'checking');
+  log('Testing ElevenLabs...', 'info');
+  try {
+    const res = await fetch('https://api.elevenlabs.io/v1/user/subscription', {
+      headers: { 'xi-api-key': EL_KEY }
+    });
+    if(res.ok) {
+      const data = await res.json();
+      const tier = data.tier || 'free';
+      const used = data.character_count || 0;
+      const limit = data.character_limit || 0;
+      const remaining = limit - used;
+      const isPaid = tier !== 'free';
+      setStatus('eleven', isPaid ? 'ok' : 'warn', 
+        `<strong>${isPaid ? '✓' : '⚠️'} ${tier.toUpperCase()} plan</strong><br/>Used: <code>${used}/${limit}</code><br/>Remaining: <code>${remaining} chars</code>`);
+      log(`ElevenLabs: ${tier} plan, ${remaining}/${limit} chars left`, isPaid ? 'ok' : 'info');
+      
+      // Test actual voice
+      log('Testing voice generation...', 'info');
+      const voiceRes = await fetch('https://api.elevenlabs.io/v1/text-to-speech/xctasy8XvGp2cVO9HL9k', {
+        method: 'POST',
+        headers: { 'xi-api-key': EL_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: 'Hi', model_id: 'eleven_turbo_v2_5' })
+      });
+      if(voiceRes.ok) {
+        log('✓ Voice generation works', 'ok');
+      } else {
+        log(`⚠️ Voice gen failed: ${voiceRes.status}`, 'error');
+      }
+    } else {
+      setStatus('eleven', 'bad', `<strong>✗ ${res.status}</strong><br/>${res.status === 401 ? 'Invalid API key' : res.status === 402 ? 'Free plan — needs $5 Starter for API' : 'Error'}`);
+      log(`✗ ElevenLabs ${res.status}`, 'error');
+    }
+  } catch(e) {
+    setStatus('eleven', 'bad', `<strong>✗ Error</strong><br/><code>${e.message}</code>`);
+    log(`✗ EL error: ${e.message}`, 'error');
+  }
+}
+
+async function checkBrowser() {
+  setStatus('browser', 'checking');
+  log('Checking browser capabilities...', 'info');
+  const checks = {
+    'getUserMedia': !!navigator.mediaDevices?.getUserMedia,
+    'AudioContext': !!(window.AudioContext || window.webkitAudioContext),
+    'SpeechSynthesis': 'speechSynthesis' in window,
+    'SpeechRecognition': !!(window.SpeechRecognition || window.webkitSpeechRecognition),
+    'localStorage': typeof localStorage !== 'undefined',
+    'fetch': typeof fetch !== 'undefined',
+  };
+  const allOk = Object.values(checks).every(v => v);
+  const html = Object.entries(checks).map(([k, v]) => 
+    `${v ? '✓' : '✗'} ${k}`).join('<br/>');
+  setStatus('browser', allOk ? 'ok' : 'warn', html);
+  Object.entries(checks).forEach(([k, v]) => log(`${v ? '✓' : '✗'} ${k}`, v ? 'ok' : 'error'));
+}
+
+function checkStorage() {
+  setStatus('storage', 'checking');
+  const stats = JSON.parse(localStorage.getItem('nova_stats') || '{}');
+  const ach = JSON.parse(localStorage.getItem('nova_achievements') || '[]');
+  const total = Object.keys(localStorage).length;
+  setStatus('storage', 'ok', 
+    `<strong>${total} keys stored</strong><br/>` +
+    `Games: <code>${stats.totalGames || 0}</code><br/>` +
+    `Best score: <code>${stats.bestScore || 0}</code><br/>` +
+    `Achievements: <code>${ach.length}/7</code>`);
+  log(`Storage: ${total} keys, ${stats.totalGames || 0} games`, 'info');
+}
+
+async function checkNetwork() {
+  setStatus('network', 'checking');
+  log('Testing network latency...', 'info');
+  const tests = [
+    { name: 'Worker', url: WORKER },
+    { name: 'D-ID', url: 'https://api.d-id.com' },
+    { name: 'ElevenLabs', url: 'https://api.elevenlabs.io' },
+  ];
+  const results = [];
+  for(const t of tests) {
+    const start = Date.now();
+    try {
+      await fetch(t.url, { method: 'HEAD', mode: 'no-cors' });
+      const elapsed = Date.now() - start;
+      results.push(`${t.name}: <code>${elapsed}ms</code>`);
+      log(`${t.name}: ${elapsed}ms`, 'ok');
+    } catch(e) {
+      results.push(`${t.name}: <span style="color:#fca5a5">failed</span>`);
+      log(`${t.name}: failed`, 'error');
+    }
+  }
+  setStatus('network', 'ok', results.join('<br/>'));
+}
+
+function clearAllStorage() {
+  if(confirm('Clear ALL localStorage? (stats, achievements, settings)')) {
+    localStorage.clear();
+    log('🗑️ Cleared all localStorage', 'info');
+    checkStorage();
+  }
+}
+
+async function runAllChecks() {
+  log('═══ Running all checks ═══', 'info');
+  await checkWorker();
+  await checkElevenLabs();
+  await checkBrowser();
+  checkStorage();
+  await checkNetwork();
+  log('═══ All checks complete ═══', 'info');
+}
+
+// Auto-run on load
+window.addEventListener('load', runAllChecks);
+</script>
+
+</body>
+</html>
