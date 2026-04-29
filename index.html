@@ -262,6 +262,17 @@ body{font-family:'Nunito',sans-serif;color:#fff}
 #end-stars{font-size:48px;letter-spacing:6px;min-height:55px}
 #end-pts{font-family:'Fredoka',sans-serif;font-size:clamp(24px,3.5vw,36px);
   color:#ffd700;text-shadow:0 0 20px rgba(255,215,0,.5)}
+#end-stars{animation:starsRise 1.5s ease-out;text-shadow:0 0 20px rgba(255,215,0,.6)}
+@keyframes starsRise{0%{transform:translateY(40px) scale(0.5);opacity:0}
+  60%{transform:translateY(-10px) scale(1.1);opacity:1}
+  100%{transform:translateY(0) scale(1);opacity:1}}
+#end-buttons{display:flex;gap:12px;margin-top:20px;justify-content:center;flex-wrap:wrap}
+.end-btn{background:linear-gradient(135deg,#ff6fd8,#a78bfa);border:none;
+  padding:12px 22px;border-radius:50px;color:#fff;font-size:14px;font-weight:700;
+  cursor:pointer;font-family:'Fredoka',sans-serif;box-shadow:0 4px 16px rgba(255,111,216,.3)}
+.end-btn:hover{transform:translateY(-2px)}
+.end-btn.secondary{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2)}
+#end-share{margin-top:14px;font-size:11px;color:rgba(255,215,0,.7);font-style:italic}
 #end-detail{font-size:13px;color:rgba(255,255,255,.5)}
 #end-msg{background:rgba(255,111,216,.1);border:2px solid rgba(255,111,216,.3);
   border-radius:20px;padding:14px 22px;font-family:'Fredoka',sans-serif;
@@ -312,9 +323,150 @@ body{font-family:'Nunito',sans-serif;color:#fff}
 #ach-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;opacity:.7}
 #ach-name{font-size:18px;font-weight:700}
 
+
+/* SETTINGS PANEL */
+#settings-btn{position:fixed;top:14px;right:14px;z-index:200;
+  width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.1);
+  border:1px solid rgba(255,255,255,.2);font-size:20px;cursor:pointer;
+  backdrop-filter:blur(10px);transition:transform .2s}
+#settings-btn:hover{transform:rotate(90deg);background:rgba(255,111,216,.3)}
+
+#settings-panel{position:fixed;top:0;right:-380px;width:380px;height:100vh;
+  background:rgba(10,0,21,.97);border-left:2px solid rgba(255,111,216,.3);
+  z-index:300;transition:right .35s cubic-bezier(.34,1.56,.64,1);
+  padding:24px;overflow-y:auto;backdrop-filter:blur(20px)}
+#settings-panel.show{right:0}
+.settings-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.settings-header h2{font-family:'Fredoka',sans-serif;font-size:22px;color:#ff6fd8}
+.settings-close{background:none;border:none;color:#fff;font-size:22px;cursor:pointer;opacity:.6}
+.settings-close:hover{opacity:1}
+.settings-tabs{display:flex;gap:6px;margin-bottom:18px;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:10px}
+.stab{flex:1;background:rgba(255,255,255,.05);border:none;color:#fff;
+  padding:10px 6px;border-radius:8px;cursor:pointer;font-size:12px;
+  font-family:'Fredoka',sans-serif;transition:all .2s}
+.stab:hover{background:rgba(255,111,216,.2)}
+.stab.active{background:linear-gradient(135deg,#ff6fd8,#a78bfa);font-weight:600}
+.stab-content h3{font-family:'Fredoka',sans-serif;font-size:16px;color:#ff6fd8;margin-bottom:6px}
+.stab-desc{font-size:12px;color:rgba(255,255,255,.6);margin-bottom:12px;line-height:1.5}
+.stab-radio{display:flex;align-items:center;gap:10px;padding:12px;
+  background:rgba(255,255,255,.04);border-radius:10px;margin-bottom:8px;
+  cursor:pointer;transition:all .2s}
+.stab-radio:hover{background:rgba(255,111,216,.1)}
+.stab-radio input{accent-color:#ff6fd8}
+.stab-radio span{font-size:13px;color:#fff}
+.stab-input-grp{margin:14px 0;padding:14px;background:rgba(255,255,255,.04);
+  border-radius:10px;display:flex;flex-direction:column;gap:8px}
+.stab-input-grp label{font-size:11px;color:rgba(255,255,255,.5);
+  text-transform:uppercase;letter-spacing:.05em}
+.stab-input-grp input{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+  color:#fff;padding:8px 12px;border-radius:8px;font-size:13px;font-family:monospace}
+.stab-input-grp input:focus{outline:none;border-color:#ff6fd8}
+.stab-btn{background:linear-gradient(135deg,#ff6fd8,#a78bfa);border:none;
+  color:#fff;padding:8px 16px;border-radius:50px;cursor:pointer;
+  font-size:12px;font-weight:600;font-family:'Fredoka',sans-serif}
+.stab-test-btn{margin-top:14px;width:100%;background:rgba(255,215,0,.2);
+  border:1px solid rgba(255,215,0,.4);color:#ffd700;padding:10px;
+  border-radius:50px;cursor:pointer;font-size:13px;font-weight:600;
+  font-family:'Fredoka',sans-serif}
+.stab-danger{background:rgba(255,80,80,.15);border:1px solid rgba(255,80,80,.4);
+  color:#ff8080;padding:10px;border-radius:8px;cursor:pointer;
+  font-size:12px;width:100%;margin-top:8px}
+
 </style>
 </head>
 <body>
+
+<!-- SETTINGS PANEL -->
+<button id="settings-btn" onclick="toggleSettings()" title="Settings">⚙️</button>
+<div id="settings-panel">
+  <div class="settings-header">
+    <h2>⚙️ Nova Settings</h2>
+    <button onclick="toggleSettings()" class="settings-close">✕</button>
+  </div>
+  
+  <div class="settings-tabs">
+    <button class="stab active" onclick="showStab('voice')">🎤 Voice</button>
+    <button class="stab" onclick="showStab('avatar')">👤 Avatar</button>
+    <button class="stab" onclick="showStab('game')">🎮 Game</button>
+  </div>
+  
+  <div class="stab-content" id="stab-voice">
+    <h3>Voice Provider</h3>
+    <p class="stab-desc">Premium voice = magical Nova. Free = robot Nova.</p>
+    <label class="stab-radio">
+      <input type="radio" name="voice" value="browser" onchange="setVoice('browser')"> 
+      <span>🤖 Browser (Free, robot voice)</span>
+    </label>
+    <label class="stab-radio">
+      <input type="radio" name="voice" value="elevenlabs" onchange="setVoice('elevenlabs')"> 
+      <span>✨ ElevenLabs ($5/mo, magical)</span>
+    </label>
+    <label class="stab-radio">
+      <input type="radio" name="voice" value="openai" onchange="setVoice('openai')"> 
+      <span>🎯 OpenAI ($0.015/min, very good)</span>
+    </label>
+    
+    <div class="stab-input-grp" id="el-input-grp">
+      <label>ElevenLabs API Key</label>
+      <input type="password" id="el-key" placeholder="sk_..." />
+      <button onclick="saveKey('elevenlabs')" class="stab-btn">Save</button>
+    </div>
+    
+    <div class="stab-input-grp" id="oa-input-grp" style="display:none">
+      <label>OpenAI API Key</label>
+      <input type="password" id="oa-key" placeholder="sk-..." />
+      <button onclick="saveKey('openai')" class="stab-btn">Save</button>
+    </div>
+    
+    <button onclick="testVoice()" class="stab-test-btn">🔊 Test Voice</button>
+  </div>
+  
+  <div class="stab-content" id="stab-avatar" style="display:none">
+    <h3>Avatar Provider</h3>
+    <p class="stab-desc">D-ID is current. Anam is more emotional.</p>
+    <label class="stab-radio">
+      <input type="radio" name="avatar" value="d-id" onchange="setAvatar('d-id')" checked> 
+      <span>📷 D-ID (current)</span>
+    </label>
+    <label class="stab-radio">
+      <input type="radio" name="avatar" value="anam" onchange="setAvatar('anam')"> 
+      <span>🎭 Anam.ai (emotion)</span>
+    </label>
+    <label class="stab-radio">
+      <input type="radio" name="avatar" value="none" onchange="setAvatar('none')"> 
+      <span>🚫 No Face (voice only)</span>
+    </label>
+    
+    <div class="stab-input-grp" id="anam-input-grp" style="display:none">
+      <label>Anam API Key</label>
+      <input type="password" id="anam-key" placeholder="anam_..." />
+      <label>Anam Persona ID</label>
+      <input type="text" id="anam-persona" placeholder="persona_id" />
+      <button onclick="saveKey('anam')" class="stab-btn">Save</button>
+    </div>
+  </div>
+  
+  <div class="stab-content" id="stab-game" style="display:none">
+    <h3>Difficulty</h3>
+    <p class="stab-desc">Younger kids → Easy. Older kids → Hard.</p>
+    <label class="stab-radio">
+      <input type="radio" name="difficulty" value="easy" onchange="setDifficulty('easy')"> 
+      <span>🌱 Easy (3-5 years, longer windows)</span>
+    </label>
+    <label class="stab-radio">
+      <input type="radio" name="difficulty" value="medium" onchange="setDifficulty('medium')" checked> 
+      <span>🌟 Medium (5-7 years)</span>
+    </label>
+    <label class="stab-radio">
+      <input type="radio" name="difficulty" value="hard" onchange="setDifficulty('hard')"> 
+      <span>🔥 Hard (7+ years, fast)</span>
+    </label>
+    
+    <h3 style="margin-top:18px">Reset</h3>
+    <button onclick="resetAll()" class="stab-danger">🗑️ Clear all stats & achievements</button>
+  </div>
+</div>
+
 
 <div id="g-green-flash"></div>
 
@@ -426,6 +578,7 @@ body{font-family:'Nunito',sans-serif;color:#fff}
         <div class="gpill" id="gp-clap">👏</div>
         <div class="gpill" id="gp-head">🙆</div>
         <div class="gpill" id="gp-freeze">❄️</div>
+        <div class="gpill" id="gp-airplane">🤸</div>
       </div>
     </div>
     <!-- NOVA RIGHT -->
@@ -470,11 +623,15 @@ body{font-family:'Nunito',sans-serif;color:#fff}
     <div id="end-pts">0 pts</div>
     <div id="end-detail"></div>
     <div id="end-msg">Loading Nova's message...</div>
-    <button id="end-replay" onclick="location.reload()">🔄 Play Again</button>
+    <div id="end-buttons">
+      <button class="end-btn" onclick="location.reload()">🔄 Same Game</button>
+      <button class="end-btn secondary" onclick="window.goToSelector?.()">🎮 Different Game</button>
+    </div>
+    <div id="end-share">✨ Tell your friends about Nova!</div>
   </div>
 </div>
 
-<div id="ver">v35.1 — clap fix</div>
+<div id="ver">v36.1 — ElevenLabs LIVE</div>
 
 <!-- TF -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
@@ -550,12 +707,31 @@ import { createAgentManager } from 'https://esm.sh/@d-id/client-sdk@1.1.53';
 // CONFIG — swap providers here
 // ═══════════════════════════════════════
 const CFG = {
+  // Avatar (face)
+  AVATAR_PROVIDER: localStorage.getItem('nova_avatar_provider') || 'd-id', // 'd-id' | 'anam' | 'none'
   DID_AGENT: 'v2_agt_Z7uYXWFx',
   DID_KEY: 'Z29vZ2xlLW9hdXRoMnwxMDg1MzgzODIxMDg4OTU5MjE2MzA6dUtILVVlUFhjeFNUZS1lNjV2VG5t',
+  ANAM_KEY: localStorage.getItem('nova_anam_key') || '',
+  ANAM_PERSONA: localStorage.getItem('nova_anam_persona') || '',
+  
+  // Brain
   WORKER: 'https://long-art-8269r.dsbeauty01.workers.dev/',
   MODEL: 'claude-haiku-4-5-20251001',
+  
+  // Voice (TTS)
+  VOICE_PROVIDER: localStorage.getItem('nova_voice_provider') || 'elevenlabs', // 'browser' | 'elevenlabs' | 'openai'
+  ELEVENLABS_KEY: localStorage.getItem('nova_elevenlabs_key') || 'sk_9c93ed7e0ae747cf93d123051aa60b4cd5d56cf2b5a536da',
+  ELEVENLABS_VOICE: localStorage.getItem('nova_elevenlabs_voice') || 'xctasy8XvGp2cVO9HL9k', // user's custom voice
+  ELEVENLABS_MODEL: 'eleven_turbo_v2_5',
+  OPENAI_KEY: localStorage.getItem('nova_openai_key') || '',
+  OPENAI_VOICE: localStorage.getItem('nova_openai_voice') || 'nova',
+  
+  // Song
   SONG: 'hello (6).mp3',
   SONG_DURATION: 111000,
+  
+  // Difficulty
+  DIFFICULTY: localStorage.getItem('nova_difficulty') || 'medium', // 'easy' | 'medium' | 'hard'
 };
 
 // ═══════════════════════════════════════
@@ -714,7 +890,26 @@ async function think(prompt, maxTok = 70) {
 // ═══════════════════════════════════════
 // VOICE — browser TTS (D-ID when connected)
 // ═══════════════════════════════════════
-function tts(text) {
+// Multi-provider TTS — uses best available based on API keys
+const ttsCache = new Map();
+
+async function tts(text) {
+  if(!text) return;
+  // Pick provider based on what's configured + saved keys
+  let provider = 'browser';
+  if(CFG.ELEVENLABS_KEY) provider = 'elevenlabs';
+  else if(CFG.OPENAI_KEY) provider = 'openai';
+  
+  try {
+    if(provider === 'elevenlabs') return await ttsElevenLabs(text);
+    if(provider === 'openai') return await ttsOpenAI(text);
+  } catch(e) {
+    console.log('Premium TTS failed, fallback to browser:', e);
+  }
+  ttsBrowser(text);
+}
+
+function ttsBrowser(text) {
   try {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
@@ -723,8 +918,52 @@ function tts(text) {
     const pick = voices.find(v => /Samantha|Karen|Google.*Female|Zira/i.test(v.name)) || voices[0];
     if(pick) u.voice = pick;
     speechSynthesis.speak(u);
-  } catch(e) {}
+  } catch(e) { console.log('TTS error:', e); }
 }
+
+async function ttsElevenLabs(text) {
+  const k = 'el:' + text;
+  let url = ttsCache.get(k);
+  if(!url) {
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${CFG.ELEVENLABS_VOICE}/stream`, {
+      method: 'POST',
+      headers: { 'xi-api-key': CFG.ELEVENLABS_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text, model_id: CFG.ELEVENLABS_MODEL,
+        voice_settings: { stability: 0.5, similarity_boost: 0.85, style: 0.4, use_speaker_boost: true }
+      })
+    });
+    if(!res.ok) throw new Error('EL ' + res.status);
+    const blob = await res.blob();
+    url = URL.createObjectURL(blob);
+    ttsCache.set(k, url);
+  }
+  if(window._curAudio) try { window._curAudio.pause(); } catch(_){}
+  const audio = new Audio(url);
+  window._curAudio = audio;
+  await audio.play();
+}
+
+async function ttsOpenAI(text) {
+  const k = 'oa:' + text;
+  let url = ttsCache.get(k);
+  if(!url) {
+    const res = await fetch('https://api.openai.com/v1/audio/speech', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + CFG.OPENAI_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'gpt-4o-mini-tts', voice: CFG.OPENAI_VOICE, input: text, speed: 1.05 })
+    });
+    if(!res.ok) throw new Error('OA ' + res.status);
+    const blob = await res.blob();
+    url = URL.createObjectURL(blob);
+    ttsCache.set(k, url);
+  }
+  if(window._curAudio) try { window._curAudio.pause(); } catch(_){}
+  const audio = new Audio(url);
+  window._curAudio = audio;
+  await audio.play();
+}
+
 
 // ═══════════════════════════════════════
 // D-ID FACE ADAPTER
@@ -1061,7 +1300,7 @@ async function novaReact(action, isHit, isFast) {
 // POSE DETECTION
 // ═══════════════════════════════════════
 let detector = null;
-const moves = { left:false, right:false, both:false, clap:false, head:false, freeze:false };
+const moves = { left:false, right:false, both:false, clap:false, head:false, freeze:false, airplane:false };
 const holdCnt = { left:0, right:0, both:0, clap:0, head:0 };
 const sm = {};
 let freezeBuf = null;
@@ -1137,6 +1376,17 @@ function startMicClapDetection() {
 // Override the analyzePose result for clap to OR vision + mic
 const _origAnalyzePose = analyzePose;
 
+
+// Combined action+freeze for new freeze dance song
+const actionFreezeBuffers = {};
+function isActionFreeze(action, holdMs = 1500) {
+  const now = Date.now();
+  if(!moves[action]) { actionFreezeBuffers[action] = null; return false; }
+  if(!actionFreezeBuffers[action]) { actionFreezeBuffers[action] = { start: now }; return false; }
+  const elapsed = now - actionFreezeBuffers[action].start;
+  return elapsed >= holdMs && moves.freeze;
+}
+
 function analyzePose(kps) {
   const g = n => kps.find(k => k.name === n);
   const rls=g('left_shoulder'), rrs=g('right_shoulder');
@@ -1164,7 +1414,17 @@ function analyzePose(kps) {
     const vr=a=>{const m=a.reduce((x,y)=>x+y,0)/a.length;return a.reduce((s,v)=>s+(v-m)**2,0)/a.length;};
     moves.freeze=vr(freezeBuf.lwx)+vr(freezeBuf.lwy)+vr(freezeBuf.rwx)+vr(freezeBuf.rwy)<sc*sc*.012;
   }
-  ['left','right','both','clap','head','freeze'].forEach(k=>{
+  // T-POSE / AIRPLANE: arms straight out to sides at shoulder height
+  if(ls.score>MIN&&rs.score>MIN&&lw.score>MIN&&rw.score>MIN){
+    const sw = Math.abs(ls.x-rs.x); // shoulder width
+    const lwShoulderY = Math.abs(lw.y-ls.y);
+    const rwShoulderY = Math.abs(rw.y-rs.y);
+    const lwOutside = lw.x < ls.x - sw*0.4; // left wrist far left
+    const rwOutside = rw.x > rs.x + sw*0.4; // right wrist far right
+    moves.airplane = hld(lwShoulderY<sw*0.4 && rwShoulderY<sw*0.4 && lwOutside && rwOutside, 'airplane');
+  } else { moves.airplane = false; }
+  
+  ['left','right','both','clap','head','freeze','airplane'].forEach(k=>{
     const el=document.getElementById('gp-'+k);
     if(el) el.classList.toggle('on',moves[k]);
   });
@@ -1344,6 +1604,10 @@ function gameTick() {
       attempts++; M.attempts++;
       let wMs=2500;
       for(let j=tlIdx+1;j<TL.length;j++){if(TL[j].type==='close'&&TL[j].action===e.action){wMs=TL[j].t-e.t;break;}}
+      // Difficulty adjustment
+      const diff = CFG.DIFFICULTY;
+      if(diff === 'easy') wMs = Math.round(wMs * 1.5);   // 50% more time
+      else if(diff === 'hard') wMs = Math.round(wMs * 0.7); // 30% less time
       setGreen(true); showCue(e.emoji,e.label,e.sub,true,wMs);
       // DUCK MUSIC during clap windows for better mic detection
       if(e.action === 'clap' && window._audio) {
@@ -1679,7 +1943,102 @@ document.addEventListener('start-game', () => {
 speechSynthesis.getVoices();
 speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
 document.getElementById('g-nova-video').load();
-initDID(); // Start D-ID connection immediately
+// Start D-ID connection IMMEDIATELY on page load (saves 5-10 sec)
+if(CFG.AVATAR_PROVIDER === 'd-id' || CFG.AVATAR_PROVIDER === '') {
+  initDID();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SETTINGS PANEL LOGIC
+// ═══════════════════════════════════════════════════════════════
+window.toggleSettings = function() {
+  document.getElementById('settings-panel').classList.toggle('show');
+  // Initialize current values
+  loadSettings();
+};
+
+window.showStab = function(tab) {
+  document.querySelectorAll('.stab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.querySelectorAll('.stab-content').forEach(c => c.style.display = 'none');
+  document.getElementById('stab-' + tab).style.display = 'block';
+};
+
+window.setVoice = function(provider) {
+  localStorage.setItem('nova_voice_provider', provider);
+  document.getElementById('el-input-grp').style.display = provider === 'elevenlabs' ? 'flex' : 'none';
+  document.getElementById('oa-input-grp').style.display = provider === 'openai' ? 'flex' : 'none';
+};
+
+window.setAvatar = function(provider) {
+  localStorage.setItem('nova_avatar_provider', provider);
+  document.getElementById('anam-input-grp').style.display = provider === 'anam' ? 'flex' : 'none';
+};
+
+window.setDifficulty = function(level) {
+  localStorage.setItem('nova_difficulty', level);
+};
+
+window.saveKey = function(provider) {
+  if(provider === 'elevenlabs') {
+    const key = document.getElementById('el-key').value.trim();
+    if(key) {
+      localStorage.setItem('nova_elevenlabs_key', key);
+      CFG.ELEVENLABS_KEY = key;
+      alert('✅ ElevenLabs key saved! Voice will upgrade on next reaction.');
+    }
+  }
+  if(provider === 'openai') {
+    const key = document.getElementById('oa-key').value.trim();
+    if(key) {
+      localStorage.setItem('nova_openai_key', key);
+      CFG.OPENAI_KEY = key;
+      alert('✅ OpenAI key saved!');
+    }
+  }
+  if(provider === 'anam') {
+    const key = document.getElementById('anam-key').value.trim();
+    const persona = document.getElementById('anam-persona').value.trim();
+    if(key) localStorage.setItem('nova_anam_key', key);
+    if(persona) localStorage.setItem('nova_anam_persona', persona);
+    alert('✅ Anam saved! Reload to activate.');
+  }
+};
+
+window.testVoice = function() {
+  tts("Hi! I'm Nova! Can you hear me?");
+};
+
+window.resetAll = function() {
+  if(confirm('Clear all stats and achievements?')) {
+    localStorage.removeItem('nova_stats');
+    localStorage.removeItem('nova_achievements');
+    alert('✅ Cleared!');
+  }
+};
+
+window.loadSettings = function() {
+  // Voice
+  const voiceProvider = localStorage.getItem('nova_voice_provider') || 'browser';
+  const voiceRadio = document.querySelector(`input[name="voice"][value="${voiceProvider}"]`);
+  if(voiceRadio) voiceRadio.checked = true;
+  document.getElementById('el-input-grp').style.display = voiceProvider === 'elevenlabs' ? 'flex' : 'none';
+  document.getElementById('oa-input-grp').style.display = voiceProvider === 'openai' ? 'flex' : 'none';
+  if(localStorage.getItem('nova_elevenlabs_key')) document.getElementById('el-key').value = '••••••••';
+  if(localStorage.getItem('nova_openai_key')) document.getElementById('oa-key').value = '••••••••';
+  
+  // Avatar
+  const avatarProvider = localStorage.getItem('nova_avatar_provider') || 'd-id';
+  const avatarRadio = document.querySelector(`input[name="avatar"][value="${avatarProvider}"]`);
+  if(avatarRadio) avatarRadio.checked = true;
+  document.getElementById('anam-input-grp').style.display = avatarProvider === 'anam' ? 'flex' : 'none';
+  
+  // Difficulty
+  const difficulty = localStorage.getItem('nova_difficulty') || 'medium';
+  const diffRadio = document.querySelector(`input[name="difficulty"][value="${difficulty}"]`);
+  if(diffRadio) diffRadio.checked = true;
+};
+
 </script>
 </body>
 </html>
