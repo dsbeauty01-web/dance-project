@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v32</title>
+<title>Nova v33</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -16,6 +16,32 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
 .phase{position:fixed;inset:0;display:none;flex-direction:column;
   transition:opacity .6s ease;opacity:0}
 .phase.active{display:flex;opacity:1}
+
+/* ═══════════════════════════════════════════
+   PHASE 0: INTRO — Kling video plays while D-ID warms up
+   8 seconds, hands off to recognition phase seamlessly
+   ═══════════════════════════════════════════ */
+#phase-intro{background:radial-gradient(ellipse at 50% 50%,
+  #2d0750 0%,#0a0015 75%);align-items:center;justify-content:center}
+#intro-video-wrap{position:relative;width:min(80vmin,500px);
+  aspect-ratio:720/956;border-radius:40px;overflow:hidden;
+  box-shadow:0 0 80px rgba(255,111,216,0.5),
+             0 0 160px rgba(124,111,255,0.3);
+  background:#1a0533}
+#intro-video{width:100%;height:100%;object-fit:cover;display:block}
+#intro-hint{position:absolute;bottom:30px;left:50%;
+  transform:translateX(-50%);font-size:14px;
+  color:rgba(255,255,255,0.45);letter-spacing:.05em;
+  opacity:0;animation:introHintFade 1s ease 4s forwards}
+@keyframes introHintFade{to{opacity:1}}
+#intro-status{position:fixed;top:20px;left:50%;
+  transform:translateX(-50%);padding:6px 14px;
+  background:rgba(0,0,0,0.5);border-radius:20px;
+  font-size:11px;color:rgba(255,255,255,0.6);
+  letter-spacing:.05em;text-transform:uppercase;
+  z-index:50;display:none}
+#intro-status.show{display:block;animation:fadeIn .5s}
+@keyframes fadeIn{from{opacity:0} to{opacity:1}}
 
 /* ═══════════════════════════════════════════
    PHASE 1: ARRIVAL — Nova appears
@@ -68,7 +94,11 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   overflow:hidden;background:#0a0015;
   border:4px solid rgba(255,111,216,0.7);
   box-shadow:0 0 60px rgba(255,111,216,0.4),0 0 140px rgba(124,111,255,0.25);
-  position:relative;transition:all .35s}
+  animation:novaBreath 4s ease-in-out infinite}
+@keyframes novaBreath{
+  0%,100%{transform:scale(1);box-shadow:0 0 60px rgba(255,111,216,0.4),0 0 140px rgba(124,111,255,0.25)}
+  50%{transform:scale(1.02);box-shadow:0 0 80px rgba(255,111,216,0.55),0 0 160px rgba(124,111,255,0.35)}
+}
 #rec-avatar-frame.speaking{
   border-color:rgba(0,255,150,0.85);
   box-shadow:0 0 80px rgba(0,255,150,0.5),0 0 180px rgba(124,111,255,0.4);
@@ -208,27 +238,29 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 #nova-video{position:absolute;inset:0;width:100%;height:100%;
   object-fit:contain;background:transparent}
 
-/* D-ID face — top-left of Nova panel */
-#nova-face-frame{position:absolute;top:14px;left:14px;z-index:30;
-  width:130px;height:130px;border-radius:50%;overflow:hidden;
-  background:#0a0015;border:3px solid rgba(255,111,216,0.85);
-  box-shadow:0 6px 24px rgba(0,0,0,0.35),0 0 32px rgba(255,111,216,0.55);
+/* D-ID face — CENTER of Nova panel, BIGGER (was top-left small) */
+#nova-face-frame{position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);z-index:30;
+  width:min(36vmin,260px);height:min(36vmin,260px);
+  border-radius:50%;overflow:hidden;
+  background:#0a0015;border:4px solid rgba(255,111,216,0.85);
+  box-shadow:0 8px 32px rgba(0,0,0,0.4),0 0 50px rgba(255,111,216,0.55);
   transition:all .35s cubic-bezier(.34,1.56,.64,1)}
 #nova-face-frame.speaking{
-  width:200px;height:200px;
+  width:min(48vmin,360px);height:min(48vmin,360px);
   border-color:rgba(0,255,150,0.9);
-  box-shadow:0 6px 24px rgba(0,0,0,0.35),0 0 60px rgba(0,255,150,0.7)}
+  border-width:5px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.4),0 0 80px rgba(0,255,150,0.7)}
 #nova-face-frame.celebrating{
-  top:50%;left:50%;transform:translate(-50%,-50%);
-  width:min(50vmin,300px);height:min(50vmin,300px);
-  border-width:5px;border-color:rgba(255,215,0,0.95);
-  box-shadow:0 0 80px rgba(255,215,0,0.7),0 0 200px rgba(255,111,216,0.5)}
+  width:min(60vmin,440px);height:min(60vmin,440px);
+  border-width:6px;border-color:rgba(255,215,0,0.95);
+  box-shadow:0 0 100px rgba(255,215,0,0.7),0 0 240px rgba(255,111,216,0.5)}
 #nova-face-video{width:100%;height:100%;object-fit:cover;display:none}
 #nova-face-placeholder{position:absolute;inset:0;display:flex;
-  align-items:center;justify-content:center;font-size:54px;
+  align-items:center;justify-content:center;font-size:80px;
   background:radial-gradient(ellipse at 40% 40%,#ff99dd,#aa0099 60%,#330033);
   transition:font-size .35s}
-#nova-face-frame.celebrating #nova-face-placeholder{font-size:140px}
+#nova-face-frame.celebrating #nova-face-placeholder{font-size:160px}
 
 /* Action cue — top-right of Nova panel */
 #action-cue{position:absolute;top:14px;right:14px;
@@ -367,8 +399,20 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 
 <div id="green-flash"></div>
 
-<!-- ═══ PHASE 1: ARRIVAL ═══ -->
-<div class="phase active" id="phase-arrival">
+<!-- ═══ PHASE 0: INTRO ═══ -->
+<!-- Plays IMMEDIATELY on page load while D-ID warms up in background -->
+<div class="phase active" id="phase-intro">
+  <div id="intro-status">Nova is waking up...</div>
+  <div id="intro-video-wrap">
+    <video id="intro-video" autoplay playsinline muted preload="auto">
+      <source src="nova-intro.mp4" type="video/mp4">
+    </video>
+    <div id="intro-hint">tap anywhere to wake her up</div>
+  </div>
+</div>
+
+<!-- ═══ PHASE 1: ARRIVAL (legacy — kept as fallback if intro fails) ═══ -->
+<div class="phase" id="phase-arrival">
   <div id="arrival-glow"></div>
   <div id="arrival-content">
     <div id="arrival-orb" onclick="onArrivalTap()">🌟</div>
@@ -468,7 +512,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">v32 — D-ID Stable</div>
+<div id="version-tag">v33 — Intro Phase + Center Face</div>
 <div id="did-status" class="connecting" onclick="manualRetryDID()" title="D-ID avatar status">
   <span class="dot"></span><span id="did-status-text">connecting</span>
 </div>
@@ -486,6 +530,74 @@ function showPhase(id){
 function onArrivalTap(){
   document.getElementById('arrival-orb').classList.add('fade-out');
   setTimeout(()=>document.dispatchEvent(new CustomEvent('arrival-done')),900);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INTRO PHASE — plays nova-intro.mp4 while D-ID warms up.
+// At handoff time (~7.4s in, 600ms before video ends), greeting
+// fires so voice + face appear together at the moment Nova "sees"
+// the kid in the video.
+// ═══════════════════════════════════════════════════════════════
+let introHandoffTimer = null;
+let introEndTimer = null;
+let introHandoffFired = false;
+
+function startIntroPhase() {
+  introHandoffFired = false;
+  const introVid = document.getElementById('intro-video');
+  if(introVid) {
+    introVid.currentTime = 0;
+    introVid.muted = true; // browsers require muted for autoplay
+    introVid.play().catch(err => {
+      console.log('intro autoplay blocked:', err);
+      // If intro can't play, skip to recognition immediately
+      document.dispatchEvent(new CustomEvent('arrival-done'));
+    });
+  }
+  
+  // Pre-warm camera + D-ID + mic during intro so they're ready by handoff
+  preWarmServices();
+  
+  // Show "Nova is waking up..." status hint if D-ID isn't connected yet by ~5s
+  setTimeout(() => {
+    if(!didReady && !didFailed) {
+      const status = document.getElementById('intro-status');
+      if(status) status.classList.add('show');
+    }
+  }, 5000);
+  
+  // Handoff timer — fire greeting 600ms before intro ends
+  // so voice + face appear AT the same moment intro finishes
+  introHandoffTimer = setTimeout(() => {
+    triggerIntroHandoff();
+  }, CFG.INTRO_HANDOFF_MS);
+  
+  // Hard end — switch phase even if handoff didn't fire
+  introEndTimer = setTimeout(() => {
+    if(!introHandoffFired) triggerIntroHandoff();
+  }, CFG.INTRO_DURATION_MS);
+}
+
+function triggerIntroHandoff() {
+  if(introHandoffFired) return;
+  introHandoffFired = true;
+  // Switch to recognition phase
+  document.dispatchEvent(new CustomEvent('arrival-done'));
+}
+
+async function preWarmServices() {
+  // Mic permission (silently — no UI yet)
+  try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch(e){}
+  // Camera
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+      audio: false,
+    });
+    const wc = document.getElementById('webcam');
+    if(wc) wc.srcObject = stream;
+  } catch(e) { console.log('cam pre-warm:', e); }
+  // D-ID is already initing on page load via initDID() at boot
 }
 function startCountdown(){
   showPhase('phase-countdown');
@@ -530,10 +642,15 @@ const CFG = {
   // Ears
   EARS_PROVIDER: 'browser-sr', // 'browser-sr' | 'whisper'
   // Game
-  SONG_DURATION: 60000,
+  SONG_DURATION: 111000, // hello.mp3 is 111s — actual length, not 60s
+  INTRO_DURATION_MS: 8000, // nova-intro.mp4 is 8s
+  INTRO_HANDOFF_MS: 7400, // start D-ID greeting 600ms before intro ends
+                          // (so voice + face appear together at 8s mark)
+  GAME_VOLUME_NORMAL: 0.6,  // hello.mp3 default volume (lower so mic catches claps)
+  GAME_VOLUME_DUCK: 0.35,   // ducked volume during action windows
   // Behavior
-  REACTION_COOLDOWN: 0, // 0 = no cooldown, instant reactions
-  DETECTION_HOLD_FRAMES: 1, // instant
+  REACTION_COOLDOWN: 0,
+  DETECTION_HOLD_FRAMES: 1,
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -1078,14 +1195,15 @@ function analyzePose(kps) {
   moves.right = hold(rUp && !lUp, 'right');
   moves.both = lUp && rUp;
   
-  // Clap — wrists meet near chest
+  // Clap — wrists meet near chest. Looser thresholds for kids who don't
+  // clap precisely. Was: gap < 0.55*scale, now 0.7. Y-window expanded too.
   const wristY = (sLw.y + sRw.y) / 2;
   const shoulderY = (sLs.y + sRs.y) / 2;
   const wristGap = Math.abs(sLw.x - sRw.x);
   const isClap = sLw.score > MIN && sRw.score > MIN &&
-    wristGap < scale * 0.55 &&
-    wristY > shoulderY - scale * 0.3 &&
-    wristY < shoulderY + scale * 1.0;
+    wristGap < scale * 0.70 &&
+    wristY > shoulderY - scale * 0.5 &&
+    wristY < shoulderY + scale * 1.3;
   moves.clap = hold(isClap, 'clap');
   
   // Hands on head
@@ -1200,8 +1318,74 @@ const TIMELINE = [
   { t: 42400, type: 'open', action: 'freeze', emoji: '❄️', label: 'FREEZE!', instr: "DON'T MOVE!", pts: 300 },
   { t: 44800, type: 'close', action: 'freeze' },
   
-  // Celebration (45-60s)
+  // Celebration phase 1 (45-60s) — energy burst, more cues
   { t: 45000, type: 'beat', name: 'celebration' },
+  { t: 46000, type: 'demo', action: 'both', emoji: '🙌', label: 'BOTH UP', instr: 'show me!' },
+  { t: 46700, type: 'open', action: 'both', emoji: '🙌', label: 'BOTH UP!', instr: 'BOTH hands UP!', pts: 200 },
+  { t: 48800, type: 'close', action: 'both' },
+  
+  { t: 49000, type: 'demo', action: 'clap', emoji: '👏', label: 'CLAP', instr: 'GO!' },
+  { t: 49700, type: 'open', action: 'clap', emoji: '👏', label: 'CLAP CLAP!', instr: 'CLAP CLAP!', pts: 150 },
+  { t: 51800, type: 'close', action: 'clap' },
+  
+  { t: 52000, type: 'demo', action: 'right', emoji: '👉', label: 'RIGHT', instr: '!' },
+  { t: 52600, type: 'open', action: 'right', emoji: '👉', label: 'RIGHT!', instr: 'RIGHT hand!', pts: 100 },
+  { t: 54600, type: 'close', action: 'right' },
+  
+  { t: 55000, type: 'demo', action: 'left', emoji: '👈', label: 'LEFT', instr: '!' },
+  { t: 55600, type: 'open', action: 'left', emoji: '👈', label: 'LEFT!', instr: 'LEFT hand!', pts: 100 },
+  { t: 57600, type: 'close', action: 'left' },
+  
+  { t: 58000, type: 'demo', action: 'head', emoji: '🙆', label: 'HEAD', instr: 'touch!' },
+  { t: 58600, type: 'open', action: 'head', emoji: '🙆', label: 'HANDS ON HEAD!', instr: 'touch your head!', pts: 200 },
+  { t: 60800, type: 'close', action: 'head' },
+  
+  // Flow phase (60-80s) — fast variety
+  { t: 61000, type: 'beat', name: 'flow' },
+  { t: 61500, type: 'demo', action: 'clap', emoji: '👏', label: 'CLAP!', instr: '!' },
+  { t: 62000, type: 'open', action: 'clap', emoji: '👏', label: 'CLAP!', instr: 'clap!', pts: 150 },
+  { t: 63800, type: 'close', action: 'clap' },
+  
+  { t: 64000, type: 'demo', action: 'right', emoji: '👉', label: 'RIGHT', instr: '!' },
+  { t: 64500, type: 'open', action: 'right', emoji: '👉', label: 'RIGHT!', instr: 'right!', pts: 100 },
+  { t: 66400, type: 'close', action: 'right' },
+  
+  { t: 66600, type: 'demo', action: 'left', emoji: '👈', label: 'LEFT', instr: '!' },
+  { t: 67100, type: 'open', action: 'left', emoji: '👈', label: 'LEFT!', instr: 'left!', pts: 100 },
+  { t: 69000, type: 'close', action: 'left' },
+  
+  { t: 69200, type: 'demo', action: 'both', emoji: '🙌', label: 'BOTH', instr: '!' },
+  { t: 69700, type: 'open', action: 'both', emoji: '🙌', label: 'BOTH UP!', instr: 'both up!', pts: 200 },
+  { t: 71800, type: 'close', action: 'both' },
+  
+  { t: 72000, type: 'demo', action: 'clap', emoji: '👏', label: 'CLAP', instr: '!' },
+  { t: 72500, type: 'open', action: 'clap', emoji: '👏', label: 'CLAP!', instr: 'clap fast!', pts: 150 },
+  { t: 74400, type: 'close', action: 'clap' },
+  
+  { t: 74600, type: 'demo', action: 'head', emoji: '🙆', label: 'HEAD', instr: '!' },
+  { t: 75100, type: 'open', action: 'head', emoji: '🙆', label: 'HEAD!', instr: 'touch head!', pts: 200 },
+  { t: 77200, type: 'close', action: 'head' },
+  
+  // Big finish (78-95s) — final freeze + grand celebration
+  { t: 78000, type: 'beat', name: 'big-finish' },
+  { t: 79000, type: 'demo', action: 'freeze', emoji: '❄️', label: 'FREEZE!', instr: "BIG FREEZE!" },
+  { t: 79400, type: 'open', action: 'freeze', emoji: '❄️', label: 'FREEZE!', instr: "DON'T MOVE!", pts: 400 },
+  { t: 82400, type: 'close', action: 'freeze' },
+  
+  { t: 83000, type: 'demo', action: 'both', emoji: '🙌', label: 'BOTH UP!', instr: 'celebrate!' },
+  { t: 83600, type: 'open', action: 'both', emoji: '🙌', label: 'CELEBRATE!', instr: 'BOTH HANDS UP!', pts: 250 },
+  { t: 86000, type: 'close', action: 'both' },
+  
+  { t: 86500, type: 'demo', action: 'clap', emoji: '👏', label: 'CLAP', instr: 'finale!' },
+  { t: 87000, type: 'open', action: 'clap', emoji: '👏', label: 'CLAP CLAP CLAP!', instr: 'CLAP CLAP!', pts: 200 },
+  { t: 89400, type: 'close', action: 'clap' },
+  
+  { t: 90000, type: 'demo', action: 'both', emoji: '🌟', label: 'STAR!', instr: 'biggest one!' },
+  { t: 90600, type: 'open', action: 'both', emoji: '🌟', label: 'BIG STAR!', instr: 'reach for the sky!', pts: 300 },
+  { t: 93600, type: 'close', action: 'both' },
+  
+  // Outro 95-111s — Nova just talks, no more cues, kid winds down
+  { t: 95000, type: 'beat', name: 'celebration' },
 ];
 
 let score = 0, hits = 0, attempts = 0, combo = 0, maxCombo = 0;
@@ -1231,16 +1415,22 @@ async function smartReact(action, isHit, isFast) {
   if(now - lastReactionTime < 800) return;
   lastReactionTime = now;
   
-  // Instant filler via browser TTS
+  // Instant filler via browser TTS — sometimes use the kid's name for warmth
   playQuickReaction(isHit ? (isFast ? 'hit_fast' : 'hit_normal') : 'miss');
+  
+  // SURPRISE TOUCH: Tell the LLM to use the kid's name 40% of the time when known.
+  // This is the "she sees ME" magic — Nova calling them by name during the game
+  // makes the experience feel personal vs generic.
+  const useName = memory.name && Math.random() < 0.4;
+  const nameInstr = useName ? `Use the name "${memory.name}" naturally in this reaction. ` : '';
   
   let prompt;
   if(isHit && isFast) {
-    prompt = `The kid just NAILED the ${action} move SUPER fast! React with explosive specific joy. Reference the body part. 4-6 words. ASYMMETRIC excitement.`;
+    prompt = `${nameInstr}The kid just NAILED the ${action} move SUPER fast! React with explosive specific joy. Reference the body part. 4-6 words. ASYMMETRIC excitement.`;
   } else if(isHit) {
-    prompt = `The kid just did the ${action} move correctly! Celebrate specifically. Reference the body part. 4-6 words.`;
+    prompt = `${nameInstr}The kid just did the ${action} move correctly! Celebrate specifically. Reference the body part. 4-6 words.`;
   } else {
-    prompt = `The kid missed the ${action} move. Be warmly encouraging — never negative. Tell them to watch and try again. 4-6 words.`;
+    prompt = `${nameInstr}The kid missed the ${action} move. Be warmly encouraging — never negative. Tell them to watch and try again. 4-6 words.`;
   }
   
   const reply = await brainThink(prompt, { maxTokens: 30 });
@@ -1355,9 +1545,9 @@ function startGame() {
   vid.loop = true;
   vid.play().catch(()=>{});
   
-  // Play hello.mp3
+  // Play hello.mp3 — lower default volume so mic catches claps better
   const audio = new Audio('hello.mp3');
-  audio.volume = 0.85;
+  audio.volume = CFG.GAME_VOLUME_NORMAL;
   window._audio = audio;
   audio.play().catch(()=>{});
   audio.onended = () => setTimeout(endGame, 1200);
@@ -1408,6 +1598,10 @@ function gameTick() {
       attempts++;
       memory.attempts++;
       
+      // Duck music volume during action window so the mic catches claps
+      // and the kid can hear Nova's reactions clearly
+      if(window._audio) window._audio.volume = CFG.GAME_VOLUME_DUCK;
+      
       let windowMs = 2500;
       for(let j = timelineIdx + 1; j < TIMELINE.length; j++) {
         if(TIMELINE[j].type === 'close' && TIMELINE[j].action === e.action) {
@@ -1436,6 +1630,8 @@ function gameTick() {
     else if(e.type === 'close') {
       setGreenFlash(false);
       hideCue();
+      // Restore music volume after action window ends
+      if(window._audio) window._audio.volume = CFG.GAME_VOLUME_NORMAL;
       if(!actionDetected && actionWindow) {
         handleMiss(currentAction);
       }
@@ -1604,6 +1800,15 @@ speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
 initEars();
 initDID();
 initDetector().then(() => poseLoop()).catch(()=>{});
+
+// Start the intro phase immediately on load.
+// The intro video will autoplay (muted), camera + D-ID warm in background,
+// and after 8 seconds the recognition phase takes over with Nova's greeting.
+document.addEventListener('DOMContentLoaded', () => {
+  startIntroPhase();
+});
+// In case DOM is already loaded
+if(document.readyState !== 'loading') startIntroPhase();
 
 document.getElementById('nova-video').load();
 </script>
