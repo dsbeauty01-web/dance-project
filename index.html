@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v30</title>
+<title>Nova v32</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -203,7 +203,8 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   min-height:0;position:relative;z-index:1}
 
 /* Nova side */
-#nova-side{position:relative;overflow:hidden}
+#nova-side{position:relative;overflow:hidden;
+  background:radial-gradient(ellipse at 50% 40%,#3d0a6b 0%,#1a0533 60%,#0a0015 100%)}
 #nova-video{position:absolute;inset:0;width:100%;height:100%;
   object-fit:contain;background:transparent}
 
@@ -344,6 +345,22 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 /* Version badge */
 #version-tag{position:fixed;bottom:6px;right:8px;
   font-size:9px;color:rgba(255,255,255,0.2);z-index:1000;letter-spacing:.05em}
+
+/* D-ID status badge — small, top-left, tells you what's happening */
+#did-status{position:fixed;top:8px;left:8px;z-index:2000;
+  display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:12px;
+  font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+  background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);
+  color:rgba(255,255,255,0.7);transition:all .25s;cursor:default;user-select:none}
+#did-status .dot{width:8px;height:8px;border-radius:50%;background:#666;
+  transition:all .25s}
+#did-status.connecting .dot{background:#fbbf24;animation:pulse 1s ease infinite}
+#did-status.connected{color:#10b981;border-color:rgba(16,185,129,0.4)}
+#did-status.connected .dot{background:#10b981;box-shadow:0 0 8px #10b981}
+#did-status.failed{color:#f87171;border-color:rgba(248,113,113,0.4);cursor:pointer}
+#did-status.failed .dot{background:#f87171;box-shadow:0 0 8px #f87171}
+#did-status.failed:hover{background:rgba(248,113,113,0.15)}
+@keyframes pulse{50%{opacity:.5}}
 </style>
 </head>
 <body>
@@ -451,7 +468,10 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">v29 — Journey Build</div>
+<div id="version-tag">v32 — D-ID Stable</div>
+<div id="did-status" class="connecting" onclick="manualRetryDID()" title="D-ID avatar status">
+  <span class="dot"></span><span id="did-status-text">connecting</span>
+</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
@@ -647,50 +667,85 @@ async function elevenLabsTTS(text) {
   }
 }
 
-// Queue for things Nova wants to say before D-ID is ready
+// ═══════════════════════════════════════════════════════════════
+// SPEAK — two channels:
+//   speak(text)      → full lip-synced via D-ID (queues if not ready)
+//   speakQuick(text) → instant filler ("Yes!"), browser TTS, no lip-sync
+// didFailed = true means D-ID is permanently broken this session
+// (quota exhausted, etc) — fall back gracefully, don't keep retrying
+// ═══════════════════════════════════════════════════════════════
 const speakQueue = [];
-let speakInFlight = false;
+let didFailed = false;
 
 function flushSpeakQueue() {
   if(!didReady || !agentManager) return;
   while(speakQueue.length) {
     const item = speakQueue.shift();
-    didSpeakDirect(item.text, item.kind);
+    didSpeakDirect(item);
   }
 }
 
-function didSpeakDirect(text, kind) {
+// Update visible D-ID status badge so user knows what's happening.
+// states: 'connecting' (yellow), 'connected' (green), 'failed' (red, click to retry)
+function setDIDStatus(state, text) {
+  const el = document.getElementById('did-status');
+  const txt = document.getElementById('did-status-text');
+  if(!el) return;
+  el.classList.remove('connecting','connected','failed');
+  el.classList.add(state);
+  if(txt) txt.textContent = text || state;
+}
+
+// Manual retry — user clicks the red badge to try reconnecting.
+// Useful when D-ID quota was hit and sessions have since timed out.
+async function manualRetryDID() {
+  if(didReady) return;
+  setDIDStatus('connecting', 'retrying...');
+  // Force a fresh attempt — clear failed flag, drop old manager
+  didFailed = false;
+  if(agentManager) {
+    try { 
+      if(typeof agentManager.disconnect === 'function') agentManager.disconnect();
+    } catch(e){}
+    agentManager = null;
+  }
+  setTimeout(() => initDID(), 500);
+}
+
+function didSpeakDirect(text) {
+  if(didFailed) {
+    // D-ID is dead — use browser TTS instead so Nova still talks
+    browserTTS(text);
+    return;
+  }
   if(!didReady || !agentManager) {
-    speakQueue.push({ text, kind });
+    speakQueue.push(text);
     return;
   }
   try {
     agentManager.speak({ type: 'text', input: text }).catch((err) => {
       console.log('D-ID speak failed:', err);
-      // Hard fallback only on actual D-ID error — no lip-sync but at least audio
-      if(CFG.VOICE_PROVIDER === 'elevenlabs') elevenLabsTTS(text);
-      else browserTTS(text);
+      browserTTS(text);
     });
   } catch(e) {
     console.log('D-ID speak threw:', e);
+    browserTTS(text);
   }
 }
 
-// Two channels:
-//  speak(text) — full lip-synced speech via D-ID (queued if D-ID not ready)
-//  speakQuick(text) — instant filler reactions, browser TTS only, NO lip-sync
-//                     used only during dancing for "Yes!" "Boom!" type beats
 function speak(text) {
   if(!text) return;
-  // Stop any quick filler that's playing so it doesn't double up with D-ID
+  // Cancel any quick filler so it doesn't talk over D-ID
   try { speechSynthesis.cancel(); } catch(e){}
-  didSpeakDirect(text, 'main');
+  didSpeakDirect(text);
 }
 
 function speakQuick(text) {
   if(!text) return;
-  // Quick fillers always go through browser TTS — D-ID has 500-1000ms latency
-  // that kills the "instant reaction" feel. Lip-sync is sacrificed here on purpose.
+  // Fast reactions during dancing — browser TTS only.
+  // D-ID has 500-1000ms latency before its stream speaks, which kills
+  // the "instant" feel. Lip-sync is sacrificed because the kid's eyes
+  // are on their own body during the move, not on Nova.
   browserTTS(text);
 }
 
@@ -793,25 +848,35 @@ const didCallbacks = {
     novaFaceVideo.play().catch(()=>{});
   },
   onConnectionStateChange(state) {
+    console.log('D-ID state:', state);
     if(state === 'connected') {
       didReady = true;
+      didFailed = false;
+      setDIDStatus('connected', 'live');
       didIdleVideoUrl = agentManager?.agent?.presenter?.idle_video;
       showIdleEverywhere();
-      // Flush anything Nova wanted to say while we were connecting
       flushSpeakQueue();
-      // Trigger the arrival greeting if we're past arrival phase
+      // Trigger arrival greeting if we're past arrival phase and haven't greeted yet
       if(memory.phase === 'recognition' && !window._greeted) {
         window._greeted = true;
         novaArrivalGreet();
       }
+    } else if(state === 'connecting' || state === 'new') {
+      setDIDStatus('connecting', 'connecting');
     } else if(state === 'disconnected' || state === 'closed') {
       didReady = false;
-      setTimeout(() => agentManager?.reconnect(), 3000);
+      didFailed = true;
+      setDIDStatus('failed', 'tap to retry');
+      while(speakQueue.length) browserTTS(speakQueue.shift());
+    } else if(state === 'failed') {
+      didReady = false;
+      didFailed = true;
+      setDIDStatus('failed', 'tap to retry');
+      while(speakQueue.length) browserTTS(speakQueue.shift());
     }
   },
   onVideoStateChange(state) {
     if(state === 'STOP') {
-      // Idle
       showIdleEverywhere();
       recAvatarFrame.classList.remove('speaking');
       novaFaceFrame.classList.remove('speaking');
@@ -831,11 +896,27 @@ const didCallbacks = {
     }
   },
   onError(err) {
-    console.log('D-ID:', err);
+    console.log('D-ID error:', err);
+    const errStr = JSON.stringify(err || {});
+    if(errStr.includes('Forbidden') || errStr.includes('Max user sessions') || errStr.includes('403')) {
+      console.log('D-ID quota exhausted — falling back to browser TTS');
+      didFailed = true;
+      didReady = false;
+      setDIDStatus('failed', 'quota — tap to retry');
+      while(speakQueue.length) browserTTS(speakQueue.shift());
+      if(memory.phase === 'recognition' && !window._greeted) {
+        window._greeted = true;
+        novaArrivalGreet();
+      }
+    } else {
+      setDIDStatus('failed', 'error — tap to retry');
+    }
   },
 };
 
 function initDID() {
+  if(didFailed) return;
+  setDIDStatus('connecting', 'connecting');
   createAgentManager(CFG.AGENT_ID, {
     auth: { type: 'key', clientKey: CFG.CLIENT_KEY },
     callbacks: didCallbacks,
@@ -845,9 +926,39 @@ function initDID() {
     return m.connect();
   }).catch(e => {
     console.log('D-ID init failed:', e);
-    setTimeout(initDID, 12000);
+    const errStr = String(e?.message || e);
+    if(errStr.includes('Forbidden') || errStr.includes('403') || errStr.includes('Max user sessions')) {
+      didFailed = true;
+      setDIDStatus('failed', 'quota — tap to retry');
+      if(memory.phase === 'recognition' && !window._greeted) {
+        window._greeted = true;
+        novaArrivalGreet();
+      }
+    } else {
+      setDIDStatus('failed', 'tap to retry');
+      // Genuine network blip — auto-retry once after a longer delay
+      setTimeout(() => { if(!didReady && !didFailed) { didFailed=false; initDID(); } }, 15000);
+    }
   });
 }
+
+// Properly close D-ID session on tab close / reload so the slot frees up
+// immediately instead of staying "alive" on D-ID's server until timeout.
+// THIS is what stops the "Max user sessions reached" error from piling up.
+function cleanupDID() {
+  try {
+    if(agentManager) {
+      // The SDK exposes disconnect() to close the WebRTC session cleanly
+      if(typeof agentManager.disconnect === 'function') {
+        agentManager.disconnect();
+      } else if(typeof agentManager.terminate === 'function') {
+        agentManager.terminate();
+      }
+    }
+  } catch(e) { /* best effort */ }
+}
+window.addEventListener('beforeunload', cleanupDID);
+window.addEventListener('pagehide', cleanupDID);
 
 // ═══════════════════════════════════════════════════════════════
 // CHAT — bubbles in recognition phase
@@ -1109,23 +1220,20 @@ const QUICK_REACTIONS = {
 function playQuickReaction(type) {
   const arr = QUICK_REACTIONS[type] || QUICK_REACTIONS.hit_normal;
   const phrase = arr[Math.floor(Math.random()*arr.length)];
-  // speakQuick = browser TTS only. We sacrifice lip-sync here because
-  // D-ID has 500-1000ms latency before its video stream starts speaking,
-  // and quick fillers need to feel <200ms or the magic dies.
-  // The kid's eyes are on their own body anyway during the move.
+  // Browser TTS — instant, no lip-sync. The kid is looking at their
+  // own body during the move, not at Nova, so missing lip-sync here
+  // is fine. The longer specific reaction below DOES go through D-ID.
   speakQuick(phrase);
 }
 
 async function smartReact(action, isHit, isFast) {
   const now = Date.now();
-  if(now - lastReactionTime < 800) return; // very short cooldown
+  if(now - lastReactionTime < 800) return;
   lastReactionTime = now;
   
-  // Play quick reaction immediately via browser TTS — instant, no lip-sync
-  // (kid's eyes are on their own body, not on Nova, during the move itself)
+  // Instant filler via browser TTS
   playQuickReaction(isHit ? (isFast ? 'hit_fast' : 'hit_normal') : 'miss');
   
-  // Then ask LLM for the specific personal one
   let prompt;
   if(isHit && isFast) {
     prompt = `The kid just NAILED the ${action} move SUPER fast! React with explosive specific joy. Reference the body part. 4-6 words. ASYMMETRIC excitement.`;
@@ -1138,9 +1246,8 @@ async function smartReact(action, isHit, isFast) {
   const reply = await brainThink(prompt, { maxTokens: 30 });
   if(reply) {
     showReactionBubble(reply, false);
-    // Speak the specific reaction through D-ID for lip-sync.
-    // Wait 600ms first so the quick filler ("Yes!") finishes before
-    // Nova's mouth starts moving on the longer specific phrase.
+    // Speak the specific reaction via D-ID for lip-sync.
+    // 600ms delay so the quick filler ("Yes!") finishes first.
     setTimeout(() => speak(reply), 600);
   }
 }
@@ -1448,30 +1555,35 @@ document.addEventListener('arrival-done', async () => {
     document.getElementById('webcam').srcObject = stream;
   } catch(e) { console.log('cam:', e); }
   
-  // If D-ID already connected, greet now
+  // Wait for D-ID before greeting so the FIRST thing Nova says is
+  // lip-synced. The greeting will fire from onConnectionStateChange
+  // when D-ID connects. If D-ID fails (didFailed=true), the error
+  // handler triggers the greeting via fallback.
   if(didReady && !window._greeted) {
     window._greeted = true;
     novaArrivalGreet();
+  } else if(didFailed && !window._greeted) {
+    // D-ID already failed before we got here — just greet via fallback
+    window._greeted = true;
+    novaArrivalGreet();
   } else {
-    // Wait patiently for D-ID. The greeting will fire from
-    // onConnectionStateChange('connected') above. Show a hint after 4s
-    // if it's still not ready, but DO NOT bypass D-ID — the lip-sync
-    // bug was a fallback that played browser TTS while D-ID was loading,
-    // making Nova's mouth never move on the very first thing she says.
+    // Show a "waking up" hint after 4s if still waiting
     setTimeout(() => {
-      if(!didReady) {
+      if(!didReady && !didFailed) {
         const hint = document.getElementById('rec-hint');
         if(hint) hint.textContent = 'Nova is waking up...';
       }
     }, 4000);
-    // Hard timeout: if D-ID never connects after 15s, fall back so the
-    // app isn't completely stuck. This is a real failure case, not normal.
+    // Hard timeout: if D-ID never connects after 12s, give up and
+    // greet anyway via browser TTS so the app isn't stuck.
     setTimeout(() => {
       if(!window._greeted) {
+        console.log('D-ID never connected — greeting via fallback');
+        didFailed = true;
         window._greeted = true;
         novaArrivalGreet();
       }
-    }, 15000);
+    }, 12000);
   }
 });
 
