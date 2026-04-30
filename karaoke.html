@@ -1,156 +1,502 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Hello Hello — Karaoke</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova Dance — Karaoke</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&display=swap');
-*{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%;background:#0a0015;overflow:hidden;
-  font-family:'Fredoka',sans-serif;color:#fff;
-  display:flex;align-items:center;justify-content:center;text-align:center}
-#screen{width:100%;padding:20px}
-#timer{position:fixed;top:20px;right:24px;font-size:18px;color:#ff6fd8;font-weight:600;font-family:monospace}
-#start-screen{display:flex;flex-direction:column;gap:24px;align-items:center}
-#start-btn{background:linear-gradient(135deg,#ff6fd8,#7c6fff);border:none;border-radius:50px;
-  padding:24px 60px;font-family:'Fredoka',sans-serif;font-weight:700;font-size:32px;color:#fff;
-  cursor:pointer;box-shadow:0 8px 40px rgba(124,111,255,0.6)}
-#start-btn:hover{transform:scale(1.04)}
-#title{font-size:60px;background:linear-gradient(135deg,#ff6fd8,#7c6fff,#00d2ff);
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;width:100%;overflow:hidden;
+  background:radial-gradient(ellipse at 50% 30%,#3d0a6b 0%,#1a0533 60%,#0a0015 100%);
+  font-family:'Quicksand',sans-serif;color:#fff}
+
+/* ───────── HUD ───────── */
+#hud{position:fixed;top:0;left:0;right:0;padding:14px 20px;z-index:50;
+  display:flex;align-items:center;gap:14px;
+  background:linear-gradient(180deg,rgba(0,0,0,0.5),transparent)}
+#title{font-family:'Fredoka',cursive;font-weight:600;font-size:18px;
+  background:linear-gradient(135deg,#ff6fd8,#a78bfa);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent}
-#subtitle{font-size:18px;color:rgba(255,255,255,0.5);max-width:500px;line-height:1.6}
-#lyric{font-size:120px;font-weight:700;
-  background:linear-gradient(135deg,#ff6fd8,#a78bfa,#00d2ff);
+#progress-wrap{flex:1;height:6px;background:rgba(255,255,255,0.12);border-radius:3px;overflow:hidden}
+#progress{height:100%;background:linear-gradient(90deg,#ff6fd8,#a78bfa);
+  border-radius:3px;width:0%;transition:width .1s linear}
+#time{font-size:13px;color:rgba(255,255,255,0.65);font-variant-numeric:tabular-nums;
+  min-width:70px;text-align:right}
+#mode-btn{background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.15);
+  padding:8px 14px;border-radius:18px;font-size:12px;font-weight:600;cursor:pointer;
+  letter-spacing:.05em;text-transform:uppercase}
+#mode-btn:hover{background:rgba(255,255,255,0.15)}
+#mode-btn.calibrating{background:#ff6fd8;color:#fff;border-color:#ff6fd8}
+
+/* ───────── CENTER STAGE — the lyric ───────── */
+#stage{position:fixed;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;padding:60px 30px}
+
+#emoji{font-size:clamp(80px,14vmin,180px);
+  filter:drop-shadow(0 8px 30px rgba(255,111,216,0.5));
+  animation:emojiPop .5s cubic-bezier(.34,1.56,.64,1);
+  margin-bottom:18px;line-height:1}
+@keyframes emojiPop{
+  0%{transform:scale(.3) rotate(-15deg);opacity:0}
+  60%{transform:scale(1.15) rotate(8deg)}
+  100%{transform:scale(1) rotate(0)}
+}
+
+#lyric{font-family:'Fredoka',cursive;font-weight:700;
+  font-size:clamp(38px,7.5vw,96px);
+  line-height:1.1;text-align:center;
+  background:linear-gradient(135deg,#fff 0%,#ffd6f5 60%,#a78bfa 100%);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  text-shadow:0 0 80px rgba(255,111,216,0.4);
-  opacity:0;transition:opacity .25s,transform .35s cubic-bezier(.34,1.56,.64,1);
-  transform:scale(.7);line-height:1.1}
-#lyric.show{opacity:1;transform:scale(1)}
-#lyric.huge{font-size:160px}
-#countdown-num{font-size:200px;font-weight:700;color:#ff6fd8;
-  text-shadow:0 0 100px rgba(255,111,216,0.6)}
-#progress{position:fixed;bottom:0;left:0;height:6px;
-  background:linear-gradient(90deg,#ff6fd8,#7c6fff,#00d2ff);width:0%;transition:width .1s linear}
-.next-preview{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);
-  font-size:24px;color:rgba(255,255,255,0.35);font-weight:600;letter-spacing:.05em}
+  text-shadow:0 0 60px rgba(255,111,216,0.4);
+  padding:0 20px;max-width:1400px;
+  animation:lyricIn .4s cubic-bezier(.34,1.56,.64,1)}
+@keyframes lyricIn{
+  0%{transform:translateY(40px) scale(.9);opacity:0;filter:blur(8px)}
+  100%{transform:translateY(0) scale(1);opacity:1;filter:blur(0)}
+}
+
+#instruction{margin-top:30px;font-family:'Fredoka',cursive;font-weight:500;
+  font-size:clamp(20px,2.5vw,32px);color:rgba(255,255,255,0.7);
+  letter-spacing:.05em;text-transform:uppercase;
+  animation:instrFade .5s ease .15s both}
+@keyframes instrFade{from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)}}
+
+/* idle / pre-start state */
+#idle-screen{position:fixed;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:30px;z-index:20}
+#idle-screen.hidden{display:none}
+#big-orb{width:min(280px,40vmin);aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(ellipse at 40% 40%,#ff99dd,#cc1199 50%,#440033);
+  display:flex;align-items:center;justify-content:center;font-size:90px;
+  box-shadow:0 0 80px rgba(255,111,216,0.6),0 0 160px rgba(124,111,255,0.3);
+  animation:orbBreathe 3s ease-in-out infinite;cursor:pointer;transition:transform .25s}
+#big-orb:hover{transform:scale(1.05)}
+@keyframes orbBreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+#idle-title{font-family:'Fredoka',cursive;font-weight:700;
+  font-size:clamp(36px,6vw,72px);
+  background:linear-gradient(135deg,#ff6fd8,#a78bfa);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  text-shadow:0 0 40px rgba(255,111,216,0.3)}
+#idle-hint{font-size:18px;color:rgba(255,255,255,0.55);
+  letter-spacing:.05em;animation:hintFloat 3s ease-in-out infinite}
+@keyframes hintFloat{0%,100%{opacity:.55}50%{opacity:1}}
+#idle-controls{display:flex;gap:12px;margin-top:8px}
+.idle-btn{background:rgba(255,255,255,0.06);color:#fff;
+  border:1px solid rgba(255,255,255,0.15);
+  padding:10px 18px;border-radius:14px;font-size:13px;font-weight:600;
+  cursor:pointer;letter-spacing:.04em}
+.idle-btn:hover{background:rgba(255,255,255,0.12)}
+
+/* calibration overlay */
+#cal-bar{position:fixed;bottom:0;left:0;right:0;padding:18px 24px;
+  background:rgba(255,111,216,0.95);color:#1a0533;
+  display:none;align-items:center;gap:18px;z-index:60;
+  box-shadow:0 -8px 30px rgba(255,111,216,0.4)}
+#cal-bar.show{display:flex}
+#cal-info{font-family:'Fredoka',cursive;font-weight:600;font-size:16px;flex:1}
+#cal-next{font-size:22px;font-weight:700}
+#cal-tap{background:#1a0533;color:#fff;border:none;padding:14px 28px;
+  font-family:'Fredoka',cursive;font-weight:700;font-size:18px;
+  border-radius:14px;cursor:pointer;letter-spacing:.05em}
+#cal-tap:hover{background:#2d0750}
+#cal-save,#cal-cancel{background:transparent;border:2px solid #1a0533;color:#1a0533;
+  padding:10px 18px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer}
+
+/* end screen */
+#end-screen{position:fixed;inset:0;display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:24px;z-index:30;
+  background:radial-gradient(ellipse at 50% 50%,#2d0750,#0a0015);
+  padding:30px}
+#end-screen.show{display:flex}
+#end-title{font-family:'Fredoka',cursive;font-weight:700;
+  font-size:clamp(40px,7vw,80px);
+  background:linear-gradient(135deg,#ffd700,#ff6fd8,#a78bfa);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  text-align:center;line-height:1.1}
+#end-subtitle{font-size:20px;color:rgba(255,255,255,0.7);text-align:center}
+#end-emoji{font-size:120px;animation:bounce 1.4s ease-in-out infinite}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-20px)}}
+.end-btn{background:linear-gradient(135deg,#ff6fd8,#a78bfa);color:#fff;
+  border:none;padding:14px 32px;font-family:'Fredoka',cursive;
+  font-weight:600;font-size:18px;border-radius:18px;cursor:pointer;
+  box-shadow:0 6px 24px rgba(255,111,216,0.4)}
+.end-btn:hover{transform:translateY(-2px)}
+
+/* helper text in calibration */
+#cal-hint{position:fixed;top:80px;left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,0.7);color:#ffd6f5;padding:10px 20px;border-radius:14px;
+  font-size:14px;display:none;z-index:55;border:1px solid rgba(255,111,216,0.4)}
+#cal-hint.show{display:block}
+
+/* tiny "now playing" dot */
+.beat-dot{position:absolute;top:14px;right:14px;width:14px;height:14px;
+  border-radius:50%;background:#00ff99;box-shadow:0 0 12px #00ff99;
+  animation:beatPulse .5s ease-in-out infinite alternate;display:none}
+.beat-dot.show{display:block}
+@keyframes beatPulse{from{transform:scale(.8);opacity:.6} to{transform:scale(1.2);opacity:1}}
 </style>
 </head>
 <body>
-<div id="screen">
-  <div id="start-screen">
-    <div id="title">🎵 Hello Hello</div>
-    <div id="subtitle">Karaoke teleprompter for filming yourself dancing.<br>
-    Tap start, count down 3 seconds, then dance and lip-sync to each line.<br>
-    Total 60 seconds.</div>
-    <button id="start-btn" onclick="start()">▶️ Start</button>
+
+<div id="hud">
+  <div id="title">Nova Karaoke</div>
+  <div id="progress-wrap"><div id="progress"></div></div>
+  <div id="time">0:00</div>
+  <button id="mode-btn" onclick="toggleCalibration()">Edit timing</button>
+</div>
+
+<div id="cal-hint">
+  Calibration mode — Press <b>SPACE</b> (or tap below) when each lyric should appear
+</div>
+
+<!-- Idle (pre-start) -->
+<div id="idle-screen">
+  <div id="big-orb" onclick="startSong()">▶</div>
+  <div id="idle-title">Ready to dance?</div>
+  <div id="idle-hint">tap the orb or press SPACE to start</div>
+  <div id="idle-controls">
+    <button class="idle-btn" onclick="resetTimings()">Reset to default timing</button>
+    <button class="idle-btn" onclick="exportTimings()">Copy timing JSON</button>
   </div>
 </div>
 
-<div id="timer" style="display:none">0:00</div>
-<div id="progress" style="display:none"></div>
-<div class="next-preview" id="next-preview" style="display:none"></div>
+<!-- Stage (during song) -->
+<div id="stage" style="display:none">
+  <div id="emoji">👋</div>
+  <div id="lyric">Hello, hello!</div>
+  <div id="instruction"></div>
+</div>
+
+<!-- Calibration tap bar -->
+<div id="cal-bar">
+  <div id="cal-info">
+    NEXT: <span id="cal-next">Hello, hello, look at me</span>
+  </div>
+  <button id="cal-tap" onclick="calibrationTap()">TAP NOW (SPACE)</button>
+  <button id="cal-save" onclick="saveCalibration()">Save</button>
+  <button id="cal-cancel" onclick="cancelCalibration()">Cancel</button>
+</div>
+
+<!-- End screen -->
+<div id="end-screen">
+  <div id="end-emoji">🎉</div>
+  <div id="end-title">You did great!</div>
+  <div id="end-subtitle">Great dancing! Same time tomorrow?</div>
+  <button class="end-btn" onclick="resetToIdle()">Dance again</button>
+</div>
+
+<audio id="song" preload="auto" src="hello.mp3"></audio>
 
 <script>
-const SCRIPT = [
-  {t:0,    text:"Hello hello,<br>look at me!", dur:3000},
-  {t:3000, text:"Raise your<br>RIGHT hand!", dur:3000},
-  {t:6000, text:"Raise your<br>LEFT hand!", dur:3000},
-  {t:9000, text:"Clap clap!", dur:3000},
-  {t:12000,text:"Both hands<br>UP!", dur:3000},
-  {t:15000,text:"Right hand!", dur:3000},
-  {t:18000,text:"Clap clap!", dur:3000},
-  {t:21000,text:"Left hand!", dur:3000},
-  {t:24000,text:"Hands on<br>HEAD!", dur:3000},
-  {t:27000,text:"Both hands<br>UP!", dur:3000},
-  {t:30000,text:"Clap clap!", dur:3000},
-  {t:33000,text:"Right hand!", dur:3000},
-  {t:36000,text:"Left hand!", dur:3000},
-  {t:39000,text:"Hands on<br>HEAD!", dur:3000},
-  {t:42000,text:"❄️ FREEZE! ❄️", dur:3000, huge:true},
-  {t:45000,text:"Great job!", dur:3000},
-  {t:48000,text:"You did it!", dur:3000},
-  {t:51000,text:"Amazing!", dur:3000},
-  {t:54000,text:"So proud!", dur:3000},
-  {t:57000,text:"🎉 The end! 🎉", dur:3000},
+// ═══════════════════════════════════════════════════════════════
+// LYRICS WITH TIMING
+// 
+// Each entry: { t: seconds when it should appear, line: lyric text, emoji, instr }
+// Default timings are estimated from song structure (111s total, 37 lines).
+// You can tap-to-calibrate them yourself by clicking "Edit timing".
+// Saved timings persist in this session (no localStorage; copy JSON to keep).
+// ═══════════════════════════════════════════════════════════════
+
+const DEFAULT_TIMELINE = [
+  // Intro section (0-32s) — slower, instructional
+  { t: 1.5,  line: "Hello, hello, look at me",        emoji: "👋", instr: "Wave hello!" },
+  { t: 5.0,  line: "Hello, hello, copy me",            emoji: "🪞", instr: "Copy Nova" },
+  { t: 8.5,  line: "Nova says, are you ready?",        emoji: "✨", instr: "Get ready!" },
+  { t: 12.0, line: "Let's move slow, one two three",   emoji: "🎵", instr: "Slow & easy" },
+
+  // Verse 1 (16-32s) — basic moves
+  { t: 16.0, line: "Hello, hello, raise your right hand", emoji: "🙋‍♀️", instr: "RIGHT hand up!" },
+  { t: 20.0, line: "Hello, hello, raise your left hand",  emoji: "🙋", instr: "LEFT hand up!" },
+  { t: 24.0, line: "Hello, hello, clap clap",             emoji: "👏", instr: "CLAP CLAP!" },
+  { t: 28.0, line: "Hello, hello, both hands up",         emoji: "🙌", instr: "BOTH hands up!" },
+
+  // Verse 2 (32-50s) — pattern mix
+  { t: 32.0, line: "Hello, hello, raise your right hand", emoji: "🙋‍♀️", instr: "RIGHT hand!" },
+  { t: 36.0, line: "Hello, hello, clap clap",             emoji: "👏", instr: "CLAP CLAP!" },
+  { t: 40.0, line: "Hello, hello, raise your left hand",  emoji: "🙋", instr: "LEFT hand!" },
+  { t: 44.0, line: "Hello, hello, hands on head",         emoji: "🙆", instr: "HANDS on HEAD!" },
+
+  // Verse 3 (48-64s) — faster
+  { t: 48.0, line: "Hello, hello, both hands up",         emoji: "🙌", instr: "BOTH up!" },
+  { t: 52.0, line: "Hello, hello, clap clap",             emoji: "👏", instr: "CLAP!" },
+  { t: 56.0, line: "Hello, hello, right hand up",         emoji: "🙋‍♀️", instr: "RIGHT!" },
+  { t: 60.0, line: "Hello, hello, left hand up",          emoji: "🙋", instr: "LEFT!" },
+
+  // Nova says section (64-80s) — quick calls
+  { t: 64.0, line: "Nova says, right hand!",              emoji: "👉", instr: "RIGHT!" },
+  { t: 67.5, line: "Nova says, left hand!",               emoji: "👈", instr: "LEFT!" },
+  { t: 71.0, line: "Nova says, both hands!",              emoji: "🙌", instr: "BOTH!" },
+  { t: 74.5, line: "Nova says, clap clap!",               emoji: "👏", instr: "CLAP CLAP!" },
+
+  // Fast call section (78-94s) — rapid moves
+  { t: 78.5, line: "Right hand up!",                      emoji: "🙋‍♀️", instr: "RIGHT!" },
+  { t: 81.0, line: "Left hand up!",                       emoji: "🙋", instr: "LEFT!" },
+  { t: 83.5, line: "Clap clap!",                          emoji: "👏", instr: "CLAP!" },
+  { t: 86.0, line: "Both hands up!",                      emoji: "🙌", instr: "BOTH!" },
+  { t: 88.5, line: "Hands on head!",                      emoji: "🙆", instr: "HEAD!" },
+  { t: 91.0, line: "FREEZE!",                             emoji: "🧊", instr: "DON'T MOVE!" },
+
+  // Outro (95-110s)
+  { t: 96.0, line: "Hello, hello, you did great!",        emoji: "🌟", instr: "You did it!" },
+  { t: 100.0, line: "Big smile now, celebrate!",          emoji: "😄", instr: "SMILE!" },
+  { t: 104.0, line: "Clap clap, wave goodbye",            emoji: "👋", instr: "Wave bye!" },
+  { t: 108.0, line: "See you next time, reach the sky!",  emoji: "🌈", instr: "REACH UP!" },
 ];
 
-const TOTAL = 60000;
+// active timeline (mutable copy)
+let timeline = JSON.parse(JSON.stringify(DEFAULT_TIMELINE));
 
-function start() {
-  document.getElementById('start-screen').style.display = 'none';
-  document.getElementById('timer').style.display = 'block';
-  document.getElementById('progress').style.display = 'block';
-  document.getElementById('next-preview').style.display = 'block';
-  
-  const screen = document.getElementById('screen');
-  screen.innerHTML = '<div id="countdown-num">3</div>';
-  const cd = document.getElementById('countdown-num');
-  
-  let c = 3;
-  const cdIv = setInterval(() => {
-    c--;
-    if(c <= 0) {
-      clearInterval(cdIv);
-      runScript();
-    } else {
-      cd.textContent = c;
-    }
-  }, 1000);
+// ═══════════════════════════════════════════════════════════════
+// PLAYBACK
+// ═══════════════════════════════════════════════════════════════
+const songEl   = document.getElementById('song');
+const idleEl   = document.getElementById('idle-screen');
+const stageEl  = document.getElementById('stage');
+const lyricEl  = document.getElementById('lyric');
+const emojiEl  = document.getElementById('emoji');
+const instrEl  = document.getElementById('instruction');
+const progEl   = document.getElementById('progress');
+const timeEl   = document.getElementById('time');
+const endEl    = document.getElementById('end-screen');
+
+let currentIdx = -1;
+let songStarted = false;
+let playLoop = null;
+
+function fmtTime(s) {
+  const m = Math.floor(s/60);
+  const sec = Math.floor(s%60).toString().padStart(2,'0');
+  return `${m}:${sec}`;
 }
 
-function runScript() {
-  const screen = document.getElementById('screen');
-  screen.innerHTML = '<div id="lyric"></div>';
-  const lyricEl = document.getElementById('lyric');
-  const timerEl = document.getElementById('timer');
-  const progEl = document.getElementById('progress');
-  const nextEl = document.getElementById('next-preview');
-  
-  const startTime = Date.now();
-  let currentIdx = -1;
-  
-  const tick = setInterval(() => {
-    const elapsed = Date.now() - startTime;
-    
-    // Update timer + progress
-    const sec = Math.floor(elapsed / 1000);
-    timerEl.textContent = `0:${String(sec).padStart(2,'0')}`;
-    progEl.style.width = Math.min(100, (elapsed / TOTAL) * 100) + '%';
-    
-    // Show current line
-    let newIdx = -1;
-    for(let i = SCRIPT.length - 1; i >= 0; i--) {
-      if(elapsed >= SCRIPT[i].t) { newIdx = i; break; }
-    }
-    
-    if(newIdx !== currentIdx && newIdx >= 0) {
-      currentIdx = newIdx;
-      const line = SCRIPT[newIdx];
-      lyricEl.classList.remove('show', 'huge');
-      void lyricEl.offsetWidth;
-      lyricEl.innerHTML = line.text;
-      if(line.huge) lyricEl.classList.add('huge');
-      lyricEl.classList.add('show');
-      
-      // Show what's next
-      if(newIdx + 1 < SCRIPT.length) {
-        nextEl.textContent = '▶ next: ' + SCRIPT[newIdx+1].text.replace(/<br>/g, ' ');
-      } else {
-        nextEl.textContent = '✨ done! ✨';
-      }
-    }
-    
-    if(elapsed >= TOTAL) {
-      clearInterval(tick);
-      lyricEl.classList.remove('show');
-      setTimeout(() => {
-        lyricEl.innerHTML = '🎬 Done! 🎬';
-        lyricEl.classList.add('show');
-        nextEl.textContent = 'reload page to do another take';
-      }, 500);
-    }
-  }, 50);
+function showLyric(entry) {
+  // re-trigger animation by removing/adding nodes
+  const newEmoji = document.createElement('div');
+  newEmoji.id = 'emoji';
+  newEmoji.textContent = entry.emoji;
+  emojiEl.replaceWith(newEmoji);
+
+  const newLyric = document.createElement('div');
+  newLyric.id = 'lyric';
+  newLyric.textContent = entry.line;
+  lyricEl.replaceWith(newLyric);
+
+  const newInstr = document.createElement('div');
+  newInstr.id = 'instruction';
+  newInstr.textContent = entry.instr || '';
+  instrEl.replaceWith(newInstr);
+
+  // re-grab refs
+  window._emojiEl = newEmoji;
+  window._lyricEl = newLyric;
+  window._instrEl = newInstr;
 }
+
+function tick() {
+  const t = songEl.currentTime;
+  const dur = songEl.duration || 111;
+  progEl.style.width = Math.min(100, (t/dur)*100) + '%';
+  timeEl.textContent = fmtTime(t);
+
+  // advance lyric if next one's time has passed
+  let nextIdx = currentIdx;
+  for(let i = currentIdx + 1; i < timeline.length; i++) {
+    if(timeline[i].t <= t) nextIdx = i;
+    else break;
+  }
+  if(nextIdx !== currentIdx && nextIdx >= 0) {
+    currentIdx = nextIdx;
+    showLyric(timeline[currentIdx]);
+  }
+
+  if(songEl.ended || (songEl.duration && t >= songEl.duration - 0.05)) {
+    endSong();
+  }
+}
+
+function startSong() {
+  if(songStarted) return;
+  songStarted = true;
+  idleEl.classList.add('hidden');
+  stageEl.style.display = 'flex';
+  endEl.classList.remove('show');
+  currentIdx = -1;
+
+  // initial state — show pre-roll line
+  emojiEl.textContent = "🎶";
+  lyricEl.textContent = "Get ready...";
+  instrEl.textContent = "";
+
+  songEl.currentTime = 0;
+  songEl.play().catch(err => {
+    console.log('play failed:', err);
+    alert('Could not play hello.mp3 — make sure the file is in the same folder as this HTML.');
+    resetToIdle();
+  });
+  playLoop = setInterval(tick, 80);
+}
+
+function endSong() {
+  if(!songStarted) return;
+  songStarted = false;
+  clearInterval(playLoop);
+  songEl.pause();
+  stageEl.style.display = 'none';
+  endEl.classList.add('show');
+}
+
+function resetToIdle() {
+  songStarted = false;
+  clearInterval(playLoop);
+  songEl.pause();
+  songEl.currentTime = 0;
+  endEl.classList.remove('show');
+  stageEl.style.display = 'none';
+  idleEl.classList.remove('hidden');
+  progEl.style.width = '0%';
+  timeEl.textContent = '0:00';
+  currentIdx = -1;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CALIBRATION MODE
+//   - Plays the song
+//   - You tap SPACE (or button) when each lyric should appear
+//   - Saves new timings to in-memory `timeline`
+//   - Click "Copy timing JSON" on idle screen to keep them
+// ═══════════════════════════════════════════════════════════════
+let calMode = false;
+let calIdx = 0;
+let calStartTime = 0;
+let calNewTimings = [];
+
+const modeBtn = document.getElementById('mode-btn');
+const calBar  = document.getElementById('cal-bar');
+const calNext = document.getElementById('cal-next');
+const calHint = document.getElementById('cal-hint');
+
+function toggleCalibration() {
+  if(calMode) cancelCalibration();
+  else startCalibration();
+}
+
+function startCalibration() {
+  calMode = true;
+  calIdx = 0;
+  calNewTimings = [];
+  modeBtn.classList.add('calibrating');
+  modeBtn.textContent = 'Cancel calibration';
+  calBar.classList.add('show');
+  calHint.classList.add('show');
+  idleEl.classList.add('hidden');
+  stageEl.style.display = 'flex';
+
+  emojiEl.textContent = '🎤';
+  lyricEl.textContent = 'Calibration';
+  instrEl.textContent = 'Tap SPACE on each lyric';
+
+  calNext.textContent = timeline[0].line;
+
+  songEl.currentTime = 0;
+  songEl.play().catch(err => {
+    alert('Could not play hello.mp3 for calibration');
+    cancelCalibration();
+  });
+  calStartTime = performance.now() / 1000;
+  // tick the progress bar but DON'T auto-advance lyrics
+  playLoop = setInterval(() => {
+    const t = songEl.currentTime;
+    const dur = songEl.duration || 111;
+    progEl.style.width = Math.min(100, (t/dur)*100) + '%';
+    timeEl.textContent = fmtTime(t);
+    if(songEl.ended) finishCalibration();
+  }, 80);
+}
+
+function calibrationTap() {
+  if(!calMode) return;
+  if(calIdx >= timeline.length) return;
+
+  const t = songEl.currentTime;
+  const entry = { ...timeline[calIdx], t: parseFloat(t.toFixed(2)) };
+  calNewTimings.push(entry);
+
+  // show what was just captured briefly
+  emojiEl.textContent = entry.emoji;
+  lyricEl.textContent = entry.line;
+  instrEl.textContent = `captured at ${t.toFixed(2)}s`;
+
+  calIdx++;
+  if(calIdx < timeline.length) {
+    calNext.textContent = timeline[calIdx].line;
+  } else {
+    calNext.textContent = '✓ Done — letting song finish...';
+  }
+}
+
+function finishCalibration() {
+  if(!calMode) return;
+  // keep any captured timings; un-captured stay at default
+  if(calNewTimings.length > 0) {
+    // merge: replace first N entries with captured timings
+    for(let i = 0; i < calNewTimings.length; i++) {
+      timeline[i] = calNewTimings[i];
+    }
+  }
+  exitCalibration();
+}
+
+function saveCalibration() {
+  finishCalibration();
+}
+function cancelCalibration() {
+  exitCalibration();
+}
+function exitCalibration() {
+  calMode = false;
+  clearInterval(playLoop);
+  songEl.pause();
+  songEl.currentTime = 0;
+  modeBtn.classList.remove('calibrating');
+  modeBtn.textContent = 'Edit timing';
+  calBar.classList.remove('show');
+  calHint.classList.remove('show');
+  stageEl.style.display = 'none';
+  idleEl.classList.remove('hidden');
+  progEl.style.width = '0%';
+  timeEl.textContent = '0:00';
+}
+
+function resetTimings() {
+  if(!confirm('Reset to default timings?')) return;
+  timeline = JSON.parse(JSON.stringify(DEFAULT_TIMELINE));
+  alert('Reset to defaults.');
+}
+
+function exportTimings() {
+  const json = JSON.stringify(timeline, null, 2);
+  navigator.clipboard.writeText(json).then(() => {
+    alert('Timing JSON copied to clipboard. Paste it somewhere safe to keep.');
+  }).catch(() => {
+    // fallback: show in a prompt
+    prompt('Copy this JSON:', json);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// KEYBOARD
+// ═══════════════════════════════════════════════════════════════
+document.addEventListener('keydown', (e) => {
+  if(e.code === 'Space') {
+    e.preventDefault();
+    if(calMode) calibrationTap();
+    else if(!songStarted) startSong();
+  } else if(e.code === 'Escape') {
+    if(calMode) cancelCalibration();
+    else if(songStarted) resetToIdle();
+  }
+});
 </script>
 </body>
 </html>
