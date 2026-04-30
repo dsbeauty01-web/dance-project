@@ -503,7 +503,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">v34 — Intro Overlay</div>
+<div id="version-tag">v34b — Audio + Dance Btn Fix</div>
 <div id="did-status" class="connecting" onclick="manualRetryDID()" title="D-ID avatar status">
   <span class="dot"></span><span id="did-status-text">connecting</span>
 </div>
@@ -582,6 +582,13 @@ function startIntroOverlay() {
 function handoffFromIntro() {
   if(introHandedOff) return;
   introHandedOff = true;
+  
+  // Make sure all video elements are unmuted at handoff time.
+  // If user has tapped before this point (very likely — they tapped to unmute Kling),
+  // markUserInteraction has already run. If not, we explicitly unmute now since
+  // browser will accept it (D-ID's stream is from a different origin but still
+  // governed by user gesture rules).
+  markUserInteraction();
   
   // Fade out intro overlay
   const overlay = document.getElementById('intro-overlay');
@@ -938,16 +945,28 @@ const novaFacePlaceholder = document.getElementById('nova-face-placeholder');
 const novaFaceFrame = document.getElementById('nova-face-frame');
 const endAvatarVideo = document.getElementById('end-avatar-video');
 
-// Unmute on first interaction
-function unmute() {
-  recAvatarVideo.muted = false;
-  novaFaceVideo.muted = false;
-  endAvatarVideo.muted = false;
-  document.removeEventListener('click', unmute);
-  document.removeEventListener('keydown', unmute);
+// Track whether browser has received user interaction yet
+// (required for autoplay-with-audio per browser policy).
+// Once user interacts ANYWHERE on page, ALL Nova-related video
+// elements unmute and stay unmuted.
+let userInteracted = false;
+function markUserInteraction() {
+  if(userInteracted) return;
+  userInteracted = true;
+  // Unmute every video element associated with Nova
+  [recAvatarVideo, novaFaceVideo, endAvatarVideo].forEach(v => {
+    if(v) v.muted = false;
+  });
+  // Also unmute the intro overlay video if it's still visible
+  const introVid = document.getElementById('intro-video');
+  if(introVid) {
+    introVid.muted = false;
+    introVid.play().catch(()=>{});
+  }
 }
-document.addEventListener('click', unmute);
-document.addEventListener('keydown', unmute);
+document.addEventListener('click', markUserInteraction);
+document.addEventListener('touchstart', markUserInteraction);
+document.addEventListener('keydown', markUserInteraction);
 
 function showIdleEverywhere() {
   if(!didIdleVideoUrl) return;
@@ -955,7 +974,8 @@ function showIdleEverywhere() {
     v.srcObject = null;
     v.src = didIdleVideoUrl;
     v.loop = true;
-    v.muted = false;
+    // If user has interacted, unmute. Otherwise stay muted (browser policy).
+    v.muted = !userInteracted;
     v.style.display = 'block';
     v.play().catch(()=>{});
   });
@@ -967,14 +987,16 @@ const didCallbacks = {
   onSrcObjectReady(value) {
     didStream = value;
     recAvatarVideo.srcObject = value;
-    recAvatarVideo.muted = true;
+    // CRITICAL: only mute if user hasn't interacted yet (autoplay policy).
+    // Once they have, NEVER mute the D-ID stream — that's where Nova's voice comes from.
+    recAvatarVideo.muted = !userInteracted;
     recAvatarVideo.style.display = 'block';
     recAvatarPlaceholder.style.display = 'none';
     recAvatarVideo.play().catch(()=>{});
     
     // Same for in-game face
     novaFaceVideo.srcObject = value;
-    novaFaceVideo.muted = true;
+    novaFaceVideo.muted = !userInteracted;
     novaFaceVideo.style.display = 'block';
     novaFacePlaceholder.style.display = 'none';
     novaFaceVideo.play().catch(()=>{});
@@ -1133,6 +1155,8 @@ async function handleKidInput(text) {
   }
   const reply = await brainThink(text, { maxTokens: 80 });
   await novaSay(reply || (memory.name ? `Hi ${memory.name}! Ready to dance?` : 'Yay! Ready to dance?'));
+  // Show dance button after first real exchange — kid is engaged
+  document.getElementById('rec-dance-btn').classList.add('ready');
 }
 
 // ═══════════════════════════════════════════════════════════════
