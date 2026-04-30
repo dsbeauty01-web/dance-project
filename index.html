@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v33</title>
+<title>Nova v34</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -18,30 +18,26 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
 .phase.active{display:flex;opacity:1}
 
 /* ═══════════════════════════════════════════
-   PHASE 0: INTRO — Kling video plays while D-ID warms up
-   8 seconds, hands off to recognition phase seamlessly
+   PHASE 0 OVERLAY — intro video covers D-ID circle
+   Recognition phase shows underneath from t=0.
+   Intro fades out when D-ID is ready.
    ═══════════════════════════════════════════ */
-#phase-intro{background:radial-gradient(ellipse at 50% 50%,
-  #2d0750 0%,#0a0015 75%);align-items:center;justify-content:center}
-#intro-video-wrap{position:relative;width:min(80vmin,500px);
-  aspect-ratio:720/956;border-radius:40px;overflow:hidden;
-  box-shadow:0 0 80px rgba(255,111,216,0.5),
-             0 0 160px rgba(124,111,255,0.3);
-  background:#1a0533}
+#intro-overlay{position:absolute;inset:0;z-index:40;
+  border-radius:50%;overflow:hidden;
+  background:#0a0015;
+  transition:opacity .6s ease}
+#intro-overlay.hidden{opacity:0;pointer-events:none}
+#intro-overlay.gone{display:none}
 #intro-video{width:100%;height:100%;object-fit:cover;display:block}
-#intro-hint{position:absolute;bottom:30px;left:50%;
-  transform:translateX(-50%);font-size:14px;
-  color:rgba(255,255,255,0.45);letter-spacing:.05em;
-  opacity:0;animation:introHintFade 1s ease 4s forwards}
-@keyframes introHintFade{to{opacity:1}}
-#intro-status{position:fixed;top:20px;left:50%;
+#intro-tap-hint{position:absolute;bottom:12px;left:50%;
   transform:translateX(-50%);padding:6px 14px;
-  background:rgba(0,0,0,0.5);border-radius:20px;
-  font-size:11px;color:rgba(255,255,255,0.6);
-  letter-spacing:.05em;text-transform:uppercase;
-  z-index:50;display:none}
-#intro-status.show{display:block;animation:fadeIn .5s}
-@keyframes fadeIn{from{opacity:0} to{opacity:1}}
+  background:rgba(0,0,0,0.6);color:#fff;
+  border-radius:14px;font-size:11px;
+  letter-spacing:.05em;opacity:0;
+  animation:tapHintFade 1s ease 1.5s forwards;
+  pointer-events:none;white-space:nowrap}
+@keyframes tapHintFade{to{opacity:1}}
+#intro-tap-hint.gone{display:none}
 
 /* ═══════════════════════════════════════════
    PHASE 1: ARRIVAL — Nova appears
@@ -399,19 +395,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 
 <div id="green-flash"></div>
 
-<!-- ═══ PHASE 0: INTRO ═══ -->
-<!-- Plays IMMEDIATELY on page load while D-ID warms up in background -->
-<div class="phase active" id="phase-intro">
-  <div id="intro-status">Nova is waking up...</div>
-  <div id="intro-video-wrap">
-    <video id="intro-video" autoplay playsinline muted preload="auto">
-      <source src="nova-intro.mp4" type="video/mp4">
-    </video>
-    <div id="intro-hint">tap anywhere to wake her up</div>
-  </div>
-</div>
-
-<!-- ═══ PHASE 1: ARRIVAL (legacy — kept as fallback if intro fails) ═══ -->
+<!-- ═══ PHASE 1: ARRIVAL (legacy — kept as fallback) ═══ -->
 <div class="phase" id="phase-arrival">
   <div id="arrival-glow"></div>
   <div id="arrival-content">
@@ -420,8 +404,8 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<!-- ═══ PHASE 2: RECOGNITION ═══ -->
-<div class="phase" id="phase-recognition">
+<!-- ═══ PHASE 2: RECOGNITION (now active by default) ═══ -->
+<div class="phase active" id="phase-recognition">
   <div id="rec-avatar-col">
     <div id="rec-avatar-name">Nova</div>
     <div id="rec-avatar-frame">
@@ -429,6 +413,13 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
       <div id="rec-avatar-placeholder">
         <div id="rec-placeholder-emoji">🌟</div>
         <div id="rec-loading-dots"><span></span><span></span><span></span></div>
+      </div>
+      <!-- Intro overlay — Kling video covering the avatar circle until D-ID is ready -->
+      <div id="intro-overlay">
+        <video id="intro-video" autoplay playsinline preload="auto">
+          <source src="nova-intro.mp4" type="video/mp4">
+        </video>
+        <div id="intro-tap-hint">tap to play sound</div>
       </div>
     </div>
   </div>
@@ -512,7 +503,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">v33 — Intro Phase + Center Face</div>
+<div id="version-tag">v34 — Intro Overlay</div>
 <div id="did-status" class="connecting" onclick="manualRetryDID()" title="D-ID avatar status">
   <span class="dot"></span><span id="did-status-text">connecting</span>
 </div>
@@ -533,56 +524,81 @@ function onArrivalTap(){
 }
 
 // ═══════════════════════════════════════════════════════════════
-// INTRO PHASE — plays nova-intro.mp4 while D-ID warms up.
-// At handoff time (~7.4s in, 600ms before video ends), greeting
-// fires so voice + face appear together at the moment Nova "sees"
-// the kid in the video.
+// INTRO OVERLAY — Kling video covers the D-ID avatar circle
+// until D-ID is ready. Recognition phase is visible underneath
+// from t=0 (chat panel, Nova name, etc).
+//
+// Behavior:
+//   - Intro autoplays muted (browser policy)
+//   - First user click/tap unmutes it (so they hear Kling's voice)
+//   - When D-ID is ready: fade out intro, show D-ID stream, fire greeting
+//   - If D-ID never connects: intro keeps looping, manual fallback at 15s
 // ═══════════════════════════════════════════════════════════════
-let introHandoffTimer = null;
-let introEndTimer = null;
-let introHandoffFired = false;
+let introUnmuted = false;
+let introHandedOff = false;
 
-function startIntroPhase() {
-  introHandoffFired = false;
+function startIntroOverlay() {
   const introVid = document.getElementById('intro-video');
-  if(introVid) {
-    introVid.currentTime = 0;
-    introVid.muted = true; // browsers require muted for autoplay
-    introVid.play().catch(err => {
-      console.log('intro autoplay blocked:', err);
-      // If intro can't play, skip to recognition immediately
-      document.dispatchEvent(new CustomEvent('arrival-done'));
-    });
-  }
+  if(!introVid) return;
   
-  // Pre-warm camera + D-ID + mic during intro so they're ready by handoff
+  introVid.muted = true; // required for autoplay
+  introVid.loop = true;  // keep playing while D-ID warms up
+  introVid.play().catch(err => {
+    console.log('intro autoplay blocked:', err);
+    // Show stronger tap hint
+    const hint = document.getElementById('intro-tap-hint');
+    if(hint) hint.textContent = 'tap to start';
+  });
+  
+  // First-tap unmute so user hears Kling's voice
+  const unmuteOnTap = () => {
+    if(introUnmuted) return;
+    introUnmuted = true;
+    introVid.muted = false;
+    introVid.play().catch(()=>{});
+    const hint = document.getElementById('intro-tap-hint');
+    if(hint) hint.classList.add('gone');
+    document.removeEventListener('click', unmuteOnTap);
+    document.removeEventListener('touchstart', unmuteOnTap);
+    document.removeEventListener('keydown', unmuteOnTap);
+  };
+  document.addEventListener('click', unmuteOnTap);
+  document.addEventListener('touchstart', unmuteOnTap);
+  document.addEventListener('keydown', unmuteOnTap);
+  
+  // Pre-warm camera + mic
   preWarmServices();
   
-  // Show "Nova is waking up..." status hint if D-ID isn't connected yet by ~5s
+  // Fallback: if D-ID never connects after 18s, force handoff so app isn't stuck
   setTimeout(() => {
-    if(!didReady && !didFailed) {
-      const status = document.getElementById('intro-status');
-      if(status) status.classList.add('show');
+    if(!introHandedOff) {
+      console.log('D-ID timeout — forcing intro handoff');
+      didFailed = true;
+      handoffFromIntro();
     }
-  }, 5000);
-  
-  // Handoff timer — fire greeting 600ms before intro ends
-  // so voice + face appear AT the same moment intro finishes
-  introHandoffTimer = setTimeout(() => {
-    triggerIntroHandoff();
-  }, CFG.INTRO_HANDOFF_MS);
-  
-  // Hard end — switch phase even if handoff didn't fire
-  introEndTimer = setTimeout(() => {
-    if(!introHandoffFired) triggerIntroHandoff();
-  }, CFG.INTRO_DURATION_MS);
+  }, 18000);
 }
 
-function triggerIntroHandoff() {
-  if(introHandoffFired) return;
-  introHandoffFired = true;
-  // Switch to recognition phase
-  document.dispatchEvent(new CustomEvent('arrival-done'));
+function handoffFromIntro() {
+  if(introHandedOff) return;
+  introHandedOff = true;
+  
+  // Fade out intro overlay
+  const overlay = document.getElementById('intro-overlay');
+  const introVid = document.getElementById('intro-video');
+  if(overlay) overlay.classList.add('hidden');
+  setTimeout(() => {
+    if(overlay) overlay.classList.add('gone');
+    if(introVid) {
+      try { introVid.pause(); } catch(e){}
+    }
+  }, 700);
+  
+  // Fire the recognition greeting — this is the moment voice + face land together
+  if(!window._greeted) {
+    window._greeted = true;
+    novaArrivalGreet();
+  }
 }
 
 async function preWarmServices() {
@@ -597,7 +613,6 @@ async function preWarmServices() {
     const wc = document.getElementById('webcam');
     if(wc) wc.srcObject = stream;
   } catch(e) { console.log('cam pre-warm:', e); }
-  // D-ID is already initing on page load via initDID() at boot
 }
 function startCountdown(){
   showPhase('phase-countdown');
@@ -973,11 +988,8 @@ const didCallbacks = {
       didIdleVideoUrl = agentManager?.agent?.presenter?.idle_video;
       showIdleEverywhere();
       flushSpeakQueue();
-      // Trigger arrival greeting if we're past arrival phase and haven't greeted yet
-      if(memory.phase === 'recognition' && !window._greeted) {
-        window._greeted = true;
-        novaArrivalGreet();
-      }
+      // D-ID is ready → hand off from intro overlay → fire greeting
+      handoffFromIntro();
     } else if(state === 'connecting' || state === 'new') {
       setDIDStatus('connecting', 'connecting');
     } else if(state === 'disconnected' || state === 'closed') {
@@ -1021,10 +1033,8 @@ const didCallbacks = {
       didReady = false;
       setDIDStatus('failed', 'quota — tap to retry');
       while(speakQueue.length) browserTTS(speakQueue.shift());
-      if(memory.phase === 'recognition' && !window._greeted) {
-        window._greeted = true;
-        novaArrivalGreet();
-      }
+      // D-ID dead → still need to hand off from intro so app continues
+      handoffFromIntro();
     } else {
       setDIDStatus('failed', 'error — tap to retry');
     }
@@ -1047,10 +1057,8 @@ function initDID() {
     if(errStr.includes('Forbidden') || errStr.includes('403') || errStr.includes('Max user sessions')) {
       didFailed = true;
       setDIDStatus('failed', 'quota — tap to retry');
-      if(memory.phase === 'recognition' && !window._greeted) {
-        window._greeted = true;
-        novaArrivalGreet();
-      }
+      // Still hand off so the app isn't stuck on the intro forever
+      handoffFromIntro();
     } else {
       setDIDStatus('failed', 'tap to retry');
       // Genuine network blip — auto-retry once after a longer delay
@@ -1736,51 +1744,11 @@ function endGame() {
 // PHASE WIRING
 // ═══════════════════════════════════════════════════════════════
 document.addEventListener('arrival-done', async () => {
+  // Legacy path — only fires if user lands on the legacy phase-arrival screen
+  // (e.g. via deep link). Normally not used in v34.
   memory.phase = 'recognition';
   showPhase('phase-recognition');
-  
-  // Mic permission
-  try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch(e){}
-  
-  // Camera
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-      audio: false,
-    });
-    document.getElementById('webcam').srcObject = stream;
-  } catch(e) { console.log('cam:', e); }
-  
-  // Wait for D-ID before greeting so the FIRST thing Nova says is
-  // lip-synced. The greeting will fire from onConnectionStateChange
-  // when D-ID connects. If D-ID fails (didFailed=true), the error
-  // handler triggers the greeting via fallback.
-  if(didReady && !window._greeted) {
-    window._greeted = true;
-    novaArrivalGreet();
-  } else if(didFailed && !window._greeted) {
-    // D-ID already failed before we got here — just greet via fallback
-    window._greeted = true;
-    novaArrivalGreet();
-  } else {
-    // Show a "waking up" hint after 4s if still waiting
-    setTimeout(() => {
-      if(!didReady && !didFailed) {
-        const hint = document.getElementById('rec-hint');
-        if(hint) hint.textContent = 'Nova is waking up...';
-      }
-    }, 4000);
-    // Hard timeout: if D-ID never connects after 12s, give up and
-    // greet anyway via browser TTS so the app isn't stuck.
-    setTimeout(() => {
-      if(!window._greeted) {
-        console.log('D-ID never connected — greeting via fallback');
-        didFailed = true;
-        window._greeted = true;
-        novaArrivalGreet();
-      }
-    }, 12000);
-  }
+  startIntroOverlay();
 });
 
 document.addEventListener('countdown-tick', (e) => {
@@ -1797,18 +1765,23 @@ document.addEventListener('countdown-done', () => {
 speechSynthesis.getVoices();
 speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
 
+// Recognition phase is now the default active phase from t=0.
+// Intro overlay covers the D-ID circle until D-ID is ready.
+memory.phase = 'recognition';
+
 initEars();
 initDID();
 initDetector().then(() => poseLoop()).catch(()=>{});
 
-// Start the intro phase immediately on load.
-// The intro video will autoplay (muted), camera + D-ID warm in background,
-// and after 8 seconds the recognition phase takes over with Nova's greeting.
-document.addEventListener('DOMContentLoaded', () => {
-  startIntroPhase();
-});
-// In case DOM is already loaded
-if(document.readyState !== 'loading') startIntroPhase();
+// Start the intro overlay (Kling video) immediately on page load.
+// User's first tap unmutes Kling's audio. When D-ID becomes ready,
+// the overlay fades out and Nova's greeting fires.
+function bootIntro() { startIntroOverlay(); }
+if(document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootIntro);
+} else {
+  bootIntro();
+}
 
 document.getElementById('nova-video').load();
 </script>
