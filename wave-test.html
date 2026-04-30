@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wave Detection Test</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;width:100%;overflow:hidden;
+  font-family:'Quicksand',sans-serif;color:#fff;
+  background:radial-gradient(ellipse at 50% 30%,#1a0f3d 0%,#0a0824 60%,#000 100%)}
+
+#header{position:fixed;top:0;left:0;right:0;padding:14px 20px;z-index:50;
+  display:flex;align-items:center;gap:14px;
+  background:linear-gradient(180deg,rgba(0,0,0,0.5),transparent)}
+#title{font-family:'Fredoka',cursive;font-weight:600;font-size:18px;
+  background:linear-gradient(135deg,#ff6fd8,#a78bfa);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#status{flex:1;font-size:13px;color:rgba(255,255,255,0.7)}
+#fps{font-size:11px;color:rgba(255,255,255,0.4);font-variant-numeric:tabular-nums}
+
+/* ─── Main layout ─── */
+#stage{position:fixed;inset:60px 0 0 0;display:grid;
+  grid-template-columns:1fr 380px;gap:12px;padding:12px}
+
+/* Camera with skeleton overlay */
+#cam-wrap{position:relative;border-radius:18px;overflow:hidden;background:#000;
+  border:3px solid rgba(255,255,255,0.12);transition:all .25s}
+#cam-wrap.tracking{border-color:rgba(0,255,136,0.5);
+  box-shadow:0 0 30px rgba(0,255,136,0.3)}
+#cam-wrap.in-wave{border-color:rgba(255,170,0,0.8);
+  box-shadow:0 0 40px rgba(255,170,0,0.5)}
+#cam-video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#cam-canvas{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1);
+  pointer-events:none}
+
+/* Sidebar */
+#sidebar{display:flex;flex-direction:column;gap:10px;overflow-y:auto}
+.panel{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);
+  border-radius:14px;padding:14px}
+.panel h3{font-family:'Fredoka',cursive;font-size:13px;font-weight:600;
+  color:rgba(255,255,255,0.6);letter-spacing:.06em;text-transform:uppercase;
+  margin-bottom:10px}
+
+/* Step list — the 8-count wave breakdown */
+.step{display:flex;align-items:center;gap:10px;padding:8px 10px;
+  border-radius:10px;background:rgba(255,255,255,0.03);
+  margin-bottom:6px;transition:all .2s;font-size:13px}
+.step.armed{background:rgba(255,170,0,0.18);border:1px solid rgba(255,170,0,0.5)}
+.step.hit{background:rgba(0,255,136,0.18);border:1px solid rgba(0,255,136,0.5)}
+.step.missed{background:rgba(255,80,80,0.12);border:1px solid rgba(255,80,80,0.4)}
+.step-num{width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,0.1);
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;
+  flex-shrink:0}
+.step.armed .step-num{background:#ffaa00;color:#000}
+.step.hit .step-num{background:#00ff88;color:#000}
+.step-name{flex:1;font-weight:500}
+.step-time{font-size:10px;color:rgba(255,255,255,0.4);font-variant-numeric:tabular-nums}
+
+/* Scores */
+.score-row{display:flex;justify-content:space-between;align-items:center;
+  padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:13px}
+.score-row:last-child{border-bottom:none}
+.score-label{color:rgba(255,255,255,0.6)}
+.score-val{font-family:'Fredoka',cursive;font-weight:600;font-size:18px;
+  font-variant-numeric:tabular-nums}
+.score-val.good{color:#00ff88}
+.score-val.ok{color:#ffaa00}
+.score-val.bad{color:#ff6666}
+
+/* Controls */
+.btn{display:block;width:100%;padding:10px;border:none;border-radius:10px;
+  background:linear-gradient(135deg,#ff6fd8,#a78bfa);color:#fff;
+  font-family:'Fredoka',cursive;font-weight:600;font-size:14px;cursor:pointer;
+  margin-bottom:6px;transition:transform .1s}
+.btn:hover{transform:translateY(-1px)}
+.btn.secondary{background:rgba(255,255,255,0.08);color:#fff}
+.btn.secondary:hover{background:rgba(255,255,255,0.15)}
+
+/* Big result overlay */
+#result{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);
+  font-family:'Fredoka',cursive;font-weight:700;font-size:clamp(60px,9vw,140px);
+  background:linear-gradient(135deg,#fff,#ffd6f5);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  text-shadow:0 0 60px rgba(255,255,255,0.5);
+  z-index:100;pointer-events:none;
+  transition:transform .35s cubic-bezier(.34,1.56,.64,1), opacity .35s}
+#result.show{transform:translate(-50%,-50%) scale(1);opacity:1}
+#result.bad{background:linear-gradient(135deg,#ff8888,#ff4444);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+
+/* Tunable params */
+.row{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px}
+.row label{flex:1;color:rgba(255,255,255,0.6)}
+.row input[type=range]{flex:2;accent-color:#ff6fd8}
+.row .val{width:40px;text-align:right;color:#fff;font-variant-numeric:tabular-nums}
+
+#log{font-family:'SF Mono',Consolas,monospace;font-size:10px;
+  color:rgba(255,255,255,0.5);max-height:120px;overflow-y:auto;line-height:1.4}
+#log .line{padding:1px 0}
+#log .ev{color:#ffaa00}
+#log .hit{color:#00ff88}
+#log .miss{color:#ff6666}
+
+#hint{position:absolute;bottom:14px;left:14px;right:14px;text-align:center;
+  font-size:14px;color:rgba(255,255,255,0.65);background:rgba(0,0,0,0.5);
+  padding:8px 14px;border-radius:10px;backdrop-filter:blur(8px)}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div id="title">Wave Detection Sandbox</div>
+  <div id="status">Loading models...</div>
+  <div id="fps">— fps</div>
+</div>
+
+<div id="stage">
+  <div id="cam-wrap">
+    <video id="cam-video" autoplay playsinline muted></video>
+    <canvas id="cam-canvas"></canvas>
+    <div id="hint">Click <b>Start Wave</b>, then do the wave LEFT to RIGHT</div>
+  </div>
+
+  <div id="sidebar">
+    <div class="panel">
+      <h3>The Wave Sequence (L→R)</h3>
+      <div class="step" id="s0"><div class="step-num">1</div>
+        <div class="step-name">Left finger + wrist together</div>
+        <div class="step-time">—</div></div>
+      <div class="step" id="s1"><div class="step-num">2</div>
+        <div class="step-name">Left elbow rises</div>
+        <div class="step-time">—</div></div>
+      <div class="step" id="s2"><div class="step-num">3</div>
+        <div class="step-name">Left shoulder rises</div>
+        <div class="step-time">—</div></div>
+      <div class="step" id="s3"><div class="step-num">4</div>
+        <div class="step-name">Right shoulder rises</div>
+        <div class="step-time">—</div></div>
+      <div class="step" id="s4"><div class="step-num">5</div>
+        <div class="step-name">Right elbow rises</div>
+        <div class="step-time">—</div></div>
+      <div class="step" id="s5"><div class="step-num">6</div>
+        <div class="step-name">Elbow down + wrist up</div>
+        <div class="step-time">—</div></div>
+      <div class="step" id="s6"><div class="step-num">7</div>
+        <div class="step-name">Right wrist + finger out</div>
+        <div class="step-time">—</div></div>
+    </div>
+
+    <div class="panel">
+      <h3>Score</h3>
+      <div class="score-row"><span class="score-label">Sequence</span>
+        <span class="score-val" id="score-seq">—</span></div>
+      <div class="score-row"><span class="score-label">Smoothness</span>
+        <span class="score-val" id="score-smooth">—</span></div>
+      <div class="score-row"><span class="score-label">Total</span>
+        <span class="score-val" id="score-total">—</span></div>
+    </div>
+
+    <div class="panel">
+      <h3>Controls</h3>
+      <button class="btn" onclick="startWave()">▶ Start Wave (5s window)</button>
+      <button class="btn secondary" onclick="resetAll()">Reset</button>
+      <button class="btn secondary" onclick="toggleDebug()">Toggle skeleton</button>
+    </div>
+
+    <div class="panel">
+      <h3>Tuning</h3>
+      <div class="row">
+        <label>Peak threshold</label>
+        <input type="range" id="t-peak" min="0.005" max="0.05" step="0.001" value="0.015">
+        <span class="val" id="t-peak-v">0.015</span>
+      </div>
+      <div class="row">
+        <label>Window (s)</label>
+        <input type="range" id="t-window" min="3" max="10" step="0.5" value="5">
+        <span class="val" id="t-window-v">5</span>
+      </div>
+      <div class="row">
+        <label>Min step gap (ms)</label>
+        <input type="range" id="t-gap" min="50" max="600" step="25" value="120">
+        <span class="val" id="t-gap-v">120</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Log</h3>
+      <div id="log"></div>
+    </div>
+  </div>
+</div>
+
+<div id="result"></div>
+
+<script type="module">
+import * as poseDetection from 'https://esm.sh/@tensorflow-models/pose-detection@2.1.3';
+import * as tf from 'https://esm.sh/@tensorflow/tfjs@4.20.0';
+import 'https://esm.sh/@tensorflow/tfjs-backend-webgl@4.20.0';
+
+// MediaPipe Hands via the @mediapipe/tasks-vision package
+import { HandLandmarker, FilesetResolver } from 'https://esm.sh/@mediapipe/tasks-vision@0.10.14';
+
+// ════════════════════════════════════════════════════════════════
+// SETUP
+// ════════════════════════════════════════════════════════════════
+const videoEl = document.getElementById('cam-video');
+const canvasEl = document.getElementById('cam-canvas');
+const ctx = canvasEl.getContext('2d');
+const statusEl = document.getElementById('status');
+const fpsEl = document.getElementById('fps');
+const logEl = document.getElementById('log');
+const resultEl = document.getElementById('result');
+const camWrap = document.getElementById('cam-wrap');
+
+let bodyDetector = null;
+let handDetector = null;
+let debugDraw = true;
+let lastFrameTime = performance.now();
+let fpsAvg = 0;
+
+const PARAMS = {
+  peakThreshold: 0.015,    // how big a vertical move counts as a "peak"
+  windowSec: 5,            // window to complete the wave
+  minStepGapMs: 120,       // min ms between consecutive steps (debounce)
+};
+
+// Hook up tuning sliders
+['peak','window','gap'].forEach(key => {
+  const slider = document.getElementById('t-'+key);
+  const val = document.getElementById('t-'+key+'-v');
+  slider.addEventListener('input', () => {
+    val.textContent = slider.value;
+    if(key === 'peak') PARAMS.peakThreshold = parseFloat(slider.value);
+    if(key === 'window') PARAMS.windowSec = parseFloat(slider.value);
+    if(key === 'gap') PARAMS.minStepGapMs = parseFloat(slider.value);
+  });
+});
+
+function log(text, cls = '') {
+  const line = document.createElement('div');
+  line.className = 'line ' + cls;
+  const t = (performance.now() / 1000).toFixed(2);
+  line.textContent = `[${t}] ${text}`;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+  while(logEl.children.length > 40) logEl.removeChild(logEl.firstChild);
+}
+
+// ════════════════════════════════════════════════════════════════
+// MODEL LOADING
+// ════════════════════════════════════════════════════════════════
+async function loadModels() {
+  statusEl.textContent = 'Camera...';
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { width: 1280, height: 720 }, audio: false
+  });
+  videoEl.srcObject = stream;
+  await new Promise(r => videoEl.onloadedmetadata = r);
+  canvasEl.width = videoEl.videoWidth;
+  canvasEl.height = videoEl.videoHeight;
+
+  statusEl.textContent = 'Loading body detector...';
+  await tf.setBackend('webgl');
+  bodyDetector = await poseDetection.createDetector(
+    poseDetection.SupportedModels.MoveNet,
+    { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+  );
+
+  statusEl.textContent = 'Loading hand detector...';
+  const vision = await FilesetResolver.forVisionTasks(
+    'https://esm.sh/@mediapipe/tasks-vision@0.10.14/wasm'
+  );
+  handDetector = await HandLandmarker.createFromOptions(vision, {
+    baseOptions: {
+      modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task',
+      delegate: 'GPU',
+    },
+    runningMode: 'VIDEO',
+    numHands: 2,
+    minHandDetectionConfidence: 0.4,
+    minHandPresenceConfidence: 0.4,
+    minTrackingConfidence: 0.4,
+  });
+
+  statusEl.textContent = '✓ Ready — click Start Wave';
+  log('Models loaded', 'ev');
+  detectLoop();
+}
+
+// ════════════════════════════════════════════════════════════════
+// DETECTION LOOP
+// ════════════════════════════════════════════════════════════════
+let lastBodyKp = null;
+let lastHandLm = null;
+
+async function detectLoop() {
+  const now = performance.now();
+  const dt = now - lastFrameTime;
+  lastFrameTime = now;
+  fpsAvg = fpsAvg ? fpsAvg * 0.9 + (1000/dt) * 0.1 : (1000/dt);
+  fpsEl.textContent = fpsAvg.toFixed(0) + ' fps';
+
+  let bodyKp = null;
+  try {
+    const poses = await bodyDetector.estimatePoses(videoEl, { flipHorizontal: false });
+    if(poses[0]) {
+      bodyKp = {};
+      poses[0].keypoints.forEach(p => {
+        if(p.score > 0.3) bodyKp[p.name] = { x: p.x, y: p.y, score: p.score };
+      });
+    }
+  } catch(e){}
+
+  let handLm = null;
+  try {
+    const result = handDetector.detectForVideo(videoEl, now);
+    if(result?.landmarks?.length > 0) {
+      handLm = result.landmarks.map((lms, i) => ({
+        side: result.handedness?.[i]?.[0]?.categoryName || '?',
+        // Convert normalized 0-1 to pixel coords
+        points: lms.map(p => ({ x: p.x * videoEl.videoWidth, y: p.y * videoEl.videoHeight, z: p.z })),
+      }));
+    }
+  } catch(e){}
+
+  lastBodyKp = bodyKp;
+  lastHandLm = handLm;
+
+  // Push to wave buffer if active
+  if(waveActive && bodyKp) {
+    pushWaveSample(now, bodyKp, handLm);
+  }
+
+  draw(bodyKp, handLm);
+  requestAnimationFrame(detectLoop);
+}
+
+// ════════════════════════════════════════════════════════════════
+// DRAWING
+// ════════════════════════════════════════════════════════════════
+function draw(body, hands) {
+  ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+  if(!debugDraw) return;
+
+  // Body skeleton — focus on arms (wrist/elbow/shoulder both sides)
+  if(body) {
+    // Connections
+    const lines = [
+      ['left_shoulder','left_elbow','#ff6fd8'],
+      ['left_elbow','left_wrist','#ff6fd8'],
+      ['right_shoulder','right_elbow','#a78bfa'],
+      ['right_elbow','right_wrist','#a78bfa'],
+      ['left_shoulder','right_shoulder','#ffd6f5'],
+    ];
+    lines.forEach(([a,b,col]) => {
+      if(body[a] && body[b]) {
+        ctx.strokeStyle = col; ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(body[a].x, body[a].y);
+        ctx.lineTo(body[b].x, body[b].y);
+        ctx.stroke();
+      }
+    });
+    // Joints
+    Object.entries(body).forEach(([name, p]) => {
+      if(['left_wrist','right_wrist','left_elbow','right_elbow','left_shoulder','right_shoulder'].includes(name)) {
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 7, 0, Math.PI*2);
+        ctx.fill();
+      }
+    });
+  }
+
+  // Hands — draw all 21 landmarks per hand + finger lines
+  if(hands) {
+    hands.forEach(hand => {
+      const col = hand.side === 'Left' ? '#00ff88' : '#00ddff';
+      // Connections (MediaPipe hand topology — fingers from wrist to tip)
+      const fingers = [
+        [0,1,2,3,4],     // thumb
+        [0,5,6,7,8],     // index
+        [0,9,10,11,12],  // middle
+        [0,13,14,15,16], // ring
+        [0,17,18,19,20], // pinky
+      ];
+      fingers.forEach(chain => {
+        ctx.strokeStyle = col; ctx.lineWidth = 2;
+        ctx.beginPath();
+        chain.forEach((idx, i) => {
+          const p = hand.points[idx];
+          if(i === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        });
+        ctx.stroke();
+      });
+      hand.points.forEach((p, i) => {
+        ctx.fillStyle = i === 8 ? '#ffff00' : col; // index fingertip highlighted
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, i === 8 ? 6 : 3, 0, Math.PI*2);
+        ctx.fill();
+      });
+    });
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// WAVE DETECTION
+// ════════════════════════════════════════════════════════════════
+//
+// Sequence (left to right wave):
+//   1. Left finger + wrist together (peak high)
+//   2. Left elbow up
+//   3. Left shoulder up
+//   4. Right shoulder up
+//   5. Right elbow up
+//   6. Right elbow down + right wrist up
+//   7. Right wrist + finger out (peak high)
+//
+// We score a "peak" for each joint by tracking its vertical position
+// over time (lower y = higher in frame because canvas y grows down).
+// A peak = the moment the joint reached a local minimum y.
+//
+// For sequence checking: we check the PEAKS happened in the right order.
+// ════════════════════════════════════════════════════════════════
+
+let waveActive = false;
+let waveStartTime = 0;
+let waveSamples = []; // [{t, body, hand_left, hand_right}]
+let stepHits = []; // when each step was confirmed (or null if missed)
+
+const STEPS = [
+  { id: 0, name: 'L finger+wrist', sources: ['hand_left_index_tip', 'left_wrist'] },
+  { id: 1, name: 'L elbow', sources: ['left_elbow'] },
+  { id: 2, name: 'L shoulder', sources: ['left_shoulder'] },
+  { id: 3, name: 'R shoulder', sources: ['right_shoulder'] },
+  { id: 4, name: 'R elbow', sources: ['right_elbow'] },
+  { id: 5, name: 'R wrist+elbow trans', sources: ['right_wrist'] }, // wrist up while elbow drops
+  { id: 6, name: 'R finger+wrist', sources: ['hand_right_index_tip', 'right_wrist'] },
+];
+
+function startWave() {
+  if(!bodyDetector) { log('Models not ready', 'miss'); return; }
+  resetAll();
+  waveActive = true;
+  waveStartTime = performance.now();
+  camWrap.classList.add('in-wave');
+  // Arm step 1
+  document.getElementById('s0').classList.add('armed');
+  log('Wave started — do the wave!', 'ev');
+
+  setTimeout(() => {
+    if(waveActive) finishWave();
+  }, PARAMS.windowSec * 1000);
+}
+
+function pushWaveSample(t, body, hands) {
+  // Build a unified snapshot of all tracked points
+  const W = canvasEl.width, H = canvasEl.height;
+  const snap = { t };
+  // Body joints (normalize y by frame height)
+  ['left_wrist','left_elbow','left_shoulder',
+   'right_wrist','right_elbow','right_shoulder'].forEach(name => {
+    if(body[name]) snap[name] = { x: body[name].x/W, y: body[name].y/H };
+  });
+  // Hand fingertips — index finger tip is point 8
+  if(hands) {
+    hands.forEach(h => {
+      if(h.side === 'Left' && h.points[8]) {
+        snap.hand_left_index_tip = { x: h.points[8].x/W, y: h.points[8].y/H };
+      }
+      if(h.side === 'Right' && h.points[8]) {
+        snap.hand_right_index_tip = { x: h.points[8].x/W, y: h.points[8].y/H };
+      }
+    });
+  }
+  waveSamples.push(snap);
+
+  // Try to advance steps in real time
+  tryAdvanceSteps();
+}
+
+function tryAdvanceSteps() {
+  if(stepHits.length >= STEPS.length) return;
+  const stepIdx = stepHits.length;
+  const step = STEPS[stepIdx];
+
+  // For each source, look for a peak (local minimum y) in the recent window
+  // Compare current y against avg of last N samples — if current is significantly lower
+  // (higher in frame), and was lowest in last window, that's a peak.
+  const lookback = 8; // samples
+  if(waveSamples.length < lookback) return;
+  const recent = waveSamples.slice(-lookback);
+  const current = recent[recent.length - 1];
+
+  // Check at least one source for this step has a peak
+  let peakDetected = false;
+  let bestY = Infinity;
+  for(const src of step.sources) {
+    // Need data from current and earlier
+    const series = recent.map(s => s[src]?.y).filter(y => y !== undefined);
+    if(series.length < 4) continue;
+    const minY = Math.min(...series);
+    const avgEarlyY = series.slice(0, Math.floor(series.length/2))
+      .reduce((a,b)=>a+b,0) / Math.floor(series.length/2);
+    const lastY = series[series.length-1];
+    const drop = avgEarlyY - lastY; // positive = went up
+    if(drop > PARAMS.peakThreshold && lastY <= minY + 0.005) {
+      peakDetected = true;
+      bestY = Math.min(bestY, lastY);
+    }
+  }
+
+  if(peakDetected) {
+    // Enforce min gap from previous step
+    const prevTime = stepHits.length ? stepHits[stepHits.length-1].t : waveStartTime;
+    if(current.t - prevTime < PARAMS.minStepGapMs) return;
+    
+    stepHits.push({ stepIdx, t: current.t, y: bestY });
+    const el = document.getElementById('s'+stepIdx);
+    el.classList.remove('armed');
+    el.classList.add('hit');
+    el.querySelector('.step-time').textContent = 
+      ((current.t - waveStartTime)/1000).toFixed(2) + 's';
+    log(`✓ Step ${stepIdx+1}: ${step.name}`, 'hit');
+
+    // Arm next step
+    if(stepIdx + 1 < STEPS.length) {
+      document.getElementById('s'+(stepIdx+1)).classList.add('armed');
+    } else {
+      // Wave complete!
+      finishWave();
+    }
+  }
+}
+
+function finishWave() {
+  waveActive = false;
+  camWrap.classList.remove('in-wave');
+
+  // Mark missed steps
+  for(let i = stepHits.length; i < STEPS.length; i++) {
+    document.getElementById('s'+i).classList.remove('armed');
+    document.getElementById('s'+i).classList.add('missed');
+  }
+
+  // Score
+  const seqScore = Math.round((stepHits.length / STEPS.length) * 100);
+  
+  // Smoothness = how evenly spaced the hits are
+  let smoothScore = 0;
+  if(stepHits.length >= 3) {
+    const gaps = [];
+    for(let i = 1; i < stepHits.length; i++) {
+      gaps.push(stepHits[i].t - stepHits[i-1].t);
+    }
+    const meanGap = gaps.reduce((a,b)=>a+b,0) / gaps.length;
+    const variance = gaps.reduce((a,b)=>a+(b-meanGap)**2,0) / gaps.length;
+    const stdDev = Math.sqrt(variance);
+    const cv = stdDev / meanGap; // coefficient of variation
+    smoothScore = Math.max(0, Math.round((1 - Math.min(cv, 1)) * 100));
+  }
+
+  const total = Math.round(seqScore * 0.7 + smoothScore * 0.3);
+
+  const setScore = (id, val) => {
+    const el = document.getElementById(id);
+    el.textContent = val + '%';
+    el.classList.remove('good','ok','bad');
+    if(val >= 70) el.classList.add('good');
+    else if(val >= 40) el.classList.add('ok');
+    else el.classList.add('bad');
+  };
+  setScore('score-seq', seqScore);
+  setScore('score-smooth', smoothScore);
+  setScore('score-total', total);
+
+  // Big result text
+  let resultText, isBad = false;
+  if(total >= 80) resultText = '🌊 NICE WAVE!';
+  else if(total >= 60) resultText = '✨ Good try!';
+  else if(total >= 30) { resultText = 'Keep practicing!'; isBad = true; }
+  else { resultText = 'Try again!'; isBad = true; }
+  resultEl.textContent = resultText;
+  resultEl.classList.toggle('bad', isBad);
+  resultEl.classList.add('show');
+  setTimeout(() => resultEl.classList.remove('show'), 2500);
+
+  log(`Wave done: ${stepHits.length}/${STEPS.length} steps, total ${total}%`, 'ev');
+}
+
+function resetAll() {
+  waveActive = false;
+  waveSamples = [];
+  stepHits = [];
+  camWrap.classList.remove('in-wave');
+  for(let i = 0; i < STEPS.length; i++) {
+    const el = document.getElementById('s'+i);
+    el.classList.remove('armed','hit','missed');
+    el.querySelector('.step-time').textContent = '—';
+  }
+  ['score-seq','score-smooth','score-total'].forEach(id => {
+    const el = document.getElementById(id);
+    el.textContent = '—';
+    el.classList.remove('good','ok','bad');
+  });
+}
+
+function toggleDebug() {
+  debugDraw = !debugDraw;
+  if(!debugDraw) ctx.clearRect(0,0,canvasEl.width,canvasEl.height);
+}
+
+// Expose for inline onclick
+window.startWave = startWave;
+window.resetAll = resetAll;
+window.toggleDebug = toggleDebug;
+
+// Boot
+loadModels().catch(e => {
+  statusEl.textContent = '❌ ' + e.message;
+  log('Setup failed: ' + e.message, 'miss');
+  console.error(e);
+});
+</script>
+</body>
+</html>
