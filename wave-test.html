@@ -110,6 +110,13 @@ html,body{height:100%;width:100%;overflow:hidden;
 </head>
 <body>
 
+<!-- Load TF.js + pose-detection as UMD bundles (avoids esm.sh's broken @mediapipe/pose dependency resolution).
+     Order matters: core, then converter, then backend, then pose-detection. -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.20.0/dist/tf-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.20.0/dist/tf-converter.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.20.0/dist/tf-backend-webgl.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+
 <div id="header">
   <div id="title">Wave Detection Sandbox</div>
   <div id="status">Loading models...</div>
@@ -195,12 +202,14 @@ html,body{height:100%;width:100%;overflow:hidden;
 <div id="result"></div>
 
 <script type="module">
-import * as poseDetection from 'https://esm.sh/@tensorflow-models/pose-detection@2.1.3';
-import * as tf from 'https://esm.sh/@tensorflow/tfjs@4.20.0';
-import 'https://esm.sh/@tensorflow/tfjs-backend-webgl@4.20.0';
-
-// MediaPipe Hands via the @mediapipe/tasks-vision package
+// MediaPipe Hands via the @mediapipe/tasks-vision package (works fine with esm.sh)
 import { HandLandmarker, FilesetResolver } from 'https://esm.sh/@mediapipe/tasks-vision@0.10.14';
+
+// poseDetection + tf are globals from the UMD bundles loaded above
+// (avoids esm.sh's broken @mediapipe/pose dependency resolution that breaks
+//  the pure-ESM pose-detection import)
+const tf = window.tf;
+const poseDetection = window.poseDetection;
 
 // ════════════════════════════════════════════════════════════════
 // SETUP
