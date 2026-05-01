@@ -483,7 +483,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">v36 — Intro + Center Face</div>
+<div id="version-tag">v36c — Audio + Mic Fixes</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
@@ -496,6 +496,10 @@ function showPhase(id){
   document.getElementById(id).classList.add('active');
 }
 function onArrivalTap(){
+  // The orb tap IS the user gesture. Mark it now so audio can play
+  // everywhere (intro Kling video, hello.mp3, ElevenLabs reactions).
+  // This is the cleanest moment to satisfy browser autoplay policy.
+  if(typeof markUserInteraction === 'function') markUserInteraction();
   document.getElementById('arrival-orb').classList.add('fade-out');
   setTimeout(()=>document.dispatchEvent(new CustomEvent('arrival-done')),900);
 }
@@ -535,9 +539,9 @@ const CFG = {
   // Brain
   WORKER_URL: 'https://long-art-8269r.dsbeauty01.workers.dev/',
   BRAIN_MODEL: 'claude-haiku-4-5-20251001',
-  // Voice provider — start with browser TTS, can swap later
-  VOICE_PROVIDER: 'browser-tts', // 'browser-tts' | 'elevenlabs' | 'd-id'
-  ELEVENLABS_KEY: null, // set when ready to upgrade
+  // Voice provider — use ElevenLabs for warm Bella voice
+  VOICE_PROVIDER: 'elevenlabs', // 'browser-tts' | 'elevenlabs' | 'd-id'
+  ELEVENLABS_KEY: 'sk_9c93ed7e0ae747cf93d123051aa60b4cd5d56cf2b5a536da',
   ELEVENLABS_VOICE_ID: 'EXAVITQu4vr4xnSDxMaL', // Bella - kid friendly
   // Ears
   EARS_PROVIDER: 'browser-sr', // 'browser-sr' | 'whisper'
@@ -651,8 +655,11 @@ function browserTTS(text) {
     const voices = speechSynthesis.getVoices().filter(v => v.lang.startsWith('en'));
     const pref = voices.find(v => /Samantha|Karen|Google.*Female|Zira/i.test(v.name)) || voices[0];
     if(pref) u.voice = pref;
+    micPause();
+    u.onend = () => micResume();
+    u.onerror = () => micResume();
     speechSynthesis.speak(u);
-  } catch(e){}
+  } catch(e){ micResume(); }
 }
 
 async function elevenLabsTTS(text) {
@@ -670,9 +677,22 @@ async function elevenLabsTTS(text) {
         voice_settings: { stability: 0.5, similarity_boost: 0.85, style: 0.4 },
       }),
     });
+    if(!res.ok) {
+      const errText = await res.text();
+      console.log('ElevenLabs HTTP', res.status, errText);
+      browserTTS(text);
+      return;
+    }
     const blob = await res.blob();
     const audio = new Audio(URL.createObjectURL(blob));
-    audio.play();
+    // Pause mic while Nova talks via ElevenLabs (D-ID hooks already cover D-ID path)
+    micPause();
+    audio.onended = () => micResume();
+    audio.onerror = () => micResume();
+    audio.play().catch(err => {
+      console.log('audio play failed:', err);
+      micResume();
+    });
   } catch(e) {
     console.log('ElevenLabs failed, falling back:', e);
     browserTTS(text);
@@ -698,31 +718,85 @@ function speak(text) {
 // EARS_ADAPTER — swappable speech recognition
 // ═══════════════════════════════════════════════════════════════
 let recognition = null, isListening = false;
+let micEnabled = false;          // user has granted permission and we're in a phase that listens
+let novaIsSpeaking = false;      // pause mic while Nova talks so it doesn't hear itself
 
 function initEars() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if(!SR) return;
+  if(!SR) {
+    console.log('SpeechRecognition not supported in this browser');
+    return;
+  }
   recognition = new SR();
   recognition.lang = 'en-US';
-  recognition.continuous = false;
+  recognition.continuous = true;     // ALWAYS-ON: keep listening across utterances
   recognition.interimResults = false;
   recognition.onresult = async (e) => {
-    const text = e.results[0][0].transcript.trim();
+    // Take only the most recent final result
+    const last = e.results[e.results.length - 1];
+    if(!last || !last.isFinal) return;
+    const text = last[0].transcript.trim();
     if(!text) return;
-    setMicState(false);
+    if(novaIsSpeaking) return; // ignore mic input while Nova is talking
+    setMicState(false); // visual feedback only — recognition keeps running
     handleKidInput(text);
+    // setMicState(true) restored when Nova finishes via micResume()
   };
-  recognition.onerror = () => setMicState(false);
-  recognition.onend = () => setMicState(false);
+  recognition.onerror = (e) => {
+    console.log('mic error:', e.error);
+    // Auto-restart on benign errors so mic stays always-on
+    if(e.error === 'no-speech' || e.error === 'audio-capture' || e.error === 'aborted') {
+      setTimeout(() => { if(micEnabled && !novaIsSpeaking) safeStart(); }, 400);
+    }
+  };
+  recognition.onend = () => {
+    setMicState(false);
+    // Auto-restart so we never stop listening (unless Nova is talking)
+    if(micEnabled && !novaIsSpeaking) {
+      setTimeout(() => safeStart(), 200);
+    }
+  };
 }
 
-window._toggleMic = function() {
+function safeStart() {
   if(!recognition) initEars();
-  if(isListening) {
-    recognition?.stop();
-    setMicState(false);
+  if(!recognition) return;
+  if(isListening) return;
+  try {
+    recognition.start();
+    setMicState(true);
+  } catch(e) {
+    // Already started — fine
+    if(!String(e).includes('already started')) console.log('mic start:', e);
+  }
+}
+
+function startAlwaysOnMic() {
+  micEnabled = true;
+  safeStart();
+}
+
+function micPause() {
+  // Called when Nova starts talking — stop hearing self
+  novaIsSpeaking = true;
+  if(recognition && isListening) {
+    try { recognition.stop(); } catch(e){}
+  }
+}
+
+function micResume() {
+  // Called after Nova stops talking — resume listening
+  novaIsSpeaking = false;
+  if(micEnabled) safeStart();
+}
+
+// Legacy mic button still works if someone clicks it (no-op when always-on is on)
+window._toggleMic = function() {
+  if(!micEnabled) {
+    startAlwaysOnMic();
   } else {
-    try { recognition?.start(); setMicState(true); } catch(e){}
+    micPause();
+    micEnabled = false;
   }
 };
 
@@ -734,7 +808,7 @@ function setMicState(on) {
     btn.classList.toggle('recording', on);
   }
   const hint = document.getElementById('rec-mic-hint');
-  if(hint) hint.textContent = on ? 'listening... speak now!' : 'tap mic and say hi to Nova';
+  if(hint) hint.textContent = on ? 'listening... just talk to Nova!' : (micEnabled ? 'paused...' : 'tap mic to start');
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -799,8 +873,10 @@ function handoffFromIntro() {
 function startIntroOverlay() {
   const introVid = document.getElementById('intro-video');
   if(!introVid) return;
-  introVid.muted = true; // browser autoplay policy
-  introVid.loop = true;  // keep playing while D-ID warms up
+  // If user has already tapped (e.g., the arrival orb), play with audio.
+  // Otherwise stay muted and wait for first interaction to unmute.
+  introVid.muted = !userInteracted;
+  introVid.loop = true;
   introVid.play().catch(err => {
     console.log('intro autoplay blocked:', err);
     const hint = document.getElementById('intro-tap-hint');
@@ -857,12 +933,14 @@ const didCallbacks = {
   },
   onVideoStateChange(state) {
     if(state === 'STOP') {
-      // Idle
+      // Idle — Nova stopped talking, resume listening
       showIdleEverywhere();
       recAvatarFrame.classList.remove('speaking');
       novaFaceFrame.classList.remove('speaking');
+      micResume();
     } else {
-      // Speaking — switch to live stream
+      // Speaking — Nova started talking, pause mic so it doesn't hear her
+      micPause();
       recAvatarVideo.src = '';
       recAvatarVideo.srcObject = didStream;
       recAvatarVideo.muted = false;
@@ -1290,13 +1368,23 @@ function startGame() {
   const vid = document.getElementById('nova-video');
   vid.currentTime = 0;
   vid.loop = true;
-  vid.play().catch(()=>{});
+  vid.muted = false; // ensure not accidentally muted
+  vid.onerror = () => console.error('nova-dance.mp4 error:', vid.error);
+  vid.play().catch(err => console.error('nova-dance.mp4 play failed:', err));
   
   // Play hello.mp3
   const audio = new Audio('hello.mp3');
   audio.volume = 0.85;
+  audio.onerror = () => console.error('hello.mp3 error:', audio.error);
   window._audio = audio;
-  audio.play().catch(()=>{});
+  audio.play().then(() => {
+    console.log('hello.mp3 playing OK');
+  }).catch(err => {
+    console.error('hello.mp3 play failed:', err);
+    // If autoplay was blocked, try once more after a tick — by now the
+    // countdown click should count as user gesture
+    setTimeout(() => audio.play().catch(e => console.error('hello.mp3 retry failed:', e)), 200);
+  });
   audio.onended = () => setTimeout(endGame, 1200);
   
   // Initial hype — uses LLM
@@ -1496,6 +1584,9 @@ document.addEventListener('arrival-done', async () => {
     });
     document.getElementById('webcam').srcObject = stream;
   } catch(e) { console.log('cam:', e); }
+  
+  // Always-on mic — Nova listens continuously from now on
+  startAlwaysOnMic();
   
   // If D-ID already connected, greet now and hand off intro
   if(didReady && !window._greeted) {
