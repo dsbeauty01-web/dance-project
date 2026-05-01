@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v39 LIME</title>
+<title>Nova v40 MAGENTA</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -227,21 +227,21 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
    between nova-side and cam-side. Sits slightly upper so it doesn't cover
    important parts of the dance video or webcam feed.
    The .in-game class is added in startGame() so it appears only during gameplay. */
-#nova-face-frame{position:fixed;top:60px;left:50%;
-  transform:translateX(-50%);z-index:30;
-  width:200px;height:200px;border-radius:50%;overflow:hidden;
+#nova-face-frame{position:fixed;top:60px;left:24px;
+  z-index:30;
+  width:140px;height:140px;border-radius:50%;overflow:hidden;
   background:#0a0015;border:3px solid rgba(255,111,216,0.85);
   box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 36px rgba(255,111,216,0.6);
   transition:all .35s cubic-bezier(.34,1.56,.64,1);
   display:none}
 #nova-face-frame.in-game{display:block}
 #nova-face-frame.speaking{
-  width:240px;height:240px;
+  width:170px;height:170px;
   border-color:rgba(0,255,150,0.9);
   border-width:4px;
   box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 60px rgba(0,255,150,0.7)}
 #nova-face-frame.celebrating{
-  top:50%;
+  top:50%;left:50%;
   transform:translate(-50%,-50%);
   width:min(50vmin,320px);height:min(50vmin,320px);
   border-width:5px;border-color:rgba(255,215,0,0.95);
@@ -253,32 +253,37 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   transition:font-size .35s}
 #nova-face-frame.celebrating #nova-face-placeholder{font-size:140px}
 
-/* Action cue — BIG, center of screen above camera, impossible to miss */
-#action-cue{position:fixed;top:90px;left:50%;
+/* Action cue — BIG floating emoji + label, NO BOX. Positioned top-center.
+   Strong text shadow so it reads on any background. */
+#action-cue{position:fixed;top:60px;left:50%;
   transform:translateX(-50%) scale(0);transform-origin:top center;
   z-index:200;text-align:center;pointer-events:none;
   transition:transform .3s cubic-bezier(.34,1.56,.64,1);
-  background:rgba(0,0,0,0.92);border-radius:24px;padding:20px 32px;
-  border:4px solid rgba(255,111,216,0.7);
-  box-shadow:0 8px 32px rgba(0,0,0,0.6);min-width:280px}
+  background:transparent;border:none;box-shadow:none;padding:0;
+  min-width:280px;
+  filter:drop-shadow(0 4px 24px rgba(0,0,0,0.85))}
 #action-cue.show{transform:translateX(-50%) scale(1)}
-#action-cue.live{border-color:rgba(0,255,150,0.95);
-  box-shadow:0 8px 32px rgba(0,0,0,0.6),0 0 60px rgba(0,255,150,0.7);
-  animation:cuePulse 0.6s ease-in-out infinite alternate}
+#action-cue.live{
+  animation:cuePulse 0.5s ease-in-out infinite alternate}
 @keyframes cuePulse{
-  from{box-shadow:0 8px 32px rgba(0,0,0,0.6),0 0 60px rgba(0,255,150,0.7);transform:translateX(-50%) scale(1)}
-  to{box-shadow:0 8px 32px rgba(0,0,0,0.6),0 0 100px rgba(0,255,150,1);transform:translateX(-50%) scale(1.06)}
+  from{transform:translateX(-50%) scale(1)}
+  to{transform:translateX(-50%) scale(1.08)}
 }
-#cue-emoji{font-size:80px;display:block;line-height:1}
-#cue-label{font-family:'Fredoka',cursive;font-weight:700;font-size:32px;
-  color:#fff;display:block;margin-top:6px;letter-spacing:.04em;
-  text-shadow:0 2px 8px rgba(255,111,216,0.6)}
-#cue-instr{font-size:16px;color:rgba(255,255,255,0.85);font-weight:600;
-  display:block;margin-top:6px}
-#cue-bar-wrap{height:8px;background:rgba(255,255,255,0.2);border-radius:4px;
-  overflow:hidden;margin-top:12px}
+#cue-emoji{font-size:120px;display:block;line-height:1;
+  filter:drop-shadow(0 4px 16px rgba(0,0,0,0.7))}
+#cue-label{font-family:'Fredoka',cursive;font-weight:700;font-size:42px;
+  color:#fff;display:block;margin-top:4px;letter-spacing:.04em;
+  text-shadow:0 0 20px rgba(0,255,150,0.8),0 4px 12px rgba(0,0,0,0.95),0 0 4px rgba(0,0,0,1)}
+#action-cue.live #cue-label{
+  text-shadow:0 0 30px rgba(0,255,150,1),0 4px 12px rgba(0,0,0,0.95),0 0 4px rgba(0,0,0,1)}
+#cue-instr{font-size:20px;color:#fff;font-weight:600;
+  display:block;margin-top:4px;
+  text-shadow:0 2px 8px rgba(0,0,0,0.95),0 0 4px rgba(0,0,0,1)}
+#cue-bar-wrap{height:6px;background:rgba(0,0,0,0.35);border-radius:3px;
+  overflow:hidden;margin:10px auto 0;width:240px}
 #cue-bar{height:100%;width:100%;transform-origin:left;
-  background:linear-gradient(90deg,#00ff99,#00d2ff)}
+  background:linear-gradient(90deg,#00ff99,#00d2ff);
+  box-shadow:0 0 12px rgba(0,255,150,0.8)}
 @keyframes cueBarShrink{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 
 /* Reaction bubble — bottom of Nova panel */
@@ -381,16 +386,16 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 
 /* Version badge */
 /* HUGE version banner — top center, impossible to miss.
-   v39 LIME/GREEN THEME — distinct from v38 cyan. */
+   v40 MAGENTA THEME — distinct from v39 lime. */
 #version-tag{position:fixed;top:0;left:0;right:0;
   z-index:9999;
   text-align:center;padding:8px 12px;
-  background:linear-gradient(90deg,#a3e635 0%,#65d126 50%,#a3e635 100%);
-  color:#0a1a00;font-family:'Fredoka',cursive;font-weight:700;
+  background:linear-gradient(90deg,#ec4899 0%,#d946ef 50%,#ec4899 100%);
+  color:#1a001a;font-family:'Fredoka',cursive;font-weight:700;
   font-size:18px;letter-spacing:0.08em;
-  box-shadow:0 2px 12px rgba(163,230,53,0.5);
+  box-shadow:0 2px 12px rgba(236,72,153,0.5);
   text-transform:uppercase;
-  border-bottom:3px solid #65a30d}
+  border-bottom:3px solid #be185d}
 </style>
 </head>
 <body>
@@ -506,7 +511,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">🟩 V39 — LIME BUILD · BIG CUES</div>
+<div id="version-tag">🟪 V40 — MAGENTA · CUE TIMING FIXED</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -1193,79 +1198,87 @@ function checkAction(action) {
 // ═══════════════════════════════════════════════════════════════
 // GAME — the song journey
 // ═══════════════════════════════════════════════════════════════
+// TIMELINE based on the song lyric structure:
+//   0-15s   = INTRO ("hello hello look at me" / "copy me" / "are you ready" / "let's move 1,2,3")
+//             NO CUES — kid watches Nova dance freely
+//   15-30s  = Verse 2: right → left → clap → both up
+//   30-45s  = Verse 3: right → clap → left → hands on head
+//   45-60s  = Verse 4: both up → clap → right → left
+//   60-78s  = Verse 5 "Nova says": right → left → both → clap (Simon-says style)
+//   78-93s  = Verse 6 fast: right → left → clap → both → head → freeze
+//   93-111s = OUTRO celebration ("you did great" / "wave goodbye" / "reach the sky")
+//
+// Each lyric line is ~3.5-4s. Cue window opens 200ms after lyric starts (kid hears the word),
+// closes 2.5s later (enough time to react).
 const TIMELINE = [
-  // Hook (0-3s)
-  { t: 200, type: 'lyric', text: 'Look at me!' },
-  { t: 200, type: 'beat', name: 'hook' },
-  
-  // Easy wins (3-12s) — kids should succeed
-  { t: 3000, type: 'beat', name: 'easy-wins' },
-  { t: 3000, type: 'demo', action: 'right', emoji: '👉', label: 'RIGHT HAND', instr: 'watch Nova!' },
-  { t: 3700, type: 'open', action: 'right', emoji: '👉', label: 'RIGHT HAND', instr: 'raise your right hand!', pts: 100 },
-  { t: 5800, type: 'close', action: 'right' },
-  
-  { t: 6000, type: 'demo', action: 'left', emoji: '👈', label: 'LEFT HAND', instr: 'watch!' },
-  { t: 6700, type: 'open', action: 'left', emoji: '👈', label: 'LEFT HAND', instr: 'raise your left hand!', pts: 100 },
-  { t: 8800, type: 'close', action: 'left' },
-  
-  // Challenge phase (9-21s)
-  { t: 9000, type: 'beat', name: 'challenge' },
-  { t: 9000, type: 'demo', action: 'clap', emoji: '👏', label: 'CLAP!', instr: 'watch Nova!' },
-  { t: 9700, type: 'open', action: 'clap', emoji: '👏', label: 'CLAP!', instr: 'clap your hands!', pts: 150 },
-  { t: 11800, type: 'close', action: 'clap' },
-  
-  { t: 12000, type: 'demo', action: 'both', emoji: '🙌', label: 'BOTH UP', instr: 'watch!' },
-  { t: 12700, type: 'open', action: 'both', emoji: '🙌', label: 'BOTH UP', instr: 'both hands up!', pts: 150 },
-  { t: 14800, type: 'close', action: 'both' },
-  
-  { t: 15000, type: 'demo', action: 'right', emoji: '👉', label: 'RIGHT', instr: 'again!' },
-  { t: 15700, type: 'open', action: 'right', emoji: '👉', label: 'RIGHT', instr: 'right hand!', pts: 100 },
-  { t: 17800, type: 'close', action: 'right' },
-  
-  { t: 18000, type: 'demo', action: 'clap', emoji: '👏', label: 'CLAP!', instr: 'watch!' },
-  { t: 18700, type: 'open', action: 'clap', emoji: '👏', label: 'CLAP!', instr: 'clap clap!', pts: 150 },
-  { t: 20800, type: 'close', action: 'clap' },
-  
-  // Confidence phase (21-30s)
-  { t: 21000, type: 'beat', name: 'confidence' },
-  { t: 21000, type: 'demo', action: 'left', emoji: '👈', label: 'LEFT', instr: 'watch!' },
-  { t: 21700, type: 'open', action: 'left', emoji: '👈', label: 'LEFT', instr: 'left hand up!', pts: 100 },
-  { t: 23800, type: 'close', action: 'left' },
-  
-  { t: 24000, type: 'demo', action: 'head', emoji: '🙆', label: 'HANDS ON HEAD', instr: 'watch!' },
-  { t: 24700, type: 'open', action: 'head', emoji: '🙆', label: 'HANDS ON HEAD', instr: 'touch your head!', pts: 200 },
-  { t: 26800, type: 'close', action: 'head' },
-  
-  { t: 27000, type: 'demo', action: 'both', emoji: '🙌', label: 'BOTH UP', instr: 'watch!' },
-  { t: 27700, type: 'open', action: 'both', emoji: '🙌', label: 'BOTH UP', instr: 'both up high!', pts: 150 },
-  { t: 29800, type: 'close', action: 'both' },
-  
-  // Flow phase (30-42s) — fast!
-  { t: 30000, type: 'beat', name: 'flow' },
-  { t: 30000, type: 'demo', action: 'clap', emoji: '👏', label: 'CLAP', instr: 'go!' },
-  { t: 30600, type: 'open', action: 'clap', emoji: '👏', label: 'CLAP', instr: 'clap!', pts: 150 },
-  { t: 32800, type: 'close', action: 'clap' },
-  
-  { t: 33000, type: 'demo', action: 'right', emoji: '👉', label: 'RIGHT', instr: 'go!' },
-  { t: 33600, type: 'open', action: 'right', emoji: '👉', label: 'RIGHT', instr: 'right!', pts: 100 },
-  { t: 35800, type: 'close', action: 'right' },
-  
-  { t: 36000, type: 'demo', action: 'left', emoji: '👈', label: 'LEFT', instr: 'go!' },
-  { t: 36600, type: 'open', action: 'left', emoji: '👈', label: 'LEFT', instr: 'left!', pts: 100 },
-  { t: 38800, type: 'close', action: 'left' },
-  
-  { t: 39000, type: 'demo', action: 'head', emoji: '🙆', label: 'HANDS ON HEAD', instr: 'now!' },
-  { t: 39600, type: 'open', action: 'head', emoji: '🙆', label: 'HANDS ON HEAD', instr: 'touch your head!', pts: 200 },
-  { t: 41800, type: 'close', action: 'head' },
-  
-  // FREEZE — the magic moment (42-45s)
-  { t: 42000, type: 'beat', name: 'freeze' },
-  { t: 42000, type: 'demo', action: 'freeze', emoji: '❄️', label: 'FREEZE!', instr: "don't move!" },
-  { t: 42400, type: 'open', action: 'freeze', emoji: '❄️', label: 'FREEZE!', instr: "DON'T MOVE!", pts: 300 },
-  { t: 44800, type: 'close', action: 'freeze' },
-  
-  // Celebration (45-60s)
-  { t: 45000, type: 'beat', name: 'celebration' },
+  // ── INTRO (0-15s) — NO CUES ──
+  { t: 100,   type: 'beat', name: 'intro' },
+
+  // ── VERSE 2 (16-30s): right → left → clap → both ──
+  { t: 16000, type: 'beat', name: 'verse2' },
+  // "raise your right hand"
+  { t: 16200, type: 'open', action: 'right', emoji: '👉', label: 'RIGHT HAND', instr: 'raise it!', pts: 100 },
+  { t: 19500, type: 'close', action: 'right' },
+  // "raise your left hand"
+  { t: 19700, type: 'open', action: 'left', emoji: '👈', label: 'LEFT HAND', instr: 'raise it!', pts: 100 },
+  { t: 23000, type: 'close', action: 'left' },
+  // "clap clap"
+  { t: 23200, type: 'open', action: 'clap', emoji: '👏', label: 'CLAP!', instr: 'clap clap!', pts: 150 },
+  { t: 26500, type: 'close', action: 'clap' },
+  // "both hands up"
+  { t: 26700, type: 'open', action: 'both', emoji: '🙌', label: 'BOTH UP', instr: 'both hands!', pts: 150 },
+  { t: 30000, type: 'close', action: 'both' },
+
+  // ── VERSE 3 (30-45s): right → clap → left → head ──
+  { t: 30200, type: 'beat', name: 'verse3' },
+  { t: 30400, type: 'open', action: 'right', emoji: '👉', label: 'RIGHT HAND', instr: 'right!', pts: 100 },
+  { t: 33700, type: 'close', action: 'right' },
+  { t: 33900, type: 'open', action: 'clap', emoji: '👏', label: 'CLAP!', instr: 'clap!', pts: 150 },
+  { t: 37200, type: 'close', action: 'clap' },
+  { t: 37400, type: 'open', action: 'left', emoji: '👈', label: 'LEFT HAND', instr: 'left!', pts: 100 },
+  { t: 40700, type: 'close', action: 'left' },
+  { t: 40900, type: 'open', action: 'head', emoji: '🙆', label: 'HANDS ON HEAD', instr: 'touch head!', pts: 200 },
+  { t: 44200, type: 'close', action: 'head' },
+
+  // ── VERSE 4 (45-60s): both → clap → right → left ──
+  { t: 44400, type: 'beat', name: 'verse4' },
+  { t: 44600, type: 'open', action: 'both', emoji: '🙌', label: 'BOTH UP', instr: 'up high!', pts: 150 },
+  { t: 47900, type: 'close', action: 'both' },
+  { t: 48100, type: 'open', action: 'clap', emoji: '👏', label: 'CLAP!', instr: 'clap clap!', pts: 150 },
+  { t: 51400, type: 'close', action: 'clap' },
+  { t: 51600, type: 'open', action: 'right', emoji: '👉', label: 'RIGHT UP', instr: 'right hand up!', pts: 100 },
+  { t: 54900, type: 'close', action: 'right' },
+  { t: 55100, type: 'open', action: 'left', emoji: '👈', label: 'LEFT UP', instr: 'left hand up!', pts: 100 },
+  { t: 58400, type: 'close', action: 'left' },
+
+  // ── VERSE 5 "Nova says" (60-78s) ──
+  { t: 58600, type: 'beat', name: 'verse5_simon' },
+  { t: 60500, type: 'open', action: 'right', emoji: '👉', label: 'RIGHT HAND', instr: 'Nova says!', pts: 150 },
+  { t: 64500, type: 'close', action: 'right' },
+  { t: 64700, type: 'open', action: 'left', emoji: '👈', label: 'LEFT HAND', instr: 'Nova says!', pts: 150 },
+  { t: 68700, type: 'close', action: 'left' },
+  { t: 68900, type: 'open', action: 'both', emoji: '🙌', label: 'BOTH HANDS', instr: 'Nova says!', pts: 200 },
+  { t: 72900, type: 'close', action: 'both' },
+  { t: 73100, type: 'open', action: 'clap', emoji: '👏', label: 'CLAP CLAP', instr: 'Nova says!', pts: 200 },
+  { t: 77100, type: 'close', action: 'clap' },
+
+  // ── VERSE 6 FAST FIRE (78-93s) ──
+  { t: 77300, type: 'beat', name: 'verse6_fast' },
+  { t: 78500, type: 'open', action: 'right', emoji: '👉', label: 'RIGHT!', instr: 'fast!', pts: 100 },
+  { t: 80500, type: 'close', action: 'right' },
+  { t: 80700, type: 'open', action: 'left', emoji: '👈', label: 'LEFT!', instr: 'fast!', pts: 100 },
+  { t: 82700, type: 'close', action: 'left' },
+  { t: 82900, type: 'open', action: 'clap', emoji: '👏', label: 'CLAP!', instr: 'clap!', pts: 150 },
+  { t: 84900, type: 'close', action: 'clap' },
+  { t: 85100, type: 'open', action: 'both', emoji: '🙌', label: 'BOTH UP', instr: 'up!', pts: 150 },
+  { t: 87100, type: 'close', action: 'both' },
+  { t: 87300, type: 'open', action: 'head', emoji: '🙆', label: 'HEAD!', instr: 'head!', pts: 200 },
+  { t: 89300, type: 'close', action: 'head' },
+  { t: 89500, type: 'open', action: 'freeze', emoji: '❄️', label: 'FREEZE!', instr: "DON'T MOVE!", pts: 300 },
+  { t: 92500, type: 'close', action: 'freeze' },
+
+  // ── OUTRO (93-111s) — NO CUES, just celebration ──
+  { t: 93000, type: 'beat', name: 'outro' },
 ];
 
 let score = 0, hits = 0, attempts = 0, combo = 0, maxCombo = 0;
@@ -1289,27 +1302,29 @@ function playQuickReaction(type) {
 
 async function smartReact(action, isHit, isFast) {
   const now = Date.now();
-  if(now - lastReactionTime < 800) return; // very short cooldown
+  if(now - lastReactionTime < 2000) return; // 2s cooldown — give silence room to breathe
+  
+  // Only react ~35% of hits so Nova isn't constantly talking.
+  // ALWAYS react on misses (gentle correction is the magic).
+  if(isHit && Math.random() > 0.35) return;
+  
   lastReactionTime = now;
   
-  // LLM-only path — smoother experience, no double-speaking from quick filler.
-  // 40% of the time, use the kid's name when known.
   const useName = memory.name && Math.random() < 0.4;
   const nameInstr = useName ? `Use the name "${memory.name}" naturally. ` : '';
   
   let prompt;
   if(isHit && isFast) {
-    prompt = `${nameInstr}The kid just NAILED the ${action} move SUPER fast! React with explosive specific joy. Reference the body part. 4-6 words. ASYMMETRIC excitement.`;
+    prompt = `${nameInstr}Kid NAILED ${action} super fast! Tiny burst of joy. 2-4 words MAX.`;
   } else if(isHit) {
-    prompt = `${nameInstr}The kid just did the ${action} move correctly! Celebrate specifically. Reference the body part. 4-6 words.`;
+    prompt = `${nameInstr}Kid did ${action} right! Tiny celebration. 2-4 words MAX.`;
   } else {
-    prompt = `${nameInstr}The kid missed the ${action} move. Be warmly encouraging — never negative. Tell them to watch and try again. 4-6 words.`;
+    prompt = `${nameInstr}Kid missed ${action}. Tiny warm encouragement, never negative. 3-5 words MAX.`;
   }
   
-  const reply = await brainThink(prompt, { maxTokens: 30 });
+  const reply = await brainThink(prompt, { maxTokens: 20 });
   if(reply) {
     showReactionBubble(reply, false);
-    // Speak via D-ID for lip-synced reaction
     speak(reply);
   }
 }
@@ -1449,12 +1464,8 @@ function startGame() {
   });
   audio.onended = () => setTimeout(endGame, 1200);
   
-  // Initial hype — uses LLM
-  brainThink(`The song just started! ${memory.name?'Say '+memory.name+"'s name and":'You'} let out a quick excited burst! 3-5 words.`, { maxTokens: 30 })
-    .then(r => {
-      if(r) showReactionBubble(r, false);
-      speak(r || (memory.name ? `Lets go ${memory.name}!` : "Let's go!"));
-    });
+  // No "initial hype" speech — the song's own intro ("hello hello, are you ready,
+  // let's move 1,2,3") IS the intro. Nova talking over it is just noise.
   
   songTimer = setInterval(gameTick, 80);
 }
