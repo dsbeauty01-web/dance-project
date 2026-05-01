@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v34</title>
+<title>Nova v35</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -16,28 +16,6 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
 .phase{position:fixed;inset:0;display:none;flex-direction:column;
   transition:opacity .6s ease;opacity:0}
 .phase.active{display:flex;opacity:1}
-
-/* ═══════════════════════════════════════════
-   PHASE 0 OVERLAY — intro video covers D-ID circle
-   Recognition phase shows underneath from t=0.
-   Intro fades out when D-ID is ready.
-   ═══════════════════════════════════════════ */
-#intro-overlay{position:absolute;inset:0;z-index:40;
-  border-radius:50%;overflow:hidden;
-  background:#0a0015;
-  transition:opacity .6s ease}
-#intro-overlay.hidden{opacity:0;pointer-events:none}
-#intro-overlay.gone{display:none}
-#intro-video{width:100%;height:100%;object-fit:cover;display:block}
-#intro-tap-hint{position:absolute;bottom:12px;left:50%;
-  transform:translateX(-50%);padding:6px 14px;
-  background:rgba(0,0,0,0.6);color:#fff;
-  border-radius:14px;font-size:11px;
-  letter-spacing:.05em;opacity:0;
-  animation:tapHintFade 1s ease 1.5s forwards;
-  pointer-events:none;white-space:nowrap}
-@keyframes tapHintFade{to{opacity:1}}
-#intro-tap-hint.gone{display:none}
 
 /* ═══════════════════════════════════════════
    PHASE 1: ARRIVAL — Nova appears
@@ -90,11 +68,7 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   overflow:hidden;background:#0a0015;
   border:4px solid rgba(255,111,216,0.7);
   box-shadow:0 0 60px rgba(255,111,216,0.4),0 0 140px rgba(124,111,255,0.25);
-  animation:novaBreath 4s ease-in-out infinite}
-@keyframes novaBreath{
-  0%,100%{transform:scale(1);box-shadow:0 0 60px rgba(255,111,216,0.4),0 0 140px rgba(124,111,255,0.25)}
-  50%{transform:scale(1.02);box-shadow:0 0 80px rgba(255,111,216,0.55),0 0 160px rgba(124,111,255,0.35)}
-}
+  position:relative;transition:all .35s}
 #rec-avatar-frame.speaking{
   border-color:rgba(0,255,150,0.85);
   box-shadow:0 0 80px rgba(0,255,150,0.5),0 0 180px rgba(124,111,255,0.4);
@@ -258,24 +232,30 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   transition:font-size .35s}
 #nova-face-frame.celebrating #nova-face-placeholder{font-size:160px}
 
-/* Action cue — top-right of Nova panel */
-#action-cue{position:absolute;top:14px;right:14px;
-  transform:scale(0);transform-origin:top right;
-  z-index:25;text-align:center;pointer-events:none;
+/* Action cue — CENTER-TOP of game, spanning above both sides
+   so kid sees it whether they're watching Nova or themselves */
+#action-cue{position:fixed;top:60px;left:50%;
+  transform:translateX(-50%) scale(0);transform-origin:top center;
+  z-index:60;text-align:center;pointer-events:none;
   transition:transform .3s cubic-bezier(.34,1.56,.64,1);
-  background:rgba(0,0,0,0.92);border-radius:20px;padding:14px 20px;
-  border:3px solid rgba(255,111,216,0.7);
-  box-shadow:0 6px 24px rgba(0,0,0,0.4);min-width:170px}
-#action-cue.show{transform:scale(1)}
+  background:rgba(0,0,0,0.92);border-radius:24px;padding:18px 32px;
+  border:4px solid rgba(255,111,216,0.85);
+  box-shadow:0 8px 32px rgba(0,0,0,0.5),0 0 60px rgba(255,111,216,0.4);
+  min-width:240px}
+#action-cue.show{transform:translateX(-50%) scale(1)}
 #action-cue.live{border-color:rgba(0,255,150,0.95);
-  box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 36px rgba(0,255,150,0.5)}
-#cue-emoji{font-size:48px;display:block;line-height:1}
-#cue-label{font-family:'Fredoka',cursive;font-weight:600;font-size:20px;
-  color:#ff6fd8;display:block;margin-top:4px;letter-spacing:.02em}
-#cue-instr{font-size:12px;color:rgba(255,255,255,0.7);font-weight:500;
-  display:block;margin-top:2px}
-#cue-bar-wrap{height:5px;background:rgba(255,255,255,0.15);border-radius:3px;
-  overflow:hidden;margin-top:10px}
+  box-shadow:0 8px 32px rgba(0,0,0,0.5),0 0 80px rgba(0,255,150,0.8);
+  animation:cuePulse .6s ease-in-out infinite alternate}
+@keyframes cuePulse{from{transform:translateX(-50%) scale(1)}
+  to{transform:translateX(-50%) scale(1.05)}}
+#cue-emoji{font-size:72px;display:block;line-height:1}
+#cue-label{font-family:'Fredoka',cursive;font-weight:700;font-size:30px;
+  color:#ff6fd8;display:block;margin-top:6px;letter-spacing:.02em}
+#action-cue.live #cue-label{color:#00ff99}
+#cue-instr{font-size:15px;color:rgba(255,255,255,0.85);font-weight:500;
+  display:block;margin-top:4px}
+#cue-bar-wrap{height:7px;background:rgba(255,255,255,0.15);border-radius:4px;
+  overflow:hidden;margin-top:14px}
 #cue-bar{height:100%;width:100%;transform-origin:left;
   background:linear-gradient(90deg,#00ff99,#00d2ff)}
 @keyframes cueBarShrink{from{transform:scaleX(1)}to{transform:scaleX(0)}}
@@ -395,8 +375,8 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 
 <div id="green-flash"></div>
 
-<!-- ═══ PHASE 1: ARRIVAL (legacy — kept as fallback) ═══ -->
-<div class="phase" id="phase-arrival">
+<!-- ═══ PHASE 1: ARRIVAL ═══ -->
+<div class="phase active" id="phase-arrival">
   <div id="arrival-glow"></div>
   <div id="arrival-content">
     <div id="arrival-orb" onclick="onArrivalTap()">🌟</div>
@@ -404,8 +384,8 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<!-- ═══ PHASE 2: RECOGNITION (now active by default) ═══ -->
-<div class="phase active" id="phase-recognition">
+<!-- ═══ PHASE 2: RECOGNITION ═══ -->
+<div class="phase" id="phase-recognition">
   <div id="rec-avatar-col">
     <div id="rec-avatar-name">Nova</div>
     <div id="rec-avatar-frame">
@@ -413,13 +393,6 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
       <div id="rec-avatar-placeholder">
         <div id="rec-placeholder-emoji">🌟</div>
         <div id="rec-loading-dots"><span></span><span></span><span></span></div>
-      </div>
-      <!-- Intro overlay — Kling video covering the avatar circle until D-ID is ready -->
-      <div id="intro-overlay">
-        <video id="intro-video" autoplay playsinline preload="auto">
-          <source src="nova-intro.mp4" type="video/mp4">
-        </video>
-        <div id="intro-tap-hint">tap to play sound</div>
       </div>
     </div>
   </div>
@@ -503,7 +476,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">v34b — Audio + Dance Btn Fix</div>
+<div id="version-tag">v35 — Game Fix</div>
 <div id="did-status" class="connecting" onclick="manualRetryDID()" title="D-ID avatar status">
   <span class="dot"></span><span id="did-status-text">connecting</span>
 </div>
@@ -521,105 +494,6 @@ function showPhase(id){
 function onArrivalTap(){
   document.getElementById('arrival-orb').classList.add('fade-out');
   setTimeout(()=>document.dispatchEvent(new CustomEvent('arrival-done')),900);
-}
-
-// ═══════════════════════════════════════════════════════════════
-// INTRO OVERLAY — Kling video covers the D-ID avatar circle
-// until D-ID is ready. Recognition phase is visible underneath
-// from t=0 (chat panel, Nova name, etc).
-//
-// Behavior:
-//   - Intro autoplays muted (browser policy)
-//   - First user click/tap unmutes it (so they hear Kling's voice)
-//   - When D-ID is ready: fade out intro, show D-ID stream, fire greeting
-//   - If D-ID never connects: intro keeps looping, manual fallback at 15s
-// ═══════════════════════════════════════════════════════════════
-let introUnmuted = false;
-let introHandedOff = false;
-
-function startIntroOverlay() {
-  const introVid = document.getElementById('intro-video');
-  if(!introVid) return;
-  
-  introVid.muted = true; // required for autoplay
-  introVid.loop = true;  // keep playing while D-ID warms up
-  introVid.play().catch(err => {
-    console.log('intro autoplay blocked:', err);
-    // Show stronger tap hint
-    const hint = document.getElementById('intro-tap-hint');
-    if(hint) hint.textContent = 'tap to start';
-  });
-  
-  // First-tap unmute so user hears Kling's voice
-  const unmuteOnTap = () => {
-    if(introUnmuted) return;
-    introUnmuted = true;
-    introVid.muted = false;
-    introVid.play().catch(()=>{});
-    const hint = document.getElementById('intro-tap-hint');
-    if(hint) hint.classList.add('gone');
-    document.removeEventListener('click', unmuteOnTap);
-    document.removeEventListener('touchstart', unmuteOnTap);
-    document.removeEventListener('keydown', unmuteOnTap);
-  };
-  document.addEventListener('click', unmuteOnTap);
-  document.addEventListener('touchstart', unmuteOnTap);
-  document.addEventListener('keydown', unmuteOnTap);
-  
-  // Pre-warm camera + mic
-  preWarmServices();
-  
-  // Fallback: if D-ID never connects after 18s, force handoff so app isn't stuck
-  setTimeout(() => {
-    if(!introHandedOff) {
-      console.log('D-ID timeout — forcing intro handoff');
-      didFailed = true;
-      handoffFromIntro();
-    }
-  }, 18000);
-}
-
-function handoffFromIntro() {
-  if(introHandedOff) return;
-  introHandedOff = true;
-  
-  // Make sure all video elements are unmuted at handoff time.
-  // If user has tapped before this point (very likely — they tapped to unmute Kling),
-  // markUserInteraction has already run. If not, we explicitly unmute now since
-  // browser will accept it (D-ID's stream is from a different origin but still
-  // governed by user gesture rules).
-  markUserInteraction();
-  
-  // Fade out intro overlay
-  const overlay = document.getElementById('intro-overlay');
-  const introVid = document.getElementById('intro-video');
-  if(overlay) overlay.classList.add('hidden');
-  setTimeout(() => {
-    if(overlay) overlay.classList.add('gone');
-    if(introVid) {
-      try { introVid.pause(); } catch(e){}
-    }
-  }, 700);
-  
-  // Fire the recognition greeting — this is the moment voice + face land together
-  if(!window._greeted) {
-    window._greeted = true;
-    novaArrivalGreet();
-  }
-}
-
-async function preWarmServices() {
-  // Mic permission (silently — no UI yet)
-  try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch(e){}
-  // Camera
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-      audio: false,
-    });
-    const wc = document.getElementById('webcam');
-    if(wc) wc.srcObject = stream;
-  } catch(e) { console.log('cam pre-warm:', e); }
 }
 function startCountdown(){
   showPhase('phase-countdown');
@@ -664,12 +538,9 @@ const CFG = {
   // Ears
   EARS_PROVIDER: 'browser-sr', // 'browser-sr' | 'whisper'
   // Game
-  SONG_DURATION: 111000, // hello.mp3 is 111s — actual length, not 60s
-  INTRO_DURATION_MS: 8000, // nova-intro.mp4 is 8s
-  INTRO_HANDOFF_MS: 7400, // start D-ID greeting 600ms before intro ends
-                          // (so voice + face appear together at 8s mark)
-  GAME_VOLUME_NORMAL: 0.6,  // hello.mp3 default volume (lower so mic catches claps)
-  GAME_VOLUME_DUCK: 0.35,   // ducked volume during action windows
+  SONG_DURATION: 111000, // hello.mp3 actual length
+  GAME_VOLUME_NORMAL: 0.6,
+  GAME_VOLUME_DUCK: 0.35,
   // Behavior
   REACTION_COOLDOWN: 0,
   DETECTION_HOLD_FRAMES: 1,
@@ -953,16 +824,13 @@ let userInteracted = false;
 function markUserInteraction() {
   if(userInteracted) return;
   userInteracted = true;
-  // Unmute every video element associated with Nova
   [recAvatarVideo, novaFaceVideo, endAvatarVideo].forEach(v => {
-    if(v) v.muted = false;
+    if(v) {
+      v.muted = false;
+      // Try to play in case it was paused due to autoplay
+      v.play().catch(()=>{});
+    }
   });
-  // Also unmute the intro overlay video if it's still visible
-  const introVid = document.getElementById('intro-video');
-  if(introVid) {
-    introVid.muted = false;
-    introVid.play().catch(()=>{});
-  }
 }
 document.addEventListener('click', markUserInteraction);
 document.addEventListener('touchstart', markUserInteraction);
@@ -974,7 +842,6 @@ function showIdleEverywhere() {
     v.srcObject = null;
     v.src = didIdleVideoUrl;
     v.loop = true;
-    // If user has interacted, unmute. Otherwise stay muted (browser policy).
     v.muted = !userInteracted;
     v.style.display = 'block';
     v.play().catch(()=>{});
@@ -987,8 +854,6 @@ const didCallbacks = {
   onSrcObjectReady(value) {
     didStream = value;
     recAvatarVideo.srcObject = value;
-    // CRITICAL: only mute if user hasn't interacted yet (autoplay policy).
-    // Once they have, NEVER mute the D-ID stream — that's where Nova's voice comes from.
     recAvatarVideo.muted = !userInteracted;
     recAvatarVideo.style.display = 'block';
     recAvatarPlaceholder.style.display = 'none';
@@ -1010,8 +875,11 @@ const didCallbacks = {
       didIdleVideoUrl = agentManager?.agent?.presenter?.idle_video;
       showIdleEverywhere();
       flushSpeakQueue();
-      // D-ID is ready → hand off from intro overlay → fire greeting
-      handoffFromIntro();
+      // Trigger arrival greeting if we're past arrival phase and haven't greeted yet
+      if(memory.phase === 'recognition' && !window._greeted) {
+        window._greeted = true;
+        novaArrivalGreet();
+      }
     } else if(state === 'connecting' || state === 'new') {
       setDIDStatus('connecting', 'connecting');
     } else if(state === 'disconnected' || state === 'closed') {
@@ -1055,8 +923,10 @@ const didCallbacks = {
       didReady = false;
       setDIDStatus('failed', 'quota — tap to retry');
       while(speakQueue.length) browserTTS(speakQueue.shift());
-      // D-ID dead → still need to hand off from intro so app continues
-      handoffFromIntro();
+      if(memory.phase === 'recognition' && !window._greeted) {
+        window._greeted = true;
+        novaArrivalGreet();
+      }
     } else {
       setDIDStatus('failed', 'error — tap to retry');
     }
@@ -1079,8 +949,10 @@ function initDID() {
     if(errStr.includes('Forbidden') || errStr.includes('403') || errStr.includes('Max user sessions')) {
       didFailed = true;
       setDIDStatus('failed', 'quota — tap to retry');
-      // Still hand off so the app isn't stuck on the intro forever
-      handoffFromIntro();
+      if(memory.phase === 'recognition' && !window._greeted) {
+        window._greeted = true;
+        novaArrivalGreet();
+      }
     } else {
       setDIDStatus('failed', 'tap to retry');
       // Genuine network blip — auto-retry once after a longer delay
@@ -1155,7 +1027,7 @@ async function handleKidInput(text) {
   }
   const reply = await brainThink(text, { maxTokens: 80 });
   await novaSay(reply || (memory.name ? `Hi ${memory.name}! Ready to dance?` : 'Yay! Ready to dance?'));
-  // Show dance button after first real exchange — kid is engaged
+  // Always show dance button after any chat exchange — prevents stuck state
   document.getElementById('rec-dance-btn').classList.add('ready');
 }
 
@@ -1227,8 +1099,7 @@ function analyzePose(kps) {
   moves.right = hold(rUp && !lUp, 'right');
   moves.both = lUp && rUp;
   
-  // Clap — wrists meet near chest. Looser thresholds for kids who don't
-  // clap precisely. Was: gap < 0.55*scale, now 0.7. Y-window expanded too.
+  // Clap — wrists meet near chest. Looser thresholds for kids.
   const wristY = (sLw.y + sRw.y) / 2;
   const shoulderY = (sLs.y + sRs.y) / 2;
   const wristGap = Math.abs(sLw.x - sRw.x);
@@ -1350,73 +1221,60 @@ const TIMELINE = [
   { t: 42400, type: 'open', action: 'freeze', emoji: '❄️', label: 'FREEZE!', instr: "DON'T MOVE!", pts: 300 },
   { t: 44800, type: 'close', action: 'freeze' },
   
-  // Celebration phase 1 (45-60s) — energy burst, more cues
+  // Celebration phase (45-60s)
   { t: 45000, type: 'beat', name: 'celebration' },
   { t: 46000, type: 'demo', action: 'both', emoji: '🙌', label: 'BOTH UP', instr: 'show me!' },
   { t: 46700, type: 'open', action: 'both', emoji: '🙌', label: 'BOTH UP!', instr: 'BOTH hands UP!', pts: 200 },
   { t: 48800, type: 'close', action: 'both' },
-  
   { t: 49000, type: 'demo', action: 'clap', emoji: '👏', label: 'CLAP', instr: 'GO!' },
   { t: 49700, type: 'open', action: 'clap', emoji: '👏', label: 'CLAP CLAP!', instr: 'CLAP CLAP!', pts: 150 },
   { t: 51800, type: 'close', action: 'clap' },
-  
   { t: 52000, type: 'demo', action: 'right', emoji: '👉', label: 'RIGHT', instr: '!' },
   { t: 52600, type: 'open', action: 'right', emoji: '👉', label: 'RIGHT!', instr: 'RIGHT hand!', pts: 100 },
   { t: 54600, type: 'close', action: 'right' },
-  
   { t: 55000, type: 'demo', action: 'left', emoji: '👈', label: 'LEFT', instr: '!' },
   { t: 55600, type: 'open', action: 'left', emoji: '👈', label: 'LEFT!', instr: 'LEFT hand!', pts: 100 },
   { t: 57600, type: 'close', action: 'left' },
-  
   { t: 58000, type: 'demo', action: 'head', emoji: '🙆', label: 'HEAD', instr: 'touch!' },
   { t: 58600, type: 'open', action: 'head', emoji: '🙆', label: 'HANDS ON HEAD!', instr: 'touch your head!', pts: 200 },
   { t: 60800, type: 'close', action: 'head' },
   
-  // Flow phase (60-80s) — fast variety
+  // Flow phase (60-78s)
   { t: 61000, type: 'beat', name: 'flow' },
   { t: 61500, type: 'demo', action: 'clap', emoji: '👏', label: 'CLAP!', instr: '!' },
   { t: 62000, type: 'open', action: 'clap', emoji: '👏', label: 'CLAP!', instr: 'clap!', pts: 150 },
   { t: 63800, type: 'close', action: 'clap' },
-  
   { t: 64000, type: 'demo', action: 'right', emoji: '👉', label: 'RIGHT', instr: '!' },
   { t: 64500, type: 'open', action: 'right', emoji: '👉', label: 'RIGHT!', instr: 'right!', pts: 100 },
   { t: 66400, type: 'close', action: 'right' },
-  
   { t: 66600, type: 'demo', action: 'left', emoji: '👈', label: 'LEFT', instr: '!' },
   { t: 67100, type: 'open', action: 'left', emoji: '👈', label: 'LEFT!', instr: 'left!', pts: 100 },
   { t: 69000, type: 'close', action: 'left' },
-  
   { t: 69200, type: 'demo', action: 'both', emoji: '🙌', label: 'BOTH', instr: '!' },
   { t: 69700, type: 'open', action: 'both', emoji: '🙌', label: 'BOTH UP!', instr: 'both up!', pts: 200 },
   { t: 71800, type: 'close', action: 'both' },
-  
   { t: 72000, type: 'demo', action: 'clap', emoji: '👏', label: 'CLAP', instr: '!' },
   { t: 72500, type: 'open', action: 'clap', emoji: '👏', label: 'CLAP!', instr: 'clap fast!', pts: 150 },
   { t: 74400, type: 'close', action: 'clap' },
-  
   { t: 74600, type: 'demo', action: 'head', emoji: '🙆', label: 'HEAD', instr: '!' },
   { t: 75100, type: 'open', action: 'head', emoji: '🙆', label: 'HEAD!', instr: 'touch head!', pts: 200 },
   { t: 77200, type: 'close', action: 'head' },
   
-  // Big finish (78-95s) — final freeze + grand celebration
+  // Big finish (78-95s)
   { t: 78000, type: 'beat', name: 'big-finish' },
   { t: 79000, type: 'demo', action: 'freeze', emoji: '❄️', label: 'FREEZE!', instr: "BIG FREEZE!" },
   { t: 79400, type: 'open', action: 'freeze', emoji: '❄️', label: 'FREEZE!', instr: "DON'T MOVE!", pts: 400 },
   { t: 82400, type: 'close', action: 'freeze' },
-  
   { t: 83000, type: 'demo', action: 'both', emoji: '🙌', label: 'BOTH UP!', instr: 'celebrate!' },
   { t: 83600, type: 'open', action: 'both', emoji: '🙌', label: 'CELEBRATE!', instr: 'BOTH HANDS UP!', pts: 250 },
   { t: 86000, type: 'close', action: 'both' },
-  
   { t: 86500, type: 'demo', action: 'clap', emoji: '👏', label: 'CLAP', instr: 'finale!' },
   { t: 87000, type: 'open', action: 'clap', emoji: '👏', label: 'CLAP CLAP CLAP!', instr: 'CLAP CLAP!', pts: 200 },
   { t: 89400, type: 'close', action: 'clap' },
-  
   { t: 90000, type: 'demo', action: 'both', emoji: '🌟', label: 'STAR!', instr: 'biggest one!' },
   { t: 90600, type: 'open', action: 'both', emoji: '🌟', label: 'BIG STAR!', instr: 'reach for the sky!', pts: 300 },
   { t: 93600, type: 'close', action: 'both' },
   
-  // Outro 95-111s — Nova just talks, no more cues, kid winds down
   { t: 95000, type: 'beat', name: 'celebration' },
 ];
 
@@ -1447,14 +1305,12 @@ async function smartReact(action, isHit, isFast) {
   if(now - lastReactionTime < 800) return;
   lastReactionTime = now;
   
-  // Instant filler via browser TTS — sometimes use the kid's name for warmth
+  // Instant filler via browser TTS
   playQuickReaction(isHit ? (isFast ? 'hit_fast' : 'hit_normal') : 'miss');
   
-  // SURPRISE TOUCH: Tell the LLM to use the kid's name 40% of the time when known.
-  // This is the "she sees ME" magic — Nova calling them by name during the game
-  // makes the experience feel personal vs generic.
+  // Use kid's name in 40% of reactions when known
   const useName = memory.name && Math.random() < 0.4;
-  const nameInstr = useName ? `Use the name "${memory.name}" naturally in this reaction. ` : '';
+  const nameInstr = useName ? `Use the name "${memory.name}" naturally. ` : '';
   
   let prompt;
   if(isHit && isFast) {
@@ -1572,17 +1428,24 @@ function startGame() {
   document.getElementById('game-progress').style.width = '0%';
   freezeBuffer = null;
   
+  // CRITICAL: kick the webcam stream to play. The video element may
+  // have paused frames when phase-game was display:none. Without this,
+  // pose detection sits at readyState=0 forever and nothing tracks.
+  const wc = document.getElementById('webcam');
+  if(wc) {
+    wc.muted = true; // webcam never plays audio anyway
+    wc.play().catch(err => console.log('webcam play:', err));
+  }
+  
   const vid = document.getElementById('nova-video');
   vid.currentTime = 0;
   vid.loop = true;
-  vid.play().catch(()=>{});
+  vid.onerror = (e) => console.error('nova-dance.mp4 error:', vid.error);
+  vid.play().catch(err => console.log('nova-video play:', err));
   
-  // Play hello.mp3 — lower default volume so mic catches claps better
-  const audio = new Audio('hello.mp3');
-  audio.volume = CFG.GAME_VOLUME_NORMAL;
-  window._audio = audio;
-  audio.play().catch(()=>{});
-  audio.onended = () => setTimeout(endGame, 1200);
+  // Play hello.mp3 — try common filename variants in order
+  // Hardcoded primary first since this is the only file kept on GitHub
+  startSongAudio();
   
   // Initial hype — uses LLM
   brainThink(`The song just started! ${memory.name?'Say '+memory.name+"'s name and":'You'} let out a quick excited burst! 3-5 words.`, { maxTokens: 30 })
@@ -1591,17 +1454,84 @@ function startGame() {
       speak(r || (memory.name ? `Lets go ${memory.name}!` : "Let's go!"));
     });
   
+  // Game timing fallback — if audio.currentTime never advances (audio failed
+  // to load), use Date.now() so the timeline still progresses.
+  songStartWallClock = Date.now();
+  audioClockLocked = false;
+  audioClockEverWorked = false;
   songTimer = setInterval(gameTick, 80);
 }
 
+let songStartWallClock = 0;
+let songAudioFailed = false;
+let audioClockLocked = false;       // true = use wall clock only (audio dead)
+let audioClockEverWorked = false;   // true = audio was the source at some point
+
+function startSongAudio() {
+  // Try names in priority order
+  const candidates = ['hello.mp3', 'hello%20%286%29.mp3', 'hello (6).mp3', 'hello%286%29.mp3'];
+  let idx = 0;
+  
+  function tryNext() {
+    if(idx >= candidates.length) {
+      console.error('All song candidates failed');
+      songAudioFailed = true;
+      return;
+    }
+    const url = candidates[idx++];
+    console.log('Trying song:', url);
+    const audio = new Audio(url);
+    audio.volume = CFG.GAME_VOLUME_NORMAL;
+    audio.onerror = () => {
+      console.log('Failed:', url);
+      tryNext();
+    };
+    audio.oncanplaythrough = () => {
+      console.log('Loaded:', url);
+    };
+    audio.play().then(() => {
+      window._audio = audio;
+      audio.onended = () => setTimeout(endGame, 1200);
+    }).catch(err => {
+      console.log('Play failed for', url, err);
+      tryNext();
+    });
+  }
+  tryNext();
+}
+
 function gameTick() {
-  const elapsed = (window._audio?.currentTime || 0) * 1000;
+  // Lock the clock source: prefer audio.currentTime, but if audio failed to start
+  // within 1.5s, permanently switch to wall-clock so cues still fire.
+  // (Bug: oscillating between sources caused TIMELINE entries to be skipped
+  // when audio loaded mid-game.)
+  let elapsed;
+  if(audioClockLocked) {
+    elapsed = Date.now() - songStartWallClock;
+  } else if(window._audio && window._audio.readyState >= 2 && window._audio.currentTime > 0) {
+    elapsed = window._audio.currentTime * 1000;
+    // Once audio is the source of truth, mark it
+    audioClockEverWorked = true;
+  } else if(audioClockEverWorked && window._audio) {
+    // Audio paused mid-game (network blip) — keep using its currentTime even if 0
+    elapsed = window._audio.currentTime * 1000;
+  } else {
+    // Audio hasn't started yet OR has failed entirely. Use wall clock.
+    elapsed = Date.now() - songStartWallClock;
+    // After 1.5s, if audio still not advancing, lock to wall clock permanently
+    if(elapsed > 1500 && (!window._audio || window._audio.currentTime === 0)) {
+      audioClockLocked = true;
+    }
+  }
   const pct = Math.min(100, (elapsed / CFG.SONG_DURATION) * 100);
   document.getElementById('game-progress').style.width = pct + '%';
   
-  // Auto-end if audio finishes or runs over
-  if(elapsed >= CFG.SONG_DURATION + 500 && !window._audio?.paused) {
-    // Wait for audio.onended to fire
+  // Auto-end: if audio is dead AND we've hit duration on wall clock, end game
+  if(elapsed >= CFG.SONG_DURATION + 500) {
+    if(!window._audio || window._audio.paused) {
+      endGame();
+      return;
+    }
   }
   
   while(timelineIdx < TIMELINE.length && elapsed >= TIMELINE[timelineIdx].t) {
@@ -1630,8 +1560,7 @@ function gameTick() {
       attempts++;
       memory.attempts++;
       
-      // Duck music volume during action window so the mic catches claps
-      // and the kid can hear Nova's reactions clearly
+      // Duck music so mic catches claps and reactions are clearly audible
       if(window._audio) window._audio.volume = CFG.GAME_VOLUME_DUCK;
       
       let windowMs = 2500;
@@ -1662,7 +1591,7 @@ function gameTick() {
     else if(e.type === 'close') {
       setGreenFlash(false);
       hideCue();
-      // Restore music volume after action window ends
+      // Restore music volume
       if(window._audio) window._audio.volume = CFG.GAME_VOLUME_NORMAL;
       if(!actionDetected && actionWindow) {
         handleMiss(currentAction);
@@ -1768,11 +1697,51 @@ function endGame() {
 // PHASE WIRING
 // ═══════════════════════════════════════════════════════════════
 document.addEventListener('arrival-done', async () => {
-  // Legacy path — only fires if user lands on the legacy phase-arrival screen
-  // (e.g. via deep link). Normally not used in v34.
   memory.phase = 'recognition';
   showPhase('phase-recognition');
-  startIntroOverlay();
+  
+  // Mic permission
+  try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch(e){}
+  
+  // Camera
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+      audio: false,
+    });
+    document.getElementById('webcam').srcObject = stream;
+  } catch(e) { console.log('cam:', e); }
+  
+  // Wait for D-ID before greeting so the FIRST thing Nova says is
+  // lip-synced. The greeting will fire from onConnectionStateChange
+  // when D-ID connects. If D-ID fails (didFailed=true), the error
+  // handler triggers the greeting via fallback.
+  if(didReady && !window._greeted) {
+    window._greeted = true;
+    novaArrivalGreet();
+  } else if(didFailed && !window._greeted) {
+    // D-ID already failed before we got here — just greet via fallback
+    window._greeted = true;
+    novaArrivalGreet();
+  } else {
+    // Show a "waking up" hint after 4s if still waiting
+    setTimeout(() => {
+      if(!didReady && !didFailed) {
+        const hint = document.getElementById('rec-hint');
+        if(hint) hint.textContent = 'Nova is waking up...';
+      }
+    }, 4000);
+    // Hard timeout: if D-ID never connects after 12s, give up and
+    // greet anyway via browser TTS so the app isn't stuck.
+    setTimeout(() => {
+      if(!window._greeted) {
+        console.log('D-ID never connected — greeting via fallback');
+        didFailed = true;
+        window._greeted = true;
+        novaArrivalGreet();
+      }
+    }, 12000);
+  }
 });
 
 document.addEventListener('countdown-tick', (e) => {
@@ -1789,23 +1758,9 @@ document.addEventListener('countdown-done', () => {
 speechSynthesis.getVoices();
 speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
 
-// Recognition phase is now the default active phase from t=0.
-// Intro overlay covers the D-ID circle until D-ID is ready.
-memory.phase = 'recognition';
-
 initEars();
 initDID();
 initDetector().then(() => poseLoop()).catch(()=>{});
-
-// Start the intro overlay (Kling video) immediately on page load.
-// User's first tap unmutes Kling's audio. When D-ID becomes ready,
-// the overlay fades out and Nova's greeting fires.
-function bootIntro() { startIntroOverlay(); }
-if(document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', bootIntro);
-} else {
-  bootIntro();
-}
 
 document.getElementById('nova-video').load();
 </script>
