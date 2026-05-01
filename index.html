@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v36</title>
+<title>Nova v37 ORANGE</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -227,16 +227,16 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
    between nova-side and cam-side. Sits slightly upper so it doesn't cover
    important parts of the dance video or webcam feed.
    The .in-game class is added in startGame() so it appears only during gameplay. */
-#nova-face-frame{position:fixed;top:8px;left:50%;
+#nova-face-frame{position:fixed;top:60px;left:50%;
   transform:translateX(-50%);z-index:30;
-  width:140px;height:140px;border-radius:50%;overflow:hidden;
+  width:200px;height:200px;border-radius:50%;overflow:hidden;
   background:#0a0015;border:3px solid rgba(255,111,216,0.85);
   box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 36px rgba(255,111,216,0.6);
   transition:all .35s cubic-bezier(.34,1.56,.64,1);
   display:none}
 #nova-face-frame.in-game{display:block}
 #nova-face-frame.speaking{
-  width:180px;height:180px;
+  width:240px;height:240px;
   border-color:rgba(0,255,150,0.9);
   border-width:4px;
   box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 60px rgba(0,255,150,0.7)}
@@ -366,8 +366,17 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 #end-replay:hover{transform:scale(1.04)}
 
 /* Version badge */
-#version-tag{position:fixed;bottom:6px;right:8px;
-  font-size:9px;color:rgba(255,255,255,0.2);z-index:1000;letter-spacing:.05em}
+/* HUGE version banner — top center, impossible to miss.
+   v37 ORANGE THEME — distinct from v36 pink/purple. */
+#version-tag{position:fixed;top:0;left:0;right:0;
+  z-index:9999;
+  text-align:center;padding:8px 12px;
+  background:linear-gradient(90deg,#ff6b35 0%,#ffb627 50%,#ff6b35 100%);
+  color:#1a0a00;font-family:'Fredoka',cursive;font-weight:700;
+  font-size:18px;letter-spacing:0.08em;
+  box-shadow:0 2px 12px rgba(255,107,53,0.5);
+  text-transform:uppercase;
+  border-bottom:3px solid #ff8c00}
 </style>
 </head>
 <body>
@@ -483,7 +492,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">v36d — TF 4.2 + Detection Logs</div>
+<div id="version-tag">🟧 V37 — ORANGE BUILD</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -1401,15 +1410,26 @@ function startGame() {
   // Play hello.mp3
   const audio = new Audio('hello.mp3');
   audio.volume = 0.85;
-  audio.onerror = () => console.error('hello.mp3 error:', audio.error);
+  audio.onerror = () => {
+    const codes = {
+      1: 'MEDIA_ERR_ABORTED (user/browser cancelled)',
+      2: 'MEDIA_ERR_NETWORK (download failed)',
+      3: 'MEDIA_ERR_DECODE (file corrupt)',
+      4: 'MEDIA_ERR_SRC_NOT_SUPPORTED (file missing or wrong format)',
+    };
+    const code = audio.error?.code;
+    console.error('hello.mp3 ERROR:', codes[code] || 'unknown', '— src:', audio.currentSrc, '— msg:', audio.error?.message);
+  };
+  // Probe if the file is even reachable BEFORE we play it
+  fetch('hello.mp3', { method: 'HEAD' })
+    .then(r => console.log('hello.mp3 HEAD:', r.status, r.headers.get('content-type'), 'bytes:', r.headers.get('content-length')))
+    .catch(e => console.error('hello.mp3 HEAD fetch failed:', e.message));
   window._audio = audio;
   audio.play().then(() => {
     console.log('hello.mp3 playing OK');
   }).catch(err => {
-    console.error('hello.mp3 play failed:', err);
-    // If autoplay was blocked, try once more after a tick — by now the
-    // countdown click should count as user gesture
-    setTimeout(() => audio.play().catch(e => console.error('hello.mp3 retry failed:', e)), 200);
+    console.error('hello.mp3 play() rejected:', err.name, err.message);
+    setTimeout(() => audio.play().catch(e => console.error('hello.mp3 retry failed:', e.name, e.message)), 200);
   });
   audio.onended = () => setTimeout(endGame, 1200);
   
