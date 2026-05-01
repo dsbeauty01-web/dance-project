@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v37 ORANGE</title>
+<title>Nova v39 LIME</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -253,24 +253,30 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   transition:font-size .35s}
 #nova-face-frame.celebrating #nova-face-placeholder{font-size:140px}
 
-/* Action cue — top-right of Nova panel */
-#action-cue{position:absolute;top:14px;right:14px;
-  transform:scale(0);transform-origin:top right;
-  z-index:25;text-align:center;pointer-events:none;
+/* Action cue — BIG, center of screen above camera, impossible to miss */
+#action-cue{position:fixed;top:90px;left:50%;
+  transform:translateX(-50%) scale(0);transform-origin:top center;
+  z-index:200;text-align:center;pointer-events:none;
   transition:transform .3s cubic-bezier(.34,1.56,.64,1);
-  background:rgba(0,0,0,0.92);border-radius:20px;padding:14px 20px;
-  border:3px solid rgba(255,111,216,0.7);
-  box-shadow:0 6px 24px rgba(0,0,0,0.4);min-width:170px}
-#action-cue.show{transform:scale(1)}
+  background:rgba(0,0,0,0.92);border-radius:24px;padding:20px 32px;
+  border:4px solid rgba(255,111,216,0.7);
+  box-shadow:0 8px 32px rgba(0,0,0,0.6);min-width:280px}
+#action-cue.show{transform:translateX(-50%) scale(1)}
 #action-cue.live{border-color:rgba(0,255,150,0.95);
-  box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 36px rgba(0,255,150,0.5)}
-#cue-emoji{font-size:48px;display:block;line-height:1}
-#cue-label{font-family:'Fredoka',cursive;font-weight:600;font-size:20px;
-  color:#ff6fd8;display:block;margin-top:4px;letter-spacing:.02em}
-#cue-instr{font-size:12px;color:rgba(255,255,255,0.7);font-weight:500;
-  display:block;margin-top:2px}
-#cue-bar-wrap{height:5px;background:rgba(255,255,255,0.15);border-radius:3px;
-  overflow:hidden;margin-top:10px}
+  box-shadow:0 8px 32px rgba(0,0,0,0.6),0 0 60px rgba(0,255,150,0.7);
+  animation:cuePulse 0.6s ease-in-out infinite alternate}
+@keyframes cuePulse{
+  from{box-shadow:0 8px 32px rgba(0,0,0,0.6),0 0 60px rgba(0,255,150,0.7);transform:translateX(-50%) scale(1)}
+  to{box-shadow:0 8px 32px rgba(0,0,0,0.6),0 0 100px rgba(0,255,150,1);transform:translateX(-50%) scale(1.06)}
+}
+#cue-emoji{font-size:80px;display:block;line-height:1}
+#cue-label{font-family:'Fredoka',cursive;font-weight:700;font-size:32px;
+  color:#fff;display:block;margin-top:6px;letter-spacing:.04em;
+  text-shadow:0 2px 8px rgba(255,111,216,0.6)}
+#cue-instr{font-size:16px;color:rgba(255,255,255,0.85);font-weight:600;
+  display:block;margin-top:6px}
+#cue-bar-wrap{height:8px;background:rgba(255,255,255,0.2);border-radius:4px;
+  overflow:hidden;margin-top:12px}
 #cue-bar{height:100%;width:100%;transform-origin:left;
   background:linear-gradient(90deg,#00ff99,#00d2ff)}
 @keyframes cueBarShrink{from{transform:scaleX(1)}to{transform:scaleX(0)}}
@@ -309,25 +315,33 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 #webcam{position:absolute;inset:0;width:100%;height:100%;
   object-fit:cover;transform:scaleX(-1);
   filter:brightness(1.25) contrast(1.05) saturate(1.1)}
-#cam-border{position:absolute;inset:0;border:4px solid transparent;
+#cam-border{position:absolute;inset:0;border:6px solid transparent;
   pointer-events:none;z-index:3;transition:all .15s}
-#cam-border.detection-open{border-color:rgba(0,255,150,0.9);
-  box-shadow:inset 0 0 60px rgba(0,255,150,0.25)}
-#cam-border.miss-flash{border-color:rgba(255,80,80,0.85);
-  box-shadow:inset 0 0 60px rgba(255,80,80,0.3)}
+#cam-border.detection-open{border:8px solid rgba(0,255,150,0.95);
+  box-shadow:inset 0 0 100px rgba(0,255,150,0.5),0 0 60px rgba(0,255,150,0.6);
+  animation:camGlow 0.5s ease-in-out infinite alternate}
+@keyframes camGlow{
+  from{box-shadow:inset 0 0 100px rgba(0,255,150,0.5),0 0 60px rgba(0,255,150,0.6)}
+  to{box-shadow:inset 0 0 160px rgba(0,255,150,0.8),0 0 100px rgba(0,255,150,1)}
+}
+#cam-border.miss-flash{border:8px solid rgba(255,80,80,0.95);
+  box-shadow:inset 0 0 100px rgba(255,80,80,0.5),0 0 60px rgba(255,80,80,0.6)}
 
-/* Detection pills — bottom of cam */
-#cam-pills{position:absolute;bottom:14px;left:0;right:0;z-index:4;
-  display:flex;justify-content:center;gap:6px;flex-wrap:wrap;padding:0 8px}
-.pill{border-radius:20px;padding:5px 10px;font-size:13px;font-weight:600;
-  background:rgba(0,0,0,0.7);color:rgba(255,255,255,0.5);
-  border:1px solid rgba(255,255,255,0.1);transition:all .15s}
-.pill.on{background:rgba(0,255,150,0.95);color:#000;
-  border-color:rgba(0,255,150,1);transform:scale(1.08)}
+/* Detection pills — bottom of cam, bigger so they're easy to see */
+#cam-pills{position:absolute;bottom:18px;left:0;right:0;z-index:4;
+  display:flex;justify-content:center;gap:8px;flex-wrap:wrap;padding:0 8px}
+.pill{border-radius:24px;padding:8px 14px;font-size:16px;font-weight:700;
+  background:rgba(0,0,0,0.75);color:rgba(255,255,255,0.55);
+  border:2px solid rgba(255,255,255,0.15);transition:all .15s}
+.pill.on{background:rgba(0,255,150,0.98);color:#000;
+  border-color:rgba(0,255,150,1);transform:scale(1.18);
+  box-shadow:0 0 30px rgba(0,255,150,0.8)}
 
-/* Green flash — when detection window opens */
-#green-flash{position:fixed;inset:0;background:rgba(0,255,150,0.18);
-  opacity:0;pointer-events:none;z-index:5;transition:opacity .12s}
+/* Subtle full-screen green tint when cue is live (most visual emphasis is on cam-border) */
+#green-flash{position:fixed;inset:0;z-index:1;
+  background:rgba(0,255,150,0.06);
+  opacity:0;pointer-events:none;
+  transition:opacity .2s}
 #green-flash.show{opacity:1}
 
 /* ═══════════════════════════════════════════
@@ -367,16 +381,16 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 
 /* Version badge */
 /* HUGE version banner — top center, impossible to miss.
-   v37 ORANGE THEME — distinct from v36 pink/purple. */
+   v39 LIME/GREEN THEME — distinct from v38 cyan. */
 #version-tag{position:fixed;top:0;left:0;right:0;
   z-index:9999;
   text-align:center;padding:8px 12px;
-  background:linear-gradient(90deg,#ff6b35 0%,#ffb627 50%,#ff6b35 100%);
-  color:#1a0a00;font-family:'Fredoka',cursive;font-weight:700;
+  background:linear-gradient(90deg,#a3e635 0%,#65d126 50%,#a3e635 100%);
+  color:#0a1a00;font-family:'Fredoka',cursive;font-weight:700;
   font-size:18px;letter-spacing:0.08em;
-  box-shadow:0 2px 12px rgba(255,107,53,0.5);
+  box-shadow:0 2px 12px rgba(163,230,53,0.5);
   text-transform:uppercase;
-  border-bottom:3px solid #ff8c00}
+  border-bottom:3px solid #65a30d}
 </style>
 </head>
 <body>
@@ -492,7 +506,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">🟧 V37 — ORANGE BUILD</div>
+<div id="version-tag">🟩 V39 — LIME BUILD · BIG CUES</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -1407,8 +1421,10 @@ function startGame() {
   vid.onerror = () => console.error('nova-dance.mp4 error:', vid.error);
   vid.play().catch(err => console.error('nova-dance.mp4 play failed:', err));
   
-  // Play hello.mp3
-  const audio = new Audio('hello.mp3');
+  // Play shit.mp3 (renamed by user — same Hello-Hello song, 111s)
+  const SONG_FILE = 'shit.mp3';
+  const SONG_URL = encodeURI(SONG_FILE);
+  const audio = new Audio(SONG_URL);
   audio.volume = 0.85;
   audio.onerror = () => {
     const codes = {
@@ -1418,18 +1434,18 @@ function startGame() {
       4: 'MEDIA_ERR_SRC_NOT_SUPPORTED (file missing or wrong format)',
     };
     const code = audio.error?.code;
-    console.error('hello.mp3 ERROR:', codes[code] || 'unknown', '— src:', audio.currentSrc, '— msg:', audio.error?.message);
+    console.error(SONG_FILE+' ERROR:', codes[code] || 'unknown', '— src:', audio.currentSrc, '— msg:', audio.error?.message);
   };
   // Probe if the file is even reachable BEFORE we play it
-  fetch('hello.mp3', { method: 'HEAD' })
-    .then(r => console.log('hello.mp3 HEAD:', r.status, r.headers.get('content-type'), 'bytes:', r.headers.get('content-length')))
-    .catch(e => console.error('hello.mp3 HEAD fetch failed:', e.message));
+  fetch(SONG_URL, { method: 'HEAD' })
+    .then(r => console.log(SONG_FILE+' HEAD:', r.status, r.headers.get('content-type'), 'bytes:', r.headers.get('content-length')))
+    .catch(e => console.error(SONG_FILE+' HEAD fetch failed:', e.message));
   window._audio = audio;
   audio.play().then(() => {
-    console.log('hello.mp3 playing OK');
+    console.log(SONG_FILE+' playing OK');
   }).catch(err => {
-    console.error('hello.mp3 play() rejected:', err.name, err.message);
-    setTimeout(() => audio.play().catch(e => console.error('hello.mp3 retry failed:', e.name, e.message)), 200);
+    console.error(SONG_FILE+' play() rejected:', err.name, err.message);
+    setTimeout(() => audio.play().catch(e => console.error(SONG_FILE+' retry failed:', e.name, e.message)), 200);
   });
   audio.onended = () => setTimeout(endGame, 1200);
   
