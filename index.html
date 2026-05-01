@@ -483,11 +483,11 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">v36c — Audio + Mic Fixes</div>
+<div id="version-tag">v36d — TF 4.2 + Detection Logs</div>
 
 <!-- Pose Detection -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js"></script>
 
 <!-- Bridge for non-module code -->
 <script>
@@ -1035,12 +1035,24 @@ const smooth = {};
 let freezeBuffer = null;
 
 async function initDetector() {
+  console.log('initDetector: starting');
+  if(typeof tf === 'undefined') {
+    console.error('initDetector: tf is undefined — TF.js script did not load');
+    return;
+  }
+  if(typeof poseDetection === 'undefined') {
+    console.error('initDetector: poseDetection is undefined — pose-detection script did not load');
+    return;
+  }
+  console.log('initDetector: tf version', tf.version?.tfjs);
   await tf.setBackend('webgl');
   await tf.ready();
+  console.log('initDetector: TF ready, backend =', tf.getBackend());
   detector = await poseDetection.createDetector(
     poseDetection.SupportedModels.MoveNet,
     { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
   );
+  console.log('initDetector: ✅ MoveNet ready');
 }
 
 function smoothKp(key, kp) {
@@ -1052,6 +1064,8 @@ function smoothKp(key, kp) {
   return smooth[key];
 }
 
+let _poseLogCount = 0;
+let _poseLogLast = 0;
 async function poseLoop() {
   const v = document.getElementById('webcam');
   if(!detector || !v || v.readyState < 2) {
@@ -1060,8 +1074,20 @@ async function poseLoop() {
   }
   try {
     const poses = await detector.estimatePoses(v, { flipHorizontal: false });
-    if(poses.length > 0) analyzePose(poses[0].keypoints);
-  } catch(e){}
+    if(poses.length > 0) {
+      analyzePose(poses[0].keypoints);
+      _poseLogCount++;
+      // Log heartbeat every ~3 seconds so we can see detection is live
+      const now = Date.now();
+      if(now - _poseLogLast > 3000) {
+        const visibleJoints = poses[0].keypoints.filter(k => k.score > 0.3).length;
+        console.log(`pose detection alive: ${_poseLogCount} frames, ${visibleJoints}/17 joints visible`);
+        _poseLogLast = now;
+      }
+    }
+  } catch(e){
+    console.log('poseLoop error:', e.message);
+  }
   requestAnimationFrame(poseLoop);
 }
 
