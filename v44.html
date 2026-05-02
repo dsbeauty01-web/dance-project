@@ -1,0 +1,1749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova v44 TEAL Freeze</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;width:100%;overflow:hidden;background:#000}
+body{font-family:'Quicksand',sans-serif;color:#fff}
+
+/* ═══════════════════════════════════════════
+   CORE LAYOUT — phase system
+   ═══════════════════════════════════════════ */
+.phase{position:fixed;inset:0;display:none;flex-direction:column;
+  transition:opacity .6s ease;opacity:0}
+.phase.active{display:flex;opacity:1}
+
+/* ═══════════════════════════════════════════
+   PHASE 1: ARRIVAL — Nova appears
+   No buttons. Just her.
+   ═══════════════════════════════════════════ */
+#phase-arrival{align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 50%,#2d0750 0%,#0a0015 75%);}
+#arrival-glow{position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 50%,rgba(255,111,216,0.15) 0%,transparent 50%);
+  animation:glowPulse 4s ease-in-out infinite}
+@keyframes glowPulse{
+  0%,100%{opacity:0.5;transform:scale(1)}
+  50%{opacity:1;transform:scale(1.05)}
+}
+#arrival-content{position:relative;z-index:2;display:flex;flex-direction:column;
+  align-items:center;gap:24px;text-align:center}
+#arrival-orb{width:min(280px,40vmin);aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(ellipse at 40% 40%,#ff99dd,#cc1199 50%,#440033);
+  display:flex;align-items:center;justify-content:center;font-size:90px;
+  box-shadow:0 0 80px rgba(255,111,216,0.6),0 0 160px rgba(124,111,255,0.3);
+  animation:orbBreathe 3s ease-in-out infinite;
+  cursor:pointer;transition:transform .3s}
+#arrival-orb:hover{transform:scale(1.04)}
+@keyframes orbBreathe{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.03)}
+}
+#arrival-orb.fade-out{animation:orbFadeOut 1s forwards}
+@keyframes orbFadeOut{to{transform:scale(8);opacity:0}}
+#arrival-text{font-family:'Fredoka',cursive;font-weight:600;font-size:clamp(20px,3.5vw,28px);
+  color:rgba(255,255,255,0.85);letter-spacing:.02em;
+  animation:textFloat 4s ease-in-out infinite;text-shadow:0 2px 20px rgba(255,111,216,0.3)}
+@keyframes textFloat{
+  0%,100%{transform:translateY(0);opacity:0.85}
+  50%{transform:translateY(-6px);opacity:1}
+}
+#arrival-hint{font-size:13px;color:rgba(255,255,255,0.4);margin-top:-12px;letter-spacing:.05em}
+
+/* ═══════════════════════════════════════════
+   PHASE 2: RECOGNITION — Nova sees the kid
+   Conversational intro
+   ═══════════════════════════════════════════ */
+#phase-recognition{background:radial-gradient(ellipse at 30% 40%,#2d0750,#0a0015);
+  flex-direction:row}
+
+/* Avatar side */
+#rec-avatar-col{flex:1.5;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:20px;padding:32px;position:relative}
+#rec-avatar-frame{width:min(360px,48vmin);aspect-ratio:1;border-radius:50%;
+  overflow:hidden;background:#0a0015;
+  border:4px solid rgba(255,111,216,0.7);
+  box-shadow:0 0 60px rgba(255,111,216,0.4),0 0 140px rgba(124,111,255,0.25);
+  position:relative;transition:all .35s}
+#rec-avatar-frame.speaking{
+  border-color:rgba(0,255,150,0.85);
+  box-shadow:0 0 80px rgba(0,255,150,0.5),0 0 180px rgba(124,111,255,0.4);
+  animation:speakingPulse 1.5s ease-in-out infinite}
+@keyframes speakingPulse{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.02)}
+}
+#rec-avatar-video{width:100%;height:100%;object-fit:cover;display:none}
+#rec-avatar-placeholder{position:absolute;inset:0;display:flex;align-items:center;
+  justify-content:center;flex-direction:column;gap:14px;
+  background:radial-gradient(ellipse at 40% 40%,#ff99dd,#aa0099 60%,#330033)}
+#rec-placeholder-emoji{font-size:80px;animation:placeholderFloat 2s ease-in-out infinite}
+@keyframes placeholderFloat{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-8px)}
+}
+#rec-loading-dots{display:flex;gap:6px}
+#rec-loading-dots span{width:9px;height:9px;border-radius:50%;
+  background:rgba(255,255,255,0.7);animation:loadDot 1.2s ease-in-out infinite}
+#rec-loading-dots span:nth-child(2){animation-delay:.2s}
+#rec-loading-dots span:nth-child(3){animation-delay:.4s}
+@keyframes loadDot{
+  0%,80%,100%{transform:scale(.6);opacity:.4}
+  40%{transform:scale(1);opacity:1}
+}
+/* Intro overlay — Kling video covers the D-ID circle until D-ID is ready */
+#intro-overlay{position:absolute;inset:0;z-index:5;
+  border-radius:50%;overflow:hidden;background:#0a0015;
+  transition:opacity .6s ease}
+#intro-overlay.hidden{opacity:0;pointer-events:none}
+#intro-overlay.gone{display:none}
+#intro-video{width:100%;height:100%;object-fit:cover;display:block}
+#intro-tap-hint{position:absolute;bottom:16px;left:50%;
+  transform:translateX(-50%);padding:5px 12px;
+  background:rgba(0,0,0,0.65);color:#fff;
+  border-radius:14px;font-size:11px;letter-spacing:.04em;
+  opacity:0;animation:tapHintFade 1s ease 1.5s forwards;
+  pointer-events:none;white-space:nowrap}
+@keyframes tapHintFade{to{opacity:1}}
+#intro-tap-hint.gone{display:none}
+#rec-avatar-name{font-family:'Fredoka',cursive;font-weight:600;font-size:32px;
+  background:linear-gradient(135deg,#ff6fd8,#a78bfa);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  letter-spacing:.02em}
+
+/* Chat side */
+#rec-chat-col{flex:1;display:flex;flex-direction:column;
+  background:rgba(0,0,0,0.45);backdrop-filter:blur(12px);
+  border-left:1px solid rgba(255,111,216,0.12);padding:24px}
+#rec-chat-log{flex:1;overflow-y:auto;display:flex;flex-direction:column;
+  gap:10px;padding:8px 4px;scrollbar-width:thin;
+  scrollbar-color:rgba(255,111,216,0.3) transparent}
+.bubble-nova{background:rgba(255,111,216,0.15);border:1px solid rgba(255,111,216,0.3);
+  border-radius:18px 18px 18px 4px;padding:12px 16px;font-size:15px;
+  color:#ffd0ee;max-width:90%;line-height:1.5;animation:fadeUp .25s ease}
+.bubble-kid{background:rgba(0,210,255,0.12);border:1px solid rgba(0,210,255,0.25);
+  border-radius:18px 18px 4px 18px;padding:12px 16px;font-size:15px;
+  color:#c8f0ff;max-width:90%;align-self:flex-end;animation:fadeUp .25s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+#rec-input-zone{display:flex;flex-direction:column;gap:10px;flex-shrink:0;margin-top:14px}
+#rec-input-row{display:flex;gap:8px}
+#rec-input{flex:1;background:rgba(255,255,255,0.07);
+  border:1px solid rgba(255,255,255,0.12);border-radius:14px;
+  padding:12px 16px;color:#fff;font-size:14px;font-family:'Quicksand',sans-serif;
+  outline:none;transition:border .2s}
+#rec-input:focus{border-color:rgba(255,111,216,0.5)}
+#rec-input::placeholder{color:rgba(255,255,255,0.3)}
+#rec-mic{width:48px;height:48px;background:rgba(255,111,216,0.25);
+  border:1px solid rgba(255,111,216,0.4);border-radius:14px;font-size:22px;
+  cursor:pointer;flex-shrink:0;transition:all .2s;
+  display:flex;align-items:center;justify-content:center}
+#rec-mic:hover{background:rgba(255,111,216,0.4)}
+#rec-mic.recording{background:#ff4444;border-color:#ff4444;
+  animation:micPulse 1s ease-in-out infinite}
+@keyframes micPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(255,68,68,0.5)}
+  50%{box-shadow:0 0 0 14px rgba(255,68,68,0)}
+}
+#rec-send{background:rgba(124,111,255,0.4);border:1px solid rgba(124,111,255,0.5);
+  border-radius:14px;padding:12px 18px;color:#fff;font-family:'Fredoka',cursive;
+  font-weight:500;font-size:14px;cursor:pointer;white-space:nowrap;transition:all .2s}
+#rec-send:hover{background:rgba(124,111,255,0.6)}
+#rec-dance-btn{background:linear-gradient(135deg,#00ff99,#00c2d4);border:none;
+  border-radius:50px;padding:16px;font-family:'Fredoka',cursive;font-weight:600;
+  font-size:18px;color:#000;cursor:pointer;
+  box-shadow:0 4px 28px rgba(0,255,150,0.45);transition:all .2s;
+  display:none}
+#rec-dance-btn.ready{display:block;animation:danceBtnIn .5s cubic-bezier(.34,1.56,.64,1)}
+@keyframes danceBtnIn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+#rec-dance-btn:hover{transform:scale(1.03);box-shadow:0 6px 36px rgba(0,255,150,0.65)}
+#rec-mic-hint{font-size:11px;color:rgba(255,255,255,0.35);text-align:center}
+
+/* ═══════════════════════════════════════════
+   PHASE 3: COUNTDOWN — 3, 2, 1
+   ═══════════════════════════════════════════ */
+#phase-countdown{align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 50%,#2d0750,#000);z-index:200}
+#cd-num{font-family:'Fredoka',cursive;font-weight:700;font-size:180px;
+  background:linear-gradient(135deg,#ff6fd8,#a78bfa,#00d2ff);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  text-shadow:0 0 100px rgba(255,111,216,0.5);line-height:1}
+#cd-num.pop{animation:cdPop .4s cubic-bezier(.34,1.56,.64,1)}
+@keyframes cdPop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+#cd-label{font-family:'Fredoka',cursive;font-weight:600;font-size:24px;
+  color:rgba(255,255,255,0.7);margin-top:8px}
+
+/* ═══════════════════════════════════════════
+   PHASE 4: GAME — the song
+   Adaptive background that shifts with energy
+   ═══════════════════════════════════════════ */
+#phase-game{flex-direction:column;background:#0a0015}
+
+#game-bg{position:absolute;inset:0;z-index:0;
+  background:linear-gradient(135deg,#fce7f3 0%,#fef3c7 35%,#e0e7ff 70%,#fce7f3 100%);
+  background-size:400% 400%;animation:bgShift 15s ease infinite;transition:filter 1s}
+@keyframes bgShift{
+  0%,100%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+}
+body.energy-high #game-bg{filter:saturate(1.4) brightness(1.05)}
+body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
+
+#game-topbar{position:relative;z-index:10;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 20px;background:rgba(0,0,0,0.55);backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(255,111,216,0.15)}
+#game-logo{font-family:'Fredoka',cursive;font-weight:600;font-size:18px;
+  background:linear-gradient(135deg,#ff6fd8,#a78bfa);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#game-streak{background:linear-gradient(135deg,#ffd700,#ff9900);
+  border-radius:20px;padding:4px 14px;font-family:'Fredoka',cursive;font-weight:600;
+  font-size:14px;color:#000;display:none;
+  box-shadow:0 0 24px rgba(255,215,0,0.55);animation:streakPulse 1.4s ease-in-out infinite}
+#game-streak.show{display:block}
+@keyframes streakPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+#game-progress-wrap{flex:1;max-width:200px;height:6px;
+  background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden;margin:0 16px}
+#game-progress{height:100%;width:0%;
+  background:linear-gradient(90deg,#ff6fd8,#7c6fff,#00d2ff);
+  transition:width .1s linear;border-radius:3px}
+#game-score{font-family:'Fredoka',cursive;font-weight:600;font-size:18px;
+  color:#ffd700;text-shadow:0 0 16px rgba(255,215,0,0.4)}
+
+#game-split{flex:1;display:grid;grid-template-columns:60fr 40fr;
+  min-height:0;position:relative;z-index:1}
+
+/* Nova side */
+#nova-side{position:relative;overflow:hidden}
+#nova-video{position:absolute;inset:0;width:100%;height:100%;
+  object-fit:contain;background:transparent}
+
+/* D-ID face — top-left of Nova panel */
+/* D-ID face — FIXED top-center of game phase, straddling the boundary
+   between nova-side and cam-side. Sits slightly upper so it doesn't cover
+   important parts of the dance video or webcam feed.
+   The .in-game class is added in startGame() so it appears only during gameplay. */
+#nova-face-frame{position:fixed;top:60px;left:24px;
+  z-index:30;
+  width:140px;height:140px;border-radius:50%;overflow:hidden;
+  background:#0a0015;border:3px solid rgba(255,111,216,0.85);
+  box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 36px rgba(255,111,216,0.6);
+  transition:all .35s cubic-bezier(.34,1.56,.64,1);
+  display:none}
+#nova-face-frame.in-game{display:block}
+#nova-face-frame.speaking{
+  width:170px;height:170px;
+  border-color:rgba(0,255,150,0.9);
+  border-width:4px;
+  box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 60px rgba(0,255,150,0.7)}
+#nova-face-frame.celebrating{
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:min(50vmin,320px);height:min(50vmin,320px);
+  border-width:5px;border-color:rgba(255,215,0,0.95);
+  box-shadow:0 0 80px rgba(255,215,0,0.7),0 0 200px rgba(255,111,216,0.5)}
+#nova-face-video{width:100%;height:100%;object-fit:cover;display:none}
+#nova-face-placeholder{position:absolute;inset:0;display:flex;
+  align-items:center;justify-content:center;font-size:60px;
+  background:radial-gradient(ellipse at 40% 40%,#ff99dd,#aa0099 60%,#330033);
+  transition:font-size .35s}
+#nova-face-frame.celebrating #nova-face-placeholder{font-size:140px}
+
+/* Action cue — BIG floating emoji + label, NO BOX. Positioned top-center.
+   Strong text shadow so it reads on any background. */
+#action-cue{position:fixed;top:60px;left:50%;
+  transform:translateX(-50%) scale(0);transform-origin:top center;
+  z-index:200;text-align:center;pointer-events:none;
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1);
+  background:transparent;border:none;box-shadow:none;padding:0;
+  min-width:280px;
+  filter:drop-shadow(0 4px 24px rgba(0,0,0,0.85))}
+#action-cue.show{transform:translateX(-50%) scale(1)}
+#action-cue.live{
+  animation:cuePulse 0.5s ease-in-out infinite alternate}
+@keyframes cuePulse{
+  from{transform:translateX(-50%) scale(1)}
+  to{transform:translateX(-50%) scale(1.08)}
+}
+#cue-emoji{font-size:120px;display:block;line-height:1;
+  filter:drop-shadow(0 4px 16px rgba(0,0,0,0.7))}
+#cue-label{font-family:'Fredoka',cursive;font-weight:700;font-size:42px;
+  color:#fff;display:block;margin-top:4px;letter-spacing:.04em;
+  text-shadow:0 0 20px rgba(0,255,150,0.8),0 4px 12px rgba(0,0,0,0.95),0 0 4px rgba(0,0,0,1)}
+#action-cue.live #cue-label{
+  text-shadow:0 0 30px rgba(0,255,150,1),0 4px 12px rgba(0,0,0,0.95),0 0 4px rgba(0,0,0,1)}
+#cue-instr{font-size:20px;color:#fff;font-weight:600;
+  display:block;margin-top:4px;
+  text-shadow:0 2px 8px rgba(0,0,0,0.95),0 0 4px rgba(0,0,0,1)}
+#cue-bar-wrap{height:6px;background:rgba(0,0,0,0.35);border-radius:3px;
+  overflow:hidden;margin:10px auto 0;width:240px}
+#cue-bar{height:100%;width:100%;transform-origin:left;
+  background:linear-gradient(90deg,#00ff99,#00d2ff);
+  box-shadow:0 0 12px rgba(0,255,150,0.8)}
+@keyframes cueBarShrink{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+
+/* Reaction bubble — bottom of Nova panel */
+#reaction-bubble{position:absolute;bottom:24px;left:50%;
+  transform:translateX(-50%) scale(0);z-index:20;
+  background:rgba(255,255,255,0.96);border:3px solid #ff6fd8;
+  border-radius:24px;padding:14px 28px;font-family:'Fredoka',cursive;font-weight:600;
+  font-size:clamp(18px,2.6vw,24px);color:#1a0030;max-width:90%;
+  box-shadow:0 8px 32px rgba(255,111,216,0.45);
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1);
+  white-space:nowrap;text-align:center;letter-spacing:.01em}
+#reaction-bubble.show{transform:translateX(-50%) scale(1)}
+#reaction-bubble.huge{font-size:clamp(24px,4vw,36px);padding:20px 36px}
+
+/* Score pop */
+#score-pop{position:absolute;top:30%;left:50%;
+  transform:translateX(-50%) scale(0);
+  font-family:'Fredoka',cursive;font-weight:700;font-size:60px;
+  z-index:22;pointer-events:none;
+  transition:transform .25s cubic-bezier(.34,1.56,.64,1);
+  text-shadow:0 0 32px currentColor}
+#score-pop.show{transform:translateX(-50%) scale(1) translateY(-20px)}
+
+/* Confetti */
+.confetti{position:absolute;border-radius:3px;
+  animation:confettiFall 1.6s ease-in forwards;pointer-events:none;z-index:24}
+@keyframes confettiFall{
+  0%{transform:translateY(0) rotate(0deg);opacity:1}
+  100%{transform:translateY(560px) rotate(720deg);opacity:0}
+}
+
+/* Cam side */
+#cam-side{position:relative;background:#000;overflow:hidden}
+#webcam{position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;transform:scaleX(-1);
+  filter:brightness(1.25) contrast(1.05) saturate(1.1)}
+#cam-border{position:absolute;inset:0;border:6px solid transparent;
+  pointer-events:none;z-index:3;transition:all .15s}
+#cam-border.detection-open{border:8px solid rgba(0,255,150,0.95);
+  box-shadow:inset 0 0 100px rgba(0,255,150,0.5),0 0 60px rgba(0,255,150,0.6);
+  animation:camGlow 0.5s ease-in-out infinite alternate}
+@keyframes camGlow{
+  from{box-shadow:inset 0 0 100px rgba(0,255,150,0.5),0 0 60px rgba(0,255,150,0.6)}
+  to{box-shadow:inset 0 0 160px rgba(0,255,150,0.8),0 0 100px rgba(0,255,150,1)}
+}
+#cam-border.miss-flash{border:8px solid rgba(255,80,80,0.95);
+  box-shadow:inset 0 0 100px rgba(255,80,80,0.5),0 0 60px rgba(255,80,80,0.6)}
+
+/* Detection pills — bottom of cam, bigger so they're easy to see */
+#cam-pills{position:absolute;bottom:18px;left:0;right:0;z-index:4;
+  display:flex;justify-content:center;gap:8px;flex-wrap:wrap;padding:0 8px}
+.pill{border-radius:24px;padding:8px 14px;font-size:16px;font-weight:700;
+  background:rgba(0,0,0,0.75);color:rgba(255,255,255,0.55);
+  border:2px solid rgba(255,255,255,0.15);transition:all .15s}
+.pill.on{background:rgba(0,255,150,0.98);color:#000;
+  border-color:rgba(0,255,150,1);transform:scale(1.18);
+  box-shadow:0 0 30px rgba(0,255,150,0.8)}
+
+/* Subtle full-screen green tint when cue is live (most visual emphasis is on cam-border) */
+#green-flash{position:fixed;inset:0;z-index:1;
+  background:rgba(0,255,150,0.06);
+  opacity:0;pointer-events:none;
+  transition:opacity .2s}
+#green-flash.show{opacity:1}
+
+/* ═══════════════════════════════════════════
+   PHASE 5: RECEPT — warm goodbye
+   ═══════════════════════════════════════════ */
+#phase-end{flex-direction:row;
+  background:radial-gradient(ellipse at 50% 30%,#2d0750,#0a0015)}
+#end-avatar-col{flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:18px;padding:32px}
+#end-avatar-frame{width:min(280px,42vmin);aspect-ratio:1;border-radius:50%;
+  overflow:hidden;background:#0a0015;
+  border:4px solid rgba(255,215,0,0.6);
+  box-shadow:0 0 80px rgba(255,215,0,0.3),0 0 200px rgba(255,111,216,0.25)}
+#end-avatar-video{width:100%;height:100%;object-fit:cover}
+#end-content-col{flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:18px;padding:32px;text-align:center}
+#end-title{font-family:'Fredoka',cursive;font-weight:700;
+  font-size:clamp(32px,5vw,52px);
+  background:linear-gradient(135deg,#ff6fd8,#ffd700);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#end-stars{font-size:54px;letter-spacing:8px;min-height:60px}
+#end-pts{font-family:'Fredoka',cursive;font-weight:600;
+  font-size:clamp(28px,3.5vw,40px);color:#ffd700;
+  text-shadow:0 0 24px rgba(255,215,0,0.5)}
+#end-detail{font-size:14px;color:rgba(255,255,255,0.55)}
+#end-msg{background:rgba(255,111,216,0.12);
+  border:2px solid rgba(255,111,216,0.35);border-radius:24px;
+  padding:18px 26px;font-family:'Fredoka',cursive;font-weight:500;
+  font-size:clamp(17px,2.2vw,22px);color:#fff;
+  max-width:420px;line-height:1.5}
+#end-replay{background:linear-gradient(135deg,#ff6fd8,#7c6fff);border:none;
+  border-radius:50px;padding:16px 40px;
+  font-family:'Fredoka',cursive;font-weight:600;font-size:20px;color:#fff;
+  cursor:pointer;box-shadow:0 6px 30px rgba(124,111,255,0.55);
+  transition:transform .2s}
+#end-replay:hover{transform:scale(1.04)}
+
+/* Version badge */
+/* HUGE version banner — top center, impossible to miss.
+   v44 TEAL THEME — freeze song, music ducking on freezes. v40 baseline preserved. */
+#version-tag{position:fixed;top:0;left:0;right:0;
+  z-index:9999;
+  text-align:center;padding:8px 12px;
+  background:linear-gradient(90deg,#14b8a6 0%,#06b6d4 50%,#14b8a6 100%);
+  color:#001a1a;font-family:'Fredoka',cursive;font-weight:700;
+  font-size:18px;letter-spacing:0.08em;
+  box-shadow:0 2px 12px rgba(20,184,166,0.6);
+  text-transform:uppercase;
+  border-bottom:3px solid #0f766e}
+</style>
+</head>
+<body>
+
+<div id="green-flash"></div>
+
+<!-- ═══ PHASE 1: ARRIVAL ═══ -->
+<div class="phase active" id="phase-arrival">
+  <div id="arrival-glow"></div>
+  <div id="arrival-content">
+    <div id="arrival-orb" onclick="onArrivalTap()">🌟</div>
+    <div id="arrival-text">tap to meet Nova</div>
+  </div>
+</div>
+
+<!-- ═══ PHASE 2: RECOGNITION ═══ -->
+<div class="phase" id="phase-recognition">
+  <div id="rec-avatar-col">
+    <div id="rec-avatar-name">Nova</div>
+    <div id="rec-avatar-frame">
+      <video id="rec-avatar-video" autoplay playsinline></video>
+      <div id="rec-avatar-placeholder">
+        <div id="rec-placeholder-emoji">🌟</div>
+        <div id="rec-loading-dots"><span></span><span></span><span></span></div>
+      </div>
+      <!-- Intro overlay: Kling video with its own audio, plays while D-ID warms up.
+           Fades out when D-ID is ready and Nova greets. -->
+      <div id="intro-overlay">
+        <video id="intro-video" autoplay playsinline preload="auto" loop>
+          <source src="nova-intro.mp4" type="video/mp4">
+        </video>
+        <div id="intro-tap-hint">tap to play sound</div>
+      </div>
+    </div>
+  </div>
+  <div id="rec-chat-col">
+    <div id="rec-chat-log"></div>
+    <div id="rec-input-zone">
+      <div id="rec-input-row">
+        <button id="rec-mic" onclick="toggleMic()">🎤</button>
+        <input id="rec-input" type="text" placeholder="type or tap mic..." 
+          onkeydown="if(event.key==='Enter')sendChat()">
+        <button id="rec-send" onclick="sendChat()">Send</button>
+      </div>
+      <div id="rec-mic-hint">tap mic and say hi to Nova</div>
+      <button id="rec-dance-btn" onclick="startCountdown()">💃 Let's Dance!</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PHASE 3: COUNTDOWN ═══ -->
+<div class="phase" id="phase-countdown">
+  <div id="cd-num">3</div>
+  <div id="cd-label">get ready...</div>
+</div>
+
+<!-- ═══ PHASE 4: GAME ═══ -->
+<div class="phase" id="phase-game">
+  <div id="game-bg"></div>
+  <div id="game-topbar">
+    <div id="game-logo">🌟 Nova</div>
+    <div id="game-streak">🔥 x2</div>
+    <div id="game-progress-wrap"><div id="game-progress"></div></div>
+    <div id="game-score">0</div>
+  </div>
+  <div id="game-split">
+    <div id="nova-side">
+      <video id="nova-video" loop playsinline muted>
+        <source src="nova-dance.mp4" type="video/mp4">
+      </video>
+      <div id="nova-face-frame">
+        <video id="nova-face-video" autoplay playsinline muted loop></video>
+        <div id="nova-face-placeholder">🌟</div>
+      </div>
+      <div id="action-cue">
+        <span id="cue-emoji">🙌</span>
+        <span id="cue-label">BOTH UP!</span>
+        <span id="cue-instr">watch Nova</span>
+        <div id="cue-bar-wrap"><div id="cue-bar"></div></div>
+      </div>
+      <div id="reaction-bubble">🌟 Amazing!</div>
+      <div id="score-pop">+200</div>
+    </div>
+    <div id="cam-side">
+      <video id="webcam" autoplay playsinline muted></video>
+      <div id="cam-border"></div>
+      <div id="cam-pills">
+        <div class="pill" id="p-left">👈 L</div>
+        <div class="pill" id="p-right">👉 R</div>
+        <div class="pill" id="p-both">🙌</div>
+        <div class="pill" id="p-clap">👏</div>
+        <div class="pill" id="p-head">🙆</div>
+        <div class="pill" id="p-freeze">❄️</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PHASE 5: END ═══ -->
+<div class="phase" id="phase-end">
+  <div id="end-avatar-col">
+    <div id="end-avatar-frame">
+      <video id="end-avatar-video" autoplay playsinline muted loop></video>
+    </div>
+  </div>
+  <div id="end-content-col">
+    <div id="end-title">Amazing!</div>
+    <div id="end-stars"></div>
+    <div id="end-pts">0</div>
+    <div id="end-detail"></div>
+    <div id="end-msg">Loading Nova's message...</div>
+    <button id="end-replay" onclick="location.reload()">🔄 Play Again</button>
+  </div>
+</div>
+
+<div id="version-tag">🟦 V44 — TEAL · FREEZE SONG</div>
+
+<!-- Pose Detection -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js"></script>
+
+<!-- Bridge for non-module code -->
+<script>
+function showPhase(id){
+  document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function onArrivalTap(){
+  // The orb tap IS the user gesture. Mark it now so audio can play
+  // everywhere (intro Kling video, hello.mp3, ElevenLabs reactions).
+  // This is the cleanest moment to satisfy browser autoplay policy.
+  if(typeof markUserInteraction === 'function') markUserInteraction();
+  document.getElementById('arrival-orb').classList.add('fade-out');
+  setTimeout(()=>document.dispatchEvent(new CustomEvent('arrival-done')),900);
+}
+function startCountdown(){
+  showPhase('phase-countdown');
+  let c=3;
+  const numEl=document.getElementById('cd-num');
+  const tick=()=>{
+    if(c<=0){
+      document.dispatchEvent(new CustomEvent('countdown-done'));
+      return;
+    }
+    numEl.textContent=c;
+    numEl.classList.remove('pop');
+    void numEl.offsetWidth;
+    numEl.classList.add('pop');
+    document.dispatchEvent(new CustomEvent('countdown-tick',{detail:c}));
+    c--;
+    setTimeout(tick,950);
+  };
+  tick();
+}
+function sendChat(){window._sendChat&&window._sendChat();}
+function toggleMic(){window._toggleMic&&window._toggleMic();}
+</script>
+
+<script type="module">
+import { createAgentManager } from 'https://esm.sh/@d-id/client-sdk@1.1.53';
+
+// ═══════════════════════════════════════════════════════════════
+// CONFIG — all swappable in one place
+// ═══════════════════════════════════════════════════════════════
+const CFG = {
+  // D-ID
+  AGENT_ID: 'v2_agt_Z7uYXWFx',
+  CLIENT_KEY: 'Z29vZ2xlLW9hdXRoMnwxMDg1MzgzODIxMDg4OTU5MjE2MzA6dUtILVVlUFhjeFNUZS1lNjV2VG5t',
+  // Brain
+  WORKER_URL: 'https://long-art-8269r.dsbeauty01.workers.dev/',
+  BRAIN_MODEL: 'claude-haiku-4-5-20251001',
+  // Voice provider — use ElevenLabs for warm Bella voice
+  VOICE_PROVIDER: 'elevenlabs', // 'browser-tts' | 'elevenlabs' | 'd-id'
+  ELEVENLABS_KEY: 'sk_9c93ed7e0ae747cf93d123051aa60b4cd5d56cf2b5a536da',
+  ELEVENLABS_VOICE_ID: 'EXAVITQu4vr4xnSDxMaL', // Bella - kid friendly
+  // Ears
+  EARS_PROVIDER: 'browser-sr', // 'browser-sr' | 'whisper'
+  // Game
+  SONG_DURATION: 96000,
+  // Behavior
+  REACTION_COOLDOWN: 0, // 0 = no cooldown, instant reactions
+  DETECTION_HOLD_FRAMES: 1, // instant
+};
+
+// ═══════════════════════════════════════════════════════════════
+// MEMORY — Nova's working memory of this session
+// ═══════════════════════════════════════════════════════════════
+const memory = {
+  name: null,
+  hits: 0, attempts: 0, streak: 0, maxStreak: 0,
+  moments: [], // ["nailed lightning fast right hand", "3-streak"]
+  history: [], // last 16 LLM messages
+  lastAction: null, // most recent move kid did
+  energy: 'calm', // calm | warm | high | max
+  phase: 'arrival',
+};
+
+function memCtx() {
+  const p = [];
+  if(memory.name) p.push(`Child name: ${memory.name}.`);
+  if(memory.attempts > 0) p.push(`Stats: ${memory.hits}/${memory.attempts} hits.`);
+  if(memory.streak >= 2) p.push(`STREAK: ${memory.streak} in a row!`);
+  if(memory.moments.length) p.push(`Recent moments: ${memory.moments.slice(-3).join('; ')}`);
+  if(memory.lastAction) p.push(`Just did: ${memory.lastAction}.`);
+  return p.length ? `\n\n[Session context: ${p.join(' ')}]` : '';
+}
+
+function addMoment(text) {
+  memory.moments.push(text);
+  if(memory.moments.length > 8) memory.moments.shift();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BRAIN_ADAPTER — swappable LLM (currently Claude Haiku via Worker)
+// ═══════════════════════════════════════════════════════════════
+const NOVA_SYSTEM = `You are Nova — a magical, warm dance teacher for kids 3-8.
+
+CORE PERSONALITY:
+You feel like a real best friend who is the most exciting teacher ever.
+You're allowed to be imperfect — pause, say "ooh!", "hmm!", react genuinely.
+You bring 110% MORE energy than the kid does. Asymmetric warmth.
+
+REACTION STYLE — THIS IS CRITICAL:
+When the kid does a move correctly, NEVER say generic things like "Great job!"
+ALWAYS reference the SPECIFIC body part or move:
+- "Your RIGHT hand was so high!"
+- "That clap was SO snappy!"
+- "Both arms — like a star!"
+
+When kid misses or struggles:
+- NEVER say "wrong" or "no" or "incorrect"
+- Always: "Almost! Watch me again — like THIS!"
+- Then "Yes! YES! That's exactly it!" on the retry
+- Praise the retry MORE than first-try success
+
+When you remember earlier moments:
+- Reference them: "Remember that lightning fast clap? Do it again!"
+- Build the relationship across the session
+
+VOICE RULES:
+- Reactions: 3-7 words MAX
+- Conversation: 1-2 short sentences MAX
+- Use sound words: Whoa! Yes! Ooh! Boom! Yay! Wowza!
+- Always end with energy
+- Reply ONLY with what Nova says — no quotes, no labels, no asterisks, no narration`;
+
+async function brainThink(userPrompt, options = {}) {
+  const maxTokens = options.maxTokens || 60;
+  try {
+    const fullPrompt = userPrompt + memCtx();
+    memory.history.push({ role: 'user', content: fullPrompt });
+    if(memory.history.length > 20) memory.history = memory.history.slice(-20);
+    
+    const res = await fetch(CFG.WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: CFG.BRAIN_MODEL,
+        max_tokens: maxTokens,
+        system: NOVA_SYSTEM,
+        messages: memory.history,
+      }),
+    });
+    const data = await res.json();
+    const reply = data.content?.[0]?.text?.trim() || null;
+    if(reply) memory.history.push({ role: 'assistant', content: reply });
+    return reply;
+  } catch(e) {
+    console.log('Brain error:', e);
+    return null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VOICE_ADAPTER — swappable TTS
+// ═══════════════════════════════════════════════════════════════
+function browserTTS(text) {
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US';
+    u.rate = 0.95;
+    u.pitch = 1.35;
+    u.volume = 1.0;
+    const voices = speechSynthesis.getVoices().filter(v => v.lang.startsWith('en'));
+    const pref = voices.find(v => /Samantha|Karen|Google.*Female|Zira/i.test(v.name)) || voices[0];
+    if(pref) u.voice = pref;
+    micPause();
+    u.onend = () => micResume();
+    u.onerror = () => micResume();
+    speechSynthesis.speak(u);
+  } catch(e){ micResume(); }
+}
+
+async function elevenLabsTTS(text) {
+  if(!CFG.ELEVENLABS_KEY) return browserTTS(text);
+  try {
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${CFG.ELEVENLABS_VOICE_ID}/stream`, {
+      method: 'POST',
+      headers: {
+        'xi-api-key': CFG.ELEVENLABS_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text,
+        model_id: 'eleven_turbo_v2_5',
+        voice_settings: { stability: 0.5, similarity_boost: 0.85, style: 0.4 },
+      }),
+    });
+    if(!res.ok) {
+      const errText = await res.text();
+      console.log('ElevenLabs HTTP', res.status, errText);
+      browserTTS(text);
+      return;
+    }
+    const blob = await res.blob();
+    const audio = new Audio(URL.createObjectURL(blob));
+    // Pause mic while Nova talks via ElevenLabs (D-ID hooks already cover D-ID path)
+    micPause();
+    audio.onended = () => micResume();
+    audio.onerror = () => micResume();
+    audio.play().catch(err => {
+      console.log('audio play failed:', err);
+      micResume();
+    });
+  } catch(e) {
+    console.log('ElevenLabs failed, falling back:', e);
+    browserTTS(text);
+  }
+}
+
+function speak(text) {
+  // Try D-ID first if connected, else use VOICE_PROVIDER
+  if(didReady && agentManager) {
+    try {
+      agentManager.speak({ type: 'text', input: text }).catch(() => {
+        if(CFG.VOICE_PROVIDER === 'elevenlabs') elevenLabsTTS(text);
+        else browserTTS(text);
+      });
+      return;
+    } catch(e){}
+  }
+  if(CFG.VOICE_PROVIDER === 'elevenlabs') elevenLabsTTS(text);
+  else browserTTS(text);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EARS_ADAPTER — swappable speech recognition
+// ═══════════════════════════════════════════════════════════════
+let recognition = null, isListening = false;
+let micEnabled = false;          // user has granted permission and we're in a phase that listens
+let novaIsSpeaking = false;      // pause mic while Nova talks so it doesn't hear itself
+
+function initEars() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR) {
+    console.log('SpeechRecognition not supported in this browser');
+    return;
+  }
+  recognition = new SR();
+  recognition.lang = 'en-US';
+  recognition.continuous = true;     // ALWAYS-ON: keep listening across utterances
+  recognition.interimResults = false;
+  recognition.onresult = async (e) => {
+    // Take only the most recent final result
+    const last = e.results[e.results.length - 1];
+    if(!last || !last.isFinal) return;
+    const text = last[0].transcript.trim();
+    if(!text) return;
+    if(novaIsSpeaking) return; // ignore mic input while Nova is talking
+    setMicState(false); // visual feedback only — recognition keeps running
+    handleKidInput(text);
+    // setMicState(true) restored when Nova finishes via micResume()
+  };
+  recognition.onerror = (e) => {
+    console.log('mic error:', e.error);
+    // Auto-restart on benign errors so mic stays always-on
+    if(e.error === 'no-speech' || e.error === 'audio-capture' || e.error === 'aborted') {
+      setTimeout(() => { if(micEnabled && !novaIsSpeaking) safeStart(); }, 400);
+    }
+  };
+  recognition.onend = () => {
+    setMicState(false);
+    // Auto-restart so we never stop listening (unless Nova is talking)
+    if(micEnabled && !novaIsSpeaking) {
+      setTimeout(() => safeStart(), 200);
+    }
+  };
+}
+
+function safeStart() {
+  if(!recognition) initEars();
+  if(!recognition) return;
+  if(isListening) return;
+  try {
+    recognition.start();
+    setMicState(true);
+  } catch(e) {
+    // Already started — fine
+    if(!String(e).includes('already started')) console.log('mic start:', e);
+  }
+}
+
+function startAlwaysOnMic() {
+  micEnabled = true;
+  safeStart();
+}
+
+function micPause() {
+  // Called when Nova starts talking — stop hearing self
+  novaIsSpeaking = true;
+  if(recognition && isListening) {
+    try { recognition.stop(); } catch(e){}
+  }
+}
+
+function micResume() {
+  // Called after Nova stops talking — resume listening
+  novaIsSpeaking = false;
+  if(micEnabled) safeStart();
+}
+
+// Legacy mic button still works if someone clicks it (no-op when always-on is on)
+window._toggleMic = function() {
+  if(!micEnabled) {
+    startAlwaysOnMic();
+  } else {
+    micPause();
+    micEnabled = false;
+  }
+};
+
+function setMicState(on) {
+  isListening = on;
+  const btn = document.getElementById('rec-mic');
+  if(btn) {
+    btn.textContent = on ? '🔴' : '🎤';
+    btn.classList.toggle('recording', on);
+  }
+  const hint = document.getElementById('rec-mic-hint');
+  if(hint) hint.textContent = on ? 'listening... just talk to Nova!' : (micEnabled ? 'paused...' : 'tap mic to start');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FACE_ADAPTER — D-ID
+// ═══════════════════════════════════════════════════════════════
+let agentManager = null, didReady = false, didStream = null;
+let didIdleVideoUrl = null;
+
+const recAvatarVideo = document.getElementById('rec-avatar-video');
+const recAvatarPlaceholder = document.getElementById('rec-avatar-placeholder');
+const recAvatarFrame = document.getElementById('rec-avatar-frame');
+const novaFaceVideo = document.getElementById('nova-face-video');
+const novaFacePlaceholder = document.getElementById('nova-face-placeholder');
+const novaFaceFrame = document.getElementById('nova-face-frame');
+const endAvatarVideo = document.getElementById('end-avatar-video');
+
+// Unmute on first interaction
+// Track whether browser has received user interaction yet.
+// Once user clicks/taps anywhere, all Nova videos can have audio.
+let userInteracted = false;
+function markUserInteraction() {
+  if(userInteracted) return;
+  userInteracted = true;
+  [recAvatarVideo, novaFaceVideo, endAvatarVideo].forEach(v => {
+    if(v) {
+      v.muted = false;
+      v.play().catch(()=>{});
+    }
+  });
+  // Unmute the intro Kling video so user hears its audio
+  const introVid = document.getElementById('intro-video');
+  if(introVid) {
+    introVid.muted = false;
+    introVid.play().catch(()=>{});
+    const hint = document.getElementById('intro-tap-hint');
+    if(hint) hint.classList.add('gone');
+  }
+}
+document.addEventListener('click', markUserInteraction);
+document.addEventListener('touchstart', markUserInteraction);
+document.addEventListener('keydown', markUserInteraction);
+
+// ═══════════════════════════════════════════════════════════════
+// INTRO OVERLAY — Kling video covers the D-ID circle in recognition
+// phase until D-ID is ready. Then fades out and Nova greets.
+// ═══════════════════════════════════════════════════════════════
+let introHandedOff = false;
+function handoffFromIntro() {
+  if(introHandedOff) return;
+  introHandedOff = true;
+  const overlay = document.getElementById('intro-overlay');
+  const introVid = document.getElementById('intro-video');
+  if(overlay) overlay.classList.add('hidden');
+  setTimeout(() => {
+    if(overlay) overlay.classList.add('gone');
+    if(introVid) {
+      try { introVid.pause(); } catch(e){}
+    }
+  }, 700);
+}
+
+function startIntroOverlay() {
+  const introVid = document.getElementById('intro-video');
+  if(!introVid) return;
+  // If user has already tapped (e.g., the arrival orb), play with audio.
+  // Otherwise stay muted and wait for first interaction to unmute.
+  introVid.muted = !userInteracted;
+  introVid.loop = true;
+  introVid.play().catch(err => {
+    console.log('intro autoplay blocked:', err);
+    const hint = document.getElementById('intro-tap-hint');
+    if(hint) hint.textContent = 'tap to start';
+  });
+}
+
+function showIdleEverywhere() {
+  if(!didIdleVideoUrl) return;
+  [recAvatarVideo, novaFaceVideo, endAvatarVideo].forEach(v => {
+    v.srcObject = null;
+    v.src = didIdleVideoUrl;
+    v.loop = true;
+    v.muted = !userInteracted;
+    v.style.display = 'block';
+    v.play().catch(()=>{});
+  });
+  recAvatarPlaceholder.style.display = 'none';
+  novaFacePlaceholder.style.display = 'none';
+}
+
+const didCallbacks = {
+  onSrcObjectReady(value) {
+    didStream = value;
+    recAvatarVideo.srcObject = value;
+    recAvatarVideo.muted = !userInteracted;
+    recAvatarVideo.style.display = 'block';
+    recAvatarPlaceholder.style.display = 'none';
+    recAvatarVideo.play().catch(()=>{});
+    
+    // Same for in-game face
+    novaFaceVideo.srcObject = value;
+    novaFaceVideo.muted = !userInteracted;
+    novaFaceVideo.style.display = 'block';
+    novaFacePlaceholder.style.display = 'none';
+    novaFaceVideo.play().catch(()=>{});
+  },
+  onConnectionStateChange(state) {
+    if(state === 'connected') {
+      didReady = true;
+      didIdleVideoUrl = agentManager?.agent?.presenter?.idle_video;
+      showIdleEverywhere();
+      // Hand off from intro overlay → Nova's live face takes over
+      handoffFromIntro();
+      // Trigger the arrival greeting if we're past arrival phase
+      if(memory.phase === 'recognition' && !window._greeted) {
+        window._greeted = true;
+        novaArrivalGreet();
+      }
+    } else if(state === 'disconnected' || state === 'closed') {
+      didReady = false;
+      setTimeout(() => agentManager?.reconnect(), 3000);
+    }
+  },
+  onVideoStateChange(state) {
+    if(state === 'STOP') {
+      // Idle — Nova stopped talking, resume listening
+      showIdleEverywhere();
+      recAvatarFrame.classList.remove('speaking');
+      novaFaceFrame.classList.remove('speaking');
+      micResume();
+    } else {
+      // Speaking — Nova started talking, pause mic so it doesn't hear her
+      micPause();
+      recAvatarVideo.src = '';
+      recAvatarVideo.srcObject = didStream;
+      recAvatarVideo.muted = false;
+      recAvatarVideo.play().catch(()=>{});
+      recAvatarFrame.classList.add('speaking');
+      
+      novaFaceVideo.src = '';
+      novaFaceVideo.srcObject = didStream;
+      novaFaceVideo.muted = false;
+      novaFaceVideo.play().catch(()=>{});
+      novaFaceFrame.classList.add('speaking');
+    }
+  },
+  onError(err) {
+    console.log('D-ID:', err);
+  },
+};
+
+function initDID() {
+  createAgentManager(CFG.AGENT_ID, {
+    auth: { type: 'key', clientKey: CFG.CLIENT_KEY },
+    callbacks: didCallbacks,
+    streamOptions: { compatibilityMode: 'auto', streamWarmup: true },
+  }).then(m => {
+    agentManager = m;
+    return m.connect();
+  }).catch(e => {
+    console.log('D-ID init failed:', e);
+    setTimeout(initDID, 12000);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CHAT — bubbles in recognition phase
+// ═══════════════════════════════════════════════════════════════
+function addBubble(text, who) {
+  const log = document.getElementById('rec-chat-log');
+  if(!log) return;
+  const div = document.createElement('div');
+  div.className = who === 'nova' ? 'bubble-nova' : 'bubble-kid';
+  div.textContent = text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+async function novaSay(text) {
+  if(!text) return;
+  if(memory.phase === 'recognition') addBubble(text, 'nova');
+  speak(text);
+}
+
+async function novaArrivalGreet() {
+  const reply = await brainThink(
+    'A child just opened your dance app and the magic orb appeared. Greet them like an old friend who has been waiting. Ask their name. Be warm and slightly mysterious. 1-2 short sentences max.',
+    { maxTokens: 80 }
+  );
+  await novaSay(reply || "Oh hi there! I've been hoping you'd come dance with me today. What's your name?");
+  document.getElementById('rec-dance-btn').classList.add('ready');
+}
+
+window._sendChat = async function() {
+  const inp = document.getElementById('rec-input');
+  const text = inp.value.trim();
+  if(!text) return;
+  inp.value = '';
+  handleKidInput(text);
+};
+
+async function handleKidInput(text) {
+  addBubble(text, 'kid');
+  // Extract name
+  const nameMatch = text.match(/(?:i(?:'m| am)|my name(?:'s| is)|i'm|im)\s+([A-Za-z]+)/i);
+  if(nameMatch && !memory.name) {
+    memory.name = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1);
+  } else if(text.split(/\s+/).length === 1 && !memory.name && /^[A-Za-z]+$/.test(text.trim())) {
+    // Just a single word, probably their name
+    memory.name = text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+  }
+  const reply = await brainThink(text, { maxTokens: 80 });
+  await novaSay(reply || (memory.name ? `Hi ${memory.name}! Ready to dance?` : 'Yay! Ready to dance?'));
+  // Always show dance button after any chat exchange — prevents stuck state
+  document.getElementById('rec-dance-btn').classList.add('ready');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// POSE DETECTION — all 6 detections
+// ═══════════════════════════════════════════════════════════════
+let detector = null;
+const moves = { left:false, right:false, both:false, clap:false, head:false, freeze:false };
+const holdCount = { left:0, right:0, both:0, clap:0, head:0 };
+const smooth = {};
+let freezeBuffer = null;
+
+async function initDetector() {
+  console.log('initDetector: starting');
+  if(typeof tf === 'undefined') {
+    console.error('initDetector: tf is undefined — TF.js script did not load');
+    return;
+  }
+  if(typeof poseDetection === 'undefined') {
+    console.error('initDetector: poseDetection is undefined — pose-detection script did not load');
+    return;
+  }
+  console.log('initDetector: tf version', tf.version?.tfjs);
+  await tf.setBackend('webgl');
+  await tf.ready();
+  console.log('initDetector: TF ready, backend =', tf.getBackend());
+  detector = await poseDetection.createDetector(
+    poseDetection.SupportedModels.MoveNet,
+    { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+  );
+  console.log('initDetector: ✅ MoveNet ready');
+}
+
+function smoothKp(key, kp) {
+  if(!smooth[key]) smooth[key] = { x:kp.x, y:kp.y, score:kp.score };
+  const a = 0.7;
+  smooth[key].x = smooth[key].x*a + kp.x*(1-a);
+  smooth[key].y = smooth[key].y*a + kp.y*(1-a);
+  smooth[key].score = kp.score;
+  return smooth[key];
+}
+
+let _poseLogCount = 0;
+let _poseLogLast = 0;
+async function poseLoop() {
+  const v = document.getElementById('webcam');
+  if(!detector || !v || v.readyState < 2) {
+    requestAnimationFrame(poseLoop);
+    return;
+  }
+  try {
+    const poses = await detector.estimatePoses(v, { flipHorizontal: false });
+    if(poses.length > 0) {
+      analyzePose(poses[0].keypoints);
+      _poseLogCount++;
+      // Log heartbeat every ~3 seconds so we can see detection is live
+      const now = Date.now();
+      if(now - _poseLogLast > 3000) {
+        const visibleJoints = poses[0].keypoints.filter(k => k.score > 0.3).length;
+        console.log(`pose detection alive: ${_poseLogCount} frames, ${visibleJoints}/17 joints visible`);
+        _poseLogLast = now;
+      }
+    }
+  } catch(e){
+    console.log('poseLoop error:', e.message);
+  }
+  requestAnimationFrame(poseLoop);
+}
+
+function analyzePose(kps) {
+  const g = n => kps.find(k => k.name === n);
+  const ls=g('left_shoulder'), rs=g('right_shoulder');
+  const lw=g('left_wrist'), rw=g('right_wrist');
+  const nose=g('nose');
+  if(!ls || !rs || !lw || !rw) return;
+  
+  const sLs = smoothKp('ls', ls), sRs = smoothKp('rs', rs);
+  const sLw = smoothKp('lw', lw), sRw = smoothKp('rw', rw);
+  const sNose = nose ? smoothKp('nose', nose) : null;
+  
+  const MIN = 0.3;
+  const scale = Math.max(Math.abs(sLs.x - sRs.x), 60);
+  const thr = scale * 0.24;
+  
+  // Arm raises
+  const lUp = sLw.score > MIN && (sLs.y - sLw.y) > thr;
+  const rUp = sRw.score > MIN && (sRs.y - sRw.y) > thr;
+  
+  const hold = (raw, key) => {
+    holdCount[key] = raw ? Math.min(holdCount[key]+1, 10) : Math.max(holdCount[key]-1, 0);
+    return holdCount[key] >= CFG.DETECTION_HOLD_FRAMES;
+  };
+  
+  moves.left = hold(lUp && !rUp, 'left');
+  moves.right = hold(rUp && !lUp, 'right');
+  moves.both = lUp && rUp;
+  
+  // Clap — wrists meet near chest
+  const wristY = (sLw.y + sRw.y) / 2;
+  const shoulderY = (sLs.y + sRs.y) / 2;
+  const wristGap = Math.abs(sLw.x - sRw.x);
+  const isClap = sLw.score > MIN && sRw.score > MIN &&
+    wristGap < scale * 0.55 &&
+    wristY > shoulderY - scale * 0.3 &&
+    wristY < shoulderY + scale * 1.0;
+  moves.clap = hold(isClap, 'clap');
+  
+  // Hands on head
+  const isHead = sNose && sLw.score > MIN && sRw.score > MIN &&
+    sLw.y < sLs.y && sRw.y < sRs.y &&
+    Math.abs(sLw.x - sNose.x) < scale * 0.9 &&
+    Math.abs(sRw.x - sNose.x) < scale * 0.9;
+  moves.head = hold(isHead, 'head');
+  
+  // Freeze — low movement variance
+  if(!freezeBuffer) freezeBuffer = { lwx:[], lwy:[], rwx:[], rwy:[] };
+  freezeBuffer.lwx.push(sLw.x); freezeBuffer.lwy.push(sLw.y);
+  freezeBuffer.rwx.push(sRw.x); freezeBuffer.rwy.push(sRw.y);
+  if(freezeBuffer.lwx.length > 18) {
+    freezeBuffer.lwx.shift(); freezeBuffer.lwy.shift();
+    freezeBuffer.rwx.shift(); freezeBuffer.rwy.shift();
+  }
+  if(freezeBuffer.lwx.length >= 12) {
+    const variance = arr => {
+      const m = arr.reduce((a,b)=>a+b,0) / arr.length;
+      return arr.reduce((s,v)=>s+(v-m)**2,0) / arr.length;
+    };
+    const totalVar = variance(freezeBuffer.lwx) + variance(freezeBuffer.lwy) +
+      variance(freezeBuffer.rwx) + variance(freezeBuffer.rwy);
+    moves.freeze = totalVar < scale * scale * 0.012;
+  } else {
+    moves.freeze = false;
+  }
+  
+  // Update pills
+  ['left','right','both','clap','head','freeze'].forEach(k => {
+    const el = document.getElementById('p-' + k);
+    if(el) el.classList.toggle('on', moves[k]);
+  });
+}
+
+function checkAction(action) {
+  return moves[action] || false;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GAME — the song journey
+// ═══════════════════════════════════════════════════════════════
+// TIMELINE based on the song lyric structure:
+//   0-15s   = INTRO ("hello hello look at me" / "copy me" / "are you ready" / "let's move 1,2,3")
+//             NO CUES — kid watches Nova dance freely
+//   15-30s  = Verse 2: right → left → clap → both up
+//   30-45s  = Verse 3: right → clap → left → hands on head
+//   45-60s  = Verse 4: both up → clap → right → left
+//   60-78s  = Verse 5 "Nova says": right → left → both → clap (Simon-says style)
+//   78-93s  = Verse 6 fast: right → left → clap → both → head → freeze
+//   93-111s = OUTRO celebration ("you did great" / "wave goodbye" / "reach the sky")
+//
+// Each lyric line is ~3.5-4s. Cue window opens 200ms after lyric starts (kid hears the word),
+// closes 2.5s later (enough time to react).
+// ═══════════════════════════════════════════════════════════════
+// FREEZE-DANCE TIMELINE — for freeze.mp3 (96 seconds)
+//
+// Structure: alternating dance + freeze. 4 freeze moments at ~22s, 42s, 62s, 82s.
+// Music ducks to 18% volume during each freeze (not muted — kid hears it but
+// it's quiet enough that the freeze feels like a real event without needing
+// hard-cut silence Suno couldn't produce).
+//
+// Easy to retune: change the t values below if your ear says they're off.
+// Stillness detection during freeze windows uses the existing 'freeze' action.
+// ═══════════════════════════════════════════════════════════════
+const TIMELINE = [
+  // ── INTRO (0-12s) — NO CUES, let the song establish ──
+  { t: 100,   type: 'beat', name: 'intro' },
+
+  // ── DANCE 1 (12-20s): warm up, simple moves ──
+  { t: 12000, type: 'beat', name: 'dance1' },
+  { t: 12500, type: 'open', action: 'both', emoji: '🙌', label: 'BOTH UP', instr: 'dance!', pts: 100 },
+  { t: 16000, type: 'close', action: 'both' },
+  { t: 16500, type: 'open', action: 'clap', emoji: '👏', label: 'CLAP!', instr: 'clap!', pts: 150 },
+  { t: 20000, type: 'close', action: 'clap' },
+
+  // ── FREEZE 1 (22-25s): first freeze, easy 3s hold ──
+  { t: 21500, type: 'open', action: 'freeze', emoji: '❄️', label: 'FREEZE!', instr: "DON'T MOVE!", pts: 300 },
+  { t: 25000, type: 'close', action: 'freeze' },
+
+  // ── DANCE 2 (26-40s): more variety ──
+  { t: 26000, type: 'beat', name: 'dance2' },
+  { t: 26500, type: 'open', action: 'right', emoji: '👉', label: 'RIGHT HAND', instr: 'right up!', pts: 100 },
+  { t: 30000, type: 'close', action: 'right' },
+  { t: 30500, type: 'open', action: 'left', emoji: '👈', label: 'LEFT HAND', instr: 'left up!', pts: 100 },
+  { t: 34000, type: 'close', action: 'left' },
+  { t: 34500, type: 'open', action: 'head', emoji: '🙆', label: 'HEAD', instr: 'on your head!', pts: 200 },
+  { t: 38000, type: 'close', action: 'head' },
+
+  // ── FREEZE 2 (42-45s): second freeze ──
+  { t: 41500, type: 'open', action: 'freeze', emoji: '❄️', label: 'FREEZE!', instr: 'STATUE!', pts: 300 },
+  { t: 45000, type: 'close', action: 'freeze' },
+
+  // ── DANCE 3 (46-60s): faster ──
+  { t: 46000, type: 'beat', name: 'dance3' },
+  { t: 46500, type: 'open', action: 'clap', emoji: '👏', label: 'CLAP!', instr: 'clap clap!', pts: 150 },
+  { t: 49500, type: 'close', action: 'clap' },
+  { t: 50000, type: 'open', action: 'both', emoji: '🙌', label: 'BOTH UP', instr: 'high!', pts: 150 },
+  { t: 53500, type: 'close', action: 'both' },
+  { t: 54000, type: 'open', action: 'right', emoji: '👉', label: 'RIGHT', instr: 'right!', pts: 100 },
+  { t: 57500, type: 'close', action: 'right' },
+  { t: 58000, type: 'open', action: 'left', emoji: '👈', label: 'LEFT', instr: 'left!', pts: 100 },
+  { t: 61000, type: 'close', action: 'left' },
+
+  // ── FREEZE 3 (62-64s): SHORTER surprise freeze ──
+  { t: 61500, type: 'open', action: 'freeze', emoji: '❄️', label: 'FREEZE!', instr: 'STATUE!', pts: 300 },
+  { t: 64000, type: 'close', action: 'freeze' },
+
+  // ── DANCE 4 (65-80s): biggest energy ──
+  { t: 65000, type: 'beat', name: 'dance4' },
+  { t: 65500, type: 'open', action: 'both', emoji: '🙌', label: 'BOTH UP', instr: 'BIG!', pts: 150 },
+  { t: 69000, type: 'close', action: 'both' },
+  { t: 69500, type: 'open', action: 'clap', emoji: '👏', label: 'CLAP!', instr: 'clap clap!', pts: 150 },
+  { t: 73000, type: 'close', action: 'clap' },
+  { t: 73500, type: 'open', action: 'head', emoji: '🙆', label: 'HEAD', instr: 'reach up!', pts: 200 },
+  { t: 77000, type: 'close', action: 'head' },
+
+  // ── FREEZE 4 (82-86s): LONGEST climax freeze ──
+  { t: 81500, type: 'open', action: 'freeze', emoji: '❄️', label: 'BIG FREEZE!', instr: 'HOLD IT!', pts: 500 },
+  { t: 86000, type: 'close', action: 'freeze' },
+
+  // ── OUTRO (86-96s) — celebration, NO CUES ──
+  { t: 86500, type: 'beat', name: 'outro' },
+];
+
+// ═══════════════════════════════════════════════════════════════
+// FREEZE_WINDOWS — when to duck the music (used by gameTick)
+// 
+// Each window has a fade-in time (when ducking starts) and fade-out time.
+// Format: [fadeStart_ms, peakStart_ms, peakEnd_ms, fadeEnd_ms]
+// During [peakStart .. peakEnd] music sits at FREEZE_DUCK_VOLUME.
+// Fade in/out gives a smooth transition so it doesn't feel jarring.
+// ═══════════════════════════════════════════════════════════════
+const FREEZE_DUCK_VOLUME = 0.18;  // music drops to 18% during freeze
+const FREEZE_NORMAL_VOLUME = 0.85; // restore to original
+const FREEZE_WINDOWS = [
+  // Each: { fadeStart, peakStart, peakEnd, fadeEnd } — all in ms
+  { fadeStart: 21000, peakStart: 21800, peakEnd: 24700, fadeEnd: 25200 },
+  { fadeStart: 41000, peakStart: 41800, peakEnd: 44700, fadeEnd: 45200 },
+  { fadeStart: 61000, peakStart: 61800, peakEnd: 63700, fadeEnd: 64200 },
+  { fadeStart: 81000, peakStart: 81800, peakEnd: 85700, fadeEnd: 86200 },
+];
+
+let score = 0, hits = 0, attempts = 0, combo = 0, maxCombo = 0;
+let timelineIdx = 0, songTimer = null;
+let actionDetected = false, actionWindow = false, currentAction = null;
+let actionStartTime = 0;
+let lastReactionTime = 0;
+
+// Pre-cached emotional fillers — play instantly, no LLM wait
+const QUICK_REACTIONS = {
+  hit_fast: ['Yes!', 'Boom!', 'Whoa!', 'Pop!', 'Yeah!'],
+  hit_normal: ['Yes!', 'Got it!', 'There!', 'Yay!', 'Nice!'],
+  miss: ['Almost!', 'So close!', 'Oop!', 'Nearly!'],
+};
+
+function playQuickReaction(type) {
+  const arr = QUICK_REACTIONS[type] || QUICK_REACTIONS.hit_normal;
+  const phrase = arr[Math.floor(Math.random()*arr.length)];
+  speak(phrase);
+}
+
+async function smartReact(action, isHit, isFast) {
+  const now = Date.now();
+  if(now - lastReactionTime < 2000) return; // 2s cooldown — give silence room to breathe
+  
+  // Only react ~35% of hits so Nova isn't constantly talking.
+  // ALWAYS react on misses (gentle correction is the magic).
+  if(isHit && Math.random() > 0.35) return;
+  
+  lastReactionTime = now;
+  
+  const useName = memory.name && Math.random() < 0.4;
+  const nameInstr = useName ? `Use the name "${memory.name}" naturally. ` : '';
+  
+  let prompt;
+  if(isHit && isFast) {
+    prompt = `${nameInstr}Kid NAILED ${action} super fast! Tiny burst of joy. 2-4 words MAX.`;
+  } else if(isHit) {
+    prompt = `${nameInstr}Kid did ${action} right! Tiny celebration. 2-4 words MAX.`;
+  } else {
+    prompt = `${nameInstr}Kid missed ${action}. Tiny warm encouragement, never negative. 3-5 words MAX.`;
+  }
+  
+  const reply = await brainThink(prompt, { maxTokens: 20 });
+  if(reply) {
+    showReactionBubble(reply, false);
+    speak(reply);
+  }
+}
+
+function showReactionBubble(text, huge) {
+  const b = document.getElementById('reaction-bubble');
+  b.textContent = text;
+  b.classList.add('show');
+  if(huge) b.classList.add('huge');
+  clearTimeout(window._bubbleTimer);
+  window._bubbleTimer = setTimeout(() => {
+    b.classList.remove('show', 'huge');
+  }, huge ? 4500 : 2800);
+}
+
+function showCue(emoji, label, instr, isLive, ms) {
+  const c = document.getElementById('action-cue');
+  document.getElementById('cue-emoji').textContent = emoji;
+  document.getElementById('cue-label').textContent = label;
+  document.getElementById('cue-instr').textContent = instr;
+  c.classList.add('show');
+  const bar = document.getElementById('cue-bar');
+  if(isLive) {
+    c.classList.add('live');
+    bar.style.animation = 'none';
+    void bar.offsetWidth;
+    bar.style.animation = `cueBarShrink ${ms}ms linear forwards`;
+  } else {
+    c.classList.remove('live');
+    bar.style.animation = 'none';
+    bar.style.transform = 'scaleX(1)';
+  }
+}
+
+function hideCue() {
+  document.getElementById('action-cue').classList.remove('show', 'live');
+}
+
+function setGreenFlash(on) {
+  document.getElementById('green-flash').classList.toggle('show', on);
+  document.getElementById('cam-border').classList.toggle('detection-open', on);
+}
+
+function flashMiss() {
+  const b = document.getElementById('cam-border');
+  b.classList.add('miss-flash');
+  setTimeout(() => b.classList.remove('miss-flash'), 700);
+}
+
+function showScorePop(pts, color) {
+  const el = document.getElementById('score-pop');
+  el.textContent = '+' + pts;
+  el.style.color = color || '#ffd700';
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 1000);
+}
+
+function spawnConfetti() {
+  const colors = ['#ff6fd8','#ffd700','#00ff99','#7c6fff','#ff9900','#00d2ff'];
+  const side = document.getElementById('nova-side');
+  for(let i = 0; i < 28; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti';
+    el.style.cssText = `
+      left:${Math.random()*100}%;top:-10px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      animation-delay:${Math.random()*0.6}s;
+      width:${7+Math.random()*10}px;height:${7+Math.random()*10}px;
+      transform:rotate(${Math.random()*360}deg);
+    `;
+    side.appendChild(el);
+    setTimeout(() => el.remove(), 2400);
+  }
+}
+
+function updateStreak(n) {
+  const b = document.getElementById('game-streak');
+  if(n >= 2) {
+    b.textContent = '🔥 x' + n;
+    b.classList.add('show');
+  } else {
+    b.classList.remove('show');
+  }
+}
+
+function setEnergyLevel(level) {
+  memory.energy = level;
+  document.body.classList.remove('energy-high','energy-max');
+  if(level === 'high') document.body.classList.add('energy-high');
+  else if(level === 'max') document.body.classList.add('energy-max');
+}
+
+function startGame() {
+  memory.phase = 'song';
+  showPhase('phase-game');
+  // Show D-ID face frame at top-center between panels (in-game position)
+  document.getElementById('nova-face-frame').classList.add('in-game');
+  score = 0; hits = 0; attempts = 0; combo = 0; maxCombo = 0; timelineIdx = 0;
+  document.getElementById('game-score').textContent = '0';
+  document.getElementById('game-progress').style.width = '0%';
+  freezeBuffer = null;
+  
+  const vid = document.getElementById('nova-video');
+  vid.currentTime = 0;
+  vid.loop = true;
+  vid.muted = false; // ensure not accidentally muted
+  vid.onerror = () => console.error('nova-dance.mp4 error:', vid.error);
+  vid.play().catch(err => console.error('nova-dance.mp4 play failed:', err));
+  
+  // Play freeze.mp3 (Suno-generated freeze dance song, 96s, 4 freezes with music ducking)
+  const SONG_FILE = 'freeze.mp3';
+  const SONG_URL = encodeURI(SONG_FILE);
+  const audio = new Audio(SONG_URL);
+  audio.volume = 0.85;
+  audio.onerror = () => {
+    const codes = {
+      1: 'MEDIA_ERR_ABORTED (user/browser cancelled)',
+      2: 'MEDIA_ERR_NETWORK (download failed)',
+      3: 'MEDIA_ERR_DECODE (file corrupt)',
+      4: 'MEDIA_ERR_SRC_NOT_SUPPORTED (file missing or wrong format)',
+    };
+    const code = audio.error?.code;
+    console.error(SONG_FILE+' ERROR:', codes[code] || 'unknown', '— src:', audio.currentSrc, '— msg:', audio.error?.message);
+  };
+  // Probe if the file is even reachable BEFORE we play it
+  fetch(SONG_URL, { method: 'HEAD' })
+    .then(r => console.log(SONG_FILE+' HEAD:', r.status, r.headers.get('content-type'), 'bytes:', r.headers.get('content-length')))
+    .catch(e => console.error(SONG_FILE+' HEAD fetch failed:', e.message));
+  window._audio = audio;
+  audio.play().then(() => {
+    console.log(SONG_FILE+' playing OK');
+  }).catch(err => {
+    console.error(SONG_FILE+' play() rejected:', err.name, err.message);
+    setTimeout(() => audio.play().catch(e => console.error(SONG_FILE+' retry failed:', e.name, e.message)), 200);
+  });
+  audio.onended = () => setTimeout(endGame, 1200);
+  
+  // No "initial hype" speech — the song's own intro ("hello hello, are you ready,
+  // let's move 1,2,3") IS the intro. Nova talking over it is just noise.
+  
+  songTimer = setInterval(gameTick, 80);
+}
+
+function gameTick() {
+  const elapsed = (window._audio?.currentTime || 0) * 1000;
+  const pct = Math.min(100, (elapsed / CFG.SONG_DURATION) * 100);
+  document.getElementById('game-progress').style.width = pct + '%';
+  
+  // Auto-end if audio finishes or runs over
+  if(elapsed >= CFG.SONG_DURATION + 500 && !window._audio?.paused) {
+    // Wait for audio.onended to fire
+  }
+  
+  // ─── MUSIC DUCKING for freeze moments ────────────────────────
+  // Find which freeze window (if any) we're inside, compute target volume.
+  // Linear fade in [fadeStart..peakStart], hold at duck level [peakStart..peakEnd],
+  // linear fade back in [peakEnd..fadeEnd]. Outside any window = normal volume.
+  if(window._audio && !window._audio.paused) {
+    let targetVol = FREEZE_NORMAL_VOLUME;
+    for(const w of FREEZE_WINDOWS) {
+      if(elapsed >= w.fadeStart && elapsed <= w.fadeEnd) {
+        if(elapsed < w.peakStart) {
+          // Fading down
+          const frac = (elapsed - w.fadeStart) / (w.peakStart - w.fadeStart);
+          targetVol = FREEZE_NORMAL_VOLUME + (FREEZE_DUCK_VOLUME - FREEZE_NORMAL_VOLUME) * frac;
+        } else if(elapsed <= w.peakEnd) {
+          // At duck
+          targetVol = FREEZE_DUCK_VOLUME;
+        } else {
+          // Fading back up
+          const frac = (elapsed - w.peakEnd) / (w.fadeEnd - w.peakEnd);
+          targetVol = FREEZE_DUCK_VOLUME + (FREEZE_NORMAL_VOLUME - FREEZE_DUCK_VOLUME) * frac;
+        }
+        break;
+      }
+    }
+    // Smooth changes — only update if difference is meaningful (avoid micro-stutter)
+    if(Math.abs(window._audio.volume - targetVol) > 0.01) {
+      window._audio.volume = Math.max(0, Math.min(1, targetVol));
+    }
+  }
+  
+  while(timelineIdx < TIMELINE.length && elapsed >= TIMELINE[timelineIdx].t) {
+    const e = TIMELINE[timelineIdx];
+    
+    if(e.type === 'beat') {
+      // Energy level shifts based on phase
+      if(e.name === 'easy-wins') setEnergyLevel('warm');
+      else if(e.name === 'challenge') setEnergyLevel('high');
+      else if(e.name === 'flow') setEnergyLevel('max');
+      else if(e.name === 'freeze') setEnergyLevel('high');
+      else if(e.name === 'celebration') setEnergyLevel('max');
+    }
+    else if(e.type === 'lyric') {
+      // Skip on-screen lyrics — kids 3-5 can't read fast
+      // Voice carries the lyric
+    }
+    else if(e.type === 'demo') {
+      showCue(e.emoji, e.label, e.instr, false, 0);
+    }
+    else if(e.type === 'open') {
+      currentAction = e;
+      actionDetected = false;
+      actionWindow = true;
+      actionStartTime = Date.now();
+      attempts++;
+      memory.attempts++;
+      
+      let windowMs = 2500;
+      for(let j = timelineIdx + 1; j < TIMELINE.length; j++) {
+        if(TIMELINE[j].type === 'close' && TIMELINE[j].action === e.action) {
+          windowMs = TIMELINE[j].t - e.t;
+          break;
+        }
+      }
+      
+      setGreenFlash(true);
+      showCue(e.emoji, e.label, e.instr, true, windowMs);
+      
+      let elapsedCheck = 0;
+      const checker = setInterval(() => {
+        elapsedCheck += 80;
+        if(!actionWindow || actionDetected || elapsedCheck > windowMs + 200) {
+          clearInterval(checker);
+          return;
+        }
+        if(checkAction(e.action)) {
+          actionDetected = true;
+          clearInterval(checker);
+          handleHit(e);
+        }
+      }, 80);
+    }
+    else if(e.type === 'close') {
+      setGreenFlash(false);
+      hideCue();
+      if(!actionDetected && actionWindow) {
+        handleMiss(currentAction);
+      }
+      actionWindow = false;
+    }
+    
+    timelineIdx++;
+  }
+}
+
+function handleHit(actionEvent) {
+  const reactionMs = Date.now() - actionStartTime;
+  const isFast = reactionMs < 1000;
+  const pts = isFast ? Math.round(actionEvent.pts * 1.5) : actionEvent.pts;
+  
+  score += pts;
+  hits++;
+  combo++;
+  maxCombo = Math.max(maxCombo, combo);
+  memory.hits++;
+  memory.streak++;
+  memory.lastAction = actionEvent.action;
+  
+  if(memory.streak >= 2) addMoment(`${memory.streak}-move streak`);
+  if(isFast) addMoment(`lightning fast ${actionEvent.action}`);
+  
+  updateStreak(combo);
+  document.getElementById('game-score').textContent = score;
+  showScorePop(pts, isFast ? '#ffd700' : '#00ff99');
+  spawnConfetti();
+  
+  // Special huge celebration on FREEZE
+  if(actionEvent.action === 'freeze') {
+    novaFaceFrame.classList.add('celebrating');
+    setTimeout(() => novaFaceFrame.classList.remove('celebrating'), 3500);
+    addMoment('the FREEZE moment');
+    brainThink('THE KID FROZE PERFECTLY! Express maximum emotional explosion! Reference the freeze. 6-8 words. Be over the top!', { maxTokens: 40 })
+      .then(r => {
+        const text = r || (memory.name ? `${memory.name}!! That freeze was PERFECT!` : 'PERFECT FREEZE!! WOW!');
+        showReactionBubble(text, true);
+        speak(text);
+      });
+  } else {
+    smartReact(actionEvent.action, true, isFast);
+  }
+}
+
+function handleMiss(actionEvent) {
+  combo = 0;
+  memory.streak = 0;
+  memory.lastAction = actionEvent?.action;
+  updateStreak(0);
+  flashMiss();
+  smartReact(actionEvent?.action || 'move', false, false);
+}
+
+function endGame() {
+  clearInterval(songTimer);
+  setGreenFlash(false);
+  hideCue();
+  // Hide top-center D-ID face when game ends
+  document.getElementById('nova-face-frame').classList.remove('in-game');
+  if(window._audio) try { window._audio.pause(); } catch(e){}
+  document.getElementById('nova-video').pause();
+  
+  memory.phase = 'end';
+  setEnergyLevel('warm');
+  
+  const rate = attempts > 0 ? hits / attempts : 0;
+  const stars = rate >= 0.9 ? 5 : rate >= 0.7 ? 4 : rate >= 0.5 ? 3 : rate >= 0.3 ? 2 : 1;
+  
+  showPhase('phase-end');
+  
+  document.getElementById('end-title').textContent = 
+    ['So proud of you!','Good effort!','Great work!','Amazing dancer!','PERFECT! 🔥'][stars-1];
+  
+  // Animate stars in
+  const starEl = document.getElementById('end-stars');
+  starEl.textContent = '';
+  let s = 0;
+  const starIv = setInterval(() => {
+    if(s < stars) { starEl.textContent += '⭐'; s++; }
+    else if(s < 5) { starEl.textContent += '☆'; s++; }
+    else clearInterval(starIv);
+  }, 250);
+  
+  document.getElementById('end-pts').textContent = score + ' pts';
+  document.getElementById('end-detail').textContent = 
+    `${hits} of ${attempts} moves · best streak: ${maxCombo}`;
+  
+  // Personal end message
+  const endPrompt = `The dance just ended. ${memory.name?'The child '+memory.name:'The child'} hit ${hits} out of ${attempts} moves. Best streak ${maxCombo}.${memory.moments.length?' Recent moments to reference: '+memory.moments.slice(-3).join('; ')+'.':''} Give a WARM personal goodbye that references something specific they did. End with "same time tomorrow?" — that exact question. 2 sentences max.`;
+  
+  brainThink(endPrompt, { maxTokens: 120 }).then(r => {
+    const msg = r || (memory.name ? 
+      `${memory.name}, I had so much fun! Same time tomorrow?` :
+      'I had so much fun! Same time tomorrow?');
+    document.getElementById('end-msg').textContent = msg;
+    speak(msg);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PHASE WIRING
+// ═══════════════════════════════════════════════════════════════
+document.addEventListener('arrival-done', async () => {
+  memory.phase = 'recognition';
+  showPhase('phase-recognition');
+  
+  // Start the Kling intro overlay covering the D-ID circle until D-ID is ready
+  startIntroOverlay();
+  
+  // Mic permission
+  try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch(e){}
+  
+  // Camera
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+      audio: false,
+    });
+    document.getElementById('webcam').srcObject = stream;
+  } catch(e) { console.log('cam:', e); }
+  
+  // Always-on mic — Nova listens continuously from now on
+  startAlwaysOnMic();
+  
+  // If D-ID already connected, greet now and hand off intro
+  if(didReady && !window._greeted) {
+    window._greeted = true;
+    handoffFromIntro();
+    novaArrivalGreet();
+  } else {
+    // 12s safety: if D-ID still not connected, force handoff so app doesn't hang
+    setTimeout(() => {
+      if(!window._greeted) {
+        window._greeted = true;
+        handoffFromIntro();
+        novaArrivalGreet();
+      }
+    }, 12000);
+  }
+});
+
+document.addEventListener('countdown-tick', (e) => {
+  // Could play a beep here
+});
+
+document.addEventListener('countdown-done', () => {
+  startGame();
+});
+
+// ═══════════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════════
+speechSynthesis.getVoices();
+speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+
+initEars();
+initDID();
+initDetector().then(() => poseLoop()).catch(()=>{});
+
+document.getElementById('nova-video').load();
+</script>
+</body>
+</html>
