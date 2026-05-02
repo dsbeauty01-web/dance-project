@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gesture Recorder</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;width:100%;overflow:hidden;
+  font-family:-apple-system,'Segoe UI',sans-serif;color:#fff;
+  background:radial-gradient(ellipse at 50% 30%,#1a0f3d 0%,#0a0824 60%,#000 100%)}
+
+#header{position:fixed;top:0;left:0;right:0;padding:10px 16px;z-index:50;
+  display:flex;align-items:center;gap:12px;
+  background:linear-gradient(180deg,rgba(0,0,0,0.75),transparent)}
+#title{font-weight:700;font-size:16px;
+  background:linear-gradient(135deg,#ff6fd8,#a78bfa);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#status{flex:1;font-size:12px;color:rgba(255,255,255,0.85)}
+#status.ok{color:#00ff88}
+#status.error{color:#ff6666;font-weight:600}
+#status.recording{color:#ff4444;font-weight:700}
+#fps{font-size:11px;color:rgba(255,255,255,0.5);
+  font-variant-numeric:tabular-nums;font-family:'SF Mono',Consolas,monospace}
+
+#stage{position:fixed;inset:46px 0 0 0;display:grid;
+  grid-template-columns:1fr 380px;gap:10px;padding:10px}
+
+#cam-wrap{position:relative;border-radius:14px;overflow:hidden;background:#000;
+  border:3px solid rgba(255,255,255,0.1);transition:all .25s}
+#cam-wrap.recording{border-color:#ff4444;
+  box-shadow:0 0 50px rgba(255,68,68,0.6);
+  animation:recPulse 1s ease-in-out infinite}
+@keyframes recPulse{
+  50%{box-shadow:0 0 80px rgba(255,68,68,0.9)}
+}
+#cam-video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#cam-canvas{position:absolute;inset:0;width:100%;height:100%;
+  transform:scaleX(-1);pointer-events:none}
+
+/* REC indicator overlaid on camera */
+#rec-overlay{position:absolute;top:14px;left:14px;
+  display:none;align-items:center;gap:8px;
+  background:rgba(0,0,0,0.85);padding:8px 14px;border-radius:20px;
+  border:2px solid #ff4444;font-weight:700;font-size:14px}
+#rec-overlay.show{display:flex}
+.rec-dot{width:12px;height:12px;border-radius:50%;background:#ff4444;
+  animation:recBlink 0.8s ease-in-out infinite}
+@keyframes recBlink{50%{opacity:0.3}}
+#rec-time{font-family:'SF Mono',Consolas,monospace;
+  font-variant-numeric:tabular-nums}
+
+#side{display:flex;flex-direction:column;gap:10px;overflow-y:auto;padding-right:4px}
+
+.panel{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+  border-radius:12px;padding:14px}
+.panel h3{font-size:11px;font-weight:700;
+  color:rgba(255,255,255,0.55);letter-spacing:.08em;text-transform:uppercase;
+  margin-bottom:10px}
+
+/* Gesture label dropdown — mark what you're recording BEFORE you record */
+#gesture-select{width:100%;padding:10px 12px;background:rgba(0,0,0,0.4);
+  color:#fff;border:1px solid rgba(255,255,255,0.2);
+  border-radius:8px;font-size:14px;font-weight:600;
+  cursor:pointer;font-family:inherit}
+#gesture-select:focus{outline:none;border-color:#ff6fd8}
+
+.btn{display:block;width:100%;padding:12px;border:none;border-radius:10px;
+  background:linear-gradient(135deg,#ff6fd8,#a78bfa);color:#fff;
+  font-weight:700;font-size:14px;cursor:pointer;
+  margin-bottom:8px;transition:transform .1s, box-shadow .15s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(255,111,216,0.4)}
+.btn:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none}
+.btn.danger{background:linear-gradient(135deg,#ff4444,#cc2222)}
+.btn.success{background:linear-gradient(135deg,#00cc66,#009944)}
+.btn.secondary{background:rgba(255,255,255,0.1)}
+
+/* Live signal panel — shows we're actually capturing */
+.signal-row{display:flex;align-items:center;justify-content:space-between;
+  padding:5px 0;font-size:12px;
+  border-bottom:1px solid rgba(255,255,255,0.05)}
+.signal-row:last-child{border-bottom:none}
+.signal-label{color:rgba(255,255,255,0.7)}
+.signal-val{font-family:'SF Mono',Consolas,monospace;
+  font-variant-numeric:tabular-nums;font-weight:600;font-size:13px;color:#fff}
+.signal-val.green{color:#00ff88}
+.signal-val.amber{color:#ffaa00}
+
+/* Recordings list — what you've captured this session */
+#rec-list{max-height:240px;overflow-y:auto}
+.rec-item{display:flex;align-items:center;gap:8px;
+  padding:8px 10px;background:rgba(0,0,0,0.3);
+  border-radius:8px;margin-bottom:6px;font-size:12px}
+.rec-item-meta{flex:1;line-height:1.4}
+.rec-item-name{font-weight:700;color:#fff}
+.rec-item-stats{font-size:11px;color:rgba(255,255,255,0.6);
+  font-family:'SF Mono',Consolas,monospace}
+.rec-item-btn{padding:5px 10px;background:rgba(167,139,250,0.3);
+  border:1px solid rgba(167,139,250,0.6);border-radius:6px;
+  color:#fff;font-size:11px;cursor:pointer;font-weight:600}
+.rec-item-btn:hover{background:rgba(167,139,250,0.5)}
+.empty-list{text-align:center;color:rgba(255,255,255,0.4);
+  padding:14px;font-size:12px;font-style:italic}
+
+#log-panel{font-family:'SF Mono',Consolas,monospace;font-size:10px;
+  color:rgba(255,255,255,0.55);max-height:120px;overflow-y:auto;line-height:1.5}
+#log-panel .line{padding:1px 0}
+#log-panel .ok{color:#00ff88}
+#log-panel .err{color:#ff6666}
+
+#hint{position:absolute;bottom:14px;left:14px;right:14px;text-align:center;
+  font-size:13px;color:rgba(255,255,255,0.85);
+  background:rgba(0,0,0,0.7);padding:10px 14px;
+  border-radius:10px;backdrop-filter:blur(8px)}
+
+kbd{background:rgba(255,255,255,0.15);padding:2px 6px;border-radius:4px;
+  font-family:'SF Mono',Consolas,monospace;font-size:11px;
+  border:1px solid rgba(255,255,255,0.2)}
+</style>
+</head>
+<body>
+
+<!-- Working TF.js versions matching the proven detection-test.html -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js"></script>
+
+<div id="header">
+  <div id="title">Gesture Recorder · v1</div>
+  <div id="status">Loading...</div>
+  <div id="fps">— fps</div>
+</div>
+
+<div id="stage">
+  <div id="cam-wrap">
+    <video id="cam-video" autoplay playsinline muted></video>
+    <canvas id="cam-canvas"></canvas>
+    <div id="rec-overlay">
+      <div class="rec-dot"></div>
+      <span>REC</span>
+      <span id="rec-time">0.0s</span>
+    </div>
+    <div id="hint">
+      Pick a gesture label → press <kbd>Space</kbd> or click record → do the gesture → press again to stop
+    </div>
+  </div>
+
+  <div id="side">
+
+    <div class="panel">
+      <h3>1. Pick gesture to record</h3>
+      <select id="gesture-select">
+        <optgroup label="Wave gestures">
+          <option value="wave-left">Wave hello — LEFT hand</option>
+          <option value="wave-right">Wave hello — RIGHT hand</option>
+          <option value="wave-handoff">Wave LEFT → RIGHT handoff</option>
+        </optgroup>
+        <optgroup label="Isolations">
+          <option value="iso-hips-knees">Hips + knees bounce</option>
+          <option value="iso-shoulders">Shoulders only</option>
+          <option value="iso-head">Head + neck only</option>
+          <option value="iso-rib">Rib cage / chest</option>
+          <option value="groove-full">Full body groove</option>
+        </optgroup>
+        <optgroup label="Negative samples">
+          <option value="negative-still">Just standing still</option>
+          <option value="negative-talk">Random gestures (not a wave)</option>
+        </optgroup>
+        <optgroup label="Other">
+          <option value="custom">Custom (give it a name)</option>
+        </optgroup>
+      </select>
+    </div>
+
+    <div class="panel">
+      <h3>2. Record</h3>
+      <button class="btn" id="rec-btn" onclick="toggleRecording()">⏺ Start Recording</button>
+      <div style="font-size:11px;color:rgba(255,255,255,0.5);text-align:center;margin-top:4px">
+        Or press <kbd>Space</kbd>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Live signals</h3>
+      <div class="signal-row">
+        <span class="signal-label">Body joints visible</span>
+        <span class="signal-val" id="sig-joints">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="signal-label">Avg confidence</span>
+        <span class="signal-val" id="sig-conf">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="signal-label">Frames captured</span>
+        <span class="signal-val" id="sig-frames">0</span>
+      </div>
+      <div class="signal-row">
+        <span class="signal-label">Buffer size</span>
+        <span class="signal-val" id="sig-buffer">0 KB</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>3. Recorded clips · <span id="rec-count">0</span></h3>
+      <div id="rec-list">
+        <div class="empty-list">No clips yet. Record one above.</div>
+      </div>
+      <button class="btn success" id="dl-all-btn" onclick="downloadAll()" disabled style="margin-top:10px">
+        ⬇ Download all as ZIP-style JSON
+      </button>
+      <button class="btn secondary" onclick="clearAll()" style="margin-top:4px">Clear all</button>
+    </div>
+
+    <div class="panel">
+      <h3>Log</h3>
+      <div id="log-panel"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+// GESTURE RECORDER
+//
+// What it does:
+//   - Detects 17 body keypoints per frame (MoveNet)
+//   - When recording, stores each frame's keypoints + timestamp into a buffer
+//   - Each completed recording becomes a downloadable JSON
+//
+// Output JSON shape per recording:
+//   {
+//     gesture: "wave-left",
+//     started_at: 1714654200000,
+//     duration_ms: 7234,
+//     frame_count: 217,
+//     video: { width: 1280, height: 720 },
+//     model: "movenet-singlepose-lightning",
+//     frames: [
+//       { t: 0,    joints: { nose: [x,y,score], left_shoulder: [x,y,score], ... } },
+//       { t: 33,   joints: {...} },
+//       ...
+//     ]
+//   }
+//
+// Joint names are from MoveNet (17 keypoints):
+//   nose, left_eye, right_eye, left_ear, right_ear,
+//   left_shoulder, right_shoulder, left_elbow, right_elbow,
+//   left_wrist, right_wrist, left_hip, right_hip,
+//   left_knee, right_knee, left_ankle, right_ankle
+// ════════════════════════════════════════════════════════════════
+
+const videoEl = document.getElementById('cam-video');
+const canvasEl = document.getElementById('cam-canvas');
+const ctx = canvasEl.getContext('2d');
+const statusEl = document.getElementById('status');
+const fpsEl = document.getElementById('fps');
+const logEl = document.getElementById('log-panel');
+const camWrap = document.getElementById('cam-wrap');
+const recOverlay = document.getElementById('rec-overlay');
+const recTimeEl = document.getElementById('rec-time');
+const recBtn = document.getElementById('rec-btn');
+const gestureSelect = document.getElementById('gesture-select');
+const sigJoints = document.getElementById('sig-joints');
+const sigConf = document.getElementById('sig-conf');
+const sigFrames = document.getElementById('sig-frames');
+const sigBuffer = document.getElementById('sig-buffer');
+const recList = document.getElementById('rec-list');
+const recCount = document.getElementById('rec-count');
+const dlAllBtn = document.getElementById('dl-all-btn');
+
+let detector = null;
+let recording = false;
+let recStartTime = 0;
+let currentBuffer = [];
+let recordings = []; // [{name, gesture, frames, duration_ms, ...}]
+
+const MIN_KP_SCORE = 0.3;
+const JOINT_NAMES = [
+  'nose','left_eye','right_eye','left_ear','right_ear',
+  'left_shoulder','right_shoulder','left_elbow','right_elbow',
+  'left_wrist','right_wrist','left_hip','right_hip',
+  'left_knee','right_knee','left_ankle','right_ankle',
+];
+
+let lastFrameTime = performance.now();
+let fpsAvg = 0;
+
+function setStatus(text, kind) {
+  statusEl.textContent = text;
+  statusEl.className = kind || '';
+}
+function log(text, cls = '') {
+  const line = document.createElement('div');
+  line.className = 'line ' + cls;
+  const t = (performance.now() / 1000).toFixed(2);
+  line.textContent = `[${t}] ${text}`;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+  while(logEl.children.length > 50) logEl.removeChild(logEl.firstChild);
+}
+
+// ════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════
+async function init() {
+  if(typeof tf === 'undefined' || typeof poseDetection === 'undefined') {
+    setStatus('Pose libraries failed to load', 'error');
+    return;
+  }
+  setStatus('Camera...');
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 1280, height: 720, facingMode: 'user' }, audio: false,
+    });
+    videoEl.srcObject = stream;
+    await new Promise(r => videoEl.onloadedmetadata = r);
+    canvasEl.width = videoEl.videoWidth;
+    canvasEl.height = videoEl.videoHeight;
+    log(`Camera ready ${videoEl.videoWidth}×${videoEl.videoHeight}`, 'ok');
+  } catch(e) {
+    setStatus('Camera denied', 'error'); log('cam: ' + e.message, 'err'); return;
+  }
+
+  setStatus('Loading pose model...');
+  try {
+    await tf.setBackend('webgl');
+    await tf.ready();
+    detector = await poseDetection.createDetector(
+      poseDetection.SupportedModels.MoveNet,
+      { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+    );
+    log(`MoveNet ready (TF.js ${tf.version.tfjs})`, 'ok');
+  } catch(e) {
+    setStatus('Model load failed', 'error'); log(e.message, 'err'); return;
+  }
+
+  setStatus('✓ Ready — pick gesture & press record', 'ok');
+  document.getElementById('hint').style.display = 'none';
+  detectLoop();
+}
+
+// ════════════════════════════════════════════════════════════════
+// DETECT LOOP
+// ════════════════════════════════════════════════════════════════
+async function detectLoop() {
+  const now = performance.now();
+  const dt = now - lastFrameTime; lastFrameTime = now;
+  fpsAvg = fpsAvg ? fpsAvg*0.9 + (1000/dt)*0.1 : (1000/dt);
+  fpsEl.textContent = fpsAvg.toFixed(0) + ' fps';
+
+  let kp = null;
+  try {
+    const poses = await detector.estimatePoses(videoEl);
+    if(poses[0]) kp = poses[0].keypoints;
+  } catch(e){}
+
+  // Update live signals
+  if(kp) {
+    const visible = kp.filter(k => k.score > MIN_KP_SCORE);
+    sigJoints.textContent = `${visible.length}/17`;
+    sigJoints.className = 'signal-val ' + (visible.length >= 10 ? 'green' : visible.length >= 5 ? 'amber' : '');
+    const avgConf = visible.length ? visible.reduce((a,k) => a + k.score, 0) / visible.length : 0;
+    sigConf.textContent = avgConf > 0 ? (avgConf*100).toFixed(0) + '%' : '—';
+    sigConf.className = 'signal-val ' + (avgConf > 0.6 ? 'green' : avgConf > 0.3 ? 'amber' : '');
+  }
+
+  // If recording, capture this frame
+  if(recording && kp) {
+    captureFrame(now, kp);
+  }
+
+  draw(kp);
+  requestAnimationFrame(detectLoop);
+}
+
+// ════════════════════════════════════════════════════════════════
+// RECORDING
+// ════════════════════════════════════════════════════════════════
+function captureFrame(now, kp) {
+  const t = Math.round(now - recStartTime);
+  // Compact joint dict — only include keypoints we care about
+  const joints = {};
+  kp.forEach(p => {
+    // Round to 1 decimal place to keep file small
+    joints[p.name] = [
+      Math.round(p.x * 10) / 10,
+      Math.round(p.y * 10) / 10,
+      Math.round(p.score * 1000) / 1000,
+    ];
+  });
+  currentBuffer.push({ t, joints });
+
+  // Update UI counters
+  sigFrames.textContent = currentBuffer.length;
+  const bufKB = (JSON.stringify(currentBuffer).length / 1024).toFixed(1);
+  sigBuffer.textContent = bufKB + ' KB';
+
+  recTimeEl.textContent = (t / 1000).toFixed(1) + 's';
+}
+
+function toggleRecording() {
+  if(!detector) {
+    log('Detector not ready', 'err'); return;
+  }
+  if(recording) stopRecording();
+  else startRecording();
+}
+
+function startRecording() {
+  let gesture = gestureSelect.value;
+  if(gesture === 'custom') {
+    const custom = prompt('Custom gesture name (e.g. "salsa-step", "moonwalk"):');
+    if(!custom) return;
+    gesture = custom.trim().replace(/[^a-zA-Z0-9_-]/g, '-').toLowerCase();
+  }
+  recording = true;
+  currentBuffer = [];
+  recStartTime = performance.now();
+  recBtn.textContent = '⏹ Stop Recording';
+  recBtn.classList.add('danger');
+  recOverlay.classList.add('show');
+  camWrap.classList.add('recording');
+  setStatus(`Recording "${gesture}" — do the gesture now`, 'recording');
+  log(`▶ start: ${gesture}`, 'ok');
+  recBtn.dataset.gesture = gesture;
+}
+
+function stopRecording() {
+  if(!recording) return;
+  recording = false;
+  const duration = performance.now() - recStartTime;
+  const gesture = recBtn.dataset.gesture || 'unknown';
+
+  if(currentBuffer.length < 5) {
+    log('Recording too short (<5 frames), discarded', 'err');
+  } else {
+    const ts = new Date();
+    const tsStr = ts.toISOString().replace(/[:.]/g, '-').substring(0, 19);
+    const name = `${gesture}_${tsStr}`;
+    recordings.push({
+      name,
+      gesture,
+      started_at: ts.toISOString(),
+      duration_ms: Math.round(duration),
+      frame_count: currentBuffer.length,
+      video: { width: canvasEl.width, height: canvasEl.height },
+      model: 'movenet-singlepose-lightning',
+      tfjs_version: tf.version.tfjs,
+      frames: currentBuffer,
+    });
+    log(`✓ saved "${name}" — ${currentBuffer.length} frames, ${(duration/1000).toFixed(1)}s`, 'ok');
+    refreshList();
+  }
+  currentBuffer = [];
+  sigFrames.textContent = '0';
+  sigBuffer.textContent = '0 KB';
+  recTimeEl.textContent = '0.0s';
+  recBtn.textContent = '⏺ Start Recording';
+  recBtn.classList.remove('danger');
+  recOverlay.classList.remove('show');
+  camWrap.classList.remove('recording');
+  setStatus('✓ Ready — pick gesture & press record', 'ok');
+}
+
+function refreshList() {
+  recCount.textContent = recordings.length;
+  if(recordings.length === 0) {
+    recList.innerHTML = '<div class="empty-list">No clips yet. Record one above.</div>';
+    dlAllBtn.disabled = true;
+    return;
+  }
+  dlAllBtn.disabled = false;
+  recList.innerHTML = '';
+  recordings.forEach((r, idx) => {
+    const item = document.createElement('div');
+    item.className = 'rec-item';
+    item.innerHTML = `
+      <div class="rec-item-meta">
+        <div class="rec-item-name">${r.gesture}</div>
+        <div class="rec-item-stats">${r.frame_count} frames · ${(r.duration_ms/1000).toFixed(1)}s</div>
+      </div>
+      <button class="rec-item-btn" onclick="downloadOne(${idx})">⬇</button>
+      <button class="rec-item-btn" onclick="deleteOne(${idx})" title="delete">✕</button>
+    `;
+    recList.appendChild(item);
+  });
+}
+
+function downloadOne(idx) {
+  const r = recordings[idx];
+  const blob = new Blob([JSON.stringify(r, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = r.name + '.json';
+  a.click();
+  log(`⬇ downloaded ${r.name}.json`, 'ok');
+}
+
+function downloadAll() {
+  // Bundle all recordings into one JSON file (simpler than ZIP, no library needed)
+  const bundle = {
+    exported_at: new Date().toISOString(),
+    user_agent: navigator.userAgent,
+    recording_count: recordings.length,
+    recordings,
+  };
+  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `gesture-bundle_${new Date().toISOString().substring(0,19).replace(/[:.]/g,'-')}.json`;
+  a.click();
+  log(`⬇ downloaded bundle of ${recordings.length} recordings`, 'ok');
+}
+
+function deleteOne(idx) {
+  recordings.splice(idx, 1);
+  refreshList();
+}
+
+function clearAll() {
+  if(recordings.length === 0) return;
+  if(!confirm(`Delete all ${recordings.length} recordings?`)) return;
+  recordings = [];
+  refreshList();
+  log('cleared all recordings');
+}
+
+// Spacebar to toggle recording
+document.addEventListener('keydown', (e) => {
+  if(e.code === 'Space' && document.activeElement.tagName !== 'SELECT' && document.activeElement.tagName !== 'INPUT') {
+    e.preventDefault();
+    toggleRecording();
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// DRAWING
+// ════════════════════════════════════════════════════════════════
+function draw(kp) {
+  ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+  if(!kp) return;
+  const get = name => kp.find(k => k.name === name && k.score > MIN_KP_SCORE);
+  const lines = [
+    ['left_shoulder','right_shoulder','#ffd6f5'],
+    ['left_shoulder','left_elbow','#ff6fd8'],['left_elbow','left_wrist','#ff6fd8'],
+    ['right_shoulder','right_elbow','#a78bfa'],['right_elbow','right_wrist','#a78bfa'],
+    ['left_shoulder','left_hip','#ffd6f5'],['right_shoulder','right_hip','#ffd6f5'],
+    ['left_hip','right_hip','#ffd6f5'],
+    ['left_hip','left_knee','#ff6fd8'],['left_knee','left_ankle','#ff6fd8'],
+    ['right_hip','right_knee','#a78bfa'],['right_knee','right_ankle','#a78bfa'],
+  ];
+  lines.forEach(([a,b,col]) => {
+    const pa = get(a), pb = get(b);
+    if(pa && pb) {
+      ctx.strokeStyle = recording ? '#ff4444' : col;
+      ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y);
+      ctx.stroke();
+    }
+  });
+  kp.forEach(p => {
+    if(p.score < MIN_KP_SCORE) return;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 6, 0, Math.PI*2);
+    ctx.fill();
+  });
+}
+
+// Boot
+init().catch(e => { setStatus('Init failed: ' + e.message, 'error'); console.error(e); });
+window.toggleRecording = toggleRecording;
+window.downloadOne = downloadOne;
+window.downloadAll = downloadAll;
+window.deleteOne = deleteOne;
+window.clearAll = clearAll;
+</script>
+</body>
+</html>
