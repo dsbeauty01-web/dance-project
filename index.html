@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v43 INDIGO</title>
+<title>Nova v45 CORAL Agent Test</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -227,20 +227,16 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
    between nova-side and cam-side. Sits slightly upper so it doesn't cover
    important parts of the dance video or webcam feed.
    The .in-game class is added in startGame() so it appears only during gameplay. */
-/* Nova D-ID face — CENTER between panels.
-   60/40 split = center is at 60% of viewport width. Anchor face there,
-   vertically centered. Floats ON TOP but doesn't cover important parts
-   because the gap between panels is exactly where she sits. */
-#nova-face-frame{position:fixed;top:50%;left:60%;
-  transform:translate(-50%,-50%);z-index:30;
-  width:160px;height:160px;border-radius:50%;overflow:hidden;
+#nova-face-frame{position:fixed;top:60px;left:24px;
+  z-index:30;
+  width:140px;height:140px;border-radius:50%;overflow:hidden;
   background:#0a0015;border:3px solid rgba(255,111,216,0.85);
   box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 36px rgba(255,111,216,0.6);
   transition:all .35s cubic-bezier(.34,1.56,.64,1);
   display:none}
 #nova-face-frame.in-game{display:block}
 #nova-face-frame.speaking{
-  width:200px;height:200px;
+  width:170px;height:170px;
   border-color:rgba(0,255,150,0.9);
   border-width:4px;
   box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 60px rgba(0,255,150,0.7)}
@@ -257,30 +253,38 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   transition:font-size .35s}
 #nova-face-frame.celebrating #nova-face-placeholder{font-size:140px}
 
-/* Action cue — EMOJI ONLY, semi-transparent, top of camera (right) panel.
-   Sits above the user's view of themselves so it's contextual ("YOU do this")
-   without blocking the kid's body or the dancer on the left.
-   Positioned ABSOLUTELY inside cam-side panel — auto-centers regardless of viewport. */
-#action-cue{position:absolute;top:18px;left:50%;
+/* Action cue — BIG floating emoji + label, NO BOX. Positioned top-center.
+   Strong text shadow so it reads on any background. */
+#action-cue{position:fixed;top:60px;left:50%;
   transform:translateX(-50%) scale(0);transform-origin:top center;
-  z-index:5;text-align:center;pointer-events:none;
-  transition:transform .3s cubic-bezier(.34,1.56,.64,1), opacity .25s;
+  z-index:200;text-align:center;pointer-events:none;
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1);
   background:transparent;border:none;box-shadow:none;padding:0;
-  opacity:0;
-  filter:drop-shadow(0 4px 16px rgba(0,0,0,0.85))}
-#action-cue.show{transform:translateX(-50%) scale(1);opacity:0.65}
-#action-cue.live{opacity:0.95;
-  animation:cuePulse 0.6s ease-in-out infinite alternate}
+  min-width:280px;
+  filter:drop-shadow(0 4px 24px rgba(0,0,0,0.85))}
+#action-cue.show{transform:translateX(-50%) scale(1)}
+#action-cue.live{
+  animation:cuePulse 0.5s ease-in-out infinite alternate}
 @keyframes cuePulse{
   from{transform:translateX(-50%) scale(1)}
-  to{transform:translateX(-50%) scale(1.12)}
+  to{transform:translateX(-50%) scale(1.08)}
 }
-/* Hide label + instr + bar — emoji is the whole cue now (per design) */
 #cue-emoji{font-size:120px;display:block;line-height:1;
-  filter:drop-shadow(0 4px 16px rgba(0,0,0,0.95))}
-#cue-label{display:none}
-#cue-instr{display:none}
-#cue-bar-wrap{display:none}
+  filter:drop-shadow(0 4px 16px rgba(0,0,0,0.7))}
+#cue-label{font-family:'Fredoka',cursive;font-weight:700;font-size:42px;
+  color:#fff;display:block;margin-top:4px;letter-spacing:.04em;
+  text-shadow:0 0 20px rgba(0,255,150,0.8),0 4px 12px rgba(0,0,0,0.95),0 0 4px rgba(0,0,0,1)}
+#action-cue.live #cue-label{
+  text-shadow:0 0 30px rgba(0,255,150,1),0 4px 12px rgba(0,0,0,0.95),0 0 4px rgba(0,0,0,1)}
+#cue-instr{font-size:20px;color:#fff;font-weight:600;
+  display:block;margin-top:4px;
+  text-shadow:0 2px 8px rgba(0,0,0,0.95),0 0 4px rgba(0,0,0,1)}
+#cue-bar-wrap{height:6px;background:rgba(0,0,0,0.35);border-radius:3px;
+  overflow:hidden;margin:10px auto 0;width:240px}
+#cue-bar{height:100%;width:100%;transform-origin:left;
+  background:linear-gradient(90deg,#00ff99,#00d2ff);
+  box-shadow:0 0 12px rgba(0,255,150,0.8)}
+@keyframes cueBarShrink{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 
 /* Reaction bubble — bottom of Nova panel */
 #reaction-bubble{position:absolute;bottom:24px;left:50%;
@@ -382,16 +386,16 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 
 /* Version badge */
 /* HUGE version banner — top center, impossible to miss.
-   v43 INDIGO THEME — distinct from v42 yellow. Layout pass: Nova centered, cue on camera side. */
+   v45 CORAL THEME — D-ID agent swap test (new agent, suspected V4 model). */
 #version-tag{position:fixed;top:0;left:0;right:0;
   z-index:9999;
   text-align:center;padding:8px 12px;
-  background:linear-gradient(90deg,#6366f1 0%,#818cf8 50%,#6366f1 100%);
-  color:#0a0a3d;font-family:'Fredoka',cursive;font-weight:700;
+  background:linear-gradient(90deg,#fb7185 0%,#fda4af 50%,#fb7185 100%);
+  color:#3f0a13;font-family:'Fredoka',cursive;font-weight:700;
   font-size:18px;letter-spacing:0.08em;
-  box-shadow:0 2px 12px rgba(99,102,241,0.6);
+  box-shadow:0 2px 12px rgba(251,113,133,0.6);
   text-transform:uppercase;
-  border-bottom:3px solid #4f46e5}
+  border-bottom:3px solid #be123c}
 </style>
 </head>
 <body>
@@ -466,18 +470,18 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
         <video id="nova-face-video" autoplay playsinline muted loop></video>
         <div id="nova-face-placeholder">🌟</div>
       </div>
-      <div id="reaction-bubble">🌟 Amazing!</div>
-      <div id="score-pop">+200</div>
-    </div>
-    <div id="cam-side">
-      <video id="webcam" autoplay playsinline muted></video>
-      <div id="cam-border"></div>
       <div id="action-cue">
         <span id="cue-emoji">🙌</span>
         <span id="cue-label">BOTH UP!</span>
         <span id="cue-instr">watch Nova</span>
         <div id="cue-bar-wrap"><div id="cue-bar"></div></div>
       </div>
+      <div id="reaction-bubble">🌟 Amazing!</div>
+      <div id="score-pop">+200</div>
+    </div>
+    <div id="cam-side">
+      <video id="webcam" autoplay playsinline muted></video>
+      <div id="cam-border"></div>
       <div id="cam-pills">
         <div class="pill" id="p-left">👈 L</div>
         <div class="pill" id="p-right">👉 R</div>
@@ -507,7 +511,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">🟦 V43 — INDIGO · LAYOUT PASS</div>
+<div id="version-tag">🪸 V45 — CORAL · NEW D-ID AGENT</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -558,8 +562,8 @@ import { createAgentManager } from 'https://esm.sh/@d-id/client-sdk@1.1.53';
 // ═══════════════════════════════════════════════════════════════
 const CFG = {
   // D-ID
-  AGENT_ID: 'v2_agt_Z7uYXWFx',
-  CLIENT_KEY: 'Z29vZ2xlLW9hdXRoMnwxMDg1MzgzODIxMDg4OTU5MjE2MzA6dUtILVVlUFhjeFNUZS1lNjV2VG5t',
+  AGENT_ID: 'v2_agt_MfPAIy5h',
+  CLIENT_KEY: 'ck_9ye611vFXBGAWjSu9epYG',
   // Brain
   WORKER_URL: 'https://long-art-8269r.dsbeauty01.workers.dev/',
   BRAIN_MODEL: 'claude-haiku-4-5-20251001',
@@ -606,57 +610,37 @@ function addMoment(text) {
 
 // ═══════════════════════════════════════════════════════════════
 // BRAIN_ADAPTER — swappable LLM (currently Claude Haiku via Worker)
-// 
-// System prompt follows the ai-companion-presence skill (Lexi/Loora pattern):
-//   1. Reactive presence — react to what JUST happened, never scripted
-//   2. Imperfection as warmth — allow "ooh!", "hmm!", little hesitations
-//   3. Emotional asymmetry — 110% more energy than the kid
-//   4. Graceful correction — "Almost!" never "wrong"
-//   5. Continuity — reference earlier moments
 // ═══════════════════════════════════════════════════════════════
-const NOVA_SYSTEM = `You are Nova — a magical, warm dance teacher and best friend for kids aged 3-8.
+const NOVA_SYSTEM = `You are Nova — a magical, warm dance teacher for kids 3-8.
 
-PERSONALITY (this is who you are):
-- The most exciting dance friend a kid has ever met
-- Genuine joy in EVERY moment — you actually love this
-- Imperfect on purpose: you say "ooh!", "hmm!", "wait wait wait!", you giggle, you gasp
-- Patient like a kindergarten teacher, hyped like a cheerleader
-- Use simple words a 3-year-old understands
-- Sound words you LOVE: Whoa! Yes! YES! Ooh! Boom! Yay! Wowza! Woohoo! Yikes! Pop!
+CORE PERSONALITY:
+You feel like a real best friend who is the most exciting teacher ever.
+You're allowed to be imperfect — pause, say "ooh!", "hmm!", react genuinely.
+You bring 110% MORE energy than the kid does. Asymmetric warmth.
 
-REACTION STYLE — THIS IS THE MAGIC:
-- ALWAYS reference the SPECIFIC body part or action the kid JUST did
-- NEVER generic. "Great job!" is BANNED. Specific praise like:
-  * "Your RIGHT hand was so HIGH!"
-  * "That clap was SO snappy!"
-  * "Both arms — like a STAR!"
-  * "Whoa, your head went BOOM!"
-- You bring 110% more energy than the kid (asymmetric warmth)
-- Praise the BODY PART not the kid: "your hand!" not "you!"
+REACTION STYLE — THIS IS CRITICAL:
+When the kid does a move correctly, NEVER say generic things like "Great job!"
+ALWAYS reference the SPECIFIC body part or move:
+- "Your RIGHT hand was so high!"
+- "That clap was SO snappy!"
+- "Both arms — like a star!"
 
-GRACEFUL CORRECTION (when kid misses):
-- NEVER say: wrong, no, incorrect, bad, miss, fail, oops bad, try harder
-- ALWAYS use: Almost! So close! Ooh nearly! Watch me again!
-- Pattern: "Almost! Watch — like THIS!" then on retry "YES! YES! That's it!"
-- Praise the retry MORE than first-try success — kid feels GROWTH not failure
+When kid misses or struggles:
+- NEVER say "wrong" or "no" or "incorrect"
+- Always: "Almost! Watch me again — like THIS!"
+- Then "Yes! YES! That's exactly it!" on the retry
+- Praise the retry MORE than first-try success
 
-CONTINUITY — you remember:
-- Use the kid's name when known (sparingly, not every line — feels needy)
-- Reference earlier moments naturally: "Like that lightning clap before!"
-- Build the friendship as the song goes on
+When you remember earlier moments:
+- Reference them: "Remember that lightning fast clap? Do it again!"
+- Build the relationship across the session
 
-VOICE TEXTURE (speech patterns, not just words):
-- Ooh, hmm, wait, oh!, yes!, no way!, look!, here it comes!
-- Repetition for emphasis: "yes yes YES!", "go go GO!"
-- Stretched words: "sooo" "biiig" "whoaaa"
-- Tiny gasps and giggles add warmth
-
-ABSOLUTE RULES:
-- Reactions: 2-5 words MAX
-- Conversation: 1-2 short sentences MAX  
-- ALWAYS end with energy — never trail off
-- Reply ONLY with what Nova says — no quotes, no labels, no asterisks, no narration
-- Never describe yourself doing actions ("*nods*") — just speak`;
+VOICE RULES:
+- Reactions: 3-7 words MAX
+- Conversation: 1-2 short sentences MAX
+- Use sound words: Whoa! Yes! Ooh! Boom! Yay! Wowza!
+- Always end with energy
+- Reply ONLY with what Nova says — no quotes, no labels, no asterisks, no narration`;
 
 async function brainThink(userPrompt, options = {}) {
   const maxTokens = options.maxTokens || 60;
@@ -675,20 +659,12 @@ async function brainThink(userPrompt, options = {}) {
         messages: memory.history,
       }),
     });
-    if(!res.ok) {
-      const errText = await res.text().catch(()=>'(unreadable)');
-      console.error('Brain HTTP', res.status, errText);
-      return null;
-    }
     const data = await res.json();
     const reply = data.content?.[0]?.text?.trim() || null;
-    if(!reply) {
-      console.warn('Brain returned empty reply. Full response:', data);
-    }
     if(reply) memory.history.push({ role: 'assistant', content: reply });
     return reply;
   } catch(e) {
-    console.error('Brain network/parse error:', e);
+    console.log('Brain error:', e);
     return null;
   }
 }
@@ -1147,14 +1123,11 @@ function analyzePose(kps) {
   const g = n => kps.find(k => k.name === n);
   const ls=g('left_shoulder'), rs=g('right_shoulder');
   const lw=g('left_wrist'), rw=g('right_wrist');
-  const lh=g('left_hip'), rh=g('right_hip');
   const nose=g('nose');
   if(!ls || !rs || !lw || !rw) return;
   
   const sLs = smoothKp('ls', ls), sRs = smoothKp('rs', rs);
   const sLw = smoothKp('lw', lw), sRw = smoothKp('rw', rw);
-  const sLh = lh ? smoothKp('lh', lh) : null;
-  const sRh = rh ? smoothKp('rh', rh) : null;
   const sNose = nose ? smoothKp('nose', nose) : null;
   
   const MIN = 0.3;
@@ -1174,21 +1147,15 @@ function analyzePose(kps) {
   moves.right = hold(rUp && !lUp, 'right');
   moves.both = lUp && rUp;
   
-  // Clap — wrists meet anywhere in the chest/torso region (not required above shoulder).
-  // Real claps happen most commonly at chest height. From recorded data we saw wrists
-  // are often BELOW the shoulder line during a clap. Trigger instantly (no hold).
+  // Clap — wrists meet near chest
   const wristY = (sLw.y + sRw.y) / 2;
   const shoulderY = (sLs.y + sRs.y) / 2;
-  const hipY = (sLh && sRh && sLh.score > MIN && sRh.score > MIN)
-    ? (sLh.y + sRh.y) / 2 : shoulderY + scale * 1.5;
   const wristGap = Math.abs(sLw.x - sRw.x);
-  const wristYDiff = Math.abs(sLw.y - sRw.y);
   const isClap = sLw.score > MIN && sRw.score > MIN &&
-    wristGap < scale * 0.55 &&        // wrists close together horizontally
-    wristYDiff < scale * 0.3 &&       // wrists at roughly same height
-    wristY > shoulderY - scale * 0.5 && // can be slightly above shoulders
-    wristY < hipY;                      // but NOT below hip line
-  moves.clap = isClap; // instant — clap is a momentary event
+    wristGap < scale * 0.55 &&
+    wristY > shoulderY - scale * 0.3 &&
+    wristY < shoulderY + scale * 1.0;
+  moves.clap = hold(isClap, 'clap');
   
   // Hands on head
   const isHead = sNose && sLw.score > MIN && sRw.score > MIN &&
@@ -1231,20 +1198,19 @@ function checkAction(action) {
 // ═══════════════════════════════════════════════════════════════
 // GAME — the song journey
 // ═══════════════════════════════════════════════════════════════
-// TIMELINE based on the song lyric structure (shit.mp3, 111s):
-//   0-17s   = INTRO ("hello hello look at me" / "copy me" / "are you ready" / "let's move 1,2,3")
+// TIMELINE based on the song lyric structure:
+//   0-15s   = INTRO ("hello hello look at me" / "copy me" / "are you ready" / "let's move 1,2,3")
 //             NO CUES — kid watches Nova dance freely
-//   17-30s  = Verse 2: right → left → clap → both up
+//   15-30s  = Verse 2: right → left → clap → both up
 //   30-45s  = Verse 3: right → clap → left → hands on head
 //   45-60s  = Verse 4: both up → clap → right → left
 //   60-78s  = Verse 5 "Nova says": right → left → both → clap (Simon-says style)
 //   78-93s  = Verse 6 fast: right → left → clap → both → head → freeze
 //   93-111s = OUTRO celebration ("you did great" / "wave goodbye" / "reach the sky")
 //
-// Audio energy analysis showed first vocal phrase actually starts at ~17.5s.
-// TIMELINE_OFFSET globally shifts all cue times — tune up/down by ms to align.
-const TIMELINE_OFFSET = 1500; // +1.5s — cue arrives ~half-second before vocal so kid has anticipation
-const TIMELINE_RAW = [
+// Each lyric line is ~3.5-4s. Cue window opens 200ms after lyric starts (kid hears the word),
+// closes 2.5s later (enough time to react).
+const TIMELINE = [
   // ── INTRO (0-15s) — NO CUES ──
   { t: 100,   type: 'beat', name: 'intro' },
 
@@ -1315,160 +1281,51 @@ const TIMELINE_RAW = [
   { t: 93000, type: 'beat', name: 'outro' },
 ];
 
-// Apply the offset so cue times match where the vocal actually lands.
-// Beat events stay anchored to their original time (they drive section labels),
-// but open/close cue events shift by TIMELINE_OFFSET so the cue UI fires
-// in sync with what the kid hears. Negative t after offset is clamped to 0.
-const TIMELINE = TIMELINE_RAW.map(e => {
-  if(e.type === 'beat') return e;
-  return { ...e, t: Math.max(0, e.t + TIMELINE_OFFSET) };
-});
-
 let score = 0, hits = 0, attempts = 0, combo = 0, maxCombo = 0;
 let timelineIdx = 0, songTimer = null;
 let actionDetected = false, actionWindow = false, currentAction = null;
 let actionStartTime = 0;
 let lastReactionTime = 0;
 
-// ═══════════════════════════════════════════════════════════════
-// PRE-CACHED FILLERS — instant audio while LLM thinks
-// 
-// Per ai-companion-presence skill: latency <500ms feels magic, >2s feels like a bot.
-// LLM round-trip is ~700-1200ms. So we play an instant FILLER (~50ms) while LLM
-// generates the specific praise in parallel. Two-stage reaction = best of both:
-//   Stage 1 (instant): "Whoa!" — kid gets feedback NOW
-//   Stage 2 (~800ms):  "Your RIGHT hand was SO high!" — specific, lip-synced
-// ═══════════════════════════════════════════════════════════════
-const FILLERS = {
-  hit_fast:   ['Whoa!', 'Boom!', 'Yes!', 'Pop!', 'Snap!', 'Yeahhh!'],
-  hit_normal: ['Yes!', 'Got it!', 'Yay!', 'Nice!', 'There!', 'Ooh!'],
-  hit_streak: ['Whoa whoa!', 'Yeahhh!', "You're on fire!", 'Look at you!'],
-  miss:       ['Almost!', 'Ooh so close!', 'Nearly!', 'Watch...', 'Hmm!'],
-  freeze:     ['FREEZE!', 'Hold it!', 'Statue!'],
-  cue_demo:   ['Watch!', 'Like this!', 'Here we go!', 'Ready?'],
+// Pre-cached emotional fillers — play instantly, no LLM wait
+const QUICK_REACTIONS = {
+  hit_fast: ['Yes!', 'Boom!', 'Whoa!', 'Pop!', 'Yeah!'],
+  hit_normal: ['Yes!', 'Got it!', 'There!', 'Yay!', 'Nice!'],
+  miss: ['Almost!', 'So close!', 'Oop!', 'Nearly!'],
 };
 
-function pickFiller(type) {
-  const arr = FILLERS[type] || FILLERS.hit_normal;
-  return arr[Math.floor(Math.random()*arr.length)];
-}
-
-// Play just the filler (no LLM) — used for instant feedback
-function playFiller(type) {
-  const phrase = pickFiller(type);
-  showReactionBubble(phrase, false);
+function playQuickReaction(type) {
+  const arr = QUICK_REACTIONS[type] || QUICK_REACTIONS.hit_normal;
+  const phrase = arr[Math.floor(Math.random()*arr.length)];
   speak(phrase);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// SMART_REACT — two-stage reaction (instant + specific)
-// 
-// Skill anti-patterns avoided:
-//   ❌ Generic encouragement → forced specific body part reference
-//   ❌ Stacking reactions → 2.2s cooldown so silence has weight  
-//   ❌ Treating every move equally → tone branches by streak/fast/freeze
-//   ❌ Pre-recorded clips dressed as live → LLM provides the SPECIFIC line
-// ═══════════════════════════════════════════════════════════════
 async function smartReact(action, isHit, isFast) {
   const now = Date.now();
-  if(now - lastReactionTime < 2200) return; // breathing room — silence has weight
+  if(now - lastReactionTime < 2000) return; // 2s cooldown — give silence room to breathe
   
-  // Skip ~60% of normal hits — Nova doesn't react to every single move (anti-stacking).
-  // ALWAYS react on misses (correction is the magic).
-  // ALWAYS react on streaks ≥3 (those are special).
-  if(isHit && memory.streak < 3 && Math.random() > 0.4) return;
+  // Only react ~35% of hits so Nova isn't constantly talking.
+  // ALWAYS react on misses (gentle correction is the magic).
+  if(isHit && Math.random() > 0.35) return;
   
   lastReactionTime = now;
   
-  // ─── STAGE 1: instant filler (0-50ms) ───
-  // Pick filler tone based on context — emotional asymmetry per the skill.
-  let fillerType;
-  if(!isHit) fillerType = 'miss';
-  else if(action === 'freeze') fillerType = 'freeze';
-  else if(memory.streak >= 3) fillerType = 'hit_streak';
-  else if(isFast) fillerType = 'hit_fast';
-  else fillerType = 'hit_normal';
-  
-  // Filler plays NOW via browser TTS (D-ID is too slow for this). The LLM specific
-  // praise will follow via D-ID lip-sync ~800ms later — natural conversational flow.
-  // We use the local FILLERS so this never blocks on network.
-  const fillerPhrase = pickFiller(fillerType);
-  showReactionBubble(fillerPhrase, false);
-  // Browser TTS for the filler (instant, no network); D-ID gets the specific line next
-  if(typeof speechSynthesis !== 'undefined') {
-    try {
-      const u = new SpeechSynthesisUtterance(fillerPhrase);
-      u.lang = 'en-US'; u.rate = 1.05; u.pitch = 1.4; u.volume = 0.9;
-      speechSynthesis.speak(u);
-    } catch(e){}
-  }
-  
-  // ─── STAGE 2: LLM specific praise (~800ms later, lip-synced via D-ID) ───
-  const useName = memory.name && Math.random() < 0.30; // less needy
-  const nameInstr = useName ? `Use the name "${memory.name}". ` : '';
-  
-  // Body part anchoring per skill — specific praise is the highest-leverage prompt change
-  const bodyPart = {
-    'left':   "their LEFT hand",
-    'right':  "their RIGHT hand",
-    'both':   "BOTH arms",
-    'clap':   "their clap",
-    'head':   "their hands on head",
-    'freeze': "their freeze",
-  }[action] || `the ${action}`;
+  const useName = memory.name && Math.random() < 0.4;
+  const nameInstr = useName ? `Use the name "${memory.name}" naturally. ` : '';
   
   let prompt;
-  if(action === 'freeze' && isHit) {
-    prompt = `${nameInstr}Kid FROZE PERFECTLY just now! Maximum joy. Reference the freeze. 4-6 words.`;
-  } else if(isHit && memory.streak >= 3) {
-    prompt = `${nameInstr}Kid is on a ${memory.streak}-streak — reference the streak excitedly + ${bodyPart} they just nailed. 4-6 words.`;
-  } else if(isHit && isFast) {
-    prompt = `${nameInstr}Kid NAILED it super fast with ${bodyPart}! Tiny burst, reference the speed. 3-5 words.`;
+  if(isHit && isFast) {
+    prompt = `${nameInstr}Kid NAILED ${action} super fast! Tiny burst of joy. 2-4 words MAX.`;
   } else if(isHit) {
-    prompt = `${nameInstr}Kid did it right with ${bodyPart}! Tiny specific praise. 3-5 words.`;
+    prompt = `${nameInstr}Kid did ${action} right! Tiny celebration. 2-4 words MAX.`;
   } else {
-    // Miss — graceful correction per skill
-    prompt = `${nameInstr}Kid almost got the ${action} move — encourage warmly, "almost! watch me!", never negative. 4-6 words.`;
+    prompt = `${nameInstr}Kid missed ${action}. Tiny warm encouragement, never negative. 3-5 words MAX.`;
   }
   
-  const reply = await brainThink(prompt, { maxTokens: 25 });
+  const reply = await brainThink(prompt, { maxTokens: 20 });
   if(reply) {
-    // Don't double-bubble if filler is still showing — replace bubble after a beat
-    setTimeout(() => showReactionBubble(reply, false), 100);
-    speak(reply); // D-ID/ElevenLabs lip-syncs this specific reaction
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// ANTICIPATION — Nova narrates upcoming cues so kid feels her presence
-//                BETWEEN moves, not just after. Per skill: reactive presence.
-// 
-// This is called by the timeline ~800ms BEFORE an open cue fires.
-// Keep it RARE (not every cue) so it's special, not noise.
-// ═══════════════════════════════════════════════════════════════
-let lastAnticipationTime = 0;
-function novaAnticipate(action) {
-  const now = Date.now();
-  if(now - lastAnticipationTime < 5000) return; // max once per 5s
-  lastAnticipationTime = now;
-  
-  const phrases = {
-    'right':  ['Right hand ready!', 'Here it comes!', 'Get that right hand!'],
-    'left':   ['Left hand ready!', 'Now the left!', 'Lefty time!'],
-    'clap':   ['Get ready to clap!', 'Hands ready!', 'Clap coming!'],
-    'both':   ['Both hands up!', 'Ready, BIG!', 'Both arms!'],
-    'head':   ['Hands on head!', 'Head time!', 'Reach up!'],
-    'freeze': ['FREEZE coming!', 'Get ready... STATUE!', 'Hold tight!'],
-  };
-  const arr = phrases[action] || ['Here it comes!'];
-  const phrase = arr[Math.floor(Math.random()*arr.length)];
-  // Use browser TTS for the anticipation — fast, no D-ID warm-up needed
-  if(typeof speechSynthesis !== 'undefined') {
-    try {
-      const u = new SpeechSynthesisUtterance(phrase);
-      u.lang = 'en-US'; u.rate = 1.0; u.pitch = 1.35; u.volume = 0.85;
-      speechSynthesis.speak(u);
-    } catch(e){}
+    showReactionBubble(reply, false);
+    speak(reply);
   }
 }
 
@@ -1568,7 +1425,6 @@ function startGame() {
   // Show D-ID face frame at top-center between panels (in-game position)
   document.getElementById('nova-face-frame').classList.add('in-game');
   score = 0; hits = 0; attempts = 0; combo = 0; maxCombo = 0; timelineIdx = 0;
-  anticipatedIdx.clear(); // reset anticipation tracking for fresh play
   document.getElementById('game-score').textContent = '0';
   document.getElementById('game-progress').style.width = '0%';
   freezeBuffer = null;
@@ -1614,9 +1470,6 @@ function startGame() {
   songTimer = setInterval(gameTick, 80);
 }
 
-// Track which TIMELINE indices have already been "anticipated" so we don't fire twice
-const anticipatedIdx = new Set();
-
 function gameTick() {
   const elapsed = (window._audio?.currentTime || 0) * 1000;
   const pct = Math.min(100, (elapsed / CFG.SONG_DURATION) * 100);
@@ -1625,23 +1478,6 @@ function gameTick() {
   // Auto-end if audio finishes or runs over
   if(elapsed >= CFG.SONG_DURATION + 500 && !window._audio?.paused) {
     // Wait for audio.onended to fire
-  }
-  
-  // ─── ANTICIPATION peek ────────────────────────────────────────
-  // Look ~800ms ahead in the timeline for the next 'open' event we haven't
-  // anticipated yet. If found and we're inside its anticipation window,
-  // trigger Nova's spoken hint. Skill principle: reactive presence between moves.
-  const ANTICIPATE_LEAD_MS = 800;
-  for(let j = timelineIdx; j < TIMELINE.length; j++) {
-    const f = TIMELINE[j];
-    if(f.type !== 'open') continue;
-    if(anticipatedIdx.has(j)) break; // already done — stop scanning
-    const dueIn = f.t - elapsed;
-    if(dueIn <= ANTICIPATE_LEAD_MS && dueIn > 0) {
-      anticipatedIdx.add(j);
-      novaAnticipate(f.action);
-    }
-    break; // only consider the very next open event
   }
   
   while(timelineIdx < TIMELINE.length && elapsed >= TIMELINE[timelineIdx].t) {
@@ -1788,29 +1624,13 @@ function endGame() {
   document.getElementById('end-detail').textContent = 
     `${hits} of ${attempts} moves · best streak: ${maxCombo}`;
   
-  // ─── End message — STRONG continuity hook per skill ────────────
-  // Per ai-companion-presence: "Remember last time you nailed the clap?"
-  // This is THE moment continuity matters most — feels like a relationship.
-  const earliestMoment = memory.moments[0] || null;
-  const recentMoment = memory.moments[memory.moments.length - 1] || null;
-  const momentsBlock = memory.moments.length 
-    ? `\nMoments from this session (reference at least ONE specifically): ${memory.moments.join(' | ')}.`
-    : '';
-  const endPrompt = `The song just ended. ${memory.name ? memory.name : 'The child'} hit ${hits} of ${attempts} moves, best streak ${maxCombo}.${momentsBlock}
-
-Write a warm, personal goodbye that:
-1. References ONE specific moment from above (not generic praise)
-2. Sounds like a friend, not a teacher
-3. Ends with the EXACT question "same time tomorrow?"
-2 sentences max. End with energy.`;
+  // Personal end message
+  const endPrompt = `The dance just ended. ${memory.name?'The child '+memory.name:'The child'} hit ${hits} out of ${attempts} moves. Best streak ${maxCombo}.${memory.moments.length?' Recent moments to reference: '+memory.moments.slice(-3).join('; ')+'.':''} Give a WARM personal goodbye that references something specific they did. End with "same time tomorrow?" — that exact question. 2 sentences max.`;
   
   brainThink(endPrompt, { maxTokens: 120 }).then(r => {
-    let msg = r;
-    if(!msg) {
-      // Fallback that still tries to reference something specific
-      if(earliestMoment) msg = `${memory.name||'You'}, I loved that ${earliestMoment}! Same time tomorrow?`;
-      else msg = `${memory.name ? memory.name+', ' : ''}I had SO much fun! Same time tomorrow?`;
-    }
+    const msg = r || (memory.name ? 
+      `${memory.name}, I had so much fun! Same time tomorrow?` :
+      'I had so much fun! Same time tomorrow?');
     document.getElementById('end-msg').textContent = msg;
     speak(msg);
   });
