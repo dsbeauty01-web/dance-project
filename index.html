@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v40 MAGENTA</title>
+<title>Nova v41 RED</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -386,16 +386,16 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 
 /* Version badge */
 /* HUGE version banner — top center, impossible to miss.
-   v40 MAGENTA THEME — distinct from v39 lime. */
+   v41 RED THEME — distinct from v40 magenta. Fix pass: cue timing offset, clap detection, brain logging. */
 #version-tag{position:fixed;top:0;left:0;right:0;
   z-index:9999;
   text-align:center;padding:8px 12px;
-  background:linear-gradient(90deg,#ec4899 0%,#d946ef 50%,#ec4899 100%);
-  color:#1a001a;font-family:'Fredoka',cursive;font-weight:700;
+  background:linear-gradient(90deg,#ef4444 0%,#f97316 50%,#ef4444 100%);
+  color:#1a0000;font-family:'Fredoka',cursive;font-weight:700;
   font-size:18px;letter-spacing:0.08em;
-  box-shadow:0 2px 12px rgba(236,72,153,0.5);
+  box-shadow:0 2px 12px rgba(239,68,68,0.5);
   text-transform:uppercase;
-  border-bottom:3px solid #be185d}
+  border-bottom:3px solid #b91c1c}
 </style>
 </head>
 <body>
@@ -511,7 +511,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">🟪 V40 — MAGENTA · CUE TIMING FIXED</div>
+<div id="version-tag">🟥 V41 — RED · POLISH PASS</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -659,12 +659,20 @@ async function brainThink(userPrompt, options = {}) {
         messages: memory.history,
       }),
     });
+    if(!res.ok) {
+      const errText = await res.text().catch(()=>'(unreadable)');
+      console.error('Brain HTTP', res.status, errText);
+      return null;
+    }
     const data = await res.json();
     const reply = data.content?.[0]?.text?.trim() || null;
+    if(!reply) {
+      console.warn('Brain returned empty reply. Full response:', data);
+    }
     if(reply) memory.history.push({ role: 'assistant', content: reply });
     return reply;
   } catch(e) {
-    console.log('Brain error:', e);
+    console.error('Brain network/parse error:', e);
     return null;
   }
 }
@@ -1123,11 +1131,14 @@ function analyzePose(kps) {
   const g = n => kps.find(k => k.name === n);
   const ls=g('left_shoulder'), rs=g('right_shoulder');
   const lw=g('left_wrist'), rw=g('right_wrist');
+  const lh=g('left_hip'), rh=g('right_hip');
   const nose=g('nose');
   if(!ls || !rs || !lw || !rw) return;
   
   const sLs = smoothKp('ls', ls), sRs = smoothKp('rs', rs);
   const sLw = smoothKp('lw', lw), sRw = smoothKp('rw', rw);
+  const sLh = lh ? smoothKp('lh', lh) : null;
+  const sRh = rh ? smoothKp('rh', rh) : null;
   const sNose = nose ? smoothKp('nose', nose) : null;
   
   const MIN = 0.3;
@@ -1147,15 +1158,21 @@ function analyzePose(kps) {
   moves.right = hold(rUp && !lUp, 'right');
   moves.both = lUp && rUp;
   
-  // Clap — wrists meet near chest
+  // Clap — wrists meet anywhere in the chest/torso region (not required above shoulder).
+  // Real claps happen most commonly at chest height. From recorded data we saw wrists
+  // are often BELOW the shoulder line during a clap. Trigger instantly (no hold).
   const wristY = (sLw.y + sRw.y) / 2;
   const shoulderY = (sLs.y + sRs.y) / 2;
+  const hipY = (sLh && sRh && sLh.score > MIN && sRh.score > MIN)
+    ? (sLh.y + sRh.y) / 2 : shoulderY + scale * 1.5;
   const wristGap = Math.abs(sLw.x - sRw.x);
+  const wristYDiff = Math.abs(sLw.y - sRw.y);
   const isClap = sLw.score > MIN && sRw.score > MIN &&
-    wristGap < scale * 0.55 &&
-    wristY > shoulderY - scale * 0.3 &&
-    wristY < shoulderY + scale * 1.0;
-  moves.clap = hold(isClap, 'clap');
+    wristGap < scale * 0.55 &&        // wrists close together horizontally
+    wristYDiff < scale * 0.3 &&       // wrists at roughly same height
+    wristY > shoulderY - scale * 0.5 && // can be slightly above shoulders
+    wristY < hipY;                      // but NOT below hip line
+  moves.clap = isClap; // instant — clap is a momentary event
   
   // Hands on head
   const isHead = sNose && sLw.score > MIN && sRw.score > MIN &&
@@ -1198,19 +1215,20 @@ function checkAction(action) {
 // ═══════════════════════════════════════════════════════════════
 // GAME — the song journey
 // ═══════════════════════════════════════════════════════════════
-// TIMELINE based on the song lyric structure:
-//   0-15s   = INTRO ("hello hello look at me" / "copy me" / "are you ready" / "let's move 1,2,3")
+// TIMELINE based on the song lyric structure (shit.mp3, 111s):
+//   0-17s   = INTRO ("hello hello look at me" / "copy me" / "are you ready" / "let's move 1,2,3")
 //             NO CUES — kid watches Nova dance freely
-//   15-30s  = Verse 2: right → left → clap → both up
+//   17-30s  = Verse 2: right → left → clap → both up
 //   30-45s  = Verse 3: right → clap → left → hands on head
 //   45-60s  = Verse 4: both up → clap → right → left
 //   60-78s  = Verse 5 "Nova says": right → left → both → clap (Simon-says style)
 //   78-93s  = Verse 6 fast: right → left → clap → both → head → freeze
 //   93-111s = OUTRO celebration ("you did great" / "wave goodbye" / "reach the sky")
 //
-// Each lyric line is ~3.5-4s. Cue window opens 200ms after lyric starts (kid hears the word),
-// closes 2.5s later (enough time to react).
-const TIMELINE = [
+// Audio energy analysis showed first vocal phrase actually starts at ~17.5s.
+// TIMELINE_OFFSET globally shifts all cue times — tune up/down by ms to align.
+const TIMELINE_OFFSET = 1500; // +1.5s — cue arrives ~half-second before vocal so kid has anticipation
+const TIMELINE_RAW = [
   // ── INTRO (0-15s) — NO CUES ──
   { t: 100,   type: 'beat', name: 'intro' },
 
@@ -1280,6 +1298,15 @@ const TIMELINE = [
   // ── OUTRO (93-111s) — NO CUES, just celebration ──
   { t: 93000, type: 'beat', name: 'outro' },
 ];
+
+// Apply the offset so cue times match where the vocal actually lands.
+// Beat events stay anchored to their original time (they drive section labels),
+// but open/close cue events shift by TIMELINE_OFFSET so the cue UI fires
+// in sync with what the kid hears. Negative t after offset is clamped to 0.
+const TIMELINE = TIMELINE_RAW.map(e => {
+  if(e.type === 'beat') return e;
+  return { ...e, t: Math.max(0, e.t + TIMELINE_OFFSET) };
+});
 
 let score = 0, hits = 0, attempts = 0, combo = 0, maxCombo = 0;
 let timelineIdx = 0, songTimer = null;
