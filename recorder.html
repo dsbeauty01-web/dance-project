@@ -173,7 +173,7 @@ kbd{background:rgba(255,255,255,0.15);padding:2px 6px;border-radius:4px;
 
     <div class="panel">
       <h3>2. Record</h3>
-      <button class="btn" id="rec-btn" onclick="toggleRecording()">⏺ Start Recording</button>
+      <button class="btn" id="rec-btn">⏺ Start Recording</button>
       <div style="font-size:11px;color:rgba(255,255,255,0.5);text-align:center;margin-top:4px">
         Or press <kbd>Space</kbd>
       </div>
@@ -204,10 +204,10 @@ kbd{background:rgba(255,255,255,0.15);padding:2px 6px;border-radius:4px;
       <div id="rec-list">
         <div class="empty-list">No clips yet. Record one above.</div>
       </div>
-      <button class="btn success" id="dl-all-btn" onclick="downloadAll()" disabled style="margin-top:10px">
+      <button class="btn success" id="dl-all-btn" disabled style="margin-top:10px">
         ⬇ Download all as ZIP-style JSON
       </button>
-      <button class="btn secondary" onclick="clearAll()" style="margin-top:4px">Clear all</button>
+      <button class="btn secondary" id="clear-all-btn" style="margin-top:4px">Clear all</button>
     </div>
 
     <div class="panel">
@@ -479,8 +479,8 @@ function refreshList() {
         <div class="rec-item-name">${r.gesture}</div>
         <div class="rec-item-stats">${r.frame_count} frames · ${(r.duration_ms/1000).toFixed(1)}s</div>
       </div>
-      <button class="rec-item-btn" onclick="downloadOne(${idx})">⬇</button>
-      <button class="rec-item-btn" onclick="deleteOne(${idx})" title="delete">✕</button>
+      <button class="rec-item-btn" data-action="download" data-idx="${idx}">⬇</button>
+      <button class="rec-item-btn" data-action="delete" data-idx="${idx}" title="delete">✕</button>
     `;
     recList.appendChild(item);
   });
@@ -567,13 +567,28 @@ function draw(kp) {
   });
 }
 
+// ════════════════════════════════════════════════════════════════
+// BIND BUTTONS — uses addEventListener instead of inline onclick.
+// Runs synchronously as the script parses, so buttons work even if
+// init() is still loading the model in the background.
+// ════════════════════════════════════════════════════════════════
+recBtn.addEventListener('click', toggleRecording);
+dlAllBtn.addEventListener('click', downloadAll);
+document.getElementById('clear-all-btn').addEventListener('click', clearAll);
+
+// Event delegation for the dynamically-created download/delete buttons
+recList.addEventListener('click', (e) => {
+  const btn = e.target.closest('button.rec-item-btn');
+  if(!btn) return;
+  const action = btn.dataset.action;
+  const idx = parseInt(btn.dataset.idx, 10);
+  if(isNaN(idx)) return;
+  if(action === 'download') downloadOne(idx);
+  else if(action === 'delete') deleteOne(idx);
+});
+
 // Boot
 init().catch(e => { setStatus('Init failed: ' + e.message, 'error'); console.error(e); });
-window.toggleRecording = toggleRecording;
-window.downloadOne = downloadOne;
-window.downloadAll = downloadAll;
-window.deleteOne = deleteOne;
-window.clearAll = clearAll;
 </script>
 </body>
 </html>
