@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Detection Diagnostic Sandbox</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;width:100%;overflow:hidden;
+  font-family:-apple-system,'Segoe UI',sans-serif;color:#fff;
+  background:radial-gradient(ellipse at 50% 30%,#1a0f3d 0%,#0a0824 60%,#000 100%)}
+
+#header{position:fixed;top:0;left:0;right:0;padding:12px 20px;z-index:50;
+  display:flex;align-items:center;gap:14px;
+  background:linear-gradient(180deg,rgba(0,0,0,0.7),transparent)}
+#title{font-weight:700;font-size:18px;
+  background:linear-gradient(135deg,#ff6fd8,#a78bfa);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#status{flex:1;font-size:13px;color:rgba(255,255,255,0.85)}
+#status.ok{color:#00ff88}
+#status.error{color:#ff6666;font-weight:600}
+#fps{font-size:12px;color:rgba(255,255,255,0.5);
+  font-variant-numeric:tabular-nums;font-family:'SF Mono',Consolas,monospace}
+
+/* Layout: camera left, readout panel right */
+#stage{position:fixed;inset:50px 0 0 0;display:grid;
+  grid-template-columns:1fr 420px;gap:10px;padding:10px}
+
+#cam-wrap{position:relative;border-radius:14px;overflow:hidden;background:#000;
+  border:2px solid rgba(255,255,255,0.1)}
+#cam-video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#cam-canvas{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1);
+  pointer-events:none}
+
+#side{display:flex;flex-direction:column;gap:8px;overflow-y:auto;padding-right:4px}
+#side::-webkit-scrollbar{width:6px}
+#side::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.2);border-radius:3px}
+
+.panel{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);
+  border-radius:10px;padding:12px}
+.panel h3{font-size:11px;font-weight:700;
+  color:rgba(255,255,255,0.55);letter-spacing:.08em;text-transform:uppercase;
+  margin-bottom:10px}
+
+/* Joint rows */
+.joint-row{display:grid;grid-template-columns:1fr 60px 90px;gap:8px;
+  align-items:center;padding:5px 0;font-size:12px;
+  border-bottom:1px solid rgba(255,255,255,0.05)}
+.joint-row:last-child{border-bottom:none}
+.joint-name{font-weight:500}
+.joint-status{text-align:center;font-weight:700;font-size:11px;
+  padding:2px 6px;border-radius:8px;
+  font-variant-numeric:tabular-nums}
+.joint-status.yes{background:rgba(0,255,136,0.2);color:#00ff88}
+.joint-status.no{background:rgba(255,80,80,0.15);color:#ff6666}
+.joint-conf{font-family:'SF Mono',Consolas,monospace;font-size:11px;
+  text-align:right;font-variant-numeric:tabular-nums;color:rgba(255,255,255,0.7)}
+
+/* Hand badges */
+.hand-row{display:flex;align-items:center;justify-content:space-between;
+  padding:6px 8px;border-radius:8px;background:rgba(255,255,255,0.05);
+  margin-bottom:6px;font-size:13px}
+.hand-row .hand-label{font-weight:600}
+.hand-row .hand-state{font-size:11px;padding:3px 8px;border-radius:10px;
+  font-weight:700}
+.hand-row.detected .hand-state{background:rgba(0,255,136,0.2);color:#00ff88}
+.hand-row.notdetected .hand-state{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.4)}
+
+#summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px}
+.summary-cell{background:rgba(255,255,255,0.05);padding:8px 10px;border-radius:8px}
+.summary-cell .label{font-size:10px;color:rgba(255,255,255,0.5);
+  letter-spacing:.05em;text-transform:uppercase}
+.summary-cell .value{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+.summary-cell .value.green{color:#00ff88}
+.summary-cell .value.amber{color:#ffaa00}
+.summary-cell .value.red{color:#ff6666}
+
+#log-panel{font-family:'SF Mono',Consolas,monospace;font-size:10px;
+  color:rgba(255,255,255,0.6);max-height:140px;overflow-y:auto;line-height:1.5}
+#log-panel .line{padding:1px 0}
+#log-panel .err{color:#ff6666}
+#log-panel .ok{color:#00ff88}
+
+#hint{position:absolute;bottom:14px;left:14px;right:14px;text-align:center;
+  font-size:13px;color:rgba(255,255,255,0.7);background:rgba(0,0,0,0.6);
+  padding:8px 12px;border-radius:8px;backdrop-filter:blur(8px)}
+</style>
+</head>
+<body>
+
+<!-- Load TF.js + pose-detection as UMD bundles. The unified tf.min.js is
+     more reliable than separate core/converter/backend bundles. -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js"></script>
+
+<div id="header">
+  <div id="title">Detection Sandbox</div>
+  <div id="status">Initializing...</div>
+  <div id="fps">— fps</div>
+</div>
+
+<div id="stage">
+  <div id="cam-wrap">
+    <video id="cam-video" autoplay playsinline muted></video>
+    <canvas id="cam-canvas"></canvas>
+    <div id="hint">Allow camera access — stand 1-2 meters back so your full upper body is visible</div>
+  </div>
+
+  <div id="side">
+    <div class="panel">
+      <h3>Summary</h3>
+      <div id="summary">
+        <div class="summary-cell">
+          <div class="label">Body joints visible</div>
+          <div class="value" id="sum-body">—</div>
+        </div>
+        <div class="summary-cell">
+          <div class="label">Hands detected</div>
+          <div class="value" id="sum-hands">—</div>
+        </div>
+        <div class="summary-cell">
+          <div class="label">Avg confidence</div>
+          <div class="value" id="sum-conf">—</div>
+        </div>
+        <div class="summary-cell">
+          <div class="label">Frame rate</div>
+          <div class="value" id="sum-fps">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Hands (21 points each)</h3>
+      <div class="hand-row notdetected" id="hand-left">
+        <span class="hand-label">👈 Left hand</span>
+        <span class="hand-state">not detected</span>
+      </div>
+      <div class="hand-row notdetected" id="hand-right">
+        <span class="hand-label">👉 Right hand</span>
+        <span class="hand-state">not detected</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Body Joints (MoveNet — 17 points)</h3>
+      <div id="joint-list"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Log</h3>
+      <div id="log-panel"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+// MediaPipe Hands via tasks-vision (works reliably as ESM)
+import { HandLandmarker, FilesetResolver } from 'https://esm.sh/@mediapipe/tasks-vision@0.10.14';
+
+// TF.js + pose-detection are globals from the UMD scripts above
+const tf = window.tf;
+const poseDetection = window.poseDetection;
+
+// ════════════════════════════════════════════════════════════════
+// DOM refs
+// ════════════════════════════════════════════════════════════════
+const videoEl = document.getElementById('cam-video');
+const canvasEl = document.getElementById('cam-canvas');
+const ctx = canvasEl.getContext('2d');
+const statusEl = document.getElementById('status');
+const fpsEl = document.getElementById('fps');
+const logEl = document.getElementById('log-panel');
+const jointListEl = document.getElementById('joint-list');
+const handLeftEl = document.getElementById('hand-left');
+const handRightEl = document.getElementById('hand-right');
+const sumBody = document.getElementById('sum-body');
+const sumHands = document.getElementById('sum-hands');
+const sumConf = document.getElementById('sum-conf');
+const sumFps = document.getElementById('sum-fps');
+
+// ════════════════════════════════════════════════════════════════
+// JOINT ROW INIT — create rows for all 17 MoveNet joints
+// ════════════════════════════════════════════════════════════════
+const JOINT_NAMES = [
+  'nose','left_eye','right_eye','left_ear','right_ear',
+  'left_shoulder','right_shoulder',
+  'left_elbow','right_elbow',
+  'left_wrist','right_wrist',
+  'left_hip','right_hip',
+  'left_knee','right_knee',
+  'left_ankle','right_ankle',
+];
+const jointRows = {};
+JOINT_NAMES.forEach(name => {
+  const row = document.createElement('div');
+  row.className = 'joint-row';
+  row.innerHTML = `
+    <span class="joint-name">${name.replace('_',' ')}</span>
+    <span class="joint-status no">no</span>
+    <span class="joint-conf">—</span>
+  `;
+  jointListEl.appendChild(row);
+  jointRows[name] = row;
+});
+
+function setStatus(text, kind) {
+  statusEl.textContent = text;
+  statusEl.className = kind || '';
+}
+
+function log(text, cls = '') {
+  const line = document.createElement('div');
+  line.className = 'line ' + cls;
+  const t = (performance.now() / 1000).toFixed(2);
+  line.textContent = `[${t}] ${text}`;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+  while(logEl.children.length > 50) logEl.removeChild(logEl.firstChild);
+}
+
+// ════════════════════════════════════════════════════════════════
+// MODEL LOADING
+// ════════════════════════════════════════════════════════════════
+let bodyDetector = null;
+let handDetector = null;
+
+async function init() {
+  // Step 1 — verify globals loaded
+  if(!tf) {
+    setStatus('TF.js failed to load (CDN issue?)', 'error');
+    log('window.tf is undefined — script tag did not load', 'err');
+    return;
+  }
+  if(!poseDetection) {
+    setStatus('pose-detection failed to load', 'error');
+    log('window.poseDetection is undefined', 'err');
+    return;
+  }
+  log('TF.js ready: ' + tf.version.tfjs, 'ok');
+
+  // Step 2 — camera
+  setStatus('Requesting camera...');
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 1280, height: 720, facingMode: 'user' },
+      audio: false,
+    });
+    videoEl.srcObject = stream;
+    await new Promise(r => videoEl.onloadedmetadata = r);
+    canvasEl.width = videoEl.videoWidth;
+    canvasEl.height = videoEl.videoHeight;
+    log(`Camera: ${videoEl.videoWidth}×${videoEl.videoHeight}`, 'ok');
+  } catch(e) {
+    setStatus('Camera access denied', 'error');
+    log('getUserMedia error: ' + e.message, 'err');
+    return;
+  }
+
+  // Step 3 — body detector (MoveNet)
+  setStatus('Loading body detector...');
+  try {
+    await tf.setBackend('webgl');
+    await tf.ready();
+    bodyDetector = await poseDetection.createDetector(
+      poseDetection.SupportedModels.MoveNet,
+      { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+    );
+    log('Body detector ready (MoveNet Lightning)', 'ok');
+  } catch(e) {
+    setStatus('Body detector failed', 'error');
+    log('Body detector: ' + e.message, 'err');
+    // Don't abort — try hands anyway
+  }
+
+  // Step 4 — hand detector (MediaPipe Hands)
+  setStatus('Loading hand detector...');
+  try {
+    const vision = await FilesetResolver.forVisionTasks(
+      'https://esm.sh/@mediapipe/tasks-vision@0.10.14/wasm'
+    );
+    handDetector = await HandLandmarker.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task',
+        delegate: 'GPU',
+      },
+      runningMode: 'VIDEO',
+      numHands: 2,
+      minHandDetectionConfidence: 0.4,
+      minHandPresenceConfidence: 0.4,
+      minTrackingConfidence: 0.4,
+    });
+    log('Hand detector ready (MediaPipe Hands)', 'ok');
+  } catch(e) {
+    log('Hand detector failed: ' + e.message, 'err');
+  }
+
+  if(bodyDetector || handDetector) {
+    setStatus(`✓ Running — ${bodyDetector ? 'body' : ''}${bodyDetector && handDetector ? ' + ' : ''}${handDetector ? 'hands' : ''}`, 'ok');
+    document.getElementById('hint').style.display = 'none';
+    detectLoop();
+  } else {
+    setStatus('No detectors loaded — check log', 'error');
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// DETECTION LOOP
+// ════════════════════════════════════════════════════════════════
+let lastFrameTime = performance.now();
+let fpsAvg = 0;
+
+async function detectLoop() {
+  const now = performance.now();
+  const dt = now - lastFrameTime;
+  lastFrameTime = now;
+  fpsAvg = fpsAvg ? fpsAvg * 0.9 + (1000/dt) * 0.1 : (1000/dt);
+  fpsEl.textContent = fpsAvg.toFixed(0) + ' fps';
+  sumFps.textContent = fpsAvg.toFixed(0);
+
+  let bodyKp = null;
+  if(bodyDetector) {
+    try {
+      const poses = await bodyDetector.estimatePoses(videoEl, { flipHorizontal: false });
+      if(poses[0]) bodyKp = poses[0].keypoints;
+    } catch(e){}
+  }
+
+  let hands = null;
+  if(handDetector) {
+    try {
+      const result = handDetector.detectForVideo(videoEl, now);
+      if(result?.landmarks?.length > 0) {
+        hands = result.landmarks.map((lms, i) => ({
+          // MediaPipe's "Left/Right" is the model's view (mirrored).
+          // Since we display mirrored video to the user, swap the labels
+          // so "Left hand" in the UI matches the user's actual left hand.
+          side: result.handedness?.[i]?.[0]?.categoryName === 'Left' ? 'Right' : 'Left',
+          score: result.handedness?.[i]?.[0]?.score || 0,
+          points: lms.map(p => ({
+            x: p.x * videoEl.videoWidth,
+            y: p.y * videoEl.videoHeight,
+            z: p.z,
+          })),
+        }));
+      }
+    } catch(e){}
+  }
+
+  updateReadout(bodyKp, hands);
+  draw(bodyKp, hands);
+  requestAnimationFrame(detectLoop);
+}
+
+// ════════════════════════════════════════════════════════════════
+// READOUT — update the side panel
+// ════════════════════════════════════════════════════════════════
+function updateReadout(bodyKp, hands) {
+  const MIN_CONF = 0.3;
+  let visibleCount = 0;
+  let confSum = 0, confN = 0;
+
+  // Body joints
+  JOINT_NAMES.forEach(name => {
+    const row = jointRows[name];
+    const kp = bodyKp?.find(k => k.name === name);
+    const statusEl = row.querySelector('.joint-status');
+    const confEl = row.querySelector('.joint-conf');
+    if(kp && kp.score > MIN_CONF) {
+      visibleCount++;
+      confSum += kp.score;
+      confN++;
+      statusEl.className = 'joint-status yes';
+      statusEl.textContent = 'yes';
+      confEl.textContent = (kp.score * 100).toFixed(0) + '%';
+    } else {
+      statusEl.className = 'joint-status no';
+      statusEl.textContent = 'no';
+      confEl.textContent = kp ? (kp.score * 100).toFixed(0) + '%' : '—';
+    }
+  });
+
+  // Body summary
+  sumBody.textContent = `${visibleCount}/${JOINT_NAMES.length}`;
+  sumBody.className = 'value ' + (visibleCount >= 10 ? 'green' : visibleCount >= 5 ? 'amber' : 'red');
+  sumConf.textContent = confN > 0 ? ((confSum/confN) * 100).toFixed(0) + '%' : '—';
+  sumConf.className = 'value ' + (confN > 0 && confSum/confN > 0.6 ? 'green' : confN > 0 && confSum/confN > 0.3 ? 'amber' : 'red');
+
+  // Hands
+  const leftHand = hands?.find(h => h.side === 'Left');
+  const rightHand = hands?.find(h => h.side === 'Right');
+
+  function setHandRow(el, hand) {
+    if(hand) {
+      el.className = 'hand-row detected';
+      el.querySelector('.hand-state').textContent = `21 pts · ${(hand.score*100).toFixed(0)}%`;
+    } else {
+      el.className = 'hand-row notdetected';
+      el.querySelector('.hand-state').textContent = 'not detected';
+    }
+  }
+  setHandRow(handLeftEl, leftHand);
+  setHandRow(handRightEl, rightHand);
+
+  const handCount = (leftHand ? 1 : 0) + (rightHand ? 1 : 0);
+  sumHands.textContent = `${handCount}/2`;
+  sumHands.className = 'value ' + (handCount === 2 ? 'green' : handCount === 1 ? 'amber' : 'red');
+}
+
+// ════════════════════════════════════════════════════════════════
+// DRAW — skeleton + hands on canvas
+// ════════════════════════════════════════════════════════════════
+function draw(bodyKp, hands) {
+  ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+
+  if(bodyKp) {
+    // Connections — full body skeleton
+    const connections = [
+      ['left_shoulder','right_shoulder'],
+      ['left_shoulder','left_elbow'],['left_elbow','left_wrist'],
+      ['right_shoulder','right_elbow'],['right_elbow','right_wrist'],
+      ['left_shoulder','left_hip'],['right_shoulder','right_hip'],
+      ['left_hip','right_hip'],
+      ['left_hip','left_knee'],['left_knee','left_ankle'],
+      ['right_hip','right_knee'],['right_knee','right_ankle'],
+    ];
+    const get = name => bodyKp.find(k => k.name === name);
+    connections.forEach(([a,b]) => {
+      const pa = get(a), pb = get(b);
+      if(pa && pb && pa.score > 0.3 && pb.score > 0.3) {
+        ctx.strokeStyle = '#ff6fd8';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(pa.x, pa.y);
+        ctx.lineTo(pb.x, pb.y);
+        ctx.stroke();
+      }
+    });
+    // Joint dots + name labels
+    bodyKp.forEach(kp => {
+      if(kp.score > 0.3) {
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(kp.x, kp.y, 6, 0, Math.PI*2);
+        ctx.fill();
+      }
+    });
+  }
+
+  if(hands) {
+    hands.forEach(hand => {
+      const col = hand.side === 'Left' ? '#00ff88' : '#00ddff';
+      // Finger chains
+      const fingers = [
+        [0,1,2,3,4],     // thumb
+        [0,5,6,7,8],     // index
+        [0,9,10,11,12],  // middle
+        [0,13,14,15,16], // ring
+        [0,17,18,19,20], // pinky
+      ];
+      fingers.forEach(chain => {
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        chain.forEach((idx, i) => {
+          const p = hand.points[idx];
+          if(i === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        });
+        ctx.stroke();
+      });
+      // 21 landmark dots
+      hand.points.forEach((p, i) => {
+        ctx.fillStyle = i === 8 ? '#ffff00' : col; // index fingertip yellow
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, i === 8 ? 6 : 3, 0, Math.PI*2);
+        ctx.fill();
+      });
+    });
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// BOOT
+// ════════════════════════════════════════════════════════════════
+init().catch(e => {
+  setStatus('Init failed: ' + e.message, 'error');
+  log('Init exception: ' + e.message, 'err');
+  console.error(e);
+});
+</script>
+</body>
+</html>
