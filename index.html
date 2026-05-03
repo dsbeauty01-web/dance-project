@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v47 VIOLET Anam SDK</title>
+<title>Nova v48 NEON</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -387,17 +386,24 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 
 /* Version badge */
 /* HUGE version banner — top center, impossible to miss.
-   v47 VIOLET THEME — Anam js-sdk (Liv via avatarId/voiceId, our brain drives talk).
-   v40 baseline preserved. */
+   v48 BLACK + NEON GREEN — completely different from any prior version.
+   ANAM session-token path. If you see anything else in the banner,
+   GitHub Pages is serving a cached version. */
 #version-tag{position:fixed;top:0;left:0;right:0;
   z-index:9999;
-  text-align:center;padding:8px 12px;
-  background:linear-gradient(90deg,#8b5cf6 0%,#a78bfa 50%,#8b5cf6 100%);
-  color:#1e1b4b;font-family:'Fredoka',cursive;font-weight:700;
-  font-size:18px;letter-spacing:0.08em;
-  box-shadow:0 2px 12px rgba(139,92,246,0.6);
+  text-align:center;padding:18px 12px;
+  background:#000;
+  color:#00ff41;font-family:'Fredoka',cursive;font-weight:900;
+  font-size:26px;letter-spacing:0.2em;
+  box-shadow:0 0 40px rgba(0,255,65,0.9),inset 0 0 30px rgba(0,255,65,0.15);
   text-transform:uppercase;
-  border-bottom:3px solid #6d28d9}
+  border-bottom:6px solid #00ff41;
+  text-shadow:0 0 12px #00ff41,0 0 24px #00ff41,0 0 40px #00ff41;
+  animation:v48pulse 1.5s ease-in-out infinite alternate}
+@keyframes v48pulse{
+  from{filter:brightness(1)}
+  to{filter:brightness(1.3)}
+}
 </style>
 </head>
 <body>
@@ -513,7 +519,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">🟣 V47 — VIOLET · ANAM SDK (Liv + our brain)</div>
+<div id="version-tag">⬛🟢 V48 ⬛🟢 NEON ⬛🟢 ANAM SESSION ⬛🟢</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -557,7 +563,7 @@ function toggleMic(){window._toggleMic&&window._toggleMic();}
 </script>
 
 <script type="module">
-import { unsafe_createClientWithApiKey } from 'https://esm.sh/@anam-ai/js-sdk';
+import { createClient } from 'https://esm.sh/@anam-ai/js-sdk';
 
 // ═══════════════════════════════════════════════════════════════
 // CONFIG — all swappable in one place
@@ -955,7 +961,7 @@ function initDID() {
   console.log('[Anam] key prefix:', CFG.ANAM_API_KEY.slice(0, 14) + '…');
   
   // Pre-flight checks
-  if(typeof unsafe_createClientWithApiKey !== 'function') {
+  if(typeof createClient !== 'function') {
     console.error('[Anam] ❌ SDK not loaded — import failed');
     setTimeout(initDID, 5000);
     return;
@@ -968,19 +974,35 @@ function initDID() {
     return;
   }
   
-  try {
-    // Use Liv's persona ID — all her config (avatar, voice, prompt) baked in.
-    // Per Anam docs: when `id` is given, all other PersonaConfig fields are ignored.
-    const personaConfig = {
-      id: CFG.ANAM_PERSONA_ID,
-    };
+  // STEP 1: get a session token from Anam (confirmed working via curl tests).
+  // STEP 2: pass that token to createClient() — proven Anam-recommended path.
+  // This avoids the "unsafe_createClientWithApiKey" code path that gave us
+  // "Invalid request to start session" earlier.
+  fetch('https://api.anam.ai/v1/auth/session-token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + CFG.ANAM_API_KEY,
+    },
+    body: JSON.stringify({
+      personaConfig: { id: CFG.ANAM_PERSONA_ID },
+    }),
+  })
+  .then(r => {
+    if(!r.ok) throw new Error('session-token HTTP ' + r.status);
+    return r.json();
+  })
+  .then(data => {
+    const sessionToken = data.sessionToken;
+    if(!sessionToken) throw new Error('no sessionToken in response');
+    console.log('[Anam] ✓ session token obtained');
     
-    console.log('[Anam] creating client (Liv)...');
-    const client = unsafe_createClientWithApiKey(CFG.ANAM_API_KEY, personaConfig);
+    // Now create the client with the token
+    const client = createClient(sessionToken);
     agentManager = client;
     console.log('[Anam] ✓ client created');
     
-    // Hook events (each wrapped in try so a single bad listener doesn't break init)
+    // Hook events (each wrapped so a single bad listener doesn't break init)
     const safe = (evt, fn) => {
       try { client.addListener(evt, fn); }
       catch(e) { console.warn('[Anam] listener', evt, 'failed:', e?.message); }
@@ -1002,7 +1024,7 @@ function initDID() {
     });
     safe('VIDEO_PLAY_STARTED', () => {
       console.log('[Anam] ✓ VIDEO_PLAY_STARTED — stream live');
-      // Mirror the now-live stream onto in-game face element
+      // Mirror onto in-game face
       const stream = videoEl.srcObject;
       if(stream) {
         didStream = stream;
@@ -1013,11 +1035,7 @@ function initDID() {
         novaFaceVideo.play().catch(()=>{});
       }
     });
-    
-    // Optional: track talking state so we can pause mic when Nova speaks
-    safe('TALK_STREAM_INTERRUPTED', () => console.log('[Anam] talk interrupted'));
     safe('MESSAGE_STREAM_EVENT_RECEIVED', (ev) => {
-      // Fires for every chunk — use to flip speaking class
       if(ev?.role === 'persona') {
         recAvatarFrame.classList.add('speaking');
         novaFaceFrame.classList.add('speaking');
@@ -1025,7 +1043,6 @@ function initDID() {
       }
     });
     safe('MESSAGE_HISTORY_UPDATED', (msgs) => {
-      // After Nova finishes, last message has full content — reset speaking state
       const last = msgs?.[msgs.length - 1];
       if(last?.role === 'persona' && !last.streaming) {
         recAvatarFrame.classList.remove('speaking');
@@ -1037,38 +1054,35 @@ function initDID() {
       console.error('[Anam] ❌ ERROR event:', err);
     });
     
-    // Start streaming — this is the WebRTC connect step
+    // Connect the WebRTC stream
     console.log('[Anam] streamToVideoElement(rec-avatar-video)...');
-    client.streamToVideoElement('rec-avatar-video').then(() => {
-      console.log('[Anam] ✓ stream connected');
-      videoEl.muted = !userInteracted;
-      videoEl.style.display = 'block';
-      recAvatarPlaceholder.style.display = 'none';
-      videoEl.play().catch(()=>{});
-      didReady = true;
-      
-      // Also hand off intro right now so app keeps moving
-      handoffFromIntro();
-      if(memory.phase === 'recognition' && !window._greeted) {
-        window._greeted = true;
-        novaArrivalGreet();
-      }
-    }).catch(e => {
-      console.error('[Anam] ❌ streamToVideoElement REJECTED:', e);
-      console.error('  message:', e?.message);
-      console.error('  stack:', e?.stack);
-      // Surface error in UI so user doesn't need DevTools
-      const banner = document.createElement('div');
-      banner.style.cssText = 'position:fixed;top:50px;left:50%;transform:translateX(-50%);padding:14px 22px;background:#7f1d1d;color:#fff;border-radius:10px;font:600 13px monospace;z-index:99999;max-width:80%;text-align:center';
-      banner.textContent = '[Anam] ' + (e?.message || 'connect failed — see console');
-      document.body.appendChild(banner);
-    });
+    return client.streamToVideoElement('rec-avatar-video');
+  })
+  .then(() => {
+    console.log('[Anam] ✓ stream connected');
+    videoEl.muted = !userInteracted;
+    videoEl.style.display = 'block';
+    recAvatarPlaceholder.style.display = 'none';
+    videoEl.play().catch(()=>{});
+    didReady = true;
     
-  } catch(e) {
-    console.error('[Anam] ❌ init threw sync:', e);
-  }
+    handoffFromIntro();
+    if(memory.phase === 'recognition' && !window._greeted) {
+      window._greeted = true;
+      novaArrivalGreet();
+    }
+  })
+  .catch(e => {
+    console.error('[Anam] ❌ failed:', e);
+    console.error('  message:', e?.message);
+    console.error('  stack:', e?.stack);
+    const banner = document.createElement('div');
+    banner.style.cssText = 'position:fixed;top:50px;left:50%;transform:translateX(-50%);padding:14px 22px;background:#7f1d1d;color:#fff;border-radius:10px;font:600 13px monospace;z-index:99999;max-width:80%;text-align:center';
+    banner.textContent = '[Anam] ' + (e?.message || 'connect failed — see console');
+    document.body.appendChild(banner);
+  });
 }
-
+    
 // ═══════════════════════════════════════════════════════════════
 // CHAT — bubbles in recognition phase
 // ═══════════════════════════════════════════════════════════════
