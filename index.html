@@ -511,7 +511,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">🪸 V45 — CORAL · NEW D-ID AGENT</div>
+<div id="version-tag">🪸 V45b — CORAL · D-ID DEBUG (latest SDK + verbose logs)</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -555,7 +555,7 @@ function toggleMic(){window._toggleMic&&window._toggleMic();}
 </script>
 
 <script type="module">
-import { createAgentManager } from 'https://esm.sh/@d-id/client-sdk@1.1.53';
+import { createAgentManager } from 'https://esm.sh/@d-id/client-sdk@1.1.11';
 
 // ═══════════════════════════════════════════════════════════════
 // CONFIG — all swappable in one place
@@ -982,21 +982,29 @@ const didCallbacks = {
       novaFaceFrame.classList.add('speaking');
     }
   },
-  onError(err) {
-    console.log('D-ID:', err);
+  onError(err, errorData) {
+    console.error('[D-ID] onError callback fired:', err);
+    console.error('[D-ID] onError errorData:', errorData);
+    if(err?.message) console.error('[D-ID] onError message:', err.message);
   },
 };
 
 function initDID() {
+  console.log('[D-ID] Initializing with agent:', CFG.AGENT_ID, 'key prefix:', CFG.CLIENT_KEY.slice(0, 8));
   createAgentManager(CFG.AGENT_ID, {
     auth: { type: 'key', clientKey: CFG.CLIENT_KEY },
     callbacks: didCallbacks,
     streamOptions: { compatibilityMode: 'auto', streamWarmup: true },
   }).then(m => {
+    console.log('[D-ID] AgentManager created successfully. Agent details:', m?.agent);
     agentManager = m;
     return m.connect();
+  }).then(() => {
+    console.log('[D-ID] Connect resolved');
   }).catch(e => {
-    console.log('D-ID init failed:', e);
+    console.error('[D-ID] init failed — full error:', e);
+    console.error('[D-ID] error message:', e?.message);
+    console.error('[D-ID] error stack:', e?.stack);
     setTimeout(initDID, 12000);
   });
 }
