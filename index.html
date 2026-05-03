@@ -519,7 +519,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">⬛🟢 V48 ⬛🟢 NEON ⬛🟢 ANAM SESSION ⬛🟢</div>
+<div id="version-tag">⬛🟢 V48b ⬛🟢 NEON ⬛🟢 ANAM EPHEMERAL ⬛🟢</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -571,16 +571,15 @@ import { createClient } from 'https://esm.sh/@anam-ai/js-sdk';
 const CFG = {
   // D-ID
   // ─── ANAM (avatar streaming) ───
-  // Liv (the persona we configured in Anam Lab). The "id" path tells Anam to use
-  // ALL of Liv's pre-configured settings (avatar, voice, prompt) — we don't need
-  // to repeat them here. Per Anam docs, when persona id is given, all other
-  // PersonaConfig fields are ignored except enable_audio_passthrough.
-  // 
-  // Important: we want to drive Nova ourselves (via .talk()) instead of Anam's LLM.
-  // The persona prompt in Anam Lab will only matter for autonomous responses.
-  // Our .talk() calls bypass that — Anam just renders the speech we give it.
+  // Persona = full ephemeral config. The {id} shortcut was deprecated.
+  // We pass avatarId + voiceId + llmId explicitly. Although we drive .talk()
+  // ourselves and don't rely on Anam's LLM, the API requires llmId — so we
+  // include it. Anam's "CUSTOMER_CLIENT_V1" is the named flagship one.
   ANAM_API_KEY: 'YjZkNjdkYzgtZjliOS00YWIxLTgwZWEtNmM0MTM2MDVmY2I3Oi96WDhMQ05vRDRITFNvNEl3aDZMREgzd0V2eUNVZWxkVDhOaHVpSGt3SFE9',
-  ANAM_PERSONA_ID: '1bf12b75-54f8-4738-bb5e-17c2d1d16278',  // Liv (configured in Anam Lab)
+  ANAM_AVATAR_ID:  'cf932b2e-385f-4873-9eb5-f5be899f5561',  // Liv's pink-haired avatar
+  ANAM_VOICE_ID:   'de23e340-1416-4dd8-977d-065a7ca11697',  // Bella ElevenLabs (set in Anam Lab)
+  ANAM_LLM_ID:     'CUSTOMER_CLIENT_V1',  // Required by API — not actually used since we drive .talk() ourselves
+  ANAM_PERSONA_ID: '1bf12b75-54f8-4738-bb5e-17c2d1d16278',  // Liv (kept for reference)
   // Brain
   WORKER_URL: 'https://long-art-8269r.dsbeauty01.workers.dev/',
   BRAIN_MODEL: 'claude-haiku-4-5-20251001',
@@ -985,7 +984,13 @@ function initDID() {
       'Authorization': 'Bearer ' + CFG.ANAM_API_KEY,
     },
     body: JSON.stringify({
-      personaConfig: { id: CFG.ANAM_PERSONA_ID },
+      personaConfig: {
+        name: 'Nova',
+        avatarId: CFG.ANAM_AVATAR_ID,
+        voiceId:  CFG.ANAM_VOICE_ID,
+        llmId:    CFG.ANAM_LLM_ID,
+        systemPrompt: 'You are Nova, a magical dance teacher for kids. (App drives talk() — this prompt is unused but required by the API.)',
+      },
     }),
   })
   .then(r => {
