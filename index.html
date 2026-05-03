@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v46 EMERALD Liv</title>
+<title>Nova v47 VIOLET Anam SDK</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -386,20 +386,18 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 
 /* Version badge */
 /* HUGE version banner — top center, impossible to miss.
-   v46 EMERALD THEME — Anam agent-widget (Liv) replaces D-ID. v40 baseline preserved. */
+   v47 VIOLET THEME — Anam js-sdk (Liv via avatarId/voiceId, our brain drives talk).
+   v40 baseline preserved. */
 #version-tag{position:fixed;top:0;left:0;right:0;
   z-index:9999;
   text-align:center;padding:8px 12px;
-  background:linear-gradient(90deg,#10b981 0%,#34d399 50%,#10b981 100%);
-  color:#022c22;font-family:'Fredoka',cursive;font-weight:700;
+  background:linear-gradient(90deg,#8b5cf6 0%,#a78bfa 50%,#8b5cf6 100%);
+  color:#1e1b4b;font-family:'Fredoka',cursive;font-weight:700;
   font-size:18px;letter-spacing:0.08em;
-  box-shadow:0 2px 12px rgba(16,185,129,0.6);
+  box-shadow:0 2px 12px rgba(139,92,246,0.6);
   text-transform:uppercase;
-  border-bottom:3px solid #047857}
+  border-bottom:3px solid #6d28d9}
 </style>
-<!-- Anam agent widget — provides <anam-agent> custom element. Loaded at top so
-     the widget upgrades the element as soon as it appears in the DOM. -->
-<script src="https://unpkg.com/@anam-ai/agent-widget" async></script>
 </head>
 <body>
 
@@ -419,15 +417,8 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   <div id="rec-avatar-col">
     <div id="rec-avatar-name">Nova</div>
     <div id="rec-avatar-frame">
-      <!-- Anam agent widget — Liv. Renders inside this frame as a self-contained
-           web component. Has its own video stream, mic, lip-sync, voice — all internal.
-           Note: 'Allow everywhere' is enabled in Anam Lab so the widget loads on github.io.
-           For now this is decorative / "is the connection alive" test. Wiring her to our
-           game brain (cue reactions, etc.) is phase 2. -->
-      <anam-agent agent-id="1bf12b75-54f8-4738-bb5e-17c2d1d16278"
-                  style="width:100%;height:100%;display:block"></anam-agent>
-      <video id="rec-avatar-video" autoplay playsinline style="display:none"></video>
-      <div id="rec-avatar-placeholder" style="display:none">
+      <video id="rec-avatar-video" autoplay playsinline></video>
+      <div id="rec-avatar-placeholder">
         <div id="rec-placeholder-emoji">🌟</div>
         <div id="rec-loading-dots"><span></span><span></span><span></span></div>
       </div>
@@ -521,7 +512,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">🟢 V46 — EMERALD · ANAM WIDGET (Liv)</div>
+<div id="version-tag">🟣 V47 — VIOLET · ANAM SDK (Liv + our brain)</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -565,15 +556,23 @@ function toggleMic(){window._toggleMic&&window._toggleMic();}
 </script>
 
 <script type="module">
-import { createAgentManager } from 'https://esm.sh/@d-id/client-sdk@1.1.53';
+import { unsafe_createClientWithApiKey } from 'https://esm.sh/@anam-ai/js-sdk';
 
 // ═══════════════════════════════════════════════════════════════
 // CONFIG — all swappable in one place
 // ═══════════════════════════════════════════════════════════════
 const CFG = {
   // D-ID
-  AGENT_ID: 'v2_agt_Z7uYXWFx',
-  CLIENT_KEY: 'Z29vZ2xlLW9hdXRoMnwxMDg1MzgzODIxMDg4OTU5MjE2MzA6dUtILVVlUFhjeFNUZS1lNjV2VG5t',
+  // ─── ANAM (avatar streaming) ───
+  // Liv's persona components (fetched from Anam API):
+  //   avatarId: pink-haired Nova (the look)
+  //   voiceId:  Bella from ElevenLabs (configured in Anam Lab)
+  //   No llmId — we use our own brain (Claude Haiku via Worker), Anam just renders.
+  // The unsafe_createClientWithApiKey path puts the key in the client. Production
+  // would move this to a Cloudflare Worker. For testing, fine.
+  ANAM_API_KEY: 'YjZkNjdkYzgtZjliOS00YWIxLTgwZWEtNmM0MTM2MDVmY2I3Oi96WDhMQ05vRDRITFNvNEl3aDZMREgzd0V2eUNVZWxkVDhOaHVpSGt3SFE9',
+  ANAM_AVATAR_ID: 'cf932b2e-385f-4873-9eb5-f5be899f5561',
+  ANAM_VOICE_ID:  'de23e340-1416-4dd8-977d-065a7ca11697',
   // Brain
   WORKER_URL: 'https://long-art-8269r.dsbeauty01.workers.dev/',
   BRAIN_MODEL: 'claude-haiku-4-5-20251001',
@@ -738,15 +737,20 @@ async function elevenLabsTTS(text) {
 }
 
 function speak(text) {
-  // Try D-ID first if connected, else use VOICE_PROVIDER
+  // Try Anam first if connected, else fall back to ElevenLabs/browser
   if(didReady && agentManager) {
     try {
-      agentManager.speak({ type: 'text', input: text }).catch(() => {
+      // Anam: .talk(text) → text goes through TTS + lip-sync, video updates in real time
+      const r = agentManager.talk(text);
+      if(r && r.catch) r.catch((e) => {
+        console.log('[Anam] talk failed, fallback:', e?.message);
         if(CFG.VOICE_PROVIDER === 'elevenlabs') elevenLabsTTS(text);
         else browserTTS(text);
       });
       return;
-    } catch(e){}
+    } catch(e){
+      console.log('[Anam] talk threw:', e?.message);
+    }
   }
   if(CFG.VOICE_PROVIDER === 'elevenlabs') elevenLabsTTS(text);
   else browserTTS(text);
@@ -922,88 +926,149 @@ function startIntroOverlay() {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════
+// ANAM — real-time avatar (replaces D-ID)
+//
+// Architecture:
+//   - We use unsafe_createClientWithApiKey (key in browser, fine for testing).
+//   - We do NOT pass an llmId — our app drives all dialog via .talk(text).
+//     Anam just renders TTS + lip-sync from the strings we send.
+//   - Avatar streams into <video id="rec-avatar-video"> (the recognition frame).
+//   - We mirror that stream onto novaFaceVideo (in-game face) by sharing srcObject.
+//   - Variable names didReady, agentManager, didStream are kept so the rest of
+//     the app needs no changes.
+// ═══════════════════════════════════════════════════════════════
 function showIdleEverywhere() {
-  if(!didIdleVideoUrl) return;
-  [recAvatarVideo, novaFaceVideo, endAvatarVideo].forEach(v => {
-    v.srcObject = null;
-    v.src = didIdleVideoUrl;
-    v.loop = true;
-    v.muted = !userInteracted;
-    v.style.display = 'block';
-    v.play().catch(()=>{});
-  });
+  // Anam streams continuously, no separate idle file. Just keep the video
+  // elements visible and let Anam fill them.
+  recAvatarVideo.style.display = 'block';
+  novaFaceVideo.style.display = 'block';
   recAvatarPlaceholder.style.display = 'none';
   novaFacePlaceholder.style.display = 'none';
 }
 
-const didCallbacks = {
-  onSrcObjectReady(value) {
-    didStream = value;
-    recAvatarVideo.srcObject = value;
-    recAvatarVideo.muted = !userInteracted;
-    recAvatarVideo.style.display = 'block';
-    recAvatarPlaceholder.style.display = 'none';
-    recAvatarVideo.play().catch(()=>{});
+function initDID() {
+  console.log('═══ [Anam] init ═══');
+  console.log('[Anam] avatar:', CFG.ANAM_AVATAR_ID);
+  console.log('[Anam] voice :', CFG.ANAM_VOICE_ID);
+  console.log('[Anam] key prefix:', CFG.ANAM_API_KEY.slice(0, 14) + '…');
+  
+  // Pre-flight checks
+  if(typeof unsafe_createClientWithApiKey !== 'function') {
+    console.error('[Anam] ❌ SDK not loaded — import failed');
+    setTimeout(initDID, 5000);
+    return;
+  }
+  
+  const videoEl = document.getElementById('rec-avatar-video');
+  if(!videoEl) {
+    console.warn('[Anam] video element not in DOM yet, retrying...');
+    setTimeout(initDID, 500);
+    return;
+  }
+  
+  try {
+    // Persona config: avatar + voice baked in. No llmId — we drive .talk().
+    // systemPrompt required by the SDK but unused since we never invoke their LLM.
+    const personaConfig = {
+      name: 'Nova',
+      avatarId: CFG.ANAM_AVATAR_ID,
+      voiceId:  CFG.ANAM_VOICE_ID,
+      systemPrompt: 'Unused. App drives dialog via talk() calls.',
+    };
     
-    // Same for in-game face
-    novaFaceVideo.srcObject = value;
-    novaFaceVideo.muted = !userInteracted;
-    novaFaceVideo.style.display = 'block';
-    novaFacePlaceholder.style.display = 'none';
-    novaFaceVideo.play().catch(()=>{});
-  },
-  onConnectionStateChange(state) {
-    if(state === 'connected') {
+    console.log('[Anam] creating client...');
+    const client = unsafe_createClientWithApiKey(CFG.ANAM_API_KEY, personaConfig);
+    agentManager = client;
+    console.log('[Anam] ✓ client created');
+    
+    // Hook events (each wrapped in try so a single bad listener doesn't break init)
+    const safe = (evt, fn) => {
+      try { client.addListener(evt, fn); }
+      catch(e) { console.warn('[Anam] listener', evt, 'failed:', e?.message); }
+    };
+    
+    safe('SESSION_READY', () => {
+      console.log('[Anam] ✓ SESSION_READY');
       didReady = true;
-      didIdleVideoUrl = agentManager?.agent?.presenter?.idle_video;
-      showIdleEverywhere();
-      // Hand off from intro overlay → Nova's live face takes over
       handoffFromIntro();
-      // Trigger the arrival greeting if we're past arrival phase
       if(memory.phase === 'recognition' && !window._greeted) {
         window._greeted = true;
         novaArrivalGreet();
       }
-    } else if(state === 'disconnected' || state === 'closed') {
+    });
+    safe('CONNECTION_ESTABLISHED', () => console.log('[Anam] ✓ CONNECTION_ESTABLISHED'));
+    safe('CONNECTION_CLOSED', (r) => {
+      console.log('[Anam] CONNECTION_CLOSED:', r);
       didReady = false;
-      setTimeout(() => agentManager?.reconnect(), 3000);
-    }
-  },
-  onVideoStateChange(state) {
-    if(state === 'STOP') {
-      // Idle — Nova stopped talking, resume listening
-      showIdleEverywhere();
-      recAvatarFrame.classList.remove('speaking');
-      novaFaceFrame.classList.remove('speaking');
-      micResume();
-    } else {
-      // Speaking — Nova started talking, pause mic so it doesn't hear her
-      micPause();
-      recAvatarVideo.src = '';
-      recAvatarVideo.srcObject = didStream;
-      recAvatarVideo.muted = false;
-      recAvatarVideo.play().catch(()=>{});
-      recAvatarFrame.classList.add('speaking');
+    });
+    safe('VIDEO_PLAY_STARTED', () => {
+      console.log('[Anam] ✓ VIDEO_PLAY_STARTED — stream live');
+      // Mirror the now-live stream onto in-game face element
+      const stream = videoEl.srcObject;
+      if(stream) {
+        didStream = stream;
+        novaFaceVideo.srcObject = stream;
+        novaFaceVideo.muted = !userInteracted;
+        novaFaceVideo.style.display = 'block';
+        novaFacePlaceholder.style.display = 'none';
+        novaFaceVideo.play().catch(()=>{});
+      }
+    });
+    
+    // Optional: track talking state so we can pause mic when Nova speaks
+    safe('TALK_STREAM_INTERRUPTED', () => console.log('[Anam] talk interrupted'));
+    safe('MESSAGE_STREAM_EVENT_RECEIVED', (ev) => {
+      // Fires for every chunk — use to flip speaking class
+      if(ev?.role === 'persona') {
+        recAvatarFrame.classList.add('speaking');
+        novaFaceFrame.classList.add('speaking');
+        micPause();
+      }
+    });
+    safe('MESSAGE_HISTORY_UPDATED', (msgs) => {
+      // After Nova finishes, last message has full content — reset speaking state
+      const last = msgs?.[msgs.length - 1];
+      if(last?.role === 'persona' && !last.streaming) {
+        recAvatarFrame.classList.remove('speaking');
+        novaFaceFrame.classList.remove('speaking');
+        micResume();
+      }
+    });
+    safe('ERROR', (err) => {
+      console.error('[Anam] ❌ ERROR event:', err);
+    });
+    
+    // Start streaming — this is the WebRTC connect step
+    console.log('[Anam] streamToVideoElement(rec-avatar-video)...');
+    client.streamToVideoElement('rec-avatar-video').then(() => {
+      console.log('[Anam] ✓ stream connected');
+      videoEl.muted = !userInteracted;
+      videoEl.style.display = 'block';
+      recAvatarPlaceholder.style.display = 'none';
+      videoEl.play().catch(()=>{});
+      didReady = true;
       
-      novaFaceVideo.src = '';
-      novaFaceVideo.srcObject = didStream;
-      novaFaceVideo.muted = false;
-      novaFaceVideo.play().catch(()=>{});
-      novaFaceFrame.classList.add('speaking');
-    }
-  },
-  onError(err) {
-    console.log('D-ID:', err);
-  },
-};
-
-function initDID() {
-  // PHASE 1 (v46): D-ID disabled. The <anam-agent> widget in the recognition
-  // frame is now the avatar. The widget is self-contained and doesn't expose its
-  // stream to us, so didReady stays false and didStream stays null. Voice falls
-  // back to ElevenLabs Bella (already working) for any speak() calls our app makes.
-  // PHASE 2: wire our brain to the widget once we know it loads + works.
-  console.log('[Anam] D-ID disabled — using <anam-agent> widget instead');
+      // Also hand off intro right now so app keeps moving
+      handoffFromIntro();
+      if(memory.phase === 'recognition' && !window._greeted) {
+        window._greeted = true;
+        novaArrivalGreet();
+      }
+    }).catch(e => {
+      console.error('[Anam] ❌ streamToVideoElement REJECTED:', e);
+      console.error('  message:', e?.message);
+      console.error('  stack:', e?.stack);
+      // Surface error in UI so user doesn't need DevTools
+      const banner = document.createElement('div');
+      banner.style.cssText = 'position:fixed;top:50px;left:50%;transform:translateX(-50%);padding:14px 22px;background:#7f1d1d;color:#fff;border-radius:10px;font:600 13px monospace;z-index:99999;max-width:80%;text-align:center';
+      banner.textContent = '[Anam] ' + (e?.message || 'connect failed — see console');
+      document.body.appendChild(banner);
+    });
+    
+  } catch(e) {
+    console.error('[Anam] ❌ init threw sync:', e);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1672,16 +1737,14 @@ document.addEventListener('arrival-done', async () => {
     handoffFromIntro();
     novaArrivalGreet();
   } else {
-    // v46: D-ID disabled. Anam widget handles its own greeting/speech inside the
-    // widget bubble. Our greet goes through ElevenLabs (or browser TTS fallback).
-    // Short 1.5s timeout so the app doesn't stall.
+    // 12s safety: if D-ID still not connected, force handoff so app doesn't hang
     setTimeout(() => {
       if(!window._greeted) {
         window._greeted = true;
         handoffFromIntro();
         novaArrivalGreet();
       }
-    }, 1500);
+    }, 12000);
   }
 });
 
