@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v49 INDIGO</title>
+<title>Nova v49b INDIGO</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -519,7 +519,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">🟣 V49 🟣 INDIGO 🟣 MAGIC FRIEND 🟣</div>
+<div id="version-tag">🟣 V49b 🟣 INDIGO 🟣 SOPHIE + WARMER VOICE 🟣</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -576,17 +576,17 @@ const CFG = {
   // ourselves and don't rely on Anam's LLM, the API requires llmId — so we
   // include it. Anam's "CUSTOMER_CLIENT_V1" is the named flagship one.
   ANAM_API_KEY: 'YjZkNjdkYzgtZjliOS00YWIxLTgwZWEtNmM0MTM2MDVmY2I3Oi96WDhMQ05vRDRITFNvNEl3aDZMREgzd0V2eUNVZWxkVDhOaHVpSGt3SFE9',
-  ANAM_AVATAR_ID:  'cf932b2e-385f-4873-9eb5-f5be899f5561',  // Liv's pink-haired avatar
-  ANAM_VOICE_ID:   'de23e340-1416-4dd8-977d-065a7ca11697',  // Bella ElevenLabs (set in Anam Lab)
+  ANAM_AVATAR_ID:  '6dbc1e47-7768-403e-878a-94d7fcc3677b',  // Sophie sofa — Anam stock, warmer flagship
+  ANAM_VOICE_ID:   'de23e340-1416-4dd8-977d-065a7ca11697',  // Voice id (overridden by Anam if not in their catalog; safe fallback)
   ANAM_LLM_ID:     'CUSTOMER_CLIENT_V1',  // Required by API — not actually used since we drive .talk() ourselves
-  ANAM_PERSONA_ID: '1bf12b75-54f8-4738-bb5e-17c2d1d16278',  // Liv (kept for reference)
+  ANAM_PERSONA_ID_ARCHIVE: 'cf932b2e-385f-4873-9eb5-f5be899f5561',  // your custom Nova (flattened from cartoon) — kept for rollback
   // Brain
   WORKER_URL: 'https://long-art-8269r.dsbeauty01.workers.dev/',
   BRAIN_MODEL: 'claude-haiku-4-5-20251001',
-  // Voice provider — use ElevenLabs for warm Bella voice
+  // Voice provider — ElevenLabs Jessica for youthful playful warm
   VOICE_PROVIDER: 'elevenlabs', // 'browser-tts' | 'elevenlabs' | 'd-id'
   ELEVENLABS_KEY: 'sk_9c93ed7e0ae747cf93d123051aa60b4cd5d56cf2b5a536da',
-  ELEVENLABS_VOICE_ID: 'EXAVITQu4vr4xnSDxMaL', // Bella - kid friendly
+  ELEVENLABS_VOICE_ID: 'cgSgspJ2msm6clMCkdW9', // Jessica — youthful, playful, conversational
   // Ears
   EARS_PROVIDER: 'browser-sr', // 'browser-sr' | 'whisper'
   // Game
@@ -1092,7 +1092,27 @@ function initDID() {
         avatarId: CFG.ANAM_AVATAR_ID,
         voiceId:  CFG.ANAM_VOICE_ID,
         llmId:    CFG.ANAM_LLM_ID,
-        systemPrompt: 'You are Nova, a magical dance teacher for kids. (App drives talk() — this prompt is unused but required by the API.)',
+        // Placeholder — Anam ignores this because our app drives every line via .talk().
+        // Kept short and on-brand as a safety fallback in case Anam's brain ever responds.
+        systemPrompt: 'You are Nova — a magic friend who plays with kids 6-10. Warm, curious, never lectures. Reply in 1 short sentence. Never break character.',
+        // ─── v49b: voice tuning ───
+        // stability LOW = more emotional variation between deliveries (less monotone pro)
+        // speed slightly fast = lively, not rushed
+        // style amplifies speaker personality
+        voiceGenerationOptions: {
+          stability: 0.3,
+          speed: 1.05,
+          style: 0.5
+        },
+        // ─── v49b: kid-friendly turn-taking ───
+        // patient — kids stutter, pause, mumble. Don't interrupt them.
+        voiceDetectionOptions: {
+          endOfSpeechSensitivity: 0.2,
+          silenceBeforeSkipTurnSeconds: 8,
+          silenceBeforeAutoEndTurnSeconds: 4,
+          silenceBeforeSessionEndSeconds: 90,
+          speechEnhancementLevel: 0.8
+        }
       },
     }),
   })
