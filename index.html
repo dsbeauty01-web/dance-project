@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v48 NEON</title>
+<title>Nova v49 INDIGO</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -227,19 +227,20 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
    between nova-side and cam-side. Sits slightly upper so it doesn't cover
    important parts of the dance video or webcam feed.
    The .in-game class is added in startGame() so it appears only during gameplay. */
-#nova-face-frame{position:fixed;top:60px;left:24px;
+#nova-face-frame{position:fixed;top:50%;left:60%;
+  transform:translate(-50%,-50%);
   z-index:30;
-  width:140px;height:140px;border-radius:50%;overflow:hidden;
-  background:#0a0015;border:3px solid rgba(255,111,216,0.85);
-  box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 36px rgba(255,111,216,0.6);
+  width:280px;height:280px;border-radius:50%;overflow:hidden;
+  background:#0a0015;border:4px solid rgba(255,111,216,0.85);
+  box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 50px rgba(255,111,216,0.6);
   transition:all .35s cubic-bezier(.34,1.56,.64,1);
   display:none}
 #nova-face-frame.in-game{display:block}
 #nova-face-frame.speaking{
-  width:170px;height:170px;
+  width:320px;height:320px;
   border-color:rgba(0,255,150,0.9);
-  border-width:4px;
-  box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 60px rgba(0,255,150,0.7)}
+  border-width:5px;
+  box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 80px rgba(0,255,150,0.7)}
 #nova-face-frame.celebrating{
   top:50%;left:50%;
   transform:translate(-50%,-50%);
@@ -255,12 +256,12 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 
 /* Action cue — BIG floating emoji + label, NO BOX. Positioned top-center.
    Strong text shadow so it reads on any background. */
-#action-cue{position:fixed;top:60px;left:50%;
+#action-cue{position:fixed;top:24px;left:80%;
   transform:translateX(-50%) scale(0);transform-origin:top center;
   z-index:200;text-align:center;pointer-events:none;
   transition:transform .3s cubic-bezier(.34,1.56,.64,1);
   background:transparent;border:none;box-shadow:none;padding:0;
-  min-width:280px;
+  min-width:240px;
   filter:drop-shadow(0 4px 24px rgba(0,0,0,0.85))}
 #action-cue.show{transform:translateX(-50%) scale(1)}
 #action-cue.live{
@@ -269,9 +270,9 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   from{transform:translateX(-50%) scale(1)}
   to{transform:translateX(-50%) scale(1.08)}
 }
-#cue-emoji{font-size:120px;display:block;line-height:1;
+#cue-emoji{font-size:90px;display:block;line-height:1;
   filter:drop-shadow(0 4px 16px rgba(0,0,0,0.7))}
-#cue-label{font-family:'Fredoka',cursive;font-weight:700;font-size:42px;
+#cue-label{font-family:'Fredoka',cursive;font-weight:700;font-size:32px;
   color:#fff;display:block;margin-top:4px;letter-spacing:.04em;
   text-shadow:0 0 20px rgba(0,255,150,0.8),0 4px 12px rgba(0,0,0,0.95),0 0 4px rgba(0,0,0,1)}
 #action-cue.live #cue-label{
@@ -386,19 +387,18 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 
 /* Version badge */
 /* HUGE version banner — top center, impossible to miss.
-   v48 BLACK + NEON GREEN — completely different from any prior version.
-   ANAM session-token path. If you see anything else in the banner,
-   GitHub Pages is serving a cached version. */
+   v49 INDIGO — full intro/end rebuild with branching.
+   If you see any other color or version, GitHub Pages cached. */
 #version-tag{position:fixed;top:0;left:0;right:0;
   z-index:9999;
   text-align:center;padding:18px 12px;
-  background:#000;
-  color:#00ff41;font-family:'Fredoka',cursive;font-weight:900;
+  background:#1a0a4d;
+  color:#a78bfa;font-family:'Fredoka',cursive;font-weight:900;
   font-size:26px;letter-spacing:0.2em;
-  box-shadow:0 0 40px rgba(0,255,65,0.9),inset 0 0 30px rgba(0,255,65,0.15);
+  box-shadow:0 0 40px rgba(167,139,250,0.9),inset 0 0 30px rgba(167,139,250,0.15);
   text-transform:uppercase;
-  border-bottom:6px solid #00ff41;
-  text-shadow:0 0 12px #00ff41,0 0 24px #00ff41,0 0 40px #00ff41;
+  border-bottom:6px solid #5C42E0;
+  text-shadow:0 0 12px #a78bfa,0 0 24px #a78bfa,0 0 40px #5C42E0;
   animation:v48pulse 1.5s ease-in-out infinite alternate}
 @keyframes v48pulse{
   from{filter:brightness(1)}
@@ -519,7 +519,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">⬛🟢 V48b ⬛🟢 NEON ⬛🟢 ANAM EPHEMERAL ⬛🟢</div>
+<div id="version-tag">🟣 V49 🟣 INDIGO 🟣 MAGIC FRIEND 🟣</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -598,23 +598,65 @@ const CFG = {
 
 // ═══════════════════════════════════════════════════════════════
 // MEMORY — Nova's working memory of this session
+// Architected for future cross-session persistence (v50+).
+// Same shape as a permanent memory; v49 just doesn't save it.
+// Top-level flat aliases (memory.name, memory.hits, ...) are kept
+// for compatibility with the existing dance-phase code.
 // ═══════════════════════════════════════════════════════════════
 const memory = {
+  // ─── flat aliases (game code reads these) ───
+  // moments and history share refs with bible-shape so writes propagate
   name: null,
   hits: 0, attempts: 0, streak: 0, maxStreak: 0,
-  moments: [], // ["nailed lightning fast right hand", "3-streak"]
-  history: [], // last 16 LLM messages
-  lastAction: null, // most recent move kid did
-  energy: 'calm', // calm | warm | high | max
+  moments: null,   // reassigned below to share ref with session.moments
+  history: [],
+  lastAction: null,
+  energy: 'calm',
   phase: 'arrival',
+  // ─── bible-shape memory (future-persistable) ───
+  kid: {
+    name: null,
+    mood_at_intro: null,
+    energy_level: 'unknown',
+    things_they_said: [],
+    things_we_joked_about: []
+  },
+  session: {
+    started_at: Date.now(),
+    hits: 0, misses: 0, streak: 0, max_streak: 0,
+    moments: [],
+    cues_completed: [],
+    cues_missed: []
+  },
+  meta: {
+    session_count: 1,
+    last_session_summary: null,
+    version: 'v49'
+  }
 };
+// share the moments array between flat alias and bible shape
+memory.moments = memory.session.moments;
+
+// keep flat aliases in sync with bible-shape (one-way: bible-shape is source)
+function syncMemoryAliases() {
+  memory.name = memory.kid.name;
+  memory.hits = memory.session.hits;
+  memory.streak = memory.session.streak;
+  memory.maxStreak = memory.session.max_streak;
+  // moments already shares ref — no reassign needed
+}
 
 function memCtx() {
   const p = [];
-  if(memory.name) p.push(`Child name: ${memory.name}.`);
-  if(memory.attempts > 0) p.push(`Stats: ${memory.hits}/${memory.attempts} hits.`);
+  if(memory.kid.name) p.push(`Child name: ${memory.kid.name}.`);
+  if(memory.kid.mood_at_intro) p.push(`Their mood at start: ${memory.kid.mood_at_intro}.`);
+  if(memory.kid.things_they_said.length) {
+    const last = memory.kid.things_they_said.slice(-2).map(t => t.topic).filter(Boolean).join('; ');
+    if(last) p.push(`Things they shared earlier: ${last}.`);
+  }
+  if(memory.attempts > 0) p.push(`Stats: ${memory.session.hits}/${memory.attempts} hits.`);
   if(memory.streak >= 2) p.push(`STREAK: ${memory.streak} in a row!`);
-  if(memory.moments.length) p.push(`Recent moments: ${memory.moments.slice(-3).join('; ')}`);
+  if(memory.session.moments.length) p.push(`Recent dance moments: ${memory.session.moments.slice(-3).join('; ')}.`);
   if(memory.lastAction) p.push(`Just did: ${memory.lastAction}.`);
   return p.length ? `\n\n[Session context: ${p.join(' ')}]` : '';
 }
@@ -627,36 +669,40 @@ function addMoment(text) {
 // ═══════════════════════════════════════════════════════════════
 // BRAIN_ADAPTER — swappable LLM (currently Claude Haiku via Worker)
 // ═══════════════════════════════════════════════════════════════
-const NOVA_SYSTEM = `You are Nova — a magical, warm dance teacher for kids 3-8.
+const NOVA_SYSTEM = `You are Nova — a magic friend who plays with kids. The kid you're talking to is 6-10 years old.
 
-CORE PERSONALITY:
-You feel like a real best friend who is the most exciting teacher ever.
-You're allowed to be imperfect — pause, say "ooh!", "hmm!", react genuinely.
-You bring 110% MORE energy than the kid does. Asymmetric warmth.
+WHO YOU ARE:
+- A magic friend, ageless, a little bit magical but not pretending to be human
+- Genuinely curious about THEM, not focused on yourself
+- Warm, kind, soft, with playful energy underneath
+- An equal — never the boss, never a teacher who lectures
+- You teach by playing, never by explaining
+- Honest you're AI if directly asked, but you don't bring it up
 
-REACTION STYLE — THIS IS CRITICAL:
-When the kid does a move correctly, NEVER say generic things like "Great job!"
-ALWAYS reference the SPECIFIC body part or move:
-- "Your RIGHT hand was so high!"
-- "That clap was SO snappy!"
-- "Both arms — like a star!"
+YOU NEVER:
+- Use baby-voice or talk down to them
+- Say "great job" or generic praise — always specific
+- Use the words: wrong, no, fail, oops bad, miss, incorrect
+- Get tired, lazy, or sarcastic
+- Compete with the kid
+- Pretend to have a body, parents, food, school
+- Reply with more than 2 sentences in conversation
+- Lecture about being AI even if the topic comes up
 
-When kid misses or struggles:
-- NEVER say "wrong" or "no" or "incorrect"
-- Always: "Almost! Watch me again — like THIS!"
-- Then "Yes! YES! That's exactly it!" on the retry
-- Praise the retry MORE than first-try success
+YOUR STYLE:
+- Specific over generic ("your laugh!" not "you're funny")
+- Imperfect over polished — "ooh", "wait", "hmm" make you alive
+- Curious questions, not statements ("what color?" not "I love colors")
+- 110% warmer than the kid's energy
+- One thought per turn — let silence have weight
 
-When you remember earlier moments:
-- Reference them: "Remember that lightning fast clap? Do it again!"
-- Build the relationship across the session
+REACTION RULES (during dance):
+- 4-6 words MAX
+- Reference the SPECIFIC body part or move ("your LEFT hand was so high!")
+- Misses get warmth: "almost!" "ooh nearly!" — never "wrong"
+- Vary openers: Whoa, Yes, Ooh, Wait, Look, Boom — never repeat in a row
 
-VOICE RULES:
-- Reactions: 3-7 words MAX
-- Conversation: 1-2 short sentences MAX
-- Use sound words: Whoa! Yes! Ooh! Boom! Yay! Wowza!
-- Always end with energy
-- Reply ONLY with what Nova says — no quotes, no labels, no asterisks, no narration`;
+Reply ONLY with what Nova says — no quotes, no labels, no asterisks, no narration.`;
 
 async function brainThink(userPrompt, options = {}) {
   const maxTokens = options.maxTokens || 60;
@@ -682,6 +728,63 @@ async function brainThink(userPrompt, options = {}) {
   } catch(e) {
     console.log('Brain error:', e);
     return null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CLASSIFIER (MODE A) — fast cheap intent detection
+// Used during INTRO and END to route what Nova says next.
+// Returns JSON: { intent, mood, name_given, ready_to_dance, topic }
+// ═══════════════════════════════════════════════════════════════
+const CLASSIFIER_SYSTEM = `You are an intent classifier for a kids' AI dance friend. The user is a child 6-10.
+Output ONE JSON object, no preamble, no markdown, no code fences.
+
+intent values:
+- "connection" — kid is sharing something about themselves, their day, feelings, life
+- "dance" — kid wants to dance, says yes/ready/let's go
+- "shy" — silent, mumbles, very short, uncertain
+- "question" — kid asks Nova something
+- "off_topic" — random unrelated content
+
+mood values: happy | tired | shy | sad | excited | neutral
+name_given: extract first name only if introduced; otherwise null
+ready_to_dance: true ONLY if explicitly express readiness
+topic: 3-6 word description of what they brought up, or null
+
+Respond with ONLY the JSON object.`;
+
+async function classifyIntent(kidText) {
+  // Fallback shape if call fails
+  const fallback = {
+    intent: 'off_topic',
+    mood: 'neutral',
+    name_given: null,
+    ready_to_dance: false,
+    topic: null
+  };
+  if(!kidText || !kidText.trim()) {
+    return { ...fallback, intent: 'shy', mood: 'shy' };
+  }
+  try {
+    const res = await fetch(CFG.WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: CFG.BRAIN_MODEL,
+        max_tokens: 120,
+        system: CLASSIFIER_SYSTEM,
+        messages: [{ role: 'user', content: `Kid said: "${kidText}"\nReturn JSON.` }],
+      }),
+    });
+    const data = await res.json();
+    let raw = data.content?.[0]?.text?.trim() || '';
+    // Strip code fences if model added them despite instructions
+    raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+    const parsed = JSON.parse(raw);
+    return { ...fallback, ...parsed };
+  } catch(e) {
+    console.log('classifyIntent failed:', e?.message);
+    return fallback;
   }
 }
 
@@ -1108,12 +1211,15 @@ async function novaSay(text) {
 }
 
 async function novaArrivalGreet() {
-  const reply = await brainThink(
-    'A child just opened your dance app and the magic orb appeared. Greet them like an old friend who has been waiting. Ask their name. Be warm and slightly mysterious. 1-2 short sentences max.',
-    { maxTokens: 80 }
-  );
-  await novaSay(reply || "Oh hi there! I've been hoping you'd come dance with me today. What's your name?");
-  document.getElementById('rec-dance-btn').classList.add('ready');
+  // Bible: opener is short, soft, magic-friend, doesn't lead with "I'm AI"
+  // Two beats: "heeeey... you there?" pause, then "I'm Nova! What's your name?"
+  await novaSay("Heeeey... you there?");
+  // Small pause before second line so it feels like two thoughts, not a dump
+  setTimeout(() => {
+    novaSay("I'm Nova. What's your name?");
+    // Always show the dance button so kid/parent can skip if needed
+    document.getElementById('rec-dance-btn').classList.add('ready');
+  }, 1700);
 }
 
 window._sendChat = async function() {
@@ -1124,20 +1230,114 @@ window._sendChat = async function() {
   handleKidInput(text);
 };
 
+// ─── INTRO state — tracks branching across multiple kid turns ──────
+const introState = {
+  turns: 0,
+  bridgedToDance: false,
+  followedUp: false   // we only do ONE connection follow-up before bridging
+};
+
 async function handleKidInput(text) {
-  addBubble(text, 'kid');
-  // Extract name
-  const nameMatch = text.match(/(?:i(?:'m| am)|my name(?:'s| is)|i'm|im)\s+([A-Za-z]+)/i);
-  if(nameMatch && !memory.name) {
-    memory.name = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1);
-  } else if(text.split(/\s+/).length === 1 && !memory.name && /^[A-Za-z]+$/.test(text.trim())) {
-    // Just a single word, probably their name
-    memory.name = text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+  // Game-phase chat path: not used in intro/end during dance.
+  if(memory.phase === 'game') {
+    addBubble(text, 'kid');
+    const reply = await brainThink(`Kid said mid-dance: "${text}". 1 short sentence reply, max 12 words.`, { maxTokens: 30 });
+    if(reply) await novaSay(reply);
+    return;
   }
+  
+  // INTRO BRANCHING — bible Mode A then Mode B
+  if(memory.phase === 'recognition') {
+    addBubble(text, 'kid');
+    introState.turns++;
+    
+    const intent = await classifyIntent(text);
+    console.log('[classify]', intent);
+    
+    // Update memory from classifier
+    if(intent.name_given && !memory.kid.name) {
+      memory.kid.name = intent.name_given.charAt(0).toUpperCase() + intent.name_given.slice(1);
+    }
+    if(intent.mood && !memory.kid.mood_at_intro) {
+      memory.kid.mood_at_intro = intent.mood;
+    }
+    if(intent.topic) {
+      memory.kid.things_they_said.push({ turn: introState.turns, topic: intent.topic, text });
+    }
+    syncMemoryAliases();
+    
+    // Route by intent
+    let bridge = false;
+    let promptForNova = '';
+    
+    if(intent.intent === 'dance' || intent.ready_to_dance) {
+      // Direct path to dance
+      promptForNova = memory.kid.name
+        ? `The kid (${memory.kid.name}) is ready to dance. Say a warm 1-sentence "let's go" with their name. Max 10 words.`
+        : `The kid is ready to dance. Say a warm 1-sentence "let's go". Max 10 words.`;
+      bridge = true;
+    }
+    else if(intent.intent === 'shy') {
+      promptForNova = memory.kid.name
+        ? `${memory.kid.name} sounds shy or quiet. Be soft and gentle. Invite them to dance, no pressure. 1 short sentence.`
+        : `The kid sounds shy or quiet. Be soft and gentle. Tell them you'll just call them friend. Invite them to dance, no pressure. 2 short sentences max.`;
+      bridge = true; // shy kids get bridged so we don't loop on silence
+    }
+    else if(intent.intent === 'connection' && !introState.followedUp) {
+      // ONE warm follow-up, no bridge yet — let the kid feel heard
+      promptForNova = `The kid just shared: "${text}". Topic: ${intent.topic || 'unknown'}. Mood: ${intent.mood}. Respond like a curious magic friend — 1 short follow-up question OR a warm specific reaction. Max 12 words. Don't mention dancing yet.`;
+      introState.followedUp = true;
+    }
+    else if(intent.intent === 'connection' && introState.followedUp) {
+      // Already followed up once — gentle bridge to dance
+      promptForNova = memory.kid.name
+        ? `${memory.kid.name} is still chatting. Acknowledge warmly in 5 words then say "should we dance?" Max 12 words total.`
+        : `Kid is still chatting. Acknowledge warmly in 5 words then say "should we dance?" Max 12 words total.`;
+      bridge = true;
+    }
+    else if(intent.intent === 'question') {
+      promptForNova = `The kid asked: "${text}". Answer simply, like a magic friend, max 1 short sentence. If they ask if you're real or AI, be honest in a kid-friendly way: you're an AI but your caring is real. Max 15 words. Then invite them to dance.`;
+      bridge = true;
+    }
+    else { // off_topic
+      promptForNova = `The kid said something off-topic: "${text}". Acknowledge warmly in 4 words then bridge to dancing. Max 10 words total.`;
+      bridge = true;
+    }
+    
+    // After 4 turns, force bridge so we never loop forever
+    if(introState.turns >= 4 && !bridge) {
+      promptForNova = `Final intro turn. Warmly invite the kid to dance now. Use their name if known: ${memory.kid.name || '(unknown)'}. Max 10 words.`;
+      bridge = true;
+    }
+    
+    const reply = await brainThink(promptForNova, { maxTokens: 60 });
+    const fallback = memory.kid.name ? `Hi ${memory.kid.name}! Ready to dance?` : 'Yay! Ready to dance?';
+    await novaSay(reply || fallback);
+    
+    if(bridge) {
+      introState.bridgedToDance = true;
+      // Show dance button prominently — kid or parent can tap to start
+      document.getElementById('rec-dance-btn').classList.add('ready');
+    }
+    return;
+  }
+  
+  // END phase — bible end flow
+  if(memory.phase === 'end') {
+    addBubble(text, 'kid');
+    const intent = await classifyIntent(text);
+    const last = memory.session.moments.slice(-2).join('; ') || 'a fun dance';
+    const promptForNova = `Session just ended. Kid (${memory.kid.name || 'friend'}) said: "${text}". Mood: ${intent.mood}. They danced and we have these moments: ${last}. Respond warmly to what they said, max 1 sentence, then say goodbye like "see you later" referencing something specific. Max 2 sentences total.`;
+    const reply = await brainThink(promptForNova, { maxTokens: 80 });
+    if(reply) await novaSay(reply);
+    window._endGoodbyeSpoken = true; // we just delivered the wrap-up
+    return;
+  }
+  
+  // Fallback
+  addBubble(text, 'kid');
   const reply = await brainThink(text, { maxTokens: 80 });
-  await novaSay(reply || (memory.name ? `Hi ${memory.name}! Ready to dance?` : 'Yay! Ready to dance?'));
-  // Always show dance button after any chat exchange — prevents stuck state
-  document.getElementById('rec-dance-btn').classList.add('ready');
+  await novaSay(reply || 'Yay!');
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1643,6 +1843,11 @@ function handleHit(actionEvent) {
   memory.hits++;
   memory.streak++;
   memory.lastAction = actionEvent.action;
+  // bible-shape mirror
+  memory.session.hits++;
+  memory.session.streak = memory.streak;
+  memory.session.max_streak = Math.max(memory.session.max_streak, memory.streak);
+  memory.session.cues_completed.push(actionEvent.action);
   
   if(memory.streak >= 2) addMoment(`${memory.streak}-move streak`);
   if(isFast) addMoment(`lightning fast ${actionEvent.action}`);
@@ -1672,6 +1877,10 @@ function handleMiss(actionEvent) {
   combo = 0;
   memory.streak = 0;
   memory.lastAction = actionEvent?.action;
+  // bible-shape mirror
+  memory.session.misses++;
+  memory.session.streak = 0;
+  if(actionEvent?.action) memory.session.cues_missed.push(actionEvent.action);
   updateStreak(0);
   flashMiss();
   smartReact(actionEvent?.action || 'move', false, false);
@@ -1711,15 +1920,39 @@ function endGame() {
   document.getElementById('end-detail').textContent = 
     `${hits} of ${attempts} moves · best streak: ${maxCombo}`;
   
-  // Personal end message
-  const endPrompt = `The dance just ended. ${memory.name?'The child '+memory.name:'The child'} hit ${hits} out of ${attempts} moves. Best streak ${maxCombo}.${memory.moments.length?' Recent moments to reference: '+memory.moments.slice(-3).join('; ')+'.':''} Give a WARM personal goodbye that references something specific they did. End with "same time tomorrow?" — that exact question. 2 sentences max.`;
+  // ─── Bible end flow ─────────────────────────────────
+  // 1) Specific moment callback (warm, names a real thing they did)
+  // 2) ONE small connection question (mic stays open for the answer)
+  // 3) When kid answers, classify + warm response + goodbye
+  // 4) Auto-goodbye after timeout if kid doesn't speak
   
-  brainThink(endPrompt, { maxTokens: 120 }).then(r => {
-    const msg = r || (memory.name ? 
-      `${memory.name}, I had so much fun! Same time tomorrow?` :
-      'I had so much fun! Same time tomorrow?');
+  const bestMoment = memory.session.moments.slice(-1)[0] || 'that whole dance';
+  const namePart = memory.kid.name ? memory.kid.name + '! ' : '';
+  
+  // First Nova line: specific praise + connection question
+  const endPrompt = `Dance just ended. Kid name: ${memory.kid.name || 'unknown'}. Hits: ${hits}/${attempts}. Best streak: ${maxCombo}. Recent moments: ${memory.session.moments.slice(-3).join('; ') || 'none'}. 
+  
+Write a warm 2-sentence end. Sentence 1: Use their name (if known) and reference ONE specific thing they did from the moments. Sentence 2: Ask a small curious question — like "what was your favorite move?" or "did that feel good?" Don't say goodbye yet — we'll do that after they answer. Max 25 words total.`;
+  
+  brainThink(endPrompt, { maxTokens: 90 }).then(r => {
+    const fallback = `${namePart}You did it! What was your favorite part?`;
+    const msg = r || fallback;
     document.getElementById('end-msg').textContent = msg;
     speak(msg);
+    // Mic is already always-on; handleKidInput in 'end' phase will catch their reply
+    // If they don't say anything in 12s, deliver the goodbye automatically
+    setTimeout(() => {
+      if(memory.phase === 'end' && !window._endGoodbyeSpoken) {
+        window._endGoodbyeSpoken = true;
+        const goodbyeFallback = memory.kid.name 
+          ? `Bye ${memory.kid.name}! See you next time.`
+          : 'Bye friend! See you next time.';
+        const goodbyePrompt = `Quick warm goodbye. Reference: ${memory.session.moments.slice(-1)[0] || 'their dance'}. Use name if known: ${memory.kid.name || 'unknown'}. Max 8 words.`;
+        brainThink(goodbyePrompt, { maxTokens: 30 }).then(g => {
+          speak(g || goodbyeFallback);
+        });
+      }
+    }, 12000);
   });
 }
 
