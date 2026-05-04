@@ -3,7 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v49e INDIGO</title>
+<title>Nova v49g INDIGO</title>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     v49g: Mirror Light — face-api.js loaded as global (UMD bundle)
+     Provides face detection + emotion classification entirely
+     in-browser. Sampled every 1.5s. No data leaves the device.
+     ═══════════════════════════════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -343,6 +350,22 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   border-color:rgba(0,255,150,1);transform:scale(1.18);
   box-shadow:0 0 30px rgba(0,255,150,0.8)}
 
+/* v49g: mirror status indicator — small badge bottom-left of webcam.
+   Color shifts with detected mood. Tiny so it doesn't distract the kid. */
+#mirror-status{position:absolute;bottom:14px;left:14px;z-index:5;
+  font-size:22px;width:38px;height:38px;border-radius:50%;
+  background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;
+  border:2px solid rgba(255,255,255,0.15);
+  opacity:0.7;transition:all .25s;
+  pointer-events:none}
+#mirror-status.active{opacity:1;border-color:rgba(0,255,150,0.85);
+  box-shadow:0 0 18px rgba(0,255,150,0.5)}
+#mirror-status.happy{border-color:rgba(255,200,80,0.95);
+  box-shadow:0 0 24px rgba(255,200,80,0.7);transform:scale(1.12)}
+#mirror-status.sad{border-color:rgba(120,160,255,0.85);opacity:0.85}
+#mirror-status.surprised{border-color:rgba(255,140,255,0.95);
+  box-shadow:0 0 22px rgba(255,140,255,0.6);transform:scale(1.1)}
+
 /* Subtle full-screen green tint when cue is live (most visual emphasis is on cam-border) */
 #green-flash{position:fixed;inset:0;z-index:1;
   background:rgba(0,255,150,0.06);
@@ -490,6 +513,8 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
     <div id="cam-side">
       <video id="webcam" autoplay playsinline muted></video>
       <div id="cam-border"></div>
+      <!-- v49g: Mirror Light indicator — small badge bottom-left of webcam -->
+      <div id="mirror-status" title="Nova's watching">👀</div>
       <div id="cam-pills">
         <div class="pill" id="p-left">👈 L</div>
         <div class="pill" id="p-right">👉 R</div>
@@ -519,7 +544,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">🟣 V49e 🟣 INDIGO 🟣 NOVA TIGHTENED 🟣</div>
+<div id="version-tag">🟣 V49g 🟣 INDIGO 🟣 NOVA WATCHES YOU 🟣</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -589,7 +614,12 @@ const CFG = {
   WORKER_URL: 'https://long-art-8269r.dsbeauty01.workers.dev/',
   BRAIN_MODEL: 'claude-haiku-4-5-20251001',
   // Voice provider — ElevenLabs Jessica for youthful playful warm
-  VOICE_PROVIDER: 'elevenlabs', // 'browser-tts' | 'elevenlabs' | 'd-id'
+  // ─── v49f: voice routing — choose ONE primary provider ───
+  // 'anam'        → Anam owns the voice (whatever you set in Lab); fallback only on hard failure
+  // 'elevenlabs'  → ElevenLabs Jessica owns the voice; Anam stays silent (lip-sync only via mute trick)
+  // 'browser'     → browser TTS owns the voice
+  PRIMARY_VOICE: 'anam', // change to 'elevenlabs' if you prefer Jessica over Anam's Lab voice
+  VOICE_PROVIDER: 'elevenlabs', // legacy fallback only — used if PRIMARY_VOICE='anam' fails
   ELEVENLABS_KEY: 'sk_9c93ed7e0ae747cf93d123051aa60b4cd5d56cf2b5a536da',
   ELEVENLABS_VOICE_ID: 'cgSgspJ2msm6clMCkdW9', // Jessica — youthful, playful, conversational
   // Ears
@@ -663,6 +693,14 @@ function memCtx() {
   if(memory.streak >= 2) p.push(`STREAK: ${memory.streak} in a row!`);
   if(memory.session.moments.length) p.push(`Recent dance moments: ${memory.session.moments.slice(-3).join('; ')}.`);
   if(memory.lastAction) p.push(`Just did: ${memory.lastAction}.`);
+  // v49g: live emotion signal from webcam (Mirror Light)
+  if(memory.kid.current_mood && memory.kid.current_mood !== 'neutral') {
+    p.push(`The kid looks ${memory.kid.current_mood} right now.`);
+  }
+  if(memory.kid.recent_emotion_shift && !memory.kid.recent_emotion_shift.consumed) {
+    const ago = Math.round((Date.now() - memory.kid.recent_emotion_shift.at) / 1000);
+    p.push(`Just SAW the kid become ${memory.kid.recent_emotion_shift.emotion} (${ago}s ago) — feel free to acknowledge this naturally.`);
+  }
   return p.length ? `\n\n[Session context: ${p.join(' ')}]` : '';
 }
 
@@ -866,21 +904,38 @@ async function elevenLabsTTS(text) {
 }
 
 function speak(text) {
-  // Try Anam first if connected, else fall back to ElevenLabs/browser
-  if(didReady && agentManager) {
-    try {
-      // Anam: .talk(text) → text goes through TTS + lip-sync, video updates in real time
-      const r = agentManager.talk(text);
-      if(r && r.catch) r.catch((e) => {
-        console.log('[Anam] talk failed, fallback:', e?.message);
-        if(CFG.VOICE_PROVIDER === 'elevenlabs') elevenLabsTTS(text);
-        else browserTTS(text);
-      });
-      return;
-    } catch(e){
-      console.log('[Anam] talk threw:', e?.message);
+  // ─── v49f: deterministic single-provider voice ───
+  // Whatever PRIMARY_VOICE is set to, ONLY that one fires. No racing.
+  // The fallback only kicks in if the primary HARD-FAILS (throws synchronously
+  // OR the promise rejects). No "fire both and hope."
+  
+  if(CFG.PRIMARY_VOICE === 'anam') {
+    if(didReady && agentManager) {
+      try {
+        const r = agentManager.talk(text);
+        // If talk() returns a promise, only fall back on actual rejection
+        if(r && r.catch) {
+          r.catch((e) => {
+            console.warn('[Anam] talk failed, falling back to', CFG.VOICE_PROVIDER, ':', e?.message);
+            fallbackSpeak(text);
+          });
+        }
+        return; // ← critical: do NOT fall through; Anam owns this turn
+      } catch(e) {
+        console.warn('[Anam] talk threw, falling back:', e?.message);
+        return fallbackSpeak(text);
+      }
     }
+    // Anam not ready — fall back this once
+    console.warn('[speak] Anam not ready, using fallback for:', text.slice(0,40));
+    return fallbackSpeak(text);
   }
+  
+  // PRIMARY_VOICE === 'elevenlabs' or 'browser' — bypass Anam entirely
+  fallbackSpeak(text);
+}
+
+function fallbackSpeak(text) {
   if(CFG.VOICE_PROVIDER === 'elevenlabs') elevenLabsTTS(text);
   else browserTTS(text);
 }
@@ -946,6 +1001,195 @@ function startAlwaysOnMic() {
   micEnabled = true;
   safeStart();
 }
+
+// ═══════════════════════════════════════════════════════════════
+// MIRROR LIGHT (v49g) — Nova watches the kid's face
+// 
+// Goal: detect emotion shifts on the webcam and feed them to Nova's
+// brain context. Result: Nova's NEXT line is influenced by what the
+// kid is feeling (e.g. they smile big → next reply references it).
+//
+// All detection runs in-browser via face-api.js. No data leaves device.
+// Sampled every 1.5s. Cooldown prevents over-reaction to micro-changes.
+// ═══════════════════════════════════════════════════════════════
+
+const MIRROR = {
+  enabled: false,
+  loaded: false,
+  loading: false,
+  lastEmotion: 'neutral',
+  lastBigEmotion: 'neutral',  // last "actionable" emotion for cooldown
+  lastBigEmotionAt: 0,         // when we last fired a big-emotion signal
+  emotionStreak: 0,            // consecutive frames of same emotion (smooth out flicker)
+  cooldownMs: 8000,            // don't re-fire the same big signal within this window
+  sampleIntervalMs: 1500,      // how often to peek at the face
+  intervalId: null,
+  modelUrl: 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights',
+};
+
+async function mirrorLoadModels() {
+  if(MIRROR.loaded || MIRROR.loading) return;
+  if(typeof faceapi === 'undefined') {
+    console.warn('[Mirror] face-api.js not loaded — mirror disabled');
+    return;
+  }
+  MIRROR.loading = true;
+  console.log('[Mirror] loading models from', MIRROR.modelUrl);
+  try {
+    // Tiny detector + face expression. ~600KB total. One-time load.
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(MIRROR.modelUrl),
+      faceapi.nets.faceExpressionNet.loadFromUri(MIRROR.modelUrl),
+    ]);
+    MIRROR.loaded = true;
+    MIRROR.loading = false;
+    console.log('[Mirror] ✓ models ready');
+  } catch(e) {
+    console.warn('[Mirror] model load failed:', e?.message);
+    MIRROR.loading = false;
+  }
+}
+
+async function mirrorTick() {
+  if(!MIRROR.enabled || !MIRROR.loaded) return;
+  const video = document.getElementById('webcam');
+  if(!video || video.readyState < 2 || video.videoWidth === 0) return; // not ready
+  
+  try {
+    const result = await faceapi
+      .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({
+        inputSize: 224,       // small = fast on weak laptops
+        scoreThreshold: 0.45,
+      }))
+      .withFaceExpressions();
+    
+    if(!result || !result.expressions) {
+      // Lost the face for this tick — that's fine, just skip
+      return;
+    }
+    
+    // Pick dominant expression
+    const exps = result.expressions;
+    let max = 0, dominant = 'neutral';
+    for(const k in exps) {
+      if(exps[k] > max) { max = exps[k]; dominant = k; }
+    }
+    
+    // Only treat as "real" emotion if confidence is meaningful
+    const isHigh = max > 0.6;
+    const candidate = isHigh ? dominant : 'neutral';
+    
+    // Streak smoothing — need 2 in a row to commit
+    if(candidate === MIRROR.lastEmotion) {
+      MIRROR.emotionStreak++;
+    } else {
+      MIRROR.emotionStreak = 1;
+      MIRROR.lastEmotion = candidate;
+    }
+    
+    // Update brain context — runs every tick when stable
+    const stableEmotion = MIRROR.emotionStreak >= 2 ? candidate : (memory.kid.current_mood || 'neutral');
+    memory.kid.current_mood = stableEmotion;
+    
+    // Visual badge feedback
+    const badge = document.getElementById('mirror-status');
+    if(badge) {
+      badge.classList.remove('happy','sad','surprised');
+      if(stableEmotion === 'happy') badge.classList.add('happy');
+      else if(stableEmotion === 'sad') badge.classList.add('sad');
+      else if(stableEmotion === 'surprised') badge.classList.add('surprised');
+    }
+    
+    // Big-event signal: "actionable" emotions Nova should react to.
+    // Currently: only 'happy' going from a non-happy baseline triggers a callback.
+    const actionable = ['happy', 'surprised'];
+    const now = Date.now();
+    if(
+      actionable.includes(stableEmotion) &&
+      stableEmotion !== MIRROR.lastBigEmotion &&
+      now - MIRROR.lastBigEmotionAt > MIRROR.cooldownMs &&
+      MIRROR.emotionStreak >= 2
+    ) {
+      MIRROR.lastBigEmotion = stableEmotion;
+      MIRROR.lastBigEmotionAt = now;
+      onKidEmotionShift(stableEmotion);
+    }
+    
+    // Reset baseline when neutral persists
+    if(stableEmotion === 'neutral' && MIRROR.emotionStreak > 4) {
+      MIRROR.lastBigEmotion = 'neutral';
+    }
+  } catch(e) {
+    // Silent — face detection can flake without it being a problem
+  }
+}
+
+function onKidEmotionShift(emotion) {
+  // Logged for the brain. We DO NOT immediately fire .talk() here — that's
+  // Mirror Real-time territory and risks talking over the kid. Instead, we
+  // tag the next brain call with this signal and let normal flow react.
+  console.log('[Mirror] kid shifted to:', emotion);
+  
+  // Push as a transient context flag the next memCtx() picks up.
+  memory.kid.recent_emotion_shift = {
+    emotion,
+    at: Date.now(),
+    consumed: false,
+  };
+  
+  // If we're idle (no Nova line in flight) AND in a phase where reacting
+  // makes sense — recognition or end — fire a one-off small reaction.
+  // Skip during 'game' phase: the dance has its own rhythm and we don't
+  // want Nova to talk over a hit reaction.
+  if((memory.phase === 'recognition' || memory.phase === 'end') && !window._novaTalking) {
+    setTimeout(() => mirrorReactToEmotion(emotion), 300);
+  }
+}
+
+async function mirrorReactToEmotion(emotion) {
+  // Only fire if still relevant — kid might've shifted again or Nova started talking
+  if(window._novaTalking) return;
+  if(memory.phase !== 'recognition' && memory.phase !== 'end') return;
+  
+  const prompt = emotion === 'happy'
+    ? `The kid just smiled big — you SAW their smile change. React in 4-7 words specifically to the smile. Don't be generic. Don't say "great smile" — be specific like "your eyes! they sparkled!" or "ohh that smile!"`
+    : `The kid just looked surprised — react warmly in 4-7 words specifically to their surprise.`;
+  
+  try {
+    const reply = await brainThink(prompt, { maxTokens: 30 });
+    if(reply) {
+      // Mark consumed so memCtx doesn't re-feed it
+      if(memory.kid.recent_emotion_shift) memory.kid.recent_emotion_shift.consumed = true;
+      novaSay(reply);
+    }
+  } catch(e) {
+    console.log('[Mirror] react failed:', e?.message);
+  }
+}
+
+async function startMirrorLight() {
+  if(MIRROR.enabled) return;
+  if(typeof faceapi === 'undefined') {
+    console.warn('[Mirror] disabled — face-api.js missing');
+    return;
+  }
+  await mirrorLoadModels();
+  if(!MIRROR.loaded) return;
+  
+  MIRROR.enabled = true;
+  document.getElementById('mirror-status')?.classList.add('active');
+  console.log('[Mirror] ✓ tick loop active, sampling every', MIRROR.sampleIntervalMs, 'ms');
+  
+  MIRROR.intervalId = setInterval(mirrorTick, MIRROR.sampleIntervalMs);
+}
+
+function stopMirrorLight() {
+  MIRROR.enabled = false;
+  if(MIRROR.intervalId) clearInterval(MIRROR.intervalId);
+  MIRROR.intervalId = null;
+  document.getElementById('mirror-status')?.classList.remove('active','happy','sad','surprised');
+}
+// ═══════════════════════════════════════════════════════════════
 
 function micPause() {
   // Called when Nova starts talking — stop hearing self
@@ -1106,11 +1350,11 @@ function initDID() {
       'Authorization': 'Bearer ' + CFG.ANAM_API_KEY,
     },
     body: JSON.stringify({
-      // ─── v49e: reference saved persona (configured in Anam Lab) ───
-      // Anam looks up your persona by ID. Avatar, voice, system prompt come from
-      // your Lab config. Cleaner than passing ephemeral personaConfig — no 400s
-      // from incompatible voice options. We still drive every line via .talk().
-      persona: CFG.ANAM_PERSONA_ID,
+      // ─── v49f: new stateful persona format (migrated from legacy) ───
+      // Anam deprecated the legacy `persona: '<UUID>'` shorthand on May 4 2026.
+      // New format wraps the saved-persona reference in personaConfig: { id }.
+      // Anam still reads avatar, voice, system prompt from your Lab config.
+      personaConfig: { id: CFG.ANAM_PERSONA_ID },
     }),
   })
   .then(r => {
@@ -1164,6 +1408,7 @@ function initDID() {
       if(ev?.role === 'persona') {
         recAvatarFrame.classList.add('speaking');
         novaFaceFrame.classList.add('speaking');
+        window._novaTalking = true; // v49g: tell Mirror Light to back off
         micPause();
       }
     });
@@ -1172,6 +1417,7 @@ function initDID() {
       if(last?.role === 'persona' && !last.streaming) {
         recAvatarFrame.classList.remove('speaking');
         novaFaceFrame.classList.remove('speaking');
+        window._novaTalking = false; // v49g
         micResume();
       }
     });
@@ -1993,6 +2239,9 @@ document.addEventListener('arrival-done', async () => {
       audio: false,
     });
     document.getElementById('webcam').srcObject = stream;
+    // v49g: kick off Mirror Light once the camera is producing frames.
+    // This is async but non-blocking — we don't await it so app keeps loading.
+    startMirrorLight();
   } catch(e) { console.log('cam:', e); }
   
   // Always-on mic — Nova listens continuously from now on
