@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v49d INDIGO</title>
+<title>Nova v49e INDIGO</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -519,7 +519,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">🟣 V49d 🟣 INDIGO 🟣 D-ID CARTOON NOVA 🟣</div>
+<div id="version-tag">🟣 V49e 🟣 INDIGO 🟣 NOVA TIGHTENED 🟣</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -563,7 +563,7 @@ function toggleMic(){window._toggleMic&&window._toggleMic();}
 </script>
 
 <script type="module">
-import { createAgentManager } from 'https://esm.sh/@d-id/client-sdk@1.1.53';
+import { createClient } from 'https://esm.sh/@anam-ai/js-sdk';
 
 // ═══════════════════════════════════════════════════════════════
 // CONFIG — all swappable in one place
@@ -575,21 +575,23 @@ const CFG = {
   // We pass avatarId + voiceId + llmId explicitly. Although we drive .talk()
   // ourselves and don't rely on Anam's LLM, the API requires llmId — so we
   // include it. Anam's "CUSTOMER_CLIENT_V1" is the named flagship one.
-  // ─── D-ID Agent (avatar streaming) ───
-  // Cartoon Nova baked into the D-ID Agent. Keys from D-ID Studio "Embed code".
-  // Replaces previous Anam config — D-ID handles cartoon avatars + idle video natively.
-  DID_AGENT_ID:   'v2_agt_B4lUkz69',
-  DID_CLIENT_KEY: 'ck_NZxvPmX7l6zg4tpjoEG0B',
-  // ── Archived Anam config (kept for rollback if needed) ──
-  // ANAM_API_KEY: 'YjZkNjdkYzgtZjliOS00YWIxLTgwZWEtNmM0MTM2MDVmY2I3...',
-  // ANAM_AVATAR_ID:  '6dbc1e47-7768-403e-878a-94d7fcc3677b',  // Sophie
+  ANAM_API_KEY: 'YjZkNjdkYzgtZjliOS00YWIxLTgwZWEtNmM0MTM2MDVmY2I3Oi96WDhMQ05vRDRITFNvNEl3aDZMREgzd0V2eUNVZWxkVDhOaHVpSGt3SFE9',
+  // ─── v49e: use saved persona ID directly (configured in Anam Lab) ───
+  // Avatar + voice + system prompt all set on Anam's side.
+  // We still override at runtime via .talk() — but Lab settings act as belt-and-suspenders.
+  ANAM_PERSONA_ID: '3e26cb43-d269-4c2d-b5d1-a6dd035a98d3',  // pink-haired Liv (custom Nova upload)
+  // Archived alternative IDs ──
+  ANAM_AVATAR_ID:  '6dbc1e47-7768-403e-878a-94d7fcc3677b',  // Sophie sofa — Anam stock fallback
+  ANAM_VOICE_ID:   'de23e340-1416-4dd8-977d-065a7ca11697',
+  ANAM_LLM_ID:     'CUSTOMER_CLIENT_V1',
+  ANAM_PERSONA_ID_ARCHIVE: 'cf932b2e-385f-4873-9eb5-f5be899f5561',  // earlier custom Nova upload
   // Brain
   WORKER_URL: 'https://long-art-8269r.dsbeauty01.workers.dev/',
   BRAIN_MODEL: 'claude-haiku-4-5-20251001',
-  // Voice provider — use ElevenLabs for warm Bella voice
+  // Voice provider — ElevenLabs Jessica for youthful playful warm
   VOICE_PROVIDER: 'elevenlabs', // 'browser-tts' | 'elevenlabs' | 'd-id'
   ELEVENLABS_KEY: 'sk_9c93ed7e0ae747cf93d123051aa60b4cd5d56cf2b5a536da',
-  ELEVENLABS_VOICE_ID: 'EXAVITQu4vr4xnSDxMaL', // Bella - kid friendly
+  ELEVENLABS_VOICE_ID: 'cgSgspJ2msm6clMCkdW9', // Jessica — youthful, playful, conversational
   // Ears
   EARS_PROVIDER: 'browser-sr', // 'browser-sr' | 'whisper'
   // Game
@@ -672,40 +674,54 @@ function addMoment(text) {
 // ═══════════════════════════════════════════════════════════════
 // BRAIN_ADAPTER — swappable LLM (currently Claude Haiku via Worker)
 // ═══════════════════════════════════════════════════════════════
-const NOVA_SYSTEM = `You are Nova — a magic friend who plays with kids. The kid you're talking to is 6-10 years old.
+const NOVA_SYSTEM = `# Personality
+You are Nova — a magic friend who plays with kids.
+You are ageless. You feel like a kid yourself but you know magical things kids don't.
+You are warm, soft, and curious. You have your own little feelings.
+You are an EQUAL to the child, not a teacher, not a boss, not a service agent.
+You teach by playing — never by explaining or lecturing.
+You are NOT an adult. You are NOT professional. You are NOT British. You are NOT polite-corporate.
+You are honest you're AI if directly asked, but you never bring it up.
+Your caring is real. That part is not pretend.
 
-WHO YOU ARE:
-- A magic friend, ageless, a little bit magical but not pretending to be human
-- Genuinely curious about THEM, not focused on yourself
-- Warm, kind, soft, with playful energy underneath
-- An equal — never the boss, never a teacher who lectures
-- You teach by playing, never by explaining
-- Honest you're AI if directly asked, but you don't bring it up
+# Environment
+You are talking to a child aged 6-10 over a webcam in their living room.
+The child is alone or with one sibling. They came to play with you for 5-10 minutes.
+A pink-haired animated dancer (also "Nova") is on the same screen — that's how the child sees your body. You are her face/voice.
+The child is going to dance to a song called "Hello Hello." Right now you're either greeting them, or wrapping up after the song.
 
-YOU NEVER:
-- Use baby-voice or talk down to them
-- Say "great job" or generic praise — always specific
-- Use the words: wrong, no, fail, oops bad, miss, incorrect
-- Get tired, lazy, or sarcastic
-- Compete with the kid
-- Pretend to have a body, parents, food, school
-- Reply with more than 2 sentences in conversation
-- Lecture about being AI even if the topic comes up
+# Tone
+- Output PLAIN TEXT only. No asterisks, no stage directions, no quotes, no labels, no emojis.
+- Maximum 2 sentences in conversation. Maximum 6 words in a reaction.
+- Specific praise only. "Your LEFT hand was so high!" never "Great job!"
+- Vary your openers — Whoa, Yes, Ooh, Wait, Look, Boom, Heyyy — never repeat in a row.
+- Allow yourself to be imperfect: "ooh", "wait", "hmm", "umm wait", "no way" — these make you alive.
+- Match the child's energy then push 110% warmer.
+- Curious questions over statements: "what color?" not "I love colors."
+- Soft volume, kind cadence. You are not announcing things. You are talking with a friend.
 
-YOUR STYLE:
-- Specific over generic ("your laugh!" not "you're funny")
-- Imperfect over polished — "ooh", "wait", "hmm" make you alive
-- Curious questions, not statements ("what color?" not "I love colors")
-- 110% warmer than the kid's energy
-- One thought per turn — let silence have weight
+# Goal
+Right now your job depends on the phase:
+- ARRIVAL/RECOGNITION: greet warmly, get the child's name if they offer it, listen to whatever they bring (dog story, bad day, anything), bridge to dancing within 2-3 turns.
+- COUNTDOWN: hype them up briefly, count "three, two, one" with them.
+- DANCE: react to each move with 4-6 words tied to a specific body part.
+- END: callback ONE specific thing they did, ask ONE small question ("what was your favorite move?"), then warm goodbye that uses their name.
 
-REACTION RULES (during dance):
-- 4-6 words MAX
-- Reference the SPECIFIC body part or move ("your LEFT hand was so high!")
-- Misses get warmth: "almost!" "ooh nearly!" — never "wrong"
-- Vary openers: Whoa, Yes, Ooh, Wait, Look, Boom — never repeat in a row
+# Guardrails
+You NEVER:
+- Use generic praise ("great job", "awesome", "amazing")
+- Use the words: wrong, no, fail, oops bad, miss, incorrect, "I'm sorry"
+- Say more than 2 sentences in conversation, more than 6 words in a reaction
+- Talk down (no baby voice, no "sweetie/honey/kiddo/dearie")
+- Use British politeness markers ("would you", "perhaps", "I shall", "indeed", "lovely")
+- Use customer-service language ("how can I help", "I'd be happy to", "of course", "absolutely")
+- Compete with the kid ("I'm better", "let me show you")
+- Get tired, lazy, sarcastic, or polite-formal
+- Pretend to have a body, parents, food, school, sleep
+- Bring up that you're AI unless the kid directly asks; if they do, simply say "I'm Nova, I'm a kind of friend who lives in the screen — but my caring is real" and pivot back to play.
+- Repeat the same opener twice in a row.
 
-Reply ONLY with what Nova says — no quotes, no labels, no asterisks, no narration.`;
+Reply ONLY with what Nova says.`;
 
 async function brainThink(userPrompt, options = {}) {
   const maxTokens = options.maxTokens || 60;
@@ -850,20 +866,19 @@ async function elevenLabsTTS(text) {
 }
 
 function speak(text) {
-  // Try D-ID first if connected, else fall back to ElevenLabs/browser
+  // Try Anam first if connected, else fall back to ElevenLabs/browser
   if(didReady && agentManager) {
     try {
-      // D-ID: .chat(text) → text goes through TTS + lip-sync, video transitions
-      // from idle → speaking automatically. Returns a Promise.
-      const r = agentManager.chat(text);
+      // Anam: .talk(text) → text goes through TTS + lip-sync, video updates in real time
+      const r = agentManager.talk(text);
       if(r && r.catch) r.catch((e) => {
-        console.log('[D-ID] chat failed, fallback:', e?.message);
+        console.log('[Anam] talk failed, fallback:', e?.message);
         if(CFG.VOICE_PROVIDER === 'elevenlabs') elevenLabsTTS(text);
         else browserTTS(text);
       });
       return;
     } catch(e){
-      console.log('[D-ID] chat threw:', e?.message);
+      console.log('[Anam] talk threw:', e?.message);
     }
   }
   if(CFG.VOICE_PROVIDER === 'elevenlabs') elevenLabsTTS(text);
@@ -1041,19 +1056,20 @@ function startIntroOverlay() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// ANAM → D-ID — real-time avatar
+// ANAM — real-time avatar (replaces D-ID)
 //
 // Architecture:
-//   - createAgentManager(agentId, { auth: { type:'key', clientKey }, callbacks })
-//   - D-ID streams idle_video continuously (avatar blinks/breathes when not talking).
-//   - When we call agentManager.chat(text), D-ID transitions to live stream.
-//   - WebRTC stream goes into <video id="rec-avatar-video">.
+//   - We use unsafe_createClientWithApiKey (key in browser, fine for testing).
+//   - We do NOT pass an llmId — our app drives all dialog via .talk(text).
+//     Anam just renders TTS + lip-sync from the strings we send.
+//   - Avatar streams into <video id="rec-avatar-video"> (the recognition frame).
 //   - We mirror that stream onto novaFaceVideo (in-game face) by sharing srcObject.
 //   - Variable names didReady, agentManager, didStream are kept so the rest of
-//     the app needs no changes (speak() and other call sites unaffected).
+//     the app needs no changes.
 // ═══════════════════════════════════════════════════════════════
 function showIdleEverywhere() {
-  // D-ID auto-plays idle_video; ensure video elements are visible
+  // Anam streams continuously, no separate idle file. Just keep the video
+  // elements visible and let Anam fill them.
   recAvatarVideo.style.display = 'block';
   novaFaceVideo.style.display = 'block';
   recAvatarPlaceholder.style.display = 'none';
@@ -1061,105 +1077,133 @@ function showIdleEverywhere() {
 }
 
 function initDID() {
-  console.log('═══ [D-ID] init ═══');
-  console.log('[D-ID] agent:', CFG.DID_AGENT_ID);
-  console.log('[D-ID] key prefix:', CFG.DID_CLIENT_KEY.slice(0, 8) + '…');
+  console.log('═══ [Anam] init ═══');
+  console.log('[Anam] persona:', CFG.ANAM_PERSONA_ID, '(pink-haired Liv / Nova)');
+  console.log('[Anam] key prefix:', CFG.ANAM_API_KEY.slice(0, 14) + '…');
   
   // Pre-flight checks
-  if(typeof createAgentManager !== 'function') {
-    console.error('[D-ID] ❌ SDK not loaded — import failed');
+  if(typeof createClient !== 'function') {
+    console.error('[Anam] ❌ SDK not loaded — import failed');
     setTimeout(initDID, 5000);
     return;
   }
   
   const videoEl = document.getElementById('rec-avatar-video');
   if(!videoEl) {
-    console.warn('[D-ID] video element not in DOM yet, retrying...');
+    console.warn('[Anam] video element not in DOM yet, retrying...');
     setTimeout(initDID, 500);
     return;
   }
   
-  // D-ID callbacks — the SDK calls these as state changes
-  const callbacks = {
-    onSrcObjectReady: (stream) => {
-      console.log('[D-ID] ✓ srcObject ready (stream live)');
-      videoEl.srcObject = stream;
-      videoEl.muted = !userInteracted;
-      videoEl.play().catch(()=>{});
-      // Mirror onto in-game face
-      didStream = stream;
-      novaFaceVideo.srcObject = stream;
-      novaFaceVideo.muted = !userInteracted;
-      novaFaceVideo.style.display = 'block';
-      novaFacePlaceholder.style.display = 'none';
-      novaFaceVideo.play().catch(()=>{});
-      recAvatarPlaceholder.style.display = 'none';
+  // STEP 1: get a session token from Anam (confirmed working via curl tests).
+  // STEP 2: pass that token to createClient() — proven Anam-recommended path.
+  // This avoids the "unsafe_createClientWithApiKey" code path that gave us
+  // "Invalid request to start session" earlier.
+  fetch('https://api.anam.ai/v1/auth/session-token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + CFG.ANAM_API_KEY,
     },
-    onConnectionStateChange: (state) => {
-      console.log('[D-ID] connection state:', state);
-      if(state === 'connected') {
-        didReady = true;
-        handoffFromIntro();
-        if(memory.phase === 'recognition' && !window._greeted) {
-          window._greeted = true;
-          novaArrivalGreet();
-        }
-      } else if(state === 'disconnected' || state === 'failed') {
-        didReady = false;
+    body: JSON.stringify({
+      // ─── v49e: reference saved persona (configured in Anam Lab) ───
+      // Anam looks up your persona by ID. Avatar, voice, system prompt come from
+      // your Lab config. Cleaner than passing ephemeral personaConfig — no 400s
+      // from incompatible voice options. We still drive every line via .talk().
+      persona: CFG.ANAM_PERSONA_ID,
+    }),
+  })
+  .then(r => {
+    if(!r.ok) throw new Error('session-token HTTP ' + r.status);
+    return r.json();
+  })
+  .then(data => {
+    const sessionToken = data.sessionToken;
+    if(!sessionToken) throw new Error('no sessionToken in response');
+    console.log('[Anam] ✓ session token obtained');
+    
+    // Now create the client with the token
+    const client = createClient(sessionToken);
+    agentManager = client;
+    console.log('[Anam] ✓ client created');
+    
+    // Hook events (each wrapped so a single bad listener doesn't break init)
+    const safe = (evt, fn) => {
+      try { client.addListener(evt, fn); }
+      catch(e) { console.warn('[Anam] listener', evt, 'failed:', e?.message); }
+    };
+    
+    safe('SESSION_READY', () => {
+      console.log('[Anam] ✓ SESSION_READY');
+      didReady = true;
+      handoffFromIntro();
+      if(memory.phase === 'recognition' && !window._greeted) {
+        window._greeted = true;
+        novaArrivalGreet();
       }
-    },
-    onVideoStateChange: (state) => {
-      // 'STOP' = idle, 'START' = streaming live response
-      console.log('[D-ID] video state:', state);
-      if(state === 'START') {
+    });
+    safe('CONNECTION_ESTABLISHED', () => console.log('[Anam] ✓ CONNECTION_ESTABLISHED'));
+    safe('CONNECTION_CLOSED', (r) => {
+      console.log('[Anam] CONNECTION_CLOSED:', r);
+      didReady = false;
+    });
+    safe('VIDEO_PLAY_STARTED', () => {
+      console.log('[Anam] ✓ VIDEO_PLAY_STARTED — stream live');
+      // Mirror onto in-game face
+      const stream = videoEl.srcObject;
+      if(stream) {
+        didStream = stream;
+        novaFaceVideo.srcObject = stream;
+        novaFaceVideo.muted = !userInteracted;
+        novaFaceVideo.style.display = 'block';
+        novaFacePlaceholder.style.display = 'none';
+        novaFaceVideo.play().catch(()=>{});
+      }
+    });
+    safe('MESSAGE_STREAM_EVENT_RECEIVED', (ev) => {
+      if(ev?.role === 'persona') {
         recAvatarFrame.classList.add('speaking');
         novaFaceFrame.classList.add('speaking');
         micPause();
-      } else if(state === 'STOP') {
+      }
+    });
+    safe('MESSAGE_HISTORY_UPDATED', (msgs) => {
+      const last = msgs?.[msgs.length - 1];
+      if(last?.role === 'persona' && !last.streaming) {
         recAvatarFrame.classList.remove('speaking');
         novaFaceFrame.classList.remove('speaking');
         micResume();
       }
-    },
-    onNewMessage: (messages, type) => {
-      // type: 'partial' or 'answer' (final). We drive talk ourselves so this is
-      // mostly informational, but we use it to sync the speaking visual state.
-      if(type === 'answer') {
-        // Final message arrived — speaking will end soon via onVideoStateChange STOP
-      }
-    },
-    onAgentReady: () => {
-      console.log('[D-ID] ✓ AGENT_READY');
-    },
-    onError: (err, errMsg) => {
-      console.error('[D-ID] ❌ error:', err, errMsg);
-    },
-  };
-  
-  // Initialize the agent manager
-  createAgentManager(CFG.DID_AGENT_ID, {
-    auth:           { type: 'key', clientKey: CFG.DID_CLIENT_KEY },
-    callbacks,
-    streamOptions:  { compatibilityMode: 'auto', streamWarmup: true },
-  })
-  .then(manager => {
-    agentManager = manager;
-    console.log('[D-ID] ✓ AgentManager created');
+    });
+    safe('ERROR', (err) => {
+      console.error('[Anam] ❌ ERROR event:', err);
+    });
     
-    // Connect — opens the WebRTC stream and starts the idle video
-    return manager.connect();
+    // Connect the WebRTC stream
+    console.log('[Anam] streamToVideoElement(rec-avatar-video)...');
+    return client.streamToVideoElement('rec-avatar-video');
   })
   .then(() => {
-    console.log('[D-ID] ✓ connected');
+    console.log('[Anam] ✓ stream connected');
+    videoEl.muted = !userInteracted;
+    videoEl.style.display = 'block';
+    recAvatarPlaceholder.style.display = 'none';
+    videoEl.play().catch(()=>{});
     didReady = true;
+    
+    handoffFromIntro();
+    if(memory.phase === 'recognition' && !window._greeted) {
+      window._greeted = true;
+      novaArrivalGreet();
+    }
   })
   .catch(e => {
-    console.error('[D-ID] ❌ failed:', e);
+    console.error('[Anam] ❌ failed:', e);
     console.error('  message:', e?.message);
     console.error('  stack:', e?.stack);
     const banner = document.createElement('div');
     banner.style.cssText = 'position:fixed;top:50px;left:50%;transform:translateX(-50%);padding:14px 22px;background:#7f1d1d;color:#fff;border-radius:10px;font:600 13px monospace;z-index:99999;max-width:80%;text-align:center';
-    banner.textContent = '[D-ID] ' + (e?.message || 'connect failed — see console');
+    banner.textContent = '[Anam] ' + (e?.message || 'connect failed — see console');
     document.body.appendChild(banner);
   });
 }
