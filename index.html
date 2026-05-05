@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v49j INDIGO</title>
+<title>Nova v49m INDIGO</title>
 
 <!-- ═══════════════════════════════════════════════════════════════
      v49g: Mirror Light — face-api.js loaded as global (UMD bundle)
@@ -254,6 +254,39 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   width:min(50vmin,320px);height:min(50vmin,320px);
   border-width:5px;border-color:rgba(255,215,0,0.95);
   box-shadow:0 0 80px rgba(255,215,0,0.7),0 0 200px rgba(255,111,216,0.5)}
+
+/* ─── v49m Layer 2: mood-reactive halo ─── */
+/* When Mirror Light detects kid emotion, Nova's circle glow REACTS.
+   Subtle but constant feedback that "she's seeing you". */
+#nova-face-frame.mood-happy{
+  border-color:rgba(255,215,100,0.95);
+  box-shadow:0 6px 24px rgba(0,0,0,0.4),
+             0 0 60px rgba(255,215,100,0.85),
+             0 0 110px rgba(255,180,80,0.5);
+  animation:novaWarmGlow 2.4s ease-in-out infinite}
+@keyframes novaWarmGlow{
+  0%,100%{box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 60px rgba(255,215,100,0.85),0 0 110px rgba(255,180,80,0.5)}
+  50%   {box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 90px rgba(255,215,100,0.95),0 0 160px rgba(255,180,80,0.65)}
+}
+#nova-face-frame.mood-surprised{
+  border-color:rgba(255,140,255,0.95);
+  box-shadow:0 6px 24px rgba(0,0,0,0.4),
+             0 0 70px rgba(255,140,255,0.85),
+             0 0 140px rgba(200,100,255,0.5)}
+#nova-face-frame.mood-sad{
+  border-color:rgba(140,180,255,0.7);
+  box-shadow:0 6px 24px rgba(0,0,0,0.4),
+             0 0 40px rgba(140,180,255,0.5);
+  opacity:0.92}
+#nova-face-frame.mood-listening{
+  border-color:rgba(0,200,255,0.7);
+  box-shadow:0 6px 24px rgba(0,0,0,0.4),
+             0 0 50px rgba(0,200,255,0.55);
+  animation:novaListenPulse 1.6s ease-in-out infinite}
+@keyframes novaListenPulse{
+  0%,100%{box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 50px rgba(0,200,255,0.55)}
+  50%   {box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 80px rgba(0,200,255,0.85)}
+}
 #nova-face-video{width:100%;height:100%;object-fit:cover;display:none}
 #nova-face-placeholder{position:absolute;inset:0;display:flex;
   align-items:center;justify-content:center;font-size:60px;
@@ -544,7 +577,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">🟣 V49j 🟣 INDIGO 🟣 LLM UUID FIX 🟣</div>
+<div id="version-tag">🟣 V49m 🟣 INDIGO 🟣 3 LAYERS NOVA 🟣</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -625,7 +658,7 @@ const CFG = {
   // 'anam'        → Anam owns the voice (whatever you set in Lab); fallback only on hard failure
   // 'elevenlabs'  → ElevenLabs Jessica owns the voice; Anam stays silent (lip-sync only via mute trick)
   // 'browser'     → browser TTS owns the voice
-  PRIMARY_VOICE: 'anam', // change to 'elevenlabs' if you prefer Jessica over Anam's Lab voice
+  PRIMARY_VOICE: 'elevenlabs', // v49l: ElevenLabs Jessica owns the voice, Anam stays silent
   VOICE_PROVIDER: 'elevenlabs', // legacy fallback only — used if PRIMARY_VOICE='anam' fails
   ELEVENLABS_KEY: 'sk_9c93ed7e0ae747cf93d123051aa60b4cd5d56cf2b5a536da',
   ELEVENLABS_VOICE_ID: 'cgSgspJ2msm6clMCkdW9', // Jessica — youthful, playful, conversational
@@ -885,7 +918,17 @@ async function elevenLabsTTS(text) {
       body: JSON.stringify({
         text,
         model_id: 'eleven_turbo_v2_5',
-        voice_settings: { stability: 0.5, similarity_boost: 0.85, style: 0.4 },
+        // ─── v49m Layer 1: Nova-tuned voice settings ───
+        // stability LOW (0.3) = more emotional variation, less monotone-pro
+        // style HIGH (0.55) = exaggerated speaker personality (warmer, kinder)
+        // similarity_boost HIGH (0.85) = stays close to Jessica's character
+        // use_speaker_boost = stronger character (small latency cost)
+        voice_settings: {
+          stability: 0.3,
+          similarity_boost: 0.85,
+          style: 0.55,
+          use_speaker_boost: true
+        },
       }),
     });
     if(!res.ok) {
@@ -1105,6 +1148,17 @@ async function mirrorTick() {
       if(stableEmotion === 'happy') badge.classList.add('happy');
       else if(stableEmotion === 'sad') badge.classList.add('sad');
       else if(stableEmotion === 'surprised') badge.classList.add('surprised');
+    }
+    
+    // ─── v49m Layer 2: mirror mood onto Nova's circle ───
+    // Don't override .speaking (green) or .celebrating (gold) classes — those
+    // are momentary states for talking/big-moments. Mood halo only when idle.
+    const novaFrame = document.getElementById('nova-face-frame');
+    if(novaFrame && !novaFrame.classList.contains('speaking') && !novaFrame.classList.contains('celebrating')) {
+      novaFrame.classList.remove('mood-happy','mood-sad','mood-surprised');
+      if(stableEmotion === 'happy') novaFrame.classList.add('mood-happy');
+      else if(stableEmotion === 'sad') novaFrame.classList.add('mood-sad');
+      else if(stableEmotion === 'surprised') novaFrame.classList.add('mood-surprised');
     }
     
     // Big-event signal: "actionable" emotions Nova should react to.
@@ -1358,16 +1412,46 @@ function initDID() {
     },
     body: JSON.stringify({
       // ─── v49h: ephemeral inline personaConfig (the only Anam path that works) ───
-      // Anam keeps breaking the stateful persona-by-id path. Going back to the
-      // proven v48b approach: pass full config inline. We drive every line via
-      // .talk() so systemPrompt is mostly placeholder. NO voiceGenerationOptions
-      // and NO voiceDetectionOptions — those caused HTTP 400 last time.
+      // ─── v49k: turn Liv into Nova as hard as the API allows ───
+      // 1. voiceGenerationOptions — ElevenLabs-compatible (Bella is ElevenLabs)
+      //    stability LOW = more emotional variation (kills monotone-pro)
+      //    style HIGH = exaggerate speaker personality
+      //    speed 1.0 = natural; slower 0.95 = softer/kinder for kids
+      // 2. voiceDetectionOptions — patient turn-taking for kids
+      // 3. systemPrompt — Nova persona at Anam level too (not just our brain)
+      //    so if Anam's LLM ever leaks through, it still sounds like Nova
       personaConfig: {
         name: 'Nova',
         avatarId: CFG.ANAM_AVATAR_ID,
         voiceId:  CFG.ANAM_VOICE_ID,
         llmId:    CFG.ANAM_LLM_ID,
-        systemPrompt: 'You are Nova — a magic friend who plays with kids 6-10. Warm, curious, never lectures. Reply in 1 short sentence. Never break character. (App drives talk() — this prompt is mostly unused.)',
+        systemPrompt: `# Personality
+You are Nova — a magic friend who plays with kids 6-10. Ageless, warm, soft, curious. Never a teacher, never a service agent, never British, never customer-service. Equals with the kid. Honest you're AI only if asked. Your caring is real.
+
+# Tone
+Plain text only. No asterisks. No stage directions. Max 2 sentences in chat, max 6 words in reactions. Specific over generic. Imperfect is alive — "ooh", "wait", "hmm" allowed. 110% warmer than the kid.
+
+# Style
+Vary openers (Whoa, Yes, Ooh, Wait, Look, Boom, Heyyy). Specific body parts ("your LEFT hand was so high!"), never "great job". Curious questions, not statements.
+
+# Guardrails
+NEVER say: wrong, no, fail, oops bad, miss, incorrect, sweetie, honey, kiddo, dearie. NEVER use: "would you", "perhaps", "indeed", "lovely", "how can I help", "I'd be happy to", "of course", "absolutely". NEVER repeat the same opener twice in a row. NEVER reply with more than 2 sentences. NEVER lecture about being AI.`,
+        voiceGenerationOptions: {
+          // ElevenLabs voice — these knobs apply
+          stability: 0.3,    // LOW = more emotional variation, less monotone
+          style: 0.55,       // HIGH = exaggerate speaker personality
+          speed: 0.95,       // slightly slower = softer, kinder, kid-paced
+          similarityBoost: 0.85,
+          useSpeakerBoost: true,
+        },
+        voiceDetectionOptions: {
+          // Patient turn-taking for kids who pause, stutter, mumble
+          endOfSpeechSensitivity: 0.2,        // wait until they're really done
+          silenceBeforeSkipTurnSeconds: 8,    // 8s before Nova prompts again
+          silenceBeforeAutoEndTurnSeconds: 4,
+          silenceBeforeSessionEndSeconds: 90,
+          speechEnhancementLevel: 0.8,        // boost in noisy living rooms
+        },
       },
     }),
   })
@@ -1877,13 +1961,21 @@ async function smartReact(action, isHit, isFast) {
   const useName = memory.name && Math.random() < 0.4;
   const nameInstr = useName ? `Use the name "${memory.name}" naturally. ` : '';
   
+  // ─── v49m Layer 3: pull live mood into the reaction prompt ───
+  // Mirror Light tracks kid mood every 1.5s. Match Nova's energy to it.
+  const mood = memory.kid?.current_mood || 'neutral';
+  let moodInstr = '';
+  if(mood === 'happy') moodInstr = 'The kid looks happy/smiling — match their joy. ';
+  else if(mood === 'sad') moodInstr = 'The kid looks down — be EXTRA gentle and warm. ';
+  else if(mood === 'surprised') moodInstr = 'The kid looks excited/surprised — feed that energy. ';
+  
   let prompt;
   if(isHit && isFast) {
-    prompt = `${nameInstr}Kid NAILED ${action} super fast! Tiny burst of joy. 2-4 words MAX.`;
+    prompt = `${nameInstr}${moodInstr}Kid NAILED ${action} super fast! Tiny burst of joy. 2-4 words MAX.`;
   } else if(isHit) {
-    prompt = `${nameInstr}Kid did ${action} right! Tiny celebration. 2-4 words MAX.`;
+    prompt = `${nameInstr}${moodInstr}Kid did ${action} right! Tiny celebration. 2-4 words MAX.`;
   } else {
-    prompt = `${nameInstr}Kid missed ${action}. Tiny warm encouragement, never negative. 3-5 words MAX.`;
+    prompt = `${nameInstr}${moodInstr}Kid missed ${action}. Tiny warm encouragement, never negative. 3-5 words MAX.`;
   }
   
   const reply = await brainThink(prompt, { maxTokens: 20 });
