@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v49l INDIGO</title>
+<title>Nova v49n INDIGO</title>
 
 <!-- ═══════════════════════════════════════════════════════════════
      v49g: Mirror Light — face-api.js loaded as global (UMD bundle)
@@ -544,7 +544,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">🟣 V49l 🟣 INDIGO 🟣 ELEVENLABS TAKES OVER 🟣</div>
+<div id="version-tag">🟣 V49n 🟣 INDIGO 🟣 ELEVENLABS CLEAN 🟣</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -1357,15 +1357,12 @@ function initDID() {
       'Authorization': 'Bearer ' + CFG.ANAM_API_KEY,
     },
     body: JSON.stringify({
-      // ─── v49h: ephemeral inline personaConfig (the only Anam path that works) ───
-      // ─── v49k: turn Liv into Nova as hard as the API allows ───
-      // 1. voiceGenerationOptions — ElevenLabs-compatible (Bella is ElevenLabs)
-      //    stability LOW = more emotional variation (kills monotone-pro)
-      //    style HIGH = exaggerate speaker personality
-      //    speed 1.0 = natural; slower 0.95 = softer/kinder for kids
-      // 2. voiceDetectionOptions — patient turn-taking for kids
-      // 3. systemPrompt — Nova persona at Anam level too (not just our brain)
-      //    so if Anam's LLM ever leaks through, it still sounds like Nova
+      // ─── v49n: stripped voiceGenerationOptions + voiceDetectionOptions ───
+      // Both were causing HTTP 400 on session-token. Anam likely rejects them
+      // because the voice on Anam's side doesn't match ElevenLabs provider
+      // (or Lab settings overrode the voiceId we passed).
+      // ElevenLabs is the primary voice anyway — voice tuning happens in
+      // elevenLabsTTS() now (stability/style/boost are in voice_settings there).
       personaConfig: {
         name: 'Nova',
         avatarId: CFG.ANAM_AVATAR_ID,
@@ -1382,22 +1379,6 @@ Vary openers (Whoa, Yes, Ooh, Wait, Look, Boom, Heyyy). Specific body parts ("yo
 
 # Guardrails
 NEVER say: wrong, no, fail, oops bad, miss, incorrect, sweetie, honey, kiddo, dearie. NEVER use: "would you", "perhaps", "indeed", "lovely", "how can I help", "I'd be happy to", "of course", "absolutely". NEVER repeat the same opener twice in a row. NEVER reply with more than 2 sentences. NEVER lecture about being AI.`,
-        voiceGenerationOptions: {
-          // ElevenLabs voice — these knobs apply
-          stability: 0.3,    // LOW = more emotional variation, less monotone
-          style: 0.55,       // HIGH = exaggerate speaker personality
-          speed: 0.95,       // slightly slower = softer, kinder, kid-paced
-          similarityBoost: 0.85,
-          useSpeakerBoost: true,
-        },
-        voiceDetectionOptions: {
-          // Patient turn-taking for kids who pause, stutter, mumble
-          endOfSpeechSensitivity: 0.2,        // wait until they're really done
-          silenceBeforeSkipTurnSeconds: 8,    // 8s before Nova prompts again
-          silenceBeforeAutoEndTurnSeconds: 4,
-          silenceBeforeSessionEndSeconds: 90,
-          speechEnhancementLevel: 0.8,        // boost in noisy living rooms
-        },
       },
     }),
   })
