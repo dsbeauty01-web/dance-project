@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v49i INDIGO</title>
+<title>Nova v49j INDIGO</title>
 
 <!-- ═══════════════════════════════════════════════════════════════
      v49g: Mirror Light — face-api.js loaded as global (UMD bundle)
@@ -544,7 +544,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">🟣 V49i 🟣 INDIGO 🟣 PINK NOVA + MIRROR 🟣</div>
+<div id="version-tag">🟣 V49j 🟣 INDIGO 🟣 LLM UUID FIX 🟣</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -609,7 +609,10 @@ const CFG = {
   // Persona 3e26cb43 contains it. We use the avatar ID directly in ephemeral config.
   ANAM_AVATAR_ID:  '082ef4a3-c845-46c8-a1d8-3e0ecc15ca2b',  // pink-haired Liv avatar (current)
   ANAM_VOICE_ID:   'de23e340-1416-4dd8-977d-065a7ca11697',  // Bella ElevenLabs (worked in v48b)
-  ANAM_LLM_ID:     'CUSTOMER_CLIENT_V1',
+  // ─── v49j: the actual fix for the legacy token error ───
+  // 'CUSTOMER_CLIENT_V1' is the OLD magic string. Anam deprecated it.
+  // The new format wants a real UUID. The default LLM from Anam's own docs:
+  ANAM_LLM_ID:     'a7cf662c-2ace-4de1-a21e-ef0fbf144bb7',  // Anam's default LLM (canonical UUID)
   // Archived alternative IDs ──
   ANAM_PERSONA_ID:  '3e26cb43-d269-4c2d-b5d1-a6dd035a98d3',  // the persona this avatar lives in
   ANAM_AVATAR_ID_OLD: 'cf932b2e-385f-4873-9eb5-f5be899f5561',  // earlier custom upload (deleted?)
