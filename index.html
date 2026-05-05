@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v49n INDIGO</title>
+<title>Nova v50 INDIGO</title>
 
 <!-- ═══════════════════════════════════════════════════════════════
      v49g: Mirror Light — face-api.js loaded as global (UMD bundle)
@@ -544,7 +544,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">🟣 V49n 🟣 INDIGO 🟣 ELEVENLABS CLEAN 🟣</div>
+<div id="version-tag">🟣 V50 🟣 INDIGO 🟣 PASSTHROUGH NOVA 🟣</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -873,10 +873,59 @@ function browserTTS(text) {
   } catch(e){ micResume(); }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// v50 — ElevenLabs TTS with Anam audio passthrough
+//
+// Two parallel paths from a single ElevenLabs response:
+//   A. PLAY LOCALLY  → user hears Jessica (MP3 stream, low bandwidth)
+//   B. PIPE TO ANAM  → face lip-syncs (PCM16 16kHz mono, base64 chunks)
+//
+// ElevenLabs supports multiple output formats. We request TWO calls:
+//   1. PCM stream → chunks pushed to Anam via sendAudioChunk()
+//   2. The same PCM is played locally (decoded via Web Audio API)
+// To keep things simple/fast: ONE call requests pcm_16000, we
+// (a) push chunks to Anam, (b) buffer + play locally as a Blob (audio/wav).
+// ═══════════════════════════════════════════════════════════════
+
+// Convert ArrayBuffer to base64 (browser-safe)
+function _arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for(let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+// Wrap raw PCM16 bytes in a WAV header so HTMLAudioElement can play them
+function _pcm16ToWav(pcmBytes, sampleRate) {
+  const dataLen = pcmBytes.byteLength;
+  const buffer = new ArrayBuffer(44 + dataLen);
+  const v = new DataView(buffer);
+  const writeStr = (off, s) => { for(let i=0;i<s.length;i++) v.setUint8(off+i, s.charCodeAt(i)); };
+  writeStr(0, 'RIFF');
+  v.setUint32(4, 36 + dataLen, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  v.setUint32(16, 16, true);          // PCM chunk size
+  v.setUint16(20, 1, true);           // PCM format
+  v.setUint16(22, 1, true);           // mono
+  v.setUint32(24, sampleRate, true);
+  v.setUint32(28, sampleRate * 2, true); // byte rate (2 bytes per sample)
+  v.setUint16(32, 2, true);           // block align
+  v.setUint16(34, 16, true);          // bits per sample
+  writeStr(36, 'data');
+  v.setUint32(40, dataLen, true);
+  new Uint8Array(buffer, 44).set(new Uint8Array(pcmBytes));
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
 async function elevenLabsTTS(text) {
   if(!CFG.ELEVENLABS_KEY) return browserTTS(text);
   try {
-    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${CFG.ELEVENLABS_VOICE_ID}/stream`, {
+    // Request PCM 16kHz so output is directly compatible with Anam passthrough
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${CFG.ELEVENLABS_VOICE_ID}/stream?output_format=pcm_16000`, {
       method: 'POST',
       headers: {
         'xi-api-key': CFG.ELEVENLABS_KEY,
@@ -885,7 +934,13 @@ async function elevenLabsTTS(text) {
       body: JSON.stringify({
         text,
         model_id: 'eleven_turbo_v2_5',
-        voice_settings: { stability: 0.5, similarity_boost: 0.85, style: 0.4 },
+        // Nova-tuned warmth: low stability = more emotional, higher style = more personality
+        voice_settings: {
+          stability: 0.3,
+          similarity_boost: 0.85,
+          style: 0.55,
+          use_speaker_boost: true,
+        },
       }),
     });
     if(!res.ok) {
@@ -894,10 +949,44 @@ async function elevenLabsTTS(text) {
       browserTTS(text);
       return;
     }
-    const blob = await res.blob();
-    const audio = new Audio(URL.createObjectURL(blob));
-    // Pause mic while Nova talks via ElevenLabs (D-ID hooks already cover D-ID path)
+    
     micPause();
+    
+    // ─── Stream the PCM response, fork to (A) Anam, (B) local playback ───
+    const reader = res.body.getReader();
+    const allChunks = [];
+    const anamStream = window._anamAudioStream;
+    const sendToAnam = !!(anamStream && didReady && CFG.PRIMARY_VOICE === 'elevenlabs');
+    
+    while(true) {
+      const { done, value } = await reader.read();
+      if(done) break;
+      // Save chunk for local playback
+      allChunks.push(value);
+      // Push chunk to Anam for lip-sync (base64-encoded PCM16)
+      if(sendToAnam) {
+        try {
+          const b64 = _arrayBufferToBase64(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
+          anamStream.sendAudioChunk(b64);
+        } catch(e) {
+          console.warn('[Anam] sendAudioChunk failed:', e?.message);
+        }
+      }
+    }
+    
+    // Tell Anam the sequence is complete (lip-sync should settle)
+    if(sendToAnam) {
+      try { anamStream.endSequence(); } catch(e) { /* noop */ }
+    }
+    
+    // Concat all chunks into a single PCM buffer, wrap as WAV, play locally
+    let total = 0;
+    for(const c of allChunks) total += c.byteLength;
+    const pcm = new Uint8Array(total);
+    let offset = 0;
+    for(const c of allChunks) { pcm.set(c, offset); offset += c.byteLength; }
+    const wavBlob = _pcm16ToWav(pcm.buffer, 16000);
+    const audio = new Audio(URL.createObjectURL(wavBlob));
     audio.onended = () => micResume();
     audio.onerror = () => micResume();
     audio.play().catch(err => {
@@ -907,6 +996,7 @@ async function elevenLabsTTS(text) {
   } catch(e) {
     console.log('ElevenLabs failed, falling back:', e);
     browserTTS(text);
+    micResume();
   }
 }
 
@@ -1357,28 +1447,17 @@ function initDID() {
       'Authorization': 'Bearer ' + CFG.ANAM_API_KEY,
     },
     body: JSON.stringify({
-      // ─── v49n: stripped voiceGenerationOptions + voiceDetectionOptions ───
-      // Both were causing HTTP 400 on session-token. Anam likely rejects them
-      // because the voice on Anam's side doesn't match ElevenLabs provider
-      // (or Lab settings overrode the voiceId we passed).
-      // ElevenLabs is the primary voice anyway — voice tuning happens in
-      // elevenLabsTTS() now (stability/style/boost are in voice_settings there).
+      // ─── v50: AUDIO PASSTHROUGH MODE ───
+      // Anam becomes a dumb face renderer:
+      //   - No internal LLM (we drive every line via OUR Claude Haiku)
+      //   - No internal TTS (we feed OUR ElevenLabs Jessica audio)
+      //   - No microphone capture (we handle STT ourselves)
+      // Anam's only job: lip-sync the face to the audio chunks we send.
+      // Set enableAudioPassthrough:true to opt into this mode.
       personaConfig: {
         name: 'Nova',
         avatarId: CFG.ANAM_AVATAR_ID,
-        voiceId:  CFG.ANAM_VOICE_ID,
-        llmId:    CFG.ANAM_LLM_ID,
-        systemPrompt: `# Personality
-You are Nova — a magic friend who plays with kids 6-10. Ageless, warm, soft, curious. Never a teacher, never a service agent, never British, never customer-service. Equals with the kid. Honest you're AI only if asked. Your caring is real.
-
-# Tone
-Plain text only. No asterisks. No stage directions. Max 2 sentences in chat, max 6 words in reactions. Specific over generic. Imperfect is alive — "ooh", "wait", "hmm" allowed. 110% warmer than the kid.
-
-# Style
-Vary openers (Whoa, Yes, Ooh, Wait, Look, Boom, Heyyy). Specific body parts ("your LEFT hand was so high!"), never "great job". Curious questions, not statements.
-
-# Guardrails
-NEVER say: wrong, no, fail, oops bad, miss, incorrect, sweetie, honey, kiddo, dearie. NEVER use: "would you", "perhaps", "indeed", "lovely", "how can I help", "I'd be happy to", "of course", "absolutely". NEVER repeat the same opener twice in a row. NEVER reply with more than 2 sentences. NEVER lecture about being AI.`,
+        enableAudioPassthrough: true,
       },
     }),
   })
@@ -1391,10 +1470,24 @@ NEVER say: wrong, no, fail, oops bad, miss, incorrect, sweetie, honey, kiddo, de
     if(!sessionToken) throw new Error('no sessionToken in response');
     console.log('[Anam] ✓ session token obtained');
     
-    // Now create the client with the token
-    const client = createClient(sessionToken);
+    // ─── v50: passthrough mode — disable input audio (we handle our own) ───
+    const client = createClient(sessionToken, {
+      disableInputAudio: true,
+    });
     agentManager = client;
-    console.log('[Anam] ✓ client created');
+    console.log('[Anam] ✓ client created (passthrough mode)');
+    
+    // Create the audio input stream — Anam will lip-sync to chunks we push
+    try {
+      window._anamAudioStream = client.createAgentAudioInputStream({
+        encoding: 'pcm_s16le',
+        sampleRate: 16000,
+        channels: 1,
+      });
+      console.log('[Anam] ✓ agent audio input stream created');
+    } catch(e) {
+      console.error('[Anam] ❌ createAgentAudioInputStream failed:', e?.message);
+    }
     
     // Hook events (each wrapped so a single bad listener doesn't break init)
     const safe = (evt, fn) => {
