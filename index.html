@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v49g INDIGO</title>
+<title>Nova v49i INDIGO</title>
 
 <!-- ═══════════════════════════════════════════════════════════════
      v49g: Mirror Light — face-api.js loaded as global (UMD bundle)
@@ -544,7 +544,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">🟣 V49g 🟣 INDIGO 🟣 NOVA WATCHES YOU 🟣</div>
+<div id="version-tag">🟣 V49i 🟣 INDIGO 🟣 PINK NOVA + MIRROR 🟣</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -604,12 +604,16 @@ const CFG = {
   // ─── v49e: use saved persona ID directly (configured in Anam Lab) ───
   // Avatar + voice + system prompt all set on Anam's side.
   // We still override at runtime via .talk() — but Lab settings act as belt-and-suspenders.
-  ANAM_PERSONA_ID: '3e26cb43-d269-4c2d-b5d1-a6dd035a98d3',  // pink-haired Liv (custom Nova upload)
-  // Archived alternative IDs ──
-  ANAM_AVATAR_ID:  '6dbc1e47-7768-403e-878a-94d7fcc3677b',  // Sophie sofa — Anam stock fallback
-  ANAM_VOICE_ID:   'de23e340-1416-4dd8-977d-065a7ca11697',
+  // ─── v49i: use the actual avatar UUID from Lab ───
+  // Avatar UUID 082ef4a3 = pink-haired Liv (the custom upload from your Lab persona).
+  // Persona 3e26cb43 contains it. We use the avatar ID directly in ephemeral config.
+  ANAM_AVATAR_ID:  '082ef4a3-c845-46c8-a1d8-3e0ecc15ca2b',  // pink-haired Liv avatar (current)
+  ANAM_VOICE_ID:   'de23e340-1416-4dd8-977d-065a7ca11697',  // Bella ElevenLabs (worked in v48b)
   ANAM_LLM_ID:     'CUSTOMER_CLIENT_V1',
-  ANAM_PERSONA_ID_ARCHIVE: 'cf932b2e-385f-4873-9eb5-f5be899f5561',  // earlier custom Nova upload
+  // Archived alternative IDs ──
+  ANAM_PERSONA_ID:  '3e26cb43-d269-4c2d-b5d1-a6dd035a98d3',  // the persona this avatar lives in
+  ANAM_AVATAR_ID_OLD: 'cf932b2e-385f-4873-9eb5-f5be899f5561',  // earlier custom upload (deleted?)
+  ANAM_AVATAR_ID_SOPHIE: '6dbc1e47-7768-403e-878a-94d7fcc3677b',  // Sophie sofa fallback
   // Brain
   WORKER_URL: 'https://long-art-8269r.dsbeauty01.workers.dev/',
   BRAIN_MODEL: 'claude-haiku-4-5-20251001',
@@ -1350,11 +1354,18 @@ function initDID() {
       'Authorization': 'Bearer ' + CFG.ANAM_API_KEY,
     },
     body: JSON.stringify({
-      // ─── v49f: new stateful persona format (migrated from legacy) ───
-      // Anam deprecated the legacy `persona: '<UUID>'` shorthand on May 4 2026.
-      // New format wraps the saved-persona reference in personaConfig: { id }.
-      // Anam still reads avatar, voice, system prompt from your Lab config.
-      personaConfig: { id: CFG.ANAM_PERSONA_ID },
+      // ─── v49h: ephemeral inline personaConfig (the only Anam path that works) ───
+      // Anam keeps breaking the stateful persona-by-id path. Going back to the
+      // proven v48b approach: pass full config inline. We drive every line via
+      // .talk() so systemPrompt is mostly placeholder. NO voiceGenerationOptions
+      // and NO voiceDetectionOptions — those caused HTTP 400 last time.
+      personaConfig: {
+        name: 'Nova',
+        avatarId: CFG.ANAM_AVATAR_ID,
+        voiceId:  CFG.ANAM_VOICE_ID,
+        llmId:    CFG.ANAM_LLM_ID,
+        systemPrompt: 'You are Nova — a magic friend who plays with kids 6-10. Warm, curious, never lectures. Reply in 1 short sentence. Never break character. (App drives talk() — this prompt is mostly unused.)',
+      },
     }),
   })
   .then(r => {
