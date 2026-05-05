@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v50b INDIGO</title>
+<title>Nova v50c INDIGO</title>
 
 <!-- ═══════════════════════════════════════════════════════════════
      v49g: Mirror Light — face-api.js loaded as global (UMD bundle)
@@ -544,7 +544,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">🟣 V50b 🟣 INDIGO 🟣 PASSTHROUGH FIXED 🟣</div>
+<div id="version-tag">🟣 V50c 🟣 INDIGO 🟣 SDK PINNED + DIAG 🟣</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -588,7 +588,7 @@ function toggleMic(){window._toggleMic&&window._toggleMic();}
 </script>
 
 <script type="module">
-import { createClient } from 'https://esm.sh/@anam-ai/js-sdk';
+import { createClient } from 'https://esm.sh/@anam-ai/js-sdk@4.13.0';
 
 // ═══════════════════════════════════════════════════════════════
 // CONFIG — all swappable in one place
@@ -1121,7 +1121,7 @@ const MIRROR = {
   cooldownMs: 8000,            // don't re-fire the same big signal within this window
   sampleIntervalMs: 1500,      // how often to peek at the face
   intervalId: null,
-  modelUrl: 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights',
+  modelUrl: 'https://justadudewhohacks.github.io/face-api.js/models',
 };
 
 async function mirrorLoadModels() {
@@ -1474,6 +1474,17 @@ function initDID() {
     const client = createClient(sessionToken);
     agentManager = client;
     console.log('[Anam] ✓ client created (avatarOnly mode)');
+    
+    // v50c diagnostic — print every method the SDK actually exposes
+    const methods = [];
+    let proto = client;
+    while(proto && proto !== Object.prototype) {
+      for(const k of Object.getOwnPropertyNames(proto)) {
+        if(typeof client[k] === 'function' && !methods.includes(k)) methods.push(k);
+      }
+      proto = Object.getPrototypeOf(proto);
+    }
+    console.log('[Anam] SDK methods available:', methods.sort());
     
     // Create the audio passthrough stream — Anam will lip-sync to chunks we push
     // Real method name: createAudioPassthroughStream (NOT createAgentAudioInputStream)
