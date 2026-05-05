@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v49m INDIGO</title>
+<title>Nova v49l INDIGO</title>
 
 <!-- ═══════════════════════════════════════════════════════════════
      v49g: Mirror Light — face-api.js loaded as global (UMD bundle)
@@ -254,39 +254,6 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   width:min(50vmin,320px);height:min(50vmin,320px);
   border-width:5px;border-color:rgba(255,215,0,0.95);
   box-shadow:0 0 80px rgba(255,215,0,0.7),0 0 200px rgba(255,111,216,0.5)}
-
-/* ─── v49m Layer 2: mood-reactive halo ─── */
-/* When Mirror Light detects kid emotion, Nova's circle glow REACTS.
-   Subtle but constant feedback that "she's seeing you". */
-#nova-face-frame.mood-happy{
-  border-color:rgba(255,215,100,0.95);
-  box-shadow:0 6px 24px rgba(0,0,0,0.4),
-             0 0 60px rgba(255,215,100,0.85),
-             0 0 110px rgba(255,180,80,0.5);
-  animation:novaWarmGlow 2.4s ease-in-out infinite}
-@keyframes novaWarmGlow{
-  0%,100%{box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 60px rgba(255,215,100,0.85),0 0 110px rgba(255,180,80,0.5)}
-  50%   {box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 90px rgba(255,215,100,0.95),0 0 160px rgba(255,180,80,0.65)}
-}
-#nova-face-frame.mood-surprised{
-  border-color:rgba(255,140,255,0.95);
-  box-shadow:0 6px 24px rgba(0,0,0,0.4),
-             0 0 70px rgba(255,140,255,0.85),
-             0 0 140px rgba(200,100,255,0.5)}
-#nova-face-frame.mood-sad{
-  border-color:rgba(140,180,255,0.7);
-  box-shadow:0 6px 24px rgba(0,0,0,0.4),
-             0 0 40px rgba(140,180,255,0.5);
-  opacity:0.92}
-#nova-face-frame.mood-listening{
-  border-color:rgba(0,200,255,0.7);
-  box-shadow:0 6px 24px rgba(0,0,0,0.4),
-             0 0 50px rgba(0,200,255,0.55);
-  animation:novaListenPulse 1.6s ease-in-out infinite}
-@keyframes novaListenPulse{
-  0%,100%{box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 50px rgba(0,200,255,0.55)}
-  50%   {box-shadow:0 6px 24px rgba(0,0,0,0.4),0 0 80px rgba(0,200,255,0.85)}
-}
 #nova-face-video{width:100%;height:100%;object-fit:cover;display:none}
 #nova-face-placeholder{position:absolute;inset:0;display:flex;
   align-items:center;justify-content:center;font-size:60px;
@@ -577,7 +544,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">🟣 V49m 🟣 INDIGO 🟣 3 LAYERS NOVA 🟣</div>
+<div id="version-tag">🟣 V49l 🟣 INDIGO 🟣 ELEVENLABS TAKES OVER 🟣</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -918,17 +885,7 @@ async function elevenLabsTTS(text) {
       body: JSON.stringify({
         text,
         model_id: 'eleven_turbo_v2_5',
-        // ─── v49m Layer 1: Nova-tuned voice settings ───
-        // stability LOW (0.3) = more emotional variation, less monotone-pro
-        // style HIGH (0.55) = exaggerated speaker personality (warmer, kinder)
-        // similarity_boost HIGH (0.85) = stays close to Jessica's character
-        // use_speaker_boost = stronger character (small latency cost)
-        voice_settings: {
-          stability: 0.3,
-          similarity_boost: 0.85,
-          style: 0.55,
-          use_speaker_boost: true
-        },
+        voice_settings: { stability: 0.5, similarity_boost: 0.85, style: 0.4 },
       }),
     });
     if(!res.ok) {
@@ -1148,17 +1105,6 @@ async function mirrorTick() {
       if(stableEmotion === 'happy') badge.classList.add('happy');
       else if(stableEmotion === 'sad') badge.classList.add('sad');
       else if(stableEmotion === 'surprised') badge.classList.add('surprised');
-    }
-    
-    // ─── v49m Layer 2: mirror mood onto Nova's circle ───
-    // Don't override .speaking (green) or .celebrating (gold) classes — those
-    // are momentary states for talking/big-moments. Mood halo only when idle.
-    const novaFrame = document.getElementById('nova-face-frame');
-    if(novaFrame && !novaFrame.classList.contains('speaking') && !novaFrame.classList.contains('celebrating')) {
-      novaFrame.classList.remove('mood-happy','mood-sad','mood-surprised');
-      if(stableEmotion === 'happy') novaFrame.classList.add('mood-happy');
-      else if(stableEmotion === 'sad') novaFrame.classList.add('mood-sad');
-      else if(stableEmotion === 'surprised') novaFrame.classList.add('mood-surprised');
     }
     
     // Big-event signal: "actionable" emotions Nova should react to.
@@ -1961,21 +1907,13 @@ async function smartReact(action, isHit, isFast) {
   const useName = memory.name && Math.random() < 0.4;
   const nameInstr = useName ? `Use the name "${memory.name}" naturally. ` : '';
   
-  // ─── v49m Layer 3: pull live mood into the reaction prompt ───
-  // Mirror Light tracks kid mood every 1.5s. Match Nova's energy to it.
-  const mood = memory.kid?.current_mood || 'neutral';
-  let moodInstr = '';
-  if(mood === 'happy') moodInstr = 'The kid looks happy/smiling — match their joy. ';
-  else if(mood === 'sad') moodInstr = 'The kid looks down — be EXTRA gentle and warm. ';
-  else if(mood === 'surprised') moodInstr = 'The kid looks excited/surprised — feed that energy. ';
-  
   let prompt;
   if(isHit && isFast) {
-    prompt = `${nameInstr}${moodInstr}Kid NAILED ${action} super fast! Tiny burst of joy. 2-4 words MAX.`;
+    prompt = `${nameInstr}Kid NAILED ${action} super fast! Tiny burst of joy. 2-4 words MAX.`;
   } else if(isHit) {
-    prompt = `${nameInstr}${moodInstr}Kid did ${action} right! Tiny celebration. 2-4 words MAX.`;
+    prompt = `${nameInstr}Kid did ${action} right! Tiny celebration. 2-4 words MAX.`;
   } else {
-    prompt = `${nameInstr}${moodInstr}Kid missed ${action}. Tiny warm encouragement, never negative. 3-5 words MAX.`;
+    prompt = `${nameInstr}Kid missed ${action}. Tiny warm encouragement, never negative. 3-5 words MAX.`;
   }
   
   const reply = await brainThink(prompt, { maxTokens: 20 });
