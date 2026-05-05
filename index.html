@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v50 INDIGO</title>
+<title>Nova v50b INDIGO</title>
 
 <!-- ═══════════════════════════════════════════════════════════════
      v49g: Mirror Light — face-api.js loaded as global (UMD bundle)
@@ -544,7 +544,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">🟣 V50 🟣 INDIGO 🟣 PASSTHROUGH NOVA 🟣</div>
+<div id="version-tag">🟣 V50b 🟣 INDIGO 🟣 PASSTHROUGH FIXED 🟣</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -976,7 +976,7 @@ async function elevenLabsTTS(text) {
     
     // Tell Anam the sequence is complete (lip-sync should settle)
     if(sendToAnam) {
-      try { anamStream.endSequence(); } catch(e) { /* noop */ }
+      try { anamStream.endOfSpeech(); } catch(e) { /* noop */ }
     }
     
     // Concat all chunks into a single PCM buffer, wrap as WAV, play locally
@@ -1447,17 +1447,17 @@ function initDID() {
       'Authorization': 'Bearer ' + CFG.ANAM_API_KEY,
     },
     body: JSON.stringify({
-      // ─── v50: AUDIO PASSTHROUGH MODE ───
-      // Anam becomes a dumb face renderer:
-      //   - No internal LLM (we drive every line via OUR Claude Haiku)
-      //   - No internal TTS (we feed OUR ElevenLabs Jessica audio)
-      //   - No microphone capture (we handle STT ourselves)
-      // Anam's only job: lip-sync the face to the audio chunks we send.
-      // Set enableAudioPassthrough:true to opt into this mode.
+      // ─── v50b: AVATARONLY MODE (corrected) ───
+      // Followed the wrong docs in v50 — used ElevenLabs-Agent API names.
+      // The actual passthrough API (per anam-org/elevenlabs_agent_demo repo):
+      //   - Session: just personaConfig with avatarId (no special flag needed)
+      //   - Client: createClient(token) — no special opts required
+      //   - Stream: client.createAudioPassthroughStream(...)
+      //   - Push:   audioStream.sendAudioChunk(base64)
+      //   - End:    audioStream.endOfSpeech()
       personaConfig: {
         name: 'Nova',
         avatarId: CFG.ANAM_AVATAR_ID,
-        enableAudioPassthrough: true,
       },
     }),
   })
@@ -1470,23 +1470,22 @@ function initDID() {
     if(!sessionToken) throw new Error('no sessionToken in response');
     console.log('[Anam] ✓ session token obtained');
     
-    // ─── v50: passthrough mode — disable input audio (we handle our own) ───
-    const client = createClient(sessionToken, {
-      disableInputAudio: true,
-    });
+    // ─── v50b: avatarOnly mode — no special opts needed on createClient ───
+    const client = createClient(sessionToken);
     agentManager = client;
-    console.log('[Anam] ✓ client created (passthrough mode)');
+    console.log('[Anam] ✓ client created (avatarOnly mode)');
     
-    // Create the audio input stream — Anam will lip-sync to chunks we push
+    // Create the audio passthrough stream — Anam will lip-sync to chunks we push
+    // Real method name: createAudioPassthroughStream (NOT createAgentAudioInputStream)
     try {
-      window._anamAudioStream = client.createAgentAudioInputStream({
+      window._anamAudioStream = client.createAudioPassthroughStream({
         encoding: 'pcm_s16le',
         sampleRate: 16000,
         channels: 1,
       });
-      console.log('[Anam] ✓ agent audio input stream created');
+      console.log('[Anam] ✓ audio passthrough stream created');
     } catch(e) {
-      console.error('[Anam] ❌ createAgentAudioInputStream failed:', e?.message);
+      console.error('[Anam] ❌ createAudioPassthroughStream failed:', e?.message);
     }
     
     // Hook events (each wrapped so a single bad listener doesn't break init)
