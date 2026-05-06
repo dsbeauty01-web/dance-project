@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v51b INDIGO</title>
+<title>Nova v51c INDIGO</title>
 
 <!-- ═══════════════════════════════════════════════════════════════
      v49g: Mirror Light — face-api.js loaded as global (UMD bundle)
@@ -544,7 +544,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">🟣 V51b 🟣 INDIGO 🟣 LATENTSYNC LIVE 🟣</div>
+<div id="version-tag">🟣 V51c 🟣 INDIGO 🟣 LATENTSYNC FIXED 🟣</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -1126,7 +1126,7 @@ const MIRROR = {
   cooldownMs: 8000,            // don't re-fire the same big signal within this window
   sampleIntervalMs: 1500,      // how often to peek at the face
   intervalId: null,
-  modelUrl: 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights',
+  modelUrl: 'https://justadudewhohacks.github.io/face-api.js/models',
 };
 
 async function mirrorLoadModels() {
@@ -2246,9 +2246,12 @@ document.addEventListener('arrival-done', async () => {
       audio: false,
     });
     document.getElementById('webcam').srcObject = stream;
-    // v49g: kick off Mirror Light once the camera is producing frames.
-    // This is async but non-blocking — we don't await it so app keeps loading.
-    startMirrorLight();
+    // ─── v51c: Mirror Light DISABLED to prevent WebGL context loss ───
+    // face-api.js + lip-sync video element competing for GPU was crashing
+    // the WebGL context. Re-enable once lip-sync pipeline is stable, OR
+    // run face-api.js with backend='cpu' instead of webgl.
+    // startMirrorLight();
+    console.log('[Mirror] disabled in v51c — preventing WebGL conflict during lip-sync');
   } catch(e) { console.log('cam:', e); }
   
   // Always-on mic — Nova listens continuously from now on
