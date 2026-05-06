@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v50c INDIGO</title>
+<title>Nova v51b INDIGO</title>
 
 <!-- ═══════════════════════════════════════════════════════════════
      v49g: Mirror Light — face-api.js loaded as global (UMD bundle)
@@ -544,7 +544,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">🟣 V50c 🟣 INDIGO 🟣 SDK PINNED + DIAG 🟣</div>
+<div id="version-tag">🟣 V51b 🟣 INDIGO 🟣 LATENTSYNC LIVE 🟣</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
@@ -588,45 +588,36 @@ function toggleMic(){window._toggleMic&&window._toggleMic();}
 </script>
 
 <script type="module">
-import { createClient } from 'https://esm.sh/@anam-ai/js-sdk@4.13.0';
+// ─── v51: Anam REPLACED with fal.ai LatentSync ───
+// Architecture shift: no live streaming SDK. Per Nova line:
+//   1. Brain (Haiku) generates the words
+//   2. ElevenLabs Jessica generates audio bytes
+//   3. fal.ai LatentSync renders Nova's mouth lip-syncing to that audio
+//   4. Browser plays the resulting cartoon-Nova video
+// Latency: ~5-15 sec per Nova line. Not real-time. But cartoon-quality.
+// fal.ai cost: ~$0.20 per Nova line (videos under 40 sec).
+import { fal } from 'https://esm.sh/@fal-ai/client@1.6.2';
 
 // ═══════════════════════════════════════════════════════════════
 // CONFIG — all swappable in one place
 // ═══════════════════════════════════════════════════════════════
 const CFG = {
-  // D-ID
-  // ─── ANAM (avatar streaming) ───
-  // Persona = full ephemeral config. The {id} shortcut was deprecated.
-  // We pass avatarId + voiceId + llmId explicitly. Although we drive .talk()
-  // ourselves and don't rely on Anam's LLM, the API requires llmId — so we
-  // include it. Anam's "CUSTOMER_CLIENT_V1" is the named flagship one.
-  ANAM_API_KEY: 'YjZkNjdkYzgtZjliOS00YWIxLTgwZWEtNmM0MTM2MDVmY2I3Oi96WDhMQ05vRDRITFNvNEl3aDZMREgzd0V2eUNVZWxkVDhOaHVpSGt3SFE9',
-  // ─── v49e: use saved persona ID directly (configured in Anam Lab) ───
-  // Avatar + voice + system prompt all set on Anam's side.
-  // We still override at runtime via .talk() — but Lab settings act as belt-and-suspenders.
-  // ─── v49i: use the actual avatar UUID from Lab ───
-  // Avatar UUID 082ef4a3 = pink-haired Liv (the custom upload from your Lab persona).
-  // Persona 3e26cb43 contains it. We use the avatar ID directly in ephemeral config.
-  ANAM_AVATAR_ID:  '082ef4a3-c845-46c8-a1d8-3e0ecc15ca2b',  // pink-haired Liv avatar (current)
-  ANAM_VOICE_ID:   'de23e340-1416-4dd8-977d-065a7ca11697',  // Bella ElevenLabs (worked in v48b)
-  // ─── v49j: the actual fix for the legacy token error ───
-  // 'CUSTOMER_CLIENT_V1' is the OLD magic string. Anam deprecated it.
-  // The new format wants a real UUID. The default LLM from Anam's own docs:
-  ANAM_LLM_ID:     'a7cf662c-2ace-4de1-a21e-ef0fbf144bb7',  // Anam's default LLM (canonical UUID)
-  // Archived alternative IDs ──
-  ANAM_PERSONA_ID:  '3e26cb43-d269-4c2d-b5d1-a6dd035a98d3',  // the persona this avatar lives in
-  ANAM_AVATAR_ID_OLD: 'cf932b2e-385f-4873-9eb5-f5be899f5561',  // earlier custom upload (deleted?)
-  ANAM_AVATAR_ID_SOPHIE: '6dbc1e47-7768-403e-878a-94d7fcc3677b',  // Sophie sofa fallback
+  // ─── v51: fal.ai LatentSync (replaces Anam) ───
+  // FAL_KEY: get from https://fal.ai/dashboard/keys (free tier supports testing)
+  // Security note: this key is exposed in the browser. For MVP testing this is
+  // acceptable. For production, route fal.ai calls through our Cloudflare Worker
+  // to keep the key server-side. Set to '' to disable lip-sync (audio-only fallback).
+  FAL_KEY: '76a2fd17-e0ce-4f66-bcdc-d319406949c7:8b511c507389c9bf208a811ccf328d94',
+  // Public URL of Nova's "talking pose" base video. fal.ai needs to fetch this.
+  // Should be a 5-10 sec loop: face filling frame, mouth slightly visible, neutral
+  // expression, blinking + slight head movement. This is what gets lip-synced.
+  NOVA_BASE_VIDEO_URL: 'https://raw.githubusercontent.com/dsbeauty01-web/dance-project/main/gwm1_avatar_9209dd21-c59a-4995-986f-71e80fe4e289.mp4',
   // Brain
   WORKER_URL: 'https://long-art-8269r.dsbeauty01.workers.dev/',
   BRAIN_MODEL: 'claude-haiku-4-5-20251001',
-  // Voice provider — ElevenLabs Jessica for youthful playful warm
-  // ─── v49f: voice routing — choose ONE primary provider ───
-  // 'anam'        → Anam owns the voice (whatever you set in Lab); fallback only on hard failure
-  // 'elevenlabs'  → ElevenLabs Jessica owns the voice; Anam stays silent (lip-sync only via mute trick)
-  // 'browser'     → browser TTS owns the voice
-  PRIMARY_VOICE: 'elevenlabs', // v49l: ElevenLabs Jessica owns the voice, Anam stays silent
-  VOICE_PROVIDER: 'elevenlabs', // legacy fallback only — used if PRIMARY_VOICE='anam' fails
+  // Voice — ElevenLabs Jessica for youthful playful warm
+  PRIMARY_VOICE: 'elevenlabs',
+  VOICE_PROVIDER: 'elevenlabs',
   ELEVENLABS_KEY: 'sk_9c93ed7e0ae747cf93d123051aa60b4cd5d56cf2b5a536da',
   ELEVENLABS_VOICE_ID: 'cgSgspJ2msm6clMCkdW9', // Jessica — youthful, playful, conversational
   // Ears
@@ -637,6 +628,17 @@ const CFG = {
   REACTION_COOLDOWN: 0, // 0 = no cooldown, instant reactions
   DETECTION_HOLD_FRAMES: 1, // instant
 };
+
+// ─── v51: Configure fal.ai client ───
+// If FAL_KEY is empty, lip-sync is disabled — voice still plays, but Nova's
+// face just loops her base video silently. Lets us test voice/brain without
+// burning fal.ai credits on every change.
+if(CFG.FAL_KEY) {
+  fal.config({ credentials: CFG.FAL_KEY });
+  console.log('[fal] ✓ client configured');
+} else {
+  console.warn('[fal] ⚠ FAL_KEY not set — lip-sync disabled, voice-only mode');
+}
 
 // ═══════════════════════════════════════════════════════════════
 // MEMORY — Nova's working memory of this session
@@ -873,59 +875,14 @@ function browserTTS(text) {
   } catch(e){ micResume(); }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// v50 — ElevenLabs TTS with Anam audio passthrough
-//
-// Two parallel paths from a single ElevenLabs response:
-//   A. PLAY LOCALLY  → user hears Jessica (MP3 stream, low bandwidth)
-//   B. PIPE TO ANAM  → face lip-syncs (PCM16 16kHz mono, base64 chunks)
-//
-// ElevenLabs supports multiple output formats. We request TWO calls:
-//   1. PCM stream → chunks pushed to Anam via sendAudioChunk()
-//   2. The same PCM is played locally (decoded via Web Audio API)
-// To keep things simple/fast: ONE call requests pcm_16000, we
-// (a) push chunks to Anam, (b) buffer + play locally as a Blob (audio/wav).
-// ═══════════════════════════════════════════════════════════════
-
-// Convert ArrayBuffer to base64 (browser-safe)
-function _arrayBufferToBase64(buffer) {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  const chunkSize = 0x8000;
-  for(let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
-}
-
-// Wrap raw PCM16 bytes in a WAV header so HTMLAudioElement can play them
-function _pcm16ToWav(pcmBytes, sampleRate) {
-  const dataLen = pcmBytes.byteLength;
-  const buffer = new ArrayBuffer(44 + dataLen);
-  const v = new DataView(buffer);
-  const writeStr = (off, s) => { for(let i=0;i<s.length;i++) v.setUint8(off+i, s.charCodeAt(i)); };
-  writeStr(0, 'RIFF');
-  v.setUint32(4, 36 + dataLen, true);
-  writeStr(8, 'WAVE');
-  writeStr(12, 'fmt ');
-  v.setUint32(16, 16, true);          // PCM chunk size
-  v.setUint16(20, 1, true);           // PCM format
-  v.setUint16(22, 1, true);           // mono
-  v.setUint32(24, sampleRate, true);
-  v.setUint32(28, sampleRate * 2, true); // byte rate (2 bytes per sample)
-  v.setUint16(32, 2, true);           // block align
-  v.setUint16(34, 16, true);          // bits per sample
-  writeStr(36, 'data');
-  v.setUint32(40, dataLen, true);
-  new Uint8Array(buffer, 44).set(new Uint8Array(pcmBytes));
-  return new Blob([buffer], { type: 'audio/wav' });
-}
-
 async function elevenLabsTTS(text) {
-  if(!CFG.ELEVENLABS_KEY) return browserTTS(text);
+  // v51: fetch audio as bytes (not played directly — we route through LatentSync)
+  if(!CFG.ELEVENLABS_KEY) {
+    browserTTS(text);
+    return null;
+  }
   try {
-    // Request PCM 16kHz so output is directly compatible with Anam passthrough
-    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${CFG.ELEVENLABS_VOICE_ID}/stream?output_format=pcm_16000`, {
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${CFG.ELEVENLABS_VOICE_ID}/stream`, {
       method: 'POST',
       headers: {
         'xi-api-key': CFG.ELEVENLABS_KEY,
@@ -934,7 +891,7 @@ async function elevenLabsTTS(text) {
       body: JSON.stringify({
         text,
         model_id: 'eleven_turbo_v2_5',
-        // Nova-tuned warmth: low stability = more emotional, higher style = more personality
+        // Nova-tuned warmth: low stability = more emotional, high style = more personality
         voice_settings: {
           stability: 0.3,
           similarity_boost: 0.85,
@@ -944,97 +901,145 @@ async function elevenLabsTTS(text) {
       }),
     });
     if(!res.ok) {
-      const errText = await res.text();
-      console.log('ElevenLabs HTTP', res.status, errText);
-      browserTTS(text);
-      return;
+      console.log('ElevenLabs HTTP', res.status, await res.text());
+      return null;
     }
-    
-    micPause();
-    
-    // ─── Stream the PCM response, fork to (A) Anam, (B) local playback ───
-    const reader = res.body.getReader();
-    const allChunks = [];
-    const anamStream = window._anamAudioStream;
-    const sendToAnam = !!(anamStream && didReady && CFG.PRIMARY_VOICE === 'elevenlabs');
-    
-    while(true) {
-      const { done, value } = await reader.read();
-      if(done) break;
-      // Save chunk for local playback
-      allChunks.push(value);
-      // Push chunk to Anam for lip-sync (base64-encoded PCM16)
-      if(sendToAnam) {
-        try {
-          const b64 = _arrayBufferToBase64(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
-          anamStream.sendAudioChunk(b64);
-        } catch(e) {
-          console.warn('[Anam] sendAudioChunk failed:', e?.message);
-        }
-      }
-    }
-    
-    // Tell Anam the sequence is complete (lip-sync should settle)
-    if(sendToAnam) {
-      try { anamStream.endOfSpeech(); } catch(e) { /* noop */ }
-    }
-    
-    // Concat all chunks into a single PCM buffer, wrap as WAV, play locally
-    let total = 0;
-    for(const c of allChunks) total += c.byteLength;
-    const pcm = new Uint8Array(total);
-    let offset = 0;
-    for(const c of allChunks) { pcm.set(c, offset); offset += c.byteLength; }
-    const wavBlob = _pcm16ToWav(pcm.buffer, 16000);
-    const audio = new Audio(URL.createObjectURL(wavBlob));
-    audio.onended = () => micResume();
-    audio.onerror = () => micResume();
-    audio.play().catch(err => {
-      console.log('audio play failed:', err);
-      micResume();
-    });
+    return await res.blob();
   } catch(e) {
-    console.log('ElevenLabs failed, falling back:', e);
-    browserTTS(text);
-    micResume();
+    console.log('ElevenLabs failed:', e);
+    return null;
   }
 }
 
-function speak(text) {
-  // ─── v49f: deterministic single-provider voice ───
-  // Whatever PRIMARY_VOICE is set to, ONLY that one fires. No racing.
-  // The fallback only kicks in if the primary HARD-FAILS (throws synchronously
-  // OR the promise rejects). No "fire both and hope."
-  
-  if(CFG.PRIMARY_VOICE === 'anam') {
-    if(didReady && agentManager) {
-      try {
-        const r = agentManager.talk(text);
-        // If talk() returns a promise, only fall back on actual rejection
-        if(r && r.catch) {
-          r.catch((e) => {
-            console.warn('[Anam] talk failed, falling back to', CFG.VOICE_PROVIDER, ':', e?.message);
-            fallbackSpeak(text);
-          });
-        }
-        return; // ← critical: do NOT fall through; Anam owns this turn
-      } catch(e) {
-        console.warn('[Anam] talk threw, falling back:', e?.message);
-        return fallbackSpeak(text);
-      }
+// Play audio without lip-sync (when fal.ai not configured or fails)
+function playAudioOnly(audioBlob) {
+  if(!audioBlob) return;
+  const audio = new Audio(URL.createObjectURL(audioBlob));
+  micPause();
+  window._novaTalking = true;
+  audio.onended = () => { window._novaTalking = false; micResume(); };
+  audio.onerror = () => { window._novaTalking = false; micResume(); };
+  audio.play().catch(err => {
+    console.log('audio play failed:', err);
+    window._novaTalking = false;
+    micResume();
+  });
+}
+
+// ─── v51: lip-sync via fal.ai LatentSync ───
+// Takes ElevenLabs audio blob + Nova base video URL → returns lip-synced video URL.
+// Latency: ~5-15 sec. Cost: ~$0.20 per call (videos under 40 sec).
+async function lipSyncWithFal(audioBlob) {
+  if(!CFG.FAL_KEY) return null;
+  try {
+    console.log('[fal] uploading audio…');
+    const audioFile = new File([audioBlob], 'nova-line.mp3', { type: 'audio/mpeg' });
+    const audioUrl = await fal.storage.upload(audioFile);
+    console.log('[fal] audio uploaded:', audioUrl);
+
+    console.log('[fal] calling LatentSync…');
+    const result = await fal.subscribe('fal-ai/latentsync', {
+      input: {
+        video_url: CFG.NOVA_BASE_VIDEO_URL,
+        audio_url: audioUrl,
+      },
+      logs: false,
+    });
+    
+    const videoUrl = result?.data?.video?.url;
+    if(!videoUrl) {
+      console.warn('[fal] no video URL in result:', result);
+      return null;
     }
-    // Anam not ready — fall back this once
-    console.warn('[speak] Anam not ready, using fallback for:', text.slice(0,40));
-    return fallbackSpeak(text);
+    console.log('[fal] ✓ lip-sync done:', videoUrl);
+    return videoUrl;
+  } catch(e) {
+    console.warn('[fal] lip-sync failed:', e?.message || e);
+    return null;
+  }
+}
+
+// Play a Nova lip-sync video in the avatar frame. Audio rides the video track.
+function playNovaVideo(videoUrl, onDone) {
+  const novaVideo = document.getElementById('nova-face-video');
+  const recVideo  = document.getElementById('rec-avatar-video');
+  if(!novaVideo && !recVideo) {
+    console.warn('[nova] no video element found');
+    if(onDone) onDone();
+    return;
   }
   
-  // PRIMARY_VOICE === 'elevenlabs' or 'browser' — bypass Anam entirely
-  fallbackSpeak(text);
+  micPause();
+  window._novaTalking = true;
+  
+  const target = (memory.phase === 'recognition' && recVideo) ? recVideo : novaVideo;
+  if(!target) { window._novaTalking = false; micResume(); if(onDone) onDone(); return; }
+  
+  // Save the original looping base so we can restore after Nova finishes talking
+  const originalSrc = target.src || (target.srcObject ? null : '');
+  const originalLoop = target.loop;
+  const originalMuted = target.muted;
+  
+  // Switch to lip-synced video (audio enabled, not looped)
+  target.srcObject = null;
+  target.src = videoUrl;
+  target.loop = false;
+  target.muted = false;
+  target.style.display = 'block';
+  target.classList.add('speaking');
+  
+  const cleanup = () => {
+    target.classList.remove('speaking');
+    target.loop = originalLoop;
+    target.muted = originalMuted;
+    // Restore the silent base loop after Nova finishes talking
+    if(CFG.NOVA_BASE_VIDEO_URL) {
+      target.src = CFG.NOVA_BASE_VIDEO_URL;
+      target.loop = true;
+      target.muted = true;
+      target.play().catch(()=>{});
+    }
+    window._novaTalking = false;
+    micResume();
+    if(onDone) onDone();
+  };
+  
+  target.onended = cleanup;
+  target.onerror = (e) => { console.warn('[nova] video error:', e); cleanup(); };
+  target.play().catch(err => { console.warn('[nova] play failed:', err); cleanup(); });
+}
+
+// ─── v51 main entry: speak Nova's line with optional lip-sync ───
+async function speak(text) {
+  // 1. Get audio from ElevenLabs
+  const audioBlob = await elevenLabsTTS(text);
+  if(!audioBlob) {
+    // ElevenLabs failed → fall back to browser TTS (already plays audio)
+    browserTTS(text);
+    return;
+  }
+  
+  // 2. If fal.ai isn't configured, just play audio (silent face)
+  if(!CFG.FAL_KEY) {
+    playAudioOnly(audioBlob);
+    return;
+  }
+  
+  // 3. Send audio to fal.ai LatentSync for lip-synced video
+  const videoUrl = await lipSyncWithFal(audioBlob);
+  if(!videoUrl) {
+    // Lip-sync failed → at least play the audio so kid hears Nova
+    playAudioOnly(audioBlob);
+    return;
+  }
+  
+  // 4. Play the lip-synced Nova video
+  playNovaVideo(videoUrl);
 }
 
 function fallbackSpeak(text) {
-  if(CFG.VOICE_PROVIDER === 'elevenlabs') elevenLabsTTS(text);
-  else browserTTS(text);
+  // Kept for compatibility with any old callers
+  speak(text);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1121,7 +1126,7 @@ const MIRROR = {
   cooldownMs: 8000,            // don't re-fire the same big signal within this window
   sampleIntervalMs: 1500,      // how often to peek at the face
   intervalId: null,
-  modelUrl: 'https://justadudewhohacks.github.io/face-api.js/models',
+  modelUrl: 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights',
 };
 
 async function mirrorLoadModels() {
@@ -1417,170 +1422,44 @@ function showIdleEverywhere() {
   novaFacePlaceholder.style.display = 'none';
 }
 
-function initDID() {
-  console.log('═══ [Anam] init ═══');
-  console.log('[Anam] persona:', CFG.ANAM_PERSONA_ID, '(pink-haired Liv / Nova)');
-  console.log('[Anam] key prefix:', CFG.ANAM_API_KEY.slice(0, 14) + '…');
+function initLatentSync() {
+  console.log('═══ [LatentSync] init ═══');
+  console.log('[LatentSync] base video:', CFG.NOVA_BASE_VIDEO_URL);
+  console.log('[LatentSync] FAL_KEY set:', !!CFG.FAL_KEY);
   
   // Pre-flight checks
-  if(typeof createClient !== 'function') {
-    console.error('[Anam] ❌ SDK not loaded — import failed');
-    setTimeout(initDID, 5000);
+  const recVideo  = document.getElementById('rec-avatar-video');
+  const novaVideo = document.getElementById('nova-face-video');
+  
+  if(!recVideo && !novaVideo) {
+    console.warn('[LatentSync] no video elements yet, retrying...');
+    setTimeout(initLatentSync, 500);
     return;
   }
   
-  const videoEl = document.getElementById('rec-avatar-video');
-  if(!videoEl) {
-    console.warn('[Anam] video element not in DOM yet, retrying...');
-    setTimeout(initDID, 500);
-    return;
-  }
-  
-  // STEP 1: get a session token from Anam (confirmed working via curl tests).
-  // STEP 2: pass that token to createClient() — proven Anam-recommended path.
-  // This avoids the "unsafe_createClientWithApiKey" code path that gave us
-  // "Invalid request to start session" earlier.
-  fetch('https://api.anam.ai/v1/auth/session-token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + CFG.ANAM_API_KEY,
-    },
-    body: JSON.stringify({
-      // ─── v50b: AVATARONLY MODE (corrected) ───
-      // Followed the wrong docs in v50 — used ElevenLabs-Agent API names.
-      // The actual passthrough API (per anam-org/elevenlabs_agent_demo repo):
-      //   - Session: just personaConfig with avatarId (no special flag needed)
-      //   - Client: createClient(token) — no special opts required
-      //   - Stream: client.createAudioPassthroughStream(...)
-      //   - Push:   audioStream.sendAudioChunk(base64)
-      //   - End:    audioStream.endOfSpeech()
-      personaConfig: {
-        name: 'Nova',
-        avatarId: CFG.ANAM_AVATAR_ID,
-      },
-    }),
-  })
-  .then(r => {
-    if(!r.ok) throw new Error('session-token HTTP ' + r.status);
-    return r.json();
-  })
-  .then(data => {
-    const sessionToken = data.sessionToken;
-    if(!sessionToken) throw new Error('no sessionToken in response');
-    console.log('[Anam] ✓ session token obtained');
-    
-    // ─── v50b: avatarOnly mode — no special opts needed on createClient ───
-    const client = createClient(sessionToken);
-    agentManager = client;
-    console.log('[Anam] ✓ client created (avatarOnly mode)');
-    
-    // v50c diagnostic — print every method the SDK actually exposes
-    const methods = [];
-    let proto = client;
-    while(proto && proto !== Object.prototype) {
-      for(const k of Object.getOwnPropertyNames(proto)) {
-        if(typeof client[k] === 'function' && !methods.includes(k)) methods.push(k);
-      }
-      proto = Object.getPrototypeOf(proto);
-    }
-    console.log('[Anam] SDK methods available:', methods.sort());
-    
-    // Create the audio passthrough stream — Anam will lip-sync to chunks we push
-    // Real method name: createAudioPassthroughStream (NOT createAgentAudioInputStream)
-    try {
-      window._anamAudioStream = client.createAudioPassthroughStream({
-        encoding: 'pcm_s16le',
-        sampleRate: 16000,
-        channels: 1,
-      });
-      console.log('[Anam] ✓ audio passthrough stream created');
-    } catch(e) {
-      console.error('[Anam] ❌ createAudioPassthroughStream failed:', e?.message);
-    }
-    
-    // Hook events (each wrapped so a single bad listener doesn't break init)
-    const safe = (evt, fn) => {
-      try { client.addListener(evt, fn); }
-      catch(e) { console.warn('[Anam] listener', evt, 'failed:', e?.message); }
-    };
-    
-    safe('SESSION_READY', () => {
-      console.log('[Anam] ✓ SESSION_READY');
-      didReady = true;
-      handoffFromIntro();
-      if(memory.phase === 'recognition' && !window._greeted) {
-        window._greeted = true;
-        novaArrivalGreet();
-      }
-    });
-    safe('CONNECTION_ESTABLISHED', () => console.log('[Anam] ✓ CONNECTION_ESTABLISHED'));
-    safe('CONNECTION_CLOSED', (r) => {
-      console.log('[Anam] CONNECTION_CLOSED:', r);
-      didReady = false;
-    });
-    safe('VIDEO_PLAY_STARTED', () => {
-      console.log('[Anam] ✓ VIDEO_PLAY_STARTED — stream live');
-      // Mirror onto in-game face
-      const stream = videoEl.srcObject;
-      if(stream) {
-        didStream = stream;
-        novaFaceVideo.srcObject = stream;
-        novaFaceVideo.muted = !userInteracted;
-        novaFaceVideo.style.display = 'block';
-        novaFacePlaceholder.style.display = 'none';
-        novaFaceVideo.play().catch(()=>{});
-      }
-    });
-    safe('MESSAGE_STREAM_EVENT_RECEIVED', (ev) => {
-      if(ev?.role === 'persona') {
-        recAvatarFrame.classList.add('speaking');
-        novaFaceFrame.classList.add('speaking');
-        window._novaTalking = true; // v49g: tell Mirror Light to back off
-        micPause();
-      }
-    });
-    safe('MESSAGE_HISTORY_UPDATED', (msgs) => {
-      const last = msgs?.[msgs.length - 1];
-      if(last?.role === 'persona' && !last.streaming) {
-        recAvatarFrame.classList.remove('speaking');
-        novaFaceFrame.classList.remove('speaking');
-        window._novaTalking = false; // v49g
-        micResume();
-      }
-    });
-    safe('ERROR', (err) => {
-      console.error('[Anam] ❌ ERROR event:', err);
-    });
-    
-    // Connect the WebRTC stream
-    console.log('[Anam] streamToVideoElement(rec-avatar-video)...');
-    return client.streamToVideoElement('rec-avatar-video');
-  })
-  .then(() => {
-    console.log('[Anam] ✓ stream connected');
-    videoEl.muted = !userInteracted;
-    videoEl.style.display = 'block';
-    recAvatarPlaceholder.style.display = 'none';
-    videoEl.play().catch(()=>{});
-    didReady = true;
-    
-    handoffFromIntro();
-    if(memory.phase === 'recognition' && !window._greeted) {
-      window._greeted = true;
-      novaArrivalGreet();
-    }
-  })
-  .catch(e => {
-    console.error('[Anam] ❌ failed:', e);
-    console.error('  message:', e?.message);
-    console.error('  stack:', e?.stack);
-    const banner = document.createElement('div');
-    banner.style.cssText = 'position:fixed;top:50px;left:50%;transform:translateX(-50%);padding:14px 22px;background:#7f1d1d;color:#fff;border-radius:10px;font:600 13px monospace;z-index:99999;max-width:80%;text-align:center';
-    banner.textContent = '[Anam] ' + (e?.message || 'connect failed — see console');
-    document.body.appendChild(banner);
+  // ─── v51: load the silent looping base into both face elements ───
+  // While Nova isn't talking, she just blinks/breathes silently.
+  // When she talks, speak() temporarily swaps src to the lip-synced result.
+  [recVideo, novaVideo].forEach(v => {
+    if(!v) return;
+    v.src = CFG.NOVA_BASE_VIDEO_URL;
+    v.loop = true;
+    v.muted = true;       // base loop is silent (audio comes from lip-sync video)
+    v.playsInline = true;
+    v.style.display = 'block';
+    v.play().catch(err => console.log('[LatentSync] base video autoplay blocked:', err?.message));
   });
+  
+  // Hide placeholders since the base video is now showing
+  if(recAvatarPlaceholder) recAvatarPlaceholder.style.display = 'none';
+  if(novaFacePlaceholder)  novaFacePlaceholder.style.display = 'none';
+  
+  // Mark "ready" so the rest of the app (handoff, intro greeting) can proceed.
+  // Our pipeline doesn't have a real WebRTC handshake — base video is up = ready.
+  didReady = true;
+  console.log('[LatentSync] ✓ base video loaded, ready');
 }
+    
     
 // ═══════════════════════════════════════════════════════════════
 // CHAT — bubbles in recognition phase
@@ -2407,7 +2286,7 @@ speechSynthesis.getVoices();
 speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
 
 initEars();
-initDID();
+initLatentSync();
 initDetector().then(() => poseLoop()).catch(()=>{});
 
 document.getElementById('nova-video').load();
