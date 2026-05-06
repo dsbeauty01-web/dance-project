@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v52 INDIGO</title>
+<title>Nova v52b INDIGO</title>
 <!-- ═══════════════════════════════════════════════════════════════
      v52 — RUNWAY CHARACTERS WIDGET TEST
      ═══════════════════════════════════════════════════════════════
@@ -80,11 +80,49 @@
     gap: 0;
   }
   
-  /* dance video panel */
+  /* dance video panel — hidden during intro, revealed when Nova is ready to dance */
   #dance-panel {
     position: relative;
     background: #000;
     overflow: hidden;
+    /* v52b: dance panel collapsed during intro phase */
+    display: none;
+  }
+  #stage.intro-mode {
+    /* during intro: hide dance left, give Nova the full center+right area */
+    grid-template-columns: 0 1fr 0;
+  }
+  #stage.intro-mode #webcam-panel {
+    /* webcam tucked into a small corner during intro */
+    position: fixed;
+    bottom: 60px;
+    right: 20px;
+    width: 180px;
+    height: 240px;
+    z-index: 50;
+    padding: 0;
+    background: transparent;
+  }
+  #stage.intro-mode #webcam-frame {
+    border-radius: 12px;
+    aspect-ratio: 3/4;
+    max-height: none;
+  }
+  #stage.intro-mode #webcam-label {
+    top: 8px;
+    left: 8px;
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+  #stage.intro-mode #nova-frame {
+    /* BIGGER for intro — square, not circle, per your request */
+    width: 480px;
+    height: 480px;
+    border-radius: 24px;
+  }
+  #stage.intro-mode #nova-title {
+    font-size: 36px;
+    margin-bottom: 8px;
   }
   #dance-video {
     width: 100%;
@@ -261,14 +299,14 @@
 </head>
 <body>
 
-<div id="version-tag">🟣 V52 🟣 INDIGO 🟣 RUNWAY CHARACTERS 🟣</div>
+<div id="version-tag">🟣 V52b 🟣 INDIGO 🟣 RUNWAY LIVE 🟣</div>
 
 <div id="stage">
   <!-- LEFT: dance video -->
   <div id="dance-panel">
     <div id="dance-label">🎵 Hello Hello — Dance with Nova</div>
     <video id="dance-video"
-           src="https://raw.githubusercontent.com/dsbeauty01-web/dance-project/main/kling_20260430_Motion_Control__3906_0.mp4"
+           data-src="https://raw.githubusercontent.com/dsbeauty01-web/dance-project/main/kling_20260430_Motion_Control__3906_0.mp4"
            muted
            loop
            playsinline></video>
@@ -309,32 +347,23 @@
 <div id="status-bar">v52 · Runway Characters test · waiting...</div>
 
 <!-- ═══════════════════════════════════════════════════════════════
-     RUNWAY CHARACTERS WIDGET
+     RUNWAY CHARACTERS WIDGET (v52b: real CDN URL + real pub key)
      ═══════════════════════════════════════════════════════════════
-     IMPORTANT: This widget needs the PUBLIC key (pub_xxx), NOT the secret key.
+     CDN URL discovered: https://cdn.dev.runwayml.com/prod/widget.js
+     (the URL in their docs page was wrong — actual one is from the Embed tab)
      
-     To get it:
-     1. Go to https://dev.runwayml.com
-     2. Click Characters → select your Nova avatar (e976bbb2-de60-4da6-845e-4b754050e55b)
-     3. Click the Embed tab
-     4. Add your domain to Allowed Origins (e.g. dsbeauty01-web.github.io)
-     5. Copy the pub_... key
-     6. Paste it below replacing PUB_KEY_HERE
+     Allowed origin configured: https://dsbeauty01-web.github.io/dance-project/
+     If we host elsewhere, must add that origin in the Embed tab too.
      
-     The widget is configured ENTIRELY in the dev portal:
-       - Personality (Nova's brain prompt — Magic Friend, max 2000 chars)
-       - Voice preset (or custom-cloned Jessica)
-       - Knowledge base (optional — songs, dance moves)
-       - Interface look (Runway portal lets you customize colors/shape)
-     
-     Limitation: the widget renders Runway's own UI (button + video call popup).
-     It does NOT render directly inside our #nova-frame circle automatically.
-     For tight visual integration (avatar inside our circle), we'd need the React SDK.
-     For v52 testing, the widget is enough — we just want to know if Nova works.
+     Configuration is in their portal:
+       - Personality (Magic Friend prompt — set in portal, max 2000 chars)
+       - Voice preset (clara/victoria/vincent/etc — set in portal)
+       - Layout: "Start expanded" = ON in your portal config
+       - Shape: square (vs circle) — recommended for Nova intro per your request
 ═══════════════════════════════════════════════════════════════ -->
 <script
-  src="https://cdn.runwayml.com/v1/embeds/widget.js"
-  data-pub-key="PUB_KEY_HERE"
+  src="https://cdn.dev.runwayml.com/prod/widget.js"
+  data-pub-key="pub_e3144a6a07a1e5862dd8eb5ddcd9877113c2149a97ae53c40525f956425f4a191"
 ></script>
 
 <script>
@@ -365,8 +394,12 @@ const webcamVideo  = document.getElementById('webcam-video');
 const novaFrame    = document.getElementById('nova-frame');
 const novaPlaceholder = document.getElementById('nova-placeholder');
 
-// ─── start dance video looping silently ───
-danceVideo.play().catch(err => console.log('[dance] autoplay deferred:', err?.message));
+// ─── v52b: DO NOT auto-load dance video on page entry ───
+// The dance is for the "active" phase, not the intro. We attach src and
+// play only after kid finishes intro chat with Nova and chooses to dance.
+// For now: dance loads when orb is tapped (intro phase begins). In v53 we'll
+// gate it behind a "ready to dance?" moment that Nova triggers via tool call.
+// danceVideo.play().catch(err => console.log('[dance] autoplay deferred:', err?.message));
 
 // ─── orb tap = "begin" ───
 startOrb.addEventListener('click', async () => {
@@ -391,16 +424,33 @@ startOrb.addEventListener('click', async () => {
   startOverlay.classList.add('hidden');
   setTimeout(() => startOverlay.style.display = 'none', 700);
   
-  // Update Nova placeholder so the user knows what to do next
+  // ─── v52b: enter intro mode ───
+  // - Dance panel collapses (Nova is the focus, not the dance)
+  // - Nova frame becomes BIG square for intro presence
+  // - Webcam tucks into corner
+  // Later, when Nova decides we're ready to dance, we'll switch to "dance mode"
+  // which shows the dance panel and shrinks Nova back to her circle.
+  document.getElementById('stage').classList.add('intro-mode');
+  
+  // Lazy-load dance video src so it's ready when we switch to dance mode
+  // (but doesn't waste bandwidth during the intro chat)
+  const danceSrc = danceVideo.getAttribute('data-src');
+  if(danceSrc && !danceVideo.src) {
+    danceVideo.src = danceSrc;
+    console.log('[dance] preloading for later (paused, hidden)');
+  }
+  
+  // Update Nova placeholder so the user knows what to do next.
+  // With "Start expanded" ON in the portal, the widget should auto-open.
   novaPlaceholder.innerHTML = `
-    <div class="emoji">👇</div>
-    <div>Look for Runway's chat button</div>
+    <div class="emoji">⏳</div>
+    <div>Nova is loading...</div>
     <div style="font-size: 11px; opacity: 0.7; margin-top: 8px;">
-      (probably bottom-right corner — tap it to meet Nova)
+      Runway widget will appear here in a moment
     </div>
   `;
   
-  setStatus('ready · Runway widget should appear in corner · tap it to start talking');
+  setStatus('intro mode active · Runway widget loading · Nova will appear shortly');
 });
 
 // ─── boot ───
