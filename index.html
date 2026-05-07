@@ -1,91 +1,847 @@
-// PARSE STOCK & SELLER — Apify version (FINAL)
-// Apify returns data as a stringified JSON array inside .data
-// Uses Apify's native inStock and seller fields
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Nova v59 EMERALD — Real Build</title>
 
-const raw = $input.first().json.data;
-const product = $('Loop Each Product').item.json;
+<!-- Fonts: Fredoka (display, friendly geometric) + Quicksand (body, soft sans) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
 
-// Apify returns data as a stringified JSON. Parse it.
-let items = [];
-try {
-  if (typeof raw === 'string') {
-    items = JSON.parse(raw);
-  } else if (Array.isArray(raw)) {
-    items = raw;
-  } else if (raw) {
-    items = [raw];
+<style>
+/* ════════════════════════════════════════════════════════════════
+   v59 EMERALD — ground-up rebuild
+   Aesthetic: deep night sky + aurora + warm pink-rose-gold accents
+   Lexi pattern: adaptive avatar sizing per phase
+   ════════════════════════════════════════════════════════════════ */
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  height: 100%; width: 100%; overflow: hidden;
+  background: #0a0517;
+  color: #f5e9ff;
+  font-family: 'Quicksand', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Aurora background — animated glows behind everything */
+body::before, body::after {
+  content: ''; position: fixed; pointer-events: none; z-index: 0;
+}
+body::before {
+  inset: -20% -20% auto auto;
+  width: 80vw; height: 80vh;
+  background: radial-gradient(ellipse, #9b3aa3 0%, transparent 60%);
+  filter: blur(80px); opacity: 0.55;
+  animation: aurora-1 18s ease-in-out infinite alternate;
+}
+body::after {
+  inset: auto auto -20% -20%;
+  width: 80vw; height: 80vh;
+  background: radial-gradient(ellipse, #ff4d9e 0%, transparent 60%);
+  filter: blur(90px); opacity: 0.4;
+  animation: aurora-2 22s ease-in-out infinite alternate;
+}
+@keyframes aurora-1 { to { transform: translate(-10vw, 8vh) rotate(8deg); } }
+@keyframes aurora-2 { to { transform: translate(8vw, -6vh) rotate(-6deg); } }
+
+/* Subtle starfield */
+.stars {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 25% 30%, #fff 0%, transparent 100%),
+    radial-gradient(1px 1px at 75% 65%, #ffd6f5 0%, transparent 100%),
+    radial-gradient(1px 1px at 45% 80%, #fff 0%, transparent 100%),
+    radial-gradient(1px 1px at 88% 12%, #fff 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 15% 55%, #ffd6f5 0%, transparent 100%),
+    radial-gradient(1px 1px at 60% 25%, #fff 0%, transparent 100%);
+  opacity: 0.6;
+  animation: twinkle 4s ease-in-out infinite alternate;
+}
+@keyframes twinkle { from { opacity: 0.4; } to { opacity: 0.8; } }
+
+/* ─── version banner (always visible for testing) ─── */
+#vbanner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  text-align: center; padding: 5px 12px;
+  background: linear-gradient(90deg, #fbbf24, #f59e0b, #d97706);
+  color: #1a0d2b;
+  font: 700 13px/1 'Fredoka', sans-serif;
+  letter-spacing: 1.5px;
+}
+
+/* ─── status bar (debug at bottom) ─── */
+#status {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
+  text-align: center; padding: 6px 16px;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(10px);
+  font: 500 12px/1.4 'Quicksand', monospace;
+  color: rgba(255,255,255,0.7);
+}
+
+/* ─── main stage ─── */
+#stage {
+  position: fixed; inset: 28px 0 28px 0;
+  z-index: 10;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PHASE 1: IDLE — magic orb
+   ════════════════════════════════════════════════════════════════ */
+#idle-screen {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 30px;
+  transition: opacity 0.6s ease;
+}
+#idle-screen.hidden { opacity: 0; pointer-events: none; }
+
+#idle-title {
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+  font-size: clamp(32px, 7vw, 72px);
+  background: linear-gradient(135deg, #ffd6f5 0%, #ff4d9e 50%, #fbbf24 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.02em;
+  text-align: center;
+  line-height: 1;
+  filter: drop-shadow(0 4px 20px rgba(255, 77, 158, 0.4));
+}
+#idle-subtitle {
+  font-family: 'Quicksand', sans-serif;
+  font-weight: 500;
+  font-size: clamp(15px, 2vw, 18px);
+  color: rgba(255, 214, 245, 0.75);
+  text-align: center;
+  max-width: 320px;
+  line-height: 1.4;
+}
+#magic-orb {
+  width: clamp(180px, 30vmin, 280px);
+  height: clamp(180px, 30vmin, 280px);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, #fff 0%, #ffd6f5 15%, #ff4d9e 45%, #9b3aa3 75%, #4a1d6e 100%);
+  position: relative;
+  cursor: pointer;
+  border: none;
+  box-shadow:
+    0 0 80px rgba(255, 77, 158, 0.6),
+    0 0 160px rgba(155, 58, 163, 0.4),
+    inset 0 -10px 40px rgba(74, 29, 110, 0.6);
+  animation: orb-float 4s ease-in-out infinite;
+  transition: transform 0.3s ease;
+}
+#magic-orb:hover { transform: scale(1.05); }
+#magic-orb:active { transform: scale(0.97); }
+#magic-orb::after {
+  content: ''; position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.4) 0%, transparent 50%);
+  pointer-events: none;
+}
+@keyframes orb-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-12px); }
+}
+
+/* sparkles around the orb */
+.sparkle {
+  position: absolute; width: 6px; height: 6px;
+  background: #fff; border-radius: 50%;
+  box-shadow: 0 0 12px #fff, 0 0 24px #ffd6f5;
+  animation: sparkle 3s ease-in-out infinite;
+}
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0); }
+  50%      { opacity: 1; transform: scale(1); }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PHASE 2 + 4: CLOSEUP MODE — Nova big center, kid small corner
+   ════════════════════════════════════════════════════════════════ */
+#play-screen {
+  position: absolute; inset: 0;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.6s ease;
+}
+#play-screen.active { opacity: 1; pointer-events: auto; }
+
+/* Nova frame — sized + positioned by phase class */
+#nova-frame {
+  position: absolute;
+  border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 30%, #2d1448, #0a0517);
+  border: 3px solid rgba(255, 77, 158, 0.5);
+  box-shadow:
+    0 0 60px rgba(255, 77, 158, 0.4),
+    0 0 120px rgba(155, 58, 163, 0.25),
+    inset 0 0 30px rgba(0,0,0,0.4);
+  transition: all 0.7s cubic-bezier(0.65, 0, 0.35, 1);
+}
+#nova-frame video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+#nova-placeholder {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center; gap: 8px;
+  color: #ffd6f5;
+}
+#nova-placeholder .emoji { font-size: 48px; }
+#nova-placeholder .text {
+  font-family: 'Quicksand', sans-serif; font-weight: 600; font-size: 14px;
+  opacity: 0.85;
+}
+
+/* ─── PHASE: closeup (greeting / end) — Nova BIG center ─── */
+.phase-closeup #nova-frame {
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(70vmin, 540px);
+  height: min(70vmin, 540px);
+}
+.phase-closeup #webcam-frame {
+  bottom: 60px; right: 24px;
+  width: 140px; height: 180px;
+}
+.phase-closeup #dance-frame { display: none; }
+
+/* ─── PHASE: lesson (dancing) — Nova SMALL corner, dance + webcam dominate ─── */
+.phase-lesson #nova-frame {
+  top: 24px; right: 24px;
+  width: 160px; height: 160px;
+}
+.phase-lesson #webcam-frame {
+  bottom: 60px; left: 24px;
+  width: min(40vw, 400px);
+  height: min(50vh, 500px);
+  border-radius: 20px;
+}
+.phase-lesson #dance-frame {
+  display: block;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(50vw, 600px);
+  height: min(60vh, 600px);
+}
+
+/* ─── PHASE: conversation (countdown) — both medium side-by-side ─── */
+.phase-conversation #nova-frame {
+  top: 50%; left: 25%;
+  transform: translate(-50%, -50%);
+  width: min(40vmin, 320px);
+  height: min(40vmin, 320px);
+}
+.phase-conversation #webcam-frame {
+  top: 50%; left: 75%;
+  transform: translate(-50%, -50%);
+  width: min(40vmin, 320px);
+  height: min(40vmin, 320px);
+  border-radius: 50%;
+}
+.phase-conversation #dance-frame { display: none; }
+
+/* ─── webcam frame ─── */
+#webcam-frame {
+  position: absolute;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid rgba(155, 58, 163, 0.5);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  background: #0a0517;
+  transition: all 0.7s cubic-bezier(0.65, 0, 0.35, 1);
+}
+#webcam-frame video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1); /* mirror */
+}
+
+/* ─── dance video frame ─── */
+#dance-frame {
+  position: absolute;
+  border-radius: 24px;
+  overflow: hidden;
+  background: #0a0517;
+  border: 2px solid rgba(255, 214, 245, 0.15);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  transition: all 0.7s cubic-bezier(0.65, 0, 0.35, 1);
+}
+#dance-frame video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+
+/* ─── state badge (on Nova) ─── */
+#state-badge {
+  position: absolute;
+  bottom: 14px; left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(10px);
+  font: 600 11px/1 'Quicksand', sans-serif;
+  color: #fff;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  display: flex; align-items: center; gap: 6px;
+  white-space: nowrap;
+  z-index: 5;
+}
+.state-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #fbbf24;
+  box-shadow: 0 0 8px currentColor;
+}
+.state-dot.watching  { background: #fbbf24; }
+.state-dot.listening { background: #22c55e; animation: pulse 1.2s infinite; }
+.state-dot.talking   { background: #ff4d9e; animation: pulse 0.6s infinite; }
+.state-dot.thinking  { background: #a78bfa; animation: pulse 1.5s infinite; }
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.5; transform: scale(1.3); }
+}
+
+/* ─── always-on controls ─── */
+#controls {
+  position: absolute; top: 40px; right: 24px;
+  z-index: 100;
+  display: flex; gap: 10px;
+}
+.ctrl-btn {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.2);
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s ease;
+}
+.ctrl-btn:hover {
+  background: rgba(255, 77, 158, 0.4);
+  border-color: rgba(255, 77, 158, 0.6);
+  transform: scale(1.08);
+}
+
+/* hide controls during lesson if Nova frame is in top-right (overlap) */
+.phase-lesson #controls {
+  top: auto; bottom: 60px; right: 200px;
+}
+
+/* ─── chat bar (always visible at bottom) ─── */
+#chat-bar {
+  position: absolute;
+  bottom: 20px; left: 50%;
+  transform: translateX(-50%);
+  width: min(640px, calc(100% - 40px));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 999px;
+  background: rgba(10, 5, 23, 0.85);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 77, 158, 0.25);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  z-index: 90;
+}
+#chat-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #fff;
+  font: 500 16px/1.4 'Quicksand', sans-serif;
+  padding: 12px 16px;
+}
+#chat-input::placeholder { color: rgba(255,214,245,0.45); }
+
+#audio-unmute, #chat-send {
+  width: 44px; height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff4d9e, #9b3aa3);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+#audio-unmute {
+  background: rgba(255,255,255,0.08);
+  color: #fbbf24;
+  font-size: 20px;
+}
+#audio-unmute.active {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+}
+#audio-unmute:hover, #chat-send:hover { transform: scale(1.08); }
+#chat-send:active { transform: scale(0.95); }
+
+/* ─── connecting overlay (during LiveKit handshake) ─── */
+#connecting {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 24px;
+  background: rgba(10, 5, 23, 0.85);
+  backdrop-filter: blur(14px);
+  z-index: 200;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.4s;
+}
+#connecting.show { opacity: 1; pointer-events: auto; }
+.spinner {
+  width: 60px; height: 60px;
+  border: 4px solid rgba(255, 77, 158, 0.2);
+  border-top-color: #ff4d9e;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#connecting-text {
+  font: 600 16px/1.3 'Fredoka', sans-serif;
+  color: #ffd6f5;
+  text-align: center;
+}
+
+/* ─── error overlay ─── */
+#error-screen {
+  position: absolute; inset: 0;
+  display: none;
+  flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; padding: 32px;
+  background: rgba(10, 5, 23, 0.95);
+  z-index: 300;
+}
+#error-screen.show { display: flex; }
+#error-screen .emoji { font-size: 72px; }
+#error-screen h2 { font: 700 28px 'Fredoka'; color: #ffd6f5; }
+#error-screen p {
+  font: 500 14px 'Quicksand'; color: rgba(255,255,255,0.65);
+  max-width: 400px; text-align: center; line-height: 1.5;
+  word-break: break-word;
+}
+#error-screen button {
+  margin-top: 12px; padding: 12px 28px;
+  border: none; border-radius: 999px;
+  background: linear-gradient(135deg, #ff4d9e, #9b3aa3);
+  color: #fff;
+  font: 600 14px 'Fredoka';
+  cursor: pointer;
+}
+
+/* ─── responsive: small screens ─── */
+@media (max-width: 600px) {
+  .phase-conversation #nova-frame,
+  .phase-conversation #webcam-frame {
+    width: 38vmin; height: 38vmin;
   }
-} catch (e) {
-  items = [];
-}
-
-const item = items[0] || {};
-
-// === Extract fields ===
-const title = item.title || product.Title || 'Amazon Product';
-const imageUrl = item.thumbnailImage ||
-                 (item.highResolutionImages && item.highResolutionImages[0]) ||
-                 (item.galleryThumbnails && item.galleryThumbnails[0]) ||
-                 'https://m.media-amazon.com/images/G/01/x-locale/common/transparent-pixel.gif';
-
-const priceValue = item.price?.value || null;
-const priceCurrency = item.price?.currency || '$';
-const price = priceValue ? `${priceCurrency}${priceValue}` : null;
-
-// === Stock detection — Apify gives us the answer directly ===
-const inStock = item.inStock === true;
-
-// === Seller detection ===
-let sellerName = item.seller || 'Unknown';
-if (sellerName === null || sellerName === 'Unknown') {
-  // No explicit seller. If brand is Amazon, default to Amazon.com.
-  if (item.brand && /amazon/i.test(item.brand)) {
-    sellerName = 'Amazon.com';
-  } else if (inStock) {
-    // In stock with no seller info → likely Amazon as seller (common pattern)
-    sellerName = 'Amazon.com';
-  } else {
-    sellerName = 'Unknown';
+  .phase-lesson #webcam-frame {
+    width: 36vw; height: 28vh;
+  }
+  .phase-lesson #nova-frame {
+    width: 110px; height: 110px;
+    top: 40px; right: 12px;
   }
 }
+</style>
+</head>
+<body>
 
-// === Match seller against TargetSeller ===
-const targetSeller = (product.TargetSeller || '').toLowerCase().trim();
-const detectedSeller = String(sellerName).toLowerCase().trim();
+<div class="stars"></div>
 
-let sellerMatches = false;
-if (targetSeller === 'any' || targetSeller === '') {
-  sellerMatches = true;
-} else if (targetSeller.includes('amazon')) {
-  sellerMatches = /amazon/i.test(detectedSeller);
-} else {
-  sellerMatches = detectedSeller.includes(targetSeller) || targetSeller.includes(detectedSeller);
+<div id="vbanner">⭐ V59 EMERALD ⭐ NOVA REAL BUILD ⭐</div>
+<div id="status">v59 · idle · tap the orb</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     STAGE
+     ════════════════════════════════════════════════════════════════ -->
+<div id="stage" class="phase-closeup">
+
+  <!-- PHASE 1: IDLE -->
+  <div id="idle-screen">
+    <h1 id="idle-title">Nova</h1>
+    <button id="magic-orb" aria-label="Tap to meet Nova"></button>
+    <p id="idle-subtitle">Tap the magic orb to meet Nova.<br>She'll dance with you to Hello Hello.</p>
+  </div>
+
+  <!-- PHASE 2-4: PLAY (initially hidden) -->
+  <div id="play-screen">
+    <!-- Nova circle -->
+    <div id="nova-frame">
+      <div id="nova-placeholder">
+        <div class="emoji">✨</div>
+        <div class="text">Nova is on her way</div>
+      </div>
+      <div id="state-badge">
+        <span class="state-dot watching"></span>
+        <span id="state-label">watching</span>
+      </div>
+    </div>
+
+    <!-- Webcam (kid) -->
+    <div id="webcam-frame">
+      <video id="webcam-video" autoplay playsinline muted></video>
+    </div>
+
+    <!-- Dance video (only in lesson phase) -->
+    <div id="dance-frame">
+      <video id="dance-video"
+             data-src="https://raw.githubusercontent.com/dsbeauty01-web/dance-project/main/kling_20260430_Motion_Control__3906_0.mp4"
+             playsinline></video>
+    </div>
+
+    <!-- Always-on controls -->
+    <div id="controls">
+      <button class="ctrl-btn" id="btn-pause" title="Pause">⏸</button>
+      <button class="ctrl-btn" id="btn-exit" title="Exit">✕</button>
+    </div>
+
+    <!-- CHAT BAR — always visible at bottom -->
+    <div id="chat-bar">
+      <button id="audio-unmute" title="Tap to enable Nova's voice">🔊</button>
+      <input id="chat-input" type="text" placeholder="Type to Nova... or just talk" autocomplete="off">
+      <button id="chat-send" title="Send">↑</button>
+    </div>
+
+    <!-- Connecting overlay -->
+    <div id="connecting">
+      <div class="spinner"></div>
+      <div id="connecting-text">Waking Nova up…</div>
+    </div>
+
+    <!-- Error overlay -->
+    <div id="error-screen">
+      <div class="emoji">💔</div>
+      <h2>Oops</h2>
+      <p id="error-text">Nova got stuck. Try again?</p>
+      <button onclick="location.reload()">Try again</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     LIVEKIT CLIENT
+     ════════════════════════════════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.13.3/dist/livekit-client.umd.min.js"></script>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════════════════════════
+const CFG = {
+  workerUrl: 'https://long-art-8269r.dsbeauty01.workers.dev/runway-session',
+  // YOUR custom Pixar Nova built in Runway portal:
+  avatarId:   'e976bbb2-de60-4da6-845e-4b754050e55b',
+  avatarType: 'custom',
+};
+
+// ════════════════════════════════════════════════════════════════
+// DOM
+// ════════════════════════════════════════════════════════════════
+const stage         = document.getElementById('stage');
+const idleScreen    = document.getElementById('idle-screen');
+const playScreen    = document.getElementById('play-screen');
+const orb           = document.getElementById('magic-orb');
+const novaFrame     = document.getElementById('nova-frame');
+const novaPlaceholder = document.getElementById('nova-placeholder');
+const stateLabel    = document.getElementById('state-label');
+const stateDot      = document.querySelector('.state-dot');
+const webcamVideo   = document.getElementById('webcam-video');
+const danceVideo    = document.getElementById('dance-video');
+const connecting    = document.getElementById('connecting');
+const connectingText = document.getElementById('connecting-text');
+const errorScreen   = document.getElementById('error-screen');
+const errorText     = document.getElementById('error-text');
+const statusBar     = document.getElementById('status');
+
+// ════════════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════════════
+function setStatus(msg) {
+  statusBar.textContent = `v59 · ${msg}`;
+  console.log('[v59]', msg);
 }
 
-// === Cooldown: don't re-alert within 6 hours ===
-const lastAlerted = product.LastAlerted ? new Date(product.LastAlerted) : null;
-const cooldownMs = 6 * 60 * 60 * 1000;
-const alreadyAlerted = lastAlerted && (Date.now() - lastAlerted.getTime() < cooldownMs);
+function setPhase(phase) {
+  stage.className = `phase-${phase}`;
+  console.log('[phase]', phase);
+}
 
-return [{
-  json: {
-    ASIN: product.ASIN,
-    rowNumber: product.row_number,
-    title,
-    price,
-    imageUrl,
-    sellerName,
-    targetSeller: product.TargetSeller,
-    inStock,
-    sellerMatches,
-    alreadyAlerted: !!alreadyAlerted,
-    affiliateTag: product.AffiliateTag || '',
-    debugInfo: {
-      priceValue,
-      apifyInStock: item.inStock,
-      apifySeller: item.seller,
-      itemFound: items.length > 0,
-      lastAlerted: product.LastAlerted,
+function setState(state) {
+  stateLabel.textContent = state;
+  stateDot.className = 'state-dot ' + state;
+}
+
+function showError(msg) {
+  errorText.textContent = msg;
+  errorScreen.classList.add('show');
+  setStatus('error · ' + msg.substring(0, 60));
+}
+
+// Sprinkle sparkles around the orb
+function makeSparkles() {
+  for (let i = 0; i < 6; i++) {
+    const s = document.createElement('div');
+    s.className = 'sparkle';
+    const angle = (i / 6) * Math.PI * 2;
+    const radius = 130 + Math.random() * 40;
+    s.style.left = `calc(50% + ${Math.cos(angle) * radius}px)`;
+    s.style.top  = `calc(50% + ${Math.sin(angle) * radius}px)`;
+    s.style.animationDelay = (Math.random() * 3) + 's';
+    idleScreen.appendChild(s);
+  }
+}
+makeSparkles();
+
+// ════════════════════════════════════════════════════════════════
+// MAIN FLOW
+// ════════════════════════════════════════════════════════════════
+orb.addEventListener('click', startNova);
+
+async function startNova() {
+  setStatus('asking for camera + mic...');
+  
+  // 1. Get camera + mic
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 640, height: 480 },
+      audio: true,
+    });
+    webcamVideo.srcObject = stream;
+  } catch(e) {
+    showError('Please allow camera and microphone, then refresh.');
+    return;
+  }
+
+  // 2. Switch idle → play (closeup mode for greeting)
+  idleScreen.classList.add('hidden');
+  playScreen.classList.add('active');
+  setPhase('closeup');
+  connecting.classList.add('show');
+  connectingText.textContent = 'Waking Nova up…';
+
+  // 3. Connect LiveKit
+  await connectNova();
+}
+
+async function connectNova() {
+  try {
+    setStatus('asking Worker for session...');
+    connectingText.textContent = 'Asking Worker for session…';
+
+    const res = await fetch(CFG.workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        avatarId:   CFG.avatarId,
+        avatarType: CFG.avatarType,
+      }),
+    });
+    const creds = await res.json();
+
+    if (!creds.serverUrl || !creds.token) {
+      throw new Error(`stage=${creds.stage||'?'} ${JSON.stringify(creds).substring(0,200)}`);
     }
+
+    setStatus('connecting room ' + creds.roomName);
+    connectingText.textContent = 'Connecting…';
+
+    const room = new LivekitClient.Room({
+      adaptiveStream: true,
+      dynacast: true,
+    });
+
+    // Track subscription — attach Nova's video / audio
+    room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, participant) => {
+      console.log('[track]', track.kind, 'from', participant.identity);
+
+      if (track.kind === 'video') {
+        novaPlaceholder.style.display = 'none';
+        let v = document.getElementById('nova-video');
+        if (!v) {
+          v = document.createElement('video');
+          v.id = 'nova-video';
+          v.autoplay = true; v.playsInline = true;
+          novaFrame.insertBefore(v, novaFrame.firstChild);
+        }
+        track.attach(v);
+        connecting.classList.remove('show');
+        setStatus('Nova is here!');
+        setState('talking');
+      }
+      if (track.kind === 'audio') {
+        const a = document.createElement('audio');
+        a.autoplay = true;
+        a.volume = 1.0;
+        a.muted = false;
+        track.attach(a);
+        document.body.appendChild(a);
+        // Force play (some browsers block autoplay even after user gesture)
+        a.play().catch(err => {
+          console.warn('[audio] autoplay blocked, will retry on click:', err);
+          // Wait for any user click and retry
+          document.body.addEventListener('click', () => {
+            a.play().catch(()=>{});
+          }, { once: true });
+        });
+        console.log('[audio] attached & playing');
+      }
+    });
+
+    room.on(LivekitClient.RoomEvent.ActiveSpeakersChanged, (speakers) => {
+      // Update state badge based on who's talking
+      const novaIsSpeaking = speakers.some(s => s.identity !== room.localParticipant.identity);
+      const meIsSpeaking   = speakers.some(s => s.identity === room.localParticipant.identity);
+      if (novaIsSpeaking)      setState('talking');
+      else if (meIsSpeaking)   setState('listening');
+      else                      setState('watching');
+    });
+
+    room.on(LivekitClient.RoomEvent.Disconnected, (reason) => {
+      console.log('[disconnected]', reason);
+      setStatus('disconnected');
+    });
+
+    await room.connect(creds.serverUrl, creds.token);
+    setStatus('connected · publishing mic');
+    await room.localParticipant.setMicrophoneEnabled(true);
+    setStatus('mic live · waiting for Nova');
+    
+    // Store globally so chat input can use it
+    window.novaRoom = room;
+    
+    // Try to send a kickoff so Nova introduces herself
+    sendChatToNova('Hi Nova!');
+
+  } catch (err) {
+    console.error('[connect error]', err);
+    connecting.classList.remove('show');
+    showError(err.message);
   }
-}];
+}
+
+// ════════════════════════════════════════════════════════════════
+// CONTROLS
+// ════════════════════════════════════════════════════════════════
+document.getElementById('btn-exit').addEventListener('click', () => {
+  if (window.novaRoom) window.novaRoom.disconnect();
+  location.reload();
+});
+
+document.getElementById('btn-pause').addEventListener('click', async () => {
+  if (window.novaRoom) {
+    const enabled = window.novaRoom.localParticipant.isMicrophoneEnabled;
+    await window.novaRoom.localParticipant.setMicrophoneEnabled(!enabled);
+    document.getElementById('btn-pause').textContent = enabled ? '🎤' : '⏸';
+    setStatus(enabled ? 'mic muted' : 'mic on');
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// CHAT INPUT — text to Nova
+// ════════════════════════════════════════════════════════════════
+const chatInput = document.getElementById('chat-input');
+const chatSend  = document.getElementById('chat-send');
+const audioUnmute = document.getElementById('audio-unmute');
+
+// Send chat to Nova via LiveKit data channel.
+// Runway Avatars accept text messages this way to drive the conversation.
+async function sendChatToNova(text) {
+  if (!window.novaRoom) {
+    console.warn('[chat] no room yet');
+    return;
+  }
+  if (!text || !text.trim()) return;
+  try {
+    // Try the Runway message format
+    const payload = {
+      type: 'user_message',
+      text: text.trim(),
+    };
+    const data = new TextEncoder().encode(JSON.stringify(payload));
+    await window.novaRoom.localParticipant.publishData(data, { reliable: true });
+    console.log('[chat] sent →', text);
+    setStatus('sent: ' + text.substring(0, 40));
+    
+    // Also try to wake all <audio> elements (browsers block until user interacts)
+    document.querySelectorAll('audio').forEach(a => {
+      a.muted = false;
+      a.volume = 1.0;
+      a.play().catch(()=>{});
+    });
+  } catch(e) {
+    console.error('[chat] send failed:', e);
+    setStatus('chat send failed: ' + e.message);
+  }
+}
+
+chatSend.addEventListener('click', () => {
+  const t = chatInput.value;
+  chatInput.value = '';
+  sendChatToNova(t);
+  chatInput.focus();
+});
+
+chatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    chatSend.click();
+  }
+});
+
+// Audio unmute button — fixes browsers that block autoplay
+audioUnmute.addEventListener('click', () => {
+  let unblocked = 0;
+  document.querySelectorAll('audio').forEach(a => {
+    a.muted = false;
+    a.volume = 1.0;
+    a.play().then(() => unblocked++).catch(err => console.warn('[unmute]', err));
+  });
+  audioUnmute.classList.add('active');
+  audioUnmute.textContent = '🔊';
+  setStatus(`audio enabled (${unblocked} streams)`);
+});
+
+// ════════════════════════════════════════════════════════════════
+// PHASE TRANSITIONS — stub for future use (when we add dance phase)
+// ════════════════════════════════════════════════════════════════
+window.NovaPhase = {
+  closeup:      () => setPhase('closeup'),
+  conversation: () => setPhase('conversation'),
+  lesson:       () => setPhase('lesson'),
+};
+
+// ════════════════════════════════════════════════════════════════
+// BOOT
+// ════════════════════════════════════════════════════════════════
+console.log('═══════════════════════════════════');
+console.log('Nova v59 EMERALD — real build');
+console.log('Phases:  closeup → conversation → lesson');
+console.log('Avatar:  ' + CFG.avatarId);
+console.log('Try:     NovaPhase.lesson()  in console');
+console.log('═══════════════════════════════════');
+setStatus('idle · tap the orb');
+</script>
+
+</body>
+</html>
