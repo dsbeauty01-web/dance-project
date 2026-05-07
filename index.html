@@ -38,9 +38,6 @@
     --bg-2: #1a0d2b;
     --bg-3: #2d1448;
     --indigo: #6a3eff;
-    --rose: #e11d48;
-    --rose-deep: #9f1239;
-    --rose-light: #fb7185;
     --pink: #ff4d9e;
     --pink-deep: #d9277a;
     --text: #f5f2ff;
@@ -61,14 +58,14 @@
     top: 0;
     left: 0;
     right: 0;
-    background: linear-gradient(90deg, var(--rose-deep), var(--rose), var(--rose-light));
+    background: linear-gradient(90deg, var(--indigo), var(--pink-deep));
     color: #fff;
     text-align: center;
     padding: 6px 0;
     font: 700 14px/1 monospace;
     letter-spacing: 1px;
     z-index: 999;
-    box-shadow: 0 2px 12px rgba(225, 29, 72, 0.6);
+    box-shadow: 0 2px 12px rgba(106, 62, 255, 0.5);
   }
   
   /* ─── main layout: dance left | nova center | webcam right ─── */
@@ -302,7 +299,7 @@
 </head>
 <body>
 
-<div id="version-tag">🌹 V53 🌹 ROSE 🌹 RUNWAY NEW KEY 🌹</div>
+<div id="version-tag">🌹 V53 🌹 ROSE 🌹 RUNWAY LIVE 🌹</div>
 
 <div id="stage">
   <!-- LEFT: dance video -->
@@ -347,10 +344,10 @@
 </div>
 
 <!-- status bar -->
-<div id="status-bar">v53 · ROSE · new key test · waiting...</div>
+<div id="status-bar">v53 · Runway Characters test · waiting...</div>
 
 <!-- ═══════════════════════════════════════════════════════════════
-     RUNWAY CHARACTERS WIDGET (v52c: testing new key from Runway portal)
+     RUNWAY CHARACTERS WIDGET (v52b: real CDN URL + real pub key)
      ═══════════════════════════════════════════════════════════════
      CDN URL discovered: https://cdn.dev.runwayml.com/prod/widget.js
      (the URL in their docs page was wrong — actual one is from the Embed tab)
@@ -366,7 +363,7 @@
 ═══════════════════════════════════════════════════════════════ -->
 <script
   src="https://cdn.dev.runwayml.com/prod/widget.js"
-  data-pub-key="key_48ac4c1f39a3682f05f810f66443cf92e160c33936a4adac4db4386aa517a90274219a1e85e0aff29a3555b4d33c9c20312448096e8887dbc6e30a42130bc425"
+  data-pub-key="pub_e3144a6a07a1e5862dd8eb5ddcd9877113c2149a97ae53c40525f956425f4a191"
 ></script>
 
 <script>
@@ -386,8 +383,8 @@
 
 const status = document.getElementById('status-bar');
 const setStatus = (msg) => {
-  status.textContent = `v53 · ${msg}`;
-  console.log('[v53]', msg);
+  status.textContent = `v52 · ${msg}`;
+  console.log('[v52]', msg);
 };
 
 const startOverlay = document.getElementById('start-overlay');
@@ -459,7 +456,7 @@ startOrb.addEventListener('click', async () => {
 // ─── boot ───
 setStatus('idle · waiting for orb tap');
 console.log('═══════════════════════════════════════════════');
-console.log('Nova v53 ROSE — Runway Characters integration test (new key)');
+console.log('Nova v52 INDIGO — Runway Characters integration test');
 console.log('Avatar ID: e976bbb2-de60-4da6-845e-4b754050e55b');
 console.log('Architecture: Runway runs everything (mic, brain, voice, face)');
 console.log('Our job: provide layout, dance video, webcam display');
