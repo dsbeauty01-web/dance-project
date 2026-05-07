@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Nova v59 EMERALD — Real Build</title>
+<title>Nova v60 RUBY — Real Build</title>
 
 <!-- Fonts: Fredoka (display, friendly geometric) + Quicksand (body, soft sans) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,7 +12,7 @@
 
 <style>
 /* ════════════════════════════════════════════════════════════════
-   v59 EMERALD — ground-up rebuild
+   v60 RUBY — ground-up rebuild
    Aesthetic: deep night sky + aurora + warm pink-rose-gold accents
    Lexi pattern: adaptive avatar sizing per phase
    ════════════════════════════════════════════════════════════════ */
@@ -395,6 +395,116 @@ body::after {
 #audio-unmute:hover, #chat-send:hover { transform: scale(1.08); }
 #chat-send:active { transform: scale(0.95); }
 
+/* ─── pose detection canvas (over webcam) ─── */
+#pose-canvas {
+  position: absolute;
+  pointer-events: none;
+  z-index: 6;
+  /* matched to webcam frame in JS */
+}
+
+/* ─── cue card (emoji floats on screen during dance) ─── */
+#cue-card {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  z-index: 80;
+  pointer-events: none;
+  text-align: center;
+  background: rgba(10, 5, 23, 0.7);
+  backdrop-filter: blur(20px);
+  padding: 24px 36px;
+  border-radius: 28px;
+  border: 2px solid rgba(255, 77, 158, 0.4);
+  box-shadow: 0 16px 60px rgba(255, 77, 158, 0.5);
+  opacity: 0;
+  transition: all 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+#cue-card.show {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+#cue-card .cue-emoji {
+  font-size: 80px;
+  line-height: 1;
+  margin-bottom: 8px;
+  animation: cue-bounce 0.7s ease-in-out infinite alternate;
+}
+@keyframes cue-bounce {
+  to { transform: translateY(-8px); }
+}
+#cue-card .cue-label {
+  font: 700 22px/1.1 'Fredoka', sans-serif;
+  color: #fff;
+  letter-spacing: 0.5px;
+}
+
+/* ─── countdown overlay ─── */
+#countdown {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  background: rgba(10, 5, 23, 0.55);
+  backdrop-filter: blur(8px);
+}
+#countdown.show { display: flex; }
+#countdown .count-num {
+  font: 700 clamp(140px, 25vmin, 280px) / 1 'Fredoka', sans-serif;
+  background: linear-gradient(135deg, #ffd6f5, #ff4d9e, #fbbf24);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 40px rgba(255, 77, 158, 0.6));
+  animation: count-pop 1s ease-out;
+}
+@keyframes count-pop {
+  0%   { transform: scale(0.3); opacity: 0; }
+  50%  { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+
+/* ─── hit pop (flash when kid does a move correctly) ─── */
+#hit-pop {
+  position: absolute;
+  top: 30%; left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  z-index: 85;
+  pointer-events: none;
+  font: 700 clamp(48px, 9vmin, 100px) / 1 'Fredoka', sans-serif;
+  background: linear-gradient(135deg, #fbbf24, #ff4d9e);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 30px rgba(255, 77, 158, 0.4);
+  opacity: 0;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+#hit-pop.show {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+
+/* ─── Dance button ─── */
+#btn-dance {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #1a0d2b;
+  font: 700 14px/1 'Fredoka', sans-serif;
+  padding: 10px 18px;
+  cursor: pointer;
+  margin-left: 4px;
+  display: none; /* shown after Nova connects */
+  transition: transform 0.15s ease;
+  white-space: nowrap;
+}
+#btn-dance:hover { transform: scale(1.05); }
+#btn-dance.ready { display: block; animation: dance-pulse 1.4s ease-in-out infinite; }
+@keyframes dance-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.6); }
+  50%      { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0); }
+}
+
 /* ─── connecting overlay (during LiveKit handshake) ─── */
 #connecting {
   position: absolute; inset: 0;
@@ -468,8 +578,8 @@ body::after {
 
 <div class="stars"></div>
 
-<div id="vbanner">⭐ V59 EMERALD ⭐ NOVA REAL BUILD ⭐</div>
-<div id="status">v59 · idle · tap the orb</div>
+<div id="vbanner">⭐ V60 RUBY ⭐ FULL DANCE ⭐</div>
+<div id="status">v60 · idle · tap the orb</div>
 
 <!-- ════════════════════════════════════════════════════════════════
      STAGE
@@ -509,6 +619,28 @@ body::after {
              playsinline></video>
     </div>
 
+    <!-- Music for the dance phase (Hello-Hello song) -->
+    <audio id="dance-music"
+           src="https://raw.githubusercontent.com/dsbeauty01-web/dance-project/main/shit.mp3"
+           preload="auto"></audio>
+
+    <!-- Pose detection overlay (canvas drawn over webcam) -->
+    <canvas id="pose-canvas"></canvas>
+
+    <!-- Cue display — emoji floats above webcam during dance -->
+    <div id="cue-card">
+      <div class="cue-emoji"></div>
+      <div class="cue-label"></div>
+    </div>
+
+    <!-- Countdown 3-2-1 GO -->
+    <div id="countdown">
+      <div class="count-num">3</div>
+    </div>
+
+    <!-- Hit feedback (flash + score) -->
+    <div id="hit-pop"></div>
+
     <!-- Always-on controls -->
     <div id="controls">
       <button class="ctrl-btn" id="btn-pause" title="Pause">⏸</button>
@@ -520,6 +652,7 @@ body::after {
       <button id="audio-unmute" title="Tap to enable Nova's voice">🔊</button>
       <input id="chat-input" type="text" placeholder="Type to Nova... or just talk" autocomplete="off">
       <button id="chat-send" title="Send">↑</button>
+      <button id="btn-dance" title="Start the dance">💃 Dance!</button>
     </div>
 
     <!-- Connecting overlay -->
@@ -539,9 +672,13 @@ body::after {
 
 </div>
 
-<!-- ════════════════════════════════════════════════════════════════
-     LIVEKIT CLIENT
-     ════════════════════════════════════════════════════════════════ -->
+<!-- TensorFlow.js + MoveNet for pose detection -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.20.0/dist/tf-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.20.0/dist/tf-converter.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.20.0/dist/tf-backend-webgl.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js"></script>
+
+<!-- LiveKit (Runway WebRTC) -->
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.13.3/dist/livekit-client.umd.min.js"></script>
 
 <script>
@@ -578,8 +715,8 @@ const statusBar     = document.getElementById('status');
 // HELPERS
 // ════════════════════════════════════════════════════════════════
 function setStatus(msg) {
-  statusBar.textContent = `v59 · ${msg}`;
-  console.log('[v59]', msg);
+  statusBar.textContent = `v60 · ${msg}`;
+  console.log('[v60]', msg);
 }
 
 function setPhase(phase) {
@@ -832,10 +969,308 @@ window.NovaPhase = {
 };
 
 // ════════════════════════════════════════════════════════════════
+// DANCE FLOW — song, video, cues, MoveNet
+// ════════════════════════════════════════════════════════════════
+const danceMusic = document.getElementById('dance-music');
+const danceVideoEl = document.getElementById('dance-video');
+const cueCard = document.getElementById('cue-card');
+const cueEmoji = cueCard.querySelector('.cue-emoji');
+const cueLabel = cueCard.querySelector('.cue-label');
+const countdownEl = document.getElementById('countdown');
+const countNum = countdownEl.querySelector('.count-num');
+const hitPop = document.getElementById('hit-pop');
+const btnDance = document.getElementById('btn-dance');
+const poseCanvas = document.getElementById('pose-canvas');
+const poseCtx = poseCanvas.getContext('2d');
+
+// Dance state
+const Dance = {
+  detector: null,        // MoveNet detector
+  running: false,        // is the dance in progress
+  currentCue: null,      // cue we're checking for
+  cueExpiry: 0,          // when current cue window ends
+  hits: 0,
+  attempts: 0,
+  lastHitAt: 0,          // debounce hits
+  startedAt: 0,
+};
+
+// Cue timeline — when each cue fires (seconds into song) + how to detect
+// Hello-Hello song is ~111s. Intro 0-15s no cues; cues from 16s.
+const TIMELINE = [
+  { at: 16,  emoji: '🙌', label: 'BOTH HANDS UP!',   detect: 'both_hands_up' },
+  { at: 24,  emoji: '👋', label: 'Wave!',            detect: 'right_hand_up' },
+  { at: 32,  emoji: '👏', label: 'CLAP!',            detect: 'clap' },
+  { at: 40,  emoji: '✋', label: 'LEFT HAND UP!',    detect: 'left_hand_up' },
+  { at: 48,  emoji: '🙌', label: 'BOTH UP HIGH!',    detect: 'both_hands_up' },
+  { at: 56,  emoji: '👏', label: 'CLAP CLAP!',       detect: 'clap' },
+  { at: 64,  emoji: '🤲', label: 'HANDS ON HEAD!',   detect: 'hands_on_head' },
+  { at: 72,  emoji: '✋', label: 'RIGHT HAND!',      detect: 'right_hand_up' },
+  { at: 80,  emoji: '🙌', label: 'BOTH HANDS!',      detect: 'both_hands_up' },
+  { at: 88,  emoji: '👏', label: 'BIG CLAP!',        detect: 'clap' },
+  { at: 96,  emoji: '🤸', label: 'JUMP!',            detect: 'both_hands_up' },
+  { at: 104, emoji: '🌟', label: 'AMAZING!',         detect: 'both_hands_up' },
+];
+
+let firedCues = new Set();
+
+// ─── Load MoveNet (lazy, only when dance starts) ───
+async function loadMoveNet() {
+  if (Dance.detector) return Dance.detector;
+  setStatus('loading body tracker...');
+  await tf.setBackend('webgl');
+  await tf.ready();
+  Dance.detector = await poseDetection.createDetector(
+    poseDetection.SupportedModels.MoveNet,
+    { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+  );
+  setStatus('body tracker ready');
+  return Dance.detector;
+}
+
+// ─── Pose detection loop ───
+async function poseLoop() {
+  if (!Dance.running || !Dance.detector) return;
+  try {
+    const poses = await Dance.detector.estimatePoses(webcamVideo, { flipHorizontal: false });
+    if (poses[0]) {
+      const kp = {};
+      poses[0].keypoints.forEach(p => {
+        if (p.score > 0.3) kp[p.name] = p;
+      });
+      // Note: camera is mirrored, MoveNet's left = user's right
+      // We swap in detection logic
+      checkCue(kp);
+      drawSkeleton(kp);
+    }
+  } catch(e) { console.warn('[pose] err:', e); }
+  requestAnimationFrame(poseLoop);
+}
+
+function drawSkeleton(kp) {
+  // Position canvas over webcam
+  const wf = document.getElementById('webcam-frame');
+  const r = wf.getBoundingClientRect();
+  const sr = document.getElementById('stage').getBoundingClientRect();
+  poseCanvas.style.top  = (r.top - sr.top)  + 'px';
+  poseCanvas.style.left = (r.left - sr.left) + 'px';
+  poseCanvas.style.width  = r.width + 'px';
+  poseCanvas.style.height = r.height + 'px';
+  poseCanvas.width  = webcamVideo.videoWidth || 640;
+  poseCanvas.height = webcamVideo.videoHeight || 480;
+  
+  poseCtx.clearRect(0, 0, poseCanvas.width, poseCanvas.height);
+  // Mirror to match the displayed video
+  poseCtx.save();
+  poseCtx.translate(poseCanvas.width, 0);
+  poseCtx.scale(-1, 1);
+  poseCtx.fillStyle = '#ff4d9e';
+  Object.values(kp).forEach(p => {
+    poseCtx.beginPath();
+    poseCtx.arc(p.x, p.y, 5, 0, Math.PI*2);
+    poseCtx.fill();
+  });
+  poseCtx.restore();
+}
+
+// ─── Cue detection ───
+// IMPORTANT: camera is mirrored — MoveNet's left_wrist = user's RIGHT hand
+function checkCue(kp) {
+  if (!Dance.currentCue) return;
+  if (Date.now() > Dance.cueExpiry) {
+    Dance.currentCue = null;
+    hideCue();
+    return;
+  }
+  if (Date.now() - Dance.lastHitAt < 800) return;  // debounce
+  
+  const cue = Dance.currentCue;
+  let hit = false;
+  
+  // Camera-mirrored: kp.left_* = user's right side, kp.right_* = user's left side
+  const userRight = { wrist: kp.left_wrist, shoulder: kp.left_shoulder };
+  const userLeft  = { wrist: kp.right_wrist, shoulder: kp.right_shoulder };
+  
+  switch(cue.detect) {
+    case 'right_hand_up':
+      // Wrist higher than shoulder (lower y = higher in frame)
+      if (userRight.wrist && userRight.shoulder && userRight.wrist.y < userRight.shoulder.y - 30) hit = true;
+      break;
+    case 'left_hand_up':
+      if (userLeft.wrist && userLeft.shoulder && userLeft.wrist.y < userLeft.shoulder.y - 30) hit = true;
+      break;
+    case 'both_hands_up':
+      if (userRight.wrist && userLeft.wrist && userRight.shoulder && userLeft.shoulder
+          && userRight.wrist.y < userRight.shoulder.y - 30
+          && userLeft.wrist.y  < userLeft.shoulder.y  - 30) hit = true;
+      break;
+    case 'clap':
+      // Hands close together + roughly chest height
+      if (userRight.wrist && userLeft.wrist && userRight.shoulder) {
+        const dx = userRight.wrist.x - userLeft.wrist.x;
+        const dy = userRight.wrist.y - userLeft.wrist.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 80 && Math.abs(userRight.wrist.y - userRight.shoulder.y) < 100) hit = true;
+      }
+      break;
+    case 'hands_on_head':
+      if (userRight.wrist && kp.nose && userRight.wrist.y < kp.nose.y) hit = true;
+      break;
+  }
+  
+  if (hit) {
+    Dance.lastHitAt = Date.now();
+    Dance.hits++;
+    Dance.currentCue = null;
+    showHit();
+    hideCue();
+    
+    // Tell Nova about the hit so she reacts (4-6 word reaction)
+    sendChatToNova(`I just did the ${cue.label.toLowerCase()} move! React in 4 words.`);
+  }
+}
+
+function showCue(cue) {
+  Dance.currentCue = cue;
+  Dance.cueExpiry = Date.now() + 4000;  // 4s window to hit it
+  Dance.attempts++;
+  cueEmoji.textContent = cue.emoji;
+  cueLabel.textContent = cue.label;
+  cueCard.classList.add('show');
+}
+
+function hideCue() {
+  cueCard.classList.remove('show');
+}
+
+function showHit() {
+  const messages = ['NICE!', 'YES!', 'WOW!', 'AMAZING!', 'PERFECT!', '🌟', 'LOOK AT YOU!'];
+  hitPop.textContent = messages[Math.floor(Math.random() * messages.length)];
+  hitPop.classList.add('show');
+  setTimeout(() => hitPop.classList.remove('show'), 800);
+}
+
+// ─── Countdown ───
+async function runCountdown() {
+  countdownEl.classList.add('show');
+  for (const n of ['3', '2', '1', 'GO!']) {
+    countNum.textContent = n;
+    countNum.style.animation = 'none';
+    countNum.offsetHeight;  // reflow to restart animation
+    countNum.style.animation = '';
+    await new Promise(r => setTimeout(r, 800));
+  }
+  countdownEl.classList.remove('show');
+}
+
+// ─── Start the dance ───
+async function startDance() {
+  if (Dance.running) return;
+  
+  btnDance.classList.remove('ready');
+  btnDance.style.display = 'none';
+  
+  // Tell Nova we're about to dance
+  sendChatToNova('Get ready — we are about to dance to Hello Hello! Hype me up in 1 short sentence!');
+  
+  // Lazy-load MoveNet while we wait
+  await loadMoveNet();
+  
+  // Switch to lesson layout (kid big, dance video center, Nova small)
+  setPhase('lesson');
+  
+  // Load dance video src + start playing (muted, just visuals)
+  if (!danceVideoEl.src) {
+    danceVideoEl.src = danceVideoEl.getAttribute('data-src');
+  }
+  danceVideoEl.muted = true;
+  danceVideoEl.loop = false;
+  
+  // 3-2-1 GO
+  await runCountdown();
+  
+  // GO! Start music + dance video + cue timeline + pose loop
+  Dance.running = true;
+  Dance.startedAt = Date.now();
+  Dance.hits = 0;
+  Dance.attempts = 0;
+  firedCues.clear();
+  
+  danceVideoEl.currentTime = 0;
+  danceVideoEl.play().catch(e => console.warn('[dance] video play:', e));
+  
+  danceMusic.currentTime = 0;
+  danceMusic.volume = 0.7;
+  danceMusic.play().catch(e => console.warn('[music] play:', e));
+  
+  poseLoop();
+  
+  // Cue scheduler — check every 250ms whether to fire next cue
+  const scheduler = setInterval(() => {
+    if (!Dance.running) { clearInterval(scheduler); return; }
+    const elapsed = (Date.now() - Dance.startedAt) / 1000;
+    
+    TIMELINE.forEach((cue, idx) => {
+      if (firedCues.has(idx)) return;
+      if (elapsed >= cue.at) {
+        firedCues.add(idx);
+        showCue(cue);
+      }
+    });
+    
+    // End of song
+    if (elapsed > 112) {
+      clearInterval(scheduler);
+      endDance();
+    }
+  }, 250);
+  
+  setStatus('dance started');
+}
+
+async function endDance() {
+  Dance.running = false;
+  danceMusic.pause();
+  danceVideoEl.pause();
+  hideCue();
+  poseCtx.clearRect(0, 0, poseCanvas.width, poseCanvas.height);
+  
+  // Switch back to closeup for the celebration moment
+  setPhase('closeup');
+  
+  // Nova celebrates
+  const score = Dance.attempts > 0 ? Math.round((Dance.hits / Dance.attempts) * 100) : 0;
+  sendChatToNova(`We finished! I got ${Dance.hits} out of ${Dance.attempts} moves. Celebrate me in 1 sentence!`);
+  
+  setStatus(`done · ${Dance.hits}/${Dance.attempts} (${score}%)`);
+  
+  // Show dance button again for replay
+  setTimeout(() => {
+    btnDance.classList.add('ready');
+    btnDance.style.display = 'block';
+    btnDance.textContent = '💃 Again?';
+  }, 5000);
+}
+
+// Wire the dance button
+btnDance.addEventListener('click', startDance);
+
+// Show dance button once Nova has spoken at least once (audio track arrived)
+// Hook into the existing track-subscribed handler by checking periodically
+setInterval(() => {
+  if (window.novaRoom && !btnDance.classList.contains('ready') && btnDance.style.display !== 'block') {
+    const hasNovaAudio = document.querySelector('audio[autoplay]');
+    if (hasNovaAudio) {
+      btnDance.classList.add('ready');
+    }
+  }
+}, 1000);
+
+// ════════════════════════════════════════════════════════════════
 // BOOT
 // ════════════════════════════════════════════════════════════════
 console.log('═══════════════════════════════════');
-console.log('Nova v59 EMERALD — real build');
+console.log('Nova v60 RUBY — real build');
 console.log('Phases:  closeup → conversation → lesson');
 console.log('Avatar:  ' + CFG.avatarId);
 console.log('Try:     NovaPhase.lesson()  in console');
