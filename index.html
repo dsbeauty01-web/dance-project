@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Nova v57 GOLD — Real Build</title>
+<title>Nova v58 SAPPHIRE — Real Build</title>
 
 <!-- Fonts: Fredoka (display, friendly geometric) + Quicksand (body, soft sans) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,7 +12,7 @@
 
 <style>
 /* ════════════════════════════════════════════════════════════════
-   v57 GOLD — ground-up rebuild
+   v58 SAPPHIRE — ground-up rebuild
    Aesthetic: deep night sky + aurora + warm pink-rose-gold accents
    Lexi pattern: adaptive avatar sizing per phase
    ════════════════════════════════════════════════════════════════ */
@@ -342,6 +342,45 @@ body::after {
   top: auto; bottom: 60px; right: 200px;
 }
 
+/* ─── talk hint (shows briefly after Nova connects) ─── */
+#talk-hint {
+  position: absolute;
+  bottom: 80px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  padding: 16px 28px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(255, 77, 158, 0.95), rgba(155, 58, 163, 0.95));
+  backdrop-filter: blur(14px);
+  text-align: center;
+  z-index: 90;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 12px 40px rgba(255, 77, 158, 0.4);
+}
+#talk-hint.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+#talk-hint .hint-emoji {
+  font-size: 28px;
+  margin-bottom: 4px;
+  animation: pulse-bigger 1.5s ease-in-out infinite;
+}
+@keyframes pulse-bigger {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+#talk-hint > div:nth-child(2) {
+  font: 700 18px/1.1 'Fredoka', sans-serif;
+  color: #fff;
+  margin-bottom: 4px;
+}
+#talk-hint .hint-sub {
+  font: 500 12px/1 'Quicksand', sans-serif;
+  color: rgba(255,255,255,0.8);
+}
+
 /* ─── connecting overlay (during LiveKit handshake) ─── */
 #connecting {
   position: absolute; inset: 0;
@@ -415,8 +454,8 @@ body::after {
 
 <div class="stars"></div>
 
-<div id="vbanner">⭐ V57 GOLD ⭐ NOVA REAL BUILD ⭐</div>
-<div id="status">v57 · idle · tap the orb</div>
+<div id="vbanner">⭐ V58 SAPPHIRE ⭐ NOVA REAL BUILD ⭐</div>
+<div id="status">v58 · idle · tap the orb</div>
 
 <!-- ════════════════════════════════════════════════════════════════
      STAGE
@@ -460,6 +499,13 @@ body::after {
     <div id="controls">
       <button class="ctrl-btn" id="btn-pause" title="Pause">⏸</button>
       <button class="ctrl-btn" id="btn-exit" title="Exit">✕</button>
+    </div>
+
+    <!-- Talk hint - shown briefly after connection -->
+    <div id="talk-hint">
+      <div class="hint-emoji">🎤</div>
+      <div>Say hi to Nova!</div>
+      <div class="hint-sub">She's listening. Just talk.</div>
     </div>
 
     <!-- Connecting overlay -->
@@ -518,8 +564,8 @@ const statusBar     = document.getElementById('status');
 // HELPERS
 // ════════════════════════════════════════════════════════════════
 function setStatus(msg) {
-  statusBar.textContent = `v57 · ${msg}`;
-  console.log('[v57]', msg);
+  statusBar.textContent = `v58 · ${msg}`;
+  console.log('[v58]', msg);
 }
 
 function setPhase(phase) {
@@ -632,8 +678,19 @@ async function connectNova() {
       if (track.kind === 'audio') {
         const a = document.createElement('audio');
         a.autoplay = true;
+        a.volume = 1.0;
+        a.muted = false;
         track.attach(a);
         document.body.appendChild(a);
+        // Force play (some browsers block autoplay even after user gesture)
+        a.play().catch(err => {
+          console.warn('[audio] autoplay blocked, will retry on click:', err);
+          // Wait for any user click and retry
+          document.body.addEventListener('click', () => {
+            a.play().catch(()=>{});
+          }, { once: true });
+        });
+        console.log('[audio] attached & playing');
       }
     });
 
@@ -655,6 +712,25 @@ async function connectNova() {
     setStatus('connected · publishing mic');
     await room.localParticipant.setMicrophoneEnabled(true);
     setStatus('mic live · waiting for Nova video');
+
+    // Show talk hint after a brief moment so kid knows they can speak
+    setTimeout(() => {
+      const hint = document.getElementById('talk-hint');
+      if (hint) hint.classList.add('show');
+    }, 2500);
+
+    // Try to nudge Nova to speak first (some Runway avatars need a kickoff
+    // when there's no startScript configured in the portal)
+    try {
+      const data = new TextEncoder().encode(JSON.stringify({
+        type: 'user_message',
+        text: 'Say hi! Introduce yourself.',
+      }));
+      await room.localParticipant.publishData(data, { reliable: true });
+      console.log('[nova] kickoff sent');
+    } catch(e) {
+      console.warn('[nova] kickoff failed (non-critical):', e);
+    }
 
     // Store globally so controls can use it
     window.novaRoom = room;
@@ -696,7 +772,7 @@ window.NovaPhase = {
 // BOOT
 // ════════════════════════════════════════════════════════════════
 console.log('═══════════════════════════════════');
-console.log('Nova v57 GOLD — real build');
+console.log('Nova v58 SAPPHIRE — real build');
 console.log('Phases:  closeup → conversation → lesson');
 console.log('Avatar:  ' + CFG.avatarId);
 console.log('Try:     NovaPhase.lesson()  in console');
