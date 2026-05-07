@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nova v54 ROSE — LiveKit</title>
+<title>Nova v55 GOLD — LiveKit</title>
 <!-- ═══════════════════════════════════════════════════════════════
      v52 — RUNWAY CHARACTERS WIDGET TEST
      ═══════════════════════════════════════════════════════════════
@@ -299,7 +299,7 @@
 </head>
 <body>
 
-<div id="version-tag">🌹 V54 🌹 ROSE 🌹 LIVEKIT 🌹</div>
+<div id="version-tag">⭐ V55 ⭐ GOLD ⭐ LIVEKIT FULL ⭐</div>
 
 <div id="stage">
   <!-- LEFT: dance video -->
@@ -344,10 +344,10 @@
 </div>
 
 <!-- status bar -->
-<div id="status-bar">v54 · LiveKit · waiting...</div>
+<div id="status-bar">v55 · LiveKit · waiting...</div>
 
 <!-- ═══════════════════════════════════════════════════════════════
-     v54 — LIVEKIT WEBRTC AVATAR CONNECTION
+     v55 — LIVEKIT WEBRTC AVATAR CONNECTION
      ═══════════════════════════════════════════════════════════════
      How this works:
        1. Page loads → calls our Cloudflare Worker /runway-session
@@ -375,8 +375,8 @@
 
 const status = document.getElementById('status-bar');
 const setStatus = (msg) => {
-  status.textContent = `v54 · ${msg}`;
-  console.log('[v54]', msg);
+  status.textContent = `v55 · ${msg}`;
+  console.log('[v55]', msg);
 };
 
 const startOverlay = document.getElementById('start-overlay');
@@ -448,9 +448,9 @@ startOrb.addEventListener('click', async () => {
 });
 
 // ─── LiveKit connection ───
-// Calls our Cloudflare Worker which creates a Runway session and returns
-// LiveKit credentials. Then we connect with livekit-client and render the
-// avatar's video track inside #nova-frame.
+// Worker now handles full create→poll→consume flow and returns:
+//   { sessionId, serverUrl, token, roomName }
+// We just call connect with serverUrl + token. No JWT decoding needed.
 async function connectNova() {
   try {
     setStatus('asking Worker for Runway session...');
@@ -460,36 +460,24 @@ async function connectNova() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ avatarId: 'music-superstar' })
     });
-    const session = await res.json();
+    const creds = await res.json();
     
-    if (!session.sessionKey) {
-      throw new Error('No sessionKey: ' + JSON.stringify(session));
+    if (!creds.serverUrl || !creds.token) {
+      throw new Error('Worker error at stage "' + (creds.stage||'?') + '": ' + JSON.stringify(creds));
     }
     
-    console.log('[nova] session ready:', session.sessionId);
-    setStatus('session created · decoding LiveKit URL...');
-    
-    // The sessionKey is a JWT. Decode the payload to find the LiveKit server URL.
-    // (LiveKit JWTs include `iss` or `sd` field with the server endpoint.)
-    const livekitUrl = extractLivekitUrl(session.sessionKey);
-    console.log('[nova] LiveKit URL:', livekitUrl);
-    
-    if (!livekitUrl) {
-      throw new Error('Could not extract LiveKit URL from session key');
-    }
-    
-    setStatus('connecting to LiveKit room...');
+    console.log('[nova] credentials received:', creds.sessionId, '@', creds.serverUrl);
+    setStatus('connecting to LiveKit room: ' + creds.roomName);
     
     const room = new LivekitClient.Room({
       adaptiveStream: true,
       dynacast: true,
     });
     
-    // When ANY remote track is subscribed, check if it's the avatar video and attach it
+    // When ANY remote track arrives, attach video to nova-frame, audio to body
     room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
       console.log('[nova] track subscribed:', track.kind, 'from', participant.identity);
       if (track.kind === 'video') {
-        // Replace placeholder with a real video element
         novaPlaceholder.style.display = 'none';
         let video = document.getElementById('nova-video');
         if (!video) {
@@ -511,14 +499,18 @@ async function connectNova() {
       }
     });
     
-    room.on(LivekitClient.RoomEvent.Disconnected, () => {
-      console.log('[nova] disconnected');
+    room.on(LivekitClient.RoomEvent.Disconnected, (reason) => {
+      console.log('[nova] disconnected:', reason);
       setStatus('Nova disconnected');
     });
     
-    await room.connect(livekitUrl, session.sessionKey);
+    room.on(LivekitClient.RoomEvent.ParticipantConnected, (p) => {
+      console.log('[nova] participant joined:', p.identity);
+    });
+    
+    await room.connect(creds.serverUrl, creds.token);
     console.log('[nova] connected to room');
-    setStatus('connected · waiting for Nova\'s video track...');
+    setStatus('connected · waiting for Nova\'s video...');
     
     // Publish our mic so Nova can hear us
     await room.localParticipant.setMicrophoneEnabled(true);
@@ -537,28 +529,10 @@ async function connectNova() {
   }
 }
 
-// Decode the JWT (just the payload — no signature verification needed,
-// we only want to read the LiveKit server URL).
-function extractLivekitUrl(jwt) {
-  try {
-    const payload = JSON.parse(atob(jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-    console.log('[nova] JWT payload:', payload);
-    // LiveKit JWTs may include the URL in `iss`, `sd`, `metadata`, or top-level url field
-    if (payload.url) return payload.url;
-    if (payload.sd) return payload.sd;  // server domain
-    if (payload.iss && payload.iss.startsWith('wss')) return payload.iss;
-    // Fallback: Runway's known LiveKit endpoint pattern
-    return 'wss://realtime.runwayml.com';
-  } catch(e) {
-    console.error('[nova] JWT decode failed:', e);
-    return 'wss://realtime.runwayml.com';
-  }
-}
-
 // ─── boot ───
 setStatus('idle · waiting for orb tap');
 console.log('═══════════════════════════════════════════════');
-console.log('Nova v54 ROSE — LiveKit avatar connection');
+console.log('Nova v55 GOLD — LiveKit avatar connection');
 console.log('Architecture: Worker creates session → LiveKit WebRTC → video track in #nova-frame');
 console.log('═══════════════════════════════════════════════');
 </script>
