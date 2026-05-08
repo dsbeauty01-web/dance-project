@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Nova v62 OPAL — Real Build</title>
+<title>Nova v64 PEARL — Real Build</title>
 
 <!-- Fonts: Fredoka (display, friendly geometric) + Quicksand (body, soft sans) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,7 +12,7 @@
 
 <style>
 /* ════════════════════════════════════════════════════════════════
-   v62 OPAL — ground-up rebuild
+   v64 PEARL — ground-up rebuild
    Aesthetic: deep night sky + aurora + warm pink-rose-gold accents
    Lexi pattern: adaptive avatar sizing per phase
    ════════════════════════════════════════════════════════════════ */
@@ -216,51 +216,52 @@ body::after {
 }
 .phase-closeup #dance-frame { display: none; }
 
-/* ─── PHASE: lesson (during song) — MP4 dominates, Nova small bubble, kid 35% left ─── */
-.phase-lesson #nova-frame {
-  /* Small bubble top-right corner — she watches & reacts */
-  top: 16px;
-  right: 16px;
-  width: 140px;
-  height: 140px;
-  border-radius: 50%;
-  transform: none;
-  left: auto;
-  z-index: 60;
-}
-.phase-lesson #webcam-frame {
-  /* Kid panel left, ~35% width */
-  top: 16px;
-  left: 16px;
-  width: 32%;
-  height: calc(100% - 32px);
-  border-radius: 24px;
-  transform: none;
-  right: auto; bottom: auto;
-}
-.phase-lesson #webcam-frame video {
-  border-radius: 0;
-}
+/* ─── PHASE: lesson (during song) — MP4 LEFT 60%, kid RIGHT 35%, Nova orb middle ─── */
 .phase-lesson #dance-frame {
-  /* MP4 dominates center — 60% of screen */
+  /* MP4 LEFT, 60% of screen */
   display: block;
   top: 16px;
-  left: calc(32% + 32px);
-  right: 172px;  /* leave room for Nova bubble */
-  bottom: 16px;
-  width: auto;
-  height: auto;
-  transform: none;
+  left: 16px;
+  width: 60%;
+  height: calc(100% - 32px);
   border-radius: 24px;
   background: #000;
+  transform: none;
+  right: auto; bottom: auto;
 }
 .phase-lesson #dance-frame video {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-
-/* In lesson mode, state badge under Nova bubble */
+.phase-lesson #webcam-frame {
+  /* Kid RIGHT, ~35% of screen */
+  top: 16px;
+  right: 16px;
+  width: calc(35% - 32px);
+  height: calc(100% - 32px);
+  border-radius: 24px;
+  transform: none;
+  left: auto; bottom: auto;
+}
+.phase-lesson #webcam-frame video {
+  border-radius: 0;
+}
+.phase-lesson #nova-frame {
+  /* Nova orb floats in the MIDDLE between MP4 and webcam */
+  position: absolute;
+  top: 50%;
+  left: 60%;
+  transform: translate(-50%, -50%);
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  z-index: 60;
+  border: 3px solid rgba(255, 77, 158, 0.6);
+  box-shadow: 0 0 40px rgba(255, 77, 158, 0.5),
+              0 12px 32px rgba(0, 0, 0, 0.6);
+  right: auto; bottom: auto;
+}
 .phase-lesson #state-badge {
   bottom: 6px;
   font-size: 10px;
@@ -419,13 +420,54 @@ body::after {
   background: rgba(255,255,255,0.08);
   color: #fbbf24;
   font-size: 20px;
+  display: none;  /* hidden by default; only shown if autoplay fails */
 }
+body.audio-needs-unmute #audio-unmute { display: flex; }
 #audio-unmute.active {
   background: linear-gradient(135deg, #22c55e, #16a34a);
   color: #fff;
 }
 #audio-unmute:hover, #chat-send:hover { transform: scale(1.08); }
 #chat-send:active { transform: scale(0.95); }
+
+/* ─── score badge (only during dance) ─── */
+#score-badge {
+  position: absolute;
+  top: 28px;
+  left: 28px;
+  z-index: 70;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 16px;
+  background: rgba(10, 5, 23, 0.7);
+  backdrop-filter: blur(12px);
+  border: 2px solid rgba(251, 191, 36, 0.5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  min-width: 60px;
+}
+.phase-lesson #score-badge { display: flex; }
+#score-badge .score-num {
+  font: 800 28px/1 'Fredoka', sans-serif;
+  background: linear-gradient(135deg, #fbbf24, #ff4d9e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+#score-badge .score-label {
+  font: 600 9px/1 'Quicksand', sans-serif;
+  color: rgba(255, 214, 245, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+#score-badge.bump {
+  animation: score-bump 0.4s ease-out;
+}
+@keyframes score-bump {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.18); }
+}
 
 /* ─── pose detection canvas (over webcam) ─── */
 #pose-canvas {
@@ -450,10 +492,10 @@ body::after {
   transform: translate(-50%, -50%) scale(1);
   opacity: 1;
 }
-/* In lesson mode, center cue card over the MP4 (which is right of webcam) */
+/* In lesson mode, center cue card over the MP4 (which is LEFT 60%) */
 .phase-lesson #cue-card {
   top: 30%;
-  left: calc(32% + 32px + ((100% - 32% - 32px - 172px) / 2));
+  left: 30%;  /* middle of MP4's 60% */
 }
 .phase-lesson #cue-card.show {
   transform: translate(-50%, -50%) scale(1);
@@ -678,8 +720,8 @@ body::after {
 
 <div class="stars"></div>
 
-<div id="vbanner">🎵 V62 OPAL ⭐ TIMING + MP4 FIX 🎵</div>
-<div id="status">v62 · idle · tap the orb</div>
+<div id="vbanner">⚪ V64 PEARL ⭐ MIC AUTO ⭐ END FIX ⚪</div>
+<div id="status">v64 · idle · tap the orb</div>
 
 <!-- ════════════════════════════════════════════════════════════════
      STAGE
@@ -716,14 +758,12 @@ body::after {
     <!-- Dance MP4 — Nova dancing the choreography (no audio) -->
     <div id="dance-frame">
       <video id="dance-video"
-             data-src="https://raw.githubusercontent.com/dsbeauty01-web/dance-project/main/nova-dance.mp4"
+             data-src="nova-dance.mp4"
              playsinline muted></video>
     </div>
 
-    <!-- Music for the dance phase (Hello-Hello song) -->
-    <audio id="dance-music"
-           src="https://raw.githubusercontent.com/dsbeauty01-web/dance-project/main/shit.mp3"
-           preload="none"></audio>
+    <!-- Music for the dance phase (Hello-Hello song) - src set on Dance tap only -->
+    <audio id="dance-music" preload="none"></audio>
 
     <!-- Pose detection overlay (canvas drawn over webcam) -->
     <canvas id="pose-canvas"></canvas>
@@ -747,6 +787,12 @@ body::after {
 
     <!-- Hit feedback (flash + score) -->
     <div id="hit-pop"></div>
+
+    <!-- Score badge (visible during dance) -->
+    <div id="score-badge">
+      <div class="score-num">0</div>
+      <div class="score-label">hits</div>
+    </div>
 
     <!-- Always-on controls -->
     <div id="controls">
@@ -822,8 +868,8 @@ const statusBar     = document.getElementById('status');
 // HELPERS
 // ════════════════════════════════════════════════════════════════
 function setStatus(msg) {
-  statusBar.textContent = `v62 · ${msg}`;
-  console.log('[v62]', msg);
+  statusBar.textContent = `v64 · ${msg}`;
+  console.log('[v64]', msg);
 }
 
 function setPhase(phase) {
@@ -940,15 +986,26 @@ async function connectNova() {
         a.muted = false;
         track.attach(a);
         document.body.appendChild(a);
-        // Force play (some browsers block autoplay even after user gesture)
-        a.play().catch(err => {
-          console.warn('[audio] autoplay blocked, will retry on click:', err);
-          // Wait for any user click and retry
+        // Force play immediately. The orb tap counted as user gesture so this should work.
+        a.play().then(() => {
+          // Audio confirmed playing → hide the manual unmute button
+          const btn = document.getElementById('audio-unmute');
+          if (btn) {
+            btn.style.opacity = '0.4';
+            btn.classList.add('active');
+            btn.title = 'Audio on';
+          }
+          console.log('[audio] playing');
+        }).catch(err => {
+          console.warn('[audio] autoplay blocked, showing manual button:', err);
+          document.body.classList.add('audio-needs-unmute');
+          // Also retry on any next click
           document.body.addEventListener('click', () => {
-            a.play().catch(()=>{});
+            a.play().then(() => {
+              document.body.classList.remove('audio-needs-unmute');
+            }).catch(()=>{});
           }, { once: true });
         });
-        console.log('[audio] attached & playing');
       }
     });
 
@@ -1193,21 +1250,23 @@ const Dance = {
 const PREP_MS = 2000;
 const FIRE_MS = 2000;
 
-// Cue timeline — `at` = when the FIRE window starts (kid should do the action)
-// PREP starts 2s before (showing the ring filling)
+// Cue timeline — Hello Hello is ~111s. Intro 0-15s no cues; cues from 16s.
+// Spacing ~6s gives ~14 cues over 90s. Mix of difficulties so kid stays engaged.
 const TIMELINE = [
-  { at: 16,  emoji: '🙌', label: 'BOTH HANDS UP!', detect: 'both_hands_up' },
-  { at: 24,  emoji: '👋', label: 'WAVE!',          detect: 'right_hand_up' },
-  { at: 32,  emoji: '👏', label: 'CLAP!',          detect: 'clap' },
-  { at: 40,  emoji: '✋', label: 'LEFT HAND UP!',  detect: 'left_hand_up' },
-  { at: 48,  emoji: '🙌', label: 'BOTH UP HIGH!',  detect: 'both_hands_up' },
-  { at: 56,  emoji: '👏', label: 'CLAP CLAP!',     detect: 'clap' },
-  { at: 64,  emoji: '🤲', label: 'HANDS ON HEAD!', detect: 'hands_on_head' },
-  { at: 72,  emoji: '✋', label: 'RIGHT HAND!',    detect: 'right_hand_up' },
-  { at: 80,  emoji: '🙌', label: 'BOTH HANDS!',    detect: 'both_hands_up' },
-  { at: 88,  emoji: '👏', label: 'BIG CLAP!',      detect: 'clap' },
-  { at: 96,  emoji: '🤸', label: 'JUMP!',          detect: 'both_hands_up' },
-  { at: 104, emoji: '🌟', label: 'AMAZING!',       detect: 'both_hands_up' },
+  { at: 16,  emoji: '👋', label: 'WAVE!',          detect: 'right_hand_up' },
+  { at: 22,  emoji: '🙌', label: 'BOTH HANDS UP!', detect: 'both_hands_up' },
+  { at: 28,  emoji: '👏', label: 'CLAP!',          detect: 'clap' },
+  { at: 34,  emoji: '✋', label: 'LEFT HAND UP!',  detect: 'left_hand_up' },
+  { at: 42,  emoji: '🙌', label: 'BOTH HIGH!',     detect: 'both_hands_up' },
+  { at: 48,  emoji: '🤲', label: 'HANDS ON HEAD!', detect: 'hands_on_head' },
+  { at: 54,  emoji: '👏', label: 'CLAP CLAP!',     detect: 'clap' },
+  { at: 60,  emoji: '✋', label: 'RIGHT HAND!',    detect: 'right_hand_up' },
+  { at: 68,  emoji: '🙌', label: 'BOTH HANDS!',    detect: 'both_hands_up' },
+  { at: 74,  emoji: '👏', label: 'BIG CLAP!',      detect: 'clap' },
+  { at: 80,  emoji: '✋', label: 'LEFT UP!',       detect: 'left_hand_up' },
+  { at: 86,  emoji: '🤸', label: 'JUMP!',          detect: 'both_hands_up' },
+  { at: 92,  emoji: '👏', label: 'CLAP IT!',       detect: 'clap' },
+  { at: 100, emoji: '🌟', label: 'AMAZING!',       detect: 'both_hands_up' },
 ];
 
 let firedCues = new Set();
@@ -1303,28 +1362,30 @@ function checkCue(kp) {
   
   switch(cue.detect) {
     case 'right_hand_up':
-      // Wrist higher than shoulder (lower y = higher in frame)
-      if (userRight.wrist && userRight.shoulder && userRight.wrist.y < userRight.shoulder.y - 30) hit = true;
+      // Wrist above shoulder by any amount (lower y = higher in frame)
+      if (userRight.wrist && userRight.shoulder && userRight.wrist.y < userRight.shoulder.y - 10) hit = true;
       break;
     case 'left_hand_up':
-      if (userLeft.wrist && userLeft.shoulder && userLeft.wrist.y < userLeft.shoulder.y - 30) hit = true;
+      if (userLeft.wrist && userLeft.shoulder && userLeft.wrist.y < userLeft.shoulder.y - 10) hit = true;
       break;
     case 'both_hands_up':
       if (userRight.wrist && userLeft.wrist && userRight.shoulder && userLeft.shoulder
-          && userRight.wrist.y < userRight.shoulder.y - 30
-          && userLeft.wrist.y  < userLeft.shoulder.y  - 30) hit = true;
+          && userRight.wrist.y < userRight.shoulder.y - 10
+          && userLeft.wrist.y  < userLeft.shoulder.y  - 10) hit = true;
       break;
     case 'clap':
-      // Hands close together + roughly chest height
-      if (userRight.wrist && userLeft.wrist && userRight.shoulder) {
-        const dx = userRight.wrist.x - userLeft.wrist.x;
-        const dy = userRight.wrist.y - userLeft.wrist.y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist < 80 && Math.abs(userRight.wrist.y - userRight.shoulder.y) < 100) hit = true;
+      // Hands close together horizontally + roughly chest height
+      if (userRight.wrist && userLeft.wrist) {
+        const dx = Math.abs(userRight.wrist.x - userLeft.wrist.x);
+        if (dx < 100) hit = true;  // simpler: just close together
       }
       break;
     case 'hands_on_head':
-      if (userRight.wrist && kp.nose && userRight.wrist.y < kp.nose.y) hit = true;
+      // Either wrist above the nose
+      if (kp.nose) {
+        if ((userRight.wrist && userRight.wrist.y < kp.nose.y) ||
+            (userLeft.wrist  && userLeft.wrist.y  < kp.nose.y)) hit = true;
+      }
       break;
   }
   
@@ -1340,6 +1401,13 @@ function checkCue(kp) {
       Memory.session.maxStreak = Memory.session.currentStreak;
     }
     Memory.session.moveHits[cue.detect] = (Memory.session.moveHits[cue.detect] || 0) + 1;
+    
+    // Update score badge with bump animation
+    const scoreBadge = document.getElementById('score-badge');
+    scoreBadge.querySelector('.score-num').textContent = Memory.session.hits;
+    scoreBadge.classList.remove('bump');
+    void scoreBadge.offsetWidth;  // force reflow to restart animation
+    scoreBadge.classList.add('bump');
     
     showHit();
     hideCue();
@@ -1414,6 +1482,7 @@ async function startDance() {
   
   // Reset session memory for this dance
   Memory.reset();
+  document.getElementById('score-badge').querySelector('.score-num').textContent = '0';
   
   // 1. Nova hypes the kid up — give her ~3 sec to finish before we switch screens
   askBrain('dance_start');
@@ -1449,8 +1518,14 @@ async function startDance() {
   firedCues.clear();
   
   // ⚠ MUSIC ONLY STARTS HERE
+  if (!danceMusic.src) danceMusic.src = 'hello.mp3';
   danceMusic.currentTime = 0;
   danceMusic.volume = 0.65;
+  
+  // Safety net: when music actually ends, end dance
+  danceMusic.onended = () => {
+    if (Dance.running) endDance();
+  };
   
   // Start both together
   Promise.all([
@@ -1487,8 +1562,8 @@ async function startDance() {
       askBrain('mid_song');
     }
     
-    // End of song
-    if (elapsed > 112) {
+    // End of song — last cue fires at 92s, give 5s for outro celebration
+    if (elapsed > 97) {
       clearInterval(scheduler);
       endDance();
     }
@@ -1564,7 +1639,7 @@ setInterval(() => {
 // BOOT
 // ════════════════════════════════════════════════════════════════
 console.log('═══════════════════════════════════');
-console.log('Nova v62 OPAL — real build');
+console.log('Nova v64 PEARL — real build');
 console.log('Phases:  closeup → conversation → lesson');
 console.log('Avatar:  ' + CFG.avatarId);
 console.log('Try:     NovaPhase.lesson()  in console');
