@@ -845,6 +845,8 @@ async function connectNova() {
         connecting.classList.remove('show');
         setStatus('Nova is here!');
         setState('talking');
+        // Show Dance button — kid can dance even before giving name
+        setTimeout(() => btnDance.classList.add('ready'), 500);
       }
       if (track.kind === 'audio') {
         const a = document.createElement('audio');
