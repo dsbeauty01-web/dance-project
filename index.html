@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Nova v65 IVORY — Real Build</title>
+<title>Nova v66 ONYX — Real Build</title>
 
 <!-- Fonts: Fredoka (display, friendly geometric) + Quicksand (body, soft sans) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,7 +12,7 @@
 
 <style>
 /* ════════════════════════════════════════════════════════════════
-   v65 IVORY — ground-up rebuild
+   v66 ONYX — ground-up rebuild
    Aesthetic: deep night sky + aurora + warm pink-rose-gold accents
    Lexi pattern: adaptive avatar sizing per phase
    ════════════════════════════════════════════════════════════════ */
@@ -492,16 +492,32 @@ body.audio-needs-unmute #audio-unmute { display: flex; }
   transform: translate(-50%, -50%) scale(1);
   opacity: 1;
 }
-/* In lesson mode, center cue card over the MP4 (which is LEFT 60%) */
+/* In lesson mode, cue card floats at top of the kid panel (right 35%)
+   Positioned high so it doesn't hide the kid's body */
 .phase-lesson #cue-card {
-  top: 30%;
-  left: 30%;  /* middle of MP4's 60% */
+  top: 25%;
+  /* Center horizontally over the kid panel which is right 35% */
+  left: calc(100% - (35% / 2) - 16px);
 }
 .phase-lesson #cue-card.show {
-  transform: translate(-50%, -50%) scale(1);
+  transform: translate(-50%, -50%) scale(0.85);
 }
 .phase-lesson #cue-card.firing {
-  transform: translate(-50%, -50%) scale(1.15);
+  transform: translate(-50%, -50%) scale(1);
+}
+.phase-lesson .cue-ring {
+  /* Smaller in lesson mode so it doesn't dominate */
+  width: 130px; height: 130px;
+}
+.phase-lesson .cue-ring svg {
+  width: 130px; height: 130px;
+}
+.phase-lesson .cue-emoji-big {
+  font-size: 56px;
+}
+.phase-lesson .cue-label {
+  font-size: 16px;
+  margin-top: 8px;
 }
 
 /* PREP state — emoji with countdown ring */
@@ -720,8 +736,8 @@ body.audio-needs-unmute #audio-unmute { display: flex; }
 
 <div class="stars"></div>
 
-<div id="vbanner">🎬 V65 IVORY ⭐ MP4 BUG FIXED ⭐ 🎬</div>
-<div id="status">v65 · idle · tap the orb</div>
+<div id="vbanner">⚫ V66 ONYX ⭐ INTRO + DANCE FIX ⚫</div>
+<div id="status">v66 · idle · tap the orb</div>
 
 <!-- ════════════════════════════════════════════════════════════════
      STAGE
@@ -877,8 +893,8 @@ const statusBar     = document.getElementById('status');
 // HELPERS
 // ════════════════════════════════════════════════════════════════
 function setStatus(msg) {
-  statusBar.textContent = `v65 · ${msg}`;
-  console.log('[v65]', msg);
+  statusBar.textContent = `v66 · ${msg}`;
+  console.log('[v66]', msg);
 }
 
 function setPhase(phase) {
@@ -1118,6 +1134,7 @@ async function askBrain(event, context = {}, userMessage = '') {
   try {
     const fullMem = {
       ...novaMem,
+      phase: stage.className.replace('phase-', ''),  // closeup | conversation | lesson
       hits: Memory.session.hits,
       attempts: Memory.session.attempts,
       maxStreak: Math.max(novaMem.maxStreak || 0, Memory.session.maxStreak),
@@ -1493,20 +1510,16 @@ async function startDance() {
   Memory.reset();
   document.getElementById('score-badge').querySelector('.score-num').textContent = '0';
   
-  // 1. Nova hypes the kid up — give her ~3 sec to finish before we switch screens
-  askBrain('dance_start');
-  await new Promise(r => setTimeout(r, 3000));
-  
-  // 2. Lazy-load MoveNet (probably done quickly since stuff is cached)
+  // 1. Lazy-load MoveNet
   await loadMoveNet();
   
-  // 3. Switch to lesson layout (MP4 60% center, Nova bubble, kid 35% left)
+  // 2. Switch to lesson layout
   setPhase('lesson');
   
-  // 4. MP4 src is already set, just rewind to start
+  // 3. MP4 src is already set, rewind to start
   danceVideo.currentTime = 0;
   
-  // 5. Visual 3-2-1 countdown
+  // 4. Visual 3-2-1 countdown — no Nova talking, just numbers
   await runCountdown();
   
   // 6. GO! Start music + MP4 together at exactly the same moment
@@ -1648,7 +1661,7 @@ setInterval(() => {
 // BOOT
 // ════════════════════════════════════════════════════════════════
 console.log('═══════════════════════════════════');
-console.log('Nova v65 IVORY — real build');
+console.log('Nova v66 ONYX — real build');
 console.log('Phases:  closeup → conversation → lesson');
 console.log('Avatar:  ' + CFG.avatarId);
 console.log('Try:     NovaPhase.lesson()  in console');
