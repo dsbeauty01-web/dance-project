@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Nova v66 ONYX — Real Build</title>
+<title>Nova v68 JADE — Real Build</title>
 
 <!-- Fonts: Fredoka (display, friendly geometric) + Quicksand (body, soft sans) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,7 +12,7 @@
 
 <style>
 /* ════════════════════════════════════════════════════════════════
-   v66 ONYX — ground-up rebuild
+   v68 JADE — ground-up rebuild
    Aesthetic: deep night sky + aurora + warm pink-rose-gold accents
    Lexi pattern: adaptive avatar sizing per phase
    ════════════════════════════════════════════════════════════════ */
@@ -247,25 +247,37 @@ body::after {
 .phase-lesson #webcam-frame video {
   border-radius: 0;
 }
+
+/* Detection window OPEN — kid webcam gets a light green pulse so they know "act now" */
+.phase-lesson #webcam-frame.detecting {
+  border-color: rgba(34, 197, 94, 0.85);
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.5),
+              0 0 40px rgba(34, 197, 94, 0.4),
+              inset 0 0 30px rgba(34, 197, 94, 0.15);
+  animation: detect-pulse 0.8s ease-in-out infinite alternate;
+}
+@keyframes detect-pulse {
+  to { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.7),
+                   0 0 60px rgba(34, 197, 94, 0.6),
+                   inset 0 0 40px rgba(34, 197, 94, 0.25); }
+}
 .phase-lesson #nova-frame {
-  /* Nova orb floats in the MIDDLE between MP4 and webcam */
+  /* Nova talking head — tiny corner bubble, unobtrusive */
   position: absolute;
-  top: 50%;
-  left: 60%;
-  transform: translate(-50%, -50%);
-  width: 130px;
-  height: 130px;
+  top: 28px;
+  right: 28px;
+  width: 90px;
+  height: 90px;
   border-radius: 50%;
   z-index: 60;
-  border: 3px solid rgba(255, 77, 158, 0.6);
-  box-shadow: 0 0 40px rgba(255, 77, 158, 0.5),
-              0 12px 32px rgba(0, 0, 0, 0.6);
-  right: auto; bottom: auto;
+  border: 2px solid rgba(255, 77, 158, 0.6);
+  box-shadow: 0 0 24px rgba(255, 77, 158, 0.4),
+              0 6px 18px rgba(0, 0, 0, 0.6);
+  transform: none;
+  left: auto; bottom: auto;
 }
 .phase-lesson #state-badge {
-  bottom: 6px;
-  font-size: 10px;
-  padding: 5px 12px;
+  display: none;  /* too cluttered with tiny Nova bubble */
 }
 
 /* ─── PHASE: conversation (countdown) — both medium side-by-side ─── */
@@ -429,6 +441,61 @@ body.audio-needs-unmute #audio-unmute { display: flex; }
 }
 #audio-unmute:hover, #chat-send:hover { transform: scale(1.08); }
 #chat-send:active { transform: scale(0.95); }
+
+/* ─── end screen overlay ─── */
+#end-screen {
+  position: absolute;
+  top: 16%;
+  left: 50%;
+  transform: translateX(-50%) scale(0);
+  z-index: 90;
+  pointer-events: none;
+  text-align: center;
+  opacity: 0;
+  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+#end-screen.show {
+  transform: translateX(-50%) scale(1);
+  opacity: 1;
+}
+.end-stars {
+  font-size: 56px;
+  margin-bottom: 8px;
+  animation: star-bounce 1s ease-in-out infinite alternate;
+}
+@keyframes star-bounce {
+  to { transform: translateY(-8px); }
+}
+.end-title {
+  font: 900 36px/1 'Fredoka', sans-serif;
+  background: linear-gradient(135deg, #fbbf24, #ff4d9e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 1px;
+  margin-bottom: 16px;
+}
+.end-score {
+  font: 800 64px/1 'Fredoka', sans-serif;
+  color: #fff;
+  text-shadow: 0 0 30px rgba(255, 77, 158, 0.6);
+}
+.end-of {
+  color: rgba(255, 214, 245, 0.5);
+  margin: 0 6px;
+}
+.end-label {
+  font: 600 12px 'Quicksand', sans-serif;
+  color: rgba(255, 214, 245, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-top: 4px;
+}
+.end-streak {
+  margin-top: 12px;
+  font: 700 16px 'Fredoka', sans-serif;
+  color: #fbbf24;
+}
+.end-streak:empty { display: none; }
 
 /* ─── score badge (only during dance) ─── */
 #score-badge {
@@ -597,28 +664,28 @@ body.audio-needs-unmute #audio-unmute { display: flex; }
   to { transform: translateX(2px); }
 }
 
-/* ─── countdown overlay ─── */
+/* ─── countdown — subtle, no blur, just floating number ─── */
 #countdown {
   position: absolute;
-  inset: 0;
-  display: none;
-  align-items: center;
-  justify-content: center;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
   z-index: 200;
-  background: rgba(10, 5, 23, 0.55);
-  backdrop-filter: blur(8px);
+  display: none;
+  pointer-events: none;
 }
-#countdown.show { display: flex; }
+#countdown.show { display: block; }
 #countdown .count-num {
-  font: 700 clamp(140px, 25vmin, 280px) / 1 'Fredoka', sans-serif;
+  font: 800 clamp(120px, 22vmin, 220px) / 1 'Fredoka', sans-serif;
   background: linear-gradient(135deg, #ffd6f5, #ff4d9e, #fbbf24);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 40px rgba(255, 77, 158, 0.6));
-  animation: count-pop 1s ease-out;
+  filter: drop-shadow(0 0 30px rgba(255, 77, 158, 0.9))
+          drop-shadow(0 0 60px rgba(155, 58, 163, 0.5));
+  animation: count-pop 0.8s ease-out;
+  text-align: center;
 }
 @keyframes count-pop {
-  0%   { transform: scale(0.3); opacity: 0; }
-  50%  { transform: scale(1.2); opacity: 1; }
+  0%   { transform: scale(0.4); opacity: 0; }
+  40%  { transform: scale(1.15); opacity: 1; }
   100% { transform: scale(1);   opacity: 1; }
 }
 
@@ -736,8 +803,8 @@ body.audio-needs-unmute #audio-unmute { display: flex; }
 
 <div class="stars"></div>
 
-<div id="vbanner">⚫ V66 ONYX ⭐ INTRO + DANCE FIX ⚫</div>
-<div id="status">v66 · idle · tap the orb</div>
+<div id="vbanner">🟢 V68 JADE ⭐ FULL FLOW 🟢</div>
+<div id="status">v68 · idle · tap the orb</div>
 
 <!-- ════════════════════════════════════════════════════════════════
      STAGE
@@ -778,8 +845,8 @@ body.audio-needs-unmute #audio-unmute { display: flex; }
              playsinline muted preload="auto"></video>
     </div>
 
-    <!-- Music for the dance phase (Hello-Hello song) - src set on Dance tap only -->
-    <audio id="dance-music" preload="none"></audio>
+    <!-- Music for the dance phase. preload=metadata so browser only fetches dimensions/length, not the full file, until we play() -->
+    <audio id="dance-music" src="hello.mp3" preload="metadata"></audio>
 
     <!-- Pose detection overlay (canvas drawn over webcam) -->
     <canvas id="pose-canvas"></canvas>
@@ -803,6 +870,19 @@ body.audio-needs-unmute #audio-unmute { display: flex; }
 
     <!-- Hit feedback (flash + score) -->
     <div id="hit-pop"></div>
+
+    <!-- End screen overlay — shows score after dance -->
+    <div id="end-screen">
+      <div class="end-stars">⭐⭐⭐</div>
+      <div class="end-title">YOU DID IT!</div>
+      <div class="end-score">
+        <span class="end-num" id="end-hits">0</span>
+        <span class="end-of">/</span>
+        <span class="end-num" id="end-total">0</span>
+      </div>
+      <div class="end-label">moves</div>
+      <div class="end-streak" id="end-streak"></div>
+    </div>
 
     <!-- Score badge (visible during dance) -->
     <div id="score-badge">
@@ -893,8 +973,8 @@ const statusBar     = document.getElementById('status');
 // HELPERS
 // ════════════════════════════════════════════════════════════════
 function setStatus(msg) {
-  statusBar.textContent = `v66 · ${msg}`;
-  console.log('[v66]', msg);
+  statusBar.textContent = `v68 · ${msg}`;
+  console.log('[v68]', msg);
 }
 
 function setPhase(phase) {
@@ -936,13 +1016,19 @@ orb.addEventListener('click', startNova);
 async function startNova() {
   setStatus('asking for camera + mic...');
   
-  // 1. Get camera + mic
+  // 1. Get camera + mic — force fresh request every session
   try {
+    // Stop any existing tracks first (in case kid replays)
+    if (webcamVideo.srcObject) {
+      webcamVideo.srcObject.getTracks().forEach(t => t.stop());
+      webcamVideo.srcObject = null;
+    }
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: 640, height: 480 },
-      audio: true,
+      video: { width: 640, height: 480, facingMode: 'user' },
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     });
     webcamVideo.srcObject = stream;
+    setStatus('camera + mic ON');
   } catch(e) {
     showError('Please allow camera and microphone, then refresh.');
     return;
@@ -1248,6 +1334,15 @@ window.NovaPhase = {
 // DANCE FLOW — song, cues, MoveNet (no dance video — Nova IS the teacher)
 // ════════════════════════════════════════════════════════════════
 const danceMusic = document.getElementById('dance-music');
+// Surface music failures
+danceMusic.addEventListener('error', (e) => {
+  const err = danceMusic.error;
+  console.error('[music ERROR]', err?.code, err?.message);
+  setStatus(`❌ music error code ${err?.code}`);
+});
+danceMusic.addEventListener('canplay', () => {
+  console.log('[music] ready to play, duration:', danceMusic.duration);
+});
 const cueCard = document.getElementById('cue-card');
 const cueEmoji = cueCard.querySelector('.cue-emoji-big');
 const cueLabel = cueCard.querySelector('.cue-label');
@@ -1367,8 +1462,8 @@ function checkCue(kp) {
     Memory.session.currentStreak = 0;
     Memory.session.consecutiveMisses++;
     
-    // Only react after the 3rd consecutive miss (silence first 2 — kindness)
-    if (Memory.session.consecutiveMisses === 3 && cue) {
+    // Gentle encouragement on every miss — but only every 2nd to avoid spam
+    if (Memory.session.consecutiveMisses % 2 === 1 && cue) {
       askBrain('miss', {
         move: cue.label,
         consecutiveMisses: Memory.session.consecutiveMisses,
@@ -1471,10 +1566,13 @@ function fireCue() {
   Dance.cueDeadline = Date.now() + FIRE_MS;
   cueLabel.textContent = Dance.currentCue.label;
   cueCard.classList.add('firing');
+  // Light green tint on kid webcam — "now's your time to act"
+  document.getElementById('webcam-frame').classList.add('detecting');
 }
 
 function hideCue() {
   cueCard.classList.remove('show', 'firing');
+  document.getElementById('webcam-frame').classList.remove('detecting');
   Dance.currentCue = null;
   Dance.cueState = 'idle';
 }
@@ -1506,6 +1604,9 @@ async function startDance() {
   btnDance.classList.remove('ready');
   btnDance.style.display = 'none';
   
+  // Hide end screen if showing from previous dance
+  document.getElementById('end-screen').classList.remove('show');
+  
   // Reset session memory for this dance
   Memory.reset();
   document.getElementById('score-badge').querySelector('.score-num').textContent = '0';
@@ -1522,15 +1623,13 @@ async function startDance() {
   // 4. Visual 3-2-1 countdown — no Nova talking, just numbers
   await runCountdown();
   
-  // 6. GO! Start music + MP4 together at exactly the same moment
+  // GO! Start music + MP4 together at exactly the same moment
   Dance.running = true;
-  Dance.startedAt = Date.now();
   Dance.hits = 0;
   Dance.attempts = 0;
   firedCues.clear();
   
-  // ⚠ MUSIC ONLY STARTS HERE
-  if (!danceMusic.src) danceMusic.src = 'hello.mp3';
+  // ⚠ MUSIC ONLY STARTS HERE (src is preset in HTML)
   danceMusic.currentTime = 0;
   danceMusic.volume = 0.65;
   
@@ -1539,8 +1638,8 @@ async function startDance() {
     if (Dance.running) endDance();
   };
   
-  // Start both together
-  Promise.all([
+  // Start both together — wait for music to ACTUALLY start, then anchor timeline
+  await Promise.all([
     danceVideo.play().then(() => {
       console.log('[mp4] playing');
     }).catch(e => {
@@ -1554,6 +1653,9 @@ async function startDance() {
       setStatus('❌ music failed: ' + e.message);
     }),
   ]);
+  
+  // Anchor timeline to NOW that media is actually rolling
+  Dance.startedAt = Date.now();
   
   poseLoop();
   
@@ -1610,6 +1712,13 @@ async function endDance() {
   const attempts = Memory.session.attempts;
   const score = attempts > 0 ? Math.round((hits / attempts) * 100) : 0;
   
+  // Show end screen overlay with score
+  document.getElementById('end-hits').textContent = hits;
+  document.getElementById('end-total').textContent = attempts;
+  const streakText = Memory.session.maxStreak >= 3 ? `🔥 Best streak: ${Memory.session.maxStreak}` : '';
+  document.getElementById('end-streak').textContent = streakText;
+  document.getElementById('end-screen').classList.add('show');
+  
   // Best move = move type with most hits
   let bestMove = null, bestCount = 0;
   Object.entries(Memory.session.moveHits).forEach(([move, count]) => {
@@ -1661,7 +1770,7 @@ setInterval(() => {
 // BOOT
 // ════════════════════════════════════════════════════════════════
 console.log('═══════════════════════════════════');
-console.log('Nova v66 ONYX — real build');
+console.log('Nova v68 JADE — real build');
 console.log('Phases:  closeup → conversation → lesson');
 console.log('Avatar:  ' + CFG.avatarId);
 console.log('Try:     NovaPhase.lesson()  in console');
