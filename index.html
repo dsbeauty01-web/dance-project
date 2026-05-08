@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Nova v60 RUBY — Real Build</title>
+<title>Nova v62 OPAL — Real Build</title>
 
 <!-- Fonts: Fredoka (display, friendly geometric) + Quicksand (body, soft sans) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,7 +12,7 @@
 
 <style>
 /* ════════════════════════════════════════════════════════════════
-   v60 RUBY — ground-up rebuild
+   v62 OPAL — ground-up rebuild
    Aesthetic: deep night sky + aurora + warm pink-rose-gold accents
    Lexi pattern: adaptive avatar sizing per phase
    ════════════════════════════════════════════════════════════════ */
@@ -216,23 +216,55 @@ body::after {
 }
 .phase-closeup #dance-frame { display: none; }
 
-/* ─── PHASE: lesson (dancing) — Nova SMALL corner, dance + webcam dominate ─── */
+/* ─── PHASE: lesson (during song) — MP4 dominates, Nova small bubble, kid 35% left ─── */
 .phase-lesson #nova-frame {
-  top: 24px; right: 24px;
-  width: 160px; height: 160px;
+  /* Small bubble top-right corner — she watches & reacts */
+  top: 16px;
+  right: 16px;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  transform: none;
+  left: auto;
+  z-index: 60;
 }
 .phase-lesson #webcam-frame {
-  bottom: 60px; left: 24px;
-  width: min(40vw, 400px);
-  height: min(50vh, 500px);
-  border-radius: 20px;
+  /* Kid panel left, ~35% width */
+  top: 16px;
+  left: 16px;
+  width: 32%;
+  height: calc(100% - 32px);
+  border-radius: 24px;
+  transform: none;
+  right: auto; bottom: auto;
+}
+.phase-lesson #webcam-frame video {
+  border-radius: 0;
 }
 .phase-lesson #dance-frame {
+  /* MP4 dominates center — 60% of screen */
   display: block;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: min(50vw, 600px);
-  height: min(60vh, 600px);
+  top: 16px;
+  left: calc(32% + 32px);
+  right: 172px;  /* leave room for Nova bubble */
+  bottom: 16px;
+  width: auto;
+  height: auto;
+  transform: none;
+  border-radius: 24px;
+  background: #000;
+}
+.phase-lesson #dance-frame video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* In lesson mode, state badge under Nova bubble */
+.phase-lesson #state-badge {
+  bottom: 6px;
+  font-size: 10px;
+  padding: 5px 12px;
 }
 
 /* ─── PHASE: conversation (countdown) — both medium side-by-side ─── */
@@ -403,40 +435,108 @@ body::after {
   /* matched to webcam frame in JS */
 }
 
-/* ─── cue card (emoji floats on screen during dance) ─── */
+/* ─── cue card — has 2 states: PREP (ring filling) + FIRE (NOW flash) ─── */
 #cue-card {
   position: absolute;
-  top: 50%; left: 50%;
+  top: 30%; left: 50%;
   transform: translate(-50%, -50%) scale(0);
   z-index: 80;
   pointer-events: none;
   text-align: center;
-  background: rgba(10, 5, 23, 0.7);
-  backdrop-filter: blur(20px);
-  padding: 24px 36px;
-  border-radius: 28px;
-  border: 2px solid rgba(255, 77, 158, 0.4);
-  box-shadow: 0 16px 60px rgba(255, 77, 158, 0.5);
   opacity: 0;
-  transition: all 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 #cue-card.show {
   transform: translate(-50%, -50%) scale(1);
   opacity: 1;
 }
-#cue-card .cue-emoji {
-  font-size: 80px;
+/* In lesson mode, center cue card over the MP4 (which is right of webcam) */
+.phase-lesson #cue-card {
+  top: 30%;
+  left: calc(32% + 32px + ((100% - 32% - 32px - 172px) / 2));
+}
+.phase-lesson #cue-card.show {
+  transform: translate(-50%, -50%) scale(1);
+}
+.phase-lesson #cue-card.firing {
+  transform: translate(-50%, -50%) scale(1.15);
+}
+
+/* PREP state — emoji with countdown ring */
+.cue-ring {
+  position: relative;
+  width: 160px; height: 160px;
+  margin: 0 auto;
+}
+.cue-ring svg {
+  position: absolute; inset: 0;
+  transform: rotate(-90deg);
+}
+.cue-ring circle.bg {
+  fill: rgba(10,5,23,0.85);
+  stroke: rgba(255,255,255,0.15);
+  stroke-width: 6;
+}
+.cue-ring circle.progress {
+  fill: none;
+  stroke: #fbbf24;
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-dasharray: 440;
+  stroke-dashoffset: 440;  /* will animate to 0 in JS */
+  filter: drop-shadow(0 0 12px rgba(251, 191, 36, 0.7));
+  transition: stroke-dashoffset linear;
+}
+.cue-emoji-big {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 72px;
   line-height: 1;
-  margin-bottom: 8px;
-  animation: cue-bounce 0.7s ease-in-out infinite alternate;
 }
-@keyframes cue-bounce {
-  to { transform: translateY(-8px); }
-}
-#cue-card .cue-label {
+.cue-label {
+  margin-top: 16px;
   font: 700 22px/1.1 'Fredoka', sans-serif;
   color: #fff;
   letter-spacing: 0.5px;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+}
+
+/* FIRE state — NOW! window is OBVIOUS */
+#cue-card.firing {
+  transform: translate(-50%, -50%) scale(1.15);
+}
+#cue-card.firing .cue-ring circle.progress {
+  stroke: #ff4d9e;
+  stroke-dashoffset: 0;
+  stroke-width: 12;
+  animation: cue-fire-pulse 0.4s ease-out infinite alternate;
+}
+@keyframes cue-fire-pulse {
+  to { 
+    filter: drop-shadow(0 0 32px rgba(255, 77, 158, 1)) drop-shadow(0 0 64px rgba(255, 77, 158, 0.6));
+    transform: scale(1.06);
+  }
+}
+#cue-card.firing .cue-emoji-big {
+  font-size: 90px;
+  animation: cue-fire-bounce 0.3s ease-out infinite alternate;
+}
+@keyframes cue-fire-bounce {
+  to { transform: scale(1.18) rotate(-4deg); }
+}
+#cue-card.firing .cue-label {
+  color: #fff;
+  background: linear-gradient(135deg, #ff4d9e, #fbbf24);
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  box-shadow: 0 8px 24px rgba(255, 77, 158, 0.5);
+  animation: now-shake 0.3s ease infinite alternate;
+}
+@keyframes now-shake {
+  to { transform: translateX(2px); }
 }
 
 /* ─── countdown overlay ─── */
@@ -578,8 +678,8 @@ body::after {
 
 <div class="stars"></div>
 
-<div id="vbanner">⭐ V60 RUBY ⭐ FULL DANCE ⭐</div>
-<div id="status">v60 · idle · tap the orb</div>
+<div id="vbanner">🎵 V62 OPAL ⭐ TIMING + MP4 FIX 🎵</div>
+<div id="status">v62 · idle · tap the orb</div>
 
 <!-- ════════════════════════════════════════════════════════════════
      STAGE
@@ -613,23 +713,30 @@ body::after {
     </div>
 
     <!-- Dance video (only in lesson phase) -->
+    <!-- Dance MP4 — Nova dancing the choreography (no audio) -->
     <div id="dance-frame">
       <video id="dance-video"
-             data-src="https://raw.githubusercontent.com/dsbeauty01-web/dance-project/main/kling_20260430_Motion_Control__3906_0.mp4"
-             playsinline></video>
+             data-src="https://raw.githubusercontent.com/dsbeauty01-web/dance-project/main/nova-dance.mp4"
+             playsinline muted></video>
     </div>
 
     <!-- Music for the dance phase (Hello-Hello song) -->
     <audio id="dance-music"
            src="https://raw.githubusercontent.com/dsbeauty01-web/dance-project/main/shit.mp3"
-           preload="auto"></audio>
+           preload="none"></audio>
 
     <!-- Pose detection overlay (canvas drawn over webcam) -->
     <canvas id="pose-canvas"></canvas>
 
-    <!-- Cue display — emoji floats above webcam during dance -->
+    <!-- Cue card: prep (ring filling) → fire (NOW flash) -->
     <div id="cue-card">
-      <div class="cue-emoji"></div>
+      <div class="cue-ring">
+        <svg viewBox="0 0 160 160" width="160" height="160">
+          <circle class="bg"       cx="80" cy="80" r="70"/>
+          <circle class="progress" cx="80" cy="80" r="70"/>
+        </svg>
+        <div class="cue-emoji-big"></div>
+      </div>
       <div class="cue-label"></div>
     </div>
 
@@ -715,8 +822,8 @@ const statusBar     = document.getElementById('status');
 // HELPERS
 // ════════════════════════════════════════════════════════════════
 function setStatus(msg) {
-  statusBar.textContent = `v60 · ${msg}`;
-  console.log('[v60]', msg);
+  statusBar.textContent = `v62 · ${msg}`;
+  console.log('[v62]', msg);
 }
 
 function setPhase(phase) {
@@ -867,8 +974,9 @@ async function connectNova() {
     // Store globally so chat input can use it
     window.novaRoom = room;
     
-    // Try to send a kickoff so Nova introduces herself
-    sendChatToNova('Hi Nova!');
+    // Smart intro — first time vs returning kid
+    const event = novaMem.isFirstTime ? 'intro_first' : 'intro_returning';
+    setTimeout(() => askBrain(event), 1500);  // small delay so Nova's audio track is ready
 
   } catch (err) {
     console.error('[connect error]', err);
@@ -893,6 +1001,75 @@ document.getElementById('btn-pause').addEventListener('click', async () => {
     setStatus(enabled ? 'mic muted' : 'mic on');
   }
 });
+
+// ════════════════════════════════════════════════════════════════
+// NOVA MEMORY (localStorage)
+// ════════════════════════════════════════════════════════════════
+const Memory = {
+  load() {
+    try {
+      const raw = localStorage.getItem('nova-memory');
+      if (raw) return JSON.parse(raw);
+    } catch(e) {}
+    return {
+      name: null,
+      isFirstTime: true,
+      totalSessions: 0,
+      maxStreak: 0,
+      favoriteMove: null,
+      lastVisit: null,
+    };
+  },
+  save(mem) {
+    try { localStorage.setItem('nova-memory', JSON.stringify(mem)); }
+    catch(e) { console.warn('[memory] save failed', e); }
+  },
+  // Per-session live state
+  session: {
+    hits: 0,
+    attempts: 0,
+    currentStreak: 0,
+    maxStreak: 0,
+    consecutiveMisses: 0,
+    moveHits: {},  // count per move type
+  },
+  reset() {
+    this.session = {
+      hits: 0, attempts: 0, currentStreak: 0, maxStreak: 0,
+      consecutiveMisses: 0, moveHits: {},
+    };
+  }
+};
+
+let novaMem = Memory.load();
+console.log('[memory] loaded:', novaMem);
+
+// ════════════════════════════════════════════════════════════════
+// NOVA BRAIN — Claude Haiku via Worker, structured event prompts
+// Returns the text Nova should say, then we send it to Runway to speak.
+// ════════════════════════════════════════════════════════════════
+async function askBrain(event, context = {}, userMessage = '') {
+  try {
+    const fullMem = {
+      ...novaMem,
+      hits: Memory.session.hits,
+      attempts: Memory.session.attempts,
+      maxStreak: Math.max(novaMem.maxStreak || 0, Memory.session.maxStreak),
+    };
+    const res = await fetch('https://long-art-8269r.dsbeauty01.workers.dev/nova-brain', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event, context, memory: fullMem, userMessage }),
+    });
+    const data = await res.json();
+    const text = (data.text || '').trim();
+    console.log(`[brain ${event}]`, text);
+    if (text) await sendChatToNova(text);  // Nova speaks it
+    return text;
+  } catch(e) {
+    console.warn('[brain] failed:', e);
+  }
+}
 
 // ════════════════════════════════════════════════════════════════
 // CHAT INPUT — text to Nova
@@ -933,9 +1110,25 @@ async function sendChatToNova(text) {
 }
 
 chatSend.addEventListener('click', () => {
-  const t = chatInput.value;
+  const t = chatInput.value.trim();
+  if (!t) return;
   chatInput.value = '';
-  sendChatToNova(t);
+  
+  // First-time name capture (heuristic: short response, mostly letters)
+  if (novaMem.isFirstTime && !novaMem.name && t.length < 30 && /^[a-zA-Z\s]+$/.test(t)) {
+    const possibleName = t.split(/\s+/).find(w => w.length > 1 && /^[a-zA-Z]+$/.test(w));
+    if (possibleName) {
+      const name = possibleName.charAt(0).toUpperCase() + possibleName.slice(1).toLowerCase();
+      novaMem.name = name;
+      Memory.save(novaMem);
+      askBrain('name_received', { name });
+      chatInput.focus();
+      return;
+    }
+  }
+  
+  // Otherwise free chat through brain
+  askBrain('free_chat', {}, t);
   chatInput.focus();
 });
 
@@ -969,13 +1162,13 @@ window.NovaPhase = {
 };
 
 // ════════════════════════════════════════════════════════════════
-// DANCE FLOW — song, video, cues, MoveNet
+// DANCE FLOW — song, cues, MoveNet (no dance video — Nova IS the teacher)
 // ════════════════════════════════════════════════════════════════
 const danceMusic = document.getElementById('dance-music');
-const danceVideoEl = document.getElementById('dance-video');
 const cueCard = document.getElementById('cue-card');
-const cueEmoji = cueCard.querySelector('.cue-emoji');
+const cueEmoji = cueCard.querySelector('.cue-emoji-big');
 const cueLabel = cueCard.querySelector('.cue-label');
+const cueProgress = cueCard.querySelector('circle.progress');
 const countdownEl = document.getElementById('countdown');
 const countNum = countdownEl.querySelector('.count-num');
 const hitPop = document.getElementById('hit-pop');
@@ -985,31 +1178,36 @@ const poseCtx = poseCanvas.getContext('2d');
 
 // Dance state
 const Dance = {
-  detector: null,        // MoveNet detector
-  running: false,        // is the dance in progress
-  currentCue: null,      // cue we're checking for
-  cueExpiry: 0,          // when current cue window ends
+  detector: null,
+  running: false,
+  currentCue: null,      // active cue object
+  cueState: 'idle',      // 'idle' | 'prep' | 'fire'
+  cueDeadline: 0,
   hits: 0,
   attempts: 0,
-  lastHitAt: 0,          // debounce hits
+  lastHitAt: 0,
   startedAt: 0,
 };
 
-// Cue timeline — when each cue fires (seconds into song) + how to detect
-// Hello-Hello song is ~111s. Intro 0-15s no cues; cues from 16s.
+// Each cue has a PREP window (2s, ring fills) and a FIRE window (2s, kid does action)
+const PREP_MS = 2000;
+const FIRE_MS = 2000;
+
+// Cue timeline — `at` = when the FIRE window starts (kid should do the action)
+// PREP starts 2s before (showing the ring filling)
 const TIMELINE = [
-  { at: 16,  emoji: '🙌', label: 'BOTH HANDS UP!',   detect: 'both_hands_up' },
-  { at: 24,  emoji: '👋', label: 'Wave!',            detect: 'right_hand_up' },
-  { at: 32,  emoji: '👏', label: 'CLAP!',            detect: 'clap' },
-  { at: 40,  emoji: '✋', label: 'LEFT HAND UP!',    detect: 'left_hand_up' },
-  { at: 48,  emoji: '🙌', label: 'BOTH UP HIGH!',    detect: 'both_hands_up' },
-  { at: 56,  emoji: '👏', label: 'CLAP CLAP!',       detect: 'clap' },
-  { at: 64,  emoji: '🤲', label: 'HANDS ON HEAD!',   detect: 'hands_on_head' },
-  { at: 72,  emoji: '✋', label: 'RIGHT HAND!',      detect: 'right_hand_up' },
-  { at: 80,  emoji: '🙌', label: 'BOTH HANDS!',      detect: 'both_hands_up' },
-  { at: 88,  emoji: '👏', label: 'BIG CLAP!',        detect: 'clap' },
-  { at: 96,  emoji: '🤸', label: 'JUMP!',            detect: 'both_hands_up' },
-  { at: 104, emoji: '🌟', label: 'AMAZING!',         detect: 'both_hands_up' },
+  { at: 16,  emoji: '🙌', label: 'BOTH HANDS UP!', detect: 'both_hands_up' },
+  { at: 24,  emoji: '👋', label: 'WAVE!',          detect: 'right_hand_up' },
+  { at: 32,  emoji: '👏', label: 'CLAP!',          detect: 'clap' },
+  { at: 40,  emoji: '✋', label: 'LEFT HAND UP!',  detect: 'left_hand_up' },
+  { at: 48,  emoji: '🙌', label: 'BOTH UP HIGH!',  detect: 'both_hands_up' },
+  { at: 56,  emoji: '👏', label: 'CLAP CLAP!',     detect: 'clap' },
+  { at: 64,  emoji: '🤲', label: 'HANDS ON HEAD!', detect: 'hands_on_head' },
+  { at: 72,  emoji: '✋', label: 'RIGHT HAND!',    detect: 'right_hand_up' },
+  { at: 80,  emoji: '🙌', label: 'BOTH HANDS!',    detect: 'both_hands_up' },
+  { at: 88,  emoji: '👏', label: 'BIG CLAP!',      detect: 'clap' },
+  { at: 96,  emoji: '🤸', label: 'JUMP!',          detect: 'both_hands_up' },
+  { at: 104, emoji: '🌟', label: 'AMAZING!',       detect: 'both_hands_up' },
 ];
 
 let firedCues = new Set();
@@ -1076,13 +1274,25 @@ function drawSkeleton(kp) {
 // ─── Cue detection ───
 // IMPORTANT: camera is mirrored — MoveNet's left_wrist = user's RIGHT hand
 function checkCue(kp) {
-  if (!Dance.currentCue) return;
-  if (Date.now() > Dance.cueExpiry) {
-    Dance.currentCue = null;
+  // Only check hits during FIRE window (not PREP)
+  if (!Dance.currentCue || Dance.cueState !== 'fire') return;
+  if (Date.now() > Dance.cueDeadline) {
+    // Cue window expired without a hit
+    const cue = Dance.currentCue;
+    Memory.session.currentStreak = 0;
+    Memory.session.consecutiveMisses++;
+    
+    // Only react after the 3rd consecutive miss (silence first 2 — kindness)
+    if (Memory.session.consecutiveMisses === 3 && cue) {
+      askBrain('miss', {
+        move: cue.label,
+        consecutiveMisses: Memory.session.consecutiveMisses,
+      });
+    }
     hideCue();
     return;
   }
-  if (Date.now() - Dance.lastHitAt < 800) return;  // debounce
+  if (Date.now() - Dance.lastHitAt < 800) return;
   
   const cue = Dance.currentCue;
   let hit = false;
@@ -1121,26 +1331,58 @@ function checkCue(kp) {
   if (hit) {
     Dance.lastHitAt = Date.now();
     Dance.hits++;
-    Dance.currentCue = null;
+    
+    // Update memory session
+    Memory.session.hits++;
+    Memory.session.currentStreak++;
+    Memory.session.consecutiveMisses = 0;
+    if (Memory.session.currentStreak > Memory.session.maxStreak) {
+      Memory.session.maxStreak = Memory.session.currentStreak;
+    }
+    Memory.session.moveHits[cue.detect] = (Memory.session.moveHits[cue.detect] || 0) + 1;
+    
     showHit();
     hideCue();
     
-    // Tell Nova about the hit so she reacts (4-6 word reaction)
-    sendChatToNova(`I just did the ${cue.label.toLowerCase()} move! React in 4 words.`);
+    // Ask the brain for a reaction — streak first, then plain hit
+    if ([3, 5, 7, 10].includes(Memory.session.currentStreak)) {
+      askBrain('streak', { streak: Memory.session.currentStreak });
+    } else {
+      askBrain('hit', { move: cue.label, streak: Memory.session.currentStreak });
+    }
   }
 }
 
-function showCue(cue) {
+function showCuePrep(cue) {
   Dance.currentCue = cue;
-  Dance.cueExpiry = Date.now() + 4000;  // 4s window to hit it
+  Dance.cueState = 'prep';
   Dance.attempts++;
+  Memory.session.attempts++;
   cueEmoji.textContent = cue.emoji;
-  cueLabel.textContent = cue.label;
+  cueLabel.textContent = 'GET READY...';
+  cueCard.classList.remove('firing');
   cueCard.classList.add('show');
+  // Reset ring then animate fill over PREP_MS
+  cueProgress.style.transition = 'none';
+  cueProgress.style.strokeDashoffset = '440';
+  // force reflow
+  cueProgress.getBoundingClientRect();
+  cueProgress.style.transition = `stroke-dashoffset ${PREP_MS}ms linear`;
+  cueProgress.style.strokeDashoffset = '0';
+}
+
+function fireCue() {
+  if (!Dance.currentCue) return;
+  Dance.cueState = 'fire';
+  Dance.cueDeadline = Date.now() + FIRE_MS;
+  cueLabel.textContent = Dance.currentCue.label;
+  cueCard.classList.add('firing');
 }
 
 function hideCue() {
-  cueCard.classList.remove('show');
+  cueCard.classList.remove('show', 'firing');
+  Dance.currentCue = null;
+  Dance.cueState = 'idle';
 }
 
 function showHit() {
@@ -1170,86 +1412,138 @@ async function startDance() {
   btnDance.classList.remove('ready');
   btnDance.style.display = 'none';
   
-  // Tell Nova we're about to dance
-  sendChatToNova('Get ready — we are about to dance to Hello Hello! Hype me up in 1 short sentence!');
+  // Reset session memory for this dance
+  Memory.reset();
   
-  // Lazy-load MoveNet while we wait
+  // 1. Nova hypes the kid up — give her ~3 sec to finish before we switch screens
+  askBrain('dance_start');
+  await new Promise(r => setTimeout(r, 3000));
+  
+  // 2. Lazy-load MoveNet (probably done quickly since stuff is cached)
   await loadMoveNet();
   
-  // Switch to lesson layout (kid big, dance video center, Nova small)
+  // 3. Switch to lesson layout (MP4 60% center, Nova bubble, kid 35% left)
   setPhase('lesson');
   
-  // Load dance video src + start playing (muted, just visuals)
+  // 4. Load + buffer the MP4 so it's ready to play instantly
   if (!danceVideoEl.src) {
     danceVideoEl.src = danceVideoEl.getAttribute('data-src');
+    // Wait for it to be playable
+    await new Promise(resolve => {
+      const onReady = () => { danceVideoEl.removeEventListener('canplay', onReady); resolve(); };
+      danceVideoEl.addEventListener('canplay', onReady);
+      // Fallback timeout in case canplay never fires
+      setTimeout(resolve, 3000);
+    });
   }
-  danceVideoEl.muted = true;
-  danceVideoEl.loop = false;
+  danceVideoEl.currentTime = 0;
   
-  // 3-2-1 GO
+  // 5. Visual 3-2-1 countdown
   await runCountdown();
   
-  // GO! Start music + dance video + cue timeline + pose loop
+  // 6. GO! Start music + MP4 together at exactly the same moment
   Dance.running = true;
   Dance.startedAt = Date.now();
   Dance.hits = 0;
   Dance.attempts = 0;
   firedCues.clear();
   
-  danceVideoEl.currentTime = 0;
-  danceVideoEl.play().catch(e => console.warn('[dance] video play:', e));
-  
+  // ⚠ MUSIC ONLY STARTS HERE
   danceMusic.currentTime = 0;
-  danceMusic.volume = 0.7;
-  danceMusic.play().catch(e => console.warn('[music] play:', e));
+  danceMusic.volume = 0.65;
+  
+  // Start both together
+  Promise.all([
+    danceVideoEl.play().catch(e => console.warn('[mp4] play:', e)),
+    danceMusic.play().catch(e => console.warn('[music] play:', e)),
+  ]);
   
   poseLoop();
   
-  // Cue scheduler — check every 250ms whether to fire next cue
+  // Cue scheduler — checks every 200ms whether to start PREP for next cue
   const scheduler = setInterval(() => {
     if (!Dance.running) { clearInterval(scheduler); return; }
     const elapsed = (Date.now() - Dance.startedAt) / 1000;
     
     TIMELINE.forEach((cue, idx) => {
       if (firedCues.has(idx)) return;
-      if (elapsed >= cue.at) {
+      // PREP starts (PREP_MS / 1000) sec BEFORE cue.at
+      const prepStart = cue.at - (PREP_MS / 1000);
+      if (elapsed >= prepStart && Dance.cueState === 'idle') {
         firedCues.add(idx);
-        showCue(cue);
+        showCuePrep(cue);
+        // Schedule the FIRE moment
+        setTimeout(() => fireCue(), PREP_MS);
+        // And the auto-hide if not hit
+        setTimeout(() => {
+          if (Dance.cueState === 'fire') hideCue();
+        }, PREP_MS + FIRE_MS);
       }
     });
+    
+    // Mid-song energy boost (only fires once around 55s)
+    if (elapsed > 55 && elapsed < 56 && !Dance.midSongDone) {
+      Dance.midSongDone = true;
+      askBrain('mid_song');
+    }
     
     // End of song
     if (elapsed > 112) {
       clearInterval(scheduler);
       endDance();
     }
-  }, 250);
+  }, 200);
   
   setStatus('dance started');
 }
 
 async function endDance() {
   Dance.running = false;
+  Dance.midSongDone = false;
   danceMusic.pause();
-  danceVideoEl.pause();
+  if (danceVideoEl.src) danceVideoEl.pause();
   hideCue();
   poseCtx.clearRect(0, 0, poseCanvas.width, poseCanvas.height);
   
   // Switch back to closeup for the celebration moment
   setPhase('closeup');
   
-  // Nova celebrates
-  const score = Dance.attempts > 0 ? Math.round((Dance.hits / Dance.attempts) * 100) : 0;
-  sendChatToNova(`We finished! I got ${Dance.hits} out of ${Dance.attempts} moves. Celebrate me in 1 sentence!`);
+  // Compute score + best move
+  const hits = Memory.session.hits;
+  const attempts = Memory.session.attempts;
+  const score = attempts > 0 ? Math.round((hits / attempts) * 100) : 0;
   
-  setStatus(`done · ${Dance.hits}/${Dance.attempts} (${score}%)`);
+  // Best move = move type with most hits
+  let bestMove = null, bestCount = 0;
+  Object.entries(Memory.session.moveHits).forEach(([move, count]) => {
+    if (count > bestCount) { bestMove = move; bestCount = count; }
+  });
+  
+  // Brain reaction — celebration vs quiet ending based on score
+  const event = score >= 30 ? 'end_celebration' : 'end_quiet';
+  askBrain(event, {
+    hits,
+    attempts,
+    bestMove: bestMove?.replace(/_/g, ' '),
+    maxStreak: Memory.session.maxStreak,
+  });
+  
+  // Persist memory across sessions
+  novaMem.totalSessions = (novaMem.totalSessions || 0) + 1;
+  novaMem.maxStreak = Math.max(novaMem.maxStreak || 0, Memory.session.maxStreak);
+  novaMem.lastVisit = new Date().toISOString();
+  novaMem.isFirstTime = false;
+  if (bestMove) novaMem.favoriteMove = bestMove.replace(/_/g, ' ');
+  Memory.save(novaMem);
+  
+  setStatus(`done · ${hits}/${attempts} (${score}%)`);
   
   // Show dance button again for replay
   setTimeout(() => {
     btnDance.classList.add('ready');
     btnDance.style.display = 'block';
     btnDance.textContent = '💃 Again?';
-  }, 5000);
+  }, 6000);
 }
 
 // Wire the dance button
@@ -1270,7 +1564,7 @@ setInterval(() => {
 // BOOT
 // ════════════════════════════════════════════════════════════════
 console.log('═══════════════════════════════════');
-console.log('Nova v60 RUBY — real build');
+console.log('Nova v62 OPAL — real build');
 console.log('Phases:  closeup → conversation → lesson');
 console.log('Avatar:  ' + CFG.avatarId);
 console.log('Try:     NovaPhase.lesson()  in console');
