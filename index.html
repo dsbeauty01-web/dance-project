@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Nova v64 PEARL — Real Build</title>
+<title>Nova v65 IVORY — Real Build</title>
 
 <!-- Fonts: Fredoka (display, friendly geometric) + Quicksand (body, soft sans) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,7 +12,7 @@
 
 <style>
 /* ════════════════════════════════════════════════════════════════
-   v64 PEARL — ground-up rebuild
+   v65 IVORY — ground-up rebuild
    Aesthetic: deep night sky + aurora + warm pink-rose-gold accents
    Lexi pattern: adaptive avatar sizing per phase
    ════════════════════════════════════════════════════════════════ */
@@ -720,8 +720,8 @@ body.audio-needs-unmute #audio-unmute { display: flex; }
 
 <div class="stars"></div>
 
-<div id="vbanner">⚪ V64 PEARL ⭐ MIC AUTO ⭐ END FIX ⚪</div>
-<div id="status">v64 · idle · tap the orb</div>
+<div id="vbanner">🎬 V65 IVORY ⭐ MP4 BUG FIXED ⭐ 🎬</div>
+<div id="status">v65 · idle · tap the orb</div>
 
 <!-- ════════════════════════════════════════════════════════════════
      STAGE
@@ -758,8 +758,8 @@ body.audio-needs-unmute #audio-unmute { display: flex; }
     <!-- Dance MP4 — Nova dancing the choreography (no audio) -->
     <div id="dance-frame">
       <video id="dance-video"
-             data-src="nova-dance.mp4"
-             playsinline muted></video>
+             src="nova-dance.mp4"
+             playsinline muted preload="auto"></video>
     </div>
 
     <!-- Music for the dance phase (Hello-Hello song) - src set on Dance tap only -->
@@ -858,6 +858,15 @@ const stateLabel    = document.getElementById('state-label');
 const stateDot      = document.querySelector('.state-dot');
 const webcamVideo   = document.getElementById('webcam-video');
 const danceVideo    = document.getElementById('dance-video');
+// Surface any MP4 loading failure so we don't silently get a black screen
+danceVideo.addEventListener('error', (e) => {
+  const err = danceVideo.error;
+  console.error('[mp4 ERROR]', err?.code, err?.message);
+  setStatus(`❌ MP4 error code ${err?.code} (${err?.message || 'unknown'})`);
+});
+danceVideo.addEventListener('loadedmetadata', () => {
+  console.log('[mp4] metadata loaded, duration:', danceVideo.duration);
+});
 const connecting    = document.getElementById('connecting');
 const connectingText = document.getElementById('connecting-text');
 const errorScreen   = document.getElementById('error-screen');
@@ -868,8 +877,8 @@ const statusBar     = document.getElementById('status');
 // HELPERS
 // ════════════════════════════════════════════════════════════════
 function setStatus(msg) {
-  statusBar.textContent = `v64 · ${msg}`;
-  console.log('[v64]', msg);
+  statusBar.textContent = `v65 · ${msg}`;
+  console.log('[v65]', msg);
 }
 
 function setPhase(phase) {
@@ -1494,18 +1503,8 @@ async function startDance() {
   // 3. Switch to lesson layout (MP4 60% center, Nova bubble, kid 35% left)
   setPhase('lesson');
   
-  // 4. Load + buffer the MP4 so it's ready to play instantly
-  if (!danceVideoEl.src) {
-    danceVideoEl.src = danceVideoEl.getAttribute('data-src');
-    // Wait for it to be playable
-    await new Promise(resolve => {
-      const onReady = () => { danceVideoEl.removeEventListener('canplay', onReady); resolve(); };
-      danceVideoEl.addEventListener('canplay', onReady);
-      // Fallback timeout in case canplay never fires
-      setTimeout(resolve, 3000);
-    });
-  }
-  danceVideoEl.currentTime = 0;
+  // 4. MP4 src is already set, just rewind to start
+  danceVideo.currentTime = 0;
   
   // 5. Visual 3-2-1 countdown
   await runCountdown();
@@ -1529,8 +1528,18 @@ async function startDance() {
   
   // Start both together
   Promise.all([
-    danceVideoEl.play().catch(e => console.warn('[mp4] play:', e)),
-    danceMusic.play().catch(e => console.warn('[music] play:', e)),
+    danceVideo.play().then(() => {
+      console.log('[mp4] playing');
+    }).catch(e => {
+      console.error('[mp4] play failed:', e);
+      setStatus('❌ MP4 failed: ' + e.message);
+    }),
+    danceMusic.play().then(() => {
+      console.log('[music] playing');
+    }).catch(e => {
+      console.error('[music] play failed:', e);
+      setStatus('❌ music failed: ' + e.message);
+    }),
   ]);
   
   poseLoop();
@@ -1576,7 +1585,7 @@ async function endDance() {
   Dance.running = false;
   Dance.midSongDone = false;
   danceMusic.pause();
-  if (danceVideoEl.src) danceVideoEl.pause();
+  if (danceVideo.src) danceVideo.pause();
   hideCue();
   poseCtx.clearRect(0, 0, poseCanvas.width, poseCanvas.height);
   
@@ -1639,7 +1648,7 @@ setInterval(() => {
 // BOOT
 // ════════════════════════════════════════════════════════════════
 console.log('═══════════════════════════════════');
-console.log('Nova v64 PEARL — real build');
+console.log('Nova v65 IVORY — real build');
 console.log('Phases:  closeup → conversation → lesson');
 console.log('Avatar:  ' + CFG.avatarId);
 console.log('Try:     NovaPhase.lesson()  in console');
