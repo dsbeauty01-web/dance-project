@@ -537,8 +537,25 @@ body::after {
 </head>
 <body>
 
-<div id="vbanner">💚 V71 EMERALD ⭐ DETECTION + BRAIN ⭐ 💚</div>
-<div id="status">v71 · idle · tap the orb</div>
+<div id="vbanner">💚 V72 MINT ⭐ DEBUG ON ⭐ 💚</div>
+<div id="status">v72 · idle · tap the orb</div>
+
+<!-- DEBUG LOG — visible on screen in top-right corner -->
+<div id="debug-log" style="
+  position: fixed;
+  top: 32px; right: 8px;
+  width: 360px;
+  max-height: 35vh;
+  overflow-y: auto;
+  background: rgba(0,0,0,0.92);
+  color: #00ff88;
+  font: 10px/1.3 monospace;
+  padding: 8px 10px;
+  z-index: 999;
+  border: 1px solid rgba(0,255,136,0.4);
+  border-radius: 8px;
+  pointer-events: auto;
+"></div>
 
 <div id="stage" class="phase-closeup">
 
@@ -713,9 +730,33 @@ danceMusic.addEventListener('error', () => {
 // HELPERS
 // ════════════════════════════════════════════════════════════════
 function setStatus(msg) {
-  statusBar.textContent = `v71 · ${msg}`;
-  console.log('[v71]', msg);
+  statusBar.textContent = `v72 · ${msg}`;
+  console.log('[v72]', msg);
+  dlog(msg);
 }
+
+// On-screen debug log
+function dlog(msg, color) {
+  const d = document.getElementById('debug-log');
+  if (!d) return;
+  const line = document.createElement('div');
+  line.style.color = color || '#00ff88';
+  const time = ((Date.now() - (window.__t0 || Date.now())) / 1000).toFixed(1) + 's';
+  line.textContent = `[${time}] ${msg}`;
+  d.appendChild(line);
+  d.scrollTop = d.scrollHeight;
+  while (d.children.length > 30) d.removeChild(d.firstChild);
+}
+window.__t0 = Date.now();
+window.dlog = dlog;
+
+// Surface ALL errors visibly
+window.addEventListener('error', (e) => {
+  dlog('❌ JS ERROR: ' + (e.message || 'unknown'), '#ff5577');
+});
+window.addEventListener('unhandledrejection', (e) => {
+  dlog('❌ PROMISE: ' + (e.reason?.message || e.reason || 'unknown'), '#ff5577');
+});
 function setPhase(phase) {
   stage.className = `phase-${phase}`;
   console.log('[phase]', phase);
@@ -765,6 +806,7 @@ console.log('[memory] loaded:', novaMem);
 // NOVA BRAIN
 // ════════════════════════════════════════════════════════════════
 async function askBrain(event, context = {}, userMessage = '') {
+  dlog('🧠 askBrain(' + event + ')');
   try {
     const fullMem = {
       ...novaMem,
@@ -780,12 +822,18 @@ async function askBrain(event, context = {}, userMessage = '') {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ event, context, memory: fullMem, userMessage }),
     });
+    if (!res.ok) {
+      dlog('❌ brain HTTP ' + res.status, '#ff5577');
+      return;
+    }
     const data = await res.json();
     const text = (data.text || '').trim();
+    dlog('🗣️ Nova: "' + text + '"', '#00ddff');
     console.log(`[brain ${event}]`, text);
     if (text) await sendChatToNova(text);
     return text;
   } catch(e) {
+    dlog('❌ brain failed: ' + e.message, '#ff5577');
     console.warn('[brain] failed:', e);
   }
 }
@@ -862,6 +910,7 @@ async function connectNova() {
     room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, participant) => {
       console.log('[track]', track.kind, 'from', participant.identity);
       if (track.kind === 'video') {
+        dlog('🎥 Nova video track arrived');
         novaPlaceholder.style.display = 'none';
         let v = document.getElementById('nova-video');
         if (!v) {
@@ -875,7 +924,9 @@ async function connectNova() {
         setStatus('Nova is here!');
         setState('talking');
         // Show Dance button — kid can dance even before giving name
-        setTimeout(() => btnDance.classList.add('ready'), 500);
+        btnDance.classList.add('ready');
+        btnDance.style.display = 'flex';
+        dlog('💃 Dance button shown');
       }
       if (track.kind === 'audio') {
         const a = document.createElement('audio');
@@ -920,14 +971,22 @@ async function connectNova() {
 // ════════════════════════════════════════════════════════════════
 // CHAT INPUT — name capture + free chat
 // ════════════════════════════════════════════════════════════════
-chatSend.addEventListener('click', sendUserMessage);
+chatSend.addEventListener('click', () => {
+  dlog('🖱️ chat send clicked');
+  sendUserMessage();
+});
 chatInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); sendUserMessage(); }
+  if (e.key === 'Enter') { 
+    e.preventDefault(); 
+    dlog('⌨️ Enter pressed in chat');
+    sendUserMessage(); 
+  }
 });
 
 function sendUserMessage() {
   const t = chatInput.value.trim();
-  if (!t) return;
+  dlog('📨 sendUserMessage with: "' + t + '"');
+  if (!t) { dlog('  empty, skipping', '#ffaa00'); return; }
   chatInput.value = '';
   
   // First-time name capture (heuristic)
@@ -935,16 +994,20 @@ function sendUserMessage() {
     const possible = t.split(/\s+/).find(w => w.length > 1 && /^[a-zA-Z]+$/.test(w));
     if (possible) {
       const name = possible.charAt(0).toUpperCase() + possible.slice(1).toLowerCase();
+      dlog('  → name captured: ' + name);
       novaMem.name = name;
       Memory.save(novaMem);
       askBrain('name_received', { name });
-      // Show dance button after name received
-      setTimeout(() => btnDance.classList.add('ready'), 800);
+      setTimeout(() => {
+        btnDance.classList.add('ready');
+        dlog('💃 dance button ready');
+      }, 800);
       chatInput.focus();
       return;
     }
   }
   
+  dlog('  → sending as free_chat');
   askBrain('free_chat', {}, t);
   chatInput.focus();
 }
@@ -1186,7 +1249,8 @@ async function runCountdown() {
 }
 
 async function startDance() {
-  if (Dance.running) return;
+  dlog('💃 startDance() called');
+  if (Dance.running) { dlog('  already running, skip', '#ffaa00'); return; }
   btnDance.classList.remove('ready');
   btnDance.style.display = 'none';
   endScreen.classList.remove('show');
@@ -1195,27 +1259,41 @@ async function startDance() {
   scoreNum.textContent = '0';
   
   // 1. Load MoveNet
-  await loadMoveNet();
+  dlog('  loading MoveNet...');
+  try {
+    await loadMoveNet();
+    dlog('  ✓ MoveNet ready');
+  } catch(e) {
+    dlog('❌ MoveNet failed: ' + e.message, '#ff5577');
+    return;
+  }
   
   // 2. Switch to lesson layout
   setPhase('lesson');
+  dlog('  ✓ phase: lesson');
   
   // 3. Rewind MP4
   danceVideo.currentTime = 0;
   
   // 4. Subtle countdown
+  dlog('  starting 3-2-1 countdown...');
   await runCountdown();
   
   // 5. Start media in sync
   Dance.running = true;
   firedCues.clear();
   danceMusic.currentTime = 0;
-  danceMusic.volume = 0.55;  // ducked so Nova's voice cuts through
+  danceMusic.volume = 0.55;
   danceMusic.onended = () => { if (Dance.running) endDance(); };
   
+  dlog('  starting MP4 + music...');
   await Promise.all([
-    danceVideo.play().catch(e => setStatus('❌ MP4: ' + e.message)),
-    danceMusic.play().catch(e => setStatus('❌ music: ' + e.message)),
+    danceVideo.play().then(() => dlog('  ✓ MP4 playing')).catch(e => {
+      dlog('❌ MP4 fail: ' + e.message, '#ff5577');
+    }),
+    danceMusic.play().then(() => dlog('  ✓ music playing')).catch(e => {
+      dlog('❌ music fail: ' + e.message, '#ff5577');
+    }),
   ]);
   Dance.startedAt = Date.now();
   
@@ -1303,7 +1381,10 @@ async function endDance() {
   }, 6000);
 }
 
-btnDance.addEventListener('click', startDance);
+btnDance.addEventListener('click', () => {
+  dlog('🖱️ Dance button clicked');
+  startDance();
+});
 
 // Boot
 console.log('═══════════════════════════════════');
