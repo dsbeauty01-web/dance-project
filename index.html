@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Nova v69 CRYSTAL</title>
+<title>Nova v71 EMERALD</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
@@ -41,11 +41,12 @@ body::after {
 
 #vbanner {
   position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
-  text-align: center; padding: 5px 12px;
-  background: linear-gradient(90deg, #67e8f9, #06b6d4, #0891b2);
+  text-align: center; padding: 7px 12px;
+  background: linear-gradient(90deg, #10b981 0%, #34d399 50%, #6ee7b7 100%);
   color: #0a0517;
-  font: 700 13px/1 'Fredoka', sans-serif;
-  letter-spacing: 1.5px;
+  font: 800 14px/1 'Fredoka', sans-serif;
+  letter-spacing: 2px;
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
 }
 #status {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
@@ -536,8 +537,8 @@ body::after {
 </head>
 <body>
 
-<div id="vbanner">💎 V69 CRYSTAL ⭐ FRESH BUILD ⭐ 💎</div>
-<div id="status">v69 · idle · tap the orb</div>
+<div id="vbanner">💚 V71 EMERALD ⭐ DETECTION + BRAIN ⭐ 💚</div>
+<div id="status">v71 · idle · tap the orb</div>
 
 <div id="stage" class="phase-closeup">
 
@@ -712,8 +713,8 @@ danceMusic.addEventListener('error', () => {
 // HELPERS
 // ════════════════════════════════════════════════════════════════
 function setStatus(msg) {
-  statusBar.textContent = `v69 · ${msg}`;
-  console.log('[v69]', msg);
+  statusBar.textContent = `v71 · ${msg}`;
+  console.log('[v71]', msg);
 }
 function setPhase(phase) {
   stage.className = `phase-${phase}`;
@@ -1306,7 +1307,7 @@ btnDance.addEventListener('click', startDance);
 
 // Boot
 console.log('═══════════════════════════════════');
-console.log('Nova v69 CRYSTAL — fresh build');
+console.log('Nova v71 EMERALD — detection + brain real-time');
 console.log('═══════════════════════════════════');
 setStatus('idle · tap the orb');
 </script>
