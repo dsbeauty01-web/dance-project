@@ -3,116 +3,74 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Nova v70 BUTTERCUP</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<title>Nova v71 CORAL</title>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
-
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body {
   height: 100%; width: 100%; overflow: hidden;
-  background: #0a0517;
-  color: #f5e9ff;
+  background: #1a0617;
+  color: #fff;
   font-family: 'Quicksand', system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
 }
-
-/* ── Aurora glow background ── */
-body::before, body::after {
-  content: ''; position: fixed; pointer-events: none; z-index: 0;
-}
-body::before {
-  inset: -20% -20% auto auto;
-  width: 80vw; height: 80vh;
-  background: radial-gradient(ellipse, #9b3aa3 0%, transparent 60%);
-  filter: blur(80px); opacity: 0.55;
-  animation: aurora-1 18s ease-in-out infinite alternate;
-}
-body::after {
-  inset: auto auto -20% -20%;
-  width: 80vw; height: 80vh;
-  background: radial-gradient(ellipse, #ff4d9e 0%, transparent 60%);
-  filter: blur(90px); opacity: 0.4;
-  animation: aurora-2 22s ease-in-out infinite alternate;
-}
-@keyframes aurora-1 { to { transform: translate(-10vw, 8vh) rotate(8deg); } }
-@keyframes aurora-2 { to { transform: translate(8vw, -6vh) rotate(-6deg); } }
 
 #vbanner {
   position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
-  text-align: center; padding: 5px 12px;
-  background: linear-gradient(90deg, #fde047, #facc15, #eab308);
-  color: #0a0517;
+  text-align: center; padding: 6px 12px;
+  background: linear-gradient(90deg, #ff7f50, #ff6347, #ff4500);
+  color: #fff;
   font: 700 13px/1 'Fredoka', sans-serif;
   letter-spacing: 1.5px;
 }
-#status {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
-  text-align: center; padding: 6px 16px;
-  background: rgba(0,0,0,0.55);
-  backdrop-filter: blur(10px);
-  font: 500 12px/1.4 'Quicksand', monospace;
-  color: rgba(255,255,255,0.7);
+
+#debug {
+  position: fixed; top: 28px; left: 0; right: 0; z-index: 999;
+  background: rgba(0,0,0,0.85); color: #0f0;
+  font: 500 11px/1.4 'SF Mono', Consolas, monospace;
+  padding: 8px 12px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+#debug .err { color: #f66; }
+#debug .ok { color: #6f6; }
+#debug .ev { color: #fc0; }
+
+#stage {
+  position: fixed;
+  inset: 156px 0 0 0;
+  z-index: 10;
 }
 
-#stage { position: fixed; inset: 28px 0 28px 0; z-index: 10; }
-
-/* ════════════════════════════════════════════════════════════════
-   PHASE 1: IDLE — magic orb
-   ════════════════════════════════════════════════════════════════ */
+/* IDLE */
 #idle-screen {
   position: absolute; inset: 0;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  gap: 30px;
-  transition: opacity 0.6s ease;
+  gap: 24px;
+  transition: opacity 0.5s;
 }
 #idle-screen.hidden { opacity: 0; pointer-events: none; }
 #idle-title {
   font-family: 'Fredoka', sans-serif; font-weight: 700;
-  font-size: clamp(32px, 7vw, 72px);
-  background: linear-gradient(135deg, #ffd6f5 0%, #ff4d9e 50%, #fbbf24 100%);
+  font-size: clamp(36px, 8vw, 72px);
+  background: linear-gradient(135deg, #ff7f50, #ff4d9e, #fbbf24);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  letter-spacing: -0.02em; text-align: center; line-height: 1;
-  filter: drop-shadow(0 4px 20px rgba(255, 77, 158, 0.4));
-}
-#idle-subtitle {
-  font-weight: 500; font-size: clamp(15px, 2vw, 18px);
-  color: rgba(255, 214, 245, 0.75);
-  text-align: center; max-width: 340px; line-height: 1.4;
 }
 #magic-orb {
-  width: clamp(180px, 30vmin, 280px);
-  height: clamp(180px, 30vmin, 280px);
+  width: clamp(160px, 26vmin, 240px);
+  height: clamp(160px, 26vmin, 240px);
   border-radius: 50%; border: none; cursor: pointer;
-  background: radial-gradient(circle at 35% 30%, #fff 0%, #ffd6f5 15%, #ff4d9e 45%, #9b3aa3 75%, #4a1d6e 100%);
-  position: relative;
-  box-shadow:
-    0 0 80px rgba(255, 77, 158, 0.6),
-    0 0 160px rgba(155, 58, 163, 0.4),
-    inset 0 -10px 40px rgba(74, 29, 110, 0.6);
-  animation: orb-float 4s ease-in-out infinite;
-  transition: transform 0.3s ease;
+  background: radial-gradient(circle at 35% 30%, #fff, #ffd6a5 20%, #ff7f50 50%, #ff4500 80%, #8b2500 100%);
+  box-shadow: 0 0 60px rgba(255, 127, 80, 0.6), 0 0 120px rgba(255, 69, 0, 0.4);
+  animation: float 4s ease-in-out infinite;
 }
-#magic-orb:hover { transform: scale(1.05); }
-#magic-orb::after {
-  content: ''; position: absolute; inset: 8%; border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.4) 0%, transparent 50%);
-  pointer-events: none;
-}
-@keyframes orb-float {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-12px); }
-}
+@keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 
-/* ════════════════════════════════════════════════════════════════
-   PLAY SCREEN
-   ════════════════════════════════════════════════════════════════ */
+/* PLAY */
 #play-screen {
   position: absolute; inset: 0;
   opacity: 0; pointer-events: none;
-  transition: opacity 0.6s ease;
+  transition: opacity 0.5s;
 }
 #play-screen.active { opacity: 1; pointer-events: auto; }
 
@@ -120,149 +78,152 @@ body::after {
   position: absolute;
   border-radius: 50%;
   overflow: hidden;
-  background: radial-gradient(circle at 50% 30%, #2d1448, #0a0517);
-  border: 3px solid rgba(255, 77, 158, 0.5);
-  box-shadow: 0 0 60px rgba(255, 77, 158, 0.4), 0 0 120px rgba(155, 58, 163, 0.25);
-  transition: all 0.7s cubic-bezier(0.65, 0, 0.35, 1);
+  background: radial-gradient(circle at 50% 30%, #4a1d6e, #1a0617);
+  border: 3px solid rgba(255, 127, 80, 0.6);
+  transition: all 0.6s ease;
 }
 #nova-frame video { width: 100%; height: 100%; object-fit: cover; }
 #nova-placeholder {
   position: absolute; inset: 0;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  text-align: center; gap: 8px;
-  color: #ffd6f5;
+  gap: 8px;
 }
 #nova-placeholder .emoji { font-size: 48px; }
-#nova-placeholder .text { font-weight: 600; font-size: 14px; opacity: 0.85; }
+#nova-placeholder .text { font-size: 13px; opacity: 0.85; }
 
 #webcam-frame {
   position: absolute;
   border-radius: 50%;
   overflow: hidden;
   border: 3px solid rgba(155, 58, 163, 0.5);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-  background: #0a0517;
-  transition: all 0.7s cubic-bezier(0.65, 0, 0.35, 1);
+  background: #000;
+  transition: all 0.6s ease;
 }
-#webcam-frame video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+#webcam-frame video {
+  width: 100%; height: 100%; object-fit: cover;
+  transform: scaleX(-1);
+}
 
 #dance-frame {
   position: absolute;
   border-radius: 24px;
   overflow: hidden;
-  background: #0a0517;
+  background: #000;
   display: none;
-  transition: all 0.7s cubic-bezier(0.65, 0, 0.35, 1);
+  transition: all 0.6s ease;
 }
 #dance-frame video { width: 100%; height: 100%; object-fit: cover; }
 
-/* PHASE: closeup */
+/* CLOSEUP */
 .phase-closeup #nova-frame {
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  width: min(70vmin, 540px);
-  height: min(70vmin, 540px);
+  width: min(60vmin, 420px);
+  height: min(60vmin, 420px);
 }
 .phase-closeup #webcam-frame {
-  bottom: 80px; right: 24px;
-  width: 140px; height: 180px;
-  border-radius: 16px;
+  bottom: 100px; right: 16px;
+  width: 110px; height: 140px;
+  border-radius: 14px;
 }
 .phase-closeup #dance-frame { display: none; }
 
-/* PHASE: lesson */
+/* LESSON */
 .phase-lesson #dance-frame {
   display: block;
-  top: 16px; left: 16px;
-  width: 60%; height: calc(100% - 32px);
-  border-radius: 24px;
+  top: 12px; left: 12px;
+  width: 60%; height: calc(100% - 100px);
+  border-radius: 20px;
 }
 .phase-lesson #webcam-frame {
-  top: 16px; right: 16px;
-  width: calc(35% - 32px); height: calc(100% - 32px);
-  border-radius: 24px;
-  transform: none;
-  bottom: auto;
-}
-.phase-lesson #webcam-frame video {
-  border-radius: 0;
+  top: 12px; right: 12px;
+  width: calc(40% - 24px); height: calc(100% - 100px);
+  border-radius: 20px;
 }
 .phase-lesson #nova-frame {
-  bottom: 28px; left: 28px;
-  width: 100px; height: 100px;
-  border-radius: 50%;
-  top: auto; right: auto;
+  bottom: 110px; left: 24px;
+  width: 80px; height: 80px;
+  top: auto;
   transform: none;
-  z-index: 60;
-  border-width: 2px;
 }
 
-.phase-lesson #webcam-frame.detecting {
-  border-color: rgba(34, 197, 94, 0.95);
-  box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.5),
-              0 0 80px rgba(34, 197, 94, 0.6),
-              inset 0 0 0 100vh rgba(34, 197, 94, 0.1);
-  animation: detect-pulse 0.6s ease-in-out infinite alternate;
+/* === BIG GUARANTEED-VISIBLE BUTTONS === */
+#bottom-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 100;
+  background: rgba(0,0,0,0.9);
+  padding: 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border-top: 2px solid #ff7f50;
 }
-@keyframes detect-pulse {
-  to { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.7),
-                   0 0 100px rgba(34, 197, 94, 0.7),
-                   inset 0 0 0 100vh rgba(34, 197, 94, 0.15); }
-}
-
-#state-badge {
-  position: absolute;
-  bottom: 14px; left: 50%;
-  transform: translateX(-50%);
-  padding: 6px 14px;
-  border-radius: 999px;
-  background: rgba(0,0,0,0.65);
-  backdrop-filter: blur(10px);
-  font: 600 11px/1 'Quicksand', sans-serif;
+#chat-input {
+  flex: 1;
+  height: 48px;
+  border: 2px solid rgba(255,127,80,0.4);
+  background: rgba(255,255,255,0.06);
   color: #fff;
-  letter-spacing: 0.5px; text-transform: uppercase;
-  display: flex; align-items: center; gap: 6px;
-  white-space: nowrap; z-index: 5;
+  font: 500 16px 'Quicksand';
+  padding: 0 14px;
+  border-radius: 24px;
+  outline: none;
 }
-.state-dot { width: 8px; height: 8px; border-radius: 50%; background: #fbbf24; }
-.state-dot.watching  { background: #fbbf24; }
-.state-dot.listening { background: #22c55e; animation: pulse 1.2s infinite; }
-.state-dot.talking   { background: #ff4d9e; animation: pulse 0.6s infinite; }
+#chat-input:focus { border-color: #ff7f50; }
+
+.bigbtn {
+  height: 48px;
+  border: none;
+  border-radius: 24px;
+  font: 700 14px 'Fredoka';
+  cursor: pointer;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+#btn-send {
+  width: 48px;
+  background: linear-gradient(135deg, #ff4d9e, #9b3aa3);
+  color: #fff;
+  font-size: 22px;
+  padding: 0;
+}
+#btn-dance {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #1a0617;
+  animation: pulse 1.4s infinite;
+}
 @keyframes pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%      { opacity: 0.5; transform: scale(1.3); }
+  0%,100% { box-shadow: 0 0 0 0 rgba(251,191,36,0.7); }
+  50%     { box-shadow: 0 0 0 10px rgba(251,191,36,0); }
 }
-.phase-lesson #state-badge { display: none; }
+.bigbtn:active { transform: scale(0.95); }
 
 #cue-overlay {
   position: absolute;
   top: 24px; left: 50%;
-  transform: translateX(-50%) translateY(-30px);
+  transform: translateX(-50%);
   z-index: 80;
-  pointer-events: none;
-  opacity: 0;
-  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  background: rgba(0,0,0,0.7);
-  backdrop-filter: blur(20px);
-  padding: 16px 32px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 77, 158, 0.3);
+  background: rgba(0,0,0,0.85);
+  padding: 14px 28px;
+  border-radius: 18px;
+  border: 2px solid rgba(255,127,80,0.6);
   text-align: center;
+  display: none;
 }
-#cue-overlay.show {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
+#cue-overlay.show { display: block; }
 #cue-overlay.firing {
-  background: rgba(34, 197, 94, 0.85);
-  border-color: rgba(34, 197, 94, 0.95);
+  background: rgba(34,197,94,0.9);
+  border-color: #22c55e;
 }
-#cue-emoji { font-size: 48px; line-height: 1; }
+#cue-emoji { font-size: 40px; }
 #cue-label {
-  font: 700 14px/1.1 'Fredoka', sans-serif;
+  font: 700 13px 'Fredoka';
   color: #fff;
-  letter-spacing: 0.5px;
   margin-top: 4px;
 }
 
@@ -272,253 +233,82 @@ body::after {
   transform: translate(-50%, -50%);
   z-index: 200;
   display: none;
-  pointer-events: none;
+  font: 800 clamp(100px, 20vmin, 200px) 'Fredoka';
+  background: linear-gradient(135deg, #ffd6a5, #ff4500);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
 }
 #countdown.show { display: block; }
-#countdown .count-num {
-  font: 800 clamp(120px, 22vmin, 220px) / 1 'Fredoka', sans-serif;
-  background: linear-gradient(135deg, #ffd6f5, #ff4d9e, #fbbf24);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 30px rgba(255, 77, 158, 0.9));
-  animation: count-pop 0.8s ease-out;
-  text-align: center;
-}
-@keyframes count-pop {
-  0%   { transform: scale(0.4); opacity: 0; }
-  40%  { transform: scale(1.15); opacity: 1; }
-  100% { transform: scale(1);   opacity: 1; }
-}
 
 #hit-pop {
   position: absolute;
   top: 30%; left: 50%;
   transform: translate(-50%, -50%) scale(0);
   z-index: 85;
-  pointer-events: none;
-  font: 700 clamp(48px, 9vmin, 100px) / 1 'Fredoka', sans-serif;
+  font: 700 clamp(40px, 8vmin, 80px) 'Fredoka';
   background: linear-gradient(135deg, #fbbf24, #ff4d9e);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  text-shadow: 0 0 30px rgba(255, 77, 158, 0.4);
   opacity: 0;
-  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1);
 }
-#hit-pop.show {
-  transform: translate(-50%, -50%) scale(1);
-  opacity: 1;
-}
+#hit-pop.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 
 #score-badge {
   position: absolute;
-  top: 28px; left: 28px;
+  top: 12px; left: 12px;
   z-index: 70;
   display: none;
-  flex-direction: column;
-  align-items: center;
   padding: 8px 14px;
-  border-radius: 16px;
-  background: rgba(10, 5, 23, 0.7);
-  backdrop-filter: blur(12px);
-  border: 2px solid rgba(251, 191, 36, 0.5);
-  min-width: 60px;
-}
-.phase-lesson #score-badge { display: flex; }
-.score-num {
-  font: 800 28px/1 'Fredoka', sans-serif;
-  background: linear-gradient(135deg, #fbbf24, #ff4d9e);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-}
-.score-label {
-  font: 600 9px/1 'Quicksand', sans-serif;
-  color: rgba(255, 214, 245, 0.7);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-top: 2px;
-}
-#score-badge.bump { animation: score-bump 0.4s ease-out; }
-@keyframes score-bump {
-  0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.18); }
-}
-
-#end-screen {
-  position: absolute;
-  top: 16%;
-  left: 50%;
-  transform: translateX(-50%) scale(0);
-  z-index: 90;
-  pointer-events: none;
-  text-align: center;
-  opacity: 0;
-  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-#end-screen.show {
-  transform: translateX(-50%) scale(1);
-  opacity: 1;
-}
-.end-stars { font-size: 56px; margin-bottom: 8px; animation: star-bounce 1s ease-in-out infinite alternate; }
-@keyframes star-bounce { to { transform: translateY(-8px); } }
-.end-title {
-  font: 900 36px/1 'Fredoka', sans-serif;
-  background: linear-gradient(135deg, #fbbf24, #ff4d9e);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  letter-spacing: 1px; margin-bottom: 16px;
-}
-.end-score {
-  font: 800 64px/1 'Fredoka', sans-serif;
-  color: #fff;
-  text-shadow: 0 0 30px rgba(255, 77, 158, 0.6);
-}
-.end-of { color: rgba(255, 214, 245, 0.5); margin: 0 6px; }
-.end-label {
-  font: 600 12px 'Quicksand', sans-serif;
-  color: rgba(255, 214, 245, 0.7);
-  text-transform: uppercase; letter-spacing: 2px; margin-top: 4px;
-}
-.end-streak {
-  margin-top: 12px;
-  font: 700 16px 'Fredoka', sans-serif;
+  background: rgba(0,0,0,0.7);
+  border: 2px solid #fbbf24;
+  border-radius: 14px;
+  font: 700 18px 'Fredoka';
   color: #fbbf24;
 }
+.phase-lesson #score-badge { display: block; }
 
-#controls {
-  position: absolute; top: 40px; right: 24px;
-  z-index: 100; display: flex; gap: 10px;
-}
-.ctrl-btn {
-  width: 44px; height: 44px;
-  border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.2);
-  background: rgba(0,0,0,0.55);
-  backdrop-filter: blur(10px);
-  color: #fff;
-  font-size: 18px;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: all 0.2s ease;
-}
-.ctrl-btn:hover { background: rgba(255, 77, 158, 0.4); }
-
-#chat-bar {
+#nova-bubble {
   position: absolute;
-  bottom: 20px; left: 50%;
-  transform: translateX(-50%);
-  width: min(640px, calc(100% - 40px));
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px;
-  border-radius: 999px;
-  background: rgba(10, 5, 23, 0.85);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 77, 158, 0.25);
-  z-index: 90;
-}
-#chat-input {
-  flex: 1;
-  border: none; outline: none; background: transparent;
-  color: #fff;
-  font: 500 16px/1.4 'Quicksand', sans-serif;
+  top: 12px; right: 12px;
+  z-index: 95;
+  max-width: 280px;
   padding: 12px 16px;
-}
-#chat-input::placeholder { color: rgba(255,214,245,0.45); }
-#chat-send, #btn-dance {
-  height: 44px;
-  border: none; border-radius: 50%;
-  background: linear-gradient(135deg, #ff4d9e, #9b3aa3);
-  color: #fff;
-  font-size: 18px; font-weight: 700;
-  cursor: pointer; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  transition: transform 0.15s ease;
-}
-#chat-send { width: 44px; }
-#chat-send:hover, #btn-dance:hover { transform: scale(1.08); }
-/* ⭐ V70 FIX: Dance button ALWAYS visible during play phase ⭐ */
-#btn-dance {
-  width: auto;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
-  color: #1a0d2b;
-  font: 700 14px/1 'Fredoka', sans-serif;
-  padding: 10px 18px;
-  display: flex;
-  animation: dance-pulse 1.4s ease-in-out infinite;
-}
-#btn-dance.hidden { display: none; }
-@keyframes dance-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.6); }
-  50%      { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0); }
-}
-
-#connecting {
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 24px;
-  background: rgba(10, 5, 23, 0.85);
-  backdrop-filter: blur(14px);
-  z-index: 200;
-  opacity: 0; pointer-events: none;
-  transition: opacity 0.4s;
-}
-#connecting.show { opacity: 1; pointer-events: auto; }
-.spinner {
-  width: 60px; height: 60px;
-  border: 4px solid rgba(255, 77, 158, 0.2);
-  border-top-color: #ff4d9e;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-#connecting-text {
-  font: 600 16px/1.3 'Fredoka', sans-serif;
-  color: #ffd6f5;
-}
-/* dismiss btn so spinner cant lock the user out */
-#connecting-skip {
-  margin-top: 16px;
-  padding: 8px 18px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.2);
-  background: transparent;
-  color: rgba(255,214,245,0.7);
-  font: 500 12px 'Quicksand';
-  cursor: pointer;
-}
-
-#error-screen {
-  position: absolute; inset: 0;
-  display: none;
-  flex-direction: column; align-items: center; justify-content: center;
-  gap: 16px; padding: 32px;
-  background: rgba(10, 5, 23, 0.95);
-  z-index: 300;
-}
-#error-screen.show { display: flex; }
-#error-screen h2 { font: 700 28px 'Fredoka'; color: #ffd6f5; }
-#error-screen p {
-  color: rgba(255,255,255,0.65);
-  max-width: 400px; text-align: center; line-height: 1.5;
-}
-#error-screen button {
-  margin-top: 12px; padding: 12px 28px;
-  border: none; border-radius: 999px;
-  background: linear-gradient(135deg, #ff4d9e, #9b3aa3);
-  color: #fff;
+  background: rgba(255,127,80,0.95);
+  color: #1a0617;
+  border-radius: 18px;
   font: 600 14px 'Fredoka';
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  display: none;
+}
+#nova-bubble.show { display: block; animation: slide-in 0.3s ease; }
+@keyframes slide-in { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+#exit-btn {
+  position: absolute;
+  top: 12px; right: 12px;
+  z-index: 110;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.3);
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+  font-size: 16px;
   cursor: pointer;
 }
+.phase-closeup #exit-btn { display: block; }
+.phase-lesson #exit-btn { display: none; }
 </style>
 </head>
 <body>
 
-<div id="vbanner">🌼 V70 BUTTERCUP ⭐ DANCE BTN ALWAYS ON ⭐ 🌼</div>
-<div id="status">v70 · idle · tap the orb</div>
+<div id="vbanner">🪸 V71 CORAL ⭐ BUTTONS FIXED + GREET FIRST ⭐ 🪸</div>
+<div id="debug"></div>
 
 <div id="stage" class="phase-closeup">
 
   <div id="idle-screen">
     <h1 id="idle-title">Nova</h1>
     <button id="magic-orb" aria-label="Tap to meet Nova"></button>
-    <p id="idle-subtitle">Tap the magic orb to meet Nova.<br>Let's dance to Hello Hello!</p>
+    <p style="text-align:center;opacity:0.7;font-size:14px;">Tap the orb to meet Nova</p>
   </div>
 
   <div id="play-screen">
@@ -534,64 +324,30 @@ body::after {
     <div id="nova-frame">
       <div id="nova-placeholder">
         <div class="emoji">✨</div>
-        <div class="text">Nova is on her way</div>
-      </div>
-      <div id="state-badge">
-        <span class="state-dot watching"></span>
-        <span id="state-label">watching</span>
+        <div class="text">Nova...</div>
       </div>
     </div>
 
-    <audio id="dance-music" src="hello.mp3" preload="metadata"></audio>
+    <audio id="dance-music" src="hello.mp3" preload="auto"></audio>
 
     <div id="cue-overlay">
       <div id="cue-emoji"></div>
       <div id="cue-label"></div>
     </div>
 
-    <div id="countdown"><div class="count-num">3</div></div>
-
+    <div id="countdown">3</div>
     <div id="hit-pop"></div>
-
-    <div id="score-badge">
-      <div class="score-num">0</div>
-      <div class="score-label">hits</div>
-    </div>
-
-    <div id="end-screen">
-      <div class="end-stars">⭐⭐⭐</div>
-      <div class="end-title">YOU DID IT!</div>
-      <div class="end-score">
-        <span class="score-num" id="end-hits">0</span>
-        <span class="end-of">/</span>
-        <span class="score-num" id="end-total">0</span>
-      </div>
-      <div class="end-label">moves</div>
-      <div class="end-streak" id="end-streak"></div>
-    </div>
-
-    <div id="controls">
-      <button class="ctrl-btn" id="btn-pause" title="Pause">⏸</button>
-      <button class="ctrl-btn" id="btn-exit" title="Exit">✕</button>
-    </div>
-
-    <div id="chat-bar">
-      <input id="chat-input" type="text" placeholder="Type to Nova... or just talk" autocomplete="off">
-      <button id="chat-send">↑</button>
-      <button id="btn-dance">💃 Dance!</button>
-    </div>
-
-    <div id="connecting">
-      <div class="spinner"></div>
-      <div id="connecting-text">Waking Nova up…</div>
-      <button id="connecting-skip">skip · just dance</button>
-    </div>
-    <div id="error-screen">
-      <h2>Oops</h2>
-      <p id="error-text">Something went wrong.</p>
-      <button onclick="location.reload()">Try again</button>
-    </div>
+    <div id="score-badge">0 hits</div>
+    <div id="nova-bubble"></div>
+    <button id="exit-btn" title="Exit">✕</button>
   </div>
+</div>
+
+<!-- ALWAYS VISIBLE BAR -->
+<div id="bottom-bar">
+  <input id="chat-input" type="text" placeholder="Tell Nova your name..." autocomplete="off">
+  <button id="btn-send" class="bigbtn">↑</button>
+  <button id="btn-dance" class="bigbtn">💃 Dance!</button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.13.3/dist/livekit-client.umd.min.js"></script>
@@ -600,27 +356,50 @@ body::after {
 import * as poseDetection from 'https://esm.sh/@tensorflow-models/pose-detection@2.1.3';
 import * as tf from 'https://esm.sh/@tensorflow/tfjs@4.20.0';
 import 'https://esm.sh/@tensorflow/tfjs-backend-webgl@4.20.0';
-
 window.__poseDetection = poseDetection;
 window.__tf = tf;
-console.log('[boot] pose detection libs loaded');
+log('pose libs loaded', 'ok');
 </script>
 
 <script>
+// ════════════════════════════════════════════════════════════════
+// VISIBLE DEBUG LOG — every event shows up on screen
+// ════════════════════════════════════════════════════════════════
+const debugEl = document.getElementById('debug');
+function log(msg, cls='') {
+  const t = (performance.now()/1000).toFixed(1);
+  const div = document.createElement('div');
+  div.className = cls;
+  div.textContent = `[${t}s] ${msg}`;
+  debugEl.appendChild(div);
+  debugEl.scrollTop = debugEl.scrollHeight;
+  while (debugEl.children.length > 25) debugEl.removeChild(debugEl.firstChild);
+  console.log('[v71]', msg);
+}
+window.log = log;
+window.addEventListener('error', e => log('JS ERR: ' + e.message, 'err'));
+window.addEventListener('unhandledrejection', e => log('PROMISE ERR: ' + (e.reason?.message || e.reason), 'err'));
+
+log('v71 CORAL boot');
+
+// ════════════════════════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════════════════════════
 const CFG = {
   workerUrl: 'https://long-art-8269r.dsbeauty01.workers.dev',
   avatarId:   'e976bbb2-de60-4da6-845e-4b754050e55b',
   avatarType: 'custom',
 };
 
+// ════════════════════════════════════════════════════════════════
+// DOM
+// ════════════════════════════════════════════════════════════════
 const stage         = document.getElementById('stage');
 const idleScreen    = document.getElementById('idle-screen');
 const playScreen    = document.getElementById('play-screen');
 const orb           = document.getElementById('magic-orb');
 const novaFrame     = document.getElementById('nova-frame');
 const novaPlaceholder = document.getElementById('nova-placeholder');
-const stateLabel    = document.getElementById('state-label');
-const stateDot      = document.querySelector('.state-dot');
 const webcamVideo   = document.getElementById('webcam-video');
 const webcamFrame   = document.getElementById('webcam-frame');
 const danceVideo    = document.getElementById('dance-video');
@@ -629,159 +408,133 @@ const cueOverlay    = document.getElementById('cue-overlay');
 const cueEmoji      = document.getElementById('cue-emoji');
 const cueLabel      = document.getElementById('cue-label');
 const countdownEl   = document.getElementById('countdown');
-const countNum      = countdownEl.querySelector('.count-num');
 const hitPop        = document.getElementById('hit-pop');
 const scoreBadge    = document.getElementById('score-badge');
-const scoreNum      = scoreBadge.querySelector('.score-num');
-const endScreen     = document.getElementById('end-screen');
+const novaBubble    = document.getElementById('nova-bubble');
 const btnDance      = document.getElementById('btn-dance');
+const btnSend       = document.getElementById('btn-send');
+const btnExit       = document.getElementById('exit-btn');
 const chatInput     = document.getElementById('chat-input');
-const chatSend      = document.getElementById('chat-send');
-const connecting    = document.getElementById('connecting');
-const connectingText= document.getElementById('connecting-text');
-const connectingSkip= document.getElementById('connecting-skip');
-const errorScreen   = document.getElementById('error-screen');
-const errorText     = document.getElementById('error-text');
-const statusBar     = document.getElementById('status');
 
-danceVideo.addEventListener('error', () => {
-  const err = danceVideo.error;
-  console.error('[mp4 ERROR]', err?.code, err?.message);
-  setStatus(`❌ MP4 error code ${err?.code}`);
-});
-danceVideo.addEventListener('loadedmetadata', () => {
-  console.log('[mp4] metadata loaded, duration:', danceVideo.duration);
-});
-danceMusic.addEventListener('error', () => {
-  const err = danceMusic.error;
-  console.error('[music ERROR]', err?.code);
-  setStatus(`❌ music error code ${err?.code}`);
-});
+// Surface MP4 / music errors
+danceVideo.addEventListener('error', () => log('MP4 ERR code ' + danceVideo.error?.code, 'err'));
+danceVideo.addEventListener('loadedmetadata', () => log('MP4 ok dur=' + danceVideo.duration.toFixed(1) + 's', 'ok'));
+danceMusic.addEventListener('error', () => log('MUSIC ERR code ' + danceMusic.error?.code + ' — check filename!', 'err'));
+danceMusic.addEventListener('loadedmetadata', () => log('music ok dur=' + danceMusic.duration.toFixed(1) + 's', 'ok'));
+danceMusic.addEventListener('canplay', () => log('music canplay', 'ok'));
 
-function setStatus(msg) {
-  statusBar.textContent = `v70 · ${msg}`;
-  console.log('[v70]', msg);
-}
-function setPhase(phase) {
-  stage.className = `phase-${phase}`;
-  console.log('[phase]', phase);
-}
-function setState(state) {
-  stateLabel.textContent = state;
-  stateDot.className = 'state-dot ' + state;
-}
-function showError(msg) {
-  errorText.textContent = msg;
-  errorScreen.classList.add('show');
-  setStatus('error · ' + msg.substring(0, 60));
+// ════════════════════════════════════════════════════════════════
+// MEMORY (simplified)
+// ════════════════════════════════════════════════════════════════
+let novaMem = { name: null, isFirstTime: true, sessions: 0 };
+try {
+  const raw = localStorage.getItem('nova-memory');
+  if (raw) novaMem = JSON.parse(raw);
+} catch(e) {}
+let session = { hits: 0, attempts: 0, streak: 0, maxStreak: 0 };
+function saveMem() {
+  try { localStorage.setItem('nova-memory', JSON.stringify(novaMem)); } catch(e) {}
 }
 
-const Memory = {
-  load() {
-    try {
-      const raw = localStorage.getItem('nova-memory');
-      if (raw) return JSON.parse(raw);
-    } catch(e) {}
-    return {
-      name: null, isFirstTime: true, totalSessions: 0,
-      maxStreak: 0, favoriteMove: null, lastVisit: null,
-    };
-  },
-  save(mem) {
-    try { localStorage.setItem('nova-memory', JSON.stringify(mem)); } catch(e) {}
-  },
-  session: {
-    hits: 0, attempts: 0, currentStreak: 0, maxStreak: 0,
-    consecutiveMisses: 0, moveHits: {},
-  },
-  reset() {
-    this.session = {
-      hits: 0, attempts: 0, currentStreak: 0, maxStreak: 0,
-      consecutiveMisses: 0, moveHits: {},
-    };
-  }
-};
-let novaMem = Memory.load();
-console.log('[memory] loaded:', novaMem);
+// ════════════════════════════════════════════════════════════════
+// NOVA BUBBLE — always shows what Nova would say (works without LiveKit)
+// ════════════════════════════════════════════════════════════════
+function showBubble(text, ms=4000) {
+  novaBubble.textContent = text;
+  novaBubble.classList.add('show');
+  log('Nova: ' + text, 'ev');
+  clearTimeout(showBubble._t);
+  showBubble._t = setTimeout(() => novaBubble.classList.remove('show'), ms);
+}
 
+// ════════════════════════════════════════════════════════════════
+// BRAIN — talks to Worker, falls back gracefully
+// ════════════════════════════════════════════════════════════════
 async function askBrain(event, context = {}, userMessage = '') {
+  log('brain: ' + event);
+  // First show local bubble immediately so user sees feedback
+  const localFallback = getLocalReply(event, context, userMessage);
+  if (localFallback) showBubble(localFallback);
+  
   try {
-    const fullMem = {
-      ...novaMem,
-      phase: stage.className.replace('phase-', ''),
-      hits: Memory.session.hits,
-      attempts: Memory.session.attempts,
-      maxStreak: Math.max(novaMem.maxStreak || 0, Memory.session.maxStreak),
-    };
+    const fullMem = { ...novaMem, ...session };
     const res = await fetch(CFG.workerUrl + '/nova-brain', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ event, context, memory: fullMem, userMessage }),
     });
+    if (!res.ok) {
+      log('brain HTTP ' + res.status, 'err');
+      return;
+    }
     const data = await res.json();
     const text = (data.text || '').trim();
-    console.log(`[brain ${event}]`, text);
-    if (text) await sendChatToNova(text);
-    return text;
+    if (text) {
+      showBubble(text);
+      sendChatToNova(text);
+    }
   } catch(e) {
-    console.warn('[brain] failed:', e);
+    log('brain failed: ' + e.message, 'err');
   }
+}
+
+// Local fallback so kid sees SOMETHING even if Worker is down
+function getLocalReply(event, ctx, userMsg) {
+  if (event === 'intro_first') return "Hi! I'm Nova! What's your name?";
+  if (event === 'intro_returning') return "You're back! Yay!";
+  if (event === 'name_received') return `${ctx.name}! Cool name! Ready to dance?`;
+  if (event === 'free_chat') return "Cool! Tap Dance when you're ready!";
+  if (event === 'hit') return 'YES!';
+  if (event === 'miss') return "Almost!";
+  if (event === 'streak') return `${ctx.streak} in a row!!`;
+  if (event === 'end_celebration') return `Wow! ${ctx.hits} moves!`;
+  if (event === 'end_quiet') return "That was fun!";
+  return null;
 }
 
 async function sendChatToNova(text) {
-  if (!window.novaRoom) {
-    console.warn('[chat] no room - skipping (Nova not connected)');
-    return;
-  }
-  if (!text || !text.trim()) return;
+  if (!window.novaRoom) return;
   try {
-    const payload = { type: 'user_message', text: text.trim() };
-    const data = new TextEncoder().encode(JSON.stringify(payload));
+    const data = new TextEncoder().encode(JSON.stringify({ type: 'user_message', text }));
     await window.novaRoom.localParticipant.publishData(data, { reliable: true });
-    console.log('[chat→nova]', text);
-  } catch(e) {
-    console.error('[chat] send failed:', e);
-  }
+  } catch(e) { log('send-to-nova fail: ' + e.message, 'err'); }
 }
 
+// ════════════════════════════════════════════════════════════════
+// ORB → start
+// ════════════════════════════════════════════════════════════════
 orb.addEventListener('click', startNova);
 
 async function startNova() {
-  setStatus('asking for camera + mic...');
+  log('orb tapped', 'ev');
   
   try {
-    if (webcamVideo.srcObject) {
-      webcamVideo.srcObject.getTracks().forEach(t => t.stop());
-      webcamVideo.srcObject = null;
-    }
+    if (webcamVideo.srcObject) webcamVideo.srcObject.getTracks().forEach(t => t.stop());
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { width: 640, height: 480, facingMode: 'user' },
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      audio: { echoCancellation: true, noiseSuppression: true },
     });
     webcamVideo.srcObject = stream;
+    log('camera + mic ok', 'ok');
   } catch(e) {
-    showError('Please allow camera and microphone, then refresh.');
+    log('camera DENIED: ' + e.message, 'err');
+    showBubble('Please allow camera, then refresh.');
     return;
   }
 
   idleScreen.classList.add('hidden');
   playScreen.classList.add('active');
-  setPhase('closeup');
-  connecting.classList.add('show');
-  connectingText.textContent = 'Waking Nova up…';
-
-  // ⭐ V70: skip button on connecting overlay so user can dance even if Nova hangs
-  connectingSkip.onclick = () => {
-    connecting.classList.remove('show');
-    setStatus('skipped Nova · ready to dance');
-  };
-
-  await connectNova();
+  
+  // ⭐ V71: GREET FIRST. No dance until kid says name.
+  setTimeout(() => askBrain(novaMem.name ? 'intro_returning' : 'intro_first'), 800);
+  
+  // Connect to Nova's video in background — don't block experience
+  connectNova().catch(e => log('Nova connect failed: ' + e.message, 'err'));
 }
 
 async function connectNova() {
+  log('connecting Nova video...');
   try {
-    setStatus('asking Worker for Runway session...');
     const res = await fetch(CFG.workerUrl + '/runway-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -789,13 +542,13 @@ async function connectNova() {
     });
     const creds = await res.json();
     if (!creds.serverUrl || !creds.token) {
-      throw new Error(`Worker error: ${JSON.stringify(creds).substring(0, 200)}`);
+      log('Worker bad response: ' + JSON.stringify(creds).substring(0,100), 'err');
+      return;
     }
-    setStatus('connecting room...');
     const room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
     
-    room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, participant) => {
-      console.log('[track]', track.kind, 'from', participant.identity);
+    room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, p) => {
+      log('track ' + track.kind + ' from ' + p.identity, 'ok');
       if (track.kind === 'video') {
         novaPlaceholder.style.display = 'none';
         let v = document.getElementById('nova-video');
@@ -806,66 +559,58 @@ async function connectNova() {
           novaFrame.insertBefore(v, novaFrame.firstChild);
         }
         track.attach(v);
-        connecting.classList.remove('show');
-        setStatus('Nova is here!');
-        setState('talking');
       }
       if (track.kind === 'audio') {
         const a = document.createElement('audio');
         a.autoplay = true; a.volume = 1.0;
         track.attach(a);
         document.body.appendChild(a);
-        a.play().catch(err => {
-          console.warn('[audio] autoplay blocked:', err);
+        a.play().catch(()=>{
           document.body.addEventListener('click', () => a.play().catch(()=>{}), { once: true });
         });
       }
     });
     
-    room.on(LivekitClient.RoomEvent.ActiveSpeakersChanged, (speakers) => {
-      const novaSpeaking = speakers.some(s => s.identity !== room.localParticipant.identity);
-      const meSpeaking   = speakers.some(s => s.identity === room.localParticipant.identity);
-      if (novaSpeaking)      setState('talking');
-      else if (meSpeaking)   setState('listening');
-      else                    setState('watching');
-    });
-    
-    room.on(LivekitClient.RoomEvent.Disconnected, () => setStatus('disconnected'));
-    
     await room.connect(creds.serverUrl, creds.token);
-    setStatus('connected · publishing mic');
     await room.localParticipant.setMicrophoneEnabled(true);
-    setStatus('mic live · waiting for Nova video');
-    
     window.novaRoom = room;
-    
-    const event = novaMem.isFirstTime ? 'intro_first' : 'intro_returning';
-    setTimeout(() => askBrain(event), 1500);
-    
-  } catch (err) {
-    console.error('[connect error]', err);
-    connecting.classList.remove('show');
-    // ⭐ V70: dont show error - let user dance without Nova
-    setStatus('Nova unavailable · dance still works');
+    log('Nova connected', 'ok');
+  } catch(e) {
+    log('Nova: ' + e.message, 'err');
   }
 }
 
-chatSend.addEventListener('click', sendUserMessage);
+// ════════════════════════════════════════════════════════════════
+// CHAT — verified working, with feedback
+// ════════════════════════════════════════════════════════════════
+btnSend.addEventListener('click', () => {
+  log('send button clicked', 'ev');
+  sendUserMessage();
+});
 chatInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); sendUserMessage(); }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    log('Enter pressed', 'ev');
+    sendUserMessage();
+  }
 });
 
 function sendUserMessage() {
   const t = chatInput.value.trim();
-  if (!t) return;
+  if (!t) {
+    log('empty msg ignored');
+    return;
+  }
+  log('user: ' + t, 'ev');
   chatInput.value = '';
   
-  if (novaMem.isFirstTime && !novaMem.name && t.length < 30 && /^[a-zA-Z\s]+$/.test(t)) {
-    const possible = t.split(/\s+/).find(w => w.length > 1 && /^[a-zA-Z]+$/.test(w));
-    if (possible) {
-      const name = possible.charAt(0).toUpperCase() + possible.slice(1).toLowerCase();
+  // Name capture
+  if (!novaMem.name && t.length < 30 && /^[a-zA-Z\s]+$/.test(t)) {
+    const word = t.split(/\s+/).find(w => w.length > 1 && /^[a-zA-Z]+$/.test(w));
+    if (word) {
+      const name = word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
       novaMem.name = name;
-      Memory.save(novaMem);
+      saveMem();
       askBrain('name_received', { name });
       chatInput.focus();
       return;
@@ -876,30 +621,19 @@ function sendUserMessage() {
   chatInput.focus();
 }
 
-document.getElementById('btn-exit').addEventListener('click', () => {
+// ════════════════════════════════════════════════════════════════
+// EXIT
+// ════════════════════════════════════════════════════════════════
+btnExit.addEventListener('click', () => {
   if (window.novaRoom) window.novaRoom.disconnect();
   location.reload();
 });
 
-document.getElementById('btn-pause').addEventListener('click', async () => {
-  if (window.novaRoom) {
-    const enabled = window.novaRoom.localParticipant.isMicrophoneEnabled;
-    await window.novaRoom.localParticipant.setMicrophoneEnabled(!enabled);
-    document.getElementById('btn-pause').textContent = enabled ? '🎤' : '⏸';
-  }
-});
-
-const Dance = {
-  detector: null,
-  running: false,
-  currentCue: null,
-  cueState: 'idle',
-  cueDeadline: 0,
-  startedAt: 0,
-};
-
-const PREP_MS = 2000;
-const FIRE_MS = 2500;
+// ════════════════════════════════════════════════════════════════
+// DANCE — runs even if Nova not connected, runs even if music broken
+// ════════════════════════════════════════════════════════════════
+const Dance = { detector: null, running: false, currentCue: null, cueState: 'idle', cueDeadline: 0, startedAt: 0 };
+const PREP_MS = 2000, FIRE_MS = 2500;
 
 const TIMELINE = [
   { at: 16, emoji: '👏', label: 'CLAP!',          detect: 'clap' },
@@ -919,14 +653,15 @@ let firedCues = new Set();
 
 async function loadMoveNet() {
   if (Dance.detector) return Dance.detector;
-  setStatus('loading body tracker...');
+  log('loading MoveNet...');
   let tries = 0;
-  while ((!window.__poseDetection || !window.__tf) && tries < 50) {
+  while ((!window.__poseDetection || !window.__tf) && tries < 60) {
     await new Promise(r => setTimeout(r, 100));
     tries++;
   }
   if (!window.__poseDetection || !window.__tf) {
-    throw new Error('Pose detection libraries failed to load');
+    log('MoveNet libs missing!', 'err');
+    throw new Error('Pose detection failed to load');
   }
   await window.__tf.setBackend('webgl');
   await window.__tf.ready();
@@ -934,7 +669,7 @@ async function loadMoveNet() {
     window.__poseDetection.SupportedModels.MoveNet,
     { modelType: window.__poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
   );
-  setStatus('body tracker ready');
+  log('MoveNet ready', 'ok');
   return Dance.detector;
 }
 
@@ -947,21 +682,17 @@ async function poseLoop() {
       poses[0].keypoints.forEach(p => { if (p.score > 0.3) kp[p.name] = p; });
       checkCue(kp);
     }
-  } catch(e) { console.warn('[pose]', e); }
+  } catch(e) {}
   requestAnimationFrame(poseLoop);
 }
 
 function checkCue(kp) {
   if (!Dance.currentCue || Dance.cueState !== 'fire') return;
-  if (Date.now() > Dance.cueDeadline) {
-    closeCue('miss');
-    return;
-  }
+  if (Date.now() > Dance.cueDeadline) { closeCue('miss'); return; }
   const cue = Dance.currentCue;
   const userRight = { wrist: kp.left_wrist, shoulder: kp.left_shoulder };
   const userLeft  = { wrist: kp.right_wrist, shoulder: kp.right_shoulder };
   let hit = false;
-  
   switch(cue.detect) {
     case 'right_hand_up':
       if (userRight.wrist && userRight.shoulder && userRight.wrist.y < userRight.shoulder.y - 10) hit = true;
@@ -975,26 +706,19 @@ function checkCue(kp) {
           && userLeft.wrist.y  < userLeft.shoulder.y  - 10) hit = true;
       break;
     case 'clap':
-      if (userRight.wrist && userLeft.wrist) {
-        const dx = Math.abs(userRight.wrist.x - userLeft.wrist.x);
-        if (dx < 100) hit = true;
-      }
+      if (userRight.wrist && userLeft.wrist && Math.abs(userRight.wrist.x - userLeft.wrist.x) < 100) hit = true;
       break;
     case 'hands_on_head':
-      if (kp.nose) {
-        if ((userRight.wrist && userRight.wrist.y < kp.nose.y) ||
-            (userLeft.wrist  && userLeft.wrist.y  < kp.nose.y)) hit = true;
-      }
+      if (kp.nose && ((userRight.wrist && userRight.wrist.y < kp.nose.y) || (userLeft.wrist && userLeft.wrist.y < kp.nose.y))) hit = true;
       break;
   }
-  
   if (hit) closeCue('hit', cue);
 }
 
 function showCuePrep(cue) {
   Dance.currentCue = cue;
   Dance.cueState = 'prep';
-  Memory.session.attempts++;
+  session.attempts++;
   cueEmoji.textContent = cue.emoji;
   cueLabel.textContent = 'GET READY...';
   cueOverlay.classList.remove('firing');
@@ -1010,86 +734,92 @@ function fireCue() {
 }
 function closeCue(result, cue) {
   if (result === 'hit' && cue) {
-    Memory.session.hits++;
-    Memory.session.currentStreak++;
-    Memory.session.consecutiveMisses = 0;
-    if (Memory.session.currentStreak > Memory.session.maxStreak) {
-      Memory.session.maxStreak = Memory.session.currentStreak;
-    }
-    Memory.session.moveHits[cue.detect] = (Memory.session.moveHits[cue.detect] || 0) + 1;
-    
-    scoreNum.textContent = Memory.session.hits;
-    scoreBadge.classList.remove('bump');
-    void scoreBadge.offsetWidth;
-    scoreBadge.classList.add('bump');
-    
+    session.hits++; session.streak++;
+    if (session.streak > session.maxStreak) session.maxStreak = session.streak;
+    scoreBadge.textContent = session.hits + ' hits';
     showHit();
-    
-    if ([3, 5, 7, 10].includes(Memory.session.currentStreak)) {
-      askBrain('streak', { streak: Memory.session.currentStreak });
-    } else {
-      askBrain('hit', { move: cue.label, streak: Memory.session.currentStreak });
-    }
-  } else if (result === 'miss') {
-    Memory.session.currentStreak = 0;
-    Memory.session.consecutiveMisses++;
-    if (Memory.session.consecutiveMisses % 2 === 1 && Dance.currentCue) {
-      askBrain('miss', { move: Dance.currentCue.label });
-    }
+    if ([3,5,7,10].includes(session.streak)) askBrain('streak', { streak: session.streak });
+  } else {
+    session.streak = 0;
   }
   cueOverlay.classList.remove('show', 'firing');
   webcamFrame.classList.remove('detecting');
   Dance.currentCue = null;
   Dance.cueState = 'idle';
 }
-
 function showHit() {
-  const messages = ['NICE!', 'YES!', 'WOW!', 'AMAZING!', 'PERFECT!', '🌟'];
-  hitPop.textContent = messages[Math.floor(Math.random() * messages.length)];
+  hitPop.textContent = ['NICE!','YES!','WOW!','AMAZING!','PERFECT!'][Math.floor(Math.random()*5)];
   hitPop.classList.add('show');
   setTimeout(() => hitPop.classList.remove('show'), 800);
 }
 
 async function runCountdown() {
   countdownEl.classList.add('show');
-  for (const n of ['3', '2', '1', 'GO!']) {
-    countNum.textContent = n;
-    countNum.style.animation = 'none';
-    void countNum.offsetHeight;
-    countNum.style.animation = '';
-    await new Promise(r => setTimeout(r, 800));
+  for (const n of ['3','2','1','GO!']) {
+    countdownEl.textContent = n;
+    await new Promise(r => setTimeout(r, 700));
   }
   countdownEl.classList.remove('show');
 }
 
+btnDance.addEventListener('click', async () => {
+  log('DANCE button clicked', 'ev');
+  if (Dance.running) { log('already running'); return; }
+  
+  // Need to be in play screen first
+  if (!playScreen.classList.contains('active')) {
+    log('not in play screen — tap orb first');
+    showBubble('Tap the orb first!');
+    return;
+  }
+  
+  await startDance();
+});
+
 async function startDance() {
-  if (Dance.running) return;
-  btnDance.classList.add('hidden');
-  endScreen.classList.remove('show');
+  log('startDance()', 'ev');
   
-  Memory.reset();
-  scoreNum.textContent = '0';
+  try {
+    await loadMoveNet();
+  } catch(e) {
+    log('cannot dance — pose detection broken', 'err');
+    showBubble('Tracker broken — try refresh');
+    return;
+  }
   
-  await loadMoveNet();
+  stage.className = 'phase-lesson';
+  log('switched to lesson phase');
   
-  setPhase('lesson');
+  session = { hits: 0, attempts: 0, streak: 0, maxStreak: 0 };
+  scoreBadge.textContent = '0 hits';
   
   danceVideo.currentTime = 0;
+  danceMusic.currentTime = 0;
+  danceMusic.volume = 0.55;
   
   await runCountdown();
   
   Dance.running = true;
   firedCues.clear();
-  danceMusic.currentTime = 0;
-  danceMusic.volume = 0.55;
-  danceMusic.onended = () => { if (Dance.running) endDance(); };
   
-  await Promise.all([
-    danceVideo.play().catch(e => setStatus('❌ MP4: ' + e.message)),
-    danceMusic.play().catch(e => setStatus('❌ music: ' + e.message)),
-  ]);
+  // Try MP4 — if it fails, dance still runs with cues only
+  try {
+    await danceVideo.play();
+    log('MP4 playing', 'ok');
+  } catch(e) {
+    log('MP4 blocked: ' + e.message, 'err');
+  }
+  
+  // Try music — if it fails, dance still runs in silence
+  try {
+    await danceMusic.play();
+    log('music playing', 'ok');
+  } catch(e) {
+    log('music blocked: ' + e.message, 'err');
+    showBubble('No music? Dance anyway! 🎵');
+  }
+  
   Dance.startedAt = Date.now();
-  
   poseLoop();
   
   const scheduler = setInterval(() => {
@@ -1106,73 +836,30 @@ async function startDance() {
       }
     });
     
-    if (elapsed > 55 && elapsed < 56 && !Dance.midSongDone) {
-      Dance.midSongDone = true;
-      askBrain('mid_song');
-    }
-    
-    if (elapsed > 100) {
-      clearInterval(scheduler);
-      endDance();
-    }
+    if (elapsed > 100) { clearInterval(scheduler); endDance(); }
   }, 200);
   
-  setStatus('dance started');
+  log('dance running');
 }
 
-async function endDance() {
+function endDance() {
   Dance.running = false;
-  Dance.midSongDone = false;
   danceMusic.pause();
-  if (danceVideo.src) danceVideo.pause();
+  danceVideo.pause();
   cueOverlay.classList.remove('show', 'firing');
   webcamFrame.classList.remove('detecting');
+  stage.className = 'phase-closeup';
   
-  setPhase('closeup');
-  
-  const hits = Memory.session.hits;
-  const attempts = Memory.session.attempts;
-  const score = attempts > 0 ? Math.round((hits / attempts) * 100) : 0;
-  
-  document.getElementById('end-hits').textContent = hits;
-  document.getElementById('end-total').textContent = attempts;
-  document.getElementById('end-streak').textContent = 
-    Memory.session.maxStreak >= 3 ? `🔥 Best streak: ${Memory.session.maxStreak}` : '';
-  endScreen.classList.add('show');
-  
-  let bestMove = null, bestCount = 0;
-  Object.entries(Memory.session.moveHits).forEach(([move, count]) => {
-    if (count > bestCount) { bestMove = move; bestCount = count; }
-  });
-  
-  const event = score >= 30 ? 'end_celebration' : 'end_quiet';
-  askBrain(event, {
-    hits, attempts,
-    bestMove: bestMove?.replace(/_/g, ' '),
-    maxStreak: Memory.session.maxStreak,
-  });
-  
-  novaMem.totalSessions = (novaMem.totalSessions || 0) + 1;
-  novaMem.maxStreak = Math.max(novaMem.maxStreak || 0, Memory.session.maxStreak);
-  novaMem.lastVisit = new Date().toISOString();
+  novaMem.sessions = (novaMem.sessions || 0) + 1;
   novaMem.isFirstTime = false;
-  if (bestMove) novaMem.favoriteMove = bestMove.replace(/_/g, ' ');
-  Memory.save(novaMem);
+  saveMem();
   
-  setStatus(`done · ${hits}/${attempts}`);
-  
-  setTimeout(() => {
-    btnDance.classList.remove('hidden');
-    btnDance.textContent = '💃 Again?';
-  }, 6000);
+  const event = session.hits >= 3 ? 'end_celebration' : 'end_quiet';
+  askBrain(event, { hits: session.hits, attempts: session.attempts, maxStreak: session.maxStreak });
+  log(`done · ${session.hits}/${session.attempts}`);
 }
 
-btnDance.addEventListener('click', startDance);
-
-console.log('═══════════════════════════════════');
-console.log('Nova v70 BUTTERCUP — dance btn always on');
-console.log('═══════════════════════════════════');
-setStatus('idle · tap the orb');
+log('all listeners attached', 'ok');
 </script>
 
 </body>
