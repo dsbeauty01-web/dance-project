@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Nova v75 GOLD</title>
+<title>Nova v76 PEARL</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
@@ -42,11 +42,11 @@ body::after {
 #vbanner {
   position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
   text-align: center; padding: 7px 12px;
-  background: linear-gradient(90deg, #d97706 0%, #fbbf24 50%, #fde68a 100%);
-  color: #0a0517;
+  background: linear-gradient(90deg, #f3e8ff 0%, #e9d5ff 50%, #d8b4fe 100%);
+  color: #4a1d6e;
   font: 800 14px/1 'Fredoka', sans-serif;
   letter-spacing: 2px;
-  box-shadow: 0 4px 20px rgba(251, 191, 36, 0.4);
+  box-shadow: 0 4px 20px rgba(217, 70, 239, 0.35);
 }
 #status {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
@@ -346,30 +346,33 @@ body::after {
 /* ─── Score badge ─── */
 #score-badge {
   position: absolute;
-  top: 28px; left: 28px;
+  top: 28px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 70;
   display: none;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  padding: 8px 14px;
-  border-radius: 16px;
-  background: rgba(10, 5, 23, 0.7);
+  gap: 12px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  background: rgba(10, 5, 23, 0.85);
   backdrop-filter: blur(12px);
-  border: 2px solid rgba(251, 191, 36, 0.5);
-  min-width: 60px;
+  border: 3px solid rgba(251, 191, 36, 0.7);
+  box-shadow: 0 4px 20px rgba(251, 191, 36, 0.3);
+  min-width: 120px;
 }
 .phase-lesson #score-badge { display: flex; }
 .score-num {
-  font: 800 28px/1 'Fredoka', sans-serif;
+  font: 800 36px/1 'Fredoka', sans-serif;
   background: linear-gradient(135deg, #fbbf24, #ff4d9e);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
 }
 .score-label {
-  font: 600 9px/1 'Quicksand', sans-serif;
-  color: rgba(255, 214, 245, 0.7);
+  font: 700 13px/1 'Quicksand', sans-serif;
+  color: rgba(255, 214, 245, 0.85);
   text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-top: 2px;
+  letter-spacing: 1.5px;
 }
 #score-badge.bump { animation: score-bump 0.4s ease-out; }
 @keyframes score-bump {
@@ -417,6 +420,12 @@ body::after {
   font: 700 16px 'Fredoka', sans-serif;
   color: #fbbf24;
 }
+.end-moment {
+  margin-top: 8px;
+  font: 500 14px 'Quicksand', sans-serif;
+  color: rgba(255, 214, 245, 0.85);
+  font-style: italic;
+}
 
 /* ─── Controls ─── */
 #controls {
@@ -442,6 +451,7 @@ body::after {
   position: absolute;
   bottom: 20px; left: 50%;
   transform: translateX(-50%);
+  width: min(640px, calc(100% - 40px));
   display: flex; align-items: center; gap: 8px;
   padding: 8px;
   border-radius: 999px;
@@ -537,8 +547,8 @@ body::after {
 </head>
 <body>
 
-<div id="vbanner">⭐ V75 GOLD · 5 ERRORS FIXED · v40 BASELINE PROVEN ⭐</div>
-<div id="status">v75 · idle · tap the orb</div>
+<div id="vbanner">🤍 V76 PEARL · CLAUDE BRAIN + TTS · NOVA SPEAKS LIVE 🤍</div>
+<div id="status">v76 · idle · tap the orb</div>
 
 <!-- DEBUG LOG — visible on screen in top-right corner -->
 <div id="debug-log" style="
@@ -617,8 +627,8 @@ body::after {
 
     <!-- End screen -->
     <div id="end-screen">
-      <div class="end-stars">⭐⭐⭐</div>
-      <div class="end-title">YOU DID IT!</div>
+      <div class="end-stars" id="end-stars">⭐⭐⭐</div>
+      <div class="end-title" id="end-title">YOU DID IT!</div>
       <div class="end-score">
         <span class="score-num" id="end-hits">0</span>
         <span class="end-of">/</span>
@@ -626,6 +636,7 @@ body::after {
       </div>
       <div class="end-label">moves</div>
       <div class="end-streak" id="end-streak"></div>
+      <div class="end-moment" id="end-moment"></div>
     </div>
 
     <!-- Controls -->
@@ -636,8 +647,8 @@ body::after {
 
     <!-- Chat bar -->
     <div id="chat-bar">
-      <input id="chat-input" type="text" placeholder="Type to Nova... or just talk" autocomplete="off" style="display:none;">
-      <button id="chat-send" style="display:none;">↑</button>
+      <input id="chat-input" type="text" placeholder="Tell Nova your name..." autocomplete="off">
+      <button id="chat-send">↑</button>
       <button id="btn-dance">💃 Dance!</button>
     </div>
 
@@ -745,8 +756,8 @@ danceMusic.addEventListener('error', () => {
 // HELPERS
 // ════════════════════════════════════════════════════════════════
 function setStatus(msg) {
-  statusBar.textContent = `v75 · ${msg}`;
-  console.log('[v75]', msg);
+  statusBar.textContent = `v76 · ${msg}`;
+  console.log('[v76]', msg);
   dlog(msg);
 }
 
@@ -798,6 +809,7 @@ const Memory = {
     return {
       name: null, isFirstTime: true, totalSessions: 0,
       maxStreak: 0, favoriteMove: null, lastVisit: null,
+      moments: [],  // ["lightning fast clap", "5-streak hands up"] — for continuity
     };
   },
   save(mem) {
@@ -806,11 +818,13 @@ const Memory = {
   session: {
     hits: 0, attempts: 0, currentStreak: 0, maxStreak: 0,
     consecutiveMisses: 0, moveHits: {},
+    sessionMoments: [],  // moments captured this session
   },
   reset() {
     this.session = {
       hits: 0, attempts: 0, currentStreak: 0, maxStreak: 0,
       consecutiveMisses: 0, moveHits: {},
+      sessionMoments: [],
     };
   }
 };
@@ -831,6 +845,7 @@ async function askBrain(event, context = {}, userMessage = '') {
       attempts: Memory.session.attempts,
       currentStreak: Memory.session.currentStreak,
       maxStreak: Math.max(novaMem.maxStreak || 0, Memory.session.maxStreak),
+      sessionMoments: Memory.session.sessionMoments.slice(-3),  // last 3 moments
     };
     const res = await fetch(CFG.workerUrl + '/nova-brain', {
       method: 'POST',
@@ -856,20 +871,69 @@ async function askBrain(event, context = {}, userMessage = '') {
 // ════════════════════════════════════════════════════════════════
 // SEND TEXT TO NOVA (LiveKit data channel)
 // ════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
+// NOVA VOICE — browser SpeechSynthesis (Nova actually speaks our text)
+// ════════════════════════════════════════════════════════════════
+let novaVoice = null;
+let speakQueue = [];
+let speakingNow = false;
+
+function pickBestVoice() {
+  const voices = speechSynthesis.getVoices();
+  if (!voices.length) return null;
+  // Prefer warm female English voices for kids
+  const wanted = ['Samantha', 'Karen', 'Ava', 'Allison', 'Susan', 'Tessa', 'Google US English', 'Microsoft Zira'];
+  for (const name of wanted) {
+    const found = voices.find(v => v.name.includes(name));
+    if (found) return found;
+  }
+  // Fallback: any English female
+  return voices.find(v => v.lang.startsWith('en') && /female|woman|girl/i.test(v.name)) 
+      || voices.find(v => v.lang.startsWith('en'))
+      || voices[0];
+}
+// Voice list loads async on some browsers
+speechSynthesis.onvoiceschanged = () => { 
+  if (!novaVoice) novaVoice = pickBestVoice(); 
+};
+setTimeout(() => { if (!novaVoice) novaVoice = pickBestVoice(); }, 500);
+
 async function sendChatToNova(text) {
-  if (!window.novaRoom) {
-    console.warn('[chat] no room');
-    return;
-  }
   if (!text || !text.trim()) return;
-  try {
-    const payload = { type: 'user_message', text: text.trim() };
-    const data = new TextEncoder().encode(JSON.stringify(payload));
-    await window.novaRoom.localParticipant.publishData(data, { reliable: true });
-    console.log('[chat→nova]', text);
-  } catch(e) {
-    console.error('[chat] send failed:', e);
-  }
+  const clean = text.trim().replace(/[*_]/g, '');
+  speakQueue.push(clean);
+  if (!speakingNow) processSpeakQueue();
+}
+
+function processSpeakQueue() {
+  if (!speakQueue.length) { speakingNow = false; return; }
+  speakingNow = true;
+  const text = speakQueue.shift();
+  
+  setState('talking');
+  dlog(`🗣️ speaking: "${text}"`, '#00ddff');
+  
+  const u = new SpeechSynthesisUtterance(text);
+  if (!novaVoice) novaVoice = pickBestVoice();
+  if (novaVoice) u.voice = novaVoice;
+  u.rate = 1.05;       // slightly faster than default = more energy
+  u.pitch = 1.15;      // higher pitch = younger feel (11-12 vibe)
+  u.volume = 1.0;
+  u.onend = () => {
+    setState('watching');
+    setTimeout(processSpeakQueue, 200);
+  };
+  u.onerror = () => {
+    setState('watching');
+    setTimeout(processSpeakQueue, 200);
+  };
+  speechSynthesis.speak(u);
+}
+
+function stopNovaVoice() {
+  speakQueue = [];
+  speechSynthesis.cancel();
+  speakingNow = false;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -944,14 +1008,16 @@ async function connectNova() {
         dlog('💃 Dance button shown');
       }
       if (track.kind === 'audio') {
+        // Runway audio: ATTACH (so it plays through our speakers via the audio element) but MUTE 
+        // — we use OUR Claude brain + browser TTS for actual voice. Avatar is visual lipsync only.
         const a = document.createElement('audio');
-        a.autoplay = true; a.volume = 1.0;
+        a.autoplay = true; 
+        a.volume = 0;        // permanently silent - we control voice ourselves
+        a.muted = true;
+        a.id = 'nova-audio';
         track.attach(a);
         document.body.appendChild(a);
-        a.play().catch(err => {
-          console.warn('[audio] autoplay blocked:', err);
-          document.body.addEventListener('click', () => a.play().catch(()=>{}), { once: true });
-        });
+        dlog('🔕 Runway audio muted - using browser TTS instead');
       }
     });
     
@@ -967,14 +1033,19 @@ async function connectNova() {
     
     await room.connect(creds.serverUrl, creds.token);
     setStatus('connected · publishing mic');
-    await room.localParticipant.setMicrophoneEnabled(true);
+    // Runway mic stays OFF - we use our own Claude brain + chat input + browser TTS
+    // Skipping setMicrophoneEnabled(true)
+    dlog('  🎤 Runway mic intentionally off (we use Claude brain)');
     setStatus('mic live · waiting for Nova video');
     
     window.novaRoom = room;
     
-    // Runway's starting script + personality handle the intro automatically
-    // (no askBrain call needed)
-    dlog('✓ Runway will speak her starting script');
+    // OUR brain handles the intro - browser TTS speaks Nova's greeting
+    // Wait a moment for everything to be ready, then have Nova say hi
+    setTimeout(() => {
+      const event = novaMem.isFirstTime ? 'intro_first' : 'intro_returning';
+      askBrain(event);
+    }, 1800);
     
   } catch (err) {
     console.error('[connect error]', err);
@@ -1153,7 +1224,7 @@ async function poseLoop() {
       if (idleFor > 8000 && sinceLastNudge > 15000 && Dance.cueState === 'idle') {
         lastIdleNudgeAt = Date.now();
         lastMotionAt = Date.now();  // reset so we don't spam
-        // askBrain('idle_nudge'); // Nova silent during dance for now
+        askBrain('idle_nudge');
       }
     }
   } catch(e) { console.warn('[pose]', e); }
@@ -1234,9 +1305,9 @@ function showCuePrep(cue) {
   cueLabel.textContent = 'GET READY...';
   cueOverlay.classList.remove('firing');
   cueOverlay.classList.add('show');
-  // Nova gives an audio instruction every 2nd cue (don't talk over music constantly)
-  if (Memory.session.attempts % 2 === 0) {
-    // askBrain('cue_incoming', { move: cue.label }); // silent during dance
+  // Nova gives an audio instruction every 3rd cue (don't talk over music constantly)
+  if (Memory.session.attempts % 3 === 0) {
+    askBrain('cue_incoming', { move: cue.label });
   }
 }
 function fireCue() {
@@ -1266,25 +1337,38 @@ function closeCue(result, cue) {
     }
     Memory.session.moveHits[cue.detect] = (Memory.session.moveHits[cue.detect] || 0) + 1;
     
+    // Capture this moment if it's a milestone (streak 5+, special move, etc)
+    if (Memory.session.currentStreak === 3) {
+      Memory.session.sessionMoments.push(`3-streak with ${cue.label.toLowerCase()}`);
+    } else if (Memory.session.currentStreak === 5) {
+      Memory.session.sessionMoments.push(`5 in a row! ${cue.label.toLowerCase()}`);
+    } else if (Memory.session.currentStreak === 10) {
+      Memory.session.sessionMoments.push(`10-streak monster!`);
+    }
+    
     scoreNum.textContent = Memory.session.hits;
     scoreBadge.classList.remove('bump');
     void scoreBadge.offsetWidth;
     scoreBadge.classList.add('bump');
+    dlog(`✅ HIT! ${cue.label} → score ${Memory.session.hits}`, '#fbbf24');
     
     showHit();
     
-    // Nova silent during dance — brain calls disabled, will return with server tools later
-    // if ([3, 5, 7, 10].includes(Memory.session.currentStreak)) {
-    //   askBrain('streak', { streak: Memory.session.currentStreak });
-    // } else {
-    //   askBrain('hit', { move: cue.label, streak: Memory.session.currentStreak });
-    // }
+    // Nova reacts: streak milestones (huge), every 4th hit (specific praise)
+    if ([3, 5, 7, 10, 15].includes(Memory.session.currentStreak)) {
+      askBrain('streak', { streak: Memory.session.currentStreak, move: cue.label });
+    } else if (Memory.session.hits % 4 === 0) {
+      // Every 4th hit gets specific praise — keeps Nova talkative but not chatty
+      askBrain('hit', { move: cue.label, streak: Memory.session.currentStreak });
+    }
   } else if (result === 'miss') {
     Memory.session.currentStreak = 0;
     Memory.session.consecutiveMisses++;
-    // if (Memory.session.consecutiveMisses % 2 === 1 && Dance.currentCue) {
-    //   askBrain('miss', { move: Dance.currentCue.label });
-    // }
+    dlog(`⚠️ miss · ${Dance.currentCue?.label || ''}`, '#ff8888');
+    // Encourage on consecutive misses (every other miss)
+    if (Memory.session.consecutiveMisses % 2 === 1 && Dance.currentCue) {
+      askBrain('miss', { move: Dance.currentCue.label });
+    }
   }
   cueOverlay.classList.remove('show', 'firing');
   webcamFrame.classList.remove('detecting');
@@ -1319,13 +1403,9 @@ async function startDance() {
   btnDance.style.display = 'none';
   endScreen.classList.remove('show');
   
-  // Mute user mic during dance — Runway shouldn't hear music/talking and chatter
-  if (window.novaRoom) {
-    try {
-      await window.novaRoom.localParticipant.setMicrophoneEnabled(false);
-      dlog('  🔇 mic muted for dance');
-    } catch(e) { dlog('  ⚠ mic mute failed', '#ffaa00'); }
-  }
+  // Stop any in-progress Nova speech so dance starts clean
+  stopNovaVoice();
+  dlog('  🔕 stopped Nova voice for dance start');
   
   Memory.reset();
   scoreNum.textContent = '0';
@@ -1397,7 +1477,7 @@ async function startDance() {
     
     if (elapsed > 55 && elapsed < 56 && !Dance.midSongDone) {
       Dance.midSongDone = true;
-      // askBrain('mid_song'); // silent during dance
+      askBrain('mid_song');
     }
     
     if (elapsed > 100) {
@@ -1418,13 +1498,8 @@ async function endDance() {
   webcamFrame.classList.remove('detecting');
   document.getElementById('now-badge').classList.remove('show');
   
-  // Re-enable mic so kid can talk to Nova post-dance
-  if (window.novaRoom) {
-    try {
-      await window.novaRoom.localParticipant.setMicrophoneEnabled(true);
-      dlog('  🎤 mic re-enabled');
-    } catch(e) {}
-  }
+  // Clear any pending Nova speech from during dance
+  stopNovaVoice();
   
   setPhase('closeup');
   
@@ -1432,10 +1507,29 @@ async function endDance() {
   const attempts = Memory.session.attempts;
   const score = attempts > 0 ? Math.round((hits / attempts) * 100) : 0;
   
+  // Dynamic stars based on score
+  let stars = '⭐';
+  if (score >= 70) stars = '⭐⭐⭐⭐⭐';
+  else if (score >= 50) stars = '⭐⭐⭐⭐';
+  else if (score >= 30) stars = '⭐⭐⭐';
+  else if (score >= 15) stars = '⭐⭐';
+  document.getElementById('end-stars').textContent = stars;
+  
+  // Personalized title using kid's name if known
+  const titleName = novaMem.name || 'YOU';
+  document.getElementById('end-title').textContent = score >= 50
+    ? `${titleName.toUpperCase()} ROCKED IT!`
+    : `${titleName.toUpperCase()} DID IT!`;
+  
   document.getElementById('end-hits').textContent = hits;
   document.getElementById('end-total').textContent = attempts;
   document.getElementById('end-streak').textContent = 
     Memory.session.maxStreak >= 3 ? `🔥 Best streak: ${Memory.session.maxStreak}` : '';
+  
+  // Show recent moment if any
+  const lastMoment = Memory.session.sessionMoments[Memory.session.sessionMoments.length - 1];
+  document.getElementById('end-moment').textContent = lastMoment ? `✨ ${lastMoment}` : '';
+  
   endScreen.classList.add('show');
   
   let bestMove = null, bestCount = 0;
@@ -1454,6 +1548,10 @@ async function endDance() {
   novaMem.maxStreak = Math.max(novaMem.maxStreak || 0, Memory.session.maxStreak);
   novaMem.lastVisit = new Date().toISOString();
   novaMem.isFirstTime = false;
+  // Save best moments to long-term memory (max 10)
+  if (Memory.session.sessionMoments.length) {
+    novaMem.moments = [...(novaMem.moments || []), ...Memory.session.sessionMoments].slice(-10);
+  }
   if (bestMove) novaMem.favoriteMove = bestMove.replace(/_/g, ' ');
   Memory.save(novaMem);
   
@@ -1473,7 +1571,7 @@ btnDance.addEventListener('click', () => {
 
 // Boot
 console.log('═══════════════════════════════════');
-console.log('Nova v75 GOLD — voice-only, Runway brain owns the conversation');
+console.log('Nova v76 PEARL — voice-only, Runway brain owns the conversation');
 console.log('═══════════════════════════════════');
 setStatus('idle · tap the orb');
 </script>
