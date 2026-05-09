@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Nova v69 CRYSTAL</title>
+<title>Nova v70 BUTTERCUP</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
@@ -42,7 +42,7 @@ body::after {
 #vbanner {
   position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
   text-align: center; padding: 5px 12px;
-  background: linear-gradient(90deg, #67e8f9, #06b6d4, #0891b2);
+  background: linear-gradient(90deg, #fde047, #facc15, #eab308);
   color: #0a0517;
   font: 700 13px/1 'Fredoka', sans-serif;
   letter-spacing: 1.5px;
@@ -107,7 +107,7 @@ body::after {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   PLAY SCREEN — contains all phases (closeup, lesson, end)
+   PLAY SCREEN
    ════════════════════════════════════════════════════════════════ */
 #play-screen {
   position: absolute; inset: 0;
@@ -116,7 +116,6 @@ body::after {
 }
 #play-screen.active { opacity: 1; pointer-events: auto; }
 
-/* Nova talking head */
 #nova-frame {
   position: absolute;
   border-radius: 50%;
@@ -137,7 +136,6 @@ body::after {
 #nova-placeholder .emoji { font-size: 48px; }
 #nova-placeholder .text { font-weight: 600; font-size: 14px; opacity: 0.85; }
 
-/* Webcam */
 #webcam-frame {
   position: absolute;
   border-radius: 50%;
@@ -149,7 +147,6 @@ body::after {
 }
 #webcam-frame video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
 
-/* Dance MP4 */
 #dance-frame {
   position: absolute;
   border-radius: 24px;
@@ -160,7 +157,7 @@ body::after {
 }
 #dance-frame video { width: 100%; height: 100%; object-fit: cover; }
 
-/* ─── PHASE: closeup (intro / end) — Nova BIG center, kid corner ─── */
+/* PHASE: closeup */
 .phase-closeup #nova-frame {
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
@@ -174,7 +171,7 @@ body::after {
 }
 .phase-closeup #dance-frame { display: none; }
 
-/* ─── PHASE: lesson (during song) — MP4 LEFT 60%, kid RIGHT 35%, Nova small bubble ─── */
+/* PHASE: lesson */
 .phase-lesson #dance-frame {
   display: block;
   top: 16px; left: 16px;
@@ -192,7 +189,6 @@ body::after {
   border-radius: 0;
 }
 .phase-lesson #nova-frame {
-  /* Tiny bubble overlap — bottom of MP4 area, doesn't dominate */
   bottom: 28px; left: 28px;
   width: 100px; height: 100px;
   border-radius: 50%;
@@ -202,7 +198,6 @@ body::after {
   border-width: 2px;
 }
 
-/* DETECTION WINDOW: kid webcam GREEN tint when "act now" */
 .phase-lesson #webcam-frame.detecting {
   border-color: rgba(34, 197, 94, 0.95);
   box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.5),
@@ -216,7 +211,6 @@ body::after {
                    inset 0 0 0 100vh rgba(34, 197, 94, 0.15); }
 }
 
-/* ─── State badge under Nova ─── */
 #state-badge {
   position: absolute;
   bottom: 14px; left: 50%;
@@ -241,7 +235,6 @@ body::after {
 }
 .phase-lesson #state-badge { display: none; }
 
-/* ─── Cue overlay — minimalist, mirrors the kid ─── */
 #cue-overlay {
   position: absolute;
   top: 24px; left: 50%;
@@ -265,9 +258,7 @@ body::after {
   background: rgba(34, 197, 94, 0.85);
   border-color: rgba(34, 197, 94, 0.95);
 }
-#cue-emoji {
-  font-size: 48px; line-height: 1;
-}
+#cue-emoji { font-size: 48px; line-height: 1; }
 #cue-label {
   font: 700 14px/1.1 'Fredoka', sans-serif;
   color: #fff;
@@ -275,7 +266,6 @@ body::after {
   margin-top: 4px;
 }
 
-/* ─── Countdown — subtle, no blur ─── */
 #countdown {
   position: absolute;
   top: 50%; left: 50%;
@@ -299,7 +289,6 @@ body::after {
   100% { transform: scale(1);   opacity: 1; }
 }
 
-/* ─── Hit pop ─── */
 #hit-pop {
   position: absolute;
   top: 30%; left: 50%;
@@ -318,7 +307,6 @@ body::after {
   opacity: 1;
 }
 
-/* ─── Score badge ─── */
 #score-badge {
   position: absolute;
   top: 28px; left: 28px;
@@ -352,7 +340,6 @@ body::after {
   50%      { transform: scale(1.18); }
 }
 
-/* ─── End screen ─── */
 #end-screen {
   position: absolute;
   top: 16%;
@@ -393,7 +380,6 @@ body::after {
   color: #fbbf24;
 }
 
-/* ─── Controls ─── */
 #controls {
   position: absolute; top: 40px; right: 24px;
   z-index: 100; display: flex; gap: 10px;
@@ -412,7 +398,6 @@ body::after {
 }
 .ctrl-btn:hover { background: rgba(255, 77, 158, 0.4); }
 
-/* ─── Chat bar ─── */
 #chat-bar {
   position: absolute;
   bottom: 20px; left: 50%;
@@ -435,7 +420,7 @@ body::after {
 }
 #chat-input::placeholder { color: rgba(255,214,245,0.45); }
 #chat-send, #btn-dance {
-  width: 44px; height: 44px;
+  height: 44px;
   border: none; border-radius: 50%;
   background: linear-gradient(135deg, #ff4d9e, #9b3aa3);
   color: #fff;
@@ -444,7 +429,9 @@ body::after {
   display: flex; align-items: center; justify-content: center;
   transition: transform 0.15s ease;
 }
+#chat-send { width: 44px; }
 #chat-send:hover, #btn-dance:hover { transform: scale(1.08); }
+/* ⭐ V70 FIX: Dance button ALWAYS visible during play phase ⭐ */
 #btn-dance {
   width: auto;
   border-radius: 999px;
@@ -452,15 +439,15 @@ body::after {
   color: #1a0d2b;
   font: 700 14px/1 'Fredoka', sans-serif;
   padding: 10px 18px;
-  display: none;
+  display: flex;
+  animation: dance-pulse 1.4s ease-in-out infinite;
 }
-#btn-dance.ready { display: flex; animation: dance-pulse 1.4s ease-in-out infinite; }
+#btn-dance.hidden { display: none; }
 @keyframes dance-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.6); }
   50%      { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0); }
 }
 
-/* ─── Connecting overlay ─── */
 #connecting {
   position: absolute; inset: 0;
   display: flex; flex-direction: column;
@@ -485,8 +472,18 @@ body::after {
   font: 600 16px/1.3 'Fredoka', sans-serif;
   color: #ffd6f5;
 }
+/* dismiss btn so spinner cant lock the user out */
+#connecting-skip {
+  margin-top: 16px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: transparent;
+  color: rgba(255,214,245,0.7);
+  font: 500 12px 'Quicksand';
+  cursor: pointer;
+}
 
-/* ─── Error ─── */
 #error-screen {
   position: absolute; inset: 0;
   display: none;
@@ -513,32 +510,27 @@ body::after {
 </head>
 <body>
 
-<div id="vbanner">💎 V69 CRYSTAL ⭐ FRESH BUILD ⭐ 💎</div>
-<div id="status">v69 · idle · tap the orb</div>
+<div id="vbanner">🌼 V70 BUTTERCUP ⭐ DANCE BTN ALWAYS ON ⭐ 🌼</div>
+<div id="status">v70 · idle · tap the orb</div>
 
 <div id="stage" class="phase-closeup">
 
-  <!-- PHASE 1: IDLE -->
   <div id="idle-screen">
     <h1 id="idle-title">Nova</h1>
     <button id="magic-orb" aria-label="Tap to meet Nova"></button>
     <p id="idle-subtitle">Tap the magic orb to meet Nova.<br>Let's dance to Hello Hello!</p>
   </div>
 
-  <!-- PLAY screen -->
   <div id="play-screen">
     
-    <!-- Dance MP4 -->
     <div id="dance-frame">
       <video id="dance-video" src="nova-dance.mp4" playsinline muted preload="auto"></video>
     </div>
 
-    <!-- Webcam -->
     <div id="webcam-frame">
       <video id="webcam-video" autoplay playsinline muted></video>
     </div>
 
-    <!-- Nova talking head -->
     <div id="nova-frame">
       <div id="nova-placeholder">
         <div class="emoji">✨</div>
@@ -550,28 +542,22 @@ body::after {
       </div>
     </div>
 
-    <!-- Music -->
     <audio id="dance-music" src="hello.mp3" preload="metadata"></audio>
 
-    <!-- Cue overlay -->
     <div id="cue-overlay">
       <div id="cue-emoji"></div>
       <div id="cue-label"></div>
     </div>
 
-    <!-- Countdown -->
     <div id="countdown"><div class="count-num">3</div></div>
 
-    <!-- Hit pop -->
     <div id="hit-pop"></div>
 
-    <!-- Score -->
     <div id="score-badge">
       <div class="score-num">0</div>
       <div class="score-label">hits</div>
     </div>
 
-    <!-- End screen -->
     <div id="end-screen">
       <div class="end-stars">⭐⭐⭐</div>
       <div class="end-title">YOU DID IT!</div>
@@ -584,23 +570,21 @@ body::after {
       <div class="end-streak" id="end-streak"></div>
     </div>
 
-    <!-- Controls -->
     <div id="controls">
       <button class="ctrl-btn" id="btn-pause" title="Pause">⏸</button>
       <button class="ctrl-btn" id="btn-exit" title="Exit">✕</button>
     </div>
 
-    <!-- Chat bar -->
     <div id="chat-bar">
       <input id="chat-input" type="text" placeholder="Type to Nova... or just talk" autocomplete="off">
       <button id="chat-send">↑</button>
       <button id="btn-dance">💃 Dance!</button>
     </div>
 
-    <!-- Overlays -->
     <div id="connecting">
       <div class="spinner"></div>
       <div id="connecting-text">Waking Nova up…</div>
+      <button id="connecting-skip">skip · just dance</button>
     </div>
     <div id="error-screen">
       <h2>Oops</h2>
@@ -610,10 +594,8 @@ body::after {
   </div>
 </div>
 
-<!-- LiveKit -->
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.13.3/dist/livekit-client.umd.min.js"></script>
 
-<!-- TF.js + MoveNet (proven from wave-test.html) -->
 <script type="module">
 import * as poseDetection from 'https://esm.sh/@tensorflow-models/pose-detection@2.1.3';
 import * as tf from 'https://esm.sh/@tensorflow/tfjs@4.20.0';
@@ -625,18 +607,12 @@ console.log('[boot] pose detection libs loaded');
 </script>
 
 <script>
-// ════════════════════════════════════════════════════════════════
-// CONFIG
-// ════════════════════════════════════════════════════════════════
 const CFG = {
   workerUrl: 'https://long-art-8269r.dsbeauty01.workers.dev',
   avatarId:   'e976bbb2-de60-4da6-845e-4b754050e55b',
   avatarType: 'custom',
 };
 
-// ════════════════════════════════════════════════════════════════
-// DOM
-// ════════════════════════════════════════════════════════════════
 const stage         = document.getElementById('stage');
 const idleScreen    = document.getElementById('idle-screen');
 const playScreen    = document.getElementById('play-screen');
@@ -663,11 +639,11 @@ const chatInput     = document.getElementById('chat-input');
 const chatSend      = document.getElementById('chat-send');
 const connecting    = document.getElementById('connecting');
 const connectingText= document.getElementById('connecting-text');
+const connectingSkip= document.getElementById('connecting-skip');
 const errorScreen   = document.getElementById('error-screen');
 const errorText     = document.getElementById('error-text');
 const statusBar     = document.getElementById('status');
 
-// Surface MP4 / music errors
 danceVideo.addEventListener('error', () => {
   const err = danceVideo.error;
   console.error('[mp4 ERROR]', err?.code, err?.message);
@@ -682,12 +658,9 @@ danceMusic.addEventListener('error', () => {
   setStatus(`❌ music error code ${err?.code}`);
 });
 
-// ════════════════════════════════════════════════════════════════
-// HELPERS
-// ════════════════════════════════════════════════════════════════
 function setStatus(msg) {
-  statusBar.textContent = `v69 · ${msg}`;
-  console.log('[v69]', msg);
+  statusBar.textContent = `v70 · ${msg}`;
+  console.log('[v70]', msg);
 }
 function setPhase(phase) {
   stage.className = `phase-${phase}`;
@@ -703,9 +676,6 @@ function showError(msg) {
   setStatus('error · ' + msg.substring(0, 60));
 }
 
-// ════════════════════════════════════════════════════════════════
-// MEMORY
-// ════════════════════════════════════════════════════════════════
 const Memory = {
   load() {
     try {
@@ -734,9 +704,6 @@ const Memory = {
 let novaMem = Memory.load();
 console.log('[memory] loaded:', novaMem);
 
-// ════════════════════════════════════════════════════════════════
-// NOVA BRAIN
-// ════════════════════════════════════════════════════════════════
 async function askBrain(event, context = {}, userMessage = '') {
   try {
     const fullMem = {
@@ -761,12 +728,9 @@ async function askBrain(event, context = {}, userMessage = '') {
   }
 }
 
-// ════════════════════════════════════════════════════════════════
-// SEND TEXT TO NOVA (LiveKit data channel)
-// ════════════════════════════════════════════════════════════════
 async function sendChatToNova(text) {
   if (!window.novaRoom) {
-    console.warn('[chat] no room');
+    console.warn('[chat] no room - skipping (Nova not connected)');
     return;
   }
   if (!text || !text.trim()) return;
@@ -780,15 +744,11 @@ async function sendChatToNova(text) {
   }
 }
 
-// ════════════════════════════════════════════════════════════════
-// MAIN FLOW — orb tap kicks everything off
-// ════════════════════════════════════════════════════════════════
 orb.addEventListener('click', startNova);
 
 async function startNova() {
   setStatus('asking for camera + mic...');
   
-  // 1. FRESH camera + mic request (stop old tracks if any)
   try {
     if (webcamVideo.srcObject) {
       webcamVideo.srcObject.getTracks().forEach(t => t.stop());
@@ -804,14 +764,18 @@ async function startNova() {
     return;
   }
 
-  // 2. Switch idle → play (closeup)
   idleScreen.classList.add('hidden');
   playScreen.classList.add('active');
   setPhase('closeup');
   connecting.classList.add('show');
   connectingText.textContent = 'Waking Nova up…';
 
-  // 3. Connect Runway via LiveKit
+  // ⭐ V70: skip button on connecting overlay so user can dance even if Nova hangs
+  connectingSkip.onclick = () => {
+    connecting.classList.remove('show');
+    setStatus('skipped Nova · ready to dance');
+  };
+
   await connectNova();
 }
 
@@ -845,8 +809,6 @@ async function connectNova() {
         connecting.classList.remove('show');
         setStatus('Nova is here!');
         setState('talking');
-        // Show Dance button — kid can dance even before giving name
-        setTimeout(() => btnDance.classList.add('ready'), 500);
       }
       if (track.kind === 'audio') {
         const a = document.createElement('audio');
@@ -877,20 +839,17 @@ async function connectNova() {
     
     window.novaRoom = room;
     
-    // Smart intro
     const event = novaMem.isFirstTime ? 'intro_first' : 'intro_returning';
     setTimeout(() => askBrain(event), 1500);
     
   } catch (err) {
     console.error('[connect error]', err);
     connecting.classList.remove('show');
-    showError(err.message);
+    // ⭐ V70: dont show error - let user dance without Nova
+    setStatus('Nova unavailable · dance still works');
   }
 }
 
-// ════════════════════════════════════════════════════════════════
-// CHAT INPUT — name capture + free chat
-// ════════════════════════════════════════════════════════════════
 chatSend.addEventListener('click', sendUserMessage);
 chatInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); sendUserMessage(); }
@@ -901,7 +860,6 @@ function sendUserMessage() {
   if (!t) return;
   chatInput.value = '';
   
-  // First-time name capture (heuristic)
   if (novaMem.isFirstTime && !novaMem.name && t.length < 30 && /^[a-zA-Z\s]+$/.test(t)) {
     const possible = t.split(/\s+/).find(w => w.length > 1 && /^[a-zA-Z]+$/.test(w));
     if (possible) {
@@ -909,8 +867,6 @@ function sendUserMessage() {
       novaMem.name = name;
       Memory.save(novaMem);
       askBrain('name_received', { name });
-      // Show dance button after name received
-      setTimeout(() => btnDance.classList.add('ready'), 800);
       chatInput.focus();
       return;
     }
@@ -920,9 +876,6 @@ function sendUserMessage() {
   chatInput.focus();
 }
 
-// ════════════════════════════════════════════════════════════════
-// CONTROLS
-// ════════════════════════════════════════════════════════════════
 document.getElementById('btn-exit').addEventListener('click', () => {
   if (window.novaRoom) window.novaRoom.disconnect();
   location.reload();
@@ -936,9 +889,6 @@ document.getElementById('btn-pause').addEventListener('click', async () => {
   }
 });
 
-// ════════════════════════════════════════════════════════════════
-// DANCE GAME
-// ════════════════════════════════════════════════════════════════
 const Dance = {
   detector: null,
   running: false,
@@ -951,7 +901,6 @@ const Dance = {
 const PREP_MS = 2000;
 const FIRE_MS = 2500;
 
-// Cue timeline — Hello Hello, ~111s. Intro 0-15s no cues.
 const TIMELINE = [
   { at: 16, emoji: '👏', label: 'CLAP!',          detect: 'clap' },
   { at: 22, emoji: '👋', label: 'WAVE!',          detect: 'right_hand_up' },
@@ -968,11 +917,9 @@ const TIMELINE = [
 ];
 let firedCues = new Set();
 
-// Load MoveNet (uses globals exposed by the module script)
 async function loadMoveNet() {
   if (Dance.detector) return Dance.detector;
   setStatus('loading body tracker...');
-  // Wait for module imports to be ready
   let tries = 0;
   while ((!window.__poseDetection || !window.__tf) && tries < 50) {
     await new Promise(r => setTimeout(r, 100));
@@ -991,7 +938,6 @@ async function loadMoveNet() {
   return Dance.detector;
 }
 
-// Pose detection loop
 async function poseLoop() {
   if (!Dance.running || !Dance.detector) return;
   try {
@@ -1005,7 +951,6 @@ async function poseLoop() {
   requestAnimationFrame(poseLoop);
 }
 
-// Detection — camera mirrored: kp.left_X = user's RIGHT side
 function checkCue(kp) {
   if (!Dance.currentCue || Dance.cueState !== 'fire') return;
   if (Date.now() > Dance.cueDeadline) {
@@ -1013,7 +958,6 @@ function checkCue(kp) {
     return;
   }
   const cue = Dance.currentCue;
-  // Mirror: user's right = kp.left_*, user's left = kp.right_*
   const userRight = { wrist: kp.left_wrist, shoulder: kp.left_shoulder };
   const userLeft  = { wrist: kp.right_wrist, shoulder: kp.right_shoulder };
   let hit = false;
@@ -1120,30 +1064,24 @@ async function runCountdown() {
 
 async function startDance() {
   if (Dance.running) return;
-  btnDance.classList.remove('ready');
-  btnDance.style.display = 'none';
+  btnDance.classList.add('hidden');
   endScreen.classList.remove('show');
   
   Memory.reset();
   scoreNum.textContent = '0';
   
-  // 1. Load MoveNet
   await loadMoveNet();
   
-  // 2. Switch to lesson layout
   setPhase('lesson');
   
-  // 3. Rewind MP4
   danceVideo.currentTime = 0;
   
-  // 4. Subtle countdown
   await runCountdown();
   
-  // 5. Start media in sync
   Dance.running = true;
   firedCues.clear();
   danceMusic.currentTime = 0;
-  danceMusic.volume = 0.55;  // ducked so Nova's voice cuts through
+  danceMusic.volume = 0.55;
   danceMusic.onended = () => { if (Dance.running) endDance(); };
   
   await Promise.all([
@@ -1154,7 +1092,6 @@ async function startDance() {
   
   poseLoop();
   
-  // Cue scheduler
   const scheduler = setInterval(() => {
     if (!Dance.running) { clearInterval(scheduler); return; }
     const elapsed = (Date.now() - Dance.startedAt) / 1000;
@@ -1225,17 +1162,15 @@ async function endDance() {
   setStatus(`done · ${hits}/${attempts}`);
   
   setTimeout(() => {
-    btnDance.classList.add('ready');
-    btnDance.style.display = 'flex';
+    btnDance.classList.remove('hidden');
     btnDance.textContent = '💃 Again?';
   }, 6000);
 }
 
 btnDance.addEventListener('click', startDance);
 
-// Boot
 console.log('═══════════════════════════════════');
-console.log('Nova v69 CRYSTAL — fresh build');
+console.log('Nova v70 BUTTERCUP — dance btn always on');
 console.log('═══════════════════════════════════');
 setStatus('idle · tap the orb');
 </script>
