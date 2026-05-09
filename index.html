@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Nova v72 MINT</title>
+<title>Nova v73 SAPPHIRE</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
@@ -159,7 +159,7 @@ body::after {
   display: none;
   transition: all 0.7s cubic-bezier(0.65, 0, 0.35, 1);
 }
-#dance-frame video { width: 100%; height: 100%; object-fit: cover; }
+#dance-frame video { width: 100%; height: 100%; object-fit: contain; background: #0a0517; }
 
 /* ─── PHASE: closeup (intro / end) — Nova BIG center, kid corner ─── */
 .phase-closeup #nova-frame {
@@ -441,7 +441,6 @@ body::after {
   position: absolute;
   bottom: 20px; left: 50%;
   transform: translateX(-50%);
-  width: min(640px, calc(100% - 40px));
   display: flex; align-items: center; gap: 8px;
   padding: 8px;
   border-radius: 999px;
@@ -537,8 +536,8 @@ body::after {
 </head>
 <body>
 
-<div id="vbanner">💚 V72 MINT ⭐ UMD POSE LIBS (FIXED) ⭐ 💚</div>
-<div id="status">v72 · idle · tap the orb</div>
+<div id="vbanner">💙 V73 SAPPHIRE ⭐ VOICE-ONLY + RUNWAY BRAIN ⭐ 💙</div>
+<div id="status">v73 · idle · tap the orb</div>
 
 <!-- DEBUG LOG — visible on screen in top-right corner -->
 <div id="debug-log" style="
@@ -636,8 +635,8 @@ body::after {
 
     <!-- Chat bar -->
     <div id="chat-bar">
-      <input id="chat-input" type="text" placeholder="Type to Nova... or just talk" autocomplete="off">
-      <button id="chat-send">↑</button>
+      <input id="chat-input" type="text" placeholder="Type to Nova... or just talk" autocomplete="off" style="display:none;">
+      <button id="chat-send" style="display:none;">↑</button>
       <button id="btn-dance">💃 Dance!</button>
     </div>
 
@@ -745,8 +744,8 @@ danceMusic.addEventListener('error', () => {
 // HELPERS
 // ════════════════════════════════════════════════════════════════
 function setStatus(msg) {
-  statusBar.textContent = `v72 · ${msg}`;
-  console.log('[v72]', msg);
+  statusBar.textContent = `v73 · ${msg}`;
+  console.log('[v73]', msg);
   dlog(msg);
 }
 
@@ -972,9 +971,9 @@ async function connectNova() {
     
     window.novaRoom = room;
     
-    // Smart intro
-    const event = novaMem.isFirstTime ? 'intro_first' : 'intro_returning';
-    setTimeout(() => askBrain(event), 1500);
+    // Runway's starting script + personality handle the intro automatically
+    // (no askBrain call needed)
+    dlog('✓ Runway will speak her starting script');
     
   } catch (err) {
     console.error('[connect error]', err);
@@ -1056,22 +1055,21 @@ const Dance = {
 };
 
 const PREP_MS = 2000;  // 2s yellow prep "get ready"
-const FIRE_MS = 2000;  // 2s green window — system tracking user
+const FIRE_MS = 2500;  // 2.5s green window — system tracking user (longer = more forgiving)
 
 // Cue timeline — Hello Hello, ~111s. Intro 0-15s no cues.
+// Hello Hello song ~111s. Cues at 4-bar intervals (~8s) so they land on the music phrasing.
 const TIMELINE = [
-  { at: 16, emoji: '👏', label: 'CLAP!',          detect: 'clap' },
-  { at: 22, emoji: '👋', label: 'WAVE!',          detect: 'right_hand_up' },
-  { at: 28, emoji: '🙌', label: 'BOTH HANDS UP!', detect: 'both_hands_up' },
-  { at: 34, emoji: '✋', label: 'LEFT HAND UP!',  detect: 'left_hand_up' },
-  { at: 42, emoji: '👏', label: 'CLAP CLAP!',     detect: 'clap' },
-  { at: 48, emoji: '🙌', label: 'STRETCH HIGH!',  detect: 'both_hands_up' },
-  { at: 54, emoji: '🤲', label: 'HANDS ON HEAD!', detect: 'hands_on_head' },
-  { at: 62, emoji: '✋', label: 'RIGHT HAND!',    detect: 'right_hand_up' },
-  { at: 68, emoji: '👏', label: 'BIG CLAP!',      detect: 'clap' },
-  { at: 74, emoji: '✋', label: 'LEFT HAND!',     detect: 'left_hand_up' },
-  { at: 82, emoji: '🙌', label: 'BOTH UP!',       detect: 'both_hands_up' },
-  { at: 90, emoji: '🌟', label: 'AMAZING!',       detect: 'both_hands_up' },
+  { at: 16, emoji: '👋', label: 'WAVE HI!',       detect: 'right_hand_up' },
+  { at: 24, emoji: '👏', label: 'CLAP!',          detect: 'clap' },
+  { at: 32, emoji: '🙌', label: 'BOTH HANDS UP!', detect: 'both_hands_up' },
+  { at: 40, emoji: '🤲', label: 'HANDS ON HEAD!', detect: 'hands_on_head' },
+  { at: 48, emoji: '👏', label: 'CLAP CLAP!',     detect: 'clap' },
+  { at: 58, emoji: '✋', label: 'LEFT HAND UP!',  detect: 'left_hand_up' },
+  { at: 66, emoji: '✋', label: 'RIGHT HAND UP!', detect: 'right_hand_up' },
+  { at: 74, emoji: '🙌', label: 'STRETCH HIGH!',  detect: 'both_hands_up' },
+  { at: 84, emoji: '👏', label: 'BIG CLAP!',      detect: 'clap' },
+  { at: 92, emoji: '🌟', label: 'BOTH HANDS UP!', detect: 'both_hands_up' },
 ];
 let firedCues = new Set();
 
@@ -1403,7 +1401,7 @@ btnDance.addEventListener('click', () => {
 
 // Boot
 console.log('═══════════════════════════════════');
-console.log('Nova v72 MINT — UMD pose libs fixed');
+console.log('Nova v73 SAPPHIRE — voice-only, Runway brain owns the conversation');
 console.log('═══════════════════════════════════');
 setStatus('idle · tap the orb');
 </script>
