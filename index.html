@@ -537,7 +537,7 @@ body::after {
 </head>
 <body>
 
-<div id="vbanner">💚 V72 MINT ⭐ DEBUG ON ⭐ 💚</div>
+<div id="vbanner">💚 V72 MINT ⭐ UMD POSE LIBS (FIXED) ⭐ 💚</div>
 <div id="status">v72 · idle · tap the orb</div>
 
 <!-- DEBUG LOG — visible on screen in top-right corner -->
@@ -658,14 +658,29 @@ body::after {
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.13.3/dist/livekit-client.umd.min.js"></script>
 
 <!-- TF.js + MoveNet (proven from wave-test.html) -->
-<script type="module">
-import * as poseDetection from 'https://esm.sh/@tensorflow-models/pose-detection@2.1.3';
-import * as tf from 'https://esm.sh/@tensorflow/tfjs@4.20.0';
-import 'https://esm.sh/@tensorflow/tfjs-backend-webgl@4.20.0';
-
-window.__poseDetection = poseDetection;
-window.__tf = tf;
-console.log('[boot] pose detection libs loaded');
+<!-- TensorFlow.js + MoveNet via UMD bundles (no broken imports) -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.20.0/dist/tf-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.20.0/dist/tf-converter.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.20.0/dist/tf-backend-webgl.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<script>
+// Expose UMD globals to match the names the rest of the code expects
+window.__t0_init = Date.now();
+function checkPoseLibs() {
+  if (window.tf && window.poseDetection) {
+    window.__tf = window.tf;
+    window.__poseDetection = window.poseDetection;
+    if (window.dlog) window.dlog('✓ pose libs loaded (UMD)');
+    console.log('[boot] pose libs OK');
+  } else {
+    if (Date.now() - window.__t0_init < 8000) {
+      setTimeout(checkPoseLibs, 100);
+    } else {
+      if (window.dlog) window.dlog('❌ pose libs timeout', '#ff5577');
+    }
+  }
+}
+setTimeout(checkPoseLibs, 200);
 </script>
 
 <script>
