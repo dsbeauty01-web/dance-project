@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Nova v71 CORAL</title>
+<title>Nova v72 MINT</title>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -17,7 +17,7 @@ html, body {
 #vbanner {
   position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
   text-align: center; padding: 6px 12px;
-  background: linear-gradient(90deg, #ff7f50, #ff6347, #ff4500);
+  background: linear-gradient(90deg, #6ee7b7, #10b981, #059669);
   color: #fff;
   font: 700 13px/1 'Fredoka', sans-serif;
   letter-spacing: 1.5px;
@@ -300,7 +300,7 @@ html, body {
 </head>
 <body>
 
-<div id="vbanner">🪸 V71 CORAL ⭐ BUTTONS FIXED + GREET FIRST ⭐ 🪸</div>
+<div id="vbanner">🍃 V72 MINT ⭐ UMD POSE LIBS (FIXED) ⭐ 🍃</div>
 <div id="debug"></div>
 
 <div id="stage" class="phase-closeup">
@@ -352,14 +352,9 @@ html, body {
 
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.13.3/dist/livekit-client.umd.min.js"></script>
 
-<script type="module">
-import * as poseDetection from 'https://esm.sh/@tensorflow-models/pose-detection@2.1.3';
-import * as tf from 'https://esm.sh/@tensorflow/tfjs@4.20.0';
-import 'https://esm.sh/@tensorflow/tfjs-backend-webgl@4.20.0';
-window.__poseDetection = poseDetection;
-window.__tf = tf;
-log('pose libs loaded', 'ok');
-</script>
+<!-- ⭐ V72: UMD bundles (v40 proven stack) — no modules, no race conditions ⭐ -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 
 <script>
 // ════════════════════════════════════════════════════════════════
@@ -380,7 +375,12 @@ window.log = log;
 window.addEventListener('error', e => log('JS ERR: ' + e.message, 'err'));
 window.addEventListener('unhandledrejection', e => log('PROMISE ERR: ' + (e.reason?.message || e.reason), 'err'));
 
-log('v71 CORAL boot');
+log('v72 MINT boot');
+// Boot-time UMD check
+setTimeout(() => {
+  log('tf=' + (typeof window.tf !== 'undefined' ? 'OK' : 'MISSING'), window.tf ? 'ok' : 'err');
+  log('poseDetection=' + (typeof window.poseDetection !== 'undefined' ? 'OK' : 'MISSING'), window.poseDetection ? 'ok' : 'err');
+}, 300);
 
 // ════════════════════════════════════════════════════════════════
 // CONFIG
@@ -654,20 +654,22 @@ let firedCues = new Set();
 async function loadMoveNet() {
   if (Dance.detector) return Dance.detector;
   log('loading MoveNet...');
+  // UMD globals: window.tf and window.poseDetection
   let tries = 0;
-  while ((!window.__poseDetection || !window.__tf) && tries < 60) {
+  while ((!window.poseDetection || !window.tf) && tries < 60) {
     await new Promise(r => setTimeout(r, 100));
     tries++;
   }
-  if (!window.__poseDetection || !window.__tf) {
-    log('MoveNet libs missing!', 'err');
+  if (!window.poseDetection || !window.tf) {
+    log('MoveNet libs missing! window.tf=' + !!window.tf + ' window.poseDetection=' + !!window.poseDetection, 'err');
     throw new Error('Pose detection failed to load');
   }
-  await window.__tf.setBackend('webgl');
-  await window.__tf.ready();
-  Dance.detector = await window.__poseDetection.createDetector(
-    window.__poseDetection.SupportedModels.MoveNet,
-    { modelType: window.__poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+  log('libs ready, init backend...', 'ok');
+  await window.tf.setBackend('webgl');
+  await window.tf.ready();
+  Dance.detector = await window.poseDetection.createDetector(
+    window.poseDetection.SupportedModels.MoveNet,
+    { modelType: window.poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
   );
   log('MoveNet ready', 'ok');
   return Dance.detector;
