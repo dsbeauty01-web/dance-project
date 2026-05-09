@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Nova v73 SAPPHIRE</title>
+<title>Nova v74 RUBY</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
@@ -42,11 +42,11 @@ body::after {
 #vbanner {
   position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
   text-align: center; padding: 7px 12px;
-  background: linear-gradient(90deg, #10b981 0%, #34d399 50%, #6ee7b7 100%);
+  background: linear-gradient(90deg, #dc2626 0%, #ef4444 50%, #f87171 100%);
   color: #0a0517;
   font: 800 14px/1 'Fredoka', sans-serif;
   letter-spacing: 2px;
-  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 4px 20px rgba(220, 38, 38, 0.4);
 }
 #status {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
@@ -159,7 +159,12 @@ body::after {
   display: none;
   transition: all 0.7s cubic-bezier(0.65, 0, 0.35, 1);
 }
-#dance-frame video { width: 100%; height: 100%; object-fit: contain; background: #0a0517; }
+#dance-frame video { 
+  width: 100%; height: 100%; 
+  object-fit: cover; 
+  object-position: center top;  /* show body, not face zoomed in */
+  background: #0a0517; 
+}
 
 /* ─── PHASE: closeup (intro / end) — Nova BIG center, kid corner ─── */
 .phase-closeup #nova-frame {
@@ -536,8 +541,8 @@ body::after {
 </head>
 <body>
 
-<div id="vbanner">💙 V73 SAPPHIRE ⭐ VOICE-ONLY + RUNWAY BRAIN ⭐ 💙</div>
-<div id="status">v73 · idle · tap the orb</div>
+<div id="vbanner">❤️ V74 RUBY ⭐ GAME FIXED ⭐ ❤️</div>
+<div id="status">v74 · idle · tap the orb</div>
 
 <!-- DEBUG LOG — visible on screen in top-right corner -->
 <div id="debug-log" style="
@@ -744,8 +749,8 @@ danceMusic.addEventListener('error', () => {
 // HELPERS
 // ════════════════════════════════════════════════════════════════
 function setStatus(msg) {
-  statusBar.textContent = `v73 · ${msg}`;
-  console.log('[v73]', msg);
+  statusBar.textContent = `v74 · ${msg}`;
+  console.log('[v74]', msg);
   dlog(msg);
 }
 
@@ -1128,7 +1133,7 @@ async function poseLoop() {
       if (idleFor > 8000 && sinceLastNudge > 15000 && Dance.cueState === 'idle') {
         lastIdleNudgeAt = Date.now();
         lastMotionAt = Date.now();  // reset so we don't spam
-        askBrain('idle_nudge');
+        // askBrain('idle_nudge'); // Nova silent during dance for now
       }
     }
   } catch(e) { console.warn('[pose]', e); }
@@ -1150,26 +1155,30 @@ function checkCue(kp) {
   
   switch(cue.detect) {
     case 'right_hand_up':
-      if (userRight.wrist && userRight.shoulder && userRight.wrist.y < userRight.shoulder.y - 10) hit = true;
+      // Kid raises right hand - just needs to be near or above shoulder
+      if (userRight.wrist && userRight.shoulder && userRight.wrist.y < userRight.shoulder.y + 30) hit = true;
       break;
     case 'left_hand_up':
-      if (userLeft.wrist && userLeft.shoulder && userLeft.wrist.y < userLeft.shoulder.y - 10) hit = true;
+      if (userLeft.wrist && userLeft.shoulder && userLeft.wrist.y < userLeft.shoulder.y + 30) hit = true;
       break;
     case 'both_hands_up':
+      // Both hands above or near shoulders
       if (userRight.wrist && userLeft.wrist && userRight.shoulder && userLeft.shoulder
-          && userRight.wrist.y < userRight.shoulder.y - 10
-          && userLeft.wrist.y  < userLeft.shoulder.y  - 10) hit = true;
+          && userRight.wrist.y < userRight.shoulder.y + 30
+          && userLeft.wrist.y  < userLeft.shoulder.y  + 30) hit = true;
       break;
     case 'clap':
+      // Hands close together horizontally
       if (userRight.wrist && userLeft.wrist) {
         const dx = Math.abs(userRight.wrist.x - userLeft.wrist.x);
-        if (dx < 100) hit = true;
+        if (dx < 150) hit = true;
       }
       break;
     case 'hands_on_head':
+      // Wrists at or near head height
       if (kp.nose) {
-        if ((userRight.wrist && userRight.wrist.y < kp.nose.y) ||
-            (userLeft.wrist  && userLeft.wrist.y  < kp.nose.y)) hit = true;
+        if ((userRight.wrist && userRight.wrist.y < kp.nose.y + 30) ||
+            (userLeft.wrist  && userLeft.wrist.y  < kp.nose.y + 30)) hit = true;
       }
       break;
   }
@@ -1187,7 +1196,7 @@ function showCuePrep(cue) {
   cueOverlay.classList.add('show');
   // Nova gives an audio instruction every 2nd cue (don't talk over music constantly)
   if (Memory.session.attempts % 2 === 0) {
-    askBrain('cue_incoming', { move: cue.label });
+    // askBrain('cue_incoming', { move: cue.label }); // silent during dance
   }
 }
 function fireCue() {
@@ -1223,17 +1232,18 @@ function closeCue(result, cue) {
     
     showHit();
     
-    if ([3, 5, 7, 10].includes(Memory.session.currentStreak)) {
-      askBrain('streak', { streak: Memory.session.currentStreak });
-    } else {
-      askBrain('hit', { move: cue.label, streak: Memory.session.currentStreak });
-    }
+    // Nova silent during dance — brain calls disabled, will return with server tools later
+    // if ([3, 5, 7, 10].includes(Memory.session.currentStreak)) {
+    //   askBrain('streak', { streak: Memory.session.currentStreak });
+    // } else {
+    //   askBrain('hit', { move: cue.label, streak: Memory.session.currentStreak });
+    // }
   } else if (result === 'miss') {
     Memory.session.currentStreak = 0;
     Memory.session.consecutiveMisses++;
-    if (Memory.session.consecutiveMisses % 2 === 1 && Dance.currentCue) {
-      askBrain('miss', { move: Dance.currentCue.label });
-    }
+    // if (Memory.session.consecutiveMisses % 2 === 1 && Dance.currentCue) {
+    //   askBrain('miss', { move: Dance.currentCue.label });
+    // }
   }
   cueOverlay.classList.remove('show', 'firing');
   webcamFrame.classList.remove('detecting');
@@ -1315,7 +1325,7 @@ async function startDance() {
   // Cue scheduler
   const scheduler = setInterval(() => {
     if (!Dance.running) { clearInterval(scheduler); return; }
-    const elapsed = (Date.now() - Dance.startedAt) / 1000;
+    const elapsed = danceMusic.currentTime;
     
     TIMELINE.forEach((cue, idx) => {
       if (firedCues.has(idx)) return;
@@ -1333,7 +1343,7 @@ async function startDance() {
     
     if (elapsed > 55 && elapsed < 56 && !Dance.midSongDone) {
       Dance.midSongDone = true;
-      askBrain('mid_song');
+      // askBrain('mid_song'); // silent during dance
     }
     
     if (elapsed > 100) {
@@ -1401,7 +1411,7 @@ btnDance.addEventListener('click', () => {
 
 // Boot
 console.log('═══════════════════════════════════');
-console.log('Nova v73 SAPPHIRE — voice-only, Runway brain owns the conversation');
+console.log('Nova v74 RUBY — voice-only, Runway brain owns the conversation');
 console.log('═══════════════════════════════════');
 setStatus('idle · tap the orb');
 </script>
