@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Nova v74 RUBY</title>
+<title>Nova v75 GOLD</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
@@ -42,11 +42,11 @@ body::after {
 #vbanner {
   position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
   text-align: center; padding: 7px 12px;
-  background: linear-gradient(90deg, #dc2626 0%, #ef4444 50%, #f87171 100%);
+  background: linear-gradient(90deg, #d97706 0%, #fbbf24 50%, #fde68a 100%);
   color: #0a0517;
   font: 800 14px/1 'Fredoka', sans-serif;
   letter-spacing: 2px;
-  box-shadow: 0 4px 20px rgba(220, 38, 38, 0.4);
+  box-shadow: 0 4px 20px rgba(251, 191, 36, 0.4);
 }
 #status {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
@@ -161,9 +161,8 @@ body::after {
 }
 #dance-frame video { 
   width: 100%; height: 100%; 
-  object-fit: cover; 
-  object-position: center top;  /* show body, not face zoomed in */
-  background: #0a0517; 
+  object-fit: contain;  /* full body Nova visible, not zoomed face — proven from v40/v41 baseline */
+  background: transparent;
 }
 
 /* ─── PHASE: closeup (intro / end) — Nova BIG center, kid corner ─── */
@@ -198,19 +197,16 @@ body::after {
   border-radius: 0;
 }
 .phase-lesson #nova-frame {
-  /* Tiny bubble bottom-left, in the background — kid + cues are the focus */
+  /* Nova bubble bottom-left during dance — visible but doesn't dominate */
   bottom: 28px; left: 28px;
-  width: 70px; height: 70px;
+  width: 130px; height: 130px;
   border-radius: 50%;
   top: auto; right: auto;
   transform: none;
   z-index: 60;
-  border-width: 2px;
-  opacity: 0.85;  /* slightly faded so she's in the background */
-  box-shadow: 0 0 20px rgba(255, 77, 158, 0.3);
-}
-.phase-lesson #nova-frame:hover {
-  opacity: 1;  /* fade in if user looks at her */
+  border-width: 3px;
+  opacity: 1;  /* fully visible — she's watching the kid */
+  box-shadow: 0 0 30px rgba(255, 77, 158, 0.5);
 }
 
 /* DETECTION WINDOW: kid webcam GREEN tint when "act now" */
@@ -541,8 +537,8 @@ body::after {
 </head>
 <body>
 
-<div id="vbanner">❤️ V74 RUBY ⭐ GAME FIXED ⭐ ❤️</div>
-<div id="status">v74 · idle · tap the orb</div>
+<div id="vbanner">⭐ V75 GOLD · 5 ERRORS FIXED · v40 BASELINE PROVEN ⭐</div>
+<div id="status">v75 · idle · tap the orb</div>
 
 <!-- DEBUG LOG — visible on screen in top-right corner -->
 <div id="debug-log" style="
@@ -749,8 +745,8 @@ danceMusic.addEventListener('error', () => {
 // HELPERS
 // ════════════════════════════════════════════════════════════════
 function setStatus(msg) {
-  statusBar.textContent = `v74 · ${msg}`;
-  console.log('[v74]', msg);
+  statusBar.textContent = `v75 · ${msg}`;
+  console.log('[v75]', msg);
   dlog(msg);
 }
 
@@ -1064,17 +1060,41 @@ const FIRE_MS = 2500;  // 2.5s green window — system tracking user (longer = m
 
 // Cue timeline — Hello Hello, ~111s. Intro 0-15s no cues.
 // Hello Hello song ~111s. Cues at 4-bar intervals (~8s) so they land on the music phrasing.
+// TIMELINE: lyric-mapped from v41 RED proven baseline (shit.mp3, 111s)
+// Structure verified from song: intro 0-17s NO cues, verses 17-93s, outro 93-111s
+// Times in seconds, already include 1.5s anticipation offset from baseline tuning
 const TIMELINE = [
-  { at: 16, emoji: '👋', label: 'WAVE HI!',       detect: 'right_hand_up' },
-  { at: 24, emoji: '👏', label: 'CLAP!',          detect: 'clap' },
-  { at: 32, emoji: '🙌', label: 'BOTH HANDS UP!', detect: 'both_hands_up' },
-  { at: 40, emoji: '🤲', label: 'HANDS ON HEAD!', detect: 'hands_on_head' },
-  { at: 48, emoji: '👏', label: 'CLAP CLAP!',     detect: 'clap' },
-  { at: 58, emoji: '✋', label: 'LEFT HAND UP!',  detect: 'left_hand_up' },
-  { at: 66, emoji: '✋', label: 'RIGHT HAND UP!', detect: 'right_hand_up' },
-  { at: 74, emoji: '🙌', label: 'STRETCH HIGH!',  detect: 'both_hands_up' },
-  { at: 84, emoji: '👏', label: 'BIG CLAP!',      detect: 'clap' },
-  { at: 92, emoji: '🌟', label: 'BOTH HANDS UP!', detect: 'both_hands_up' },
+  // VERSE 2 (17-30s): right → left → clap → both
+  { at: 17.7, emoji: '👉', label: 'RIGHT HAND',  detect: 'right_hand_up' },
+  { at: 21.2, emoji: '👈', label: 'LEFT HAND',   detect: 'left_hand_up' },
+  { at: 24.7, emoji: '👏', label: 'CLAP CLAP',   detect: 'clap' },
+  { at: 28.2, emoji: '🙌', label: 'BOTH UP',     detect: 'both_hands_up' },
+  
+  // VERSE 3 (30-44s): right → clap → left → head
+  { at: 31.9, emoji: '👉', label: 'RIGHT HAND',  detect: 'right_hand_up' },
+  { at: 35.4, emoji: '👏', label: 'CLAP!',       detect: 'clap' },
+  { at: 38.9, emoji: '👈', label: 'LEFT HAND',   detect: 'left_hand_up' },
+  { at: 42.4, emoji: '🙆', label: 'ON HEAD',     detect: 'hands_on_head' },
+  
+  // VERSE 4 (44-58s): both → clap → right → left
+  { at: 46.1, emoji: '🙌', label: 'BOTH UP',     detect: 'both_hands_up' },
+  { at: 49.6, emoji: '👏', label: 'CLAP CLAP',   detect: 'clap' },
+  { at: 53.1, emoji: '👉', label: 'RIGHT UP',    detect: 'right_hand_up' },
+  { at: 56.6, emoji: '👈', label: 'LEFT UP',     detect: 'left_hand_up' },
+  
+  // VERSE 5 "Nova says" (60-77s): slower beats
+  { at: 62.0, emoji: '👉', label: 'RIGHT HAND',  detect: 'right_hand_up' },
+  { at: 66.2, emoji: '👈', label: 'LEFT HAND',   detect: 'left_hand_up' },
+  { at: 70.4, emoji: '🙌', label: 'BOTH HANDS',  detect: 'both_hands_up' },
+  { at: 74.6, emoji: '👏', label: 'CLAP CLAP',   detect: 'clap' },
+  
+  // VERSE 6 fast fire (78-92s): tight beats
+  { at: 80.0, emoji: '👉', label: 'RIGHT!',      detect: 'right_hand_up' },
+  { at: 82.2, emoji: '👈', label: 'LEFT!',       detect: 'left_hand_up' },
+  { at: 84.4, emoji: '👏', label: 'CLAP!',       detect: 'clap' },
+  { at: 86.6, emoji: '🙌', label: 'BOTH UP!',    detect: 'both_hands_up' },
+  { at: 88.8, emoji: '🙆', label: 'HEAD!',       detect: 'hands_on_head' },
+  // OUTRO 93s+ no cues, just celebration
 ];
 let firedCues = new Set();
 
@@ -1143,43 +1163,63 @@ async function poseLoop() {
 // Detection — camera mirrored: kp.left_X = user's RIGHT side
 function checkCue(kp) {
   if (!Dance.currentCue || Dance.cueState !== 'fire') return;
-  if (Date.now() > Dance.cueDeadline) {
+  // Use music time (not wall clock) so deadline stays in sync with cues
+  if (danceMusic.currentTime * 1000 > Dance.cueDeadline) {
     closeCue('miss');
     return;
   }
   const cue = Dance.currentCue;
-  // Mirror: user's right = kp.left_*, user's left = kp.right_*
-  const userRight = { wrist: kp.left_wrist, shoulder: kp.left_shoulder };
-  const userLeft  = { wrist: kp.right_wrist, shoulder: kp.right_shoulder };
+  // Camera mirrored: kp.left_* = user's RIGHT side, kp.right_* = user's LEFT
+  const userRightWrist    = kp.left_wrist;
+  const userRightShoulder = kp.left_shoulder;
+  const userLeftWrist     = kp.right_wrist;
+  const userLeftShoulder  = kp.right_shoulder;
+  
+  // Need both shoulders to compute scale (proven from v41 RED)
+  if (!userRightShoulder || !userLeftShoulder) return;
+  
+  // SCALE = shoulder width — ALL thresholds relative to this so kid size/distance doesn't matter
+  const scale = Math.max(Math.abs(userLeftShoulder.x - userRightShoulder.x), 60);
+  const armUpThr = scale * 0.24;  // wrist must be this far ABOVE shoulder
+  
   let hit = false;
   
   switch(cue.detect) {
     case 'right_hand_up':
-      // Kid raises right hand - just needs to be near or above shoulder
-      if (userRight.wrist && userRight.shoulder && userRight.wrist.y < userRight.shoulder.y + 30) hit = true;
+      // User's right wrist above user's right shoulder
+      if (userRightWrist && (userRightShoulder.y - userRightWrist.y) > armUpThr) hit = true;
       break;
     case 'left_hand_up':
-      if (userLeft.wrist && userLeft.shoulder && userLeft.wrist.y < userLeft.shoulder.y + 30) hit = true;
+      if (userLeftWrist && (userLeftShoulder.y - userLeftWrist.y) > armUpThr) hit = true;
       break;
     case 'both_hands_up':
-      // Both hands above or near shoulders
-      if (userRight.wrist && userLeft.wrist && userRight.shoulder && userLeft.shoulder
-          && userRight.wrist.y < userRight.shoulder.y + 30
-          && userLeft.wrist.y  < userLeft.shoulder.y  + 30) hit = true;
+      if (userRightWrist && userLeftWrist
+          && (userRightShoulder.y - userRightWrist.y) > armUpThr
+          && (userLeftShoulder.y  - userLeftWrist.y)  > armUpThr) hit = true;
       break;
     case 'clap':
-      // Hands close together horizontally
-      if (userRight.wrist && userLeft.wrist) {
-        const dx = Math.abs(userRight.wrist.x - userLeft.wrist.x);
-        if (dx < 150) hit = true;
+      // Wrists close horizontally + at similar height + at chest level (NOT above heads, NOT below hips)
+      if (userRightWrist && userLeftWrist) {
+        const wristGap   = Math.abs(userLeftWrist.x - userRightWrist.x);
+        const wristYDiff = Math.abs(userLeftWrist.y - userRightWrist.y);
+        const wristY     = (userLeftWrist.y + userRightWrist.y) / 2;
+        const shoulderY  = (userLeftShoulder.y + userRightShoulder.y) / 2;
+        const hipY       = (kp.left_hip && kp.right_hip)
+          ? (kp.left_hip.y + kp.right_hip.y) / 2
+          : shoulderY + scale * 1.5;
+        if (wristGap < scale * 0.55
+            && wristYDiff < scale * 0.3
+            && wristY > shoulderY - scale * 0.5
+            && wristY < hipY) hit = true;
       }
       break;
     case 'hands_on_head':
-      // Wrists at or near head height
-      if (kp.nose) {
-        if ((userRight.wrist && userRight.wrist.y < kp.nose.y + 30) ||
-            (userLeft.wrist  && userLeft.wrist.y  < kp.nose.y + 30)) hit = true;
-      }
+      // Both wrists above shoulders + near nose horizontally
+      if (kp.nose && userRightWrist && userLeftWrist
+          && userLeftWrist.y < userLeftShoulder.y
+          && userRightWrist.y < userRightShoulder.y
+          && Math.abs(userLeftWrist.x  - kp.nose.x) < scale * 0.9
+          && Math.abs(userRightWrist.x - kp.nose.x) < scale * 0.9) hit = true;
       break;
   }
   
@@ -1202,7 +1242,8 @@ function showCuePrep(cue) {
 function fireCue() {
   if (!Dance.currentCue) return;
   Dance.cueState = 'fire';
-  Dance.cueDeadline = Date.now() + FIRE_MS;
+  // Deadline in MUSIC time (ms) so it tracks pause/seek/drift
+  Dance.cueDeadline = (danceMusic.currentTime * 1000) + FIRE_MS;
   cueLabel.textContent = Dance.currentCue.label;
   cueOverlay.classList.add('firing');
   webcamFrame.classList.add('detecting');
@@ -1278,6 +1319,14 @@ async function startDance() {
   btnDance.style.display = 'none';
   endScreen.classList.remove('show');
   
+  // Mute user mic during dance — Runway shouldn't hear music/talking and chatter
+  if (window.novaRoom) {
+    try {
+      await window.novaRoom.localParticipant.setMicrophoneEnabled(false);
+      dlog('  🔇 mic muted for dance');
+    } catch(e) { dlog('  ⚠ mic mute failed', '#ffaa00'); }
+  }
+  
   Memory.reset();
   scoreNum.textContent = '0';
   
@@ -1341,6 +1390,11 @@ async function startDance() {
       }
     });
     
+    // Keep MP4 visually in sync with music — if drifted >0.3s, snap it back
+    if (Math.abs(danceVideo.currentTime - danceMusic.currentTime) > 0.3) {
+      danceVideo.currentTime = danceMusic.currentTime;
+    }
+    
     if (elapsed > 55 && elapsed < 56 && !Dance.midSongDone) {
       Dance.midSongDone = true;
       // askBrain('mid_song'); // silent during dance
@@ -1363,6 +1417,14 @@ async function endDance() {
   cueOverlay.classList.remove('show', 'firing');
   webcamFrame.classList.remove('detecting');
   document.getElementById('now-badge').classList.remove('show');
+  
+  // Re-enable mic so kid can talk to Nova post-dance
+  if (window.novaRoom) {
+    try {
+      await window.novaRoom.localParticipant.setMicrophoneEnabled(true);
+      dlog('  🎤 mic re-enabled');
+    } catch(e) {}
+  }
   
   setPhase('closeup');
   
@@ -1411,7 +1473,7 @@ btnDance.addEventListener('click', () => {
 
 // Boot
 console.log('═══════════════════════════════════');
-console.log('Nova v74 RUBY — voice-only, Runway brain owns the conversation');
+console.log('Nova v75 GOLD — voice-only, Runway brain owns the conversation');
 console.log('═══════════════════════════════════');
 setStatus('idle · tap the orb');
 </script>
