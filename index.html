@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Nova v76 PEARL</title>
+<title>Nova v78a OBSIDIAN</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
@@ -42,11 +42,12 @@ body::after {
 #vbanner {
   position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
   text-align: center; padding: 7px 12px;
-  background: linear-gradient(90deg, #f3e8ff 0%, #e9d5ff 50%, #d8b4fe 100%);
-  color: #4a1d6e;
+  background: linear-gradient(90deg, #0a0517 0%, #1a0d2b 30%, #4a1d6e 60%, #1a0d2b 90%, #0a0517 100%);
+  color: #f5e9ff;
   font: 800 14px/1 'Fredoka', sans-serif;
   letter-spacing: 2px;
-  box-shadow: 0 4px 20px rgba(217, 70, 239, 0.35);
+  box-shadow: 0 4px 20px rgba(155, 58, 163, 0.35);
+  border-bottom: 1px solid rgba(217, 70, 239, 0.3);
 }
 #status {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
@@ -166,18 +167,51 @@ body::after {
 }
 
 /* ─── PHASE: closeup (intro / end) — Nova BIG center, kid corner ─── */
-.phase-closeup #nova-frame {
+.phase-closeup #nova-frame,
+.phase-arrival #nova-frame,
+.phase-recognition #nova-frame,
+.phase-ready #nova-frame,
+.phase-goodbye #nova-frame {
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
   width: min(70vmin, 540px);
   height: min(70vmin, 540px);
 }
-.phase-closeup #webcam-frame {
+.phase-closeup #webcam-frame,
+.phase-arrival #webcam-frame,
+.phase-recognition #webcam-frame,
+.phase-ready #webcam-frame,
+.phase-goodbye #webcam-frame {
   bottom: 80px; right: 24px;
   width: 140px; height: 180px;
   border-radius: 16px;
 }
-.phase-closeup #dance-frame { display: none; }
+.phase-closeup #dance-frame,
+.phase-arrival #dance-frame,
+.phase-recognition #dance-frame,
+.phase-ready #dance-frame,
+.phase-goodbye #dance-frame { display: none; }
+
+/* In Recognition + Ready — kid webcam grows a bit so kid feels seen */
+.phase-recognition #webcam-frame,
+.phase-ready #webcam-frame {
+  width: 180px; height: 220px;
+}
+
+/* PHASE-DANCE = lesson style (alias) */
+.phase-dance #dance-frame { display: block; top: 16px; left: 16px; width: 60%; height: calc(100% - 32px); border-radius: 24px; }
+.phase-dance #webcam-frame { top: 16px; right: 16px; width: calc(35% - 32px); height: calc(100% - 32px); border-radius: 24px; transform: none; bottom: auto; }
+.phase-dance #webcam-frame video { border-radius: 0; }
+.phase-dance #nova-frame { bottom: 28px; left: 28px; width: 130px; height: 130px; border-radius: 50%; top: auto; right: auto; transform: none; z-index: 60; border-width: 3px; opacity: 1; box-shadow: 0 0 30px rgba(255, 77, 158, 0.5); }
+.phase-dance #state-badge { display: none; }
+.phase-dance #score-badge { display: flex; }
+.phase-dance #webcam-frame.detecting {
+  border-color: rgba(34, 197, 94, 1);
+  border-width: 5px;
+  box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.6),
+              0 0 100px rgba(34, 197, 94, 0.8);
+  animation: detect-pulse 0.5s ease-in-out infinite alternate;
+}
 
 /* ─── PHASE: lesson (during song) — MP4 LEFT 60%, kid RIGHT 35%, Nova small bubble ─── */
 .phase-lesson #dance-frame {
@@ -426,6 +460,12 @@ body::after {
   color: rgba(255, 214, 245, 0.85);
   font-style: italic;
 }
+.end-tomorrow {
+  margin-top: 22px;
+  font: 500 13px 'Quicksand', sans-serif;
+  color: rgba(255, 214, 245, 0.55);
+  letter-spacing: 0.5px;
+}
 
 /* ─── Controls ─── */
 #controls {
@@ -547,8 +587,8 @@ body::after {
 </head>
 <body>
 
-<div id="vbanner">🤍 V76 PEARL · CLAUDE BRAIN + TTS · NOVA SPEAKS LIVE 🤍</div>
-<div id="status">v76 · idle · tap the orb</div>
+<div id="vbanner">⚫ V78A OBSIDIAN · 5-PHASE ARC · CLAUDE+RUNWAY HYBRID ⚫</div>
+<div id="status">v78a · idle · tap the orb</div>
 
 <!-- DEBUG LOG — visible on screen in top-right corner -->
 <div id="debug-log" style="
@@ -637,6 +677,7 @@ body::after {
       <div class="end-label">moves</div>
       <div class="end-streak" id="end-streak"></div>
       <div class="end-moment" id="end-moment"></div>
+      <div class="end-tomorrow">Nova will be here tomorrow.</div>
     </div>
 
     <!-- Controls -->
@@ -699,9 +740,14 @@ setTimeout(checkPoseLibs, 200);
 // CONFIG
 // ════════════════════════════════════════════════════════════════
 const CFG = {
-  workerUrl: 'https://long-art-8269r.dsbeauty01.workers.dev',
-  avatarId:   'e976bbb2-de60-4da6-845e-4b754050e55b',
-  avatarType: 'custom',
+  workerUrl:    'https://long-art-8269r.dsbeauty01.workers.dev',
+  // Node RPC server URL — REPLACE with your Render deploy URL after deploy
+  nodeRpcUrl:   'https://nova-rpc-server.onrender.com',
+  avatarId:     'e976bbb2-de60-4da6-845e-4b754050e55b',
+  avatarType:   'custom',
+  // If true: use Node /create-session (Claude steers Nova via RPC tools)
+  // If false: fall back to Cloudflare Worker /runway-session (Runway brain alone)
+  useNodeRpc:   true,
 };
 
 // ════════════════════════════════════════════════════════════════
@@ -756,8 +802,8 @@ danceMusic.addEventListener('error', () => {
 // HELPERS
 // ════════════════════════════════════════════════════════════════
 function setStatus(msg) {
-  statusBar.textContent = `v76 · ${msg}`;
-  console.log('[v76]', msg);
+  statusBar.textContent = `v78a · ${msg}`;
+  console.log('[v78a]', msg);
   dlog(msg);
 }
 
@@ -783,9 +829,17 @@ window.addEventListener('error', (e) => {
 window.addEventListener('unhandledrejection', (e) => {
   dlog('❌ PROMISE: ' + (e.reason?.message || e.reason || 'unknown'), '#ff5577');
 });
+// 5-PHASE STATE MACHINE
+// arrival → recognition → ready → dance → goodbye
+let currentPhase = 'arrival';
 function setPhase(phase) {
+  const prev = currentPhase;
+  currentPhase = phase;
   stage.className = `phase-${phase}`;
-  console.log('[phase]', phase);
+  console.log(`[phase] ${prev} → ${phase}`);
+  dlog?.(`📍 phase: ${phase}`, '#a3e635');
+  // Sync phase to Node server so Claude knows
+  syncGameState({ phase });
 }
 function setState(state) {
   stateLabel.textContent = state;
@@ -807,7 +861,7 @@ const Memory = {
       if (raw) return JSON.parse(raw);
     } catch(e) {}
     return {
-      name: null, isFirstTime: true, totalSessions: 0,
+      name: null, age: null, isFirstTime: true, totalSessions: 0,
       maxStreak: 0, favoriteMove: null, lastVisit: null,
       moments: [],  // ["lightning fast clap", "5-streak hands up"] — for continuity
     };
@@ -834,7 +888,55 @@ console.log('[memory] loaded:', novaMem);
 // ════════════════════════════════════════════════════════════════
 // NOVA BRAIN
 // ════════════════════════════════════════════════════════════════
+// Sync game state up to Node server (so Claude RPC has fresh data when Runway asks)
+let syncTimer = null;
+function syncGameState(updates) {
+  if (!CFG.useNodeRpc || !window.__novaSessionId) return;
+  // Debounce — don't spam the server
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(async () => {
+    try {
+      await fetch(CFG.nodeRpcUrl + '/game-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: window.__novaSessionId,
+          ...updates,
+          ...buildLiveStateSnapshot(),
+        }),
+      });
+    } catch(e) { /* silent — sync is best-effort */ }
+  }, 250);
+}
+
+function buildLiveStateSnapshot() {
+  return {
+    name: novaMem?.name || null,
+    age: novaMem?.age || null,
+    hits: Memory?.session?.hits || 0,
+    attempts: Memory?.session?.attempts || 0,
+    streak: Memory?.session?.currentStreak || 0,
+    maxStreak: Math.max(novaMem?.maxStreak || 0, Memory?.session?.maxStreak || 0),
+    moments: (Memory?.session?.sessionMoments || []).slice(-5),
+    songElapsed: typeof danceMusic !== 'undefined' ? danceMusic.currentTime : 0,
+    totalSessions: novaMem?.totalSessions || 0,
+    favoriteMove: novaMem?.favoriteMove || null,
+    phase: currentPhase,
+  };
+}
+
 async function askBrain(event, context = {}, userMessage = '') {
+  // When using Node RPC: just push event into game state. Runway's brain will
+  // call our get_nova_reaction RPC tool, get Claude-generated text, speak it via her own voice/lipsync.
+  if (CFG.useNodeRpc && window.__novaSessionId) {
+    dlog(`📡 rpc event: ${event}`, '#a78bfa');
+    syncGameState({
+      lastEvent: { type: event, context, time: Date.now() },
+    });
+    return;
+  }
+  
+  // Fallback path (no Node): use Worker + browser TTS
   dlog('🧠 askBrain(' + event + ')');
   try {
     const fullMem = {
@@ -960,10 +1062,10 @@ async function startNova() {
     return;
   }
 
-  // 2. Switch idle → play (closeup)
+  // 2. Switch idle → play (arrival phase)
   idleScreen.classList.add('hidden');
   playScreen.classList.add('active');
-  setPhase('closeup');
+  setPhase('arrival');
   connecting.classList.add('show');
   connectingText.textContent = 'Waking Nova up…';
 
@@ -973,15 +1075,36 @@ async function startNova() {
 
 async function connectNova() {
   try {
-    setStatus('asking Worker for Runway session...');
-    const res = await fetch(CFG.workerUrl + '/runway-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ avatarId: CFG.avatarId, avatarType: CFG.avatarType }),
-    });
-    const creds = await res.json();
+    let creds;
+    if (CFG.useNodeRpc) {
+      setStatus('Node RPC: creating session...');
+      dlog('🎬 calling Node /create-session');
+      const res = await fetch(CFG.nodeRpcUrl + '/create-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          avatarId: CFG.avatarId,
+          avatarType: CFG.avatarType,
+          knownName: novaMem.name,
+          totalSessions: novaMem.totalSessions || 0,
+        }),
+      });
+      creds = await res.json();
+      if (creds.sessionId) {
+        window.__novaSessionId = creds.sessionId;
+        dlog(`🆔 sessionId: ${creds.sessionId.slice(0, 8)}...`);
+      }
+    } else {
+      setStatus('Worker: creating session...');
+      const res = await fetch(CFG.workerUrl + '/runway-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatarId: CFG.avatarId, avatarType: CFG.avatarType }),
+      });
+      creds = await res.json();
+    }
     if (!creds.serverUrl || !creds.token) {
-      throw new Error(`Worker error: ${JSON.stringify(creds).substring(0, 200)}`);
+      throw new Error(`Session error: ${JSON.stringify(creds).substring(0, 200)}`);
     }
     setStatus('connecting room...');
     const room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
@@ -1002,22 +1125,30 @@ async function connectNova() {
         connecting.classList.remove('show');
         setStatus('Nova is here!');
         setState('talking');
-        // Show Dance button — kid can dance even before giving name
-        btnDance.classList.add('ready');
-        btnDance.style.display = 'flex';
-        dlog('💃 Dance button shown');
+        // Move to Recognition phase after Nova arrives
+        setTimeout(() => beginRecognition(), 1200);
       }
       if (track.kind === 'audio') {
-        // Runway audio: ATTACH (so it plays through our speakers via the audio element) but MUTE 
-        // — we use OUR Claude brain + browser TTS for actual voice. Avatar is visual lipsync only.
         const a = document.createElement('audio');
-        a.autoplay = true; 
-        a.volume = 0;        // permanently silent - we control voice ourselves
-        a.muted = true;
+        a.autoplay = true;
         a.id = 'nova-audio';
+        if (CFG.useNodeRpc) {
+          // Node RPC mode: KEEP Runway audio — her brain calls Claude via RPC, speaks the result with her own voice + lipsync
+          a.volume = 1.0;
+          a.muted = false;
+          dlog('🔊 Runway audio LIVE (Node RPC steers her)');
+        } else {
+          // Fallback Worker mode: mute Runway, use browser TTS instead
+          a.volume = 0;
+          a.muted = true;
+          dlog('🔕 Runway audio muted (Worker fallback uses browser TTS)');
+        }
         track.attach(a);
         document.body.appendChild(a);
-        dlog('🔕 Runway audio muted - using browser TTS instead');
+        a.play().catch(err => {
+          // Autoplay may be blocked — recover on first user interaction
+          document.body.addEventListener('click', () => a.play().catch(()=>{}), { once: true });
+        });
       }
     });
     
@@ -1033,19 +1164,56 @@ async function connectNova() {
     
     await room.connect(creds.serverUrl, creds.token);
     setStatus('connected · publishing mic');
-    // Runway mic stays OFF - we use our own Claude brain + chat input + browser TTS
-    // Skipping setMicrophoneEnabled(true)
-    dlog('  🎤 Runway mic intentionally off (we use Claude brain)');
+    if (CFG.useNodeRpc) {
+      // Node RPC mode: Runway needs mic to do STT (hear kid say name/age)
+      try {
+        await room.localParticipant.setMicrophoneEnabled(true);
+        dlog('  🎤 mic ON (Runway STT will hear kid)');
+      } catch(e) { dlog('  ⚠ mic enable failed: ' + e.message, '#ffaa00'); }
+    } else {
+      dlog('  🎤 mic intentionally off (Worker fallback)');
+    }
     setStatus('mic live · waiting for Nova video');
+    
+    // Listen for transcripts from Runway (kid's voice STT comes through here)
+    room.on(LivekitClient.RoomEvent.DataReceived, (payload, participant, kind, topic) => {
+      try {
+        const text = new TextDecoder().decode(payload);
+        // Try to parse JSON envelope
+        let obj = null;
+        try { obj = JSON.parse(text); } catch {}
+        if (!obj) return;
+        
+        // Runway sends transcripts in either { segments: [...] } or { type: 'transcription', role, text }
+        const segs = obj.segments || (obj.type === 'transcription' ? [obj] : []);
+        for (const seg of segs) {
+          const role = seg.role || (seg.participant && seg.participant.includes('worker') ? 'assistant' : 'user');
+          if (role === 'user' && seg.text) {
+            handleUserTranscript(seg.text);
+          }
+        }
+      } catch(e) { /* swallow */ }
+    });
+    // Also try the native event
+    room.on(LivekitClient.RoomEvent.TranscriptionReceived, (segments, participant) => {
+      const isUser = participant?.identity === room.localParticipant.identity;
+      if (!isUser) return;
+      for (const seg of segments) {
+        if (seg.text) handleUserTranscript(seg.text);
+      }
+    });
     
     window.novaRoom = room;
     
-    // OUR brain handles the intro - browser TTS speaks Nova's greeting
-    // Wait a moment for everything to be ready, then have Nova say hi
-    setTimeout(() => {
-      const event = novaMem.isFirstTime ? 'intro_first' : 'intro_returning';
-      askBrain(event);
-    }, 1800);
+    // If using Node RPC: Runway will speak the override startScript automatically
+    // (her brain steers via backend_rpc, calls our Claude Haiku for dynamic lines)
+    // If fallback Worker: use our browser TTS intro
+    if (!CFG.useNodeRpc) {
+      setTimeout(() => {
+        const event = novaMem.isFirstTime ? 'intro_first' : 'intro_returning';
+        askBrain(event);
+      }, 1800);
+    }
     
   } catch (err) {
     console.error('[connect error]', err);
@@ -1080,14 +1248,18 @@ function sendUserMessage() {
     const possible = t.split(/\s+/).find(w => w.length > 1 && /^[a-zA-Z]+$/.test(w));
     if (possible) {
       const name = possible.charAt(0).toUpperCase() + possible.slice(1).toLowerCase();
-      dlog('  → name captured: ' + name);
-      novaMem.name = name;
-      Memory.save(novaMem);
-      askBrain('name_received', { name });
-      setTimeout(() => {
-        btnDance.classList.add('ready');
-        dlog('💃 dance button ready');
-      }, 800);
+      dlog('  → name captured (typed): ' + name);
+      captureName(name);
+      chatInput.focus();
+      return;
+    }
+  }
+  // Age capture (number 3-12)
+  if (novaMem.name && !novaMem.age && /^\d+$/.test(t.trim())) {
+    const age = parseInt(t.trim(), 10);
+    if (age >= 3 && age <= 12) {
+      dlog('  → age captured (typed): ' + age);
+      captureAge(age);
       chatInput.focus();
       return;
     }
@@ -1115,6 +1287,188 @@ document.getElementById('btn-pause').addEventListener('click', async () => {
 });
 
 // ════════════════════════════════════════════════════════════════
+// PHASE MANAGER — Arrival, Recognition, Ready, Goodbye
+// (Dance phase lives further down)
+// ════════════════════════════════════════════════════════════════
+
+// Parse kid's spoken words during Recognition for name + age
+let lastTranscriptAt = 0;
+function handleUserTranscript(text) {
+  if (!text || !text.trim()) return;
+  const t = text.trim();
+  const now = Date.now();
+  if (now - lastTranscriptAt < 300) return;
+  lastTranscriptAt = now;
+  
+  dlog(`👂 kid said: "${t}"`, '#67e8f9');
+  
+  // Capture name during Recognition
+  if (currentPhase === 'recognition' && !novaMem.name) {
+    const nameMatches = [
+      /(?:my name is|i am|i'm|im|call me|its|it's)\s+([a-zA-Z]{2,15})/i,
+      /^([a-zA-Z]{2,15})$/,
+      /^([a-zA-Z]{2,15})[\s,.]/,
+    ];
+    for (const re of nameMatches) {
+      const m = t.match(re);
+      if (m && m[1]) {
+        const candidate = m[1];
+        const blocklist = ['hi','hey','hello','yes','no','okay','ok','um','uh','what','wait','nova','dance','play','want','can','the','and','but','for','you'];
+        if (blocklist.includes(candidate.toLowerCase())) continue;
+        const name = candidate.charAt(0).toUpperCase() + candidate.slice(1).toLowerCase();
+        captureName(name);
+        return;
+      }
+    }
+  }
+  
+  // Capture age
+  if (currentPhase === 'recognition' && novaMem.name && !novaMem.age) {
+    const numWords = { three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+    let age = null;
+    const numMatch = t.match(/\b(\d+)\b/);
+    if (numMatch) age = parseInt(numMatch[1], 10);
+    if (!age) {
+      for (const [w, n] of Object.entries(numWords)) {
+        if (t.toLowerCase().includes(w)) { age = n; break; }
+      }
+    }
+    if (age && age >= 3 && age <= 12) {
+      captureAge(age);
+      return;
+    }
+  }
+}
+
+// ──── PHASE 2: RECOGNITION ────
+// Nova "sees" the kid via pose detection, makes specific observation
+let recognitionStarted = false;
+
+async function beginRecognition() {
+  if (recognitionStarted) return;
+  recognitionStarted = true;
+  setPhase('recognition');
+  dlog('👁 entering Recognition phase', '#a78bfa');
+  
+  // If returning kid with known name + age, skip straight to Ready
+  if (!novaMem.isFirstTime && novaMem.name && novaMem.age) {
+    dlog('  → returning kid, skipping name/age capture');
+    setTimeout(() => beginReady(), 2500);
+    // Trigger Nova to greet by name (Runway will call get_nova_reaction via RPC)
+    setTimeout(() => triggerRpcEvent('user_recognized', `${novaMem.name} returned`), 800);
+    return;
+  }
+  
+  // First-time or partial: prompt name via voice/typing
+  // Show typing fallback after 8 sec silence
+  setTimeout(() => {
+    if (!novaMem.name) {
+      const ci = document.getElementById('chat-input');
+      if (ci) {
+        ci.placeholder = 'or type your name here';
+        ci.style.display = '';
+        chatSend.style.display = '';
+        dlog('💬 typing fallback shown for name');
+      }
+    }
+  }, 8000);
+  
+  // Run pose detection in background to capture an observation
+  setTimeout(() => attemptVisualRecognition(), 3000);
+}
+
+async function attemptVisualRecognition() {
+  // Get a single pose snapshot — pass to Claude for an observation
+  if (!Dance.detector) {
+    try { await loadMoveNet(); } catch(e) { return; }
+  }
+  if (!Dance.detector) return;
+  try {
+    const poses = await Dance.detector.estimatePoses(webcamVideo, { flipHorizontal: false });
+    if (!poses[0]) return;
+    const kp = {};
+    poses[0].keypoints.forEach(p => { if (p.score > 0.3) kp[p.name] = { x: p.x, y: p.y }; });
+    
+    // Build a description of what's visible
+    const observations = [];
+    if (kp.left_eye && kp.right_eye) observations.push('face visible');
+    if (kp.left_shoulder && kp.right_shoulder) {
+      const shoulderWidth = Math.abs(kp.left_shoulder.x - kp.right_shoulder.x);
+      observations.push(shoulderWidth > 200 ? 'close to camera' : 'standing back nicely');
+    }
+    if (kp.left_wrist || kp.right_wrist) observations.push('arms visible — ready to dance');
+    
+    if (observations.length === 0) {
+      dlog('👁 nothing recognizable visible yet');
+      return;
+    }
+    
+    dlog(`👁 recognized: ${observations.join(', ')}`, '#a78bfa');
+    // Trigger Runway via RPC
+    triggerRpcEvent('user_recognized', observations.join(', '));
+  } catch(e) {
+    dlog('👁 recognition skipped: ' + e.message, '#666');
+  }
+}
+
+function captureName(name) {
+  novaMem.name = name;
+  Memory.save(novaMem);
+  syncGameState({ name });
+  triggerRpcEvent('user_just_said_name', name);
+  
+  // Now show typing prompt for age
+  setTimeout(() => {
+    const ci = document.getElementById('chat-input');
+    if (ci) {
+      ci.placeholder = `${name}, how old are you?`;
+      ci.value = '';
+    }
+  }, 1500);
+}
+
+function captureAge(age) {
+  novaMem.age = age;
+  Memory.save(novaMem);
+  syncGameState({ age });
+  triggerRpcEvent('user_just_said_age', String(age));
+  
+  // Move to Ready phase after a beat
+  setTimeout(() => beginReady(), 2200);
+}
+
+// Trigger an RPC-style event — when using Node, Runway's brain reacts naturally via tool calls
+// When fallback Worker, fire askBrain instead so we get a TTS response
+async function triggerRpcEvent(event, extra = '') {
+  if (CFG.useNodeRpc) {
+    // Just push the event to game state — Runway brain will pick it up next time it calls the RPC
+    syncGameState({ lastEvent: { type: event, extra, time: Date.now() } });
+    dlog(`📡 rpc event: ${event}`, '#a78bfa');
+  } else {
+    // Fallback: ask our brain, speak via TTS
+    askBrain(event, { extra }, '');
+  }
+}
+
+// ──── PHASE 3: READY ────
+function beginReady() {
+  setPhase('ready');
+  dlog('🎯 entering Ready phase', '#fbbf24');
+  // Reveal dance button with pulse
+  btnDance.classList.add('ready');
+  btnDance.style.display = 'flex';
+  btnDance.textContent = '💃 Dance!';
+  // Hide chat input — we're past chat phase
+  const ci = document.getElementById('chat-input');
+  if (ci) {
+    ci.style.display = 'none';
+    chatSend.style.display = 'none';
+  }
+  // Trigger Nova to invite the dance
+  triggerRpcEvent('ready_to_dance', '');
+}
+
+// ════════════════════════════════════════════════════════════════
 // DANCE GAME
 // ════════════════════════════════════════════════════════════════
 const Dance = {
@@ -1126,46 +1480,37 @@ const Dance = {
   startedAt: 0,
 };
 
-const PREP_MS = 2000;  // 2s yellow prep "get ready"
-const FIRE_MS = 2500;  // 2.5s green window — system tracking user (longer = more forgiving)
+const PREP_MS = 1500;  // 1.5s yellow prep "get ready" (was 2s — less waiting)
+const FIRE_MS = 3500;  // 3.5s green window — much more forgiving for kids' reaction time
 
 // Cue timeline — Hello Hello, ~111s. Intro 0-15s no cues.
 // Hello Hello song ~111s. Cues at 4-bar intervals (~8s) so they land on the music phrasing.
-// TIMELINE: lyric-mapped from v41 RED proven baseline (shit.mp3, 111s)
-// Structure verified from song: intro 0-17s NO cues, verses 17-93s, outro 93-111s
-// Times in seconds, already include 1.5s anticipation offset from baseline tuning
+// TIMELINE: calmer, less dense — 12 cues over 90s instead of 21
+// Earlier-than-lyric trigger so kid has time to react when they hear the word
 const TIMELINE = [
-  // VERSE 2 (17-30s): right → left → clap → both
-  { at: 17.7, emoji: '👉', label: 'RIGHT HAND',  detect: 'right_hand_up' },
-  { at: 21.2, emoji: '👈', label: 'LEFT HAND',   detect: 'left_hand_up' },
-  { at: 24.7, emoji: '👏', label: 'CLAP CLAP',   detect: 'clap' },
-  { at: 28.2, emoji: '🙌', label: 'BOTH UP',     detect: 'both_hands_up' },
+  // Verse 1 (18-30s): warm up — easy moves
+  { at: 18,   emoji: '👉', label: 'RIGHT HAND',  detect: 'right_hand_up' },
+  { at: 25,   emoji: '👈', label: 'LEFT HAND',   detect: 'left_hand_up' },
   
-  // VERSE 3 (30-44s): right → clap → left → head
-  { at: 31.9, emoji: '👉', label: 'RIGHT HAND',  detect: 'right_hand_up' },
-  { at: 35.4, emoji: '👏', label: 'CLAP!',       detect: 'clap' },
-  { at: 38.9, emoji: '👈', label: 'LEFT HAND',   detect: 'left_hand_up' },
-  { at: 42.4, emoji: '🙆', label: 'ON HEAD',     detect: 'hands_on_head' },
+  // Verse 2 (32-46s): introduce clap + both
+  { at: 32,   emoji: '👏', label: 'CLAP CLAP',   detect: 'clap' },
+  { at: 39,   emoji: '🙌', label: 'BOTH UP',     detect: 'both_hands_up' },
   
-  // VERSE 4 (44-58s): both → clap → right → left
-  { at: 46.1, emoji: '🙌', label: 'BOTH UP',     detect: 'both_hands_up' },
-  { at: 49.6, emoji: '👏', label: 'CLAP CLAP',   detect: 'clap' },
-  { at: 53.1, emoji: '👉', label: 'RIGHT UP',    detect: 'right_hand_up' },
-  { at: 56.6, emoji: '👈', label: 'LEFT UP',     detect: 'left_hand_up' },
+  // Verse 3 (46-60s): mix it up
+  { at: 46,   emoji: '👉', label: 'RIGHT UP',    detect: 'right_hand_up' },
+  { at: 53,   emoji: '👏', label: 'CLAP!',       detect: 'clap' },
   
-  // VERSE 5 "Nova says" (60-77s): slower beats
-  { at: 62.0, emoji: '👉', label: 'RIGHT HAND',  detect: 'right_hand_up' },
-  { at: 66.2, emoji: '👈', label: 'LEFT HAND',   detect: 'left_hand_up' },
-  { at: 70.4, emoji: '🙌', label: 'BOTH HANDS',  detect: 'both_hands_up' },
-  { at: 74.6, emoji: '👏', label: 'CLAP CLAP',   detect: 'clap' },
+  // Verse 4 (60-74s): "Nova says" section
+  { at: 60,   emoji: '🙆', label: 'ON HEAD',     detect: 'hands_on_head' },
+  { at: 67,   emoji: '👈', label: 'LEFT HAND',   detect: 'left_hand_up' },
   
-  // VERSE 6 fast fire (78-92s): tight beats
-  { at: 80.0, emoji: '👉', label: 'RIGHT!',      detect: 'right_hand_up' },
-  { at: 82.2, emoji: '👈', label: 'LEFT!',       detect: 'left_hand_up' },
-  { at: 84.4, emoji: '👏', label: 'CLAP!',       detect: 'clap' },
-  { at: 86.6, emoji: '🙌', label: 'BOTH UP!',    detect: 'both_hands_up' },
-  { at: 88.8, emoji: '🙆', label: 'HEAD!',       detect: 'hands_on_head' },
-  // OUTRO 93s+ no cues, just celebration
+  // Verse 5 (74-88s): build energy
+  { at: 74,   emoji: '🙌', label: 'BOTH HIGH',   detect: 'both_hands_up' },
+  { at: 81,   emoji: '👏', label: 'BIG CLAP',    detect: 'clap' },
+  
+  // Outro (88-100s): celebration moves
+  { at: 88,   emoji: '🙌', label: 'BOTH UP',     detect: 'both_hands_up' },
+  { at: 95,   emoji: '🌟', label: 'SUPERSTAR',   detect: 'both_hands_up' },
 ];
 let firedCues = new Set();
 
@@ -1251,7 +1596,7 @@ function checkCue(kp) {
   
   // SCALE = shoulder width — ALL thresholds relative to this so kid size/distance doesn't matter
   const scale = Math.max(Math.abs(userLeftShoulder.x - userRightShoulder.x), 60);
-  const armUpThr = scale * 0.24;  // wrist must be this far ABOVE shoulder
+  const armUpThr = scale * 0.18;  // looser — wrist just needs to be slightly above shoulder
   
   let hit = false;
   
@@ -1269,28 +1614,28 @@ function checkCue(kp) {
           && (userLeftShoulder.y  - userLeftWrist.y)  > armUpThr) hit = true;
       break;
     case 'clap':
-      // Wrists close horizontally + at similar height + at chest level (NOT above heads, NOT below hips)
+      // Wrists close together, anywhere from chest to above head — kids clap many ways
       if (userRightWrist && userLeftWrist) {
         const wristGap   = Math.abs(userLeftWrist.x - userRightWrist.x);
         const wristYDiff = Math.abs(userLeftWrist.y - userRightWrist.y);
-        const wristY     = (userLeftWrist.y + userRightWrist.y) / 2;
-        const shoulderY  = (userLeftShoulder.y + userRightShoulder.y) / 2;
-        const hipY       = (kp.left_hip && kp.right_hip)
-          ? (kp.left_hip.y + kp.right_hip.y) / 2
-          : shoulderY + scale * 1.5;
-        if (wristGap < scale * 0.55
-            && wristYDiff < scale * 0.3
-            && wristY > shoulderY - scale * 0.5
-            && wristY < hipY) hit = true;
+        if (wristGap < scale * 0.7        // wider gap allowed
+            && wristYDiff < scale * 0.5)  // more vertical tolerance
+          hit = true;
       }
       break;
     case 'hands_on_head':
-      // Both wrists above shoulders + near nose horizontally
-      if (kp.nose && userRightWrist && userLeftWrist
-          && userLeftWrist.y < userLeftShoulder.y
-          && userRightWrist.y < userRightShoulder.y
-          && Math.abs(userLeftWrist.x  - kp.nose.x) < scale * 0.9
-          && Math.abs(userRightWrist.x - kp.nose.x) < scale * 0.9) hit = true;
+      // Either hand at head height — kids touch one hand at a time
+      if (kp.nose && (userRightWrist || userLeftWrist)) {
+        const noseY = kp.nose.y;
+        const headThr = scale * 0.4;  // generous — hand can be near nose, not exactly on it
+        const rightOK = userRightWrist 
+          && userRightWrist.y < noseY + headThr   // wrist near or above nose level
+          && Math.abs(userRightWrist.x - kp.nose.x) < scale * 1.2;
+        const leftOK = userLeftWrist
+          && userLeftWrist.y < noseY + headThr
+          && Math.abs(userLeftWrist.x - kp.nose.x) < scale * 1.2;
+        if (rightOK || leftOK) hit = true;
+      }
       break;
   }
   
@@ -1421,7 +1766,7 @@ async function startDance() {
   }
   
   // 2. Switch to lesson layout
-  setPhase('lesson');
+  setPhase('dance');
   dlog('  ✓ phase: lesson');
   
   // 3. Rewind MP4
@@ -1501,7 +1846,7 @@ async function endDance() {
   // Clear any pending Nova speech from during dance
   stopNovaVoice();
   
-  setPhase('closeup');
+  setPhase('goodbye');
   
   const hits = Memory.session.hits;
   const attempts = Memory.session.attempts;
@@ -1537,12 +1882,9 @@ async function endDance() {
     if (count > bestCount) { bestMove = move; bestCount = count; }
   });
   
-  const event = score >= 30 ? 'end_celebration' : 'end_quiet';
-  askBrain(event, {
-    hits, attempts,
-    bestMove: bestMove?.replace(/_/g, ' '),
-    maxStreak: Memory.session.maxStreak,
-  });
+  // v78a: trigger end event via RPC (Node mode) or askBrain (fallback)
+  const event = score >= 30 ? 'game_ended_great' : 'game_ended_low';
+  triggerRpcEvent(event, `${hits} of ${attempts}, max streak ${Memory.session.maxStreak}`);
   
   novaMem.totalSessions = (novaMem.totalSessions || 0) + 1;
   novaMem.maxStreak = Math.max(novaMem.maxStreak || 0, Memory.session.maxStreak);
@@ -1556,6 +1898,11 @@ async function endDance() {
   Memory.save(novaMem);
   
   setStatus(`done · ${hits}/${attempts}`);
+  
+  // Fire goodbye prompt after celebration plays (~7 sec)
+  setTimeout(() => {
+    triggerRpcEvent('goodbye', `played ${novaMem.totalSessions} times total`);
+  }, 7000);
   
   setTimeout(() => {
     btnDance.classList.add('ready');
@@ -1571,7 +1918,7 @@ btnDance.addEventListener('click', () => {
 
 // Boot
 console.log('═══════════════════════════════════');
-console.log('Nova v76 PEARL — voice-only, Runway brain owns the conversation');
+console.log('Nova v78a OBSIDIAN — voice-only, Runway brain owns the conversation');
 console.log('═══════════════════════════════════');
 setStatus('idle · tap the orb');
 </script>
