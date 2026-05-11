@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Nova v81 SAPPHIRE</title>
+<title>Nova v82 CRIMSON</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
@@ -42,12 +42,12 @@ body::after {
 #vbanner {
   position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
   text-align: center; padding: 7px 12px;
-  background: linear-gradient(90deg, #0c1e3d 0%, #1e3a8a 30%, #2563eb 60%, #1e3a8a 90%, #0c1e3d 100%);
-  color: #dbeafe;
+  background: linear-gradient(90deg, #450a0a 0%, #991b1b 30%, #dc2626 60%, #991b1b 90%, #450a0a 100%);
+  color: #fee2e2;
   font: 800 14px/1 'Fredoka', sans-serif;
   letter-spacing: 2px;
-  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.5);
-  border-bottom: 1px solid rgba(96, 165, 250, 0.5);
+  box-shadow: 0 4px 20px rgba(220, 38, 38, 0.5);
+  border-bottom: 1px solid rgba(248, 113, 113, 0.5);
 }
 #status {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
@@ -552,7 +552,7 @@ body::after {
   color: #1a0d2b;
   font: 700 14px/1 'Fredoka', sans-serif;
   padding: 10px 18px;
-  display: flex;   /* v81: ALWAYS VISIBLE — no waiting */
+  display: flex;   /* v82: ALWAYS VISIBLE — no waiting */
 }
 #btn-dance.ready { animation: dance-pulse 1.4s ease-in-out infinite; }
 @keyframes dance-pulse {
@@ -613,8 +613,8 @@ body::after {
 </head>
 <body>
 
-<div id="vbanner">🔵 V81 SAPPHIRE · MP4 LOCKED TO MUSIC · NOVA QUIET 🔵</div>
-<div id="status">v81 · idle · tap the orb</div>
+<div id="vbanner">🔴 V82 CRIMSON · v49m TIMING ENGINE · NOVA QUIET 🔴</div>
+<div id="status">v82 · idle · tap the orb</div>
 
 <!-- DEBUG LOG — visible on screen in top-right corner -->
 <div id="debug-log" style="
@@ -828,8 +828,8 @@ danceMusic.addEventListener('error', () => {
 // HELPERS
 // ════════════════════════════════════════════════════════════════
 function setStatus(msg) {
-  statusBar.textContent = `v81 · ${msg}`;
-  console.log('[v81]', msg);
+  statusBar.textContent = `v82 · ${msg}`;
+  console.log('[v82]', msg);
   dlog(msg);
 }
 
@@ -861,12 +861,12 @@ let currentPhase = 'arrival';
 function setPhase(phase) {
   const prev = currentPhase;
   currentPhase = phase;
-  phaseEnteredAt = Date.now();  // v81: reset phase clock
+  phaseEnteredAt = Date.now();  // v82: reset phase clock
   stage.className = `phase-${phase}`;
   console.log(`[phase] ${prev} → ${phase}`);
   dlog?.(`📍 phase: ${phase}`, '#a3e635');
 
-  // v81: phase-specific loops
+  // v82: phase-specific loops
   stopLiveWatch();
   stopRecognitionLadder();
   if (phase === 'dance') startLiveWatch();
@@ -949,7 +949,7 @@ function syncGameState(updates) {
   }, 250);
 }
 
-// v81: phase-aware tracking — Claude always knows what's happening
+// v82: phase-aware tracking — Claude always knows what's happening
 let phaseEnteredAt = Date.now();
 let lastKidAction = { type: 'none', value: null, at: Date.now() };
 let lastNovaSpokeAt = 0;
@@ -1117,9 +1117,36 @@ function processSpeakQueue() {
 }
 
 function stopNovaVoice() {
+  // Browser TTS (fallback path)
   speakQueue = [];
-  speechSynthesis.cancel();
+  try { speechSynthesis.cancel(); } catch(_) {}
   speakingNow = false;
+  // v82: also cut Runway audio so Nova goes silent INSTANTLY when dance starts
+  try {
+    const a = document.getElementById('nova-audio');
+    if (a) {
+      a.muted = true;
+      a.pause();
+    }
+  } catch(_) {}
+  // v82: Try to interrupt Runway agent via LiveKit data message
+  try {
+    if (window.novaRoom && window.novaRoom.localParticipant) {
+      const data = new TextEncoder().encode(JSON.stringify({ type: 'interrupt' }));
+      window.novaRoom.localParticipant.publishData(data, { reliable: true }).catch(()=>{});
+    }
+  } catch(_) {}
+}
+
+// v82: re-enable Nova audio (after dance ends, or for non-dance reactions)
+function resumeNovaVoice() {
+  try {
+    const a = document.getElementById('nova-audio');
+    if (a) {
+      a.muted = false;
+      a.play().catch(()=>{});
+    }
+  } catch(_) {}
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1326,7 +1353,7 @@ function sendUserMessage() {
   dlog('📨 sendUserMessage with: "' + t + '"');
   if (!t) { dlog('  empty, skipping', '#ffaa00'); return; }
   chatInput.value = '';
-  setLastKidAction('typed', t);  // v81
+  setLastKidAction('typed', t);  // v82
 
   // First-time name capture (heuristic)
   if (novaMem.isFirstTime && !novaMem.name && t.length < 30 && /^[a-zA-Z\s]+$/.test(t)) {
@@ -1386,7 +1413,7 @@ function handleUserTranscript(text) {
   lastTranscriptAt = now;
 
   dlog(`👂 kid said: "${t}"`, '#67e8f9');
-  setLastKidAction('said', t);  // v81: any speech updates kid action
+  setLastKidAction('said', t);  // v82: any speech updates kid action
   
   // Capture name during Recognition
   if (currentPhase === 'recognition' && !novaMem.name) {
@@ -1437,7 +1464,7 @@ async function beginRecognition() {
   setPhase('recognition');
   dlog('👁 entering Recognition phase', '#a78bfa');
 
-  // v81: chat input visible from the START — no 8s delay
+  // v82: chat input visible from the START — no 8s delay
   const ci = document.getElementById('chat-input');
   if (ci) {
     ci.placeholder = 'or type your name...';
@@ -1445,7 +1472,7 @@ async function beginRecognition() {
     chatSend.style.display = '';
   }
 
-  // v81: Dance button is ALWAYS visible (CSS forces display:flex). Kid can tap whenever.
+  // v82: Dance button is ALWAYS visible (CSS forces display:flex). Kid can tap whenever.
   // No timer fallback needed.
 
   // If returning kid with known name + age, skip straight to Ready
@@ -1461,7 +1488,7 @@ async function beginRecognition() {
   setTimeout(() => attemptVisualRecognition(), 3000);
 }
 
-// v81: fallback ladder — checks every 2s, fires the right nudge based on sub-state
+// v82: fallback ladder — checks every 2s, fires the right nudge based on sub-state
 function startRecognitionLadder() {
   stopRecognitionLadder();
   let lastNudgeAt = 0;
@@ -1548,7 +1575,7 @@ function captureName(name) {
   novaMem.name = name;
   Memory.save(novaMem);
   syncGameState({ name });
-  setLastKidAction('name_given', name);  // v81
+  setLastKidAction('name_given', name);  // v82
   triggerRpcEvent('user_just_said_name', name);
 
   // Now show typing prompt for age
@@ -1565,7 +1592,7 @@ function captureAge(age) {
   novaMem.age = age;
   Memory.save(novaMem);
   syncGameState({ age });
-  setLastKidAction('age_given', age);  // v81
+  setLastKidAction('age_given', age);  // v82
   triggerRpcEvent('user_just_said_age', String(age));
 
   // Move to Ready phase after a beat
@@ -1575,12 +1602,12 @@ function captureAge(age) {
 // Trigger an RPC-style event — when using Node, Runway's brain reacts naturally via tool calls
 // When fallback Worker, fire askBrain instead so we get a TTS response
 async function triggerRpcEvent(event, extra = '') {
-  // v81 GUARD: goodbye must only fire from the goodbye phase
+  // v82 GUARD: goodbye must only fire from the goodbye phase
   if (event === 'goodbye' && currentPhase !== 'goodbye') {
     dlog(`🛑 blocked goodbye fire from phase=${currentPhase}`, '#ff5577');
     return;
   }
-  // v81 HARD GUARD: during dance, NEVER fire invite/nudge/idle events.
+  // v82 HARD GUARD: during dance, NEVER fire invite/nudge/idle events.
   // Nova should never say "are you there" while kid is dancing.
   const BLOCKED_DURING_DANCE = new Set([
     'live_watch_invite',
@@ -1631,47 +1658,82 @@ const Dance = {
   running: false,
   currentCue: null,
   cueState: 'idle',         // 'idle' | 'prep' | 'fire'
-  activeCueIdx: -1,          // v81: which TIMELINE index is currently active (-1 = none)
+  activeCueIdx: -1,          // v82: which TIMELINE index is currently active (-1 = none)
   startedAt: 0,
 };
 
-const PREP_MS = 2000;     // 2s yellow prep — kid sees it during "Hello, hello, raise your..."
-const FIRE_MS = 2500;     // 2.5s green window — generous reaction time
-const FIRE_LEAD_MS = 500; // v81: fire 0.5s BEFORE the word lands so kid sees green AS they hear it
+// v82: timing constants no longer needed — TIMELINE has explicit open/close events
 
-// Cue timeline — Hello Hello, ~111s.
-// v81: USER-VERIFIED ANCHOR — first "right hand" lyric word at music-time 21.0s
-// (User tested v80b which had 18.7s anchor; verified real word lands at 21.0s. Offset +2.3s applied.)
-// Phrase spacing: 3.9s (120 BPM, 8 beats per "Hello, hello, X" line)
-// Each cue.at = the moment the kid hears the cue WORD
-// PREP shows 2s before, FIRE fires 0.5s BEFORE the word so kid sees GREEN as they hear it
-// FIRE window 2.5s long for generous reaction time
+// v82: TIMELINE from v49m (proven working pattern) — open/close events
+// SHIFTED +4800ms: user verified "right hand" lyric at 21.0s (v49m had 16.2s, off by 4.8s)
+// One forward-walking iterator processes events in order. Music currentTime drives everything.
+//
+// Structure: each cue has an `open` event (window starts) + `close` event (window ends).
+// If kid hits during open window → score++. If close fires without hit → miss.
 const TIMELINE = [
-  // Verse 2 — first cues, "right hand" lyric verified at 21.0s
-  { at: 21.0, emoji: '👉', label: 'RIGHT HAND',    detect: 'right_hand_up' },
-  { at: 24.9, emoji: '👈', label: 'LEFT HAND',     detect: 'left_hand_up' },
-  { at: 28.8, emoji: '👏', label: 'CLAP CLAP',     detect: 'clap' },
-  { at: 32.7, emoji: '🙌', label: 'BOTH HANDS UP', detect: 'both_hands_up' },
-  // Verse 3
-  { at: 36.6, emoji: '👉', label: 'RIGHT HAND',    detect: 'right_hand_up' },
-  { at: 40.5, emoji: '👏', label: 'CLAP CLAP',     detect: 'clap' },
-  { at: 44.4, emoji: '👈', label: 'LEFT HAND',     detect: 'left_hand_up' },
-  { at: 48.3, emoji: '🙆', label: 'HANDS ON HEAD', detect: 'hands_on_head' },
-  // Verse 4
-  { at: 52.2, emoji: '🙌', label: 'BOTH HANDS UP', detect: 'both_hands_up' },
-  { at: 56.1, emoji: '👏', label: 'CLAP CLAP',     detect: 'clap' },
-  { at: 60.0, emoji: '👉', label: 'RIGHT HAND UP', detect: 'right_hand_up' },
-  { at: 63.9, emoji: '👈', label: 'LEFT HAND UP',  detect: 'left_hand_up' },
-  // Bridge — "Nova says..."
-  { at: 67.8, emoji: '👉', label: 'RIGHT HAND',    detect: 'right_hand_up' },
-  { at: 71.7, emoji: '👈', label: 'LEFT HAND',     detect: 'left_hand_up' },
-  { at: 75.6, emoji: '🙌', label: 'BOTH HANDS',    detect: 'both_hands_up' },
-  { at: 79.5, emoji: '👏', label: 'CLAP CLAP',     detect: 'clap' },
-  // Outro
-  { at: 83.4, emoji: '👉', label: 'RIGHT HAND UP', detect: 'right_hand_up' },
-  { at: 87.3, emoji: '👈', label: 'LEFT HAND UP',  detect: 'left_hand_up' },
+  // ── INTRO (0-20.8s) — NO CUES, kid watches Nova ──
+  { t: 100,   type: 'beat', name: 'intro' },
+
+  // ── VERSE 2 (21-35s): right → left → clap → both ──
+  { t: 21000, type: 'beat', name: 'verse2' },
+  { t: 21000, type: 'open',  action: 'right', emoji: '👉', label: 'RIGHT HAND' },
+  { t: 24300, type: 'close', action: 'right' },
+  { t: 24500, type: 'open',  action: 'left',  emoji: '👈', label: 'LEFT HAND' },
+  { t: 27800, type: 'close', action: 'left' },
+  { t: 28000, type: 'open',  action: 'clap',  emoji: '👏', label: 'CLAP!' },
+  { t: 31300, type: 'close', action: 'clap' },
+  { t: 31500, type: 'open',  action: 'both',  emoji: '🙌', label: 'BOTH UP' },
+  { t: 34800, type: 'close', action: 'both' },
+
+  // ── VERSE 3 (35-49s): right → clap → left → head ──
+  { t: 35000, type: 'beat', name: 'verse3' },
+  { t: 35200, type: 'open',  action: 'right', emoji: '👉', label: 'RIGHT HAND' },
+  { t: 38500, type: 'close', action: 'right' },
+  { t: 38700, type: 'open',  action: 'clap',  emoji: '👏', label: 'CLAP!' },
+  { t: 42000, type: 'close', action: 'clap' },
+  { t: 42200, type: 'open',  action: 'left',  emoji: '👈', label: 'LEFT HAND' },
+  { t: 45500, type: 'close', action: 'left' },
+  { t: 45700, type: 'open',  action: 'head',  emoji: '🙆', label: 'HANDS ON HEAD' },
+  { t: 49000, type: 'close', action: 'head' },
+
+  // ── VERSE 4 (49-63s): both → clap → right → left ──
+  { t: 49200, type: 'beat', name: 'verse4' },
+  { t: 49400, type: 'open',  action: 'both',  emoji: '🙌', label: 'BOTH UP' },
+  { t: 52700, type: 'close', action: 'both' },
+  { t: 52900, type: 'open',  action: 'clap',  emoji: '👏', label: 'CLAP!' },
+  { t: 56200, type: 'close', action: 'clap' },
+  { t: 56400, type: 'open',  action: 'right', emoji: '👉', label: 'RIGHT UP' },
+  { t: 59700, type: 'close', action: 'right' },
+  { t: 59900, type: 'open',  action: 'left',  emoji: '👈', label: 'LEFT UP' },
+  { t: 63200, type: 'close', action: 'left' },
+
+  // ── VERSE 5 "Nova says" (63-82s) ──
+  { t: 63400, type: 'beat', name: 'verse5' },
+  { t: 65300, type: 'open',  action: 'right', emoji: '👉', label: 'RIGHT HAND' },
+  { t: 69300, type: 'close', action: 'right' },
+  { t: 69500, type: 'open',  action: 'left',  emoji: '👈', label: 'LEFT HAND' },
+  { t: 73500, type: 'close', action: 'left' },
+  { t: 73700, type: 'open',  action: 'both',  emoji: '🙌', label: 'BOTH HANDS' },
+  { t: 77700, type: 'close', action: 'both' },
+  { t: 77900, type: 'open',  action: 'clap',  emoji: '👏', label: 'CLAP CLAP' },
+  { t: 81900, type: 'close', action: 'clap' },
+
+  // ── VERSE 6 FAST (82-97s) ──
+  { t: 82100, type: 'beat', name: 'verse6' },
+  { t: 83300, type: 'open',  action: 'right', emoji: '👉', label: 'RIGHT!' },
+  { t: 85300, type: 'close', action: 'right' },
+  { t: 85500, type: 'open',  action: 'left',  emoji: '👈', label: 'LEFT!' },
+  { t: 87500, type: 'close', action: 'left' },
+  { t: 87700, type: 'open',  action: 'clap',  emoji: '👏', label: 'CLAP!' },
+  { t: 89700, type: 'close', action: 'clap' },
+  { t: 89900, type: 'open',  action: 'both',  emoji: '🙌', label: 'BOTH UP' },
+  { t: 91900, type: 'close', action: 'both' },
+
+  // ── OUTRO (97-111s): no cues, celebration ──
+  { t: 97000, type: 'beat', name: 'outro' },
 ];
-// v81: per-cue resolution status: undefined=pending, 'hit'/'miss'=resolved
+// v82: simple forward iterator — never goes back, never gets stuck
+let timelineIdx = 0;
 let cueResults = [];
 
 
@@ -1698,7 +1760,7 @@ async function loadMoveNet() {
   return Dance.detector;
 }
 
-// v81: LIVE WATCH — Nova ONLY reacts to actual dancing energy.
+// v82: LIVE WATCH — Nova ONLY reacts to actual dancing energy.
 // Never asks "are you there", never invites, never nudges during dance.
 // First 15s of dance is silent — kid finds their feet.
 // Cadence widened to 18s. Low motion = Nova stays silent (watching).
@@ -1711,7 +1773,7 @@ function startLiveWatch() {
     const snap = buildLiveStateSnapshot();
     const now = Date.now();
 
-    // v81: silence-zone — first 15s of dance, Nova does NOT speak unsolicited
+    // v82: silence-zone — first 15s of dance, Nova does NOT speak unsolicited
     if (now - danceStartWall < 15000) return;
 
     // Don't talk over a cue moment
@@ -1719,7 +1781,7 @@ function startLiveWatch() {
     // Cool-down: Nova spoke recently (hit/miss/streak)
     if (now - lastNovaSpokeAt < 8000) return;
 
-    // v81: HARD FILTER — only HYPE or OBSERVE allowed during dance
+    // v82: HARD FILTER — only HYPE or OBSERVE allowed during dance
     // NEVER invite, NEVER nudge, NEVER ask "are you there"
     let event = null;
     if (snap.subState === 'high_motion')        event = 'live_watch_hype';
@@ -1730,7 +1792,7 @@ function startLiveWatch() {
     dlog(`📺 live-watch fire: ${event} (motion=${snap.motionLevel})`, '#a78bfa');
     lastNovaSpokeAt = now;
     triggerRpcEvent(event, `motion=${snap.motionLevel} streak=${snap.streak}`);
-  }, 18000);  // v81: was 12s, now 18s — less chatty
+  }, 18000);  // v82: was 12s, now 18s — less chatty
 }
 
 function stopLiveWatch() {
@@ -1744,7 +1806,7 @@ function stopLiveWatch() {
 // Pose detection loop with idle tracking
 let lastWristPos = null;
 let lastMotionAt = Date.now();
-let motionSamples = [];  // v81: ring buffer of recent motion magnitudes for motionLevel
+let motionSamples = [];  // v82: ring buffer of recent motion magnitudes for motionLevel
 
 async function poseLoop() {
   if (!Dance.running || !Dance.detector) return;
@@ -1755,7 +1817,7 @@ async function poseLoop() {
       poses[0].keypoints.forEach(p => { if (p.score > 0.3) kp[p.name] = p; });
       checkCue(kp);
 
-      // v81: track motion via wrist movement → fuels motionLevel for live-watch
+      // v82: track motion via wrist movement → fuels motionLevel for live-watch
       if (kp.left_wrist) {
         const cur = { x: kp.left_wrist.x, y: kp.left_wrist.y };
         if (lastWristPos) {
@@ -1771,7 +1833,7 @@ async function poseLoop() {
         }
         lastWristPos = cur;
       }
-      // v81: idle_nudge during dance REMOVED — live-watch loop handles low motion gracefully
+      // v82: idle_nudge during dance REMOVED — live-watch loop handles low motion gracefully
     }
   } catch(e) { console.warn('[pose]', e); }
   requestAnimationFrame(poseLoop);
@@ -1781,7 +1843,7 @@ async function poseLoop() {
 function checkCue(kp) {
   if (!Dance.currentCue || Dance.cueState !== 'fire') return;
   const cue = Dance.currentCue;
-  // v81: deadline check removed — the scheduler tick is now the single source of truth
+  // v82: deadline check removed — the scheduler tick is now the single source of truth
   // Camera mirrored: kp.left_* = user's RIGHT side, kp.right_* = user's LEFT
   const userRightWrist    = kp.left_wrist;
   const userRightShoulder = kp.left_shoulder;
@@ -1797,36 +1859,32 @@ function checkCue(kp) {
   
   let hit = false;
   
-  switch(cue.detect) {
-    case 'right_hand_up':
-      // User's right wrist above user's right shoulder
+  // v82: cue.action codes (from v49m timeline): 'right', 'left', 'both', 'clap', 'head'
+  switch(cue.action) {
+    case 'right':
       if (userRightWrist && (userRightShoulder.y - userRightWrist.y) > armUpThr) hit = true;
       break;
-    case 'left_hand_up':
+    case 'left':
       if (userLeftWrist && (userLeftShoulder.y - userLeftWrist.y) > armUpThr) hit = true;
       break;
-    case 'both_hands_up':
+    case 'both':
       if (userRightWrist && userLeftWrist
           && (userRightShoulder.y - userRightWrist.y) > armUpThr
           && (userLeftShoulder.y  - userLeftWrist.y)  > armUpThr) hit = true;
       break;
     case 'clap':
-      // Wrists close together, anywhere from chest to above head — kids clap many ways
       if (userRightWrist && userLeftWrist) {
         const wristGap   = Math.abs(userLeftWrist.x - userRightWrist.x);
         const wristYDiff = Math.abs(userLeftWrist.y - userRightWrist.y);
-        if (wristGap < scale * 0.7        // wider gap allowed
-            && wristYDiff < scale * 0.5)  // more vertical tolerance
-          hit = true;
+        if (wristGap < scale * 0.7 && wristYDiff < scale * 0.5) hit = true;
       }
       break;
-    case 'hands_on_head':
-      // Either hand at head height — kids touch one hand at a time
+    case 'head':
       if (kp.nose && (userRightWrist || userLeftWrist)) {
         const noseY = kp.nose.y;
-        const headThr = scale * 0.4;  // generous — hand can be near nose, not exactly on it
+        const headThr = scale * 0.4;
         const rightOK = userRightWrist 
-          && userRightWrist.y < noseY + headThr   // wrist near or above nose level
+          && userRightWrist.y < noseY + headThr
           && Math.abs(userRightWrist.x - kp.nose.x) < scale * 1.2;
         const leftOK = userLeftWrist
           && userLeftWrist.y < noseY + headThr
@@ -1876,7 +1934,7 @@ function closeCue(result, cue) {
     if (Memory.session.currentStreak > Memory.session.maxStreak) {
       Memory.session.maxStreak = Memory.session.currentStreak;
     }
-    Memory.session.moveHits[cue.detect] = (Memory.session.moveHits[cue.detect] || 0) + 1;
+    Memory.session.moveHits[cue.action] = (Memory.session.moveHits[cue.action] || 0) + 1;
     
     // Capture this moment if it's a milestone (streak 5+, special move, etc)
     if (Memory.session.currentStreak === 3) {
@@ -1895,11 +1953,18 @@ function closeCue(result, cue) {
     
     showHit();
 
-    // v81: mark that Nova is about to speak — keeps live-watch from doubling up
-    if ([3, 5, 7, 10, 15].includes(Memory.session.currentStreak)) {
+    // v82 game reactions (target: 4-8 per song):
+    //   - First hit ever → "Yes!"
+    //   - Streak of 3, 5, 7, 10 → big celebration
+    //   - Every 5th hit → specific praise
+    //   - First miss only (gentle) + every 3rd consecutive miss
+    if (Memory.session.hits === 1) {
+      lastNovaSpokeAt = Date.now();
+      askBrain('first_hit', { move: cue.label });
+    } else if ([3, 5, 7, 10].includes(Memory.session.currentStreak)) {
       lastNovaSpokeAt = Date.now();
       askBrain('streak', { streak: Memory.session.currentStreak, move: cue.label });
-    } else if (Memory.session.hits % 4 === 0) {
+    } else if (Memory.session.hits % 5 === 0) {
       lastNovaSpokeAt = Date.now();
       askBrain('hit', { move: cue.label, streak: Memory.session.currentStreak });
     }
@@ -1907,16 +1972,19 @@ function closeCue(result, cue) {
     Memory.session.currentStreak = 0;
     Memory.session.consecutiveMisses++;
     dlog(`⚠️ miss · ${Dance.currentCue?.label || ''}`, '#ff8888');
-    // Encourage on consecutive misses (every other miss)
-    if (Memory.session.consecutiveMisses % 2 === 1 && Dance.currentCue) {
-      lastNovaSpokeAt = Date.now();
-      askBrain('miss', { move: Dance.currentCue.label });
+    // First miss + every 3rd consecutive miss — gentle, never overwhelming
+    if (Memory.session.consecutiveMisses === 1
+        || Memory.session.consecutiveMisses % 3 === 0) {
+      if (Dance.currentCue) {
+        lastNovaSpokeAt = Date.now();
+        askBrain('miss', { move: Dance.currentCue.label });
+      }
     }
   }
   cueOverlay.classList.remove('show', 'firing');
   webcamFrame.classList.remove('detecting');
   document.getElementById('now-badge').classList.remove('show');
-  // v81: record this cue's resolution + clear active idx
+  // v82: record this cue's resolution + clear active idx
   if (Dance.activeCueIdx >= 0) {
     cueResults[Dance.activeCueIdx] = result;
   }
@@ -1935,20 +2003,25 @@ function showHit() {
 async function runCountdown() {
   countdownEl.classList.add('show');
   for (const n of ['3', '2', '1', 'GO!']) {
+    // v82: bulletproof reset — clear all transforms, replace text, then trigger fresh animation
+    countNum.style.cssText = '';  // wipe any inline styles
     countNum.textContent = n;
     countNum.style.animation = 'none';
-    void countNum.offsetHeight;
-    countNum.style.animation = '';
+    // Force reflow so the next animation actually plays from frame 0
+    void countNum.offsetWidth;
+    countNum.style.animation = 'count-pop 0.8s ease-out';
     await new Promise(r => setTimeout(r, 800));
   }
   countdownEl.classList.remove('show');
+  countNum.style.animation = 'none';
+  countNum.textContent = '';
 }
 
 async function startDance() {
   dlog('💃 startDance() called');
   if (Dance.running) { dlog('  already running, skip', '#ffaa00'); return; }
   btnDance.classList.remove('ready');
-  // v81: button stays visible always; only pulse stops
+  // v82: button stays visible always; only pulse stops
   endScreen.classList.remove('show');
   
   // Stop any in-progress Nova speech so dance starts clean
@@ -1976,8 +2049,9 @@ async function startDance() {
   dlog('  starting 3-2-1 countdown...');
   await runCountdown();
   
-  // 5. Start media in sync — v81: set both to 0 in the SAME tick, then start together
+  // 5. Start media in sync — v82: set both to 0 in the SAME tick, then start together
   Dance.running = true;
+  timelineIdx = 0;
   cueResults = [];
   Dance.activeCueIdx = -1;
   Dance.cueState = 'idle';
@@ -1985,6 +2059,9 @@ async function startDance() {
   danceMusic.currentTime = 0;
   danceMusic.volume = 0.55;
   danceMusic.onended = () => { if (Dance.running) endDance(); };
+
+  // v82: Nova audio was muted during load — re-enable so she can react to hits/misses
+  resumeNovaVoice();
   
   dlog('  starting MP4 + music together...');
   await Promise.all([
@@ -1999,77 +2076,52 @@ async function startDance() {
   
   poseLoop();
 
-  // v81: cue scheduler — single source of truth, drives lifecycle ENTIRELY from music currentTime
-  // Guarantees: one cue active at a time, no setTimeout race, no stuck states
+  // v82: v49m-style scheduler — forward-walking iterator, ms-based, never goes back
+  // Music currentTime in MS drives EVERYTHING. No setTimeout, no race, no stuck states.
+  timelineIdx = 0;
   const scheduler = setInterval(() => {
     if (!Dance.running) { clearInterval(scheduler); return; }
-    const elapsed = danceMusic.currentTime;
+    const elapsedMs = danceMusic.currentTime * 1000;
 
-    // v81: FIRE_LEAD = green appears slightly BEFORE the cue word lands,
-    // so kid sees green AS they hear the lyric (not after).
-    // Effective fire start = cue.at - FIRE_LEAD
-    // Effective close     = (cue.at - FIRE_LEAD) + FIRE_MS
-    const FIRE_LEAD = FIRE_LEAD_MS / 1000;
-    const PREP_LEAD = PREP_MS / 1000;
-    const FIRE_DUR  = FIRE_MS / 1000;
-
-    // 1. Close active fire cue when its window expired
-    if (Dance.activeCueIdx >= 0 && Dance.cueState === 'fire') {
-      const activeCue = TIMELINE[Dance.activeCueIdx];
-      const closeAt = (activeCue.at - FIRE_LEAD) + FIRE_DUR;
-      if (elapsed >= closeAt) closeCue('miss');
-    }
-
-    // 2. Advance prep -> fire — fires BEFORE cue.at by FIRE_LEAD
-    if (Dance.activeCueIdx >= 0 && Dance.cueState === 'prep') {
-      const activeCue = TIMELINE[Dance.activeCueIdx];
-      const fireStart = activeCue.at - FIRE_LEAD;
-      if (elapsed >= fireStart) fireCue();
-    }
-
-    // 3. If no active cue, look for next one to prep (or skip if music passed it)
-    if (Dance.activeCueIdx < 0) {
-      for (let i = 0; i < TIMELINE.length; i++) {
-        if (cueResults[i] !== undefined) continue;
-        const cue = TIMELINE[i];
-        const fireStart = cue.at - FIRE_LEAD;
-        const prepAt    = fireStart - PREP_LEAD;
-        const closeAt   = fireStart + FIRE_DUR;
-        if (elapsed >= closeAt) {
-          cueResults[i] = 'skip';  // music already past — skip silently
-          continue;
+    // Process every event whose t has arrived (might be multiple per tick)
+    while (timelineIdx < TIMELINE.length && elapsedMs >= TIMELINE[timelineIdx].t) {
+      const e = TIMELINE[timelineIdx];
+      if (e.type === 'open') {
+        // Open the cue window
+        showCuePrep(e, timelineIdx);
+        fireCue();  // v49m fires immediately; PREP+FIRE merge for simplicity
+        dlog(`🟢 OPEN cue → ${e.label} (t=${(e.t/1000).toFixed(1)}s)`, '#22c55e');
+      } else if (e.type === 'close') {
+        // Close the window — if not hit yet, count as miss
+        if (Dance.currentCue && Dance.currentCue.action === e.action && Dance.cueState === 'fire') {
+          closeCue('miss');
+          dlog(`⏰ CLOSE → ${e.action} (miss)`, '#ff8888');
         }
-        if (elapsed >= prepAt) {
-          showCuePrep(cue, i);
-          if (elapsed >= fireStart) fireCue();  // late pickup — go straight to fire
-          break;  // ONE cue at a time
-        }
-        break;  // nothing yet, wait for next tick
+      } else if (e.type === 'beat') {
+        dlog(`🎶 ${e.name}`, '#a78bfa');
       }
+      timelineIdx++;
     }
 
-    // v81: MP4/music sync — start together, let MP4 play freely (its own clock).
-    // Only correct if drift exceeds 1s (something went badly wrong).
-    // Constant re-seeking causes stutter — avoid it.
+    // MP4/music sync — only correct if drift > 1s (rare)
     if (!danceVideo.paused) {
       const drift = danceVideo.currentTime - danceMusic.currentTime;
       if (Math.abs(drift) > 1.0) {
         danceVideo.currentTime = danceMusic.currentTime;
-        dlog(`🔧 MP4 snap (drift=${drift.toFixed(2)}s)`, '#fbbf24');
       }
     }
 
-    if (elapsed > 55 && elapsed < 56 && !Dance.midSongDone) {
+    if (elapsedMs > 55000 && elapsedMs < 56000 && !Dance.midSongDone) {
       Dance.midSongDone = true;
       lastNovaSpokeAt = Date.now();
       askBrain('mid_song');
     }
 
-    if (elapsed > 100) {
+    if (elapsedMs > 110000) {
       clearInterval(scheduler);
       endDance();
     }
-  }, 100);  // v81: 2x more responsive (was 200ms)
+  }, 80);  // v49m's tick rate — 80ms, very responsive
 
   setStatus('dance started');
 }
@@ -2077,7 +2129,7 @@ async function startDance() {
 async function endDance() {
   Dance.running = false;
   Dance.midSongDone = false;
-  stopLiveWatch();  // v81: stop live-watch when dance ends
+  stopLiveWatch();  // v82: stop live-watch when dance ends
   danceMusic.pause();
   if (danceVideo.src) danceVideo.pause();
   cueOverlay.classList.remove('show', 'firing');
@@ -2123,7 +2175,7 @@ async function endDance() {
     if (count > bestCount) { bestMove = move; bestCount = count; }
   });
   
-  // v81: trigger end event via RPC (Node mode) or askBrain (fallback)
+  // v82: trigger end event via RPC (Node mode) or askBrain (fallback)
   const event = score >= 30 ? 'game_ended_great' : 'game_ended_low';
   triggerRpcEvent(event, `${hits} of ${attempts}, max streak ${Memory.session.maxStreak}`);
   
@@ -2159,7 +2211,7 @@ btnDance.addEventListener('click', () => {
 
 // Boot
 console.log('═══════════════════════════════════');
-console.log('Nova v81 SAPPHIRE — timing rewrite, one cue at a time');
+console.log('Nova v82 CRIMSON — timing rewrite, one cue at a time');
 console.log('═══════════════════════════════════');
 setStatus('idle · tap the orb');
 </script>
