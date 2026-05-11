@@ -552,9 +552,9 @@ body::after {
   color: #1a0d2b;
   font: 700 14px/1 'Fredoka', sans-serif;
   padding: 10px 18px;
-  display: none;
+  display: flex;   /* v81: ALWAYS VISIBLE — no waiting */
 }
-#btn-dance.ready { display: flex; animation: dance-pulse 1.4s ease-in-out infinite; }
+#btn-dance.ready { animation: dance-pulse 1.4s ease-in-out infinite; }
 @keyframes dance-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.6); }
   50%      { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0); }
@@ -1445,6 +1445,9 @@ async function beginRecognition() {
     chatSend.style.display = '';
   }
 
+  // v81: Dance button is ALWAYS visible (CSS forces display:flex). Kid can tap whenever.
+  // No timer fallback needed.
+
   // If returning kid with known name + age, skip straight to Ready
   if (!novaMem.isFirstTime && novaMem.name && novaMem.age) {
     dlog('  → returning kid, skipping name/age capture');
@@ -1945,7 +1948,7 @@ async function startDance() {
   dlog('💃 startDance() called');
   if (Dance.running) { dlog('  already running, skip', '#ffaa00'); return; }
   btnDance.classList.remove('ready');
-  btnDance.style.display = 'none';
+  // v81: button stays visible always; only pulse stops
   endScreen.classList.remove('show');
   
   // Stop any in-progress Nova speech so dance starts clean
