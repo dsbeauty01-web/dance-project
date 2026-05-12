@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Nova v84 SLATE</title>
+<title>Nova v85 GOLD</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
@@ -42,12 +42,12 @@ body::after {
 #vbanner {
   position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
   text-align: center; padding: 7px 12px;
-  background: linear-gradient(90deg, #0f172a 0%, #1e293b 30%, #475569 60%, #1e293b 90%, #0f172a 100%);
-  color: #f1f5f9;
+  background: linear-gradient(90deg, #422006 0%, #854d0e 30%, #eab308 60%, #854d0e 90%, #422006 100%);
+  color: #fefce8;
   font: 800 14px/1 'Fredoka', sans-serif;
   letter-spacing: 2px;
-  box-shadow: 0 4px 20px rgba(71, 85, 105, 0.5);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.5);
+  box-shadow: 0 4px 20px rgba(234, 179, 8, 0.5);
+  border-bottom: 1px solid rgba(250, 204, 21, 0.5);
 }
 #status {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
@@ -552,7 +552,7 @@ body::after {
   color: #1a0d2b;
   font: 700 14px/1 'Fredoka', sans-serif;
   padding: 10px 18px;
-  display: flex;   /* v84: ALWAYS VISIBLE — no waiting */
+  display: flex;   /* v85: ALWAYS VISIBLE — no waiting */
 }
 #btn-dance.ready { animation: dance-pulse 1.4s ease-in-out infinite; }
 @keyframes dance-pulse {
@@ -613,8 +613,8 @@ body::after {
 </head>
 <body>
 
-<div id="vbanner">⚫ V84 SLATE · BRAIN OVERRIDES PER PHASE 🪨</div>
-<div id="status">v84 · idle · tap the orb</div>
+<div id="vbanner">🟡 V85 GOLD · NOVA SEES YOU · LIVE CAM TO AVATAR 🟡</div>
+<div id="status">v85 · idle · tap the orb</div>
 
 <!-- DEBUG LOG — visible on screen in top-right corner -->
 <div id="debug-log" style="
@@ -828,8 +828,8 @@ danceMusic.addEventListener('error', () => {
 // HELPERS
 // ════════════════════════════════════════════════════════════════
 function setStatus(msg) {
-  statusBar.textContent = `v84 · ${msg}`;
-  console.log('[v84]', msg);
+  statusBar.textContent = `v85 · ${msg}`;
+  console.log('[v85]', msg);
   dlog(msg);
 }
 
@@ -861,12 +861,12 @@ let currentPhase = 'arrival';
 function setPhase(phase) {
   const prev = currentPhase;
   currentPhase = phase;
-  phaseEnteredAt = Date.now();  // v84: reset phase clock
+  phaseEnteredAt = Date.now();  // v85: reset phase clock
   stage.className = `phase-${phase}`;
   console.log(`[phase] ${prev} → ${phase}`);
   dlog?.(`📍 phase: ${phase}`, '#a3e635');
 
-  // v84: phase-specific loops
+  // v85: phase-specific loops
   stopLiveWatch();
   stopRecognitionLadder();
   if (phase === 'dance') startLiveWatch();
@@ -949,7 +949,7 @@ function syncGameState(updates) {
   }, 250);
 }
 
-// v84: phase-aware tracking — Claude always knows what's happening
+// v85: phase-aware tracking — Claude always knows what's happening
 let phaseEnteredAt = Date.now();
 let lastKidAction = { type: 'none', value: null, at: Date.now() };
 let lastNovaSpokeAt = 0;
@@ -1121,7 +1121,7 @@ function stopNovaVoice() {
   speakQueue = [];
   try { speechSynthesis.cancel(); } catch(_) {}
   speakingNow = false;
-  // v84: also cut Runway audio so Nova goes silent INSTANTLY when dance starts
+  // v85: also cut Runway audio so Nova goes silent INSTANTLY when dance starts
   try {
     const a = document.getElementById('nova-audio');
     if (a) {
@@ -1129,7 +1129,7 @@ function stopNovaVoice() {
       a.pause();
     }
   } catch(_) {}
-  // v84: Try to interrupt Runway agent via LiveKit data message
+  // v85: Try to interrupt Runway agent via LiveKit data message
   try {
     if (window.novaRoom && window.novaRoom.localParticipant) {
       const data = new TextEncoder().encode(JSON.stringify({ type: 'interrupt' }));
@@ -1138,7 +1138,7 @@ function stopNovaVoice() {
   } catch(_) {}
 }
 
-// v84: re-enable Nova audio (after dance ends, or for non-dance reactions)
+// v85: re-enable Nova audio (after dance ends, or for non-dance reactions)
 function resumeNovaVoice() {
   try {
     const a = document.getElementById('nova-audio');
@@ -1168,6 +1168,7 @@ async function startNova() {
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     });
     webcamVideo.srcObject = stream;
+    window.__kidStream = stream;  // v85: save for Runway publishing
   } catch(e) {
     showError('Please allow camera and microphone, then refresh.');
     return;
@@ -1196,7 +1197,7 @@ async function connectNova() {
         body: JSON.stringify({
           avatarId: CFG.avatarId,
           avatarType: CFG.avatarType,
-          phase: 'recognition',  // v84: server picks personality based on phase
+          phase: 'recognition',  // v85: server picks personality based on phase
           memory: {
             name: novaMem.name || null,
             age: novaMem.age || null,
@@ -1284,11 +1285,30 @@ async function connectNova() {
     await room.connect(creds.serverUrl, creds.token);
     setStatus('connected · publishing mic');
     if (CFG.useNodeRpc) {
-      // Node RPC mode: Runway needs mic to do STT (hear kid say name/age)
       try {
         await room.localParticipant.setMicrophoneEnabled(true);
         dlog('  🎤 mic ON (Runway STT will hear kid)');
       } catch(e) { dlog('  ⚠ mic enable failed: ' + e.message, '#ffaa00'); }
+
+      // v85: publish webcam video track to Runway room so Nova SEES the kid
+      try {
+        const stream = window.__kidStream;
+        const videoTrack = stream?.getVideoTracks?.()[0];
+        if (videoTrack) {
+          dlog('  📹 publishing webcam to Runway room...', '#fbbf24');
+          const livekitTrack = new LivekitClient.LocalVideoTrack(videoTrack);
+          const publication = await room.localParticipant.publishTrack(livekitTrack, {
+            name: 'kid-webcam',
+            source: LivekitClient.Track.Source.Camera,
+          });
+          dlog(`  📹 ✓ webcam published to Nova (sid=${publication?.trackSid?.slice(0,8) || '?'})`, '#22c55e');
+        } else {
+          dlog('  ⚠ no video track found to publish', '#ffaa00');
+        }
+      } catch (e) {
+        dlog('  ⚠ webcam publish failed: ' + e.message, '#ffaa00');
+        console.warn('[webcam publish]', e);
+      }
     } else {
       dlog('  🎤 mic intentionally off (Worker fallback)');
     }
@@ -1361,7 +1381,7 @@ function sendUserMessage() {
   dlog('📨 sendUserMessage with: "' + t + '"');
   if (!t) { dlog('  empty, skipping', '#ffaa00'); return; }
   chatInput.value = '';
-  setLastKidAction('typed', t);  // v84
+  setLastKidAction('typed', t);  // v85
 
   // First-time name capture (heuristic)
   if (novaMem.isFirstTime && !novaMem.name && t.length < 30 && /^[a-zA-Z\s]+$/.test(t)) {
@@ -1421,7 +1441,7 @@ function handleUserTranscript(text) {
   lastTranscriptAt = now;
 
   dlog(`👂 kid said: "${t}"`, '#67e8f9');
-  setLastKidAction('said', t);  // v84: any speech updates kid action
+  setLastKidAction('said', t);  // v85: any speech updates kid action
   
   // Capture name during Recognition
   if (currentPhase === 'recognition' && !novaMem.name) {
@@ -1472,7 +1492,7 @@ async function beginRecognition() {
   setPhase('recognition');
   dlog('👁 entering Recognition phase', '#a78bfa');
 
-  // v84: chat input visible from the START — no 8s delay
+  // v85: chat input visible from the START — no 8s delay
   const ci = document.getElementById('chat-input');
   if (ci) {
     ci.placeholder = 'or type your name...';
@@ -1480,7 +1500,7 @@ async function beginRecognition() {
     chatSend.style.display = '';
   }
 
-  // v84: Dance button is ALWAYS visible (CSS forces display:flex). Kid can tap whenever.
+  // v85: Dance button is ALWAYS visible (CSS forces display:flex). Kid can tap whenever.
   // No timer fallback needed.
 
   // If returning kid with known name + age, skip straight to Ready
@@ -1496,7 +1516,7 @@ async function beginRecognition() {
   setTimeout(() => attemptVisualRecognition(), 3000);
 }
 
-// v84: fallback ladder — checks every 2s, fires the right nudge based on sub-state
+// v85: fallback ladder — checks every 2s, fires the right nudge based on sub-state
 function startRecognitionLadder() {
   stopRecognitionLadder();
   let lastNudgeAt = 0;
@@ -1583,7 +1603,7 @@ function captureName(name) {
   novaMem.name = name;
   Memory.save(novaMem);
   syncGameState({ name });
-  setLastKidAction('name_given', name);  // v84
+  setLastKidAction('name_given', name);  // v85
   triggerRpcEvent('user_just_said_name', name);
 
   // Now show typing prompt for age
@@ -1600,7 +1620,7 @@ function captureAge(age) {
   novaMem.age = age;
   Memory.save(novaMem);
   syncGameState({ age });
-  setLastKidAction('age_given', age);  // v84
+  setLastKidAction('age_given', age);  // v85
   triggerRpcEvent('user_just_said_age', String(age));
 
   // Move to Ready phase after a beat
@@ -1610,12 +1630,12 @@ function captureAge(age) {
 // Trigger an RPC-style event — when using Node, Runway's brain reacts naturally via tool calls
 // When fallback Worker, fire askBrain instead so we get a TTS response
 async function triggerRpcEvent(event, extra = '') {
-  // v84 GUARD: goodbye must only fire from the goodbye phase
+  // v85 GUARD: goodbye must only fire from the goodbye phase
   if (event === 'goodbye' && currentPhase !== 'goodbye') {
     dlog(`🛑 blocked goodbye fire from phase=${currentPhase}`, '#ff5577');
     return;
   }
-  // v84 HARD GUARD: during dance, NEVER fire invite/nudge/idle events.
+  // v85 HARD GUARD: during dance, NEVER fire invite/nudge/idle events.
   // Nova should never say "are you there" while kid is dancing.
   const BLOCKED_DURING_DANCE = new Set([
     'live_watch_invite',
@@ -1666,13 +1686,13 @@ const Dance = {
   running: false,
   currentCue: null,
   cueState: 'idle',         // 'idle' | 'prep' | 'fire'
-  activeCueIdx: -1,          // v84: which TIMELINE index is currently active (-1 = none)
+  activeCueIdx: -1,          // v85: which TIMELINE index is currently active (-1 = none)
   startedAt: 0,
 };
 
-// v84: timing constants no longer needed — TIMELINE has explicit open/close events
+// v85: timing constants no longer needed — TIMELINE has explicit open/close events
 
-// v84: TIMELINE anchored to MP3 vocal analysis
+// v85: TIMELINE anchored to MP3 vocal analysis
 // "right hand" word starts at 20.10s (verified via sustained-vocal detection in audio)
 // Green OPENs 0.25s before word + CLOSEs 0.5s after = ~3.3s window
 // All cues derived from same 3.9s phrase spacing.
@@ -1737,7 +1757,7 @@ const TIMELINE = [
   // ── OUTRO (96-111s): no cues, celebration ──
   { t: 96100, type: 'beat', name: 'outro' },
 ];
-// v84: simple forward iterator — never goes back, never gets stuck
+// v85: simple forward iterator — never goes back, never gets stuck
 let timelineIdx = 0;
 let cueResults = [];
 
@@ -1765,7 +1785,7 @@ async function loadMoveNet() {
   return Dance.detector;
 }
 
-// v84: LIVE WATCH — Nova ONLY reacts to actual dancing energy.
+// v85: LIVE WATCH — Nova ONLY reacts to actual dancing energy.
 // Never asks "are you there", never invites, never nudges during dance.
 // First 15s of dance is silent — kid finds their feet.
 // Cadence widened to 18s. Low motion = Nova stays silent (watching).
@@ -1778,7 +1798,7 @@ function startLiveWatch() {
     const snap = buildLiveStateSnapshot();
     const now = Date.now();
 
-    // v84: silence-zone — first 15s of dance, Nova does NOT speak unsolicited
+    // v85: silence-zone — first 15s of dance, Nova does NOT speak unsolicited
     if (now - danceStartWall < 15000) return;
 
     // Don't talk over a cue moment
@@ -1786,7 +1806,7 @@ function startLiveWatch() {
     // Cool-down: Nova spoke recently (hit/miss/streak)
     if (now - lastNovaSpokeAt < 8000) return;
 
-    // v84: HARD FILTER — only HYPE or OBSERVE allowed during dance
+    // v85: HARD FILTER — only HYPE or OBSERVE allowed during dance
     // NEVER invite, NEVER nudge, NEVER ask "are you there"
     let event = null;
     if (snap.subState === 'high_motion')        event = 'live_watch_hype';
@@ -1797,7 +1817,7 @@ function startLiveWatch() {
     dlog(`📺 live-watch fire: ${event} (motion=${snap.motionLevel})`, '#a78bfa');
     lastNovaSpokeAt = now;
     triggerRpcEvent(event, `motion=${snap.motionLevel} streak=${snap.streak}`);
-  }, 18000);  // v84: was 12s, now 18s — less chatty
+  }, 18000);  // v85: was 12s, now 18s — less chatty
 }
 
 function stopLiveWatch() {
@@ -1811,7 +1831,7 @@ function stopLiveWatch() {
 // Pose detection loop with idle tracking
 let lastWristPos = null;
 let lastMotionAt = Date.now();
-let motionSamples = [];  // v84: ring buffer of recent motion magnitudes for motionLevel
+let motionSamples = [];  // v85: ring buffer of recent motion magnitudes for motionLevel
 
 async function poseLoop() {
   if (!Dance.running || !Dance.detector) return;
@@ -1822,7 +1842,7 @@ async function poseLoop() {
       poses[0].keypoints.forEach(p => { if (p.score > 0.3) kp[p.name] = p; });
       checkCue(kp);
 
-      // v84: track motion via wrist movement → fuels motionLevel for live-watch
+      // v85: track motion via wrist movement → fuels motionLevel for live-watch
       if (kp.left_wrist) {
         const cur = { x: kp.left_wrist.x, y: kp.left_wrist.y };
         if (lastWristPos) {
@@ -1838,7 +1858,7 @@ async function poseLoop() {
         }
         lastWristPos = cur;
       }
-      // v84: idle_nudge during dance REMOVED — live-watch loop handles low motion gracefully
+      // v85: idle_nudge during dance REMOVED — live-watch loop handles low motion gracefully
     }
   } catch(e) { console.warn('[pose]', e); }
   requestAnimationFrame(poseLoop);
@@ -1848,7 +1868,7 @@ async function poseLoop() {
 function checkCue(kp) {
   if (!Dance.currentCue || Dance.cueState !== 'fire') return;
   const cue = Dance.currentCue;
-  // v84: deadline check removed — the scheduler tick is now the single source of truth
+  // v85: deadline check removed — the scheduler tick is now the single source of truth
   // Camera mirrored: kp.left_* = user's RIGHT side, kp.right_* = user's LEFT
   const userRightWrist    = kp.left_wrist;
   const userRightShoulder = kp.left_shoulder;
@@ -1864,7 +1884,7 @@ function checkCue(kp) {
   
   let hit = false;
   
-  // v84: cue.action codes (from v49m timeline): 'right', 'left', 'both', 'clap', 'head'
+  // v85: cue.action codes (from v49m timeline): 'right', 'left', 'both', 'clap', 'head'
   switch(cue.action) {
     case 'right':
       if (userRightWrist && (userRightShoulder.y - userRightWrist.y) > armUpThr) hit = true;
@@ -1958,7 +1978,7 @@ function closeCue(result, cue) {
     
     showHit();
 
-    // v84 game reactions (target: 4-8 per song):
+    // v85 game reactions (target: 4-8 per song):
     //   - First hit ever → "Yes!"
     //   - Streak of 3, 5, 7, 10 → big celebration
     //   - Every 5th hit → specific praise
@@ -1989,7 +2009,7 @@ function closeCue(result, cue) {
   cueOverlay.classList.remove('show', 'firing');
   webcamFrame.classList.remove('detecting');
   document.getElementById('now-badge').classList.remove('show');
-  // v84: record this cue's resolution + clear active idx
+  // v85: record this cue's resolution + clear active idx
   if (Dance.activeCueIdx >= 0) {
     cueResults[Dance.activeCueIdx] = result;
   }
@@ -2008,7 +2028,7 @@ function showHit() {
 async function runCountdown() {
   countdownEl.classList.add('show');
   for (const n of ['3', '2', '1', 'GO!']) {
-    // v84: bulletproof reset — clear all transforms, replace text, then trigger fresh animation
+    // v85: bulletproof reset — clear all transforms, replace text, then trigger fresh animation
     countNum.style.cssText = '';  // wipe any inline styles
     countNum.textContent = n;
     countNum.style.animation = 'none';
@@ -2026,7 +2046,7 @@ async function startDance() {
   dlog('💃 startDance() called');
   if (Dance.running) { dlog('  already running, skip', '#ffaa00'); return; }
   btnDance.classList.remove('ready');
-  // v84: button stays visible always; only pulse stops
+  // v85: button stays visible always; only pulse stops
   endScreen.classList.remove('show');
   
   // Stop any in-progress Nova speech so dance starts clean
@@ -2054,7 +2074,7 @@ async function startDance() {
   dlog('  starting 3-2-1 countdown...');
   await runCountdown();
   
-  // 5. Start media in sync — v84: set both to 0 in the SAME tick, then start together
+  // 5. Start media in sync — v85: set both to 0 in the SAME tick, then start together
   Dance.running = true;
   timelineIdx = 0;
   cueResults = [];
@@ -2065,7 +2085,7 @@ async function startDance() {
   danceMusic.volume = 0.55;
   danceMusic.onended = () => { if (Dance.running) endDance(); };
 
-  // v84: Nova audio was muted during load — re-enable so she can react to hits/misses
+  // v85: Nova audio was muted during load — re-enable so she can react to hits/misses
   resumeNovaVoice();
   
   dlog('  starting MP4 + music together...');
@@ -2079,7 +2099,7 @@ async function startDance() {
   ]);
   Dance.startedAt = Date.now();
   
-  // v84: tell Nova the dance just started — she now knows song, length, role
+  // v85: tell Nova the dance just started — she now knows song, length, role
   triggerRpcEvent('dance_started', JSON.stringify({
     song: 'Hello Hello',
     durationS: 111,
@@ -2090,7 +2110,7 @@ async function startDance() {
   
   poseLoop();
 
-  // v84: v49m-style scheduler — forward-walking iterator, ms-based, never goes back
+  // v85: v49m-style scheduler — forward-walking iterator, ms-based, never goes back
   // Music currentTime in MS drives EVERYTHING. No setTimeout, no race, no stuck states.
   timelineIdx = 0;
   const scheduler = setInterval(() => {
@@ -2143,7 +2163,7 @@ async function startDance() {
 async function endDance() {
   Dance.running = false;
   Dance.midSongDone = false;
-  stopLiveWatch();  // v84: stop live-watch when dance ends
+  stopLiveWatch();  // v85: stop live-watch when dance ends
   danceMusic.pause();
   if (danceVideo.src) danceVideo.pause();
   cueOverlay.classList.remove('show', 'firing');
@@ -2189,7 +2209,7 @@ async function endDance() {
     if (count > bestCount) { bestMove = move; bestCount = count; }
   });
   
-  // v84: trigger end event via RPC (Node mode) or askBrain (fallback)
+  // v85: trigger end event via RPC (Node mode) or askBrain (fallback)
   const event = score >= 30 ? 'game_ended_great' : 'game_ended_low';
   triggerRpcEvent(event, `${hits} of ${attempts}, max streak ${Memory.session.maxStreak}`);
   
@@ -2225,7 +2245,7 @@ btnDance.addEventListener('click', () => {
 
 // Boot
 console.log('═══════════════════════════════════');
-console.log('Nova v84 SLATE — timing rewrite, one cue at a time');
+console.log('Nova v85 GOLD — timing rewrite, one cue at a time');
 console.log('═══════════════════════════════════');
 setStatus('idle · tap the orb');
 </script>
