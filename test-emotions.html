@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Test 3 · Emotions</title>
+<style>* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #0a0a14; color: #e8e8f0;
+  display: flex; flex-direction: column; height: 100vh;
+  overflow: hidden;
+}
+#banner {
+  background: linear-gradient(90deg, #1e40af, #3b82f6, #60a5fa, #3b82f6, #1e40af);
+  color: white; text-align: center; padding: 8px;
+  font-weight: 800; letter-spacing: 2px; font-size: 13px;
+  flex: 0 0 auto;
+}
+#main { display: flex; flex: 1; min-height: 0; }
+#face-col {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: #11111e;
+}
+#face-box {
+  width: 100%; max-width: 480px; aspect-ratio: 1; border-radius: 24px;
+  overflow: hidden; background: #000;
+  border: 2px solid #2a2a3a;
+  position: relative;
+}
+#face-box video {
+  width: 100%; height: 100%; object-fit: cover; background: #000;
+}
+#status {
+  position: absolute; top: 8px; left: 8px;
+  background: rgba(0,0,0,0.7); color: #6ee7b7;
+  padding: 4px 10px; border-radius: 12px;
+  font-size: 11px; font-weight: 600;
+}
+#controls-col {
+  width: 380px; padding: 16px;
+  display: flex; flex-direction: column; gap: 8px;
+  overflow-y: auto;
+  border-left: 1px solid #2a2a3a;
+  background: #0d0d18;
+}
+h2 { margin: 12px 0 4px; font-size: 13px; color: #93c5fd; font-weight: 600;
+     text-transform: uppercase; letter-spacing: 1px; }
+.btn {
+  padding: 14px;
+  border: none; border-radius: 10px;
+  background: #1e40af; color: white;
+  font-size: 15px; font-weight: 600; cursor: pointer;
+  text-align: left;
+  transition: transform 0.05s, background 0.1s;
+}
+.btn:hover { background: #2563eb; }
+.btn:active { transform: scale(0.97); }
+.btn:disabled { background: #2a2a3a; color: #555; cursor: wait; }
+.btn .label {
+  display: block; font-size: 10px; opacity: 0.7;
+  margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px;
+}
+.btn.boot { background: #10b981; }
+.btn.boot:hover { background: #059669; }
+.btn.boot:disabled { background: #2a2a3a; }
+.btn.warn { background: #b45309; }
+.btn.warn:hover { background: #d97706; }
+.btn.danger { background: #991b1b; }
+input[type=text], textarea {
+  padding: 12px; background: #1a1a26; color: #e8e8f0;
+  border: 1px solid #2a2a3a; border-radius: 8px;
+  font-family: inherit; font-size: 14px;
+  resize: vertical;
+}
+input[type=range] { width: 100%; }
+#log {
+  flex: 1; min-height: 120px; padding: 8px;
+  background: #06060a; border-radius: 8px;
+  font-family: 'SF Mono', Monaco, monospace; font-size: 11px;
+  color: #6ee7b7; overflow-y: auto;
+  white-space: pre-wrap; line-height: 1.5;
+  border: 1px solid #1e1e2e;
+}
+.row { display: flex; gap: 8px; align-items: center; }
+.row label { font-size: 12px; color: #93c5fd; min-width: 80px; }
+.note { font-size: 11px; color: #888; line-height: 1.5; padding: 4px 0; }
+.q { font-size: 12px; color: #fbbf24; font-weight: 600;
+     padding: 8px; background: rgba(251, 191, 36, 0.08);
+     border-left: 3px solid #fbbf24; border-radius: 4px;
+     line-height: 1.5; }</style>
+</head><body>
+<div id="banner">🧪 TEST 3 · DOES STYLING CHANGE HER FACE?</div>
+<div id="main">
+  <div id="face-col">
+    <div id="face-box">
+      <div id="status">⚪ not started</div>
+      <video id="nova-video" autoplay playsinline></video>
+    </div>
+  </div>
+  <div id="controls-col">
+    <div class="q">Same word, different styling. Click pairs back-to-back. Does her face look different when text is styled differently?</div>
+    <button id="boot-btn" class="btn boot">▶ START NOVA</button>
+
+    <h2>Same word: "yes"</h2>
+    <button class="btn" disabled data-text="yes"><span class="label">flat</span>yes</button>
+    <button class="btn" disabled data-text="YES!"><span class="label">caps + bang</span>YES!</button>
+    <button class="btn" disabled data-text="yes..."><span class="label">soft trailing</span>yes...</button>
+    <button class="btn" disabled data-text="YESYESYES!!!"><span class="label">repeated hype</span>YESYESYES!!!</button>
+    <button class="btn" disabled data-text="yesss"><span class="label">drawn out</span>yesss</button>
+
+    <h2>Same word: "oh"</h2>
+    <button class="btn" disabled data-text="oh"><span class="label">flat</span>oh</button>
+    <button class="btn" disabled data-text="OH!"><span class="label">surprised</span>OH!</button>
+    <button class="btn" disabled data-text="oh..."><span class="label">contemplative</span>oh...</button>
+    <button class="btn" disabled data-text="oh oh oh!"><span class="label">excited</span>oh oh oh!</button>
+
+    <h2>Custom text</h2>
+    <input id="custom" type="text" placeholder="type anything..." value="hello friend">
+    <button class="btn" disabled id="send-custom">▶ Send custom text</button>
+
+    <h2>Log</h2>
+    <div id="log">Click START NOVA to begin.</div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.7.5/dist/livekit-client.umd.min.js"></script>
+<script>
+// Shared minimal Nova session helpers — used by all 4 test pages.
+// Goal: smallest possible code to spin up Nova + inject text.
+const RENDER_URL = 'https://nova-rpc-server.onrender.com';
+const AVATAR_ID  = 'e976bbb2-de60-4da6-845e-4b754050e55b';
+const TEST_T0 = Date.now();
+
+function novaLog(tag, msg) {
+  const t = ((Date.now() - TEST_T0) / 1000).toFixed(1);
+  const line = `[${t}s] [${tag}] ${msg}`;
+  console.log(line);
+  const el = document.getElementById('log');
+  if (el) el.textContent = line + '\n' + el.textContent;
+}
+
+function setStatus(text, color) {
+  const el = document.getElementById('status');
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = color || '#6ee7b7';
+}
+
+// Holds session state — exposed on window for inspection
+window.NV = {
+  room: null,
+  sessionId: null,
+  micTrack: null,
+  ttsActive: false,
+  audioCtx: null,
+  origMicTrack: null,
+};
+
+async function novaBoot(opts = {}) {
+  const { startScript } = opts;
+  setStatus('🟡 booting...', '#fbbf24');
+  novaLog('BOOT', 'starting Nova session...');
+
+  // 1. Mic permission
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    });
+    window.NV.origMicTrack = stream.getAudioTracks()[0];
+    novaLog('BOOT', 'mic permission granted');
+  } catch (e) {
+    novaLog('ERROR', 'mic permission failed: ' + e.message);
+    setStatus('🔴 mic blocked', '#ef4444');
+    throw e;
+  }
+
+  // 2. Create session
+  novaLog('BOOT', 'POST /create-session (Render cold start may be slow)');
+  const t0 = performance.now();
+  const body = { avatarId: AVATAR_ID, memory: {} };
+  if (startScript) body.startScript = startScript;
+  let res;
+  try {
+    res = await fetch(RENDER_URL + '/create-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    novaLog('ERROR', 'create-session network: ' + e.message);
+    setStatus('🔴 network', '#ef4444');
+    throw e;
+  }
+  const ms = Math.round(performance.now() - t0);
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    novaLog('ERROR', `create-session HTTP ${res.status}: ${t.slice(0, 100)}`);
+    setStatus('🔴 server', '#ef4444');
+    throw new Error('HTTP ' + res.status);
+  }
+  const creds = await res.json();
+  window.NV.sessionId = creds.sessionId || creds.id;
+  novaLog('BOOT', `READY in ${ms}ms · sid=${window.NV.sessionId.slice(0, 8)}`);
+
+  // 3. Connect LiveKit
+  const room = new LivekitClient.Room({ adaptiveStream: true });
+  window.NV.room = room;
+  room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
+    novaLog('ROOM', 'track subscribed: ' + track.kind);
+    if (track.kind === 'video') {
+      const v = document.getElementById('nova-video');
+      if (v) track.attach(v);
+      setStatus('🟢 alive', '#6ee7b7');
+    } else if (track.kind === 'audio') {
+      const a = document.createElement('audio');
+      a.autoplay = true;
+      track.attach(a);
+      document.body.appendChild(a);
+    }
+  });
+  await room.connect(creds.serverUrl, creds.token);
+  novaLog('ROOM', 'LiveKit connected');
+
+  // 4. Publish mic
+  await room.localParticipant.setMicrophoneEnabled(true);
+  const micPub = room.localParticipant.getTrackPublication(LivekitClient.Track.Source.Microphone);
+  if (micPub?.track) {
+    window.NV.micTrack = micPub.track;
+    novaLog('AUDIO', 'mic ready for injection');
+  }
+  setStatus('🟢 ready', '#6ee7b7');
+}
+
+async function novaSay(text) {
+  if (!window.NV.micTrack) {
+    novaLog('ERROR', 'no mic track — boot first');
+    return false;
+  }
+  if (window.NV.ttsActive) {
+    novaLog('SKIP', 'already speaking');
+    return false;
+  }
+  window.NV.ttsActive = true;
+  const t0 = performance.now();
+  novaLog('CUE', `→ "${text}"`);
+
+  try {
+    const r = await fetch(RENDER_URL + '/tts-for-mic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, sessionId: window.NV.sessionId }),
+    });
+    if (!r.ok) throw new Error('TTS HTTP ' + r.status);
+    const mp3 = await r.arrayBuffer();
+    const elTts = Math.round(performance.now() - t0);
+    novaLog('CUE', `TTS ${mp3.byteLength}b in ${elTts}ms`);
+
+    if (!window.NV.audioCtx) {
+      window.NV.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    const ctx = window.NV.audioCtx;
+    if (ctx.state === 'suspended') await ctx.resume();
+    const buf = await ctx.decodeAudioData(mp3.slice(0));
+    const dest = ctx.createMediaStreamDestination();
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(dest);
+    const synthTrack = dest.stream.getAudioTracks()[0];
+    await window.NV.micTrack.replaceTrack(synthTrack);
+    src.start(0);
+    await new Promise(resolve => {
+      src.onended = resolve;
+      setTimeout(resolve, buf.duration * 1000 + 200);
+    });
+    // Restore real mic
+    if (window.NV.origMicTrack) {
+      try { await window.NV.micTrack.replaceTrack(window.NV.origMicTrack); } catch(_) {}
+    }
+    novaLog('CUE', `✓ done in ${Math.round(performance.now() - t0)}ms`);
+    return true;
+  } catch (e) {
+    novaLog('ERROR', 'cue failed: ' + e.message);
+    return false;
+  } finally {
+    window.NV.ttsActive = false;
+  }
+}
+
+document.getElementById('boot-btn').addEventListener('click', async () => {
+  document.getElementById('boot-btn').disabled = true;
+  try {
+    await novaBoot();
+    document.querySelectorAll('.btn[data-text]').forEach(b => b.disabled = false);
+    document.getElementById('send-custom').disabled = false;
+  } catch(e) { document.getElementById('boot-btn').disabled = false; }
+});
+
+document.querySelectorAll('.btn[data-text]').forEach(b => {
+  b.addEventListener('click', async () => {
+    document.querySelectorAll('.btn').forEach(x => { if (x.id !== 'boot-btn') x.disabled = true; });
+    await novaSay(b.dataset.text);
+    document.querySelectorAll('.btn').forEach(x => { if (x.id !== 'boot-btn') x.disabled = false; });
+  });
+});
+
+document.getElementById('send-custom').addEventListener('click', async () => {
+  const t = document.getElementById('custom').value.trim();
+  if (!t) return;
+  document.querySelectorAll('.btn').forEach(x => { if (x.id !== 'boot-btn') x.disabled = true; });
+  await novaSay(t);
+  document.querySelectorAll('.btn').forEach(x => { if (x.id !== 'boot-btn') x.disabled = false; });
+});
+</script></body></html>
