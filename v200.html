@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nova v200 · One Brain</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: linear-gradient(135deg, #0a0a14 0%, #14142a 100%);
+    color: #e8e8f0;
+    display: flex; flex-direction: column; height: 100vh;
+    overflow: hidden;
+  }
+  #banner {
+    background: linear-gradient(90deg, #064e3b 0%, #10b981 25%, #6ee7b7 55%, #10b981 85%, #064e3b 100%);
+    color: white; text-align: center; padding: 8px;
+    font-weight: 800; letter-spacing: 2px; font-size: 13px;
+    flex: 0 0 auto;
+  }
+  #main { display: flex; flex: 1; min-height: 0; }
+  #face-col {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 20px; gap: 16px;
+  }
+  #face-box {
+    width: 100%; max-width: 520px; aspect-ratio: 1; border-radius: 28px;
+    overflow: hidden; background: #000; position: relative;
+    border: 2px solid #1e3a5f;
+    box-shadow: 0 8px 40px rgba(16, 185, 129, 0.15);
+  }
+  #face-box video {
+    width: 100%; height: 100%; object-fit: cover; background: #000;
+  }
+  #face-overlay {
+    position: absolute; inset: 0; display: flex; align-items: center;
+    justify-content: center; pointer-events: none; opacity: 0;
+    transition: opacity 0.4s;
+    background: radial-gradient(circle at center, rgba(110,231,183,0.15) 0%, transparent 70%);
+  }
+  #face-overlay.show { opacity: 1; }
+  #face-overlay .pulse {
+    width: 60px; height: 60px; border-radius: 50%;
+    background: rgba(110,231,183,0.4);
+    animation: pulse 1.4s ease-out infinite;
+  }
+  @keyframes pulse {
+    0% { transform: scale(0.8); opacity: 0.7; }
+    100% { transform: scale(1.5); opacity: 0; }
+  }
+  #status-row {
+    display: flex; gap: 12px; align-items: center;
+    font-size: 13px;
+  }
+  .status-pill {
+    background: rgba(0,0,0,0.4); border: 1px solid #2a2a3a;
+    padding: 6px 12px; border-radius: 999px;
+    color: #6ee7b7; font-weight: 600;
+  }
+  .status-pill.warn { color: #fbbf24; border-color: #92400e; }
+  .status-pill.err { color: #ef4444; border-color: #7f1d1d; }
+  #webcam {
+    position: absolute; bottom: 12px; right: 12px;
+    width: 100px; height: 100px; border-radius: 12px; object-fit: cover;
+    border: 2px solid rgba(255,255,255,0.2);
+    transform: scaleX(-1);
+  }
+  #side {
+    width: 380px; padding: 20px;
+    display: flex; flex-direction: column; gap: 12px;
+    border-left: 1px solid #1e1e2e; overflow-y: auto;
+    background: rgba(0,0,0,0.2);
+  }
+  h2 { margin: 10px 0 4px; font-size: 11px; color: #93c5fd;
+       text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; }
+  .btn {
+    padding: 14px;
+    border: none; border-radius: 10px;
+    background: #10b981; color: white;
+    font-size: 15px; font-weight: 700; cursor: pointer;
+    transition: transform 0.05s, background 0.1s;
+  }
+  .btn:hover { background: #059669; }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { background: #2a2a3a; color: #555; cursor: wait; }
+  .btn.secondary { background: #1e40af; }
+  .btn.secondary:hover { background: #2563eb; }
+  .btn.danger { background: #991b1b; }
+  .btn.row {
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .btn-small {
+    flex: 1; min-width: 100px; padding: 10px;
+    font-size: 13px;
+  }
+  .note { font-size: 11px; color: #888; line-height: 1.5; padding: 4px 0; }
+  #log {
+    flex: 1; min-height: 180px; padding: 8px;
+    background: #06060a; border-radius: 8px;
+    font-family: 'SF Mono', Monaco, monospace; font-size: 11px;
+    color: #6ee7b7; overflow-y: auto;
+    white-space: pre-wrap; line-height: 1.5;
+    border: 1px solid #1e1e2e;
+  }
+  input[type=text] {
+    padding: 10px; background: #1a1a26; color: #e8e8f0;
+    border: 1px solid #2a2a3a; border-radius: 8px;
+    font-family: inherit; font-size: 14px;
+  }
+</style>
+</head>
+<body>
+<div id="banner">💚 V200 · ONE BRAIN · LIVEKIT AGENT · OUR WORDS · RUNWAY FACE</div>
+
+<div id="main">
+  <div id="face-col">
+    <div id="face-box">
+      <div id="face-overlay"><div class="pulse"></div></div>
+      <video id="nova-video" autoplay playsinline></video>
+      <video id="webcam" autoplay playsinline muted></video>
+    </div>
+    <div id="status-row">
+      <div id="status" class="status-pill">⚪ not started</div>
+      <div id="phase" class="status-pill">phase: —</div>
+      <div id="streak" class="status-pill">streak: 0</div>
+    </div>
+  </div>
+
+  <div id="side">
+    <h2>Start</h2>
+    <button id="boot-btn" class="btn">▶ Connect to Nova</button>
+    <div class="note">Wait ~5-15s. Nova will appear and greet you. Talk into the mic — she replies via our Python brain.</div>
+
+    <h2>Phase Control (manual for testing)</h2>
+    <div class="btn row">
+      <button class="btn secondary btn-small" data-phase="recognition" disabled>Recognition</button>
+      <button class="btn secondary btn-small" data-phase="dance" disabled>Dance</button>
+      <button class="btn secondary btn-small" data-phase="goodbye" disabled>Goodbye</button>
+    </div>
+    <div class="note">In real game these fire automatically. Here you can switch manually to test each phase.</div>
+
+    <h2>Simulate Game Events (dance phase)</h2>
+    <div class="btn row">
+      <button class="btn secondary btn-small" data-event="first_hit" disabled>First Hit</button>
+      <button class="btn secondary btn-small" data-event="hit" disabled>Hit</button>
+      <button class="btn secondary btn-small" data-event="miss" disabled>Miss</button>
+      <button class="btn secondary btn-small" data-event="freeze_hit" disabled>Freeze</button>
+    </div>
+
+    <h2>Log</h2>
+    <div id="log">Click "Connect to Nova" to begin.</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.7.5/dist/livekit-client.umd.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// Nova v200 client — connects to Python LiveKit Agent
+// EDIT THIS to point at your deployed Python server:
+const API_BASE = 'https://novapython.onrender.com';
+// For local dev: const API_BASE = 'http://localhost:8000';
+// ═══════════════════════════════════════════════════════════════════════
+
+const T0 = Date.now();
+const KID_ID = (() => {
+  // Stable per-browser id for memory continuity
+  let k = localStorage.getItem('nova_kid_id');
+  if (!k) {
+    k = 'kid-' + Math.random().toString(36).slice(2, 10);
+    localStorage.setItem('nova_kid_id', k);
+  }
+  return k;
+})();
+
+function log(tag, msg) {
+  const t = ((Date.now() - T0) / 1000).toFixed(1);
+  const el = document.getElementById('log');
+  el.textContent = `[${t}s] [${tag}] ${msg}\n` + el.textContent;
+  console.log(`[${t}s] [${tag}] ${msg}`);
+}
+
+function setStatus(text, cls) {
+  const el = document.getElementById('status');
+  el.textContent = text;
+  el.className = 'status-pill' + (cls ? ' ' + cls : '');
+}
+function setPhase(p) { document.getElementById('phase').textContent = 'phase: ' + p; }
+function setStreak(s) { document.getElementById('streak').textContent = 'streak: ' + s; }
+
+let room = null;
+let webcamStream = null;
+let streak = 0;
+let hits = 0;
+
+// ─── Send game event over LiveKit data channel ───
+async function sendEvent(event) {
+  if (!room) return;
+  const msg = JSON.stringify({ kind: 'game-event', event });
+  try {
+    await room.localParticipant.publishData(
+      new TextEncoder().encode(msg),
+      { reliable: true }
+    );
+    log('EVENT', JSON.stringify(event));
+  } catch (e) {
+    log('ERROR', 'sendEvent failed: ' + e.message);
+  }
+}
+
+// ─── Handle "request-vision" from agent → snapshot webcam → POST → reply ───
+async function handleVisionRequest() {
+  log('VISION', 'agent requested webcam frame');
+  const v = document.getElementById('webcam');
+  if (!v || v.readyState < 2 || !v.videoWidth) {
+    log('VISION', 'webcam not ready, skipping');
+    return;
+  }
+  const c = document.createElement('canvas');
+  c.width = Math.min(640, v.videoWidth);
+  c.height = Math.round(c.width * v.videoHeight / v.videoWidth);
+  c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+  const dataUrl = c.toDataURL('image/jpeg', 0.7);
+  
+  try {
+    const r = await fetch(API_BASE + '/v2/vision-observe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ frameDataUrl: dataUrl, kidId: KID_ID }),
+    });
+    const data = await r.json();
+    if (data?.ok && data.text) {
+      log('VISION', `Nova will say: "${data.text}"`);
+      // Send back as data message so agent can speak it
+      const msg = JSON.stringify({ kind: 'vision-observation', text: data.text });
+      await room.localParticipant.publishData(
+        new TextEncoder().encode(msg),
+        { reliable: true }
+      );
+    } else {
+      log('VISION', 'no observation returned');
+    }
+  } catch (e) {
+    log('ERROR', 'vision POST failed: ' + e.message);
+  }
+}
+
+// ─── Handle incoming data from agent ───
+function handleAgentData(packet) {
+  try {
+    const raw = new TextDecoder().decode(packet.data);
+    const msg = JSON.parse(raw);
+    if (msg.kind === 'request-vision') {
+      handleVisionRequest();
+    }
+  } catch (e) {
+    // ignore non-JSON or other packets
+  }
+}
+
+// ─── Show pulse overlay when Nova speaks ───
+function showSpeakingPulse() {
+  const o = document.getElementById('face-overlay');
+  o.classList.add('show');
+  clearTimeout(showSpeakingPulse._t);
+  showSpeakingPulse._t = setTimeout(() => o.classList.remove('show'), 1500);
+}
+
+// ─── Boot: get token → join room → publish mic + cam → enable controls ───
+async function boot() {
+  document.getElementById('boot-btn').disabled = true;
+  setStatus('🟡 booting...', 'warn');
+  log('BOOT', 'starting Nova session...');
+  log('BOOT', 'kidId=' + KID_ID);
+
+  // Mic + cam permission
+  try {
+    webcamStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      video: { width: 640, height: 480, facingMode: 'user' },
+    });
+    const webcamEl = document.getElementById('webcam');
+    webcamEl.srcObject = webcamStream;
+    webcamEl.play().catch(() => {});
+    log('BOOT', 'mic + cam ready');
+  } catch (e) {
+    log('ERROR', 'permission denied: ' + e.message);
+    setStatus('🔴 mic/cam blocked', 'err');
+    document.getElementById('boot-btn').disabled = false;
+    return;
+  }
+
+  // Get LiveKit token
+  log('BOOT', 'POST /v2/create-session');
+  const t0 = performance.now();
+  let creds;
+  try {
+    const r = await fetch(API_BASE + '/v2/create-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kidId: KID_ID }),
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    creds = await r.json();
+    log('BOOT', `session in ${Math.round(performance.now() - t0)}ms · room=${creds.roomName}`);
+  } catch (e) {
+    log('ERROR', 'create-session: ' + e.message);
+    setStatus('🔴 server failed', 'err');
+    document.getElementById('boot-btn').disabled = false;
+    return;
+  }
+
+  // Connect LiveKit room
+  room = new LivekitClient.Room({ adaptiveStream: true });
+
+  room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, participant) => {
+    log('ROOM', `track subscribed: ${track.kind} from ${participant.identity}`);
+    if (track.kind === 'video') {
+      track.attach(document.getElementById('nova-video'));
+      setStatus('🟢 Nova alive', '');
+    } else if (track.kind === 'audio') {
+      const a = document.createElement('audio');
+      a.autoplay = true;
+      track.attach(a);
+      document.body.appendChild(a);
+      // Pulse animation while audio is active
+      const audioEl = a;
+      audioEl.addEventListener('playing', showSpeakingPulse);
+    }
+  });
+
+  room.on(LivekitClient.RoomEvent.ParticipantConnected, (p) => {
+    log('ROOM', 'participant joined: ' + p.identity);
+  });
+
+  room.on(LivekitClient.RoomEvent.DataReceived, handleAgentData);
+
+  room.on(LivekitClient.RoomEvent.Disconnected, () => {
+    log('ROOM', 'disconnected');
+    setStatus('⚪ disconnected', '');
+  });
+
+  try {
+    await room.connect(creds.serverUrl, creds.token);
+    log('ROOM', 'LiveKit connected');
+  } catch (e) {
+    log('ERROR', 'connect failed: ' + e.message);
+    setStatus('🔴 livekit failed', 'err');
+    return;
+  }
+
+  // Publish mic
+  try {
+    await room.localParticipant.setMicrophoneEnabled(true);
+    log('AUDIO', 'mic published');
+  } catch (e) {
+    log('ERROR', 'mic publish: ' + e.message);
+  }
+
+  setStatus('🟢 waiting for Nova...', 'warn');
+  setPhase('recognition');
+
+  // Enable controls
+  document.querySelectorAll('button[data-phase]').forEach(b => b.disabled = false);
+  document.querySelectorAll('button[data-event]').forEach(b => b.disabled = false);
+}
+
+document.getElementById('boot-btn').addEventListener('click', boot);
+
+// Phase buttons → send phase change events
+document.querySelectorAll('button[data-phase]').forEach(b => {
+  b.addEventListener('click', () => {
+    const phase = b.dataset.phase;
+    sendEvent({ event: 'phase', phase });
+    setPhase(phase);
+    if (phase === 'recognition') { streak = 0; hits = 0; setStreak(0); }
+  });
+});
+
+// Event buttons → simulate hit/miss
+document.querySelectorAll('button[data-event]').forEach(b => {
+  b.addEventListener('click', () => {
+    const event = b.dataset.event;
+    if (event === 'hit' || event === 'first_hit') {
+      streak++;
+      hits++;
+      setStreak(streak);
+      sendEvent({ event, hits, streak });
+    } else if (event === 'miss') {
+      streak = 0;
+      setStreak(streak);
+      sendEvent({ event });
+    } else {
+      sendEvent({ event });
+    }
+  });
+});
+</script>
+</body>
+</html>
