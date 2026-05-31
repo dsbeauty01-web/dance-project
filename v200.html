@@ -27,22 +27,44 @@
   }
   #face-box {
     width: 100%; max-width: 520px; aspect-ratio: 1; border-radius: 28px;
-    overflow: hidden; background: #000; position: relative;
+    overflow: hidden; background:
+      radial-gradient(circle at 50% 40%, #1e3a5f 0%, #0a0a1a 70%);
+    position: relative;
     border: 2px solid #1e3a5f;
     box-shadow: 0 8px 40px rgba(16, 185, 129, 0.15);
   }
-  #face-box video#nova-video {
+  /* Nova fills the whole face box */
+  #face-box #nova-video {
     position: absolute; inset: 0;
     width: 100%; height: 100%; object-fit: cover; background: #000;
     z-index: 1;
   }
-  #face-box video {
-    width: 100%; height: 100%; object-fit: cover; background: #000;
+  /* "Waiting for Nova" placeholder text — visible when Nova isn't there yet */
+  #nova-placeholder {
+    position: absolute; inset: 0; z-index: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #6ee7b7; font-weight: 600; gap: 10px; text-align: center; padding: 20px;
+  }
+  #nova-placeholder .dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #6ee7b7; animation: pulse 1.4s ease-out infinite;
+  }
+  /* Webcam is ALWAYS a small corner bubble, never the main view */
+  #webcam {
+    position: absolute !important;
+    bottom: 14px; right: 14px;
+    width: 110px !important; height: 110px !important;
+    border-radius: 14px; object-fit: cover;
+    border: 2px solid rgba(255,255,255,0.25);
+    transform: scaleX(-1);
+    z-index: 10;
+    background: #000;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
   }
   #face-overlay {
     position: absolute; inset: 0; display: flex; align-items: center;
     justify-content: center; pointer-events: none; opacity: 0;
-    transition: opacity 0.4s;
+    transition: opacity 0.4s; z-index: 5;
     background: radial-gradient(circle at center, rgba(110,231,183,0.15) 0%, transparent 70%);
   }
   #face-overlay.show { opacity: 1; }
@@ -66,13 +88,6 @@
   }
   .status-pill.warn { color: #fbbf24; border-color: #92400e; }
   .status-pill.err { color: #ef4444; border-color: #7f1d1d; }
-  #webcam {
-    position: absolute; bottom: 12px; right: 12px;
-    width: 100px; height: 100px; border-radius: 12px; object-fit: cover;
-    border: 2px solid rgba(255,255,255,0.2);
-    transform: scaleX(-1);
-    z-index: 2;
-  }
   #side {
     width: 380px; padding: 20px;
     display: flex; flex-direction: column; gap: 12px;
@@ -124,6 +139,10 @@
   <div id="face-col">
     <div id="face-box">
       <div id="face-overlay"><div class="pulse"></div></div>
+      <div id="nova-placeholder">
+        <div class="dot"></div>
+        <div>Waiting for Nova...</div>
+      </div>
       <video id="nova-video" autoplay playsinline></video>
       <video id="webcam" autoplay playsinline muted></video>
     </div>
@@ -324,6 +343,8 @@ async function boot() {
     log('ROOM', `track subscribed: ${track.kind} from ${participant.identity}`);
     if (track.kind === 'video') {
       track.attach(document.getElementById('nova-video'));
+      const ph = document.getElementById('nova-placeholder');
+      if (ph) ph.style.display = 'none';
       setStatus('🟢 Nova alive', '');
     } else if (track.kind === 'audio') {
       // LiveKit's standard: let attach() create the element, then play it.
