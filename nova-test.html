@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova v200 · Tech-Limits Sandbox</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #0a0f1c; color: #e2e8f0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  #top {
+    background: linear-gradient(90deg, #1e1b4b, #581c87);
+    padding: 10px 16px; font-weight: 600; font-size: 13px;
+    letter-spacing: 0.5px; text-align: center;
+    border-bottom: 2px solid #a855f7;
+  }
+  #app { display: grid; grid-template-columns: 1fr 420px; gap: 16px; padding: 16px; }
+  @media (max-width: 900px) { #app { grid-template-columns: 1fr; } }
+
+  /* LEFT: face + camera + status */
+  #face-box {
+    width: 100%; max-width: 520px; aspect-ratio: 1; border-radius: 24px;
+    overflow: hidden; position: relative;
+    background: radial-gradient(circle at 50% 40%, #1e3a5f 0%, #0a0a1a 70%);
+    border: 2px solid #1e3a5f;
+    margin: 0 auto;
+  }
+  #nova-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+  #placeholder {
+    position: absolute; inset: 0; z-index: 0; display: flex;
+    flex-direction: column; align-items: center; justify-content: center;
+    color: #a855f7; font-weight: 600; gap: 10px;
+  }
+  #placeholder .dot {
+    width: 14px; height: 14px; border-radius: 50%; background: #a855f7;
+    animation: pulse 1.4s ease-out infinite;
+  }
+  @keyframes pulse { 0% { transform: scale(0.8); opacity: 0.7; } 100% { transform: scale(1.5); opacity: 0; } }
+  #webcam {
+    position: absolute; bottom: 12px; right: 12px;
+    width: 100px; height: 100px; border-radius: 12px; object-fit: cover;
+    border: 2px solid rgba(255,255,255,0.2); transform: scaleX(-1); z-index: 10;
+  }
+  #status-row {
+    display: flex; gap: 8px; flex-wrap: wrap; margin: 12px auto;
+    max-width: 520px; font-size: 12px;
+  }
+  .pill {
+    background: rgba(0,0,0,0.4); border: 1px solid #334155;
+    padding: 6px 12px; border-radius: 999px;
+    color: #94a3b8; font-weight: 600;
+  }
+  .pill.live { color: #6ee7b7; border-color: #14532d; }
+  .pill.err { color: #fca5a5; border-color: #7f1d1d; }
+
+  /* RIGHT: test bench */
+  #bench {
+    background: #131829; border: 1px solid #334155; border-radius: 16px;
+    padding: 14px; display: flex; flex-direction: column; gap: 12px;
+    max-height: calc(100vh - 70px); overflow-y: auto;
+  }
+  .bucket { background: #1e293b; border-radius: 10px; padding: 12px; }
+  .bucket h3 {
+    margin: 0 0 8px; font-size: 12px; color: #c4b5fd; letter-spacing: 1px;
+    text-transform: uppercase; font-weight: 700;
+  }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .row.one { grid-template-columns: 1fr; }
+  .row.three { grid-template-columns: 1fr 1fr 1fr; }
+  button {
+    background: #334155; color: #f1f5f9; border: 1px solid #475569;
+    padding: 8px 10px; border-radius: 8px; font-size: 12px; cursor: pointer;
+    font-family: inherit; text-align: left;
+  }
+  button:hover:not(:disabled) { background: #475569; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.primary { background: linear-gradient(90deg, #a855f7, #ec4899); border-color: #a855f7; font-weight: 600; }
+  button.danger { background: #7f1d1d; border-color: #991b1b; }
+  textarea {
+    width: 100%; background: #0f172a; color: #e2e8f0; border: 1px solid #475569;
+    border-radius: 6px; padding: 8px; font-family: inherit; font-size: 12px;
+    resize: vertical; min-height: 50px;
+  }
+
+  /* Log */
+  #log {
+    background: #050810; border: 1px solid #1e293b; border-radius: 10px;
+    padding: 8px; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 11px; color: #94a3b8; max-height: 200px; overflow-y: auto;
+    white-space: pre-wrap; line-height: 1.5;
+  }
+  #log .lt { color: #6ee7b7; }
+  #log .lr { color: #fbbf24; }
+  #log .le { color: #fca5a5; }
+</style>
+</head>
+<body>
+
+<div id="top">🧪 NOVA v200 · TECH-LIMITS SANDBOX · WORDS / FACE / TIMING / MEMORY / BACKGROUND CALLS / PERSONA INJECTION</div>
+
+<div id="app">
+
+  <!-- LEFT: face + status + log -->
+  <div>
+    <div id="face-box">
+      <div id="placeholder"><div class="dot"></div><div>Click "Connect" to wake Nova</div></div>
+      <video id="nova-video" autoplay playsinline></video>
+      <video id="webcam" autoplay playsinline muted></video>
+    </div>
+    <div id="status-row">
+      <span class="pill" id="conn">disconnected</span>
+      <span class="pill" id="phase">phase: —</span>
+      <span class="pill" id="last-latency">last latency: —</span>
+    </div>
+    <div id="log">log will stream here…</div>
+  </div>
+
+  <!-- RIGHT: the test bench -->
+  <div id="bench">
+
+    <div class="bucket">
+      <h3>0 · Connect</h3>
+      <div class="row one">
+        <button class="primary" id="btn-connect">▶ Connect to Nova</button>
+      </div>
+    </div>
+
+    <div class="bucket">
+      <h3>1 · Voice expression range</h3>
+      <div class="row">
+        <button onclick="utter('shhhh... I see you... so soft...')">whisper</button>
+        <button onclick="utter('WOW! That was AMAZING!')">excited</button>
+        <button onclick="utter('oh... that... that is hard...')">sad</button>
+        <button onclick="utter('wait... what is that behind you?')">curious</button>
+        <button onclick="utter('mhm... yes friend... beautiful...')">calm-soft</button>
+        <button onclick="utter('YES YES YES YES YES')">repeat-fast</button>
+      </div>
+    </div>
+
+    <div class="bucket">
+      <h3>2 · Face response (watch her face for each)</h3>
+      <div class="row">
+        <button onclick="utter('haha that is so funny!')">happy</button>
+        <button onclick="utter('hmm... I do not know...')">uncertain</button>
+        <button onclick="utter('oh no...')">concern</button>
+        <button onclick="utter('I am here... listening...')">attentive</button>
+      </div>
+    </div>
+
+    <div class="bucket">
+      <h3>3 · Timing / pacing</h3>
+      <div class="row">
+        <button onclick="utter('I see you... [pause] ... beautiful... [pause] ... so soft...')">long pauses</button>
+        <button onclick="utter('yes-yes-yes-yes-yes')">staccato</button>
+        <button onclick="utterTwiceFast()">2 lines fast</button>
+        <button onclick="interruptHerself()">interrupt mid-speech</button>
+      </div>
+    </div>
+
+    <div class="bucket">
+      <h3>5 · In-session memory</h3>
+      <div class="row one">
+        <button onclick="utter('I will remember the word PURPLE.')">tell her: remember PURPLE</button>
+        <button onclick="generateReply('Ask the kid: what was the secret word I told you to remember?')">ask: what was the word?</button>
+      </div>
+    </div>
+
+    <div class="bucket">
+      <h3>6a · Background EVENTS (game-style)</h3>
+      <div class="row three">
+        <button onclick="sendEvent({event:'phase', phase:'recognition'})">phase: recog</button>
+        <button onclick="sendEvent({event:'phase', phase:'dance'})">phase: dance</button>
+        <button onclick="sendEvent({event:'phase', phase:'goodbye'})">phase: goodbye</button>
+      </div>
+      <div class="row three" style="margin-top:6px">
+        <button onclick="sendEvent({event:'first_hit', hits:1, streak:1})">first hit</button>
+        <button onclick="sendEvent({event:'hit', hits:3, streak:3})">hit (streak 3)</button>
+        <button onclick="sendEvent({event:'miss'})">miss</button>
+      </div>
+      <div class="row three" style="margin-top:6px">
+        <button onclick="sendEvent({event:'hit', hits:8, streak:8})">hit (streak 8)</button>
+        <button onclick="sendEvent({event:'freeze_hit'})">freeze hit</button>
+        <button onclick="spamEvents()">SPAM 5 events</button>
+      </div>
+    </div>
+
+    <div class="bucket">
+      <h3>6b · PERSONA INJECTION (the real test)</h3>
+      <textarea id="inject-text" placeholder="Type a secret instruction Nova should follow NOW. Examples:
+• Become extremely shy and quiet for 30 seconds.
+• Pretend you remember yesterday — say you missed me.
+• You're a tiny bit nervous and excited at the same time.
+• Speak only in 3-word sentences for the next few replies.
+• You just spotted the kid is wearing red socks.">You're suddenly SHY and very quiet. Speak softer than usual.</textarea>
+      <div class="row" style="margin-top:6px">
+        <button class="primary" onclick="injectOverlay(true)">inject + speak</button>
+        <button onclick="injectOverlay(false)">inject silent (apply on next turn)</button>
+      </div>
+      <div class="row one" style="margin-top:6px">
+        <button class="danger" onclick="clearOverlay()">clear overlay (back to normal)</button>
+      </div>
+      <div style="margin-top:8px; font-size:11px; color:#94a3b8;">
+        <b>Persona presets — one-click:</b>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button onclick="presetInject('shy')">shy</button>
+        <button onclick="presetInject('hyped')">hyped</button>
+        <button onclick="presetInject('whisper')">whisper-mode</button>
+        <button onclick="presetInject('curious')">curious</button>
+        <button onclick="presetInject('tired')">tired</button>
+        <button onclick="presetInject('fake-memory')">fake memory</button>
+      </div>
+    </div>
+
+    <div class="bucket">
+      <h3>End</h3>
+      <div class="row one">
+        <button class="danger" onclick="disconnect()">disconnect</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LiveKit SDK -->
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.7.5/dist/livekit-client.umd.min.js"></script>
+
+<script>
+const API_BASE = 'https://novapython.onrender.com';
+let room = null;
+let connected = false;
+
+function log(tag, msg) {
+  const el = document.getElementById('log');
+  const t = ((performance.now()/1000) % 1000).toFixed(1);
+  const cls = tag === 'TX' ? 'lt' : tag === 'RX' ? 'lr' : tag === 'ERR' ? 'le' : '';
+  el.innerHTML = `<span class="${cls}">[${t}s] [${tag}] ${msg}</span>\n` + el.innerHTML;
+}
+
+function setConn(text, cls='') {
+  const el = document.getElementById('conn');
+  el.textContent = text;
+  el.className = 'pill ' + cls;
+}
+
+document.getElementById('btn-connect').addEventListener('click', connect);
+
+async function connect() {
+  if (connected) return;
+  setConn('connecting...', '');
+  log('SYS', 'connecting to Nova...');
+  try {
+    // Get token from front desk
+    const r = await fetch(API_BASE + '/v2/create-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kidId: 'test-bench-' + Math.random().toString(36).slice(2,8) }),
+    });
+    const creds = await r.json();
+    log('SYS', `room: ${creds.roomName}`);
+
+    // Get webcam
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 }, audio: true });
+    document.getElementById('webcam').srcObject = stream;
+
+    // Connect LiveKit
+    room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
+    room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, participant) => {
+      log('RX', `track: ${track.kind} from ${participant.identity}`);
+      if (track.kind === 'video') {
+        track.attach(document.getElementById('nova-video'));
+        document.getElementById('placeholder').style.display = 'none';
+        setConn('🟢 Nova alive', 'live');
+      } else if (track.kind === 'audio') {
+        const a = track.attach();
+        a.autoplay = true;
+        a.setAttribute('playsinline', '');
+        document.body.appendChild(a);
+        a.play().catch(e => log('ERR', 'audio play blocked: ' + e.message));
+      }
+    });
+    room.on(LivekitClient.RoomEvent.Disconnected, () => {
+      log('SYS', 'disconnected');
+      setConn('disconnected', '');
+      connected = false;
+    });
+
+    await room.connect(creds.serverUrl, creds.token);
+    // Publish mic
+    const micTrack = stream.getAudioTracks()[0];
+    if (micTrack) await room.localParticipant.publishTrack(micTrack);
+    connected = true;
+    log('SYS', 'connected. Nova should greet shortly.');
+  } catch (e) {
+    log('ERR', 'connect failed: ' + e.message);
+    setConn('failed', 'err');
+  }
+}
+
+// Send a packet on the data channel
+async function send(payload) {
+  if (!room || !connected) { log('ERR','not connected'); return; }
+  const t0 = performance.now();
+  try {
+    const data = new TextEncoder().encode(JSON.stringify(payload));
+    await room.localParticipant.publishData(data, { reliable: true });
+    log('TX', JSON.stringify(payload).slice(0,120));
+    document.getElementById('last-latency').textContent =
+      `last send: ${(performance.now()-t0).toFixed(0)}ms`;
+  } catch (e) {
+    log('ERR', 'send failed: ' + e.message);
+  }
+}
+
+// — Bench commands —
+
+function utter(text) {
+  send({ kind: 'test-utter', text });
+}
+
+function generateReply(instructions) {
+  // Use an injection that asks her to do something specific then speak
+  send({ kind: 'test-inject', overlay: instructions, trigger_speak: true });
+  // Then clear so it doesn't linger
+  setTimeout(() => send({ kind: 'test-clear-overlay' }), 4000);
+}
+
+function sendEvent(event) {
+  send({ kind: 'game-event', event });
+  if (event.event === 'phase') {
+    document.getElementById('phase').textContent = 'phase: ' + event.phase;
+  }
+}
+
+async function spamEvents() {
+  for (let i = 0; i < 5; i++) {
+    send({ kind: 'game-event', event: { event: 'hit', hits: i+1, streak: i+1 } });
+    await new Promise(r => setTimeout(r, 150));
+  }
+}
+
+async function utterTwiceFast() {
+  utter('one!');
+  await new Promise(r => setTimeout(r, 200));
+  utter('two!');
+}
+
+async function interruptHerself() {
+  utter('this is a long sentence that I am saying right now and going on and on...');
+  await new Promise(r => setTimeout(r, 1200));
+  utter('STOP — listen!');
+}
+
+function injectOverlay(triggerSpeak) {
+  const overlay = document.getElementById('inject-text').value.trim();
+  if (!overlay) { log('ERR', 'inject text is empty'); return; }
+  send({ kind: 'test-inject', overlay, trigger_speak: triggerSpeak });
+}
+
+function clearOverlay() {
+  send({ kind: 'test-clear-overlay' });
+}
+
+const PRESETS = {
+  'shy': "You feel suddenly shy and a little nervous. Speak quieter, fewer words, more '...' pauses.",
+  'hyped': "You're suddenly bursting with joy. Speak with energy, use 'YES' and 'WOW', but still kid-warm.",
+  'whisper': "Whisper-mode. Speak extra softly, like a secret between you and the kid.",
+  'curious': "You're suddenly very curious about something you notice. Ask a soft question with '...' pauses.",
+  'tired': "You feel a little sleepy. Speak slowly, with gentle yawns ('ohhh...') and softer warmth.",
+  'fake-memory': "Pretend you remember dancing with this kid yesterday. Mention something specific you 'recall' — like a move they did.",
+};
+function presetInject(key) {
+  document.getElementById('inject-text').value = PRESETS[key];
+  injectOverlay(true);
+}
+
+function disconnect() {
+  if (room) room.disconnect();
+}
+</script>
+
+</body>
+</html>
