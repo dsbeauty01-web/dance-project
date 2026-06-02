@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Nova</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: 'Quicksand', system-ui, sans-serif;
+    background: #050813;
+    color: #f1f5f9;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+
+  /* ════════════════════════════════════════════════
+     STAGE — full-screen container that holds every state
+     ════════════════════════════════════════════════ */
+  #stage {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background:
+      radial-gradient(ellipse at 50% 30%, rgba(168, 85, 247, 0.18) 0%, transparent 60%),
+      radial-gradient(ellipse at 50% 80%, rgba(59, 130, 246, 0.12) 0%, transparent 60%),
+      #050813;
+    transition: background 1.2s ease;
+  }
+  #stage.in-dance {
+    background:
+      radial-gradient(ellipse at 50% 30%, rgba(236, 72, 153, 0.20) 0%, transparent 60%),
+      radial-gradient(ellipse at 50% 80%, rgba(168, 85, 247, 0.15) 0%, transparent 60%),
+      #050813;
+  }
+  #stage.in-goodbye {
+    background:
+      radial-gradient(ellipse at 50% 50%, rgba(168, 85, 247, 0.10) 0%, transparent 70%),
+      #050813;
+  }
+
+  /* ════════════════════════════════════════════════
+     1. ARRIVAL — soft pulsing dot, nothing else
+     ════════════════════════════════════════════════ */
+  #arrival {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; gap: 32px;
+    transition: opacity 0.8s ease;
+  }
+  #arrival.hidden { opacity: 0; pointer-events: none; }
+  .pulse-dot {
+    width: 88px; height: 88px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #c4b5fd, #a855f7 60%, #6d28d9);
+    box-shadow:
+      0 0 60px rgba(168, 85, 247, 0.6),
+      0 0 120px rgba(168, 85, 247, 0.3);
+    animation: heartbeat 2.4s ease-in-out infinite;
+  }
+  @keyframes heartbeat {
+    0%, 100% { transform: scale(1); opacity: 0.85; }
+    50%       { transform: scale(1.08); opacity: 1; }
+  }
+  #arrival-text {
+    font-size: 15px; font-weight: 500;
+    color: rgba(244, 232, 255, 0.55);
+    letter-spacing: 0.5px;
+    animation: fade-in-late 3s ease-in 1.5s both;
+  }
+  @keyframes fade-in-late {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  /* ════════════════════════════════════════════════
+     2-4. NOVA STAGE — face, webcam, controls
+     ════════════════════════════════════════════════ */
+  #nova-stage {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 24px; opacity: 0; pointer-events: none;
+    transition: opacity 1.0s ease;
+    padding: 16px;
+  }
+  #nova-stage.visible { opacity: 1; pointer-events: auto; }
+
+  /* The face circle — Nova lives here */
+  #face-box {
+    position: relative;
+    width: min(86vmin, 540px); aspect-ratio: 1;
+    border-radius: 28px;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 40%, #1a1042, #0a0a1f 75%);
+    border: 1px solid rgba(168, 85, 247, 0.25);
+    box-shadow:
+      0 0 0 1px rgba(168, 85, 247, 0.15),
+      0 30px 80px rgba(0, 0, 0, 0.6),
+      0 0 100px rgba(168, 85, 247, 0.2);
+  }
+
+  #nova-video {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%; object-fit: cover; z-index: 2;
+  }
+
+  /* Placeholder while waking */
+  #face-placeholder {
+    position: absolute; inset: 0; z-index: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; color: #a855f7;
+  }
+  #face-placeholder .dot-mini {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #a855f7;
+    animation: heartbeat 1.6s ease-in-out infinite;
+  }
+  #face-placeholder .text { font-size: 14px; font-weight: 500; opacity: 0.7; }
+
+  /* Subtle music ring during dance */
+  #music-ring {
+    position: absolute; inset: -4px;
+    border-radius: 32px;
+    border: 2px solid transparent;
+    pointer-events: none; z-index: 3;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+  #music-ring.active {
+    opacity: 1;
+    border-color: rgba(236, 72, 153, 0.5);
+    animation: ring-pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes ring-pulse {
+    0%, 100% { box-shadow: 0 0 30px rgba(236, 72, 153, 0.3); }
+    50%       { box-shadow: 0 0 60px rgba(236, 72, 153, 0.6); }
+  }
+
+  /* Speaking pulse — gentle glow when Nova talks */
+  #speaking-pulse {
+    position: absolute; inset: 0;
+    pointer-events: none; z-index: 4;
+    opacity: 0;
+    background: radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.18) 0%, transparent 60%);
+    transition: opacity 0.4s ease;
+  }
+  #speaking-pulse.active { opacity: 1; }
+
+  /* Webcam — small corner bubble, never the main view */
+  #webcam {
+    position: absolute !important;
+    bottom: 14px; right: 14px;
+    width: 96px; height: 96px;
+    border-radius: 14px; object-fit: cover;
+    border: 2px solid rgba(255,255,255,0.25);
+    transform: scaleX(-1);
+    z-index: 10;
+    background: #000;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  }
+
+  /* Freeze overlay during dance */
+  #freeze-overlay {
+    position: absolute; inset: 0; z-index: 5;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle, rgba(168,85,247,0.18) 0%, transparent 60%);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  #freeze-overlay.active { opacity: 1; }
+  #freeze-overlay .freeze-text {
+    font-size: clamp(40px, 12vmin, 100px);
+    font-weight: 700;
+    color: #f5f3ff;
+    text-shadow: 0 0 40px rgba(168,85,247,0.9), 0 0 80px rgba(168,85,247,0.5);
+    letter-spacing: 4px;
+  }
+
+  /* ════════════════════════════════════════════════
+     STATUS / NAME / CONTROLS
+     ════════════════════════════════════════════════ */
+  #status-strip {
+    display: flex; gap: 10px; align-items: center;
+    font-size: 13px; color: rgba(244, 232, 255, 0.5);
+    min-height: 24px;
+  }
+  .status-chip {
+    background: rgba(168, 85, 247, 0.12);
+    border: 1px solid rgba(168, 85, 247, 0.25);
+    color: #d8b4fe;
+    padding: 4px 12px; border-radius: 999px;
+    font-size: 12px; font-weight: 500;
+  }
+
+  /* The DANCE button — only appears after Nova has met the kid */
+  #dance-btn {
+    background: linear-gradient(135deg, #ec4899, #a855f7);
+    color: white;
+    border: none;
+    padding: 16px 36px;
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 17px; font-weight: 600;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    box-shadow:
+      0 8px 24px rgba(236, 72, 153, 0.4),
+      0 0 40px rgba(168, 85, 247, 0.3);
+    transition: transform 0.15s ease, box-shadow 0.3s ease, opacity 0.6s ease;
+    opacity: 0; pointer-events: none;
+    transform: translateY(8px);
+  }
+  #dance-btn.visible {
+    opacity: 1; pointer-events: auto;
+    transform: translateY(0);
+  }
+  #dance-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow:
+      0 12px 36px rgba(236, 72, 153, 0.5),
+      0 0 60px rgba(168, 85, 247, 0.4);
+  }
+  #dance-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Hidden until needed */
+  .hidden { display: none !important; }
+
+  /* ════════════════════════════════════════════════
+     5. CLOSING — return to pulsing dot
+     ════════════════════════════════════════════════ */
+  #closing {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 24px; opacity: 0; pointer-events: none;
+    transition: opacity 1.0s ease;
+  }
+  #closing.visible { opacity: 1; pointer-events: auto; }
+  #closing .pulse-dot { animation: heartbeat 2.4s ease-in-out infinite; opacity: 0.7; }
+  #closing-text {
+    font-size: 15px; color: rgba(244, 232, 255, 0.55);
+    text-align: center; line-height: 1.5;
+  }
+  #closing-text .name { color: #d8b4fe; font-weight: 600; }
+
+  /* ════════════════════════════════════════════════
+     DEV / DEBUG (off by default — toggle with shift+D)
+     ════════════════════════════════════════════════ */
+  #debug {
+    position: fixed; bottom: 8px; left: 8px;
+    font-family: ui-monospace, monospace;
+    font-size: 10px; color: rgba(244, 232, 255, 0.35);
+    max-width: 360px; max-height: 200px; overflow-y: auto;
+    pointer-events: none;
+    display: none;
+    background: rgba(5, 8, 19, 0.7);
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(168,85,247,0.2);
+    white-space: pre-wrap;
+  }
+  #debug.show { display: block; }
+</style>
+</head>
+<body>
+
+<div id="stage">
+
+  <!-- 1. Arrival — single soft pulsing dot -->
+  <div id="arrival">
+    <div class="pulse-dot"></div>
+    <div id="arrival-text">tap to wake Nova</div>
+  </div>
+
+  <!-- 2-4. Nova stage — face, webcam, controls -->
+  <div id="nova-stage">
+    <div id="face-box">
+      <div id="music-ring"></div>
+      <div id="speaking-pulse"></div>
+
+      <div id="face-placeholder">
+        <div class="dot-mini"></div>
+        <div class="text">waking…</div>
+      </div>
+
+      <video id="nova-video" autoplay playsinline></video>
+      <video id="webcam" autoplay playsinline muted></video>
+
+      <div id="freeze-overlay"><div class="freeze-text">FREEZE</div></div>
+    </div>
+
+    <div id="status-strip">
+      <span class="status-chip" id="phase-chip">getting ready…</span>
+    </div>
+
+    <button id="dance-btn">🎵 Dance with Nova</button>
+  </div>
+
+  <!-- 5. Closing — back to dot -->
+  <div id="closing">
+    <div class="pulse-dot"></div>
+    <div id="closing-text">see you tomorrow<span id="closing-name"></span></div>
+  </div>
+</div>
+
+<div id="debug"></div>
+
+<!-- Music (hidden audio element) -->
+<audio id="song" preload="auto" src="shit.mp3"></audio>
+
+<!-- LiveKit SDK -->
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.7.5/dist/livekit-client.umd.min.js"></script>
+
+<script>
+const API_BASE = 'https://novapython.onrender.com';
+
+// ════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════
+const state = {
+  room: null,
+  connected: false,
+  kidId: null,
+  kidName: null,
+  phase: 'arrival',     // arrival → recognition → dance → goodbye → closing
+  songStartedAt: 0,
+  hits: 0,
+  streak: 0,
+  maxStreak: 0,
+};
+
+// Stable kid id, reused across visits → enables "she remembers"
+state.kidId = localStorage.getItem('nova_kid_id');
+if (!state.kidId) {
+  state.kidId = 'k-' + Math.random().toString(36).slice(2, 10);
+  localStorage.setItem('nova_kid_id', state.kidId);
+}
+
+// ════════════════════════════════════════════════
+// DOM SHORTCUTS
+// ════════════════════════════════════════════════
+const $arrival = document.getElementById('arrival');
+const $nova = document.getElementById('nova-stage');
+const $closing = document.getElementById('closing');
+const $face = document.getElementById('face-box');
+const $facePh = document.getElementById('face-placeholder');
+const $novaVideo = document.getElementById('nova-video');
+const $webcam = document.getElementById('webcam');
+const $musicRing = document.getElementById('music-ring');
+const $speakingPulse = document.getElementById('speaking-pulse');
+const $freeze = document.getElementById('freeze-overlay');
+const $phaseChip = document.getElementById('phase-chip');
+const $danceBtn = document.getElementById('dance-btn');
+const $song = document.getElementById('song');
+const $stage = document.getElementById('stage');
+const $closingName = document.getElementById('closing-name');
+const $debug = document.getElementById('debug');
+
+// ════════════════════════════════════════════════
+// DEBUG (hidden — shift+D toggles)
+// ════════════════════════════════════════════════
+function log(...args) {
+  const line = args.join(' ');
+  console.log('[nova]', line);
+  $debug.textContent = ('[' + (performance.now()/1000).toFixed(1) + 's] ' + line + '\n' + $debug.textContent).slice(0, 4000);
+}
+window.addEventListener('keydown', e => {
+  if (e.shiftKey && e.key === 'D') $debug.classList.toggle('show');
+});
+
+// ════════════════════════════════════════════════
+// 1. ARRIVAL → tap → wake Nova
+// ════════════════════════════════════════════════
+$arrival.addEventListener('click', wake);
+$arrival.addEventListener('touchend', e => { e.preventDefault(); wake(); });
+
+let woke = false;
+async function wake() {
+  if (woke) return;
+  woke = true;
+  log('arrival tapped → waking Nova');
+  $arrival.classList.add('hidden');
+  $nova.classList.add('visible');
+  setPhaseChip('saying hello…');
+  await connect();
+}
+
+// ════════════════════════════════════════════════
+// CONNECT — LiveKit room + camera/mic + Nova
+// ════════════════════════════════════════════════
+async function connect() {
+  try {
+    // Camera/mic first (browsers need user gesture which the tap gave us)
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 320, height: 240, facingMode: 'user' },
+      audio: true,
+    });
+    $webcam.srcObject = stream;
+
+    // Token from front desk
+    const r = await fetch(API_BASE + '/v2/create-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kidId: state.kidId }),
+    });
+    if (!r.ok) throw new Error('session creation failed: ' + r.status);
+    const creds = await r.json();
+    log('room', creds.roomName);
+
+    // Connect LiveKit
+    state.room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
+
+    state.room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, participant) => {
+      log('rx track', track.kind, 'from', participant.identity);
+      if (track.kind === 'video') {
+        track.attach($novaVideo);
+        $facePh.style.display = 'none';
+        state.phase = 'recognition';
+        setPhaseChip('saying hello');
+      } else if (track.kind === 'audio') {
+        const a = track.attach();
+        a.autoplay = true;
+        a.setAttribute('playsinline', '');
+        document.body.appendChild(a);
+        a.play().catch(e => log('audio play blocked:', e.message));
+        a.addEventListener('playing', () => $speakingPulse.classList.add('active'));
+        a.addEventListener('pause', () => $speakingPulse.classList.remove('active'));
+        a.addEventListener('ended', () => $speakingPulse.classList.remove('active'));
+      }
+    });
+
+    state.room.on(LivekitClient.RoomEvent.Disconnected, () => {
+      log('room disconnected');
+      state.connected = false;
+    });
+
+    // Data channel — receive game commands from worker (vision frame requests, etc.)
+    state.room.on(LivekitClient.RoomEvent.DataReceived, (data) => {
+      try {
+        const msg = JSON.parse(new TextDecoder().decode(data));
+        // Worker can request a webcam frame for Gemini vision
+        if (msg.kind === 'request-vision' || msg.kind === 'vision-request') {
+          sendVisionFrame();
+        }
+      } catch (e) {}
+    });
+
+    await state.room.connect(creds.serverUrl, creds.token);
+    const micTrack = stream.getAudioTracks()[0];
+    if (micTrack) await state.room.localParticipant.publishTrack(micTrack);
+    state.connected = true;
+
+    // After a few seconds, reveal the dance button (Nova should have greeted by now)
+    setTimeout(() => {
+      if (state.phase === 'recognition') {
+        $danceBtn.classList.add('visible');
+        setPhaseChip('ready to dance?');
+      }
+    }, 12000);
+
+  } catch (e) {
+    log('connect failed:', e.message);
+    setPhaseChip('hmm… try again');
+  }
+}
+
+// ════════════════════════════════════════════════
+// SEND helper — data channel to worker
+// ════════════════════════════════════════════════
+async function send(payload) {
+  if (!state.room || !state.connected) return;
+  try {
+    const data = new TextEncoder().encode(JSON.stringify(payload));
+    await state.room.localParticipant.publishData(data, { reliable: true });
+  } catch (e) {
+    log('send failed:', e.message);
+  }
+}
+
+// Capture webcam frame, send to vision endpoint, forward observation to worker
+async function sendVisionFrame() {
+  try {
+    const v = $webcam;
+    if (!v.videoWidth) return;
+    const c = document.createElement('canvas');
+    c.width = Math.min(320, v.videoWidth);
+    c.height = Math.round(c.width * v.videoHeight / v.videoWidth);
+    const cx = c.getContext('2d');
+    cx.translate(c.width, 0); cx.scale(-1, 1);
+    cx.drawImage(v, 0, 0, c.width, c.height);
+    const frameDataUrl = c.toDataURL('image/jpeg', 0.7);
+
+    // POST to server's vision endpoint (Gemini lives there)
+    const r = await fetch(API_BASE + '/v2/vision-observe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ frameDataUrl, kidId: state.kidId }),
+    });
+    const j = await r.json();
+    if (j.ok && j.text) {
+      log('vision observed:', j.text);
+      // Forward to worker so Nova can naturally mention it
+      send({ kind: 'vision-observation', text: j.text });
+    }
+  } catch (e) { log('vision frame fail:', e.message); }
+}
+
+// ════════════════════════════════════════════════
+// 3. DANCE — kid taps button → music + phase advance
+// ════════════════════════════════════════════════
+$danceBtn.addEventListener('click', startDance);
+
+const FREEZE_AT = [22, 42, 62, 82];  // seconds into song
+const SONG_DUR = 111;
+let freezeTimers = [];
+
+async function startDance() {
+  if (state.phase !== 'recognition') return;
+  $danceBtn.classList.remove('visible');
+  state.phase = 'dance';
+  state.songStartedAt = performance.now();
+  $stage.classList.add('in-dance');
+  $musicRing.classList.add('active');
+  setPhaseChip('🎵 dancing…');
+
+  // Tell Nova we shifted to dance phase
+  send({ kind: 'game-event', event: { event: 'phase', phase: 'dance' } });
+
+  try {
+    $song.currentTime = 0;
+    await $song.play();
+    log('song playing');
+  } catch (e) {
+    log('song play blocked:', e.message);
+  }
+
+  // Schedule freeze overlays
+  freezeTimers = FREEZE_AT.map(sec => setTimeout(() => {
+    showFreeze();
+    send({ kind: 'game-event', event: { event: 'freeze_hit' } });
+  }, sec * 1000));
+
+  // Schedule end → goodbye
+  freezeTimers.push(setTimeout(endDance, SONG_DUR * 1000 + 1500));
+}
+
+function showFreeze() {
+  $freeze.classList.add('active');
+  setTimeout(() => $freeze.classList.remove('active'), 1800);
+}
+
+async function endDance() {
+  if (state.phase !== 'dance') return;
+  state.phase = 'goodbye';
+  $musicRing.classList.remove('active');
+  $stage.classList.remove('in-dance');
+  $stage.classList.add('in-goodbye');
+  setPhaseChip('goodbye…');
+  try { $song.pause(); } catch (e) {}
+
+  // Tell Nova — she'll say the personal goodbye (mentions one thing she loved)
+  send({ kind: 'game-event', event: { event: 'phase', phase: 'goodbye' } });
+
+  // After goodbye plays (~12s), fade to closing dot
+  setTimeout(showClosing, 12000);
+}
+
+// ════════════════════════════════════════════════
+// 5. CLOSING — fade to pulsing dot + name
+// ════════════════════════════════════════════════
+function showClosing() {
+  $nova.classList.remove('visible');
+  $closing.classList.add('visible');
+  $stage.classList.remove('in-goodbye');
+  if (state.kidName) $closingName.textContent = ', ' + state.kidName;
+}
+
+// ════════════════════════════════════════════════
+// UI helpers
+// ════════════════════════════════════════════════
+function setPhaseChip(text) { $phaseChip.textContent = text; }
+
+// Cleanup on unload — disconnect cleanly so Render doesn't hold a zombie session
+window.addEventListener('beforeunload', () => {
+  if (state.room) try { state.room.disconnect(); } catch {}
+  freezeTimers.forEach(clearTimeout);
+});
+
+log('booted');
+</script>
+
+</body>
+</html>
