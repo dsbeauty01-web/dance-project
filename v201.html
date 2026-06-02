@@ -252,18 +252,15 @@
   }
   .mic-indicator.on .dot-mic { animation: heartbeat 1.6s ease-in-out infinite; }
 
-  /* Chat input — text fallback when mic doesn't work */
+  /* Chat input — ALWAYS visible. Never hidden behind connection state. */
   #chat-row {
     display: flex; gap: 8px; align-items: center;
     width: min(86vmin, 540px);
-    opacity: 0; pointer-events: none;
-    transition: opacity 0.6s ease;
   }
-  #chat-row.visible { opacity: 1; pointer-events: auto; }
   #chat-input {
     flex: 1;
-    background: rgba(244, 232, 255, 0.06);
-    border: 1px solid rgba(168, 85, 247, 0.25);
+    background: rgba(244, 232, 255, 0.08);
+    border: 1px solid rgba(168, 85, 247, 0.35);
     color: #f1f5f9;
     padding: 12px 16px;
     border-radius: 14px;
@@ -272,10 +269,11 @@
     transition: border-color 0.2s ease, background 0.2s ease;
   }
   #chat-input:focus {
-    border-color: rgba(168, 85, 247, 0.6);
-    background: rgba(244, 232, 255, 0.08);
+    border-color: rgba(168, 85, 247, 0.7);
+    background: rgba(244, 232, 255, 0.12);
   }
-  #chat-input::placeholder { color: rgba(244, 232, 255, 0.3); }
+  #chat-input::placeholder { color: rgba(244, 232, 255, 0.4); }
+  #chat-input:disabled { opacity: 0.5; cursor: wait; }
   #chat-send {
     background: linear-gradient(135deg, #a855f7, #ec4899);
     color: white; border: none;
@@ -286,6 +284,83 @@
   }
   #chat-send:hover:not(:disabled) { transform: scale(1.05); }
   #chat-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* State badge on Nova's tile — Watching / Listening / Talking / Thinking */
+  #state-badge {
+    position: absolute; bottom: 14px; left: 14px;
+    background: rgba(5, 8, 19, 0.75);
+    border: 1px solid rgba(168, 85, 247, 0.3);
+    color: #d8b4fe;
+    padding: 5px 12px; border-radius: 999px;
+    font-size: 12px; font-weight: 600;
+    letter-spacing: 0.3px;
+    z-index: 9;
+    display: flex; align-items: center; gap: 6px;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(8px);
+  }
+  #state-badge::before {
+    content: ''; width: 7px; height: 7px; border-radius: 50%;
+    background: currentColor;
+  }
+  #state-badge.listening {
+    background: rgba(110, 231, 183, 0.18);
+    border-color: rgba(110, 231, 183, 0.5);
+    color: #6ee7b7;
+  }
+  #state-badge.listening::before { animation: heartbeat 1.4s ease-in-out infinite; }
+  #state-badge.talking {
+    background: rgba(236, 72, 153, 0.18);
+    border-color: rgba(236, 72, 153, 0.5);
+    color: #f9a8d4;
+  }
+  #state-badge.talking::before { animation: heartbeat 0.6s ease-in-out infinite; }
+  #state-badge.thinking {
+    background: rgba(251, 191, 36, 0.18);
+    border-color: rgba(251, 191, 36, 0.5);
+    color: #fcd34d;
+  }
+  #state-badge.thinking::before { animation: heartbeat 0.9s ease-in-out infinite; }
+
+  /* Chat bubble — kid's words echoed back, fades after a few seconds */
+  #kid-bubble {
+    position: absolute; top: 16px; right: 16px;
+    max-width: 60%;
+    background: rgba(168, 85, 247, 0.15);
+    border: 1px solid rgba(168, 85, 247, 0.35);
+    color: #f1f5f9;
+    padding: 8px 14px;
+    border-radius: 14px 14px 4px 14px;
+    font-size: 14px; font-weight: 500;
+    z-index: 9;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    pointer-events: none;
+    backdrop-filter: blur(8px);
+  }
+  #kid-bubble.show {
+    opacity: 1; transform: translateY(0);
+  }
+  #kid-bubble::before {
+    content: 'you said';
+    display: block;
+    font-size: 10px; font-weight: 600;
+    color: #c4b5fd; opacity: 0.8;
+    margin-bottom: 2px;
+    letter-spacing: 0.5px; text-transform: uppercase;
+  }
+
+  /* Mic level meter — shows if your voice is being picked up */
+  #mic-meter {
+    display: flex; align-items: flex-end; gap: 2px;
+    height: 24px; padding: 0 6px;
+  }
+  #mic-meter .bar {
+    width: 3px; background: rgba(110, 231, 183, 0.25);
+    border-radius: 1px; transition: height 60ms ease-out, background 0.3s;
+  }
+  #mic-meter.active .bar { background: rgba(110, 231, 183, 0.8); }
 
   /* Hidden until needed */
   .hidden { display: none !important; }
@@ -433,6 +508,12 @@
       <video id="webcam" autoplay playsinline muted></video>
 
       <div id="freeze-overlay"><div class="freeze-text">FREEZE</div></div>
+
+      <!-- State badge — Lexi pattern: kid sees whose turn it is -->
+      <div id="state-badge">Watching</div>
+
+      <!-- Echoed kid words — what they just said, validated on screen -->
+      <div id="kid-bubble"></div>
     </div>
 
     <div id="status-strip">
@@ -441,14 +522,23 @@
         <span class="dot-mic"></span>
         <span id="mic-label">mic…</span>
       </span>
+      <div id="mic-meter" title="your voice level">
+        <div class="bar" style="height:4px"></div>
+        <div class="bar" style="height:6px"></div>
+        <div class="bar" style="height:8px"></div>
+        <div class="bar" style="height:10px"></div>
+        <div class="bar" style="height:8px"></div>
+        <div class="bar" style="height:6px"></div>
+        <div class="bar" style="height:4px"></div>
+      </div>
     </div>
 
     <button id="dance-btn">🎵 Dance with Nova</button>
 
-    <!-- Chat fallback — for when mic fails or kid prefers typing -->
+    <!-- Chat — ALWAYS visible from the moment Nova stage is up. Never hidden. -->
     <div id="chat-row">
       <input id="chat-input" type="text" maxlength="200"
-             placeholder="…or type to Nova"
+             placeholder="say hi to Nova…"
              autocomplete="off" autocapitalize="sentences">
       <button id="chat-send" title="Send">→</button>
     </div>
@@ -546,6 +636,8 @@ const $micLabel = document.getElementById('mic-label');
 const $chatRow = document.getElementById('chat-row');
 const $chatInput = document.getElementById('chat-input');
 const $chatSend = document.getElementById('chat-send');
+const $stateBadge = document.getElementById('state-badge');
+const $kidBubble = document.getElementById('kid-bubble');
 
 // ════════════════════════════════════════════════
 // DIAGNOSTICS — single log feed, status tracker, downloadable bundle
@@ -696,27 +788,49 @@ async function connect() {
   try {
     setMic('asking', 'mic…');
 
-    // Explicit, friendly mic + camera request. Tap-on-dot satisfies user-gesture.
-    let stream;
+    // ───────────────────────────────────────────────────────────
+    // Ask permissions in TWO separate prompts:
+    //   1. Mic first  — Nova needs to hear (most important)
+    //   2. Camera     — for "she sees me" vision moment
+    // Each can be granted or denied independently. If camera is denied,
+    // Nova still works on voice alone.
+    // ───────────────────────────────────────────────────────────
+    let micStream = null;
+    let camStream = null;
+
+    // Step 1: microphone
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 320, height: 240, facingMode: 'user' },
+      micStream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
       setMic('on', 'mic on');
+      log('mic granted ✓');
     } catch (e) {
-      log('media perm failed:', e.message);
-      // Try audio-only as a fallback, so at least voice works
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        });
-        setMic('on', 'mic on (no cam)');
-      } catch (e2) {
-        log('mic also denied:', e2.message);
-        setMic('off', 'no mic — type below');
-        stream = null;
-      }
+      log('mic denied:', e.message);
+      setMic('off', 'mic denied — type below');
+    }
+
+    // Step 2: camera (separate prompt)
+    try {
+      camStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 320, height: 240, facingMode: 'user' },
+      });
+      log('camera granted ✓');
+    } catch (e) {
+      log('camera denied:', e.message);
+    }
+
+    // Merge into single stream for LiveKit
+    let stream = null;
+    if (micStream && camStream) {
+      stream = new MediaStream([
+        ...micStream.getAudioTracks(),
+        ...camStream.getVideoTracks(),
+      ]);
+    } else if (micStream) {
+      stream = micStream;
+    } else if (camStream) {
+      stream = camStream;
     }
     if (stream) $webcam.srcObject = stream;
 
@@ -747,9 +861,18 @@ async function connect() {
         a.setAttribute('playsinline', '');
         document.body.appendChild(a);
         a.play().catch(e => log('audio play blocked:', e.message));
-        a.addEventListener('playing', () => $speakingPulse.classList.add('active'));
-        a.addEventListener('pause', () => $speakingPulse.classList.remove('active'));
-        a.addEventListener('ended', () => $speakingPulse.classList.remove('active'));
+        a.addEventListener('playing', () => {
+          $speakingPulse.classList.add('active');
+          setBadge('talking');
+        });
+        a.addEventListener('pause', () => {
+          $speakingPulse.classList.remove('active');
+          setBadge('listening');
+        });
+        a.addEventListener('ended', () => {
+          $speakingPulse.classList.remove('active');
+          setBadge('listening');
+        });
       }
     });
 
@@ -781,6 +904,8 @@ async function connect() {
         await state.room.localParticipant.publishTrack(micTrack);
         log('mic published');
         setMic('on', 'mic on');
+        // Start live mic level meter so kid (or tester) sees their voice register
+        startMicMeter(stream);
       } else {
         setMic('off', 'no mic');
       }
@@ -788,8 +913,7 @@ async function connect() {
 
     state.connected = true;
 
-    // Chat input is ALWAYS available — never block kid behind mic
-    $chatRow.classList.add('visible');
+    // Chat is always visible — no need to toggle.
 
     // After a few seconds, reveal the dance button (Nova should have greeted by now)
     setTimeout(() => {
@@ -814,16 +938,106 @@ function setMic(stateName, label) {
   setStatus('mic', label, stateName === 'on' ? true : stateName === 'off' ? false : null);
 }
 
+// Lexi state badge: Watching / Listening / Talking / Thinking
+function setBadge(state) {
+  $stateBadge.classList.remove('listening', 'talking', 'thinking');
+  if (state === 'listening') {
+    $stateBadge.classList.add('listening');
+    $stateBadge.textContent = 'Listening';
+  } else if (state === 'talking') {
+    $stateBadge.classList.add('talking');
+    $stateBadge.textContent = 'Nova talking';
+  } else if (state === 'thinking') {
+    $stateBadge.classList.add('thinking');
+    $stateBadge.textContent = 'Nova thinking';
+  } else {
+    $stateBadge.textContent = 'Watching';
+  }
+}
+
+// Echo kid's words back as a chat bubble — Lexi Pattern 6
+let bubbleTimer = null;
+function showKidBubble(text) {
+  $kidBubble.textContent = text;
+  $kidBubble.classList.add('show');
+  if (bubbleTimer) clearTimeout(bubbleTimer);
+  bubbleTimer = setTimeout(() => $kidBubble.classList.remove('show'), 6000);
+}
+
+// Live mic level meter — proves the mic is actually picking up your voice.
+// Uses WebAudio to read PCM data 30x/sec, drives the bars in #mic-meter.
+let micMeterRAF = null;
+function startMicMeter(stream) {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) { log('no AudioContext'); return; }
+    const ctx = new AC();
+    const src = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    src.connect(analyser);
+    const buf = new Uint8Array(analyser.fftSize);
+    const meter = document.getElementById('mic-meter');
+    const bars = meter.querySelectorAll('.bar');
+    let everHeard = false;
+
+    function tick() {
+      analyser.getByteTimeDomainData(buf);
+      // RMS-ish — how loud is the kid right now?
+      let sum = 0;
+      for (let i = 0; i < buf.length; i++) {
+        const d = (buf[i] - 128) / 128;
+        sum += d * d;
+      }
+      const rms = Math.sqrt(sum / buf.length);     // 0..1
+      const level = Math.min(1, rms * 5);          // amplify for visibility
+      if (rms > 0.04 && !everHeard) {
+        everHeard = true;
+        log('mic picked up sound ✓ — Nova can hear you');
+      }
+      // Show "Listening" badge briefly when mic is active and Nova isn't talking
+      if (rms > 0.04 && !$stateBadge.classList.contains('talking')) {
+        setBadge('listening');
+      }
+      // Animate bars from center outward — like a real audio meter
+      const baseHeights = [4, 6, 8, 12, 8, 6, 4];
+      bars.forEach((b, i) => {
+        const h = baseHeights[i] + level * (16 + i * 2);
+        b.style.height = Math.min(24, h) + 'px';
+      });
+      meter.classList.toggle('active', level > 0.05);
+      micMeterRAF = requestAnimationFrame(tick);
+    }
+    tick();
+    log('mic meter started');
+  } catch (e) {
+    log('mic meter failed:', e.message);
+  }
+}
+
 // ════════════════════════════════════════════════
 // CHAT INPUT — text becomes voice (Nova replies via her own voice)
 // ════════════════════════════════════════════════
-function sendChat() {
+async function sendChat() {
   const text = $chatInput.value.trim();
   if (!text) return;
-  if (!state.connected) { log('not connected — cant chat'); return; }
-  log('chat sent:', text);
-  send({ kind: 'user-said', text });
-  $chatInput.value = '';
+  if (!state.connected) {
+    log('cant send — not connected yet, wait for Nova');
+    return;
+  }
+  log('YOU (typed):', text);
+  showKidBubble(text);           // Echo it back to the kid visually
+  setBadge('thinking');          // Show "Nova thinking" while she replies
+  $chatInput.disabled = true;
+  $chatSend.disabled = true;
+  try {
+    await send({ kind: 'user-said', text });
+    $chatInput.value = '';
+  } finally {
+    $chatInput.disabled = false;
+    $chatSend.disabled = false;
+    $chatInput.focus();
+  }
 }
 $chatSend.addEventListener('click', sendChat);
 $chatInput.addEventListener('keydown', (e) => {
