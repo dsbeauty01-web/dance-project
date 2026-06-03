@@ -874,14 +874,27 @@ async function connect() {
         a.addEventListener('playing', () => {
           $speakingPulse.classList.add('active');
           setBadge('talking');
+          // Music ducking — drop song to 18% while Nova speaks so she's audible.
+          // Snap immediately (not a long fade) — natural radio-DJ feel.
+          if (!$song.paused) {
+            $song._preDuck = $song.volume;
+            fadeAudio($song, $song.volume, 0.18, 200);
+          }
         });
         a.addEventListener('pause', () => {
           $speakingPulse.classList.remove('active');
           setBadge('listening');
+          // Restore song volume when Nova stops speaking
+          if (!$song.paused && $song._preDuck !== undefined) {
+            fadeAudio($song, $song.volume, $song._preDuck, 400);
+          }
         });
         a.addEventListener('ended', () => {
           $speakingPulse.classList.remove('active');
           setBadge('listening');
+          if (!$song.paused && $song._preDuck !== undefined) {
+            fadeAudio($song, $song.volume, $song._preDuck, 400);
+          }
         });
       }
     });
@@ -1103,28 +1116,84 @@ async function startDance() {
   state.phase = 'dance';
   state.songStartedAt = performance.now();
   $stage.classList.add('in-dance');
-  $musicRing.classList.add('active');
-  setPhaseChip('🎵 dancing…');
+  setPhaseChip('getting ready…');
 
-  // Tell Nova we shifted to dance phase
+  // Tell Nova we shifted to dance phase (she'll prepare a dance prompt)
   send({ kind: 'game-event', event: { event: 'phase', phase: 'dance' } });
 
+  // Ask Nova to say "here we go!" / "ready?" — gives her a chance to do an intro
+  send({ kind: 'user-said', text: '(Nova: kid just clicked dance. say a short hype line like "ready?" or "okay here we go!" — 1-3 words)' });
+
+  // Countdown overlay 3-2-1
+  await showCountdown();
+
+  // NOW start music + reveal music ring
+  $musicRing.classList.add('active');
+  setPhaseChip('🎵 dancing…');
   try {
     $song.currentTime = 0;
+    $song.volume = 0;            // start silent, fade in
     await $song.play();
+    fadeAudio($song, 0, 0.85, 1500);  // fade up to 85%
     log('song playing');
   } catch (e) {
     log('song play blocked:', e.message);
   }
 
-  // Schedule freeze overlays
+  // Schedule freeze overlays at known music timestamps
   freezeTimers = FREEZE_AT.map(sec => setTimeout(() => {
     showFreeze();
     send({ kind: 'game-event', event: { event: 'freeze_hit' } });
   }, sec * 1000));
 
-  // Schedule end → goodbye
-  freezeTimers.push(setTimeout(endDance, SONG_DUR * 1000 + 1500));
+  // Schedule end → goodbye (with fade-out)
+  freezeTimers.push(setTimeout(endDance, SONG_DUR * 1000));
+}
+
+// Countdown overlay: 3, 2, 1 in the center of Nova's face
+async function showCountdown() {
+  const el = document.createElement('div');
+  el.id = 'countdown-overlay';
+  el.style.cssText = `
+    position:absolute; inset:0; z-index:8;
+    display:flex; align-items:center; justify-content:center;
+    font-family:Quicksand,sans-serif; font-weight:700; font-size:clamp(80px,20vmin,200px);
+    color:#fff; text-shadow: 0 0 40px rgba(168,85,247,0.9), 0 0 80px rgba(236,72,153,0.6);
+    transition: transform .3s ease, opacity .3s ease;
+    background: radial-gradient(circle, rgba(168,85,247,0.18) 0%, transparent 60%);
+    pointer-events: none;
+  `;
+  $face.appendChild(el);
+  for (const n of [3, 2, 1]) {
+    el.textContent = n;
+    el.style.transform = 'scale(1.0)'; el.style.opacity = '1';
+    await new Promise(r => setTimeout(r, 80));
+    el.style.transform = 'scale(1.4)'; el.style.opacity = '0';
+    await new Promise(r => setTimeout(r, 720));
+  }
+  el.textContent = 'GO!';
+  el.style.transform = 'scale(1.0)'; el.style.opacity = '1';
+  await new Promise(r => setTimeout(r, 400));
+  el.style.opacity = '0';
+  await new Promise(r => setTimeout(r, 300));
+  el.remove();
+}
+
+// Smooth audio fade utility (volume 0..1)
+function fadeAudio(audioEl, from, to, durationMs) {
+  const steps = 30;
+  const stepMs = durationMs / steps;
+  let i = 0;
+  audioEl.volume = from;
+  if (audioEl._fadeTimer) clearInterval(audioEl._fadeTimer);
+  audioEl._fadeTimer = setInterval(() => {
+    i++;
+    audioEl.volume = Math.max(0, Math.min(1, from + (to - from) * (i / steps)));
+    if (i >= steps) {
+      clearInterval(audioEl._fadeTimer);
+      audioEl._fadeTimer = null;
+    }
+  }, stepMs);
 }
 
 function showFreeze() {
@@ -1135,13 +1204,16 @@ function showFreeze() {
 async function endDance() {
   if (state.phase !== 'dance') return;
   state.phase = 'goodbye';
+  // Fade song OUT (don't just pause — feels jarring)
+  fadeAudio($song, $song.volume, 0, 1500);
+  setTimeout(() => { try { $song.pause(); } catch {} }, 1700);
+
   $musicRing.classList.remove('active');
   $stage.classList.remove('in-dance');
   $stage.classList.add('in-goodbye');
   setPhaseChip('goodbye…');
-  try { $song.pause(); } catch (e) {}
 
-  // Tell Nova — she'll say the personal goodbye (mentions one thing she loved)
+  // Tell Nova — she'll say the personal goodbye
   send({ kind: 'game-event', event: { event: 'phase', phase: 'goodbye' } });
 
   // After goodbye plays (~12s), fade to closing dot
