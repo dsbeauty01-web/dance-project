@@ -855,6 +855,16 @@ async function connect() {
         state.phase = 'recognition';
         setPhaseChip('saying hello');
         setStatus('avatar', '✓ ' + participant.identity, true);
+        // Reveal dance button ~10 seconds AFTER Nova actually arrives.
+        // Not on a fixed connect-timer (which was the v201 bug — if Render
+        // booted slowly, the timer fired before Nova was even there).
+        setTimeout(() => {
+          if (state.phase === 'recognition') {
+            $danceBtn.classList.add('visible');
+            setPhaseChip('ready to dance?');
+            log('dance button revealed');
+          }
+        }, 10000);
       } else if (track.kind === 'audio') {
         const a = track.attach();
         a.autoplay = true;
@@ -914,14 +924,7 @@ async function connect() {
     state.connected = true;
 
     // Chat is always visible — no need to toggle.
-
-    // After a few seconds, reveal the dance button (Nova should have greeted by now)
-    setTimeout(() => {
-      if (state.phase === 'recognition') {
-        $danceBtn.classList.add('visible');
-        setPhaseChip('ready to dance?');
-      }
-    }, 12000);
+    // (Dance button is revealed when Nova's video track arrives — see above.)
 
   } catch (e) {
     log('connect failed:', e.message);
