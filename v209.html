@@ -307,12 +307,12 @@
   }
 
   /* CUE CARD — TOP-CENTER of WEBCAM panel (right side, 60% from left).
-     This is the "do this NOW" message — big emoji, drop-shadow, scales in.
-     v99 verbatim positioning: top:18px, anchored within cam-side. */
+     This is the "do this NOW" message — emoji-only, drop-shadow, scales in.
+     v99 verbatim: 18px inside the cam panel, anchored to its top-center. */
   #stage.in-dance #cue-card {
     display: block;
     position: absolute;
-    top: 70px;  /* below topbar (56px) + 14px breathing room */
+    top: 74px;  /* v99's 18px gap, inside cam panel (56px topbar + 18px) */
     left: 80%;  /* center of cam-side (right 40%) — 60 + 20 = 80% */
     transform: translateX(-50%) scale(0);
     transform-origin: top center;
@@ -323,26 +323,22 @@
     opacity: 0;
     filter: drop-shadow(0 4px 16px rgba(0,0,0,0.85));
   }
-  #cue-card.show { transform: translateX(-50%) scale(1); opacity: 0.95; }
+  #cue-card.show { transform: translateX(-50%) scale(1); opacity: 0.65; }  /* v99 */
   #cue-card.live {
-    opacity: 1;
+    opacity: 0.95;  /* v99 */
     animation: cuePulse 0.6s ease-in-out infinite alternate;
   }
   @keyframes cuePulse {
     from { transform: translateX(-50%) scale(1); }
-    to   { transform: translateX(-50%) scale(1.14); }
+    to   { transform: translateX(-50%) scale(1.12); }  /* v99 */
   }
   #cue-emoji-big {
-    font-size: clamp(80px, 14vmin, 130px);
+    font-size: 120px;  /* v99 — emoji is the whole cue */
     display: block; line-height: 1;
     filter: drop-shadow(0 4px 16px rgba(0,0,0,0.95));
   }
-  #cue-label-big {
-    font-family: 'Fredoka', cursive; font-weight: 700;
-    font-size: clamp(16px, 2.4vmin, 22px);
-    color: #fff; margin-top: 4px;
-    text-shadow: 0 2px 8px rgba(0,0,0,0.85);
-  }
+  /* v99 cue is EMOJI-ONLY — label hidden */
+  #cue-label-big { display: none; }
 
   /* CAM BORDER GLOW — green when cue is open, red on miss flash */
   #cam-border {
@@ -447,16 +443,16 @@
     100% { transform: translateY(560px) rotate(720deg); opacity: 0; }
   }
 
-  /* RUNWAY FACE (the Nova circle) — bottom-LEFT corner of the MP4 panel.
-     v209 fix: was at the seam covering the webcam. Now it sits ON the MP4
-     side, low-left, fully out of the webcam panel. Like a video-call PiP. */
+  /* RUNWAY FACE (the Nova circle) — v99 layout: centered on the 60/40 SEAM.
+     She floats between the MP4 panel and the webcam, vertically centered.
+     position:absolute is relative to #face-box (position:relative), so
+     left:60% = the seam of the full stage. 160px base / 200px speaking. */
   #stage.in-dance #nova-video {
     position: absolute;
-    grid-area: nova;
-    left: 18px;
-    bottom: 18px;
-    width: min(18vw, 150px);
-    height: min(18vw, 150px);
+    left: 60%; top: 50%;
+    transform: translate(-50%, -50%);  /* center on the seam — v99 verbatim */
+    width: 160px;
+    height: 160px;
     border-radius: 50%;
     object-fit: cover;
     border: 3px solid rgba(255,111,216,0.85);
@@ -466,8 +462,8 @@
     transition: all .35s cubic-bezier(.34,1.56,.64,1);
   }
   #stage.in-dance #nova-video.speaking {
-    width: min(22vw, 180px);
-    height: min(22vw, 180px);
+    width: 200px;
+    height: 200px;
     border-color: rgba(0,255,150,0.9);
     box-shadow: 0 6px 24px rgba(0,0,0,0.4), 0 0 60px rgba(0,255,150,0.7);
   }
