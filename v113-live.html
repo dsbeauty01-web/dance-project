@@ -3008,6 +3008,33 @@ async function novaSend(payload) {
 }
 window.__novaSend = novaSend;
 
+// ── TELEMETRY SHIPPER ─────────────────────────────────────────────────
+// Streams the client LOG_BUFFER to the worker over the data channel, so each
+// session's FULL story (browser STT/motion/vision/avatar + server STT/LLM/TTS)
+// lands in ONE log stream (Render), correlated by time. Publishes directly
+// (not via novaSend) so it never logs its own sends, and is fully wrapped so
+// telemetry can NEVER break the app.
+let __shipIdx = 0;
+async function __shipTelemetry(isFinal) {
+  try {
+    const room = window.__novaRoom;
+    if (!room || !room.localParticipant) return;   // wait until connected
+    while (__shipIdx < LOG_BUFFER.length) {
+      const batch = LOG_BUFFER.slice(__shipIdx, __shipIdx + 25).map(l => {
+        let ds = null;
+        try { ds = l.data ? JSON.stringify(l.data).slice(0, 250) : null; } catch (_) {}
+        return { t: l.t, tag: l.tag, msg: String(l.msg).slice(0, 180), data: ds };
+      });
+      __shipIdx += batch.length;
+      const bytes = new TextEncoder().encode(JSON.stringify({ kind: 'client-log', room: room.name, events: batch }));
+      await room.localParticipant.publishData(bytes, { reliable: true });
+    }
+  } catch (e) { /* telemetry must never break the app */ }
+}
+setInterval(() => __shipTelemetry(false), 2000);
+window.addEventListener('beforeunload', () => { try { __shipTelemetry(true); } catch (_) {} });
+window.__shipTelemetry = __shipTelemetry;
+
 async function smartReact(action, isHit, isFast) {
   // v98: We DON'T tell Nova what to say anymore. Her brain reacts on her own
   // via backend RPC tools. We only sync the GAME STATE so when she calls
