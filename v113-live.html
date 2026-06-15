@@ -1695,6 +1695,11 @@ async function initDID() {
     // startTranscriptPoll(window.__novaSessionId);
 
     // Connect LiveKit room
+    // Reset track-arrival flags BEFORE wiring handlers + connecting, so tracks
+    // that arrive DURING a slow connect set them true and are NOT wiped after
+    // (the old reset ran post-connect and caused a false "didn't connect" error).
+    window.__novaVideoArrived = false;
+    window.__novaAudioArrived = false;
     const room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
     setupNovaRoomEvents(room);
     LOG('ROOM', 'connecting to LiveKit...');
@@ -1731,9 +1736,10 @@ async function initDID() {
     didReady = true;
     handoffFromIntro();
 
-    // v96: Watchdog — if Nova's audio/video track doesn't arrive in 30s, show retry UI
-    window.__novaVideoArrived = false;
-    window.__novaAudioArrived = false;
+    // v96: Watchdog — if Nova's audio/video track doesn't arrive in 30s, show
+    // retry UI. (Flags are reset BEFORE connect now — NOT here. Resetting here
+    // wiped tracks that already arrived during a slow connect, firing a false
+    // "Nova didn't connect" error at ~30s after publish. Fixed.)
     setTimeout(() => {
       if (!window.__novaVideoArrived || !window.__novaAudioArrived) {
         LOG('ERROR', `Nova tracks did NOT arrive in 30s (video=${window.__novaVideoArrived}, audio=${window.__novaAudioArrived})`);
@@ -2367,10 +2373,13 @@ async function nervesPollTick() {
 function startNervousSystem() {
   if (nervesPollTimer) return;
   LOG('v111', '🟢 NERVOUS SYSTEM started (intro phase)');
-  // Fire first-frame observation after Runway/greeting settles
+  // Fire first-frame observation after Runway/greeting settles (→ /v2/vision-observe)
   setTimeout(nervesFirstFrameObserve, 3500);
-  // Start perception polling (v111.1: 700ms — was 1000ms — faster reactions)
-  nervesPollTimer = setInterval(nervesPollTick, 700);
+  // v113-live: /perceive continuous polling DISABLED — that endpoint does NOT
+  // exist on the novapython worker (was 404 spam every 0.7s = the remaining
+  // vision 404). The one-shot first-frame observation above covers vision.
+  // Re-enable only if novapython gains a /perceive endpoint.
+  // nervesPollTimer = setInterval(nervesPollTick, 700);
 }
 
 function stopNervousSystem() {
