@@ -2323,7 +2323,7 @@ async function nervesFirstFrameObserve() {
   nervesObservedSent = true;
   try {
     LOG('v111-observe', 'capturing kid frame → Claude vision');
-    const r = await fetch(`${CFG.RENDER_URL}/observe-kid`, {
+    const r = await fetch(`${CFG.RENDER_URL}/v2/vision-observe`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ sessionId: window.__novaSessionId, frameDataUrl: frame })
     });
