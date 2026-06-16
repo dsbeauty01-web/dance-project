@@ -124,7 +124,9 @@ async function connect(){
     });
     room.on(LivekitClient.RoomEvent.DataReceived,(d)=>{ try{const m=JSON.parse(new TextDecoder().decode(d)); if(m.kind==='request-vision')fireVision('req');}catch(_){}});
     await room.connect(creds.serverUrl,creds.token);
-    await room.localParticipant.setMicrophoneEnabled(true);
+    // v222: DON'T publish mic to the worker — the worker's STT garbled it (e.g.
+    // "şuşuş"), and Nova echoed the gibberish. Browser SpeechRecognition (startSTT)
+    // does clean STT locally and sends user-said text. So Nova hears ONLY clean text.
     startSTT();
     // defer webcam publish until after Nova audio (avoid greeting-killing reconnect)
     deferWebcamPublish();
