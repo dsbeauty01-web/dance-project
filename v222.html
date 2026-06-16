@@ -110,7 +110,7 @@ async function connect(){
     setStatus('connecting…');
     kidStream=await navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'},audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
     $('webcam').srcObject=kidStream;
-    const r=await fetch(API+'/v2/create-session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kidId:(window.__kidId='v222-'+Date.now())})});
+    const r=await fetch(API+'/v2/create-session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kidId:(window.__kidId='v222-'+Date.now()),agent:'nova222'})});
     const creds=await r.json();
     room=new LivekitClient.Room({adaptiveStream:true,dynacast:true});
     room.on(LivekitClient.RoomEvent.TrackSubscribed,(track,pub,p)=>{
