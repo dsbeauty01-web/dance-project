@@ -769,9 +769,11 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   animation:introTwinkle 3s ease-in-out infinite}
 #intro-sparkle::after{animation-delay:1.5s;opacity:.55}
 @keyframes introTwinkle{0%,100%{opacity:.2}50%{opacity:1}}
-#intro-pip{position:absolute;bottom:16px;right:16px;width:84px;height:112px;
-  object-fit:cover;border-radius:14px;border:2px solid rgba(255,255,255,.3);
-  transform:scaleX(-1);box-shadow:0 4px 16px rgba(0,0,0,.5);background:#000;z-index:2}
+/* circular PIP, bottom-centre near Nova (per feedback — not far-corner) */
+#intro-pip{position:absolute;bottom:26px;left:50%;
+  transform:translateX(-50%) scaleX(-1);width:96px;height:96px;
+  object-fit:cover;border-radius:50%;border:3px solid rgba(255,255,255,.35);
+  box-shadow:0 6px 22px rgba(0,0,0,.55);background:#000;z-index:2}
 </style>
 <div id="intro-overlay">
   <video id="intro-mp4" muted playsinline preload="auto">
@@ -1865,18 +1867,29 @@ async function initDID() {
       }
     } catch(e) { LOG('ERROR', 'mic publish failed', { msg: e.message }); }
 
-    // Publish webcam so Nova can see the kid
-    try {
+    // Publish webcam — DEFERRED until AFTER Nova's audio track has arrived (then
+    // a short settle), so the renegotiation it triggers can't reconnect the room
+    // mid-greeting and swallow Nova's first words (BUG 2 fix). Vision uses
+    // captureWebcamFrame over HTTP — NOT this published track — so deferring is safe.
+    (function publishWebcamWhenStable() {
       const videoTrack = stream.getVideoTracks?.()[0];
-      if (videoTrack) {
-        const lkTrack = new LivekitClient.LocalVideoTrack(videoTrack);
-        const pub = await room.localParticipant.publishTrack(lkTrack, {
-          name: 'kid-webcam',
-          source: LivekitClient.Track.Source.Camera,
-        });
-        LOG('ROOM', 'webcam published to Nova', { sid: pub?.trackSid?.slice(0,8) });
-      }
-    } catch(e) { LOG('ERROR', 'webcam publish failed', { msg: e.message }); }
+      if (!videoTrack) return;
+      let waited = 0;
+      const tick = setInterval(async () => {
+        waited += 500;
+        if (window.__novaAudioArrived || waited >= 20000) {
+          clearInterval(tick);
+          await new Promise(r => setTimeout(r, 1500)); // let the greeting actually start
+          try {
+            const lkTrack = new LivekitClient.LocalVideoTrack(videoTrack);
+            const pub = await room.localParticipant.publishTrack(lkTrack, {
+              name: 'kid-webcam', source: LivekitClient.Track.Source.Camera,
+            });
+            LOG('ROOM', 'webcam published (deferred, post-greeting)', { sid: pub?.trackSid?.slice(0,8) });
+          } catch(e) { LOG('ERROR', 'deferred webcam publish failed', { msg: e.message }); }
+        }
+      }, 500);
+    })();
 
     didReady = true;
     handoffFromIntro();
