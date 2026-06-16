@@ -740,6 +740,51 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
+<!-- ═══ INTRO OVERLAY — covers the screen while Runway connects ═══
+     Drop the Kling MP4 at: audio/intro/nova-arrival.mp4 (it auto-shows when
+     present; until then the CSS sparkle placeholder plays). -->
+<style>
+#intro-overlay{position:fixed;inset:0;z-index:9000;background:#0a0015;
+  display:none;opacity:1;transition:opacity 1s ease;overflow:hidden}
+#intro-overlay.show{display:block}
+#intro-overlay.fade{opacity:0}
+#intro-mp4{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+#intro-mp4.ready{display:block}
+#intro-sparkle{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:20px;
+  background:radial-gradient(ellipse at 50% 40%,#2d0750,#0a0015 70%)}
+.intro-orb{font-size:92px;animation:introPulse 2.2s ease-in-out infinite;
+  filter:drop-shadow(0 0 44px rgba(180,120,255,.85))}
+.intro-caption{font-family:'Fredoka',sans-serif;color:#e9d5ff;font-size:20px;
+  letter-spacing:.08em;animation:introCap 2.2s ease-in-out infinite}
+@keyframes introPulse{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.12);opacity:1}}
+@keyframes introCap{0%,100%{opacity:.5}50%{opacity:1}}
+#intro-sparkle::before,#intro-sparkle::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:radial-gradient(2px 2px at 20% 30%,#fff,transparent),
+    radial-gradient(2px 2px at 70% 60%,#ffd9ff,transparent),
+    radial-gradient(1.5px 1.5px at 40% 80%,#c9b6ff,transparent),
+    radial-gradient(2px 2px at 85% 25%,#fff,transparent),
+    radial-gradient(1.5px 1.5px at 55% 18%,#e9d5ff,transparent),
+    radial-gradient(2px 2px at 12% 70%,#fff,transparent);
+  animation:introTwinkle 3s ease-in-out infinite}
+#intro-sparkle::after{animation-delay:1.5s;opacity:.55}
+@keyframes introTwinkle{0%,100%{opacity:.2}50%{opacity:1}}
+#intro-pip{position:absolute;bottom:16px;right:16px;width:84px;height:112px;
+  object-fit:cover;border-radius:14px;border:2px solid rgba(255,255,255,.3);
+  transform:scaleX(-1);box-shadow:0 4px 16px rgba(0,0,0,.5);background:#000;z-index:2}
+</style>
+<div id="intro-overlay">
+  <video id="intro-mp4" muted playsinline preload="auto">
+    <source src="audio/intro/nova-arrival.mp4" type="video/mp4">
+  </video>
+  <div id="intro-sparkle">
+    <div class="intro-orb">🌟</div>
+    <div class="intro-caption">finding you…</div>
+  </div>
+  <video id="intro-pip" autoplay playsinline muted></video>
+  <audio id="intro-humming" src="audio/intro/nova-humming.mp3" preload="auto"></audio>
+</div>
+
 <!-- ═══ PHASE 2: RECOGNITION ═══ -->
 <div class="phase" id="phase-recognition">
   <div id="rec-avatar-col">
@@ -1598,13 +1643,103 @@ document.addEventListener('keydown', markUserInteraction);
 // v95: INTRO OVERLAY REMOVED — Nova appears directly when Runway connects
 // ═══════════════════════════════════════════════════════════════
 let introHandedOff = false;
-function handoffFromIntro() {
-  introHandedOff = true;
-  // v95: no-op — no overlay to hide
-}
+let __introShownAt = 0;
 
 function startIntroOverlay() {
-  // v95: no-op — no MP4 intro
+  try {
+    const ov = document.getElementById('intro-overlay');
+    if (!ov) return;
+    __introShownAt = Date.now();
+    ov.classList.remove('fade');
+    ov.classList.add('show');
+    LOG('INTRO', 'overlay shown (sparkle/MP4 + humming)');
+
+    // Kling MP4 (audio/intro/nova-arrival.mp4): show it only if it actually
+    // loads; otherwise the CSS sparkle placeholder stays.
+    const mp4 = document.getElementById('intro-mp4');
+    if (mp4) {
+      mp4.addEventListener('loadeddata', () => {
+        mp4.classList.add('ready'); mp4.play().catch(() => {});
+        LOG('INTRO', 'Kling MP4 playing');
+      }, { once: true });
+      mp4.addEventListener('error', () => LOG('INTRO', 'no MP4 yet — sparkle placeholder'), { once: true });
+      try { mp4.load(); } catch (_) {}
+    }
+
+    // soft humming
+    const hum = document.getElementById('intro-humming');
+    if (hum) { hum.volume = 0.6; hum.play().catch(() => {}); }
+
+    // kid webcam PiP — attach the local camera stream once it exists
+    const pip = document.getElementById('intro-pip');
+    const tryPip = () => { if (pip && window.__kidStream && !pip.srcObject) { pip.srcObject = window.__kidStream; pip.play().catch(() => {}); } };
+    tryPip(); setTimeout(tryPip, 1500); setTimeout(tryPip, 3500);
+
+    // FAILSAFE: never trap the kid behind the overlay if connect/handoff fails.
+    setTimeout(() => {
+      if (ov.classList.contains('show') && !ov.classList.contains('fade')) {
+        ov.classList.add('fade');
+        setTimeout(() => ov.classList.remove('show'), 1100);
+        LOG('INTRO', 'failsafe fade (40s — handoff never fired)');
+      }
+    }, 40000);
+  } catch (e) { LOG('ERROR', 'startIntroOverlay: ' + e.message); }
+}
+
+function handoffFromIntro() {
+  introHandedOff = true;
+  try {
+    const ov = document.getElementById('intro-overlay');
+    if (!ov || !ov.classList.contains('show')) return;
+    // Hold the intro at least ~5s, then fade — i.e. reveal Nova at whichever is
+    // LATER: 5s, or the moment her tracks arrived (this fn is called on arrival).
+    const elapsed = Date.now() - (__introShownAt || Date.now());
+    const wait = Math.max(0, 5000 - elapsed);
+    setTimeout(() => {
+      ov.classList.add('fade');
+      const hum = document.getElementById('intro-humming');
+      if (hum) { try { hum.pause(); } catch (_) {} }
+      setTimeout(() => ov.classList.remove('show'), 1100);
+      LOG('INTRO', 'handoff → Nova revealed');
+      startVisionMirror();  // phase 3/4 "I see you" + mirror (no-ops until Gemini quota back)
+    }, wait);
+  } catch (e) { LOG('ERROR', 'handoffFromIntro: ' + e.message); }
+}
+
+// Phase 3 ("I see you" at +8s) + Phase 4 (mirror loop +15..25s). Feeds the
+// worker brain as context (it speaks the observation). Circuit-breaks after 2
+// consecutive failures so it never spams while Gemini quota is exhausted (429).
+function startVisionMirror() {
+  if (window.__visionMirrorStarted) return;
+  window.__visionMirrorStarted = true;
+  let fails = 0;
+  async function fire(tag) {
+    if (fails >= 2) return;
+    const frame = (typeof captureWebcamFrame === 'function') ? captureWebcamFrame() : null;
+    if (!frame) return;
+    try {
+      const r = await fetch(CFG.RENDER_URL + '/v2/vision-observe', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ frameDataUrl: frame, kidId: window.__kidId }),
+      });
+      const d = await r.json();
+      if (d && d.ok && d.text) {
+        fails = 0;
+        LOG('VISION', `(${tag}) "${d.text}"`);
+        if (window.__novaSend) window.__novaSend({ kind: 'vision-observation', text: d.text });
+      } else {
+        fails++; LOG('VISION', `(${tag}) no observation (fails=${fails})`);
+      }
+    } catch (e) { fails++; LOG('VISION', `(${tag}) error (fails=${fails})`); }
+  }
+  setTimeout(() => fire('see-you'), 8000);              // Phase 3
+  setTimeout(() => {                                     // Phase 4: ~15s..25s
+    const loop = setInterval(() => {
+      if (fails >= 2) { clearInterval(loop); return; }
+      fire('mirror');
+    }, 3000);
+    setTimeout(() => clearInterval(loop), 10500);
+  }, 15000);
 }
 
 function showIdleEverywhere() {
