@@ -1237,6 +1237,16 @@ const CFG = {
 };
 LOG('CFG', 'config loaded', { renderUrl: CFG.RENDER_URL, avatarId: CFG.AVATAR_ID });
 
+// COLD-START PRE-WARM: ping the worker the instant the page loads, so the free-
+// tier web service is already awake by the time the kid taps to start (was a
+// ~56s cold start on first hit). Fire-and-forget; ignores result.
+(function preWarm() {
+  const t = Date.now();
+  fetch(CFG.RENDER_URL + '/health', { cache: 'no-store' })
+    .then(() => LOG('BOOT', `pre-warm ping ok (${Date.now() - t}ms)`))
+    .catch(() => { /* will retry naturally on create-session */ });
+})();
+
 
 // ═══════════════════════════════════════════════════════════════
 // MEMORY — Nova's working memory of this session
@@ -2763,7 +2773,11 @@ function analyzePose(kps) {
     };
     const totalVar = variance(freezeBuffer.lwx) + variance(freezeBuffer.lwy) +
       variance(freezeBuffer.rwx) + variance(freezeBuffer.rwy);
-    moves.freeze = totalVar < scale * scale * 0.012;
+    // Freeze = genuine stillness ONLY. Clapping keeps the wrists near each other
+    // with low positional variance, which falsely read as freeze — so suppress
+    // freeze whenever another move is active (clap / both-up / hands-on-head).
+    moves.freeze = (totalVar < scale * scale * 0.012)
+      && !moves.clap && !moves.both && !moves.head;
   } else {
     moves.freeze = false;
   }
@@ -3081,16 +3095,11 @@ async function smartReact(action, isHit, isFast) {
     memory.streak === 1 || // first_hit
     memory.streak >= 3     // streak
   );
-  if (shouldForce) {
-    const now = Date.now();
-    if (!window.__lastForcedVoiceAt || (now - window.__lastForcedVoiceAt) > 6000) {
-      window.__lastForcedVoiceAt = now;
-      // Don't await — fire and forget so game doesn't block
-      forceNovaMidDanceVoice(action, memory.streak, isFast).catch(e => 
-        LOG('ERROR', 'forced voice failed: ' + e.message)
-      );
-    }
-  }
+  // v113-live: mid-dance voice now comes from the WORKER brain — the game-event
+  // we sent above (smartReact -> data channel) makes Nova react and speak over
+  // LiveKit. The old forceNovaMidDanceVoice() hit /tts-for-mic, which does NOT
+  // exist on novapython (404) and would double-voice over the worker. Disabled.
+  void shouldForce;
 }
 
 // v110 KIDS: Force Nova to speak via local audio during dance.
