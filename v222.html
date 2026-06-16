@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Nova v222</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.13.3/dist/livekit-client.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  html,body{height:100%;margin:0;background:#07030f;font-family:'Fredoka',system-ui,sans-serif;overflow:hidden;-webkit-tap-highlight-color:transparent}
+  #nova-video{width:100%;height:100%;object-fit:cover}
+  .glow{box-shadow:0 0 60px rgba(168,85,247,.35),0 0 140px rgba(168,85,247,.18)}
+  .speaking{box-shadow:0 0 70px rgba(0,255,150,.55),0 0 160px rgba(0,255,150,.25)!important}
+  @keyframes orbPulse{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.08);opacity:1}}
+  .orb-pulse{animation:orbPulse 2.4s ease-in-out infinite}
+  @keyframes twinkle{0%,100%{opacity:.2}50%{opacity:1}}
+  #sparkle{background-image:radial-gradient(2px 2px at 20% 30%,#fff,transparent),radial-gradient(2px 2px at 70% 60%,#ffd9ff,transparent),radial-gradient(1.5px 1.5px at 40% 80%,#c9b6ff,transparent),radial-gradient(2px 2px at 85% 25%,#fff,transparent),radial-gradient(1.5px 1.5px at 55% 18%,#e9d5ff,transparent);animation:twinkle 3s ease-in-out infinite}
+  @keyframes micbar{0%,100%{height:6px}50%{height:20px}}
+  .micbar{width:4px;background:#a855f7;border-radius:2px;animation:micbar 1s ease-in-out infinite}
+</style>
+</head>
+<body class="text-white">
+  <!-- ARRIVAL -->
+  <div id="arrival" class="fixed inset-0 z-40 flex flex-col items-center justify-center gap-7"
+       style="background:radial-gradient(ellipse at 50% 35%,#2d0750,#07030f 70%)">
+    <div id="sparkle" class="absolute inset-0 pointer-events-none"></div>
+    <div class="orb-pulse text-[92px] z-10" style="filter:drop-shadow(0 0 44px rgba(180,120,255,.85))">🌟</div>
+    <div class="text-3xl font-semibold z-10">Nova</div>
+    <div class="text-purple-200/80 z-10">hey friend… ready?</div>
+    <button id="startBtn" class="z-10 mt-2 px-8 py-3 rounded-full text-lg font-semibold
+        bg-gradient-to-r from-fuchsia-500 to-purple-500 active:scale-95 transition">✨ Start</button>
+  </div>
+
+  <!-- STAGE -->
+  <div id="stage" class="fixed inset-0 hidden">
+    <!-- intro cover (sparkle / Kling MP4 slot) -->
+    <div id="cover" class="absolute inset-0 z-30" style="background:radial-gradient(ellipse at 50% 40%,#2d0750,#07030f 70%);transition:opacity 1s">
+      <video id="intro-mp4" class="absolute inset-0 w-full h-full object-cover hidden" muted playsinline preload="auto">
+        <source src="audio/intro/nova-arrival.mp4" type="video/mp4">
+      </video>
+      <div id="cover-sparkle" class="absolute inset-0 flex flex-col items-center justify-center gap-5">
+        <div id="sparkle2" class="absolute inset-0 pointer-events-none" style="background-image:radial-gradient(2px 2px at 30% 40%,#fff,transparent),radial-gradient(2px 2px at 75% 65%,#ffd9ff,transparent),radial-gradient(2px 2px at 50% 20%,#e9d5ff,transparent);animation:twinkle 3s ease-in-out infinite"></div>
+        <div class="orb-pulse text-7xl" style="filter:drop-shadow(0 0 40px rgba(180,120,255,.8))">🌟</div>
+        <div class="text-purple-200/70 tracking-wide">finding you…</div>
+      </div>
+    </div>
+
+    <!-- Nova avatar (large, centered) -->
+    <div class="absolute inset-0 flex items-center justify-center">
+      <div id="nova-frame" class="glow rounded-[28px] overflow-hidden bg-[#0a0015]"
+           style="width:min(62vw,560px);height:min(78vh,720px)">
+        <video id="nova-video" autoplay playsinline></video>
+      </div>
+    </div>
+
+    <!-- webcam PiP (circle, near Nova, bottom-centre) -->
+    <video id="webcam" autoplay playsinline muted
+      class="absolute bottom-6 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full object-cover bg-black z-20"
+      style="transform:translateX(-50%) scaleX(-1);border:3px solid rgba(255,255,255,.35);box-shadow:0 6px 22px rgba(0,0,0,.55)"></video>
+
+    <!-- mic indicator (voice-first; only thing at the bottom) -->
+    <div id="mic-ind" class="absolute bottom-7 left-6 flex items-end gap-1 h-6 z-20 opacity-70">
+      <div class="micbar" style="animation-delay:0s"></div>
+      <div class="micbar" style="animation-delay:.15s"></div>
+      <div class="micbar" style="animation-delay:.3s"></div>
+      <div class="micbar" style="animation-delay:.15s"></div>
+    </div>
+
+    <!-- subtle status (top) -->
+    <div id="status" class="absolute top-4 left-1/2 -translate-x-1/2 text-xs text-purple-200/60 z-20"></div>
+
+    <!-- caption (what kid said / Nova noticed) -->
+    <div id="cap" class="absolute bottom-24 left-1/2 -translate-x-1/2 max-w-[80%] text-center text-purple-100/90 text-lg z-20"></div>
+  </div>
+
+  <audio id="intro-humming" src="audio/intro/nova-humming.mp3" preload="auto"></audio>
+
+<script>
+const API='https://novapython.onrender.com';   // TODO(v222): point to the Gemini-brain worker once its service is live
+const $=id=>document.getElementById(id);
+const setStatus=t=>{$('status').textContent=t;};
+const cap=t=>{$('cap').textContent=t; clearTimeout(window.__capT); window.__capT=setTimeout(()=>$('cap').textContent='',4000);};
+let room, kidStream, novaAudioArrived=false, coverShownAt=0;
+
+$('startBtn').addEventListener('click', start);
+
+async function start(){
+  $('arrival').style.display='none';
+  $('stage').classList.remove('hidden');
+  // cover + humming while we connect
+  coverShownAt=Date.now();
+  try{ const h=$('intro-humming'); h.volume=.55; h.play().catch(()=>{}); }catch(_){}
+  const mp4=$('intro-mp4');
+  mp4.addEventListener('loadeddata',()=>{mp4.classList.remove('hidden');mp4.play().catch(()=>{});},{once:true});
+  try{ mp4.load(); }catch(_){}
+  setTimeout(()=>{ if($('cover').style.display!=='none' ){/* failsafe */ revealNova(); }},40000);
+  await connect();
+}
+
+function revealNova(){
+  const c=$('cover'); if(!c||c.style.display==='none')return;
+  const wait=Math.max(0,5000-(Date.now()-coverShownAt));
+  setTimeout(()=>{ c.style.opacity='0'; try{$('intro-humming').pause();}catch(_){}
+    setTimeout(()=>c.style.display='none',1000); setStatus(''); startVision(); },wait);
+}
+
+async function connect(){
+  try{
+    setStatus('connecting…');
+    kidStream=await navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'},audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+    $('webcam').srcObject=kidStream;
+    const r=await fetch(API+'/v2/create-session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kidId:(window.__kidId='v222-'+Date.now())})});
+    const creds=await r.json();
+    room=new LivekitClient.Room({adaptiveStream:true,dynacast:true});
+    room.on(LivekitClient.RoomEvent.TrackSubscribed,(track,pub,p)=>{
+      if(track.kind==='video'){ track.attach($('nova-video')); revealNova(); setStatus(''); }
+      else if(track.kind==='audio'){ const a=track.attach(); a.autoplay=true; document.body.appendChild(a);
+        novaAudioArrived=true;
+        a.addEventListener('playing',()=>$('nova-frame').classList.add('speaking'));
+        a.addEventListener('pause',()=>$('nova-frame').classList.remove('speaking'));
+        a.addEventListener('ended',()=>$('nova-frame').classList.remove('speaking'));
+      }
+    });
+    room.on(LivekitClient.RoomEvent.DataReceived,(d)=>{ try{const m=JSON.parse(new TextDecoder().decode(d)); if(m.kind==='request-vision')fireVision('req');}catch(_){}});
+    await room.connect(creds.serverUrl,creds.token);
+    await room.localParticipant.setMicrophoneEnabled(true);
+    startSTT();
+    // defer webcam publish until after Nova audio (avoid greeting-killing reconnect)
+    deferWebcamPublish();
+  }catch(e){ setStatus('connection error — reload'); console.error(e); }
+}
+
+function deferWebcamPublish(){
+  const vt=kidStream&&kidStream.getVideoTracks&&kidStream.getVideoTracks()[0]; if(!vt)return;
+  let waited=0; const t=setInterval(async()=>{ waited+=500;
+    if(novaAudioArrived||waited>=20000){ clearInterval(t); await new Promise(r=>setTimeout(r,1500));
+      try{ await room.localParticipant.publishTrack(new LivekitClient.LocalVideoTrack(vt),{name:'kid-webcam',source:LivekitClient.Track.Source.Camera}); }catch(_){}
+    }},500);
+}
+
+// browser STT → user-said (works regardless of Gemini Live availability)
+function startSTT(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR){setStatus('voice needs Chrome');return;}
+  const sr=new SR(); sr.lang='en-US'; sr.continuous=true; sr.interimResults=true; let last='',lastAt=0;
+  sr.onresult=e=>{ for(let i=e.resultIndex;i<e.results.length;i++){ const res=e.results[i]; const txt=(res[0].transcript||'').trim(); if(!txt)continue;
+    if(!res.isFinal){ cap(txt+' …'); continue; }
+    const now=Date.now(); if(txt===last&&now-lastAt<2000)continue; last=txt; lastAt=now;
+    cap(txt); send({kind:'user-said',text:txt}); } };
+  sr.onend=()=>{ if(room&&room.state==='connected'){ try{sr.start();}catch(_){} } };
+  try{ sr.start(); }catch(_){}
+}
+
+async function send(p){ try{ await room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(p)),{reliable:true}); }catch(_){}}
+
+function frame(){ try{ const v=$('webcam'); if(!v||v.readyState<2||!v.videoWidth)return null; const c=document.createElement('canvas'); c.width=Math.min(640,v.videoWidth); c.height=Math.round(c.width*v.videoHeight/v.videoWidth); c.getContext('2d').drawImage(v,0,0,c.width,c.height); return c.toDataURL('image/jpeg',0.7);}catch(_){return null;} }
+async function fireVision(tag){ const f=frame(); if(!f)return; try{ const r=await fetch(API+'/v2/vision-observe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({frameDataUrl:f,kidId:window.__kidId})}); const d=await r.json(); if(d&&d.ok&&d.text){ cap(d.text); send({kind:'vision-observation',text:d.text}); } }catch(_){}}
+// "I see you" at +8s, gentle mirror every ~6s (circuit-broken by being best-effort)
+function startVision(){ if(window.__vStarted)return; window.__vStarted=true; setTimeout(()=>fireVision('see-you'),8000); }
+</script>
+</body>
+</html>
