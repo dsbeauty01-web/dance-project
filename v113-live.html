@@ -712,7 +712,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 </head>
 <body>
 
-<div id="vbanner" style="position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:99999;font:600 12px monospace;color:#0a0015;background:#a855f7;padding:3px 10px;border-radius:7px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.4)">BUILD: audio-perf r1 · pose-gated · no-hum · magic-reveal</div>
+<div id="vbanner" style="position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:99999;font:600 12px monospace;color:#0a0015;background:#a855f7;padding:3px 10px;border-radius:7px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.4)">BUILD: deepgram-stt r1 · nova-3 server-STT · mic-published</div>
 <div id="debug-panel"></div>
 <button id="debug-toggle" onclick="document.getElementById('debug-panel').style.display='block';this.style.display='none'">≡</button>
 <div id="log-actions">
@@ -1888,12 +1888,13 @@ async function initDID() {
     window.__novaRoom = room;
     LOG('ROOM', 'LiveKit connected');
 
-    // v113-fix (#5): DON'T publish mic to the worker — its STT garbled speech and
-    // competed with the clean browser STT. Nova now hears ONLY the clean user-said
-    // text from handleKidInput. (Browser SpeechRecognition uses its own mic access.)
+    // Phase-1 STT swap (Jun 17 2026): PUBLISH the mic to the worker. STT is now
+    // Deepgram Nova-3 server-side (replaces browser SpeechRecognition). The worker
+    // transcribes this published audio → auto-reply. The old garble was OpenAI
+    // Whisper, not Deepgram — Deepgram nova-3 handles kid speech cleanly.
     try {
-      // await room.localParticipant.setMicrophoneEnabled(true);  // disabled — browser STT is the input
-      LOG('AUDIO', 'mic NOT published — using clean browser STT -> user-said');
+      await room.localParticipant.setMicrophoneEnabled(true);  // Deepgram server-side STT needs the audio
+      LOG('AUDIO', 'mic PUBLISHED — worker Deepgram nova-3 STT is the input');
       // v104: keep reference to mic track so we can replace it when typing text
       const micPub = room.localParticipant.getTrackPublication(LivekitClient.Track.Source.Microphone);
       if (micPub?.track) {
@@ -3975,8 +3976,11 @@ document.addEventListener('arrival-done', async () => {
     window.__initRunwayNova();
   }
 
-  // Always-on mic — Nova listens continuously from now on
-  startAlwaysOnMic();
+  // Phase-1 STT swap (Jun 17 2026): browser SpeechRecognition DISABLED. The
+  // worker now hears the kid via the published mic + Deepgram nova-3 server-side
+  // STT. Typed text still flows through handleKidInput → user-said. (Re-enable
+  // startAlwaysOnMic() only if reverting STT back to the browser.)
+  // startAlwaysOnMic();
 
   // v112: 30s safety (was 20s) — Render cold starts take 22-26s, race fired too early
   setTimeout(() => {
