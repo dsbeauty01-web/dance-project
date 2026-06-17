@@ -970,7 +970,9 @@ function onArrivalTap(){
   if(typeof markUserInteraction === 'function') markUserInteraction();
   const arrivalPhase = document.getElementById('phase-arrival');
   if (arrivalPhase) arrivalPhase.classList.add('fade-out');
-  setTimeout(()=>document.dispatchEvent(new CustomEvent('arrival-done')),700);
+  // v113-fix (#1): fire recognition IMMEDIATELY on tap (was 700ms) — don't make
+  // the kid wait. The intro overlay covers the connect; recognition UI is instant.
+  setTimeout(()=>document.dispatchEvent(new CustomEvent('arrival-done')),50);
 }
 function onArrivalSkip(){
   // v102 Living Room — Skip ▶ bypasses recognition, goes straight to countdown + dance
@@ -1693,18 +1695,24 @@ function handoffFromIntro() {
   try {
     const ov = document.getElementById('intro-overlay');
     if (!ov || !ov.classList.contains('show')) return;
-    // Hold the intro at least ~5s, then fade — i.e. reveal Nova at whichever is
-    // LATER: 5s, or the moment her tracks arrived (this fn is called on arrival).
-    const elapsed = Date.now() - (__introShownAt || Date.now());
-    const wait = Math.max(0, 5000 - elapsed);
-    setTimeout(() => {
-      ov.classList.add('fade');
-      const hum = document.getElementById('intro-humming');
-      if (hum) { try { hum.pause(); } catch (_) {} }
-      setTimeout(() => ov.classList.remove('show'), 1100);
-      LOG('INTRO', 'handoff → Nova revealed');
-      startVisionMirror();  // phase 3/4 "I see you" + mirror (no-ops until Gemini quota back)
-    }, wait);
+    // v113-fix (#3): reveal Nova ONLY when BOTH audio AND video tracks have
+    // arrived (clean reveal — no audio-before-video "weird reveal"), plus a ~5s
+    // minimum. 25s safety, and startIntroOverlay's 40s failsafe still covers stalls.
+    let waited = 0;
+    const poll = setInterval(() => {
+      waited += 250;
+      const bothReady = window.__novaVideoArrived && window.__novaAudioArrived;
+      const minHeld = (Date.now() - (__introShownAt || Date.now())) >= 5000;
+      if ((bothReady && minHeld) || waited >= 25000) {
+        clearInterval(poll);
+        ov.classList.add('fade');
+        const hum = document.getElementById('intro-humming');
+        if (hum) { try { hum.pause(); } catch (_) {} }
+        setTimeout(() => ov.classList.remove('show'), 1100);
+        LOG('INTRO', `handoff → Nova revealed (bothReady=${bothReady})`);
+        startVisionMirror();
+      }
+    }, 250);
   } catch (e) { LOG('ERROR', 'handoffFromIntro: ' + e.message); }
 }
 
@@ -1854,10 +1862,12 @@ async function initDID() {
     window.__novaRoom = room;
     LOG('ROOM', 'LiveKit connected');
 
-    // Publish mic so Nova can hear via STT
+    // v113-fix (#5): DON'T publish mic to the worker — its STT garbled speech and
+    // competed with the clean browser STT. Nova now hears ONLY the clean user-said
+    // text from handleKidInput. (Browser SpeechRecognition uses its own mic access.)
     try {
-      await room.localParticipant.setMicrophoneEnabled(true);
-      LOG('AUDIO', 'mic published to Nova room');
+      // await room.localParticipant.setMicrophoneEnabled(true);  // disabled — browser STT is the input
+      LOG('AUDIO', 'mic NOT published — using clean browser STT -> user-said');
       // v104: keep reference to mic track so we can replace it when typing text
       const micPub = room.localParticipant.getTrackPublication(LivekitClient.Track.Source.Microphone);
       if (micPub?.track) {
@@ -2493,9 +2503,11 @@ async function nervesFirstFrameObserve() {
     });
     const data = await r.json();
     if (data?.ok && data.text) {
-      LOG('v111-observe', `Nova will say: "${data.text}"`);
-      // Wait a beat after greeting then speak the observation
-      setTimeout(() => speakViaNerves(data.text, data.energy || 'warm'), 800);
+      LOG('v111-observe', `vision obs → worker: "${data.text}"`);
+      // v113-fix (#4): route vision through the WORKER's say pipeline (the one the
+      // greeting uses) via the data channel — NOT speakViaNerves, which hit the
+      // dead /tts-for-mic (404) and killed vision-speak.
+      setTimeout(() => { if (window.__novaSend) window.__novaSend({ kind: 'vision-observation', text: data.text }); }, 800);
     } else {
       LOG('v111-observe', 'no observation returned');
       nervesObservedSent = false; // allow retry
@@ -2724,10 +2736,10 @@ async function handleKidInput(text) {
       }, 500);
     }
   }
-  // v98: Nova hears the kid directly via her own mic input (we publish to her room).
-  // v113-live: old nova-rpc-server /game-state sync removed — the novapython
-  // worker loads this kid's memory by kidId and tracks state from game-events.
-  // (Nova hears the kid live through the published mic track.)
+  // v113-fix (#5): SEND the clean browser-STT text to the worker so the LLM
+  // actually replies. Before, this relied only on the worker's own mic STT, which
+  // garbled/ignored speech ("0 real replies"). user-said is the proven path.
+  if (window.__novaSend) window.__novaSend({ kind: 'user-said', text });
   document.getElementById('rec-dance-btn').classList.add('ready');
 }
 
@@ -3963,9 +3975,10 @@ window.addEventListener('beforeunload', () => {
   }
 });
 
-// v95: Wake Render IMMEDIATELY on page load (parallel to user reading "tap to meet Nova")
-// This eliminates the 30-70s cold start when orb is finally tapped.
-fetch('https://nova-rpc-server.onrender.com/health', { method: 'GET' })
+// v113-fix (#2): page-load pre-wake hits the CORRECT server (novapython) — it was
+// pinging the dead nova-rpc-server. Fires on load, before the kid taps, to melt the
+// cold start. (A second prewarm runs right after CFG loads.)
+fetch(CFG.RENDER_URL + '/health', { method: 'GET' })
   .then(r => LOG('BOOT', `server pre-wake: ${r.status}`))
   .catch(e => LOG('BOOT', `server pre-wake failed: ${e.message}`));
 
