@@ -21,6 +21,7 @@
 </style>
 </head>
 <body class="text-white">
+<div style="position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:99999;font:600 12px monospace;color:#07030f;background:#a855f7;padding:3px 10px;border-radius:7px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.4)">v222 BUILD: sweep r1 · no-hum · no-doubles · magic-reveal · gibberish-guard</div>
   <!-- ARRIVAL -->
   <div id="arrival" class="fixed inset-0 z-40 flex flex-col items-center justify-center gap-7"
        style="background:radial-gradient(ellipse at 50% 35%,#2d0750,#07030f 70%)">
@@ -35,7 +36,7 @@
   <!-- STAGE -->
   <div id="stage" class="fixed inset-0 hidden">
     <!-- intro cover (sparkle / Kling MP4 slot) -->
-    <div id="cover" class="absolute inset-0 z-30" style="background:radial-gradient(ellipse at 50% 40%,#2d0750,#07030f 70%);transition:opacity 1s">
+    <div id="cover" class="absolute inset-0 z-30" style="background:radial-gradient(ellipse at 50% 40%,#2d0750,#07030f 70%);transition:opacity 0.3s">
       <video id="intro-mp4" class="absolute inset-0 w-full h-full object-cover hidden" muted playsinline preload="auto">
         <source src="audio/intro/nova-arrival.mp4" type="video/mp4">
       </video>
@@ -90,7 +91,7 @@ async function start(){
   $('stage').classList.remove('hidden');
   // cover + humming while we connect
   coverShownAt=Date.now();
-  try{ const h=$('intro-humming'); h.volume=.55; h.play().catch(()=>{}); }catch(_){}
+  /* humming MUTED — load is SILENT (was the 'random noise'); first sound = greeting */
   const mp4=$('intro-mp4');
   mp4.addEventListener('loadeddata',()=>{mp4.classList.remove('hidden');mp4.play().catch(()=>{});},{once:true});
   try{ mp4.load(); }catch(_){}
@@ -99,10 +100,17 @@ async function start(){
 }
 
 function revealNova(){
-  const c=$('cover'); if(!c||c.style.display==='none')return;
-  const wait=Math.max(0,5000-(Date.now()-coverShownAt));
-  setTimeout(()=>{ c.style.opacity='0'; try{$('intro-humming').pause();}catch(_){}
-    setTimeout(()=>c.style.display='none',1000); setStatus(''); startVision(); },wait);
+  const c=$('cover'); if(!c||c.style.display==='none'||window.__revealing)return;
+  if(!window.__vidReady)return;                 // need video attached first
+  window.__revealing=true;
+  // MAGIC REVEAL: hold the silent cover until Nova is ACTUALLY making sound
+  // (her greeting) — so she lands mid-"hi", not as a confused idle face. 12s fallback.
+  let w=0; const poll=setInterval(()=>{ w+=150;
+    if(window.__novaSpeakingNow || w>=12000){ clearInterval(poll);
+      c.style.opacity='0';
+      setTimeout(()=>c.style.display='none',350); setStatus(''); startVision();
+    }
+  },150);
 }
 
 async function connect(){
@@ -114,12 +122,15 @@ async function connect(){
     const creds=await r.json();
     room=new LivekitClient.Room({adaptiveStream:true,dynacast:true});
     room.on(LivekitClient.RoomEvent.TrackSubscribed,(track,pub,p)=>{
-      if(track.kind==='video'){ track.attach($('nova-video')); revealNova(); setStatus(''); }
+      if(track.kind==='video'){ track.attach($('nova-video')); window.__vidReady=true; setStatus(''); revealNova(); }
       else if(track.kind==='audio'){ const a=track.attach(); a.autoplay=true; document.body.appendChild(a);
         novaAudioArrived=true;
         a.addEventListener('playing',()=>$('nova-frame').classList.add('speaking'));
         a.addEventListener('pause',()=>$('nova-frame').classList.remove('speaking'));
         a.addEventListener('ended',()=>$('nova-frame').classList.remove('speaking'));
+        // sound detector → tells revealNova when she's actually speaking
+        try{ const ms=new MediaStream([track.mediaStreamTrack]); const ac=new (window.AudioContext||window.webkitAudioContext)(); const an=ac.createAnalyser(); an.fftSize=256; ac.createMediaStreamSource(ms).connect(an); const buf=new Uint8Array(an.frequencyBinCount); window.__novaSpeakingNow=false; setInterval(()=>{an.getByteFrequencyData(buf); let s=0; for(let i=0;i<buf.length;i++)s+=buf[i]; window.__novaSpeakingNow=(s/buf.length)>7;},100);}catch(_){}
+        revealNova();
       }
     });
     room.on(LivekitClient.RoomEvent.DataReceived,(d)=>{ try{const m=JSON.parse(new TextDecoder().decode(d)); if(m.kind==='request-vision')fireVision('req');}catch(_){}});
@@ -141,6 +152,8 @@ function deferWebcamPublish(){
     }},500);
 }
 
+// drop non-English/gibberish transcripts (Turkish/Russian/nonsense) before the LLM
+function isGibberish(t){ const latin=(t.match(/[a-zA-Z]/g)||[]).length; const total=t.replace(/\s/g,'').length||1; return (latin/total)<0.6; }
 // browser STT → user-said (works regardless of Gemini Live availability)
 function startSTT(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR){setStatus('voice needs Chrome');return;}
@@ -148,6 +161,8 @@ function startSTT(){
   sr.onresult=e=>{ for(let i=e.resultIndex;i<e.results.length;i++){ const res=e.results[i]; const txt=(res[0].transcript||'').trim(); if(!txt)continue;
     if(!res.isFinal){ cap(txt+' …'); continue; }
     const now=Date.now(); if(txt===last&&now-lastAt<2000)continue; last=txt; lastAt=now;
+    if(isGibberish(txt)){ window.__garbage=(window.__garbage||0)+1; if(window.__garbage>=3)cap("hmm, I didn't catch that — say it again?"); continue; }
+    window.__garbage=0;
     cap(txt); send({kind:'user-said',text:txt}); } };
   sr.onend=()=>{ if(room&&room.state==='connected'){ try{sr.start();}catch(_){} } };
   try{ sr.start(); }catch(_){}
