@@ -745,7 +745,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
      present; until then the CSS sparkle placeholder plays). -->
 <style>
 #intro-overlay{position:fixed;inset:0;z-index:9000;background:#0a0015;
-  display:none;opacity:1;transition:opacity 1s ease;overflow:hidden}
+  display:none;opacity:1;transition:opacity 0.3s ease;overflow:hidden}
 #intro-overlay.show{display:block}
 #intro-overlay.fade{opacity:0}
 #intro-mp4{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
@@ -1695,21 +1695,33 @@ function handoffFromIntro() {
   try {
     const ov = document.getElementById('intro-overlay');
     if (!ov || !ov.classList.contains('show')) return;
-    // v113-fix (#3): reveal Nova ONLY when BOTH audio AND video tracks have
-    // arrived (clean reveal — no audio-before-video "weird reveal"), plus a ~5s
-    // minimum. 25s safety, and startIntroOverlay's 40s failsafe still covers stalls.
+    // READINESS GATE + cinematic reveal. Nova reveals ONLY when BOTH audio AND
+    // video tracks have arrived (+5s min hold). Staged overlay messages; retry at 30s.
+    const capEl = ov.querySelector('.intro-caption');
+    if (capEl) capEl.textContent = 'preparing Nova…';
     let waited = 0;
     const poll = setInterval(() => {
       waited += 250;
       const bothReady = window.__novaVideoArrived && window.__novaAudioArrived;
       const minHeld = (Date.now() - (__introShownAt || Date.now())) >= 5000;
-      if ((bothReady && minHeld) || waited >= 25000) {
+      if (capEl && waited === 15000) capEl.textContent = 'connecting' + '…';
+      // gate FAILED (>30s, still not both-ready) → friendly retry, do NOT reveal
+      if (!bothReady && waited >= 30000) {
         clearInterval(poll);
+        LOG('INTRO', 'readiness gate failed (>30s) — showing retry');
+        if (typeof showNovaRetryUI === 'function') showNovaRetryUI();
+        return;
+      }
+      if (bothReady && minHeld) {
+        clearInterval(poll);
+        // REVEAL BEAT: fade the overlay (300ms via CSS) to land Nova, then tell the
+        // worker it's safe to greet → she greets AFTER she appears (not behind cover).
         ov.classList.add('fade');
         const hum = document.getElementById('intro-humming');
         if (hum) { try { hum.pause(); } catch (_) {} }
-        setTimeout(() => ov.classList.remove('show'), 1100);
-        LOG('INTRO', `handoff → Nova revealed (bothReady=${bothReady})`);
+        setTimeout(() => ov.classList.remove('show'), 600);
+        LOG('INTRO', 'revealed (audio+video ready) → client-ready → greeting');
+        setTimeout(() => { if (window.__novaSend) window.__novaSend({ kind: 'client-ready' }); }, 500);
         startVisionMirror();
       }
     }, 250);
