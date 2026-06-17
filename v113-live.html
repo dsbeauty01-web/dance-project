@@ -712,7 +712,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 </head>
 <body>
 
-<div id="vbanner">💚 V113 · MIC INJECTION · REFUSAL FILTER · NAME v3 💚</div>
+<div id="vbanner" style="position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:99999;font:600 12px monospace;color:#0a0015;background:#a855f7;padding:3px 10px;border-radius:7px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.4)">BUILD: audio-perf r1 · pose-gated · no-hum · magic-reveal</div>
 <div id="debug-panel"></div>
 <button id="debug-toggle" onclick="document.getElementById('debug-panel').style.display='block';this.style.display='none'">≡</button>
 <div id="log-actions">
@@ -1671,8 +1671,10 @@ function startIntroOverlay() {
     }
 
     // soft humming
-    const hum = document.getElementById('intro-humming');
-    if (hum) { hum.volume = 0.6; hum.play().catch(() => {}); }
+    // Humming DISABLED — it was the "stupid noise" on load. Cover is silent now;
+    // the first sound the kid hears is Nova's actual greeting.
+    // const hum = document.getElementById('intro-humming');
+    // if (hum) { hum.volume = 0.6; hum.play().catch(() => {}); }
 
     // kid webcam PiP — attach the local camera stream once it exists
     const pip = document.getElementById('intro-pip');
@@ -1712,17 +1714,27 @@ function handoffFromIntro() {
         if (typeof showNovaRetryUI === 'function') showNovaRetryUI();
         return;
       }
-      if (bothReady && minHeld) {
+      if (bothReady) {
         clearInterval(poll);
-        // REVEAL BEAT: fade the overlay (300ms via CSS) to land Nova, then tell the
-        // worker it's safe to greet → she greets AFTER she appears (not behind cover).
-        ov.classList.add('fade');
-        const hum = document.getElementById('intro-humming');
-        if (hum) { try { hum.pause(); } catch (_) {} }
-        setTimeout(() => ov.classList.remove('show'), 600);
-        LOG('INTRO', 'revealed (audio+video ready) → client-ready → greeting');
-        setTimeout(() => { if (window.__novaSend) window.__novaSend({ kind: 'client-ready' }); }, 500);
-        startVisionMirror();
+        if (capEl) capEl.textContent = 'almost…';
+        // Tracks ready → tell the worker to greet NOW, but DON'T reveal yet.
+        if (window.__novaSend) window.__novaSend({ kind: 'client-ready' });
+        LOG('INTRO', 'tracks ready → client-ready sent; holding cover until she SPEAKS');
+        // MAGIC REVEAL: fade ONLY when Nova is actually making sound (saying hi) —
+        // no 4s confused idle gap. 9s fallback so we never get stuck.
+        let w2 = 0;
+        const revealPoll = setInterval(() => {
+          w2 += 150;
+          if (window.__novaSpeakingNow || w2 >= 9000) {
+            clearInterval(revealPoll);
+            ov.classList.add('fade');
+            const hum = document.getElementById('intro-humming');
+            if (hum) { try { hum.pause(); } catch (_) {} }
+            setTimeout(() => ov.classList.remove('show'), 350);
+            LOG('INTRO', `MAGIC REVEAL (speaking=${!!window.__novaSpeakingNow}, +${w2}ms after ready)`);
+            startVisionMirror();
+          }
+        }, 150);
       }
     }, 250);
   } catch (e) { LOG('ERROR', 'handoffFromIntro: ' + e.message); }
@@ -1867,7 +1879,9 @@ async function initDID() {
     // (the old reset ran post-connect and caused a false "didn't connect" error).
     window.__novaVideoArrived = false;
     window.__novaAudioArrived = false;
-    const room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
+    // adaptiveStream/dynacast OFF: they dynamically down-rez the single avatar
+    // track and were contributing to choppy/distorted audio. Full quality instead.
+    const room = new LivekitClient.Room({ adaptiveStream: false, dynacast: false });
     setupNovaRoomEvents(room);
     LOG('ROOM', 'connecting to LiveKit...');
     await room.connect(creds.serverUrl, creds.token);
@@ -2012,6 +2026,17 @@ function setupNovaRoomEvents(room) {
       }
       try { track.attach(a); } catch(e) { LOG('ERROR', 'audio attach', { msg: e.message }); }
       a.muted = false;
+      // Sound detector — lets us reveal Nova exactly when she STARTS speaking
+      // (not 4s of confused idle face first). Sets window.__novaSpeakingNow.
+      try {
+        const ms = new MediaStream([track.mediaStreamTrack]);
+        const ac = new (window.AudioContext || window.webkitAudioContext)();
+        const an = ac.createAnalyser(); an.fftSize = 256;
+        ac.createMediaStreamSource(ms).connect(an);
+        const buf = new Uint8Array(an.frequencyBinCount);
+        window.__novaSpeakingNow = false;
+        setInterval(() => { an.getByteFrequencyData(buf); let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i]; window.__novaSpeakingNow = (s / buf.length) > 7; }, 100);
+      } catch (e) { LOG('AUDIO', 'sound-detector unavailable: ' + e.message); }
       a.play().catch(()=>{});
       LOG('AUDIO', 'Nova audio track attached + playing');
       window.__runwayAudioReady = true;
@@ -2804,6 +2829,13 @@ async function poseLoop() {
   const v = document.getElementById('webcam');
   if(!detector || !v || v.readyState < 2) {
     requestAnimationFrame(poseLoop);
+    return;
+  }
+  // PERF FIX: MoveNet only runs during the DANCE phase. Running it every frame
+  // during recognition/conversation starved the CPU → choppy/distorted Nova audio
+  // ("hi hi hi", "feels slow"). Idle cheaply otherwise.
+  if (memory.phase !== 'song' && memory.phase !== 'dance') {
+    setTimeout(() => requestAnimationFrame(poseLoop), 500);
     return;
   }
   try {
