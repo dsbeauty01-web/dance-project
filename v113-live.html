@@ -714,7 +714,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 </head>
 <body>
 
-<div id="vbanner" style="position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:99999;font:600 12px monospace;color:#0a0015;background:#a855f7;padding:3px 10px;border-radius:7px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.4)">BUILD: brain-led r2 · thinking-sounds · one-voice · always-on eyes</div>
+<div id="vbanner" style="position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:99999;font:600 12px monospace;color:#0a0015;background:#a855f7;padding:3px 10px;border-radius:7px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.4)">BUILD: brain-led r3 · keep-warm · reveal-when-ready · calmer · name-fix</div>
 <div id="debug-panel"></div>
 <button id="debug-toggle" onclick="document.getElementById('debug-panel').style.display='block';this.style.display='none'">≡</button>
 <div id="log-actions">
@@ -1683,18 +1683,22 @@ function startIntroOverlay() {
     const tryPip = () => { if (pip && window.__kidStream && !pip.srcObject) { pip.srcObject = window.__kidStream; pip.play().catch(() => {}); } };
     tryPip(); setTimeout(tryPip, 1500); setTimeout(tryPip, 3500);
 
-    // FAILSAFE: never trap the kid behind the overlay if connect/handoff fails.
+    // FAILSAFE: if Nova GENUINELY never loads, show a friendly retry — but NEVER
+    // reveal a not-ready Nova (the old 40s blind fade showed a half-loaded face).
+    // 90s tolerates a worst-case cold start; with keep-alive warm, real load is
+    // ~5s so this never fires.
     setTimeout(() => {
       if (ov.classList.contains('show') && !ov.classList.contains('fade')) {
-        ov.classList.add('fade');
-        setTimeout(() => ov.classList.remove('show'), 1100);
-        LOG('INTRO', 'failsafe fade (40s — handoff never fired)');
+        LOG('INTRO', 'failsafe (90s) — Nova never became ready, showing retry');
+        if (typeof showNovaRetryUI === 'function') showNovaRetryUI();
       }
-    }, 40000);
+    }, 90000);
   } catch (e) { LOG('ERROR', 'startIntroOverlay: ' + e.message); }
 }
 
 function handoffFromIntro() {
+  if (window.__handoffStarted) return;   // guard: only one readiness poll ever
+  window.__handoffStarted = true;
   introHandedOff = true;
   try {
     const ov = document.getElementById('intro-overlay');
@@ -1709,10 +1713,11 @@ function handoffFromIntro() {
       const bothReady = window.__novaVideoArrived && window.__novaAudioArrived;
       const minHeld = (Date.now() - (__introShownAt || Date.now())) >= 5000;
       if (capEl && waited === 15000) capEl.textContent = 'connecting' + '…';
-      // gate FAILED (>30s, still not both-ready) → friendly retry, do NOT reveal
-      if (!bothReady && waited >= 30000) {
+      // gate FAILED (>90s, still not both-ready) → friendly retry, do NOT reveal.
+      // 90s so a cold start never trips a false "didn't load" while she IS loading.
+      if (!bothReady && waited >= 90000) {
         clearInterval(poll);
-        LOG('INTRO', 'readiness gate failed (>30s) — showing retry');
+        LOG('INTRO', 'readiness gate failed (>90s) — showing retry');
         if (typeof showNovaRetryUI === 'function') showNovaRetryUI();
         return;
       }
@@ -1943,10 +1948,10 @@ async function initDID() {
     // "Nova didn't connect" error at ~30s after publish. Fixed.)
     setTimeout(() => {
       if (!window.__novaVideoArrived || !window.__novaAudioArrived) {
-        LOG('ERROR', `Nova tracks did NOT arrive in 30s (video=${window.__novaVideoArrived}, audio=${window.__novaAudioArrived})`);
+        LOG('ERROR', `Nova tracks did NOT arrive in 90s (video=${window.__novaVideoArrived}, audio=${window.__novaAudioArrived})`);
         showNovaRetryUI();
       }
-    }, 30000);
+    }, 90000);
 
     // Trigger arrival greeting if we're in recognition phase
     if (memory.phase === 'recognition' && !window._greeted) {
