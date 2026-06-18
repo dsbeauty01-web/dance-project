@@ -714,7 +714,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 </head>
 <body>
 
-<div id="vbanner" style="position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:99999;font:600 12px monospace;color:#0a0015;background:#a855f7;padding:3px 10px;border-radius:7px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.4)">BUILD: square-nova r1 · v222-style rounded frame · deepgram-stt</div>
+<div id="vbanner" style="position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:99999;font:600 12px monospace;color:#0a0015;background:#a855f7;padding:3px 10px;border-radius:7px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.4)">BUILD: cleanup r1 · vision-throttled · idle-fix · square-nova</div>
 <div id="debug-panel"></div>
 <button id="debug-toggle" onclick="document.getElementById('debug-panel').style.display='block';this.style.display='none'">≡</button>
 <div id="log-actions">
@@ -1748,9 +1748,12 @@ function handoffFromIntro() {
 function startVisionMirror() {
   if (window.__visionMirrorStarted) return;
   window.__visionMirrorStarted = true;
-  let fails = 0;
+  let lastText = '';
   async function fire(tag) {
-    if (fails >= 2) return;
+    // Skip entirely if nervesFirstFrameObserve already landed an observation —
+    // the worker only injects the FIRST one, so anything past that is wasted
+    // Gemini calls + log spam (the "bright light ×5" we saw in last session).
+    if (window.__visionObservedOnce) { LOG('VISION', `(${tag}) skip — already observed once`); return; }
     const frame = (typeof captureWebcamFrame === 'function') ? captureWebcamFrame() : null;
     if (!frame) return;
     try {
@@ -1760,22 +1763,21 @@ function startVisionMirror() {
       });
       const d = await r.json();
       if (d && d.ok && d.text) {
-        fails = 0;
+        // de-repeat guard: don't forward a near-identical observation
+        if (d.text.trim() === lastText) { LOG('VISION', `(${tag}) duplicate, skipped`); return; }
+        lastText = d.text.trim();
+        window.__visionObservedOnce = true;
         LOG('VISION', `(${tag}) "${d.text}"`);
         if (window.__novaSend) window.__novaSend({ kind: 'vision-observation', text: d.text });
       } else {
-        fails++; LOG('VISION', `(${tag}) no observation (fails=${fails})`);
+        LOG('VISION', `(${tag}) no observation`);
       }
-    } catch (e) { fails++; LOG('VISION', `(${tag}) error (fails=${fails})`); }
+    } catch (e) { LOG('VISION', `(${tag}) error`); }
   }
-  setTimeout(() => fire('see-you'), 8000);              // Phase 3
-  setTimeout(() => {                                     // Phase 4: ~15s..25s
-    const loop = setInterval(() => {
-      if (fails >= 2) { clearInterval(loop); return; }
-      fire('mirror');
-    }, 3000);
-    setTimeout(() => clearInterval(loop), 10500);
-  }, 15000);
+  // Single fallback only — fires ONCE at +8s, and no-ops if the first-frame
+  // observer already succeeded. The old 3s "mirror" loop (~4 extra calls, all
+  // ignored by the worker) was removed.
+  setTimeout(() => fire('see-you'), 8000);
 }
 
 function showIdleEverywhere() {
@@ -2544,6 +2546,9 @@ async function nervesFirstFrameObserve() {
     const data = await r.json();
     if (data?.ok && data.text) {
       LOG('v111-observe', `vision obs → worker: "${data.text}"`);
+      // The worker injects only the FIRST observation per session — mark it so the
+      // (redundant) startVisionMirror fallback skips entirely. Saves ~4 Gemini calls.
+      window.__visionObservedOnce = true;
       // v113-fix (#4): route vision through the WORKER's say pipeline (the one the
       // greeting uses) via the data channel — NOT speakViaNerves, which hit the
       // dead /tts-for-mic (404) and killed vision-speak.
