@@ -106,7 +106,9 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
 /* Avatar side */
 #rec-avatar-col{flex:1.5;display:flex;flex-direction:column;align-items:center;
   justify-content:center;gap:20px;padding:32px;position:relative}
-#rec-avatar-frame{width:min(360px,48vmin);aspect-ratio:1;border-radius:50%;
+/* v113 Nova frame: rounded-rectangle "square" like v222 (was a circle).
+   aspect-ratio 0.8 = portrait, border-radius 28px = v222's rounded-[28px]. */
+#rec-avatar-frame{width:min(420px,56vmin);aspect-ratio:0.8;border-radius:28px;
   overflow:hidden;background:#0a0015;
   border:4px solid rgba(255,111,216,0.7);
   box-shadow:0 0 60px rgba(255,111,216,0.4),0 0 140px rgba(124,111,255,0.25);
@@ -537,7 +539,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   background:radial-gradient(ellipse at 50% 30%,#2d0750,#0a0015)}
 #end-avatar-col{flex:1;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:18px;padding:32px}
-#end-avatar-frame{width:min(280px,42vmin);aspect-ratio:1;border-radius:50%;
+#end-avatar-frame{width:min(320px,46vmin);aspect-ratio:0.8;border-radius:28px;
   overflow:hidden;background:#0a0015;
   border:4px solid rgba(255,215,0,0.6);
   box-shadow:0 0 80px rgba(255,215,0,0.3),0 0 200px rgba(255,111,216,0.25)}
@@ -712,7 +714,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 </head>
 <body>
 
-<div id="vbanner" style="position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:99999;font:600 12px monospace;color:#0a0015;background:#a855f7;padding:3px 10px;border-radius:7px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.4)">BUILD: deepgram-stt r1 · nova-3 server-STT · mic-published</div>
+<div id="vbanner" style="position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:99999;font:600 12px monospace;color:#0a0015;background:#a855f7;padding:3px 10px;border-radius:7px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.4)">BUILD: square-nova r1 · v222-style rounded frame · deepgram-stt</div>
 <div id="debug-panel"></div>
 <button id="debug-toggle" onclick="document.getElementById('debug-panel').style.display='block';this.style.display='none'">≡</button>
 <div id="log-actions">
