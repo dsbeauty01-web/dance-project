@@ -714,7 +714,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 </head>
 <body>
 
-<div id="vbanner" style="position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:99999;font:600 12px monospace;color:#0a0015;background:#a855f7;padding:3px 10px;border-radius:7px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.4)">BUILD: cleanup r1 · vision-throttled · idle-fix · square-nova</div>
+<div id="vbanner" style="position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:99999;font:600 12px monospace;color:#0a0015;background:#a855f7;padding:3px 10px;border-radius:7px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.4)">BUILD: move-game r1 · 6-10 play · worker-driven vision · square-nova</div>
 <div id="debug-panel"></div>
 <button id="debug-toggle" onclick="document.getElementById('debug-panel').style.display='block';this.style.display='none'">≡</button>
 <div id="log-actions">
@@ -1734,7 +1734,9 @@ function handoffFromIntro() {
             if (hum) { try { hum.pause(); } catch (_) {} }
             setTimeout(() => ov.classList.remove('show'), 350);
             LOG('INTRO', `MAGIC REVEAL (speaking=${!!window.__novaSpeakingNow}, +${w2}ms after ready)`);
-            startVisionMirror();
+            // Move-game: the WORKER drives vision per move (request-vision). The
+            // old self-timed client vision is disabled to avoid duplicate calls.
+            // startVisionMirror();
           }
         }, 150);
       }
@@ -2054,6 +2056,29 @@ function setupNovaRoomEvents(room) {
   });
   room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track) => {
     LOG('ROOM', `track unsubscribed: ${track.kind}`);
+  });
+  // MOVE GAME: worker asks for a webcam frame per move (kind:'request-vision').
+  // Capture → Gemini vision → send the observation back so Nova reacts specific.
+  room.on(LivekitClient.RoomEvent.DataReceived, async (payload) => {
+    let msg;
+    try { msg = JSON.parse(new TextDecoder().decode(payload)); } catch (e) { return; }
+    if (!msg || msg.kind !== 'request-vision') return;
+    try {
+      const frame = (typeof captureWebcamFrame === 'function') ? captureWebcamFrame() : null;
+      if (!frame) { LOG('VISION', 'request-vision: no frame ready'); if (window.__novaSend) window.__novaSend({ kind: 'vision-observation', text: '(could not see clearly)' }); return; }
+      LOG('VISION', 'request-vision → capturing frame');
+      const r = await fetch(CFG.RENDER_URL + '/v2/vision-observe', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ frameDataUrl: frame, kidId: window.__kidId || window.__novaSessionId }),
+      });
+      const d = await r.json();
+      const text = (d && d.ok && d.text) ? d.text : '(could not see clearly)';
+      LOG('VISION', `obs → "${text}"`);
+      if (window.__novaSend) window.__novaSend({ kind: 'vision-observation', text });
+    } catch (e) {
+      LOG('VISION', 'request-vision error: ' + e.message);
+      if (window.__novaSend) window.__novaSend({ kind: 'vision-observation', text: '(could not see clearly)' });
+    }
   });
   room.on(LivekitClient.RoomEvent.Disconnected, (reason) => {
     LOG('ERROR', 'Runway room disconnected', { reason });
@@ -2588,8 +2613,9 @@ async function nervesPollTick() {
 function startNervousSystem() {
   if (nervesPollTimer) return;
   LOG('v111', '🟢 NERVOUS SYSTEM started (intro phase)');
-  // Fire first-frame observation after Runway/greeting settles (→ /v2/vision-observe)
-  setTimeout(nervesFirstFrameObserve, 3500);
+  // Move-game: vision is now WORKER-driven per move (request-vision). The old
+  // client first-frame observation is disabled to avoid duplicate Gemini calls.
+  // setTimeout(nervesFirstFrameObserve, 3500);
   // v113-live: /perceive continuous polling DISABLED — that endpoint does NOT
   // exist on the novapython worker (was 404 spam every 0.7s = the remaining
   // vision 404). The one-shot first-frame observation above covers vision.
