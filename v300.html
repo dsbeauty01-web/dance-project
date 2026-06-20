@@ -977,6 +977,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 .sum-btn{padding:14px 28px;border-radius:30px;border:none;font:700 16px 'Fredoka',cursive;cursor:pointer;color:#fff}
 #sum-again{background:linear-gradient(135deg,#8b5cf6,#6d28d9)}
 #sum-bye{background:linear-gradient(135deg,#ec4899,#9f1239)}
+#rec-dance-btn{padding:22px 48px;font-size:26px;width:100%;max-width:440px;margin:10px auto 0;letter-spacing:.5px}
 #v300-dev{position:fixed;left:8px;bottom:8px;z-index:99999;background:rgba(0,0,0,.85);border:1px solid #444;border-radius:10px;padding:8px;display:none;flex-wrap:wrap;gap:5px;max-width:330px;font:600 11px 'Fredoka',cursive}
 #v300-dev.on{display:flex}
 #v300-dev button{background:#1f2937;color:#fff;border:1px solid #374151;border-radius:6px;padding:5px 9px;cursor:pointer;font:inherit}
@@ -3636,7 +3637,20 @@ function startGame() {
   memory.phase = 'song';
   // v113-live: tell the worker we entered the dance phase, so Nova reacts to
   // hits/freezes with dance-phase energy + fires her hype intro line.
-  if (window.__novaSend) window.__novaSend({ kind: 'game-event', event: { event: 'phase', phase: 'dance' } });
+  // v300 fix #4B: the room/worker may still be cold-starting at this point — a
+  // single fire-and-forget packet gets silently dropped (novaSend no-ops with no
+  // room) and Nova stays SILENT. Retry until the room is connected (~30s window).
+  (function sendDanceCue(tries){
+    var room = window.__novaRoom;
+    if (window.__novaSend && room && room.localParticipant) {
+      window.__novaSend({ kind: 'game-event', event: { event: 'phase', phase: 'dance' } });
+      if (typeof LOG === 'function') LOG('GAME', 'dance cue sent to worker');
+    } else if (tries > 0) {
+      setTimeout(function(){ sendDanceCue(tries - 1); }, 1500);
+    } else if (typeof LOG === 'function') {
+      LOG('ERROR', 'dance cue NOT sent — room never connected');
+    }
+  })(20);
   // v110 KIDS — exit closeup mode, enter "lesson mode" (Nova small in corner)
   setAvatarCloseup(false);
   setNovaState('watching');
@@ -3664,7 +3678,14 @@ function startGame() {
   vid.play().then(() => {
     mp4ReadyAt = performance.now();
     LOG('AV-SYNC', `MP4 play() resolved at ${Math.round(mp4ReadyAt - T0)}ms from boot`);
-  }).catch(err => console.error('nova-dance.mp4 play failed:', err));
+  }).catch(err => {
+    // v300 fix #4A: an unmuted play() can be blocked by the browser's autoplay
+    // policy and was silently swallowed -> frozen/black dance video. Retry muted
+    // so the dance ALWAYS animates (audio comes from the separate song track).
+    console.error('nova-dance.mp4 play failed, retrying muted:', err);
+    vid.muted = true;
+    vid.play().catch(e2 => console.error('nova-dance.mp4 muted retry failed:', e2));
+  });
   
   // v103: Load audio for whichever song was picked (default = Hello Hello / shit.mp3)
   const SONG_FILE = selectedSong?.audioFile || 'shit.mp3';
@@ -4272,9 +4293,19 @@ window.__initRunwayNova = initDID;
     window.showPhase = function(id){ _sp(id); try { onPhase(id); } catch(e){} };
   }
   function onPhase(id){
-    var f = frame(); if(!f) return;
-    if(id === 'phase-game'){ f.classList.add('in-game','minigame-corner'); }
-    else { f.classList.remove('minigame-corner'); }
+    var f = frame();
+    if(f){
+      if(id === 'phase-game'){ f.classList.add('in-game','minigame-corner'); }
+      else { f.classList.remove('minigame-corner'); }
+    }
+    // v300 fix #3: never strand the kid if Nova is silent/cold — force-reveal the
+    // big "Let's Dance!" button a few seconds after the recognition screen shows.
+    if(id === 'phase-recognition'){
+      clearTimeout(window.__danceBtnTimer);
+      window.__danceBtnTimer = setTimeout(function(){
+        var b = document.getElementById('rec-dance-btn'); if(b) b.classList.add('ready');
+      }, 7000);
+    }
   }
 
   // ── dev harness: fire every event without the camera/worker (Part 10) ──
@@ -4293,6 +4324,10 @@ window.__initRunwayNova = initDID;
     mk('★ Summary', function(){ showSummary({ score:1200, hits:9, attempts:10, maxCombo:5, stars:4, moments:['the FREEZE moment','5-move streak'] }); });
     mk('👋 Bye', function(){ sayBye(); });
   }
+
+  // v300 fix #2 (partial): keep the free-tier worker warm while the page is open,
+  // so it's less likely to be cold when the kid taps. Real fix = external uptime cron.
+  setInterval(function(){ fetch(RENDER_URL + '/health').catch(function(){}); }, 25000);
 
   window.__v300 = { onHit:onHit, onMiss:onMiss, showSummary:showSummary, playAgain:playAgain, sayBye:sayBye, DEV:DEV };
   if(DEV){
