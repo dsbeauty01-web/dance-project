@@ -726,6 +726,62 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 <div id="green-flash"></div>
 
 <!-- ═══ PHASE 1: ARRIVAL ═══ -->
+<!-- ═══════════ V300 cinematic intro + commercial-grade polish layer ═══════════ -->
+<style id="v300-polish">
+:root{
+  --bg-dark:#0a0015; --bg-deep:#2d0750;
+  --nova-pink:#ff6fd8; --violet:#7c6fff; --cyan:#00d2ff; --gold:#ffd700; --green:#10b981; --ink:#5b2c6e;
+  --r-pill:999px; --ease-pop:cubic-bezier(.34,1.56,.64,1);
+  --shadow-glow:0 12px 40px rgba(124,111,255,.28),0 4px 14px rgba(0,0,0,.18);
+}
+/* ── Cinematic intro.mp4 splash → crossfades into the app ── */
+#cinematic-intro{position:fixed;inset:0;z-index:9500;background:#000;display:flex;align-items:center;justify-content:center;opacity:1;transition:opacity .85s ease;cursor:pointer}
+#cinematic-intro.gone{opacity:0;pointer-events:none}
+#cinematic-video{width:100%;height:100%;object-fit:cover}
+#cinematic-skip{position:fixed;top:16px;right:16px;z-index:9600;background:rgba(0,0,0,.4);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#fff;border:1px solid rgba(255,255,255,.28);border-radius:var(--r-pill);padding:9px 18px;font:600 13px 'Fredoka',cursive;cursor:pointer;opacity:.9;transition:transform .2s,opacity .2s}
+#cinematic-skip:hover{opacity:1;transform:scale(1.05)}
+#cinematic-tap{position:fixed;bottom:9%;left:0;right:0;text-align:center;z-index:9600;color:#fff;font:600 17px 'Fredoka',cursive;letter-spacing:.5px;text-shadow:0 2px 18px rgba(0,0,0,.7);pointer-events:none;animation:cineTap 1.9s ease-in-out infinite}
+@keyframes cineTap{0%,100%{opacity:.55;transform:translateY(0)}50%{opacity:1;transform:translateY(-5px)}}
+/* ── Premium springy feedback on key buttons ── */
+#rec-dance-btn:hover,.sum-btn:hover,#end-replay:hover,#end-save:hover{transform:translateY(-3px) scale(1.02)}
+#rec-dance-btn:active,.sum-btn:active,#end-replay:active,#end-save:active,.picker-card:active{transform:scale(.96)}
+.sum-btn{box-shadow:var(--shadow-glow);transition:transform .22s var(--ease-pop),filter .2s}
+.sum-btn:hover{filter:brightness(1.07)}
+/* ── Progress bar: glassy gradient + glow ── */
+#game-progress-wrap{border-radius:var(--r-pill);overflow:hidden}
+#game-progress{background:linear-gradient(90deg,var(--nova-pink),var(--violet),var(--cyan))!important;box-shadow:0 0 12px rgba(255,111,216,.6)}
+/* ── Small glow touches ── */
+#sum-streak{text-shadow:0 0 18px rgba(255,215,0,.5)}
+#sum-msg{line-height:1.5}
+.nova-state-badge{box-shadow:0 4px 14px rgba(0,0,0,.3)}
+</style>
+
+<div id="cinematic-intro">
+  <video id="cinematic-video" src="intro.mp4" muted playsinline preload="auto"></video>
+  <div id="cinematic-tap">tap to begin ✨</div>
+  <button id="cinematic-skip" type="button">Skip ›</button>
+</div>
+<script>
+(function(){
+  var ci = document.getElementById('cinematic-intro'), cv = document.getElementById('cinematic-video');
+  if(!ci || !cv) return;
+  var done = false;
+  function dismiss(){
+    if(done) return; done = true;
+    try { if(window.markUserInteraction) window.markUserInteraction(); } catch(e){}  // unlock audio on the way in
+    ci.classList.add('gone');
+    setTimeout(function(){ try { cv.pause(); } catch(e){} if(ci.parentNode) ci.parentNode.removeChild(ci); }, 900);
+  }
+  ci.addEventListener('click', dismiss);          // tap anywhere / Skip → enter the app
+  cv.addEventListener('ended', dismiss);          // let it finish → crossfade into arrival
+  cv.addEventListener('error', dismiss);          // missing/blocked → never block the app
+  var p = cv.play(); if(p && p.catch) p.catch(function(){});  // muted autoplay (browser policy)
+  setTimeout(function(){ if(!done && cv.readyState < 2) dismiss(); }, 4500); // didn't load → skip
+  setTimeout(dismiss, 20000);                     // hard cap
+  try { if(window.LOG) LOG('BOOT','cinematic intro playing'); } catch(e){}
+})();
+</script>
+
 <div class="phase active" id="phase-arrival">
   <!-- v102 Living Room — warm gradient backdrop + Nova centered + 2 CTAs -->
   <div id="living-room-bg"></div>
