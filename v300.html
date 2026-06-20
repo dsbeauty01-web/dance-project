@@ -467,7 +467,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   filter:drop-shadow(0 4px 16px rgba(0,0,0,0.95))}
 #cue-label{display:none}
 #cue-instr{display:none}
-#cue-bar-wrap{display:none}
+#cue-bar-wrap{display:block} /* v300 QA: re-enabled — gives kids the "get ready" countdown runway */
 
 /* Reaction bubble — bottom of Nova panel */
 #reaction-bubble{position:absolute;bottom:24px;left:50%;
@@ -1066,16 +1066,52 @@ function pickerBack(){
 // v103 — Save kid data to localStorage so Nova remembers next session
 function saveNova(){
   try {
+    const m = window.__novaMemory || {};
     const data = {
-      name: window.__novaMemory?.name || null,
-      age: window.__novaMemory?.age || null,
-      totalSessions: (window.__novaMemory?.totalSessions || 0) + 1,
-      maxStreak: window.__novaMemory?.maxStreak || 0,
-      favoriteMove: window.__novaMemory?.favoriteMove || null,
-      bestMoment: (window.__novaMemory?.moments && window.__novaMemory.moments[window.__novaMemory.moments.length-1]) || window.__novaMemory?.bestMoment || null, // v300
+      name: m.name || null,
+      age: m.age || null,
+      totalSessions: (m.totalSessions || 0) + 1,
+      maxStreak: m.maxStreak || 0,
+      favoriteMove: m.favoriteMove || m.lastAction || null,
+      bestMoment: (m.moments && m.moments[m.moments.length-1]) || m.bestMoment || null,
       lastVisit: Date.now(),
     };
     localStorage.setItem('nova_kid_data', JSON.stringify(data));
+
+    // v300 QA: rolling session HISTORY (append, never overwrite) so Nova is truly
+    // cross-session aware — "yesterday 5, today 6", "played 5 times", favorite move,
+    // day streak. Capped at 30 sessions.
+    try {
+      const raw = localStorage.getItem('nova_kid_v2');
+      const store = raw ? JSON.parse(raw) : { sessions: [] };
+      const today = new Date().toISOString().slice(0,10);
+      const yesterday = new Date(Date.now()-864e5).toISOString().slice(0,10);
+      store.sessions = store.sessions || [];
+      store.sessions.push({
+        date: today,
+        maxStreak: m.maxStreak || 0,
+        hits: m.hits || 0,
+        attempts: m.attempts || 0,
+        favoriteMove: m.lastAction || null,
+        bestMoment: data.bestMoment,
+        songName: (window.selectedSong && window.selectedSong.name) || 'Hello Hello',
+      });
+      if (store.sessions.length > 30) store.sessions = store.sessions.slice(-30);
+      store.kidId = window.__kidId || store.kidId || null;
+      store.name = m.name || store.name || null;
+      store.age = m.age || store.age || null;
+      store.totalSessions = (store.totalSessions || 0) + 1;
+      store.allTimeBestStreak = Math.max(store.allTimeBestStreak || 0, m.maxStreak || 0);
+      const counts = {};
+      store.sessions.forEach(function(x){ if(x.favoriteMove) counts[x.favoriteMove] = (counts[x.favoriteMove]||0)+1; });
+      store.favoriteMove = Object.keys(counts).sort(function(a,b){ return counts[b]-counts[a]; })[0] || store.favoriteMove || null;
+      const prevDay = store.lastVisit ? new Date(store.lastVisit).toISOString().slice(0,10) : null;
+      store.dayStreak = prevDay === today ? (store.dayStreak||1)
+                      : prevDay === yesterday ? (store.dayStreak||0)+1 : 1;
+      store.lastVisit = Date.now();
+      localStorage.setItem('nova_kid_v2', JSON.stringify(store));
+    } catch(e2){ console.error('v2 history save failed', e2); }
+
     const btn = document.getElementById('end-save');
     if (btn) {
       btn.classList.add('saved');
@@ -1330,7 +1366,7 @@ const CFG = {
   SONG_DURATION: 111000,
   // Behavior
   REACTION_COOLDOWN: 0,
-  DETECTION_HOLD_FRAMES: 1,
+  DETECTION_HOLD_FRAMES: 2,   // v300 QA: was 1 — a single noisy frame could false-trigger a hit
 };
 LOG('CFG', 'config loaded', { renderUrl: CFG.RENDER_URL, avatarId: CFG.AVATAR_ID });
 
@@ -1870,7 +1906,14 @@ async function initDID() {
     // By running them in parallel we save the camera time entirely.
     // v113-live: novapython worker "front desk". Returns { serverUrl, token,
     // roomName }. kidId lets the worker load/save THIS kid's memory server-side.
-    if (!window.__kidId) window.__kidId = 'v300-' + Date.now();
+    // v300 QA fix: PERSIST kid_id so the worker recognizes returning kids. It was a
+    // fresh timestamp every load -> every visit looked like a brand-new kid, which
+    // starved the worker's whole per-kid memory system. Highest-ROI fix in the audit.
+    if (!window.__kidId) {
+      window.__kidId = localStorage.getItem('nova_kid_id')
+        || ('nova-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
+      localStorage.setItem('nova_kid_id', window.__kidId);
+    }
     const sessionPromise = fetch(CFG.RENDER_URL + '/v2/create-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2927,7 +2970,10 @@ async function poseLoop() {
     return;
   }
   try {
-    const poses = await detector.estimatePoses(v, { flipHorizontal: false });
+    // v300 QA fix: flip to TRUE. The webcam is mirrored for display (scaleX(-1)) and
+    // cues say "RIGHT HAND", but detection ran un-flipped -> left/right were swapped,
+    // so correct moves scored as misses. flipHorizontal:true matches the mirror.
+    const poses = await detector.estimatePoses(v, { flipHorizontal: true });
     if(poses.length > 0) {
       const kps = poses[0].keypoints;
       analyzePose(kps);
@@ -3759,11 +3805,14 @@ const anticipatedIdx = new Set();
 
 function gameTick() {
   const elapsed = (window._audio?.currentTime || 0) * 1000;
-  const pct = Math.min(100, (elapsed / CFG.SONG_DURATION) * 100);
+  // v300 QA: use the picked song's real duration — SONG_DURATION was hardcoded to
+  // the 111s song, so the progress bar only reached ~54% on the 60s freeze song.
+  const songDur = (selectedSong && selectedSong.durationMs) || CFG.SONG_DURATION;
+  const pct = Math.min(100, (elapsed / songDur) * 100);
   document.getElementById('game-progress').style.width = pct + '%';
-  
+
   // Auto-end if audio finishes or runs over
-  if(elapsed >= CFG.SONG_DURATION + 500 && !window._audio?.paused) {
+  if(elapsed >= songDur + 500 && !window._audio?.paused) {
     // Wait for audio.onended to fire
   }
   
@@ -4218,11 +4267,18 @@ window.__initRunwayNova = initDID;
   async function summaryLines(s){
     var name = mem().name || 'superstar';
     var best = (s.moments && s.moments[s.moments.length-1]) || (s.moments && s.moments[0]) || 'that freeze';
-    var prev = mem().previousMaxStreak || 0;
+    // v300 QA: read the TRUE last session (the previous visit, before this one is
+    // saved) from the rolling history — real "yesterday vs today", not all-time.
+    var hist = []; try { hist = (JSON.parse(localStorage.getItem('nova_kid_v2')||'{}').sessions) || []; } catch(e){}
+    var lastSess = hist[hist.length-1] || null;
+    var prev = lastSess ? (lastSess.maxStreak||0) : 0;
+    var today = s.maxCombo || 0;
+    var line2 = (prev && today > prev) ? ('Yesterday you hit ' + prev + ' — today you got ' + today + '! you’re getting faster.')
+              : prev ? ('Yesterday your best was ' + prev + '... tomorrow we smash it!')
+              : ('Tomorrow I’ve got a secret new move just for you...');
     var canned = [
       'BOOM ' + name + ' — ' + best + ' was UNREAL!',
-      prev ? ('Yesterday your best was ' + prev + ' in a row... tomorrow we smash it!')
-           : ('Tomorrow I’ve got a secret new move just for you...'),
+      line2,
       'Okay ' + name + ' — see you tomorrow! YESSS!'
     ];
     if(DEV) return canned;
@@ -4277,9 +4333,10 @@ window.__initRunwayNova = initDID;
   async function sayBye(){
     clearTimeout(window.__sumTimer);
     var name = mem().name || '';
-    var prev = mem().previousMaxStreak || 0;
+    var hist2 = []; try { hist2 = (JSON.parse(localStorage.getItem('nova_kid_v2')||'{}').sessions) || []; } catch(e){}
+    var prev = hist2.length ? (hist2[hist2.length-1].maxStreak||0) : 0;
     var goal = (mem().maxStreak || prev || 0) + 1;
-    var promise = prev ? ('tomorrow we go for ' + goal + '!') : ('I’ve got a secret move for tomorrow...');
+    var promise = (prev || mem().maxStreak) ? ('tomorrow we go for ' + goal + '!') : ('I’ve got a secret move for tomorrow...');
     var msgEl = Q('sum-msg'); if(msgEl) msgEl.textContent = 'Okay ' + name + '... ' + promise;
     try { if(window.saveNova) window.saveNova(); } catch(e){}            // persist name/maxStreak/bestMoment (Part 8)
     await speak('Okay ' + name + '... ' + promise + ' See you tomorrow!');
