@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Nova Join · Dance</title>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.20.0/dist/tf-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.20.0/dist/tf-converter.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.20.0/dist/tf-backend-webgl.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<style>
+  :root{ --pink:#ff5fd8; --grn:#00ff99; --yel:#ffd84d; --bg:#140022; }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    font-family:'Fredoka','Segoe UI',system-ui,sans-serif; color:#fff; overflow:hidden;
+    background:radial-gradient(120% 120% at 50% 0%, #3a1060 0%, #1a0633 55%, #0c0019 100%);
+    -webkit-user-select:none; user-select:none;
+  }
+  .screen{ position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .hidden{ display:none !important; }
+
+  /* ── START ── */
+  #start-screen{ gap:18px; text-align:center; padding:24px; }
+  #start-screen h1{ font-size:clamp(34px,9vw,64px); font-weight:700;
+    background:linear-gradient(90deg,#ff8ae2,#a78bfa,#6ee7ff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  #start-screen p{ opacity:.8; font-size:clamp(14px,4vw,18px); max-width:420px; line-height:1.5; }
+  .moves-preview{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; max-width:460px; margin:6px 0 4px; }
+  .moves-preview .chip{ background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14);
+    border-radius:14px; padding:8px 10px; display:flex; flex-direction:column; align-items:center; gap:4px; width:84px; }
+  .moves-preview .chip svg{ width:46px; height:60px; }
+  .moves-preview .chip span{ font-size:11px; opacity:.85; }
+  .big-btn{ background:linear-gradient(135deg,var(--grn),#00c2d4); color:#062; border:none; cursor:pointer;
+    font-family:inherit; font-weight:700; font-size:clamp(20px,5.5vw,26px); padding:18px 46px; border-radius:50px;
+    box-shadow:0 8px 34px rgba(0,255,150,.5); transition:transform .15s; }
+  .big-btn:active{ transform:scale(.95); }
+  #cam-warn{ font-size:13px; opacity:.7; min-height:18px; }
+
+  /* ── COUNTDOWN ── */
+  #countdown{ background:rgba(8,0,20,.86); z-index:40; }
+  #cd-num{ font-size:min(48vw,300px); font-weight:700; color:#fff; text-shadow:0 0 40px var(--pink);
+    animation:cdPop .9s ease-out; }
+  #cd-sub{ font-size:clamp(16px,5vw,24px); opacity:.85; margin-top:10px; }
+  @keyframes cdPop{ 0%{ transform:scale(.4); opacity:0 } 30%{ transform:scale(1.1); opacity:1 } 100%{ transform:scale(1); opacity:1 } }
+
+  /* ── GAME ── */
+  #game{ justify-content:flex-start; }
+  #hud{ width:100%; display:flex; align-items:center; gap:10px; padding:10px 14px;
+    position:relative; z-index:20; }
+  #score-box{ font-weight:700; font-size:clamp(22px,6vw,30px); color:var(--yel); min-width:74px; }
+  #score-box small{ display:block; font-size:11px; color:#fff9; font-weight:500; }
+  #progress-wrap{ flex:1; height:12px; background:rgba(255,255,255,.12); border-radius:8px; overflow:hidden; }
+  #progress{ height:100%; width:0%; background:linear-gradient(90deg,var(--pink),var(--yel)); border-radius:8px; transition:width .2s linear; }
+  #combo-box{ font-weight:700; font-size:clamp(16px,4.5vw,22px); color:var(--grn); min-width:58px; text-align:right; }
+  #combo-box.pulse{ animation:comboPulse .4s; }
+  @keyframes comboPulse{ 50%{ transform:scale(1.35) } }
+  #quit{ background:rgba(255,255,255,.1); border:none; color:#fff; font-size:18px; width:34px; height:34px; border-radius:50%; cursor:pointer; }
+
+  #stage{ position:relative; width:100%; flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+
+  /* big mirrored camera = the hero */
+  #cam-wrap{ position:relative; width:min(94vw,520px); aspect-ratio:3/4; max-height:74vh;
+    border-radius:26px; overflow:hidden; background:#000;
+    border:5px solid rgba(255,255,255,.18); box-shadow:0 14px 50px rgba(0,0,0,.5); transition:border-color .15s, box-shadow .15s; }
+  #cam, #overlay{ position:absolute; inset:0; width:100%; height:100%; }
+  #cam{ object-fit:cover; transform:scaleX(-1); }   /* mirror like a selfie */
+  #overlay{ transform:scaleX(-1); }                 /* skeleton drawn in video space, mirrored to match */
+  /* detection window state */
+  #cam-wrap.armed{ border-color:var(--yel); box-shadow:0 0 0 4px rgba(255,216,77,.35),0 14px 50px rgba(0,0,0,.5); }
+  #cam-wrap.hit{ border-color:var(--grn); box-shadow:0 0 0 6px rgba(0,255,150,.5),0 14px 50px rgba(0,0,0,.5); }
+  #cam-wrap.miss{ border-color:#ff4d6d; box-shadow:0 0 0 6px rgba(255,77,109,.45),0 14px 50px rgba(0,0,0,.5); }
+
+  /* Nova demo PiP */
+  #nova-pip{ position:absolute; top:8px; left:8px; width:23%; max-width:120px; aspect-ratio:9/16;
+    border-radius:14px; overflow:hidden; border:2px solid rgba(255,255,255,.3); z-index:6; background:#200; }
+  #nova-pip video{ width:100%; height:100%; object-fit:cover; }
+  #nova-pip .tag{ position:absolute; bottom:0; left:0; right:0; font-size:9px; text-align:center; background:rgba(0,0,0,.5); padding:1px 0; }
+
+  /* CUE CARD */
+  #cue{ position:absolute; top:6px; right:8px; z-index:8; width:min(40vw,180px);
+    background:rgba(20,0,40,.82); backdrop-filter:blur(6px); border:2px solid var(--pink);
+    border-radius:18px; padding:10px 10px 8px; text-align:center; opacity:0; transform:translateY(-8px) scale(.96);
+    transition:opacity .18s, transform .18s; }
+  #cue.show{ opacity:1; transform:none; }
+  #cue-figure{ width:84px; height:108px; margin:0 auto; }
+  #cue-label{ font-weight:700; font-size:clamp(15px,4.5vw,20px); margin-top:4px; line-height:1.1; }
+  #cue-timer-wrap{ height:7px; background:rgba(255,255,255,.15); border-radius:5px; margin-top:8px; overflow:hidden; }
+  #cue-timer{ height:100%; width:100%; background:var(--yel); transform-origin:left; }
+
+  /* feedback popups */
+  #fx{ position:absolute; inset:0; pointer-events:none; z-index:15; display:flex; align-items:center; justify-content:center; }
+  .pop{ position:absolute; font-weight:700; font-size:clamp(28px,9vw,52px); animation:popUp .9s ease-out forwards; text-shadow:0 3px 12px rgba(0,0,0,.5); }
+  @keyframes popUp{ 0%{ transform:translateY(20px) scale(.6); opacity:0 } 25%{ transform:translateY(0) scale(1.1); opacity:1 } 100%{ transform:translateY(-50px) scale(1); opacity:0 } }
+
+  /* coach line */
+  #coach{ position:absolute; bottom:10px; left:50%; transform:translateX(-50%); z-index:9;
+    background:rgba(0,0,0,.55); padding:8px 16px; border-radius:20px; font-size:clamp(14px,4vw,18px);
+    max-width:90%; text-align:center; opacity:0; transition:opacity .2s; }
+  #coach.show{ opacity:1; }
+
+  /* ── END ── */
+  #end-screen{ gap:14px; text-align:center; padding:24px; z-index:30; }
+  #end-stars{ font-size:46px; letter-spacing:6px; min-height:54px; }
+  #end-title{ font-size:clamp(28px,8vw,46px); font-weight:700; }
+  #end-score{ font-size:clamp(20px,6vw,30px); color:var(--yel); font-weight:700; }
+  #end-detail{ opacity:.8; }
+  #end-hook{ color:var(--yel); font-weight:600; font-size:15px; margin-top:4px; }
+</style>
+</head>
+<body>
+
+<!-- START -->
+<div id="start-screen" class="screen">
+  <h1>Nova Join</h1>
+  <p>Copy Nova's moves! Watch the card, do the move before the timer runs out. Stand back so I can see your head, shoulders &amp; hips. 💜</p>
+  <div class="moves-preview" id="moves-preview"></div>
+  <button class="big-btn" id="start-btn">▶ Start Dancing</button>
+  <div id="cam-warn"></div>
+</div>
+
+<!-- COUNTDOWN -->
+<div id="countdown" class="screen hidden">
+  <div id="cd-num">3</div>
+  <div id="cd-sub">get ready…</div>
+</div>
+
+<!-- GAME -->
+<div id="game" class="screen hidden">
+  <div id="hud">
+    <div id="score-box"><span id="score">0</span><small>score</small></div>
+    <div id="progress-wrap"><div id="progress"></div></div>
+    <div id="combo-box">x0</div>
+    <button id="quit" title="Quit">✕</button>
+  </div>
+  <div id="stage">
+    <div id="cam-wrap">
+      <video id="cam" playsinline muted autoplay></video>
+      <canvas id="overlay"></canvas>
+      <div id="nova-pip">
+        <video id="nova-vid" playsinline preload="auto" loop>
+          <source src="nova-joined-small.mp4" type="video/mp4">
+        </video>
+        <div class="tag">Nova</div>
+      </div>
+      <div id="cue">
+        <div id="cue-figure"></div>
+        <div id="cue-label">HEAD</div>
+        <div id="cue-timer-wrap"><div id="cue-timer"></div></div>
+      </div>
+      <div id="fx"></div>
+      <div id="coach"></div>
+    </div>
+  </div>
+</div>
+
+<!-- END -->
+<div id="end-screen" class="screen hidden">
+  <div id="end-stars"></div>
+  <div id="end-title">Nice dancing!</div>
+  <div id="end-score">0 pts</div>
+  <div id="end-detail"></div>
+  <div id="end-hook"></div>
+  <button class="big-btn" id="replay-btn">▶ Dance again</button>
+</div>
+
+<script>
+"use strict";
+/* ════════════════════════════════════════════════════════════════════
+   NOVA JOIN — self-contained dance game (frontend only).
+   MoveNet pose detection + beat-timed cues + live scoring. No backend.
+   ════════════════════════════════════════════════════════════════════ */
+
+// ---- MOVE DEFINITIONS ---------------------------------------------------
+// 6 moves. `check(d, base)` returns true when the current pose `d` (deltas vs the
+// calibrated `base`) matches. Detection is per-part + directional where it makes
+// sense. Thresholds are normalised by shoulder width — tune in THRESH below.
+const THRESH = { head:0.10, sh:0.07, hip:0.10, knee:0.12, motion:0.06 };
+
+const MOVES = {
+  'head-right':     { name:'HEAD →',      coach:'tilt your head RIGHT',  pts:100, check:d=> d.headDX >  THRESH.head },
+  'head-left':      { name:'← HEAD',      coach:'tilt your head LEFT',   pts:100, check:d=> d.headDX < -THRESH.head },
+  'shoulder-right': { name:'SHOULDER →',  coach:'lift your RIGHT shoulder', pts:120, check:d=> d.shTilt < -THRESH.sh },
+  'shoulder-left':  { name:'← SHOULDER',  coach:'lift your LEFT shoulder',  pts:120, check:d=> d.shTilt >  THRESH.sh },
+  'hips':           { name:'HIPS',        coach:'swing your hips!',      pts:130, check:d=> Math.abs(d.hipDX) > THRESH.hip },
+  'knee':           { name:'KNEE UP',     coach:'lift a knee!',          pts:140, check:d=> d.kneeLift > THRESH.knee },
+  'free':           { name:'FREESTYLE!',  coach:'move it ALL!',          pts:60,  check:d=> d.motion > THRESH.motion },
+};
+
+// ---- CUE TIMELINE (video.currentTime ms; music = nova-joined-small.mp4) -
+// 98.5 BPM, beat≈609ms. We jump the video to ~28s (skip the walk-up) and run the
+// routine: slow alternating build, then double-speed, then freestyle.
+const VIDEO_START = 28.0;        // seconds — where the dance/groove begins
+const CUES = (()=>{
+  const out = [];
+  const add = (t, action, dur) => out.push({ t, dur, action });
+  // SLOW BUILD — every 1.22s, window 1.05s
+  const slow = 1220, sw = 1050;
+  let t = 30100;
+  ['head-right','head-left','head-right','head-left'].forEach(a=>{ add(t,a,sw); t+=slow; });
+  t = 35000;
+  ['shoulder-right','shoulder-left','shoulder-right','shoulder-left'].forEach(a=>{ add(t,a,sw); t+=slow; });
+  t = 40100;
+  for(let i=0;i<4;i++){ add(t,'hips',sw); t+=slow; }
+  t = 45000;
+  for(let i=0;i<4;i++){ add(t,'knee',sw); t+=slow; }
+  // DOUBLE-SPEED — every 0.61s, window 0.5s, reversed knee→hips→shoulder→head
+  const fast = 610, fw = 500;
+  t = 50100;
+  for(let i=0;i<4;i++){ add(t,'knee',fw); t+=fast; }
+  for(let i=0;i<4;i++){ add(t,'hips',fw); t+=fast; }
+  ['shoulder-right','shoulder-left','shoulder-right','shoulder-left'].forEach(a=>{ add(t,a,fw); t+=fast; });
+  ['head-right','head-left','head-right','head-left'].forEach(a=>{ add(t,a,fw); t+=fast; });
+  // FREESTYLE — long windows, any motion scores
+  add(60500,'free',6500); add(67500,'free',6500); add(74500,'free',6000);
+  return out.sort((a,b)=>a.t-b.t);
+})();
+const SONG_END = 82.0;           // seconds — stop + show results
+
+// ---- SVG MOVE FIGURES ---------------------------------------------------
+// A simple front-facing figure (mirror of the kid). Active part glows + arrow.
+function figureSVG(action){
+  const P='#ff5fd8', HI='#ffd84d', base='#cfc2e8', S=4;
+  const stroke=(extra='')=>`stroke="${base}" stroke-width="${S}" stroke-linecap="round" fill="none" ${extra}`;
+  const glow=`stroke="${HI}" stroke-width="${S+2}" stroke-linecap="round" fill="none"`;
+  // shoulder y's & knee positions per move
+  let lShY=46, rShY=46, headCx=50, headTilt=0, lLeg='M38,86 L34,124', rLeg='M62,86 L66,124';
+  let hi='', arrow='';
+  if(action==='head-right'){ headCx=58; headTilt=12; hi='head'; arrow=`<text x="80" y="30" font-size="22" fill="${HI}">→</text>`; }
+  else if(action==='head-left'){ headCx=42; headTilt=-12; hi='head'; arrow=`<text x="6" y="30" font-size="22" fill="${HI}">←</text>`; }
+  else if(action==='shoulder-right'){ rShY=34; hi='rsh'; arrow=`<text x="76" y="30" font-size="20" fill="${HI}">↑</text>`; }
+  else if(action==='shoulder-left'){ lShY=34; hi='lsh'; arrow=`<text x="14" y="30" font-size="20" fill="${HI}">↑</text>`; }
+  else if(action==='hips'){ hi='hips'; arrow=`<text x="34" y="80" font-size="20" fill="${HI}">↔</text>`; }
+  else if(action==='knee'){ rLeg='M62,86 L70,104 L58,112'; hi='knee'; arrow=`<text x="74" y="104" font-size="20" fill="${HI}">↑</text>`; }
+  const head = `<circle cx="${headCx}" cy="22" r="13" transform="rotate(${headTilt} ${headCx} 22)" ${hi==='head'?glow:stroke()}/>`;
+  const neck = `<line x1="50" y1="35" x2="50" y2="50" ${stroke()}/>`;
+  const shoulders = `<line x1="28" y1="${lShY}" x2="72" y2="${rShY}" ${(hi==='lsh'||hi==='rsh')?glow:stroke()}/>`;
+  const torso = `<line x1="50" y1="48" x2="50" y2="86" ${stroke()}/>`;
+  const lArm = `<line x1="28" y1="${lShY}" x2="18" y2="72" ${stroke()}/>`;
+  const rArm = `<line x1="72" y1="${rShY}" x2="82" y2="72" ${stroke()}/>`;
+  const hips = `<line x1="36" y1="86" x2="64" y2="86" ${hi==='hips'?glow:stroke()}/>`;
+  const legs = `<path d="${lLeg}" ${stroke()}/><path d="${rLeg}" ${(hi==='knee')?glow:stroke()}/>`;
+  return `<svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg">${head}${neck}${shoulders}${torso}${lArm}${rArm}${hips}${legs}${arrow}</svg>`;
+}
+
+// ---- STATE --------------------------------------------------------------
+let detector=null, camStream=null, rafId=0;
+let det = { headDX:0, shTilt:0, hipDX:0, kneeLift:0, motion:0, present:false };
+let base = { headDX:0, shTilt:0, hipDX:0, kneeY:0, sw:120, ok:false };
+let smooth = {};
+let game = { running:false, score:0, combo:0, maxCombo:0, hits:0, total:0, idx:0, cue:null, cueResolved:false, cueEnd:0 };
+let prevKp = null;
+
+const $ = id => document.getElementById(id);
+
+// ---- INIT ---------------------------------------------------------------
+function renderMovesPreview(){
+  const wrap=$('moves-preview');
+  [['head-right','Head'],['shoulder-right','Shoulder'],['hips','Hips'],['knee','Knee']].forEach(([a,lbl])=>{
+    const c=document.createElement('div'); c.className='chip';
+    c.innerHTML = figureSVG(a)+`<span>${lbl}</span>`;
+    wrap.appendChild(c);
+  });
+}
+renderMovesPreview();
+
+async function ensureModel(){
+  if(detector) return;
+  await tf.setBackend('webgl'); await tf.ready();
+  detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,
+    { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING });
+}
+
+async function ensureCamera(){
+  if(camStream) return true;
+  try{
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video:{ width:{ideal:640}, height:{ideal:480}, facingMode:'user' }, audio:false });
+    const v=$('cam'); v.srcObject=camStream; await v.play();
+    return true;
+  }catch(e){ $('cam-warn').textContent='⚠ Camera blocked — allow camera and reload.'; return false; }
+}
+
+// ---- POSE LOOP ----------------------------------------------------------
+function kp(kps,name){ return kps.find(k=>k.name===name); }
+function sm(key,x,y){ const a=0.6; if(!smooth[key]) smooth[key]={x,y}; smooth[key].x=smooth[key].x*a+x*(1-a); smooth[key].y=smooth[key].y*a+y*(1-a); return smooth[key]; }
+
+async function poseLoop(){
+  const v=$('cam');
+  if(detector && v && v.readyState>=2){
+    let poses=[];
+    try{ poses = await detector.estimatePoses(v,{flipHorizontal:true}); }catch(e){}
+    if(poses[0]){ analyze(poses[0].keypoints); drawSkeleton(poses[0].keypoints); }
+    else { det.present=false; clearOverlay(); }
+  }
+  rafId=requestAnimationFrame(poseLoop);
+}
+
+function analyze(kps){
+  const MIN=0.3;
+  const ls=kp(kps,'left_shoulder'), rs=kp(kps,'right_shoulder'), nose=kp(kps,'nose');
+  const lh=kp(kps,'left_hip'), rh=kp(kps,'right_hip');
+  const lk=kp(kps,'left_knee'), rk=kp(kps,'right_knee');
+  det.present = ls&&rs&&ls.score>MIN&&rs.score>MIN;
+  if(!det.present) return;
+  const Ls=sm('ls',ls.x,ls.y), Rs=sm('rs',rs.x,rs.y);
+  const sw = Math.max(Math.abs(Ls.x-Rs.x),60);
+  const midShX=(Ls.x+Rs.x)/2, midShY=(Ls.y+Rs.y)/2;
+  // head sideways offset (flipHorizontal:true → +x = kid's right / screen-right)
+  let headDX=0; if(nose&&nose.score>MIN){ const N=sm('no',nose.x,nose.y); headDX=(N.x-midShX)/sw; }
+  // shoulder tilt: (right.y - left.y)/sw ; >0 left higher, <0 right higher
+  const shTilt=(Rs.y-Ls.y)/sw;
+  // hips
+  let hipDX=0, kneeY=null;
+  if(lh&&rh&&lh.score>MIN&&rh.score>MIN){ const Lh=sm('lh',lh.x,lh.y), Rh=sm('rh',rh.x,rh.y);
+    hipDX=(((Lh.x+Rh.x)/2)-midShX)/sw; }
+  if(lk&&rk&&lk.score>MIN&&rk.score>MIN){ kneeY=Math.min(lk.y,rk.y); }
+  else if(lk&&lk.score>MIN) kneeY=lk.y; else if(rk&&rk.score>MIN) kneeY=rk.y;
+  // store deltas vs baseline
+  det.headDX = headDX - base.headDX;
+  det.shTilt = shTilt - base.shTilt;
+  det.hipDX  = hipDX  - base.hipDX;
+  det.kneeLift = (kneeY!=null && base.kneeY) ? (base.kneeY - kneeY)/sw : 0; // up = +
+  det._raw = { headDX, shTilt, hipDX, kneeY, sw };
+  // motion from frame-to-frame keypoint travel
+  if(prevKp){ let tot=0,c=0; for(let i=0;i<kps.length;i++){ if(kps[i].score>MIN&&prevKp[i]&&prevKp[i].score>MIN){ tot+=Math.hypot(kps[i].x-prevKp[i].x,kps[i].y-prevKp[i].y); c++; } } if(c) det.motion=0.6*det.motion+0.4*Math.min(1,(tot/c)/sw*3); }
+  prevKp=kps.map(k=>({x:k.x,y:k.y,score:k.score}));
+}
+
+function calibrate(){
+  // snapshot the neutral standing pose as the zero point
+  const r=det._raw; if(!r) return;
+  base.headDX=r.headDX; base.shTilt=r.shTilt; base.hipDX=r.hipDX; base.kneeY=r.kneeY||0; base.sw=r.sw; base.ok=true;
+}
+
+// ---- OVERLAY (skeleton) -------------------------------------------------
+const SKELETON=[['left_shoulder','right_shoulder'],['left_shoulder','left_elbow'],['left_elbow','left_wrist'],
+  ['right_shoulder','right_elbow'],['right_elbow','right_wrist'],['left_shoulder','left_hip'],
+  ['right_shoulder','right_hip'],['left_hip','right_hip'],['left_hip','left_knee'],['left_knee','left_ankle'],
+  ['right_hip','right_knee'],['right_knee','right_ankle']];
+function fitOverlay(){ const v=$('cam'),c=$('overlay'); if(v.videoWidth){ c.width=v.videoWidth; c.height=v.videoHeight; } }
+function clearOverlay(){ const c=$('overlay'); const x=c.getContext('2d'); x.clearRect(0,0,c.width,c.height); }
+function drawSkeleton(kps){
+  const c=$('overlay'); if(c.width!==$('cam').videoWidth) fitOverlay();
+  const x=c.getContext('2d'); x.clearRect(0,0,c.width,c.height);
+  x.strokeStyle='rgba(0,255,150,.8)'; x.lineWidth=4; x.fillStyle='#ff5fd8';
+  const m={}; kps.forEach(k=>m[k.name]=k);
+  SKELETON.forEach(([a,b])=>{ const A=m[a],B=m[b]; if(A&&B&&A.score>0.3&&B.score>0.3){ x.beginPath(); x.moveTo(A.x,A.y); x.lineTo(B.x,B.y); x.stroke(); }});
+  kps.forEach(k=>{ if(k.score>0.3){ x.beginPath(); x.arc(k.x,k.y,5,0,7); x.fill(); }});
+}
+
+// ---- GAME FLOW ----------------------------------------------------------
+async function startFlow(){
+  $('start-btn').disabled=true; $('cam-warn').textContent='loading…';
+  const okCam=await ensureCamera(); if(!okCam){ $('start-btn').disabled=false; return; }
+  await ensureModel();
+  $('cam-warn').textContent='';
+  $('start-screen').classList.add('hidden');
+  cancelAnimationFrame(rafId); poseLoop();   // start detecting now (for calibration)
+  await countdown();
+  beginGame();
+}
+
+function countdown(){
+  return new Promise(res=>{
+    $('countdown').classList.remove('hidden');
+    const num=$('cd-num'), sub=$('cd-sub'); let n=3;
+    const step=()=>{
+      if(n>0){ num.textContent=n; num.style.animation='none'; void num.offsetWidth; num.style.animation='cdPop .9s ease-out';
+        sub.textContent = n===3?'stand back, I can see you':'get ready…'; n--; setTimeout(step,900); }
+      else { num.textContent='GO!'; sub.textContent='copy Nova!'; calibrate(); // zero-point on the neutral stance
+        setTimeout(()=>{ $('countdown').classList.add('hidden'); res(); },700); }
+    };
+    step();
+  });
+}
+
+function beginGame(){
+  Object.assign(game,{ running:true, score:0, combo:0, maxCombo:0, hits:0, total:0, idx:0, cue:null, cueResolved:false, cueEnd:0 });
+  $('score').textContent='0'; $('combo-box').textContent='x0'; $('progress').style.width='0%';
+  $('game').classList.remove('hidden');
+  const nv=$('nova-vid'); nv.muted=false; nv.volume=0.8; nv.loop=false;
+  try{ nv.currentTime=VIDEO_START; }catch(e){}
+  nv.onended=endGame;
+  nv.play().catch(()=>{ /* retry on next tick */ setTimeout(()=>nv.play().catch(()=>{}),200); });
+  coach('Here we go — copy me!');
+  clearInterval(game.tick); game.tick=setInterval(gameTick,60);
+}
+
+function gameTick(){
+  if(!game.running) return;
+  const nv=$('nova-vid'); const now=nv.currentTime*1000;
+  const span=(SONG_END-VIDEO_START)*1000;
+  $('progress').style.width=Math.min(100,((nv.currentTime-VIDEO_START)/(SONG_END-VIDEO_START))*100)+'%';
+  if(nv.currentTime>=SONG_END){ endGame(); return; }
+
+  // open next cue
+  if(!game.cue && game.idx<CUES.length && now>=CUES[game.idx].t){
+    openCue(CUES[game.idx]);
+  }
+  // live-check active cue
+  if(game.cue){
+    if(!game.cueResolved && MOVES[game.cue.action].check(det, base) && det.present){ resolveHit(); }
+    if(now>=game.cueEnd){ if(!game.cueResolved) resolveMiss(); closeCue(); }
+  }
+}
+
+function openCue(c){
+  game.cue=c; game.cueResolved=false; game.cueEnd=c.t+c.dur; game.total++;
+  const m=MOVES[c.action];
+  $('cue-figure').innerHTML=figureSVG(c.action==='free'?'hips':c.action);
+  $('cue-label').textContent=m.name;
+  $('cue').classList.add('show');
+  $('cam-wrap').classList.remove('hit','miss'); $('cam-wrap').classList.add('armed');
+  // timer bar shrink across the window
+  const bar=$('cue-timer'); bar.style.transition='none'; bar.style.transform='scaleX(1)';
+  void bar.offsetWidth; bar.style.transition=`transform ${c.dur}ms linear`; bar.style.transform='scaleX(0)';
+  coach(m.coach);
+  // announce (quiet — works without backend)
+  say(m.name.replace(/[←→↑↔]/g,'').trim());
+}
+function closeCue(){ game.cue=null; $('cue').classList.remove('show'); $('cam-wrap').classList.remove('armed'); game.idx++; }
+
+function resolveHit(){
+  game.cueResolved=true;
+  const m=MOVES[game.cue.action];
+  const fast=(game.cueEnd-$('nova-vid').currentTime*1000)>game.cue.dur*0.45;
+  const pts=Math.round(m.pts*(fast?1.5:1)*(1+Math.min(game.combo,8)*0.1));
+  game.score+=pts; game.hits++; game.combo++; game.maxCombo=Math.max(game.maxCombo,game.combo);
+  $('score').textContent=game.score;
+  const cb=$('combo-box'); cb.textContent='x'+game.combo; cb.classList.remove('pulse'); void cb.offsetWidth; cb.classList.add('pulse');
+  $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('hit');
+  pop((fast?'PERFECT ':'+')+pts, fast?'#ffd84d':'#00ff99');
+}
+function resolveMiss(){
+  game.combo=0; $('combo-box').textContent='x0';
+  $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('miss');
+  pop('miss','#ff4d6d');
+}
+
+function endGame(){
+  if(!game.running) return; game.running=false;
+  clearInterval(game.tick);
+  try{ $('nova-vid').pause(); }catch(e){}
+  const rate=game.total?game.hits/game.total:0;
+  const stars=rate>=0.85?5:rate>=0.65?4:rate>=0.45?3:rate>=0.25?2:1;
+  $('end-stars').textContent='⭐'.repeat(stars)+'☆'.repeat(5-stars);
+  $('end-title').textContent=['Good try!','Nice moves!','Great dancing!','Amazing!','PERFECT! 🔥'][stars-1];
+  $('end-score').textContent=game.score+' pts';
+  $('end-detail').textContent=`${game.hits} of ${game.total} moves · best combo x${game.maxCombo}`;
+  const hooks=['tomorrow I\'ll teach you the SPIN 🌀','next time: the ROBOT 🤖','come back for the WAVE 🌊'];
+  $('end-hook').textContent=hooks[(game.maxCombo+game.hits)%hooks.length];
+  $('game').classList.add('hidden'); $('end-screen').classList.remove('hidden');
+}
+
+// ---- small helpers ------------------------------------------------------
+function pop(text,color){ const fx=$('fx'); const e=document.createElement('div'); e.className='pop'; e.textContent=text; e.style.color=color;
+  e.style.left=(20+Math.random()*55)+'%'; e.style.top=(30+Math.random()*30)+'%'; fx.appendChild(e); setTimeout(()=>e.remove(),900); }
+let coachT=0; function coach(msg){ const c=$('coach'); c.textContent=msg; c.classList.add('show'); clearTimeout(coachT); coachT=setTimeout(()=>c.classList.remove('show'),1800); }
+let lastSay=0; function say(t){ const now=Date.now(); if(now-lastSay<1300) return; lastSay=now; // light voice; safe in a cafe (muted-friendly: low volume)
+  try{ if('speechSynthesis'in window){ const u=new SpeechSynthesisUtterance(t); u.rate=1.05; u.pitch=1.3; u.volume=0.55; speechSynthesis.speak(u);} }catch(e){} }
+
+// ---- wire up ------------------------------------------------------------
+$('start-btn').addEventListener('click', startFlow);
+$('replay-btn').addEventListener('click', ()=>{ $('end-screen').classList.add('hidden'); countdown().then(beginGame); });
+$('quit').addEventListener('click', ()=>{ endGame(); });
+window.addEventListener('beforeunload', ()=>{ if(camStream) camStream.getTracks().forEach(t=>t.stop()); });
+</script>
+</body>
+</html>
