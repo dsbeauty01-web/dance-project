@@ -70,7 +70,8 @@
   @media (orientation:portrait){ #stage{ flex-direction:column; } }
   #cam, #overlay{ position:absolute; inset:0; width:100%; height:100%; }
   #cam{ object-fit:cover; transform:scaleX(-1); }   /* mirror like a selfie */
-  #overlay{ transform:scaleX(-1); }                 /* skeleton drawn in video space, mirrored to match */
+  /* overlay is NOT css-mirrored: poses come from estimatePoses(flipHorizontal:true)
+     which are already in mirrored space, so they match the mirrored video as-is. */
   /* detection window state */
   #cam-wrap.armed{ border-color:var(--yel); box-shadow:0 0 0 4px rgba(255,216,77,.35),0 14px 50px rgba(0,0,0,.5); }
   #cam-wrap.hit{ border-color:var(--grn); box-shadow:0 0 0 6px rgba(0,255,150,.5),0 14px 50px rgba(0,0,0,.5); }
@@ -78,15 +79,16 @@
 
   /* ── DETECTION ZONES (half = sideways move, full = full-body move) ── */
   .zone{ position:absolute; top:0; bottom:0; z-index:7; pointer-events:none; opacity:0;
-    display:flex; align-items:center; justify-content:center; font-size:74px; font-weight:700;
-    transition:opacity .14s, background .14s; }
-  #zone-left{ left:0; width:50%; border-right:2px dashed rgba(255,255,255,.25); }
-  #zone-right{ right:0; width:50%; border-left:2px dashed rgba(255,255,255,.25); }
+    display:flex; align-items:flex-start; justify-content:center; padding-top:14px; font-size:38px; font-weight:700;
+    text-shadow:0 2px 8px rgba(0,0,0,.6); transition:opacity .14s, background .14s; }
+  #zone-left{ left:0; width:50%; }
+  #zone-right{ right:0; width:50%; }
   #zone-full{ left:0; width:100%; }
   .zone.show{ opacity:1; }
-  .zone.armed{ background:radial-gradient(circle,rgba(255,216,77,.30),rgba(255,216,77,.08)); color:rgba(255,216,77,.95); }
-  .zone.hit{ background:rgba(0,255,150,.34); color:#fff; }
-  .zone.miss{ background:rgba(255,77,109,.30); color:#fff; }
+  /* subtle tints — never wash out the camera */
+  .zone.armed{ background:linear-gradient(rgba(255,216,77,.14),rgba(255,216,77,.02)); color:rgba(255,216,77,.85); }
+  .zone.hit{ background:linear-gradient(rgba(0,255,150,.18),rgba(0,255,150,.03)); color:#bfffe0; }
+  .zone.miss{ background:linear-gradient(rgba(255,77,109,.16),rgba(255,77,109,.03)); color:#ffd3db; }
 
   /* ── DEBUG / MONITOR PANEL ── */
   #dbg{ position:fixed; top:6px; left:6px; z-index:60; max-width:46vw;
@@ -406,15 +408,24 @@ const SKELETON=[['left_shoulder','right_shoulder'],['left_shoulder','left_elbow'
   ['right_shoulder','right_elbow'],['right_elbow','right_wrist'],['left_shoulder','left_hip'],
   ['right_shoulder','right_hip'],['left_hip','right_hip'],['left_hip','left_knee'],['left_knee','left_ankle'],
   ['right_hip','right_knee'],['right_knee','right_ankle']];
-function fitOverlay(){ const v=$('cam'),c=$('overlay'); if(v.videoWidth){ c.width=v.videoWidth; c.height=v.videoHeight; } }
-function clearOverlay(){ const c=$('overlay'); const x=c.getContext('2d'); x.clearRect(0,0,c.width,c.height); }
+// map MoveNet video-pixel coords → on-screen canvas coords, accounting for the
+// camera's object-fit:cover crop, so the skeleton lands ON the body.
+function coverMap(){
+  const v=$('cam'), c=$('overlay');
+  const cw=c.clientWidth||1, ch=c.clientHeight||1, vw=v.videoWidth||640, vh=v.videoHeight||480;
+  if(c.width!==cw||c.height!==ch){ c.width=cw; c.height=ch; }
+  const scale=Math.max(cw/vw, ch/vh);
+  return { scale, ox:(cw-vw*scale)/2, oy:(ch-vh*scale)/2 };
+}
+function clearOverlay(){ const c=$('overlay'); c.getContext('2d').clearRect(0,0,c.width,c.height); }
 function drawSkeleton(kps){
-  const c=$('overlay'); if(c.width!==$('cam').videoWidth) fitOverlay();
-  const x=c.getContext('2d'); x.clearRect(0,0,c.width,c.height);
-  x.strokeStyle='rgba(0,255,150,.8)'; x.lineWidth=4; x.fillStyle='#ff5fd8';
+  const c=$('overlay'); const x=c.getContext('2d'); const {scale,ox,oy}=coverMap();
+  x.clearRect(0,0,c.width,c.height);
+  const X=p=>p.x*scale+ox, Y=p=>p.y*scale+oy;
+  x.strokeStyle='rgba(0,255,150,.85)'; x.lineWidth=3; x.fillStyle='#ff5fd8';
   const m={}; kps.forEach(k=>m[k.name]=k);
-  SKELETON.forEach(([a,b])=>{ const A=m[a],B=m[b]; if(A&&B&&A.score>0.3&&B.score>0.3){ x.beginPath(); x.moveTo(A.x,A.y); x.lineTo(B.x,B.y); x.stroke(); }});
-  kps.forEach(k=>{ if(k.score>0.3){ x.beginPath(); x.arc(k.x,k.y,5,0,7); x.fill(); }});
+  SKELETON.forEach(([a,b])=>{ const A=m[a],B=m[b]; if(A&&B&&A.score>0.3&&B.score>0.3){ x.beginPath(); x.moveTo(X(A),Y(A)); x.lineTo(X(B),Y(B)); x.stroke(); }});
+  kps.forEach(k=>{ if(k.score>0.3){ x.beginPath(); x.arc(X(k),Y(k),4,0,7); x.fill(); }});
 }
 
 // ---- GAME FLOW ----------------------------------------------------------
