@@ -243,7 +243,8 @@ function zoneState(state){ const z=game.cueZone; if(!z) return;
 // ---- CUE TIMELINE (video.currentTime ms; music = nova-joined-small.mp4) -
 // 98.5 BPM, beat≈609ms. We jump the video to ~28s (skip the walk-up) and run the
 // routine: slow alternating build, then double-speed, then freestyle.
-const VIDEO_START = 28.0;        // seconds — where the dance/groove begins
+const VIDEO_START = 0;           // start from the very beginning (no seek glitch) so the
+                                 // kid watches Nova's intro and can anticipate the moves
 const CUES = (()=>{
   const out = [];
   const add = (t, action, dur) => out.push({ t, dur, action });
@@ -456,14 +457,14 @@ function countdown(){
 }
 
 function beginGame(){
-  Object.assign(game,{ running:true, score:0, combo:0, maxCombo:0, hits:0, total:0, idx:0, cue:null, cueResolved:false, cueEnd:0, cueZone:null, log:[] });
+  Object.assign(game,{ running:true, score:0, combo:0, maxCombo:0, hits:0, total:0, idx:0, cue:null, cueResolved:false, cueEnd:0, cueZone:null, log:[], _readyShown:false });
   $('score').textContent='0'; $('combo-box').textContent='x0'; $('progress').style.width='0%';
   $('game').classList.remove('hidden');
   const nv=$('nova-vid'); nv.muted=false; nv.volume=0.8; nv.loop=false;
   try{ nv.currentTime=VIDEO_START; }catch(e){}
   nv.onended=endGame;
   nv.play().catch(()=>{ /* retry on next tick */ setTimeout(()=>nv.play().catch(()=>{}),200); });
-  coach('Here we go — copy me!');
+  coach('Watch Nova — copy her when a card pops up!');
   clearInterval(game.tick); game.tick=setInterval(gameTick,60);
 }
 
@@ -473,6 +474,12 @@ function gameTick(){
   const span=(SONG_END-VIDEO_START)*1000;
   $('progress').style.width=Math.min(100,((nv.currentTime-VIDEO_START)/(SONG_END-VIDEO_START))*100)+'%';
   if(nv.currentTime>=SONG_END){ endGame(); return; }
+
+  // intro lead-in — let the kid anticipate the very first move
+  if(game.idx===0 && !game.cue && !game._readyShown && CUES.length){
+    const lead=CUES[0].t-now;
+    if(lead<=3500 && lead>300){ game._readyShown=true; coach('Get ready… first move!'); }
+  }
 
   // open next cue
   if(!game.cue && game.idx<CUES.length && now>=CUES[game.idx].t){
