@@ -65,6 +65,9 @@
     font-size:12px; background:rgba(0,0,0,.55); padding:2px 12px; border-radius:12px; }
   #cam-wrap{ position:relative; flex:1 1 50%; min-width:0; border-radius:20px; overflow:hidden; background:#000;
     border:4px solid rgba(255,255,255,.18); box-shadow:0 8px 30px rgba(0,0,0,.5); transition:border-color .15s, box-shadow .15s; }
+  /* phone held upright → stack Nova on top, You on bottom (no squishing). Laptop /
+     landscape keeps side-by-side. */
+  @media (orientation:portrait){ #stage{ flex-direction:column; } }
   #cam, #overlay{ position:absolute; inset:0; width:100%; height:100%; }
   #cam{ object-fit:cover; transform:scaleX(-1); }   /* mirror like a selfie */
   #overlay{ transform:scaleX(-1); }                 /* skeleton drawn in video space, mirrored to match */
