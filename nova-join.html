@@ -56,12 +56,15 @@
   @keyframes comboPulse{ 50%{ transform:scale(1.35) } }
   #quit{ background:rgba(255,255,255,.1); border:none; color:#fff; font-size:18px; width:34px; height:34px; border-radius:50%; cursor:pointer; }
 
-  #stage{ position:relative; width:100%; flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-
-  /* big mirrored camera = the hero */
-  #cam-wrap{ position:relative; width:min(94vw,520px); aspect-ratio:3/4; max-height:74vh;
-    border-radius:26px; overflow:hidden; background:#000;
-    border:5px solid rgba(255,255,255,.18); box-shadow:0 14px 50px rgba(0,0,0,.5); transition:border-color .15s, box-shadow .15s; }
+  /* split screen: Nova LEFT, you RIGHT — both big */
+  #stage{ position:relative; width:100%; flex:1; display:flex; flex-direction:row; gap:6px; padding:6px; align-items:stretch; overflow:hidden; }
+  #nova-side{ position:relative; flex:1 1 50%; min-width:0; border-radius:20px; overflow:hidden;
+    background:#200; border:3px solid rgba(255,255,255,.14); }
+  #nova-side video{ width:100%; height:100%; object-fit:cover; }
+  .side-tag{ position:absolute; bottom:6px; left:50%; transform:translateX(-50%); z-index:9;
+    font-size:12px; background:rgba(0,0,0,.55); padding:2px 12px; border-radius:12px; }
+  #cam-wrap{ position:relative; flex:1 1 50%; min-width:0; border-radius:20px; overflow:hidden; background:#000;
+    border:4px solid rgba(255,255,255,.18); box-shadow:0 8px 30px rgba(0,0,0,.5); transition:border-color .15s, box-shadow .15s; }
   #cam, #overlay{ position:absolute; inset:0; width:100%; height:100%; }
   #cam{ object-fit:cover; transform:scaleX(-1); }   /* mirror like a selfie */
   #overlay{ transform:scaleX(-1); }                 /* skeleton drawn in video space, mirrored to match */
@@ -96,11 +99,7 @@
     border-radius:10px; padding:10px 14px; margin:4px auto; max-width:340px; }
   #end-table .bad{ color:#ff8da3; } #end-table .good{ color:#6ee7b7; }
 
-  /* Nova demo PiP */
-  #nova-pip{ position:absolute; top:8px; left:8px; width:23%; max-width:120px; aspect-ratio:9/16;
-    border-radius:14px; overflow:hidden; border:2px solid rgba(255,255,255,.3); z-index:6; background:#200; }
-  #nova-pip video{ width:100%; height:100%; object-fit:cover; }
-  #nova-pip .tag{ position:absolute; bottom:0; left:0; right:0; font-size:9px; text-align:center; background:rgba(0,0,0,.5); padding:1px 0; }
+  /* (Nova is now the left split panel — see #nova-side above) */
 
   /* CUE CARD */
   #cue{ position:absolute; top:6px; right:8px; z-index:8; width:min(40vw,180px);
@@ -162,18 +161,19 @@
     <button id="quit" title="Quit">✕</button>
   </div>
   <div id="stage">
+    <div id="nova-side">
+      <video id="nova-vid" playsinline preload="auto" loop>
+        <source src="nova-joined-small.mp4" type="video/mp4">
+      </video>
+      <div class="side-tag">Nova</div>
+    </div>
     <div id="cam-wrap">
       <video id="cam" playsinline muted autoplay></video>
       <canvas id="overlay"></canvas>
       <div id="zone-left" class="zone"></div>
       <div id="zone-right" class="zone"></div>
       <div id="zone-full" class="zone"></div>
-      <div id="nova-pip">
-        <video id="nova-vid" playsinline preload="auto" loop>
-          <source src="nova-joined-small.mp4" type="video/mp4">
-        </video>
-        <div class="tag">Nova</div>
-      </div>
+      <div class="side-tag">You</div>
       <div id="cue">
         <div id="cue-figure"></div>
         <div id="cue-label">HEAD</div>
