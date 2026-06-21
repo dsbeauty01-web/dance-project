@@ -874,8 +874,10 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
   <div id="game-split">
     <div id="nova-side">
-      <video id="nova-video" loop playsinline muted>
-        <source src="nova-dance.mp4" type="video/mp4">
+      <!-- preload the game's own video from page load so it's buffered by the time
+           the kid finishes arrival→picker→countdown (no big wait at game start). -->
+      <video id="nova-video" loop playsinline muted preload="auto">
+        <source src="handywave.mp4" type="video/mp4">
       </video>
       <div id="nova-face-frame">
         <video id="nova-face-video" autoplay playsinline muted loop></video>
