@@ -2861,7 +2861,8 @@ let freezeBuffer = null;
 //   hip/knee  = hip-knee gap if legs visible, else whole-body vertical bob
 const ISO = {
   win: 1100,                                   // rolling window (ms)
-  thr: { headbob:0.16, shrug:0.10, ribslide:0.13, hipbounce:0.11 }, // tune on-device
+  // side-to-side nudge thresholds, normalised by SHOULDER WIDTH (tune on-device):
+  thr: { headbob:0.22, shrug:0.15, ribslide:0.18, hipbounce:0.18 },
 };
 const isoBuf = { headbob:[], shrug:[], ribslide:[], hipbounce:[] };
 function isoPulse(key, value, now, scaleNorm) {
@@ -2983,9 +2984,10 @@ function updateLiveMovesPanel() {
       border:1px solid rgba(14,165,233,0.4);`;
     document.body.appendChild(p);
   }
-  const fmt = (k) => `<span style="color:${moves[k]?'#22c55e':'#475569'}">${k.toUpperCase()}</span>`;
+  const fmt = (k, lbl) => `<span style="color:${moves[k]?'#22c55e':'#475569'}">${lbl||k.toUpperCase()}</span>`;
+  const dx = (window.__headDX != null) ? window.__headDX.toFixed(2) : '–';
   p.innerHTML = `MOVES: ${fmt('right')} ${fmt('left')} ${fmt('both')} ${fmt('clap')} ${fmt('head')} ${fmt('freeze')}`
-    + `<br>ISO: ${fmt('headbob')} ${fmt('shrug')} ${fmt('ribslide')} ${fmt('hipbounce')} ${fmt('combo')}`;
+    + `<br>NUDGE: ${fmt('headbob','HEAD')} ${fmt('shrug','SHLDR')} ${fmt('ribslide','RIBS')} ${fmt('hipbounce','HIPS')} ${fmt('combo','ALL')}  headDX=${dx}`;
 }
 
 function analyzePose(kps) {
@@ -3072,37 +3074,39 @@ function analyzePose(kps) {
     moves.freeze = false;
   }
 
-  // ── nova-joined: 4-point isolation pulses ──────────────────────
-  // Body-scale reference = torso height (shoulder→hip). Falls back to shoulder
-  // width when hips aren't visible, so normalisation never divides by ~0.
+  // ── nova-joined: SIDE-TO-SIDE isolation nudges (Lose Yourself to Dance) ──
+  // The dance is LEFT/RIGHT nudges of each body part on the beat (NOT up/down — that
+  // was the v1 bug). We detect a "nudge" as side-to-side travel of the target part
+  // (peak-to-peak over the ~1.1s window), normalised by shoulder width. Detection is
+  // direction-AGNOSTIC on purpose: the on-screen arrow + Nova's voice cue the side,
+  // but ANY sideways nudge of the right part scores — far more reliable for ages 6-10
+  // than demanding an exact L vs R from a 2D (often mirrored) webcam.
   const haveHips = sLh && sRh && sLh.score > MIN && sRh.score > MIN;
-  const midShY = (sLs.y + sRs.y) / 2;
   const midShX = (sLs.x + sRs.x) / 2;
-  const midHpY = haveHips ? (sLh.y + sRh.y) / 2 : midShY + scale * 1.4;
   const midHpX = haveHips ? (sLh.x + sRh.x) / 2 : midShX;
-  const torsoH = Math.max(Math.abs(midHpY - midShY), scale * 0.8);
+  const sw = scale;                 // shoulder width = horizontal scale reference
   const now = performance.now();
 
-  // HEAD bounce — nose height vs shoulders (independent of whole-body bounce)
+  // HEAD nudge — nose sliding sideways relative to the shoulder centre
   if (sNose && sNose.score > MIN) {
-    moves.headbob = isoPulse('headbob', sNose.y - midShY, now, torsoH) > ISO.thr.headbob;
-  } else { isoPulse('headbob', midShY, now, torsoH); moves.headbob = false; }
+    moves.headbob = isoPulse('headbob', sNose.x - midShX, now, sw) > ISO.thr.headbob;
+    window.__headDX = (sNose.x - midShX) / sw;        // signed offset (debug/direction)
+  } else { moves.headbob = false; }
 
-  // SHOULDER pop/shrug — shoulder-to-hip vertical gap (whole-body bounce cancels out)
-  moves.shrug = isoPulse('shrug', midShY - midHpY, now, torsoH) > ISO.thr.shrug;
+  // SHOULDER tilt — one shoulder dipping (shoulder-line asymmetry oscillating L/R)
+  moves.shrug = isoPulse('shrug', sLs.y - sRs.y, now, sw) > ISO.thr.shrug;
 
   // RIB slide — chest centre sliding horizontally over the hips
-  moves.ribslide = isoPulse('ribslide', midShX - midHpX, now, torsoH) > ISO.thr.ribslide;
+  moves.ribslide = isoPulse('ribslide', midShX - midHpX, now, sw) > ISO.thr.ribslide;
 
-  // HIP / KNEE bounce — knee-bend gap if legs are in frame, else a whole-body bob
-  const lk = g('left_knee'), rk = g('right_knee');
-  const haveKnees = lk && rk && lk.score > MIN && rk.score > MIN && haveHips;
-  const hipSig = haveKnees ? Math.abs(((lk.y + rk.y) / 2) - midHpY) : midShY; // image-Y bob fallback
-  moves.hipbounce = isoPulse('hipbounce', hipSig, now, torsoH) > ISO.thr.hipbounce;
+  // HIP sway — hips sliding sideways (counter to the shoulders). Needs hips in frame;
+  // if not, falls back to shoulder-centre travel so it still reads SOMETHING.
+  const hipSig = haveHips ? (midHpX - midShX) : midShX;
+  moves.hipbounce = isoPulse('hipbounce', hipSig, now, sw) > ISO.thr.hipbounce;
 
-  // COMBO ("all together") — two or more isolations live, or lots of overall motion
+  // COMBO ("move it all") — two or more isolations live, or lots of overall motion
   const isoActive = (moves.headbob?1:0) + (moves.shrug?1:0) + (moves.ribslide?1:0) + (moves.hipbounce?1:0);
-  moves.combo = isoActive >= 2 || (window.__motionLevel || 0) > 0.45;
+  moves.combo = isoActive >= 2 || (window.__motionLevel || 0) > 0.40;
 
   // Update pills
   ['left','right','both','clap','head','freeze'].forEach(k => {
@@ -3257,59 +3261,75 @@ const TIMELINE_FREEZE_RAW = [
   { t: 58000, type: 'beat', name: 'outro' },
 ];
 
-// ─── NOVA JOINED timeline (4-point body isolation) ───
-// Single-source: nova-joined-small.mp4 carries its OWN audio, so cue times are the
-// video's exact currentTime (offset 0 — no A/V drift to compensate). Tempo ≈ 98 BPM
-// (bar ≈ 2.45s), measured from the track's onset energy.
-//   0-28s   = Nova walks up from far ("joining") — intro/greet/prep, NO cues
-//   28-51s  = Round 1 "learn each" — head → shoulders → ribs → hips (slow, generous)
-//   51-67s  = Round 2 "faster" — same order, tighter windows
-//   67-79s  = Round 3 "fast fire" — quick singles
-//   79-84s  = Finale "ALL TOGETHER" combo
-//   84-90s  = OUTRO — celebrate + hook for next time
+// ─── NOVA JOINED timeline — "Lose Yourself to Dance" isolation routine ───
+// Single-source: nova-joined-small.mp4 carries its own audio (measured 98.5 BPM,
+// beat ≈ 609ms, downbeats at 0.27 + k·0.609s). Cue times = the video's currentTime.
+// Choreography (per the kid's description): alternating LEFT/RIGHT nudges of each
+// body part on the beat, building HEAD → SHOULDER → RIB → HIP at half-time (every
+// 2 beats ≈ 1.22s), then a DOUBLE-SPEED pass (every beat) reversed HIP → RIB →
+// SHOULDER → HEAD, then a "move it all" finale.
+//   0-30s  = Nova walks up ("joining") — intro/greet/prep, NO cues
+//   30-49s = slow build, L/R each part (head, shoulder, rib, hip)
+//   50-60s = double-speed reversed (hip, rib, shoulder, head)
+//   60-83s = "MOVE IT ALL" freestyle combo
+//   84-90s = outro + hook
+// NOTE: action keys reuse the engine's isolation slots (headbob/shrug/ribslide/
+// hipbounce) but now detect SIDE-TO-SIDE nudges. `dir` is shown as an arrow + sent
+// to Nova; detection itself is direction-agnostic (any nudge of that part scores).
 const TIMELINE_JOINED_RAW = [
-  { t: 100,   type: 'beat', name: 'intro' },
+  { t: 100, type: 'beat', name: 'intro' },
 
-  // ── ROUND 1 — learn each isolation (slow, ~5.5s windows) ──
-  { t: 28000, type: 'beat', name: 'easy-wins' },
-  { t: 28000, type: 'open',  action: 'headbob',   emoji: '🙂', label: 'HEAD BOUNCE', instr: 'bounce your head!', pts: 100 },
-  { t: 33500, type: 'close', action: 'headbob' },
-  { t: 33800, type: 'open',  action: 'shrug',     emoji: '🤷', label: 'SHOULDER POP', instr: 'shoulders up-down!', pts: 120 },
-  { t: 39300, type: 'close', action: 'shrug' },
-  { t: 39600, type: 'open',  action: 'ribslide',  emoji: '🕺', label: 'RIB SLIDE', instr: 'slide your chest!', pts: 150 },
-  { t: 45100, type: 'close', action: 'ribslide' },
-  { t: 45400, type: 'open',  action: 'hipbounce', emoji: '🦵', label: 'HIP BOUNCE', instr: 'bounce your hips!', pts: 130 },
-  { t: 50900, type: 'close', action: 'hipbounce' },
+  // ── SLOW BUILD — alternating L/R, every ~1.22s (windows ~1.08s) ──
+  { t: 30100, type: 'beat', name: 'easy-wins' },
+  // HEAD
+  { t: 30100, type:'open', action:'headbob', dir:'L', emoji:'🙂', label:'HEAD ←', instr:'nudge LEFT ←', pts:100 }, { t: 31180, type:'close', action:'headbob' },
+  { t: 31320, type:'open', action:'headbob', dir:'R', emoji:'🙂', label:'HEAD →', instr:'nudge RIGHT →', pts:100 }, { t: 32400, type:'close', action:'headbob' },
+  { t: 32540, type:'open', action:'headbob', dir:'L', emoji:'🙂', label:'HEAD ←', instr:'nudge LEFT ←', pts:100 }, { t: 33620, type:'close', action:'headbob' },
+  { t: 33760, type:'open', action:'headbob', dir:'R', emoji:'🙂', label:'HEAD →', instr:'nudge RIGHT →', pts:100 }, { t: 34840, type:'close', action:'headbob' },
+  // SHOULDER (tilt)
+  { t: 35000, type:'open', action:'shrug', dir:'L', emoji:'🤷', label:'SHOULDER ←', instr:'tilt LEFT ←', pts:120 }, { t: 36080, type:'close', action:'shrug' },
+  { t: 36220, type:'open', action:'shrug', dir:'R', emoji:'🤷', label:'SHOULDER →', instr:'tilt RIGHT →', pts:120 }, { t: 37300, type:'close', action:'shrug' },
+  { t: 37440, type:'open', action:'shrug', dir:'L', emoji:'🤷', label:'SHOULDER ←', instr:'tilt LEFT ←', pts:120 }, { t: 38520, type:'close', action:'shrug' },
+  { t: 38660, type:'open', action:'shrug', dir:'R', emoji:'🤷', label:'SHOULDER →', instr:'tilt RIGHT →', pts:120 }, { t: 39740, type:'close', action:'shrug' },
+  // RIB (slide)
+  { t: 39900, type:'beat', name:'challenge' },
+  { t: 39900, type:'open', action:'ribslide', dir:'L', emoji:'🕺', label:'RIBS ←', instr:'slide LEFT ←', pts:140 }, { t: 40980, type:'close', action:'ribslide' },
+  { t: 41120, type:'open', action:'ribslide', dir:'R', emoji:'🕺', label:'RIBS →', instr:'slide RIGHT →', pts:140 }, { t: 42200, type:'close', action:'ribslide' },
+  { t: 42340, type:'open', action:'ribslide', dir:'L', emoji:'🕺', label:'RIBS ←', instr:'slide LEFT ←', pts:140 }, { t: 43420, type:'close', action:'ribslide' },
+  { t: 43560, type:'open', action:'ribslide', dir:'R', emoji:'🕺', label:'RIBS →', instr:'slide RIGHT →', pts:140 }, { t: 44640, type:'close', action:'ribslide' },
+  // HIP (sway)
+  { t: 44800, type:'open', action:'hipbounce', dir:'L', emoji:'🍑', label:'HIPS ←', instr:'sway LEFT ←', pts:130 }, { t: 45880, type:'close', action:'hipbounce' },
+  { t: 46020, type:'open', action:'hipbounce', dir:'R', emoji:'🍑', label:'HIPS →', instr:'sway RIGHT →', pts:130 }, { t: 47100, type:'close', action:'hipbounce' },
+  { t: 47240, type:'open', action:'hipbounce', dir:'L', emoji:'🍑', label:'HIPS ←', instr:'sway LEFT ←', pts:130 }, { t: 48320, type:'close', action:'hipbounce' },
+  { t: 48460, type:'open', action:'hipbounce', dir:'R', emoji:'🍑', label:'HIPS →', instr:'sway RIGHT →', pts:130 }, { t: 49540, type:'close', action:'hipbounce' },
 
-  // ── ROUND 2 — faster (~3.8s windows) ──
-  { t: 51000, type: 'beat', name: 'challenge' },
-  { t: 51200, type: 'open',  action: 'headbob',   emoji: '🙂', label: 'HEAD!', instr: 'again, faster!', pts: 100 },
-  { t: 55000, type: 'close', action: 'headbob' },
-  { t: 55200, type: 'open',  action: 'shrug',     emoji: '🤷', label: 'SHOULDERS!', instr: 'pop pop!', pts: 120 },
-  { t: 59000, type: 'close', action: 'shrug' },
-  { t: 59200, type: 'open',  action: 'ribslide',  emoji: '🕺', label: 'RIBS!', instr: 'slide slide!', pts: 150 },
-  { t: 63000, type: 'close', action: 'ribslide' },
-  { t: 63200, type: 'open',  action: 'hipbounce', emoji: '🦵', label: 'HIPS!', instr: 'bounce!', pts: 130 },
-  { t: 67000, type: 'close', action: 'hipbounce' },
+  // ── DOUBLE-SPEED — every ~0.61s (windows ~0.52s), reversed HIP→RIB→SH→HEAD ──
+  { t: 50000, type:'beat', name:'flow' },
+  { t: 50000, type:'open', action:'hipbounce', dir:'R', emoji:'🍑', label:'HIPS →', instr:'fast!', pts:130 }, { t: 50520, type:'close', action:'hipbounce' },
+  { t: 50600, type:'open', action:'hipbounce', dir:'L', emoji:'🍑', label:'HIPS ←', instr:'fast!', pts:130 }, { t: 51120, type:'close', action:'hipbounce' },
+  { t: 51200, type:'open', action:'hipbounce', dir:'R', emoji:'🍑', label:'HIPS →', instr:'fast!', pts:130 }, { t: 51720, type:'close', action:'hipbounce' },
+  { t: 51800, type:'open', action:'hipbounce', dir:'L', emoji:'🍑', label:'HIPS ←', instr:'fast!', pts:130 }, { t: 52320, type:'close', action:'hipbounce' },
+  { t: 52400, type:'open', action:'ribslide', dir:'R', emoji:'🕺', label:'RIBS →', instr:'fast!', pts:140 }, { t: 52920, type:'close', action:'ribslide' },
+  { t: 53000, type:'open', action:'ribslide', dir:'L', emoji:'🕺', label:'RIBS ←', instr:'fast!', pts:140 }, { t: 53520, type:'close', action:'ribslide' },
+  { t: 53600, type:'open', action:'ribslide', dir:'R', emoji:'🕺', label:'RIBS →', instr:'fast!', pts:140 }, { t: 54120, type:'close', action:'ribslide' },
+  { t: 54200, type:'open', action:'ribslide', dir:'L', emoji:'🕺', label:'RIBS ←', instr:'fast!', pts:140 }, { t: 54720, type:'close', action:'ribslide' },
+  { t: 54800, type:'open', action:'shrug', dir:'R', emoji:'🤷', label:'SHOULDER →', instr:'fast!', pts:120 }, { t: 55320, type:'close', action:'shrug' },
+  { t: 55400, type:'open', action:'shrug', dir:'L', emoji:'🤷', label:'SHOULDER ←', instr:'fast!', pts:120 }, { t: 55920, type:'close', action:'shrug' },
+  { t: 56000, type:'open', action:'shrug', dir:'R', emoji:'🤷', label:'SHOULDER →', instr:'fast!', pts:120 }, { t: 56520, type:'close', action:'shrug' },
+  { t: 56600, type:'open', action:'shrug', dir:'L', emoji:'🤷', label:'SHOULDER ←', instr:'fast!', pts:120 }, { t: 57120, type:'close', action:'shrug' },
+  { t: 57200, type:'open', action:'headbob', dir:'R', emoji:'🙂', label:'HEAD →', instr:'fast!', pts:100 }, { t: 57720, type:'close', action:'headbob' },
+  { t: 57800, type:'open', action:'headbob', dir:'L', emoji:'🙂', label:'HEAD ←', instr:'fast!', pts:100 }, { t: 58320, type:'close', action:'headbob' },
+  { t: 58400, type:'open', action:'headbob', dir:'R', emoji:'🙂', label:'HEAD →', instr:'fast!', pts:100 }, { t: 58920, type:'close', action:'headbob' },
+  { t: 59000, type:'open', action:'headbob', dir:'L', emoji:'🙂', label:'HEAD ←', instr:'fast!', pts:100 }, { t: 59520, type:'close', action:'headbob' },
 
-  // ── ROUND 3 — fast fire (~2.8s singles) ──
-  { t: 67200, type: 'beat', name: 'flow' },
-  { t: 67400, type: 'open',  action: 'headbob',   emoji: '🙂', label: 'HEAD!', instr: 'fast!', pts: 100 },
-  { t: 70200, type: 'close', action: 'headbob' },
-  { t: 70400, type: 'open',  action: 'shrug',     emoji: '🤷', label: 'SHOULDER!', instr: 'fast!', pts: 120 },
-  { t: 73200, type: 'close', action: 'shrug' },
-  { t: 73400, type: 'open',  action: 'ribslide',  emoji: '🕺', label: 'RIB!', instr: 'fast!', pts: 150 },
-  { t: 76200, type: 'close', action: 'ribslide' },
-  { t: 76400, type: 'open',  action: 'hipbounce', emoji: '🦵', label: 'HIP!', instr: 'fast!', pts: 130 },
-  { t: 79200, type: 'close', action: 'hipbounce' },
-
-  // ── FINALE — everything at once ──
-  { t: 79400, type: 'beat', name: 'celebration' },
-  { t: 79400, type: 'open',  action: 'combo', emoji: '✨', label: 'ALL TOGETHER!', instr: 'full body!', pts: 300 },
-  { t: 84300, type: 'close', action: 'combo' },
+  // ── "MOVE IT ALL" freestyle combo ──
+  { t: 60000, type:'beat', name:'celebration' },
+  { t: 60000, type:'open', action:'combo', emoji:'✨', label:'MOVE IT ALL!', instr:'whole body!', pts:250 }, { t: 66500, type:'close', action:'combo' },
+  { t: 67000, type:'open', action:'combo', emoji:'🔥', label:'KEEP GOING!', instr:'all of it!', pts:250 }, { t: 73500, type:'close', action:'combo' },
+  { t: 74000, type:'open', action:'combo', emoji:'⚡', label:'BIGGER!', instr:'everything!', pts:300 }, { t: 80000, type:'close', action:'combo' },
 
   // ── OUTRO — celebrate + hook ──
-  { t: 84600, type: 'beat', name: 'outro' },
+  { t: 84000, type: 'beat', name: 'outro' },
 ];
 
 const SONGS = {
@@ -3585,27 +3605,30 @@ window.forceNovaMidDanceVoice = forceNovaMidDanceVoice;
 // Keep it RARE (not every cue) so it's special, not noise.
 // ═══════════════════════════════════════════════════════════════
 let lastAnticipationTime = 0;
-function novaAnticipate(action) {
+function novaAnticipate(action, dir) {
   const now = Date.now();
   if(now - lastAnticipationTime < 5000) return; // max once per 5s
   lastAnticipationTime = now;
-  
-  const phrases = {
-    'right':  ['Right hand ready!', 'Here it comes!', 'Get that right hand!'],
-    'left':   ['Left hand ready!', 'Now the left!', 'Lefty time!'],
-    'clap':   ['Get ready to clap!', 'Hands ready!', 'Clap coming!'],
-    'both':   ['Both hands up!', 'Ready, BIG!', 'Both arms!'],
-    'head':   ['Hands on head!', 'Head time!', 'Reach up!'],
-    'freeze': ['FREEZE coming!', 'Get ready... STATUE!', 'Hold tight!'],
-    // nova-joined isolations
-    'headbob':   ['Bounce your head!', 'Head next!', 'Nod with me!'],
-    'shrug':     ['Shoulders up!', 'Pop those shoulders!', 'Shrug time!'],
-    'ribslide':  ['Slide your chest!', 'Rib slide!', 'Move your middle!'],
-    'hipbounce': ['Bounce your hips!', 'Hips next!', 'Bend those knees!'],
-    'combo':     ['ALL together now!', 'Whole body!', 'Everything at once!'],
-  };
-  const arr = phrases[action] || ['Here it comes!'];
-  const phrase = arr[Math.floor(Math.random()*arr.length)];
+
+  // nova-joined isolations: Nova calls the part + the side ("head, left!")
+  const PART = { headbob:'head', shrug:'shoulder', ribslide:'ribs', hipbounce:'hips' };
+  let phrase;
+  if (PART[action]) {
+    const side = dir === 'L' ? 'left' : dir === 'R' ? 'right' : '';
+    phrase = side ? `${PART[action]}, ${side}!` : `${PART[action]}!`;
+  } else {
+    const phrases = {
+      'right':  ['Right hand ready!', 'Here it comes!', 'Get that right hand!'],
+      'left':   ['Left hand ready!', 'Now the left!', 'Lefty time!'],
+      'clap':   ['Get ready to clap!', 'Hands ready!', 'Clap coming!'],
+      'both':   ['Both hands up!', 'Ready, BIG!', 'Both arms!'],
+      'head':   ['Hands on head!', 'Head time!', 'Reach up!'],
+      'freeze': ['FREEZE coming!', 'Get ready... STATUE!', 'Hold tight!'],
+      'combo':  ['Move it ALL!', 'Whole body!', 'Everything now!'],
+    };
+    const arr = phrases[action] || ['Here it comes!'];
+    phrase = arr[Math.floor(Math.random()*arr.length)];
+  }
   // Use browser TTS for the anticipation — fast, no D-ID warm-up needed
   if(typeof speechSynthesis !== 'undefined') {
     try {
@@ -3889,7 +3912,7 @@ function gameTick() {
     const dueIn = f.t - elapsed;
     if(dueIn <= ANTICIPATE_LEAD_MS && dueIn > 0) {
       anticipatedIdx.add(j);
-      novaAnticipate(f.action);
+      novaAnticipate(f.action, f.dir);
     }
     break; // only consider the very next open event
   }
@@ -3929,6 +3952,12 @@ function gameTick() {
       }
 
       LOG('CUE-OPEN', `${e.action} (${e.label}) windowMs=${windowMs} musicMs=${e.t}`);
+
+      // Nova awareness: tell her brain which isolation + side is being cued so she
+      // can call the move ("head, left!") and react to the right body part.
+      if (window.__novaSend && e.action !== 'freeze') {
+        window.__novaSend({ kind: 'game-event', event: { event: 'move_cue', action: e.action, dir: e.dir || null, label: e.label } });
+      }
 
       // v103: FREEZE cue special handling — full-screen overlay + hold-detection
       if (e.action === 'freeze') {
