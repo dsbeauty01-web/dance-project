@@ -70,6 +70,32 @@
   #cam-wrap.hit{ border-color:var(--grn); box-shadow:0 0 0 6px rgba(0,255,150,.5),0 14px 50px rgba(0,0,0,.5); }
   #cam-wrap.miss{ border-color:#ff4d6d; box-shadow:0 0 0 6px rgba(255,77,109,.45),0 14px 50px rgba(0,0,0,.5); }
 
+  /* ── DETECTION ZONES (half = sideways move, full = full-body move) ── */
+  .zone{ position:absolute; top:0; bottom:0; z-index:7; pointer-events:none; opacity:0;
+    display:flex; align-items:center; justify-content:center; font-size:74px; font-weight:700;
+    transition:opacity .14s, background .14s; }
+  #zone-left{ left:0; width:50%; border-right:2px dashed rgba(255,255,255,.25); }
+  #zone-right{ right:0; width:50%; border-left:2px dashed rgba(255,255,255,.25); }
+  #zone-full{ left:0; width:100%; }
+  .zone.show{ opacity:1; }
+  .zone.armed{ background:radial-gradient(circle,rgba(255,216,77,.30),rgba(255,216,77,.08)); color:rgba(255,216,77,.95); }
+  .zone.hit{ background:rgba(0,255,150,.34); color:#fff; }
+  .zone.miss{ background:rgba(255,77,109,.30); color:#fff; }
+
+  /* ── DEBUG / MONITOR PANEL ── */
+  #dbg{ position:fixed; top:6px; left:6px; z-index:60; max-width:46vw;
+    background:rgba(0,0,0,.82); color:#7dd3fc; font:10px/1.45 'SF Mono',Consolas,monospace;
+    padding:6px 8px; border-radius:7px; border:1px solid rgba(125,211,252,.4); white-space:pre; }
+  #dbg.off{ opacity:.35; }
+  #dbg b{ color:#fff; }
+  #dbg .on{ color:#22c55e; font-weight:700; }
+  #dbg .no{ color:#64748b; }
+  #copy-log{ background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.25); color:#fff;
+    font-family:inherit; padding:10px 18px; border-radius:20px; cursor:pointer; font-size:14px; }
+  #end-table{ font:12px/1.5 'SF Mono',Consolas,monospace; text-align:left; background:rgba(0,0,0,.3);
+    border-radius:10px; padding:10px 14px; margin:4px auto; max-width:340px; }
+  #end-table .bad{ color:#ff8da3; } #end-table .good{ color:#6ee7b7; }
+
   /* Nova demo PiP */
   #nova-pip{ position:absolute; top:8px; left:8px; width:23%; max-width:120px; aspect-ratio:9/16;
     border-radius:14px; overflow:hidden; border:2px solid rgba(255,255,255,.3); z-index:6; background:#200; }
@@ -124,6 +150,9 @@
   <div id="cd-sub">get ready…</div>
 </div>
 
+<!-- DEBUG / MONITOR (tap to dim) -->
+<div id="dbg" class="hidden">starting…</div>
+
 <!-- GAME -->
 <div id="game" class="screen hidden">
   <div id="hud">
@@ -136,6 +165,9 @@
     <div id="cam-wrap">
       <video id="cam" playsinline muted autoplay></video>
       <canvas id="overlay"></canvas>
+      <div id="zone-left" class="zone"></div>
+      <div id="zone-right" class="zone"></div>
+      <div id="zone-full" class="zone"></div>
       <div id="nova-pip">
         <video id="nova-vid" playsinline preload="auto" loop>
           <source src="nova-joined-small.mp4" type="video/mp4">
@@ -159,8 +191,12 @@
   <div id="end-title">Nice dancing!</div>
   <div id="end-score">0 pts</div>
   <div id="end-detail"></div>
+  <div id="end-table"></div>
   <div id="end-hook"></div>
-  <button class="big-btn" id="replay-btn">▶ Dance again</button>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+    <button class="big-btn" id="replay-btn">▶ Dance again</button>
+    <button id="copy-log">📋 Copy debug log</button>
+  </div>
 </div>
 
 <script>
@@ -185,6 +221,19 @@ const MOVES = {
   'knee':           { name:'KNEE UP',     coach:'lift a knee!',          pts:140, check:d=> d.kneeLift > THRESH.knee },
   'free':           { name:'FREESTYLE!',  coach:'move it ALL!',          pts:60,  check:d=> d.motion > THRESH.motion },
 };
+
+// which detection ZONE lights up: half-screen for sideways moves, full for full-body
+const ZONE = { 'head-left':'left','shoulder-left':'left','head-right':'right','shoulder-right':'right',
+  'hips':'full','knee':'full','free':'full' };
+function setZone(z, state){
+  ['zone-left','zone-right','zone-full'].forEach(id=>$(id).classList.remove('show','armed','hit','miss'));
+  if(!z) return;
+  const id = z==='left'?'zone-left':z==='right'?'zone-right':'zone-full';
+  const e=$(id); e.textContent = z==='full'?'🕺':(z==='left'?'←':'→'); e.classList.add('show', state||'armed');
+}
+function zoneState(state){ const z=game.cueZone; if(!z) return;
+  const id=z==='left'?'zone-left':z==='right'?'zone-right':'zone-full';
+  const e=$(id); e.classList.remove('armed','hit','miss'); e.classList.add(state); }
 
 // ---- CUE TIMELINE (video.currentTime ms; music = nova-joined-small.mp4) -
 // 98.5 BPM, beat≈609ms. We jump the video to ~28s (skip the walk-up) and run the
@@ -292,11 +341,28 @@ async function poseLoop(){
     if(poses[0]){ analyze(poses[0].keypoints); drawSkeleton(poses[0].keypoints); }
     else { det.present=false; clearOverlay(); }
   }
+  updateDbg();
   rafId=requestAnimationFrame(poseLoop);
+}
+
+// live monitor — shows raw detection values + which moves are firing RIGHT NOW
+let _dbgLast=0;
+function updateDbg(){
+  const el=$('dbg'); if(!el || el.classList.contains('hidden')) return;
+  const now=performance.now(); if(now-_dbgLast<150) return; _dbgLast=now;
+  const flag=k=> (det.present && MOVES[k].check(det,base)) ? `<span class="on">${k}</span>` : `<span class="no">${k}</span>`;
+  const f=v=> (v>=0?'+':'')+v.toFixed(2);
+  el.innerHTML =
+    `<b>present</b> ${det.present?'<span class="on">yes</span>':'<span class="no">NO</span>'}  joints ${det.joints||0}/17\n`+
+    `headDX ${f(det.headDX)}  shTilt ${f(det.shTilt)}\n`+
+    `hipDX ${f(det.hipDX)}   knee ${f(det.kneeLift)}\n`+
+    `motion ${det.motion.toFixed(2)}  base ${base.ok?'ok':'—'}\n`+
+    `${flag('head-left')} ${flag('head-right')}\n${flag('shoulder-left')} ${flag('shoulder-right')}\n${flag('hips')} ${flag('knee')} ${flag('free')}`;
 }
 
 function analyze(kps){
   const MIN=0.3;
+  det.joints = kps.filter(k=>k.score>MIN).length;
   const ls=kp(kps,'left_shoulder'), rs=kp(kps,'right_shoulder'), nose=kp(kps,'nose');
   const lh=kp(kps,'left_hip'), rh=kp(kps,'right_hip');
   const lk=kp(kps,'left_knee'), rk=kp(kps,'right_knee');
@@ -355,6 +421,7 @@ async function startFlow(){
   await ensureModel();
   $('cam-warn').textContent='';
   $('start-screen').classList.add('hidden');
+  $('dbg').classList.remove('hidden');       // live monitor on
   cancelAnimationFrame(rafId); poseLoop();   // start detecting now (for calibration)
   await countdown();
   beginGame();
@@ -375,7 +442,7 @@ function countdown(){
 }
 
 function beginGame(){
-  Object.assign(game,{ running:true, score:0, combo:0, maxCombo:0, hits:0, total:0, idx:0, cue:null, cueResolved:false, cueEnd:0 });
+  Object.assign(game,{ running:true, score:0, combo:0, maxCombo:0, hits:0, total:0, idx:0, cue:null, cueResolved:false, cueEnd:0, cueZone:null, log:[] });
   $('score').textContent='0'; $('combo-box').textContent='x0'; $('progress').style.width='0%';
   $('game').classList.remove('hidden');
   const nv=$('nova-vid'); nv.muted=false; nv.volume=0.8; nv.loop=false;
@@ -411,6 +478,7 @@ function openCue(c){
   $('cue-label').textContent=m.name;
   $('cue').classList.add('show');
   $('cam-wrap').classList.remove('hit','miss'); $('cam-wrap').classList.add('armed');
+  game.cueZone = ZONE[c.action]; setZone(game.cueZone,'armed');
   // timer bar shrink across the window
   const bar=$('cue-timer'); bar.style.transition='none'; bar.style.transform='scaleX(1)';
   void bar.offsetWidth; bar.style.transition=`transform ${c.dur}ms linear`; bar.style.transform='scaleX(0)';
@@ -418,7 +486,16 @@ function openCue(c){
   // announce (quiet — works without backend)
   say(m.name.replace(/[←→↑↔]/g,'').trim());
 }
-function closeCue(){ game.cue=null; $('cue').classList.remove('show'); $('cam-wrap').classList.remove('armed'); game.idx++; }
+function closeCue(){ game.cue=null; $('cue').classList.remove('show'); $('cam-wrap').classList.remove('armed'); setZone(null); game.idx++; }
+
+// per-cue telemetry — captures the detection values at the moment of resolve so we
+// can see exactly WHERE detection is weak (e.g. knee always missing = legs off-frame)
+function logCue(result){
+  const c=game.cue; if(!c) return;
+  game.log.push({ action:c.action, result, headDX:+det.headDX.toFixed(3), shTilt:+det.shTilt.toFixed(3),
+    hipDX:+det.hipDX.toFixed(3), kneeLift:+det.kneeLift.toFixed(3), motion:+det.motion.toFixed(3),
+    joints:det.joints||0, present:det.present });
+}
 
 function resolveHit(){
   game.cueResolved=true;
@@ -428,13 +505,15 @@ function resolveHit(){
   game.score+=pts; game.hits++; game.combo++; game.maxCombo=Math.max(game.maxCombo,game.combo);
   $('score').textContent=game.score;
   const cb=$('combo-box'); cb.textContent='x'+game.combo; cb.classList.remove('pulse'); void cb.offsetWidth; cb.classList.add('pulse');
-  $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('hit');
+  $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('hit'); zoneState('hit');
   pop((fast?'PERFECT ':'+')+pts, fast?'#ffd84d':'#00ff99');
+  logCue('hit');
 }
 function resolveMiss(){
   game.combo=0; $('combo-box').textContent='x0';
-  $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('miss');
+  $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('miss'); zoneState('miss');
   pop('miss','#ff4d6d');
+  logCue('miss');
 }
 
 function endGame(){
@@ -449,6 +528,21 @@ function endGame(){
   $('end-detail').textContent=`${game.hits} of ${game.total} moves · best combo x${game.maxCombo}`;
   const hooks=['tomorrow I\'ll teach you the SPIN 🌀','next time: the ROBOT 🤖','come back for the WAVE 🌊'];
   $('end-hook').textContent=hooks[(game.maxCombo+game.hits)%hooks.length];
+
+  // per-move breakdown — shows WHERE detection is limited (hit rate + avg joints seen)
+  const by={};
+  game.log.forEach(e=>{ const b=by[e.action]||(by[e.action]={n:0,hit:0,j:0}); b.n++; if(e.result==='hit')b.hit++; b.j+=e.joints; });
+  $('end-table').innerHTML = Object.keys(by).map(a=>{ const b=by[a]; const cls=(b.hit/b.n)>=0.5?'good':'bad';
+    return `<div class="${cls}">${a.padEnd(15)} ${b.hit}/${b.n}  joints~${Math.round(b.j/b.n)}/17</div>`; }).join('') || '(no cues ran)';
+
+  const summary={ date:new Date().toISOString(), score:game.score, hits:game.hits, total:game.total,
+    maxCombo:game.maxCombo, thresholds:THRESH, byAction:by, log:game.log };
+  window.__lastSession=summary;
+  console.log('[nova-join session]', summary);
+  try{ const arr=JSON.parse(localStorage.getItem('nova_join_logs')||'[]');
+    arr.push({date:summary.date,score:summary.score,hits:summary.hits,total:summary.total,byAction:by});
+    localStorage.setItem('nova_join_logs', JSON.stringify(arr.slice(-10))); }catch(e){}
+
   $('game').classList.add('hidden'); $('end-screen').classList.remove('hidden');
 }
 
@@ -463,6 +557,13 @@ let lastSay=0; function say(t){ const now=Date.now(); if(now-lastSay<1300) retur
 $('start-btn').addEventListener('click', startFlow);
 $('replay-btn').addEventListener('click', ()=>{ $('end-screen').classList.add('hidden'); countdown().then(beginGame); });
 $('quit').addEventListener('click', ()=>{ endGame(); });
+$('dbg').addEventListener('click', ()=>$('dbg').classList.toggle('off'));   // tap to dim the monitor
+$('copy-log').addEventListener('click', async ()=>{
+  const txt=JSON.stringify(window.__lastSession||{note:'no session yet'},null,2);
+  try{ await navigator.clipboard.writeText(txt); }
+  catch(e){ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch(_){} ta.remove(); }
+  $('copy-log').textContent='✓ Copied — paste it to me!'; setTimeout(()=>$('copy-log').textContent='📋 Copy debug log',1800);
+});
 window.addEventListener('beforeunload', ()=>{ if(camStream) camStream.getTracks().forEach(t=>t.stop()); });
 </script>
 </body>
