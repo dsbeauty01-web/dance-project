@@ -4195,6 +4195,21 @@ document.addEventListener('arrival-done', async () => {
   showPhase('phase-recognition');
   LOG('GAME', 'arrival-done → recognition phase');
 
+  // FIX: guarantee the "Let's Dance!" button appears even if the worker/Runway is
+  // slow or never connects (free-tier cold start 30-50s). Previously the button was
+  // ONLY revealed by novaArrivalGreet() on the Runway-success path; the 30s safety
+  // handed off WITHOUT revealing it AND set _greeted=true, permanently blocking the
+  // normal path → kid stuck on the chat screen. The recognition chat is optional, so
+  // we always surface the button quickly. novaArrivalGreet() still reveals it earlier
+  // when Runway is ready; adding .ready twice is harmless.
+  setTimeout(() => {
+    const b = document.getElementById('rec-dance-btn');
+    if (b && !b.classList.contains('ready')) {
+      b.classList.add('ready');
+      LOG('GAME', 'dance button revealed by fallback (worker-independent)');
+    }
+  }, 3500);
+
   // Start the Kling intro overlay covering Nova circle until Runway is ready
   startIntroOverlay();
 
