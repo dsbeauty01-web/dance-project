@@ -328,6 +328,11 @@ let prevKp = null;
 
 const $ = id => document.getElementById(id);
 
+// auto-telemetry → local logserver (sessions.jsonl). No-op when served from Pages.
+const SID='S'+Date.now(); let _lastTick=0;
+function logPost(kind,data){ try{ fetch(location.origin+'/log',{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify(Object.assign({kind,sid:SID,ts:Date.now()},data||{}))}); }catch(e){} }
+
 // ---- INIT ---------------------------------------------------------------
 function renderMovesPreview(){
   const wrap=$('moves-preview');
@@ -369,6 +374,10 @@ async function poseLoop(){
     else { det.present=false; clearOverlay(); }
   }
   updateDbg();
+  const _n=performance.now();
+  if(_n-_lastTick>1500){ _lastTick=_n; logPost('tick',{ present:det.present, joints:det.joints,
+    headDX:+det.headDX.toFixed(2), shTilt:+det.shTilt.toFixed(2), hipDX:+det.hipDX.toFixed(2),
+    knee:+det.kneeLift.toFixed(2), motion:+det.motion.toFixed(2), playing:!!game.running, cue:game.cue&&game.cue.action }); }
   rafId=requestAnimationFrame(poseLoop);
 }
 
@@ -453,6 +462,7 @@ function drawSkeleton(kps){
 // ---- GAME FLOW ----------------------------------------------------------
 async function startFlow(){
   $('start-btn').disabled=true; $('cam-warn').textContent='loading…';
+  logPost('start',{ ua:navigator.userAgent, w:innerWidth, h:innerHeight });
   connectNova();   // warm the worker session in parallel (cold start ~30-50s)
   const okCam=await ensureCamera(); if(!okCam){ $('start-btn').disabled=false; return; }
   // non-fatal: if the model is slow/unreachable, proceed anyway (pose just won't fire)
@@ -559,6 +569,7 @@ function logCue(result){
   game.log.push({ action:c.action, result, headDX:+det.headDX.toFixed(3), shTilt:+det.shTilt.toFixed(3),
     hipDX:+det.hipDX.toFixed(3), kneeLift:+det.kneeLift.toFixed(3), motion:+det.motion.toFixed(3),
     joints:det.joints||0, present:det.present });
+  logPost('cue', game.log[game.log.length-1]);
 }
 
 function resolveHit(){
@@ -607,6 +618,7 @@ function endGame(){
   const summary={ date:new Date().toISOString(), score:game.score, hits:game.hits, total:game.total,
     maxCombo:game.maxCombo, thresholds:THRESH, byAction:by, log:game.log };
   window.__lastSession=summary;
+  logPost('end', summary);
   console.log('[nova-join session]', summary);
   try{ const arr=JSON.parse(localStorage.getItem('nova_join_logs')||'[]');
     arr.push({date:summary.date,score:summary.score,hits:summary.hits,total:summary.total,byAction:by});
