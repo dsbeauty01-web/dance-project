@@ -8,7 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.20.0/dist/tf-converter.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.20.0/dist/tf-backend-webgl.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.13.3/dist/livekit-client.umd.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/livekit-client@2.13.3/dist/livekit-client.umd.min.js"></script>
 <style>
   :root{ --pink:#ff5fd8; --grn:#00ff99; --yel:#ffd84d; --bg:#140022; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -455,7 +455,8 @@ async function startFlow(){
   $('start-btn').disabled=true; $('cam-warn').textContent='loading…';
   connectNova();   // warm the worker session in parallel (cold start ~30-50s)
   const okCam=await ensureCamera(); if(!okCam){ $('start-btn').disabled=false; return; }
-  await ensureModel();
+  // non-fatal: if the model is slow/unreachable, proceed anyway (pose just won't fire)
+  await Promise.race([ ensureModel().catch(()=>{}), new Promise(r=>setTimeout(r,12000)) ]);
   $('cam-warn').textContent='';
   $('start-screen').classList.add('hidden');
   await playIntro();                         // cinematic intro (Nova warms in the background)
@@ -471,11 +472,14 @@ function playIntro(){
     if(!scr||!v){ res(); return; }
     scr.classList.remove('hidden');
     let done=false;
-    const finish=()=>{ if(done) return; done=true; try{ v.pause(); }catch(e){} scr.classList.add('hidden'); res(); };
-    v.onended=finish; $('intro-skip').onclick=finish;
-    v.currentTime=0; v.muted=false; v.volume=0.9;
-    v.play().catch(()=>{ v.muted=true; v.play().catch(()=>{}); });  // if sound is blocked, play muted
-    setTimeout(finish, 16000);                                     // safety: never hang
+    const finish=()=>{ if(done) return; done=true; clearTimeout(safety); try{ v.pause(); }catch(e){} scr.classList.add('hidden'); res(); };
+    const safety=setTimeout(finish, 15000);   // hard cap — NEVER hang here
+    v.onended=finish; v.onerror=finish; $('intro-skip').onclick=finish;
+    try{ v.currentTime=0; }catch(e){}
+    v.muted=true;                              // muted autoplay is always allowed → never blocks
+    const p=v.play();
+    if(p&&p.catch) p.catch(()=>finish());      // if it still won't play, just skip to the game
+    setTimeout(()=>{ try{ if(!done){ v.muted=false; v.volume=0.9; } }catch(e){} }, 350); // unmute once rolling
   });
 }
 
