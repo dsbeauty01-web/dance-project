@@ -38,7 +38,7 @@
   #cam-warn{ font-size:13px; opacity:.7; min-height:18px; }
 
   /* ── COUNTDOWN ── */
-  #countdown{ background:rgba(8,0,20,.86); z-index:40; }
+  #countdown{ background:rgba(8,0,20,.45); z-index:40; } /* translucent — camera/detection visible behind */
   #cd-num{ font-size:min(48vw,300px); font-weight:700; color:#fff; text-shadow:0 0 40px var(--pink);
     animation:cdPop .9s ease-out; }
   #cd-sub{ font-size:clamp(16px,5vw,24px); opacity:.85; margin-top:10px; }
@@ -283,7 +283,7 @@ const CUES = (()=>{
   const out=[]; const add=(t,action,dur)=>out.push({ t, dur, action });
   // SLOW BUILD — starts early (~6s) so the kid LEARNS the slow moves first,
   // then it speeds up. Cards drive it (Nova dances behind as the backdrop).
-  const slow=1220, sw=1050; let t=6000;
+  const slow=1220, sw=1050; let t=3500;   // cues begin during Nova's walk-up intro
   ['head-right','head-left','head-right','head-left'].forEach(a=>{ add(t,a,sw); t+=slow; });
   ['shoulder-right','shoulder-left','shoulder-right','shoulder-left'].forEach(a=>{ add(t,a,sw); t+=slow; });
   for(let i=0;i<4;i++){ add(t,'hips',sw); t+=slow; }
@@ -479,10 +479,10 @@ async function startFlow(){
   await Promise.race([ ensureModel().catch(()=>{}), new Promise(r=>setTimeout(r,12000)) ]);
   $('cam-warn').textContent='';
   $('start-screen').classList.add('hidden');
-  await playIntro();                         // cinematic intro (Nova warms in the background)
   $('dbg').classList.remove('hidden');       // live monitor on
-  cancelAnimationFrame(rafId); poseLoop();   // start detecting now (for calibration)
-  await countdown();
+  $('game').classList.remove('hidden');      // show split layout NOW — camera is live during the intro
+  cancelAnimationFrame(rafId); poseLoop();   // detection + skeleton live immediately
+  await countdown();                         // translucent 3-2-1 over the live camera; calibrates on GO
   beginGame();
 }
 
