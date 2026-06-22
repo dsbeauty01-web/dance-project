@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Nova Wave · Arm Dance</title>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.20.0/dist/tf-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.20.0/dist/tf-converter.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.20.0/dist/tf-backend-webgl.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.13.3/dist/livekit-client.umd.min.js"></script>
+<style>
+  :root{ --pink:#ff5fd8; --grn:#00ff99; --yel:#ffd84d; --bg:#140022; }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    font-family:'Fredoka','Segoe UI',system-ui,sans-serif; color:#fff; overflow:hidden;
+    background:radial-gradient(120% 120% at 50% 0%, #3a1060 0%, #1a0633 55%, #0c0019 100%);
+    -webkit-user-select:none; user-select:none;
+  }
+  .screen{ position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .hidden{ display:none !important; }
+
+  /* ── START ── */
+  #start-screen{ gap:18px; text-align:center; padding:24px; }
+  #start-screen h1{ font-size:clamp(34px,9vw,64px); font-weight:700;
+    background:linear-gradient(90deg,#ff8ae2,#a78bfa,#6ee7ff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  #start-screen p{ opacity:.8; font-size:clamp(14px,4vw,18px); max-width:420px; line-height:1.5; }
+  .moves-preview{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; max-width:460px; margin:6px 0 4px; }
+  .moves-preview .chip{ background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14);
+    border-radius:14px; padding:8px 10px; display:flex; flex-direction:column; align-items:center; gap:4px; width:84px; }
+  .moves-preview .chip svg{ width:46px; height:60px; }
+  .moves-preview .chip span{ font-size:11px; opacity:.85; }
+  .big-btn{ background:linear-gradient(135deg,var(--grn),#00c2d4); color:#062; border:none; cursor:pointer;
+    font-family:inherit; font-weight:700; font-size:clamp(20px,5.5vw,26px); padding:18px 46px; border-radius:50px;
+    box-shadow:0 8px 34px rgba(0,255,150,.5); transition:transform .15s; }
+  .big-btn:active{ transform:scale(.95); }
+  #cam-warn{ font-size:13px; opacity:.7; min-height:18px; }
+
+  /* ── COUNTDOWN ── */
+  #countdown{ background:rgba(8,0,20,.86); z-index:40; }
+  #cd-num{ font-size:min(48vw,300px); font-weight:700; color:#fff; text-shadow:0 0 40px var(--pink);
+    animation:cdPop .9s ease-out; }
+  #cd-sub{ font-size:clamp(16px,5vw,24px); opacity:.85; margin-top:10px; }
+  @keyframes cdPop{ 0%{ transform:scale(.4); opacity:0 } 30%{ transform:scale(1.1); opacity:1 } 100%{ transform:scale(1); opacity:1 } }
+
+  /* ── INTRO VIDEO ── */
+  #intro-screen{ background:#000; z-index:50; padding:0; }
+  #intro-vid{ width:100%; height:100%; object-fit:contain; }
+  #intro-skip{ position:absolute; bottom:18px; right:18px; z-index:51; cursor:pointer;
+    background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.35); color:#fff;
+    font-family:inherit; font-weight:600; padding:9px 20px; border-radius:22px; }
+
+  /* ── GAME ── */
+  #game{ justify-content:flex-start; }
+  #hud{ width:100%; display:flex; align-items:center; gap:10px; padding:10px 14px;
+    position:relative; z-index:20; }
+  #score-box{ font-weight:700; font-size:clamp(22px,6vw,30px); color:var(--yel); min-width:74px; }
+  #score-box small{ display:block; font-size:11px; color:#fff9; font-weight:500; }
+  #progress-wrap{ flex:1; height:12px; background:rgba(255,255,255,.12); border-radius:8px; overflow:hidden; }
+  #progress{ height:100%; width:0%; background:linear-gradient(90deg,var(--pink),var(--yel)); border-radius:8px; transition:width .2s linear; }
+  #combo-box{ font-weight:700; font-size:clamp(16px,4.5vw,22px); color:var(--grn); min-width:58px; text-align:right; }
+  #combo-box.pulse{ animation:comboPulse .4s; }
+  @keyframes comboPulse{ 50%{ transform:scale(1.35) } }
+  #quit{ background:rgba(255,255,255,.1); border:none; color:#fff; font-size:18px; width:34px; height:34px; border-radius:50%; cursor:pointer; }
+
+  /* split screen: Nova LEFT, you RIGHT — both big */
+  #stage{ position:relative; width:100%; flex:1; display:flex; flex-direction:row; gap:6px; padding:6px; align-items:stretch; overflow:hidden; }
+  #nova-side{ position:relative; flex:1 1 50%; min-width:0; border-radius:20px; overflow:hidden;
+    background:#200; border:3px solid rgba(255,255,255,.14); }
+  #nova-side video{ width:100%; height:100%; object-fit:contain; } /* show all of Nova, never cut off */
+  .side-tag{ position:absolute; bottom:6px; left:50%; transform:translateX(-50%); z-index:9;
+    font-size:12px; background:rgba(0,0,0,.55); padding:2px 12px; border-radius:12px; }
+  /* Nova's LIVE reacting face (Runway avatar over the LiveKit session) */
+  #nova-live{ position:absolute; bottom:10px; left:10px; width:36%; max-width:160px; aspect-ratio:1;
+    object-fit:cover; border-radius:50%; border:3px solid var(--pink); box-shadow:0 0 22px rgba(255,95,216,.5);
+    z-index:8; display:none; background:#1a0030; transition:border-color .15s, box-shadow .15s; }
+  #nova-live.show{ display:block; }
+  #nova-live.talking{ border-color:var(--grn); box-shadow:0 0 38px rgba(0,255,150,.7); }
+  #nova-status{ position:absolute; top:8px; left:8px; z-index:9; font-size:11px;
+    background:rgba(0,0,0,.6); color:#ffd84d; padding:3px 10px; border-radius:12px; }
+  #cam-wrap{ position:relative; flex:1 1 50%; min-width:0; border-radius:20px; overflow:hidden; background:#000;
+    border:4px solid rgba(255,255,255,.18); box-shadow:0 8px 30px rgba(0,0,0,.5); transition:border-color .15s, box-shadow .15s; }
+  /* phone held upright → stack Nova on top, You on bottom (no squishing). Laptop /
+     landscape keeps side-by-side. */
+  @media (orientation:portrait){ #stage{ flex-direction:column; } }
+  #cam, #overlay{ position:absolute; inset:0; width:100%; height:100%; }
+  #cam{ object-fit:contain; transform:scaleX(-1); } /* mirror; contain = whole body visible */
+  /* overlay is NOT css-mirrored: poses come from estimatePoses(flipHorizontal:true)
+     which are already in mirrored space, so they match the mirrored video as-is. */
+  /* detection window state */
+  #cam-wrap.armed{ border-color:var(--yel); box-shadow:0 0 0 4px rgba(255,216,77,.35),0 14px 50px rgba(0,0,0,.5); }
+  #cam-wrap.hit{ border-color:var(--grn); box-shadow:0 0 0 6px rgba(0,255,150,.5),0 14px 50px rgba(0,0,0,.5); }
+  #cam-wrap.miss{ border-color:#ff4d6d; box-shadow:0 0 0 6px rgba(255,77,109,.45),0 14px 50px rgba(0,0,0,.5); }
+
+  /* ── DETECTION ZONES (half = sideways move, full = full-body move) ── */
+  .zone{ position:absolute; top:0; bottom:0; z-index:7; pointer-events:none; opacity:0;
+    display:flex; align-items:flex-start; justify-content:center; padding-top:14px; font-size:38px; font-weight:700;
+    text-shadow:0 2px 8px rgba(0,0,0,.6); transition:opacity .14s, background .14s; }
+  #zone-left{ left:0; width:50%; }
+  #zone-right{ right:0; width:50%; }
+  #zone-full{ left:0; width:100%; }
+  .zone.show{ opacity:1; }
+  /* subtle tints — never wash out the camera */
+  .zone.armed{ background:linear-gradient(rgba(255,216,77,.14),rgba(255,216,77,.02)); color:rgba(255,216,77,.85); }
+  .zone.hit{ background:linear-gradient(rgba(0,255,150,.18),rgba(0,255,150,.03)); color:#bfffe0; }
+  .zone.miss{ background:linear-gradient(rgba(255,77,109,.16),rgba(255,77,109,.03)); color:#ffd3db; }
+
+  /* ── DEBUG / MONITOR PANEL ── */
+  #dbg{ position:fixed; top:6px; left:6px; z-index:60; max-width:46vw;
+    background:rgba(0,0,0,.82); color:#7dd3fc; font:10px/1.45 'SF Mono',Consolas,monospace;
+    padding:6px 8px; border-radius:7px; border:1px solid rgba(125,211,252,.4); white-space:pre; }
+  #dbg.off{ opacity:.35; }
+  #dbg b{ color:#fff; }
+  #dbg .on{ color:#22c55e; font-weight:700; }
+  #dbg .no{ color:#64748b; }
+  #copy-log{ background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.25); color:#fff;
+    font-family:inherit; padding:10px 18px; border-radius:20px; cursor:pointer; font-size:14px; }
+  #end-table{ font:12px/1.5 'SF Mono',Consolas,monospace; text-align:left; background:rgba(0,0,0,.3);
+    border-radius:10px; padding:10px 14px; margin:4px auto; max-width:340px; }
+  #end-table .bad{ color:#ff8da3; } #end-table .good{ color:#6ee7b7; }
+
+  /* (Nova is now the left split panel — see #nova-side above) */
+
+  /* CUE CARD */
+  #cue{ position:absolute; top:6px; right:8px; z-index:8; width:min(40vw,180px);
+    background:rgba(20,0,40,.82); backdrop-filter:blur(6px); border:2px solid var(--pink);
+    border-radius:18px; padding:10px 10px 8px; text-align:center; opacity:0; transform:translateY(-8px) scale(.96);
+    transition:opacity .18s, transform .18s; }
+  #cue.show{ opacity:1; transform:none; }
+  #cue-figure{ width:84px; height:108px; margin:0 auto; }
+  #cue-label{ font-weight:700; font-size:clamp(15px,4.5vw,20px); margin-top:4px; line-height:1.1; }
+  #cue-timer-wrap{ height:7px; background:rgba(255,255,255,.15); border-radius:5px; margin-top:8px; overflow:hidden; }
+  #cue-timer{ height:100%; width:100%; background:var(--yel); transform-origin:left; }
+
+  /* feedback popups */
+  #fx{ position:absolute; inset:0; pointer-events:none; z-index:15; display:flex; align-items:center; justify-content:center; }
+  .pop{ position:absolute; font-weight:700; font-size:clamp(28px,9vw,52px); animation:popUp .9s ease-out forwards; text-shadow:0 3px 12px rgba(0,0,0,.5); }
+  @keyframes popUp{ 0%{ transform:translateY(20px) scale(.6); opacity:0 } 25%{ transform:translateY(0) scale(1.1); opacity:1 } 100%{ transform:translateY(-50px) scale(1); opacity:0 } }
+
+  /* coach line */
+  #coach{ position:absolute; bottom:10px; left:50%; transform:translateX(-50%); z-index:9;
+    background:rgba(0,0,0,.55); padding:8px 16px; border-radius:20px; font-size:clamp(14px,4vw,18px);
+    max-width:90%; text-align:center; opacity:0; transition:opacity .2s; }
+  #coach.show{ opacity:1; }
+
+  /* ── END ── */
+  #end-screen{ gap:14px; text-align:center; padding:24px; z-index:30; }
+  #end-stars{ font-size:46px; letter-spacing:6px; min-height:54px; }
+  #end-title{ font-size:clamp(28px,8vw,46px); font-weight:700; }
+  #end-score{ font-size:clamp(20px,6vw,30px); color:var(--yel); font-weight:700; }
+  #end-detail{ opacity:.8; }
+  #end-hook{ color:var(--yel); font-weight:600; font-size:15px; margin-top:4px; }
+</style>
+</head>
+<body>
+
+<!-- START -->
+<div id="start-screen" class="screen">
+  <h1>Nova Wave</h1>
+  <p>Copy Nova's arm moves! Roll your shoulders, pump your elbows, then raise a hand and wave. Stand back so I can see your arms. 👋</p>
+  <div class="moves-preview" id="moves-preview"></div>
+  <button class="big-btn" id="start-btn">▶ Start Dancing</button>
+  <div id="cam-warn"></div>
+</div>
+
+<!-- INTRO VIDEO (plays after Start, covers Nova's cold-start) -->
+<div id="intro-screen" class="screen hidden">
+  <video id="intro-vid" playsinline preload="auto">
+    <source src="intro-small.mp4" type="video/mp4">
+  </video>
+  <button id="intro-skip">skip ▶</button>
+</div>
+
+<!-- COUNTDOWN -->
+<div id="countdown" class="screen hidden">
+  <div id="cd-num">3</div>
+  <div id="cd-sub">get ready…</div>
+</div>
+
+<!-- DEBUG / MONITOR (tap to dim) -->
+<div id="dbg" class="hidden">starting…</div>
+
+<!-- GAME -->
+<div id="game" class="screen hidden">
+  <div id="hud">
+    <div id="score-box"><span id="score">0</span><small>score</small></div>
+    <div id="progress-wrap"><div id="progress"></div></div>
+    <div id="combo-box">x0</div>
+    <button id="quit" title="Quit">✕</button>
+  </div>
+  <div id="stage">
+    <div id="nova-side">
+      <video id="nova-vid" playsinline preload="auto" loop>
+        <source src="handywave.mp4" type="video/mp4">
+      </video>
+      <video id="nova-live" playsinline autoplay></video>
+      <div id="nova-status"></div>
+      <div class="side-tag">Nova</div>
+    </div>
+    <div id="cam-wrap">
+      <video id="cam" playsinline muted autoplay></video>
+      <canvas id="overlay"></canvas>
+      <div id="zone-left" class="zone"></div>
+      <div id="zone-right" class="zone"></div>
+      <div id="zone-full" class="zone"></div>
+      <div class="side-tag">You</div>
+      <div id="cue">
+        <div id="cue-figure"></div>
+        <div id="cue-label">HEAD</div>
+        <div id="cue-timer-wrap"><div id="cue-timer"></div></div>
+      </div>
+      <div id="fx"></div>
+      <div id="coach"></div>
+    </div>
+  </div>
+</div>
+
+<!-- END -->
+<div id="end-screen" class="screen hidden">
+  <div id="end-stars"></div>
+  <div id="end-title">Nice dancing!</div>
+  <div id="end-score">0 pts</div>
+  <div id="end-detail"></div>
+  <div id="end-table"></div>
+  <div id="end-hook"></div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+    <button class="big-btn" id="replay-btn">▶ Dance again</button>
+    <button id="copy-log">📋 Copy debug log</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ════════════════════════════════════════════════════════════════════
+   NOVA JOIN — self-contained dance game (frontend only).
+   MoveNet pose detection + beat-timed cues + live scoring. No backend.
+   ════════════════════════════════════════════════════════════════════ */
+
+// ---- MOVE DEFINITIONS ---------------------------------------------------
+// 6 moves. `check(d, base)` returns true when the current pose `d` (deltas vs the
+// calibrated `base`) matches. Detection is per-part + directional where it makes
+// sense. Thresholds are normalised by shoulder width — tune in THRESH below.
+// arm-raise tiers (normalised by shoulder width), measured from the calibrated stance:
+//   shoulders up (arms down)  <  elbows up to shoulder height  <  hand up high (wave)
+const THRESH = { roll:0.05, elbow:-0.05, wave:0.12, motion:0.06 };
+
+const MOVES = {
+  'shoulder-roll': { name:'SHOULDERS', coach:'roll your shoulders up!', pts:120, check:d=> d.shoulderLift>THRESH.roll && d.elbowUp<-0.18 },
+  'elbow-pump':    { name:'ELBOWS',    coach:'pump your elbows out!',   pts:140, check:d=> d.elbowUp>THRESH.elbow && d.handUp<0.10 },
+  'wrist-wave':    { name:'WAVE 👋',   coach:'raise a hand & wave!',    pts:160, check:d=> d.handUp>THRESH.wave },
+  'free':          { name:'FREESTYLE!',coach:'wave it ALL!',            pts:60,  check:d=> d.motion>THRESH.motion },
+};
+
+// wave moves are full-body (no left/right zone) — light the whole frame
+const ZONE = { 'shoulder-roll':'full','elbow-pump':'full','wrist-wave':'full','free':'full' };
+function setZone(z, state){
+  ['zone-left','zone-right','zone-full'].forEach(id=>$(id).classList.remove('show','armed','hit','miss'));
+  if(!z) return;
+  const id = z==='left'?'zone-left':z==='right'?'zone-right':'zone-full';
+  const e=$(id); e.textContent = z==='full'?'🕺':(z==='left'?'←':'→'); e.classList.add('show', state||'armed');
+}
+function zoneState(state){ const z=game.cueZone; if(!z) return;
+  const id=z==='left'?'zone-left':z==='right'?'zone-right':'zone-full';
+  const e=$(id); e.classList.remove('armed','hit','miss'); e.classList.add(state); }
+
+// ---- CUE TIMELINE (video.currentTime ms; music = handywave.mp4, ~28.5s) -
+const VIDEO_START = 0;           // play from the start so the kid can anticipate
+const CUES = (()=>{
+  const out=[]; const add=(t,action,dur)=>out.push({ t, dur, action });
+  // proximal → distal: shoulders, then elbows, then the hand wave, then freestyle
+  let t=6000; const gap=1900, dur=1550;
+  for(let i=0;i<3;i++){ add(t,'shoulder-roll',dur); t+=gap; }
+  for(let i=0;i<3;i++){ add(t,'elbow-pump',dur);    t+=gap; }
+  for(let i=0;i<3;i++){ add(t,'wrist-wave',dur);    t+=gap; }
+  add(t,'free',5000);
+  return out.sort((a,b)=>a.t-b.t);
+})();
+const SONG_END = 28.4;           // seconds — stop + show results
+
+// ---- SVG MOVE FIGURES ---------------------------------------------------
+// A simple front-facing figure (mirror of the kid). Active part glows + arrow.
+function figureSVG(action){
+  const HI='#ffd84d', base='#cfc2e8', S=4;
+  const st=`stroke="${base}" stroke-width="${S}" stroke-linecap="round" fill="none"`;
+  const gl=`stroke="${HI}" stroke-width="${S+2}" stroke-linecap="round" fill="none"`;
+  let lShY=46,rShY=46, lArm='M28,46 L18,72', rArm='M72,46 L82,72', arrow='', hiSh=false, hiArm='';
+  if(action==='shoulder-roll'){ lShY=rShY=37; hiSh=true; arrow=`<text x="38" y="18" font-size="17" fill="${HI}">↑↑</text>`; }
+  else if(action==='elbow-pump'){ lArm='M28,46 L15,40 L26,56'; rArm='M72,46 L85,40 L74,56'; hiArm='both'; arrow=`<text x="36" y="22" font-size="14" fill="${HI}">flap</text>`; }
+  else if(action==='wrist-wave'){ rArm='M72,46 L84,24 L80,9'; hiArm='right'; arrow=`<text x="82" y="12" font-size="20">👋</text>`; }
+  const head=`<circle cx="50" cy="22" r="13" ${st}/>`;
+  const neck=`<line x1="50" y1="35" x2="50" y2="50" ${st}/>`;
+  const sh=`<line x1="28" y1="${lShY}" x2="72" y2="${rShY}" ${hiSh?gl:st}/>`;
+  const torso=`<line x1="50" y1="48" x2="50" y2="86" ${st}/>`;
+  const la=`<path d="${lArm}" ${(hiArm==='both')?gl:st}/>`;
+  const ra=`<path d="${rArm}" ${(hiArm==='both'||hiArm==='right')?gl:st}/>`;
+  const hips=`<line x1="36" y1="86" x2="64" y2="86" ${st}/>`;
+  const legs=`<path d="M38,86 L34,124" ${st}/><path d="M62,86 L66,124" ${st}/>`;
+  return `<svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg">${head}${neck}${sh}${torso}${la}${ra}${hips}${legs}${arrow}</svg>`;
+}
+
+// ---- STATE --------------------------------------------------------------
+let detector=null, camStream=null, rafId=0;
+let det = { shoulderLift:0, elbowUp:-1, handUp:-1, motion:0, present:false, joints:0 };
+let base = { shoulderBaseY:0, sw:120, ok:false };
+let smooth = {};
+let game = { running:false, score:0, combo:0, maxCombo:0, hits:0, total:0, idx:0, cue:null, cueResolved:false, cueEnd:0 };
+let prevKp = null;
+
+const $ = id => document.getElementById(id);
+
+// ---- INIT ---------------------------------------------------------------
+function renderMovesPreview(){
+  const wrap=$('moves-preview');
+  [['shoulder-roll','Shoulders'],['elbow-pump','Elbows'],['wrist-wave','Wave']].forEach(([a,lbl])=>{
+    const c=document.createElement('div'); c.className='chip';
+    c.innerHTML = figureSVG(a)+`<span>${lbl}</span>`;
+    wrap.appendChild(c);
+  });
+}
+renderMovesPreview();
+
+async function ensureModel(){
+  if(detector) return;
+  await tf.setBackend('webgl'); await tf.ready();
+  detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,
+    { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING });
+}
+
+async function ensureCamera(){
+  if(camStream) return true;
+  try{
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video:{ width:{ideal:640}, height:{ideal:480}, facingMode:'user' }, audio:false });
+    const v=$('cam'); v.srcObject=camStream; await v.play();
+    return true;
+  }catch(e){ $('cam-warn').textContent='⚠ Camera blocked — allow camera and reload.'; return false; }
+}
+
+// ---- POSE LOOP ----------------------------------------------------------
+function kp(kps,name){ return kps.find(k=>k.name===name); }
+function sm(key,x,y){ const a=0.6; if(!smooth[key]) smooth[key]={x,y}; smooth[key].x=smooth[key].x*a+x*(1-a); smooth[key].y=smooth[key].y*a+y*(1-a); return smooth[key]; }
+
+async function poseLoop(){
+  const v=$('cam');
+  if(detector && v && v.readyState>=2){
+    let poses=[];
+    try{ poses = await detector.estimatePoses(v,{flipHorizontal:true}); }catch(e){}
+    if(poses[0]){ analyze(poses[0].keypoints); drawSkeleton(poses[0].keypoints); }
+    else { det.present=false; clearOverlay(); }
+  }
+  updateDbg();
+  rafId=requestAnimationFrame(poseLoop);
+}
+
+// live monitor — shows raw detection values + which moves are firing RIGHT NOW
+let _dbgLast=0;
+function updateDbg(){
+  const el=$('dbg'); if(!el || el.classList.contains('hidden')) return;
+  const now=performance.now(); if(now-_dbgLast<150) return; _dbgLast=now;
+  const flag=k=> (det.present && MOVES[k].check(det,base)) ? `<span class="on">${k}</span>` : `<span class="no">${k}</span>`;
+  const f=v=> (v>=0?'+':'')+v.toFixed(2);
+  el.innerHTML =
+    `<b>present</b> ${det.present?'<span class="on">yes</span>':'<span class="no">NO</span>'}  joints ${det.joints||0}/17\n`+
+    `shoulderLift ${f(det.shoulderLift)}\n`+
+    `elbowUp ${f(det.elbowUp)}  handUp ${f(det.handUp)}\n`+
+    `motion ${det.motion.toFixed(2)}  base ${base.ok?'ok':'—'}\n`+
+    `${flag('shoulder-roll')} ${flag('elbow-pump')}\n${flag('wrist-wave')} ${flag('free')}`;
+}
+
+function analyze(kps){
+  const MIN=0.25;   // a bit lower so dim / backlit rooms still register joints
+  det.joints = kps.filter(k=>k.score>MIN).length;
+  const ls=kp(kps,'left_shoulder'), rs=kp(kps,'right_shoulder');
+  const le=kp(kps,'left_elbow'), re=kp(kps,'right_elbow');
+  const lw=kp(kps,'left_wrist'), rw=kp(kps,'right_wrist');
+  det.present = ls&&rs&&ls.score>MIN&&rs.score>MIN;
+  if(!det.present) return;
+  const Ls=sm('ls',ls.x,ls.y), Rs=sm('rs',rs.x,rs.y);
+  const sw = Math.max(Math.abs(Ls.x-Rs.x),60);
+  const midShY=(Ls.y+Rs.y)/2;
+  // ACTIVE ARM = the one whose wrist is higher (the kid's waving arm)
+  const Lw= lw&&lw.score>MIN? sm('lw',lw.x,lw.y):null;
+  const Rw= rw&&rw.score>MIN? sm('rw',rw.x,rw.y):null;
+  const Le= le&&le.score>MIN? sm('le',le.x,le.y):null;
+  const Re= re&&re.score>MIN? sm('re',re.x,re.y):null;
+  let aw=null, ae=null;
+  if(Lw||Rw){ const useLeft = Lw && (!Rw || Lw.y<=Rw.y); aw=useLeft?Lw:Rw; ae=useLeft?Le:Re; }
+  // arm-raise tiers (positive = higher than the shoulder line)
+  det.handUp  = aw ? (midShY-aw.y)/sw : -1;
+  det.elbowUp = ae ? (midShY-ae.y)/sw : -1;
+  det.shoulderLift = base.shoulderBaseY ? (base.shoulderBaseY - midShY)/sw : 0; // shrug up = +
+  det._raw = { midShY, sw };
+  // motion from frame-to-frame keypoint travel
+  if(prevKp){ let tot=0,c=0; for(let i=0;i<kps.length;i++){ if(kps[i].score>MIN&&prevKp[i]&&prevKp[i].score>MIN){ tot+=Math.hypot(kps[i].x-prevKp[i].x,kps[i].y-prevKp[i].y); c++; } } if(c) det.motion=0.6*det.motion+0.4*Math.min(1,(tot/c)/sw*3); }
+  prevKp=kps.map(k=>({x:k.x,y:k.y,score:k.score}));
+}
+
+function calibrate(){
+  // snapshot the neutral standing pose (arms down) as the zero point
+  const r=det._raw; if(!r) return;
+  base.shoulderBaseY=r.midShY; base.sw=r.sw; base.ok=true;
+}
+
+// ---- OVERLAY (skeleton) -------------------------------------------------
+const SKELETON=[['left_shoulder','right_shoulder'],['left_shoulder','left_elbow'],['left_elbow','left_wrist'],
+  ['right_shoulder','right_elbow'],['right_elbow','right_wrist'],['left_shoulder','left_hip'],
+  ['right_shoulder','right_hip'],['left_hip','right_hip'],['left_hip','left_knee'],['left_knee','left_ankle'],
+  ['right_hip','right_knee'],['right_knee','right_ankle']];
+// map MoveNet video-pixel coords → on-screen canvas coords, accounting for the
+// camera's object-fit:cover crop, so the skeleton lands ON the body.
+function coverMap(){
+  const v=$('cam'), c=$('overlay');
+  const cw=c.clientWidth||1, ch=c.clientHeight||1, vw=v.videoWidth||640, vh=v.videoHeight||480;
+  if(c.width!==cw||c.height!==ch){ c.width=cw; c.height=ch; }
+  const scale=Math.min(cw/vw, ch/vh);   // contain — matches #cam object-fit:contain
+  return { scale, ox:(cw-vw*scale)/2, oy:(ch-vh*scale)/2 };
+}
+function clearOverlay(){ const c=$('overlay'); c.getContext('2d').clearRect(0,0,c.width,c.height); }
+function drawSkeleton(kps){
+  const c=$('overlay'); const x=c.getContext('2d'); const {scale,ox,oy}=coverMap();
+  x.clearRect(0,0,c.width,c.height);
+  const X=p=>p.x*scale+ox, Y=p=>p.y*scale+oy;
+  x.strokeStyle='rgba(0,255,150,.85)'; x.lineWidth=3; x.fillStyle='#ff5fd8';
+  const m={}; kps.forEach(k=>m[k.name]=k);
+  SKELETON.forEach(([a,b])=>{ const A=m[a],B=m[b]; if(A&&B&&A.score>0.25&&B.score>0.25){ x.beginPath(); x.moveTo(X(A),Y(A)); x.lineTo(X(B),Y(B)); x.stroke(); }});
+  kps.forEach(k=>{ if(k.score>0.25){ x.beginPath(); x.arc(X(k),Y(k),4,0,7); x.fill(); }});
+}
+
+// ---- GAME FLOW ----------------------------------------------------------
+async function startFlow(){
+  $('start-btn').disabled=true; $('cam-warn').textContent='loading…';
+  connectNova();   // warm the worker session in parallel (cold start ~30-50s)
+  const okCam=await ensureCamera(); if(!okCam){ $('start-btn').disabled=false; return; }
+  await ensureModel();
+  $('cam-warn').textContent='';
+  $('start-screen').classList.add('hidden');
+  await playIntro();                         // cinematic intro (Nova warms in the background)
+  $('dbg').classList.remove('hidden');       // live monitor on
+  cancelAnimationFrame(rafId); poseLoop();   // start detecting now (for calibration)
+  await countdown();
+  beginGame();
+}
+
+function playIntro(){
+  return new Promise(res=>{
+    const scr=$('intro-screen'), v=$('intro-vid');
+    if(!scr||!v){ res(); return; }
+    scr.classList.remove('hidden');
+    let done=false;
+    const finish=()=>{ if(done) return; done=true; try{ v.pause(); }catch(e){} scr.classList.add('hidden'); res(); };
+    v.onended=finish; $('intro-skip').onclick=finish;
+    v.currentTime=0; v.muted=false; v.volume=0.9;
+    v.play().catch(()=>{ v.muted=true; v.play().catch(()=>{}); });  // if sound is blocked, play muted
+    setTimeout(finish, 16000);                                     // safety: never hang
+  });
+}
+
+function countdown(){
+  return new Promise(res=>{
+    $('countdown').classList.remove('hidden');
+    const num=$('cd-num'), sub=$('cd-sub'); let n=3;
+    const step=()=>{
+      if(n>0){ num.textContent=n; num.style.animation='none'; void num.offsetWidth; num.style.animation='cdPop .9s ease-out';
+        sub.textContent = n===3?'stand back, I can see you':'get ready…'; n--; setTimeout(step,900); }
+      else { num.textContent='GO!'; sub.textContent='copy Nova!'; calibrate(); // zero-point on the neutral stance
+        setTimeout(()=>{ $('countdown').classList.add('hidden'); res(); },700); }
+    };
+    step();
+  });
+}
+
+function beginGame(){
+  Object.assign(game,{ running:true, score:0, combo:0, maxCombo:0, hits:0, total:0, idx:0, cue:null, cueResolved:false, cueEnd:0, cueZone:null, log:[], _readyShown:false });
+  $('score').textContent='0'; $('combo-box').textContent='x0'; $('progress').style.width='0%';
+  $('game').classList.remove('hidden');
+  const nv=$('nova-vid'); nv.muted=false; nv.volume=0.8; nv.loop=false;
+  try{ nv.currentTime=VIDEO_START; }catch(e){}
+  nv.onended=endGame;
+  nv.play().catch(()=>{ /* retry on next tick */ setTimeout(()=>nv.play().catch(()=>{}),200); });
+  coach('Watch Nova — copy her when a card pops up!');
+  novaSend({ kind:'game-event', event:{ event:'phase', phase:'dance' } });
+  clearInterval(game.tick); game.tick=setInterval(gameTick,60);
+}
+
+function gameTick(){
+  if(!game.running) return;
+  const nv=$('nova-vid'); const now=nv.currentTime*1000;
+  const span=(SONG_END-VIDEO_START)*1000;
+  $('progress').style.width=Math.min(100,((nv.currentTime-VIDEO_START)/(SONG_END-VIDEO_START))*100)+'%';
+  if(nv.currentTime>=SONG_END){ endGame(); return; }
+
+  // intro lead-in — let the kid anticipate the very first move
+  if(game.idx===0 && !game.cue && !game._readyShown && CUES.length){
+    const lead=CUES[0].t-now;
+    if(lead<=3500 && lead>300){ game._readyShown=true; coach('Get ready… first move!'); }
+  }
+
+  // open next cue
+  if(!game.cue && game.idx<CUES.length && now>=CUES[game.idx].t){
+    openCue(CUES[game.idx]);
+  }
+  // live-check active cue
+  if(game.cue){
+    if(!game.cueResolved && MOVES[game.cue.action].check(det, base) && det.present){ resolveHit(); }
+    if(now>=game.cueEnd){ if(!game.cueResolved) resolveMiss(); closeCue(); }
+  }
+}
+
+function openCue(c){
+  game.cue=c; game.cueResolved=false; game.cueEnd=c.t+c.dur; game.total++;
+  const m=MOVES[c.action];
+  $('cue-figure').innerHTML=figureSVG(c.action==='free'?'wrist-wave':c.action);
+  $('cue-label').textContent=m.name;
+  $('cue').classList.add('show');
+  $('cam-wrap').classList.remove('hit','miss'); $('cam-wrap').classList.add('armed');
+  game.cueZone = ZONE[c.action]; setZone(game.cueZone,'armed');
+  novaSend({ kind:'game-event', event:{ event:'move_cue', action:c.action } });
+  // timer bar shrink across the window
+  const bar=$('cue-timer'); bar.style.transition='none'; bar.style.transform='scaleX(1)';
+  void bar.offsetWidth; bar.style.transition=`transform ${c.dur}ms linear`; bar.style.transform='scaleX(0)';
+  coach(m.coach);
+  // announce (quiet — works without backend)
+  say(m.name.replace(/[←→↑↔]/g,'').trim());
+}
+function closeCue(){ game.cue=null; $('cue').classList.remove('show'); $('cam-wrap').classList.remove('armed'); setZone(null); game.idx++; }
+
+// per-cue telemetry — captures the detection values at the moment of resolve so we
+// can see exactly WHERE detection is weak (e.g. knee always missing = legs off-frame)
+function logCue(result){
+  const c=game.cue; if(!c) return;
+  game.log.push({ action:c.action, result, shoulderLift:+det.shoulderLift.toFixed(3),
+    elbowUp:+det.elbowUp.toFixed(3), handUp:+det.handUp.toFixed(3), motion:+det.motion.toFixed(3),
+    joints:det.joints||0, present:det.present });
+}
+
+function resolveHit(){
+  game.cueResolved=true;
+  const m=MOVES[game.cue.action];
+  const fast=(game.cueEnd-$('nova-vid').currentTime*1000)>game.cue.dur*0.45;
+  const pts=Math.round(m.pts*(fast?1.5:1)*(1+Math.min(game.combo,8)*0.1));
+  game.score+=pts; game.hits++; game.combo++; game.maxCombo=Math.max(game.maxCombo,game.combo);
+  $('score').textContent=game.score;
+  const cb=$('combo-box'); cb.textContent='x'+game.combo; cb.classList.remove('pulse'); void cb.offsetWidth; cb.classList.add('pulse');
+  $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('hit'); zoneState('hit');
+  pop((fast?'PERFECT ':'+')+pts, fast?'#ffd84d':'#00ff99');
+  logCue('hit');
+  novaSend({ kind:'game-event', event:{ event:(game.combo===1?'first_hit':(game.combo>=3?'streak':'hit')),
+    action:game.cue&&game.cue.action, streak:game.combo, fast } });
+}
+function resolveMiss(){
+  game.combo=0; $('combo-box').textContent='x0';
+  $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('miss'); zoneState('miss');
+  pop('miss','#ff4d6d');
+  logCue('miss');
+  novaSend({ kind:'game-event', event:{ event:'miss', action:game.cue&&game.cue.action } });
+}
+
+function endGame(){
+  if(!game.running) return; game.running=false;
+  clearInterval(game.tick);
+  try{ $('nova-vid').pause(); }catch(e){}
+  novaSend({ kind:'game-event', event:{ event:'phase', phase:'goodbye' } });
+  setTimeout(disconnectNova, 9000);   // let Nova say goodbye, then drop the session
+  const rate=game.total?game.hits/game.total:0;
+  const stars=rate>=0.85?5:rate>=0.65?4:rate>=0.45?3:rate>=0.25?2:1;
+  $('end-stars').textContent='⭐'.repeat(stars)+'☆'.repeat(5-stars);
+  $('end-title').textContent=['Good try!','Nice moves!','Great dancing!','Amazing!','PERFECT! 🔥'][stars-1];
+  $('end-score').textContent=game.score+' pts';
+  $('end-detail').textContent=`${game.hits} of ${game.total} moves · best combo x${game.maxCombo}`;
+  const hooks=['tomorrow I\'ll teach you the SPIN 🌀','next time: the ROBOT 🤖','come back for the WAVE 🌊'];
+  $('end-hook').textContent=hooks[(game.maxCombo+game.hits)%hooks.length];
+
+  // per-move breakdown — shows WHERE detection is limited (hit rate + avg joints seen)
+  const by={};
+  game.log.forEach(e=>{ const b=by[e.action]||(by[e.action]={n:0,hit:0,j:0}); b.n++; if(e.result==='hit')b.hit++; b.j+=e.joints; });
+  $('end-table').innerHTML = Object.keys(by).map(a=>{ const b=by[a]; const cls=(b.hit/b.n)>=0.5?'good':'bad';
+    return `<div class="${cls}">${a.padEnd(15)} ${b.hit}/${b.n}  joints~${Math.round(b.j/b.n)}/17</div>`; }).join('') || '(no cues ran)';
+
+  const summary={ date:new Date().toISOString(), score:game.score, hits:game.hits, total:game.total,
+    maxCombo:game.maxCombo, thresholds:THRESH, byAction:by, log:game.log };
+  window.__lastSession=summary;
+  console.log('[nova-join session]', summary);
+  try{ const arr=JSON.parse(localStorage.getItem('nova_join_logs')||'[]');
+    arr.push({date:summary.date,score:summary.score,hits:summary.hits,total:summary.total,byAction:by});
+    localStorage.setItem('nova_join_logs', JSON.stringify(arr.slice(-10))); }catch(e){}
+
+  $('game').classList.add('hidden'); $('end-screen').classList.remove('hidden');
+}
+
+// ---- small helpers ------------------------------------------------------
+function pop(text,color){ const fx=$('fx'); const e=document.createElement('div'); e.className='pop'; e.textContent=text; e.style.color=color;
+  e.style.left=(20+Math.random()*55)+'%'; e.style.top=(30+Math.random()*30)+'%'; fx.appendChild(e); setTimeout(()=>e.remove(),900); }
+let coachT=0; function coach(msg){ const c=$('coach'); c.textContent=msg; c.classList.add('show'); clearTimeout(coachT); coachT=setTimeout(()=>c.classList.remove('show'),1800); }
+let lastSay=0; function say(t){ const now=Date.now(); if(now-lastSay<1300) return; lastSay=now; // light voice; safe in a cafe (muted-friendly: low volume)
+  try{ if('speechSynthesis'in window){ const u=new SpeechSynthesisUtterance(t); u.rate=1.05; u.pitch=1.3; u.volume=0.55; speechSynthesis.speak(u);} }catch(e){} }
+
+// ════════════════════════════════════════════════════════════════════════
+// LIVE NOVA — worker session + Runway avatar (like hello-hello). Optional &
+// graceful: the game runs fine if she's cold/offline; she joins when ready and
+// reacts to game events. No mic published — she reacts to your DANCING, not noise.
+// ════════════════════════════════════════════════════════════════════════
+const NOVA = { RENDER_URL:'https://novapython.onrender.com' };
+let novaRoom=null, novaConnecting=false;
+function novaStatus(t){ const e=$('nova-status'); if(e){ e.textContent=t||''; e.style.display=t?'block':'none'; } }
+function novaSend(payload){ if(!novaRoom) return; try{ novaRoom.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(payload)),{reliable:true}); }catch(e){} }
+
+async function connectNova(){
+  if(novaRoom||novaConnecting||typeof LivekitClient==='undefined') return;
+  novaConnecting=true; novaStatus('waking Nova…');
+  try{
+    if(!window.__kidId) window.__kidId='nova-join-'+Date.now();
+    const res=await fetch(NOVA.RENDER_URL+'/v2/create-session',{ method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({ kidId:window.__kidId }) });
+    if(!res.ok) throw new Error('create-session '+res.status);
+    const creds=await res.json();
+    if(!creds.serverUrl||!creds.token) throw new Error('no creds');
+    window.__novaSessionId=creds.sessionId||creds.id;
+    const room=new LivekitClient.Room({ adaptiveStream:false, dynacast:false });
+    room.on(LivekitClient.RoomEvent.TrackSubscribed, t=>{
+      if(t.kind==='video'){ const v=$('nova-live'); try{ t.attach(v); }catch(e){} v.classList.add('show'); v.muted=true; v.play().catch(()=>{});
+        novaStatus('Nova is here!'); setTimeout(()=>novaStatus(''),1500); }
+      else if(t.kind==='audio'){ let a=$('nova-audio'); if(!a){ a=document.createElement('audio'); a.id='nova-audio'; a.autoplay=true; document.body.appendChild(a); }
+        try{ t.attach(a); }catch(e){} a.muted=false; a.play().catch(()=>{}); }
+    });
+    room.on(LivekitClient.RoomEvent.DataReceived, async payload=>{
+      let msg; try{ msg=JSON.parse(new TextDecoder().decode(payload)); }catch(e){ return; }
+      if(msg && msg.kind==='request-vision') sendVision();
+    });
+    room.on(LivekitClient.RoomEvent.ActiveSpeakersChanged, sp=>{
+      const talking=sp.some(p=>p.identity!==room.localParticipant?.identity);
+      $('nova-live').classList.toggle('talking', talking);
+      const nv=$('nova-vid'); if(nv) nv.volume = talking?0.22:0.7;   // duck the music while she speaks
+    });
+    room.on(LivekitClient.RoomEvent.Disconnected, ()=>{ novaRoom=null; $('nova-live').classList.remove('show'); novaStatus(''); });
+    await room.connect(creds.serverUrl, creds.token);
+    novaRoom=room; window.__novaRoom=room;
+    novaSend({ kind:'game-event', event:{ event:'phase', phase:'dance' } }); // she's in dance-energy
+  }catch(e){ console.warn('Nova session failed:', e.message); novaStatus('Nova offline — game still works'); setTimeout(()=>novaStatus(''),2600); }
+  finally{ novaConnecting=false; }
+}
+
+// answer the worker's vision request with a quick snapshot so her reactions are specific
+async function sendVision(){
+  try{ const v=$('cam'); if(!v||!v.videoWidth){ novaSend({ kind:'vision-observation', text:'(the kid is dancing)' }); return; }
+    const c=document.createElement('canvas'); c.width=320; c.height=Math.round(320*v.videoHeight/Math.max(1,v.videoWidth));
+    c.getContext('2d').drawImage(v,0,0,c.width,c.height);
+    const r=await fetch(NOVA.RENDER_URL+'/v2/vision-observe',{ method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ frameDataUrl:c.toDataURL('image/jpeg',0.6), kidId:window.__kidId }) });
+    const d=await r.json(); novaSend({ kind:'vision-observation', text:(d&&d.ok&&d.text)?d.text:'(the kid is dancing)' });
+  }catch(e){ novaSend({ kind:'vision-observation', text:'(the kid is dancing)' }); }
+}
+function disconnectNova(){ try{ if(novaRoom) novaRoom.disconnect(); }catch(e){} novaRoom=null; }
+
+// ---- wire up ------------------------------------------------------------
+$('start-btn').addEventListener('click', startFlow);
+$('replay-btn').addEventListener('click', ()=>{ $('end-screen').classList.add('hidden'); countdown().then(beginGame); });
+$('quit').addEventListener('click', ()=>{ endGame(); });
+$('dbg').addEventListener('click', ()=>$('dbg').classList.toggle('off'));   // tap to dim the monitor
+$('copy-log').addEventListener('click', async ()=>{
+  const txt=JSON.stringify(window.__lastSession||{note:'no session yet'},null,2);
+  try{ await navigator.clipboard.writeText(txt); }
+  catch(e){ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch(_){} ta.remove(); }
+  $('copy-log').textContent='✓ Copied — paste it to me!'; setTimeout(()=>$('copy-log').textContent='📋 Copy debug log',1800);
+});
+window.addEventListener('beforeunload', ()=>{ if(camStream) camStream.getTracks().forEach(t=>t.stop()); disconnectNova(); });
+</script>
+</body>
+</html>
