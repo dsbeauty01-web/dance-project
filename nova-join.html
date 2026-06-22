@@ -247,15 +247,17 @@
 // 6 moves. `check(d, base)` returns true when the current pose `d` (deltas vs the
 // calibrated `base`) matches. Detection is per-part + directional where it makes
 // sense. Thresholds are normalised by shoulder width — tune in THRESH below.
-const THRESH = { head:0.10, sh:0.07, hip:0.10, knee:0.12, motion:0.06 };
+// tuned from real session data: looser, and head/shoulder accept EITHER direction
+// (kids often tilt the opposite way — the arrow guides, any tilt of that part scores).
+const THRESH = { head:0.09, sh:0.045, hip:0.06, knee:0.10, motion:0.06 };
 
 const MOVES = {
-  'head-right':     { name:'HEAD →',      coach:'tilt your head RIGHT',  pts:100, check:d=> d.headDX >  THRESH.head },
-  'head-left':      { name:'← HEAD',      coach:'tilt your head LEFT',   pts:100, check:d=> d.headDX < -THRESH.head },
-  'shoulder-right': { name:'SHOULDER →',  coach:'lift your RIGHT shoulder', pts:120, check:d=> d.shTilt < -THRESH.sh },
-  'shoulder-left':  { name:'← SHOULDER',  coach:'lift your LEFT shoulder',  pts:120, check:d=> d.shTilt >  THRESH.sh },
-  'hips':           { name:'HIPS',        coach:'swing your hips!',      pts:130, check:d=> Math.abs(d.hipDX) > THRESH.hip },
-  'knee':           { name:'KNEE UP',     coach:'lift a knee!',          pts:140, check:d=> d.kneeLift > THRESH.knee },
+  'head-right':     { name:'HEAD →',      coach:'tilt your head RIGHT',  pts:100, check:d=> Math.abs(d.headDX) > THRESH.head },
+  'head-left':      { name:'← HEAD',      coach:'tilt your head LEFT',   pts:100, check:d=> Math.abs(d.headDX) > THRESH.head },
+  'shoulder-right': { name:'SHOULDER →',  coach:'lift your RIGHT shoulder', pts:120, check:d=> Math.abs(d.shTilt) > THRESH.sh },
+  'shoulder-left':  { name:'← SHOULDER',  coach:'lift your LEFT shoulder',  pts:120, check:d=> Math.abs(d.shTilt) > THRESH.sh },
+  'hips':           { name:'HIPS',        coach:'swing your hips!',      pts:130, needs:'lower', check:d=> Math.abs(d.hipDX) > THRESH.hip },
+  'knee':           { name:'KNEE UP',     coach:'lift a knee!',          pts:140, needs:'lower', check:d=> d.kneeLift > THRESH.knee },
   'free':           { name:'FREESTYLE!',  coach:'move it ALL!',          pts:60,  check:d=> d.motion > THRESH.motion },
 };
 
@@ -423,6 +425,8 @@ function analyze(kps){
     hipDX=(((Lh.x+Rh.x)/2)-midShX)/sw; }
   if(lk&&rk&&lk.score>MIN&&rk.score>MIN){ kneeY=Math.min(lk.y,rk.y); }
   else if(lk&&lk.score>MIN) kneeY=lk.y; else if(rk&&rk.score>MIN) kneeY=rk.y;
+  // are the legs/hips in frame at all? (used so seated players aren't punished)
+  det.lowerVisible = !!((lh&&lh.score>MIN)||(rh&&rh.score>MIN)||(lk&&lk.score>MIN)||(rk&&rk.score>MIN));
   // store deltas vs baseline
   det.headDX = headDX - base.headDX;
   det.shTilt = shTilt - base.shTilt;
@@ -550,7 +554,14 @@ function gameTick(){
   // live-check active cue
   if(game.cue){
     if(!game.cueResolved && MOVES[game.cue.action].check(det, base) && det.present){ resolveHit(); }
-    if(now>=game.cueEnd){ if(!game.cueResolved) resolveMiss(); closeCue(); }
+    if(now>=game.cueEnd){
+      if(!game.cueResolved){
+        const m=MOVES[game.cue.action];
+        if(m.needs==='lower' && !det.lowerVisible){ coachStand(); }  // legs off-camera → don't punish
+        else resolveMiss();
+      }
+      closeCue();
+    }
   }
 }
 
@@ -595,6 +606,7 @@ function resolveHit(){
   logCue('hit');
   novaSend({ kind:'game-event', event:{ event:(game.combo===1?'first_hit':(game.combo>=3?'streak':'hit')),
     action:game.cue&&game.cue.action, streak:game.combo, fast } });
+  novaLocalReact('hit', game.combo, fast);
 }
 function resolveMiss(){
   game.combo=0; $('combo-box').textContent='x0';
@@ -602,6 +614,7 @@ function resolveMiss(){
   pop('miss','#ff4d6d');
   logCue('miss');
   novaSend({ kind:'game-event', event:{ event:'miss', action:game.cue&&game.cue.action } });
+  novaLocalReact('miss');
 }
 
 function endGame(){
@@ -641,6 +654,13 @@ function endGame(){
 function pop(text,color){ const fx=$('fx'); const e=document.createElement('div'); e.className='pop'; e.textContent=text; e.style.color=color;
   e.style.left=(20+Math.random()*55)+'%'; e.style.top=(30+Math.random()*30)+'%'; fx.appendChild(e); setTimeout(()=>e.remove(),900); }
 let coachT=0; function coach(msg){ const c=$('coach'); c.textContent=msg; c.classList.add('show'); clearTimeout(coachT); coachT=setTimeout(()=>c.classList.remove('show'),1800); }
+let _standT=0; function coachStand(){ const n=Date.now(); if(n-_standT<6000) return; _standT=n; coach('stand back so I can see your legs! 🦵'); }
+// local reactions so Nova still feels alive when her live worker is offline
+const REACT={ hit:['yes!','nice!','got it!','woo!','there!'], fast:['so fast!','boom!','wow!'],
+  streak:["you're on fire!",'amazing!','keep going!','yesss!'], miss:['almost!','try again!','you got this!'] };
+function novaLocalReact(kind,combo,fast){ if(novaRoom) return; // Nova's live brain handles it when online
+  let arr = kind==='miss'?REACT.miss : (combo>=3?REACT.streak : (fast?REACT.fast:REACT.hit));
+  const t=arr[Math.floor(Math.random()*arr.length)]; coach(t); say(t); }
 let lastSay=0; function say(t){ const now=Date.now(); if(now-lastSay<1300) return; lastSay=now; // light voice; safe in a cafe (muted-friendly: low volume)
   try{ if('speechSynthesis'in window){ const u=new SpeechSynthesisUtterance(t); u.rate=1.05; u.pitch=1.3; u.volume=0.55; speechSynthesis.speak(u);} }catch(e){} }
 
