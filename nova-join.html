@@ -60,7 +60,7 @@
   #stage{ position:relative; width:100%; flex:1; display:flex; flex-direction:row; gap:6px; padding:6px; align-items:stretch; overflow:hidden; }
   #nova-side{ position:relative; flex:1 1 50%; min-width:0; border-radius:20px; overflow:hidden;
     background:#200; border:3px solid rgba(255,255,255,.14); }
-  #nova-side video{ width:100%; height:100%; object-fit:cover; }
+  #nova-side video{ width:100%; height:100%; object-fit:contain; } /* show all of Nova, never cut off */
   .side-tag{ position:absolute; bottom:6px; left:50%; transform:translateX(-50%); z-index:9;
     font-size:12px; background:rgba(0,0,0,.55); padding:2px 12px; border-radius:12px; }
   #cam-wrap{ position:relative; flex:1 1 50%; min-width:0; border-radius:20px; overflow:hidden; background:#000;
@@ -69,7 +69,7 @@
      landscape keeps side-by-side. */
   @media (orientation:portrait){ #stage{ flex-direction:column; } }
   #cam, #overlay{ position:absolute; inset:0; width:100%; height:100%; }
-  #cam{ object-fit:cover; transform:scaleX(-1); }   /* mirror like a selfie */
+  #cam{ object-fit:contain; transform:scaleX(-1); } /* mirror; contain = whole body visible */
   /* overlay is NOT css-mirrored: poses come from estimatePoses(flipHorizontal:true)
      which are already in mirrored space, so they match the mirrored video as-is. */
   /* detection window state */
@@ -246,30 +246,25 @@ function zoneState(state){ const z=game.cueZone; if(!z) return;
 const VIDEO_START = 0;           // start from the very beginning (no seek glitch) so the
                                  // kid watches Nova's intro and can anticipate the moves
 const CUES = (()=>{
-  const out = [];
-  const add = (t, action, dur) => out.push({ t, dur, action });
-  // SLOW BUILD — every 1.22s, window 1.05s
-  const slow = 1220, sw = 1050;
-  let t = 30100;
+  const out=[]; const add=(t,action,dur)=>out.push({ t, dur, action });
+  // SLOW BUILD — starts early (~6s) so the kid LEARNS the slow moves first,
+  // then it speeds up. Cards drive it (Nova dances behind as the backdrop).
+  const slow=1220, sw=1050; let t=6000;
   ['head-right','head-left','head-right','head-left'].forEach(a=>{ add(t,a,sw); t+=slow; });
-  t = 35000;
   ['shoulder-right','shoulder-left','shoulder-right','shoulder-left'].forEach(a=>{ add(t,a,sw); t+=slow; });
-  t = 40100;
   for(let i=0;i<4;i++){ add(t,'hips',sw); t+=slow; }
-  t = 45000;
   for(let i=0;i<4;i++){ add(t,'knee',sw); t+=slow; }
-  // DOUBLE-SPEED — every 0.61s, window 0.5s, reversed knee→hips→shoulder→head
-  const fast = 610, fw = 500;
-  t = 50100;
+  // DOUBLE-SPEED — reversed knee→hips→shoulder→head
+  const fast=610, fw=520; t+=300;
   for(let i=0;i<4;i++){ add(t,'knee',fw); t+=fast; }
   for(let i=0;i<4;i++){ add(t,'hips',fw); t+=fast; }
   ['shoulder-right','shoulder-left','shoulder-right','shoulder-left'].forEach(a=>{ add(t,a,fw); t+=fast; });
   ['head-right','head-left','head-right','head-left'].forEach(a=>{ add(t,a,fw); t+=fast; });
-  // FREESTYLE — long windows, any motion scores
-  add(60500,'free',6500); add(67500,'free',6500); add(74500,'free',6000);
+  // FREESTYLE — any motion scores
+  t+=500; add(t,'free',6000); t+=6500; add(t,'free',6000); t+=6500; add(t,'free',6000);
   return out.sort((a,b)=>a.t-b.t);
 })();
-const SONG_END = 82.0;           // seconds — stop + show results
+const SONG_END = 56.0;           // seconds — stop + show results
 
 // ---- SVG MOVE FIGURES ---------------------------------------------------
 // A simple front-facing figure (mirror of the kid). Active part glows + arrow.
@@ -367,7 +362,7 @@ function updateDbg(){
 }
 
 function analyze(kps){
-  const MIN=0.3;
+  const MIN=0.25;   // a bit lower so dim / backlit rooms still register joints
   det.joints = kps.filter(k=>k.score>MIN).length;
   const ls=kp(kps,'left_shoulder'), rs=kp(kps,'right_shoulder'), nose=kp(kps,'nose');
   const lh=kp(kps,'left_hip'), rh=kp(kps,'right_hip');
@@ -415,7 +410,7 @@ function coverMap(){
   const v=$('cam'), c=$('overlay');
   const cw=c.clientWidth||1, ch=c.clientHeight||1, vw=v.videoWidth||640, vh=v.videoHeight||480;
   if(c.width!==cw||c.height!==ch){ c.width=cw; c.height=ch; }
-  const scale=Math.max(cw/vw, ch/vh);
+  const scale=Math.min(cw/vw, ch/vh);   // contain — matches #cam object-fit:contain
   return { scale, ox:(cw-vw*scale)/2, oy:(ch-vh*scale)/2 };
 }
 function clearOverlay(){ const c=$('overlay'); c.getContext('2d').clearRect(0,0,c.width,c.height); }
@@ -425,8 +420,8 @@ function drawSkeleton(kps){
   const X=p=>p.x*scale+ox, Y=p=>p.y*scale+oy;
   x.strokeStyle='rgba(0,255,150,.85)'; x.lineWidth=3; x.fillStyle='#ff5fd8';
   const m={}; kps.forEach(k=>m[k.name]=k);
-  SKELETON.forEach(([a,b])=>{ const A=m[a],B=m[b]; if(A&&B&&A.score>0.3&&B.score>0.3){ x.beginPath(); x.moveTo(X(A),Y(A)); x.lineTo(X(B),Y(B)); x.stroke(); }});
-  kps.forEach(k=>{ if(k.score>0.3){ x.beginPath(); x.arc(X(k),Y(k),4,0,7); x.fill(); }});
+  SKELETON.forEach(([a,b])=>{ const A=m[a],B=m[b]; if(A&&B&&A.score>0.25&&B.score>0.25){ x.beginPath(); x.moveTo(X(A),Y(A)); x.lineTo(X(B),Y(B)); x.stroke(); }});
+  kps.forEach(k=>{ if(k.score>0.25){ x.beginPath(); x.arc(X(k),Y(k),4,0,7); x.fill(); }});
 }
 
 // ---- GAME FLOW ----------------------------------------------------------
