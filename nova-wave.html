@@ -520,8 +520,8 @@ function openCue(c){
   const bar=$('cue-timer'); bar.style.transition='none'; bar.style.transform='scaleX(1)';
   void bar.offsetWidth; bar.style.transition=`transform ${c.dur}ms linear`; bar.style.transform='scaleX(0)';
   coach(m.coach);
-  // announce (quiet — works without backend)
-  say(m.name.replace(/[←→↑↔]/g,'').trim());
+  // announce locally ONLY when Nova's live brain is offline (else she'd be doubled)
+  if(!novaRoom) say(m.name.replace(/[←→↑↔]/g,'').trim());
 }
 function closeCue(){ game.cue=null; $('cue').classList.remove('show'); $('cam-wrap').classList.remove('armed'); setZone(null); game.idx++; }
 
