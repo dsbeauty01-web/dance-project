@@ -8,6 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.20.0/dist/tf-converter.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.20.0/dist/tf-backend-webgl.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.13.3/dist/livekit-client.umd.min.js"></script>
 <style>
   :root{ --pink:#ff5fd8; --grn:#00ff99; --yel:#ffd84d; --bg:#140022; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -63,6 +64,14 @@
   #nova-side video{ width:100%; height:100%; object-fit:contain; } /* show all of Nova, never cut off */
   .side-tag{ position:absolute; bottom:6px; left:50%; transform:translateX(-50%); z-index:9;
     font-size:12px; background:rgba(0,0,0,.55); padding:2px 12px; border-radius:12px; }
+  /* Nova's LIVE reacting face (Runway avatar over the LiveKit session) */
+  #nova-live{ position:absolute; bottom:10px; left:10px; width:36%; max-width:160px; aspect-ratio:1;
+    object-fit:cover; border-radius:50%; border:3px solid var(--pink); box-shadow:0 0 22px rgba(255,95,216,.5);
+    z-index:8; display:none; background:#1a0030; transition:border-color .15s, box-shadow .15s; }
+  #nova-live.show{ display:block; }
+  #nova-live.talking{ border-color:var(--grn); box-shadow:0 0 38px rgba(0,255,150,.7); }
+  #nova-status{ position:absolute; top:8px; left:8px; z-index:9; font-size:11px;
+    background:rgba(0,0,0,.6); color:#ffd84d; padding:3px 10px; border-radius:12px; }
   #cam-wrap{ position:relative; flex:1 1 50%; min-width:0; border-radius:20px; overflow:hidden; background:#000;
     border:4px solid rgba(255,255,255,.18); box-shadow:0 8px 30px rgba(0,0,0,.5); transition:border-color .15s, box-shadow .15s; }
   /* phone held upright → stack Nova on top, You on bottom (no squishing). Laptop /
@@ -170,6 +179,8 @@
       <video id="nova-vid" playsinline preload="auto" loop>
         <source src="nova-joined-small.mp4" type="video/mp4">
       </video>
+      <video id="nova-live" playsinline autoplay></video>
+      <div id="nova-status"></div>
       <div class="side-tag">Nova</div>
     </div>
     <div id="cam-wrap">
@@ -427,6 +438,7 @@ function drawSkeleton(kps){
 // ---- GAME FLOW ----------------------------------------------------------
 async function startFlow(){
   $('start-btn').disabled=true; $('cam-warn').textContent='loading…';
+  connectNova();   // warm the worker session in parallel (cold start ~30-50s)
   const okCam=await ensureCamera(); if(!okCam){ $('start-btn').disabled=false; return; }
   await ensureModel();
   $('cam-warn').textContent='';
@@ -460,6 +472,7 @@ function beginGame(){
   nv.onended=endGame;
   nv.play().catch(()=>{ /* retry on next tick */ setTimeout(()=>nv.play().catch(()=>{}),200); });
   coach('Watch Nova — copy her when a card pops up!');
+  novaSend({ kind:'game-event', event:{ event:'phase', phase:'dance' } });
   clearInterval(game.tick); game.tick=setInterval(gameTick,60);
 }
 
@@ -495,6 +508,7 @@ function openCue(c){
   $('cue').classList.add('show');
   $('cam-wrap').classList.remove('hit','miss'); $('cam-wrap').classList.add('armed');
   game.cueZone = ZONE[c.action]; setZone(game.cueZone,'armed');
+  novaSend({ kind:'game-event', event:{ event:'move_cue', action:c.action } });
   // timer bar shrink across the window
   const bar=$('cue-timer'); bar.style.transition='none'; bar.style.transform='scaleX(1)';
   void bar.offsetWidth; bar.style.transition=`transform ${c.dur}ms linear`; bar.style.transform='scaleX(0)';
@@ -524,18 +538,23 @@ function resolveHit(){
   $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('hit'); zoneState('hit');
   pop((fast?'PERFECT ':'+')+pts, fast?'#ffd84d':'#00ff99');
   logCue('hit');
+  novaSend({ kind:'game-event', event:{ event:(game.combo===1?'first_hit':(game.combo>=3?'streak':'hit')),
+    action:game.cue&&game.cue.action, streak:game.combo, fast } });
 }
 function resolveMiss(){
   game.combo=0; $('combo-box').textContent='x0';
   $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('miss'); zoneState('miss');
   pop('miss','#ff4d6d');
   logCue('miss');
+  novaSend({ kind:'game-event', event:{ event:'miss', action:game.cue&&game.cue.action } });
 }
 
 function endGame(){
   if(!game.running) return; game.running=false;
   clearInterval(game.tick);
   try{ $('nova-vid').pause(); }catch(e){}
+  novaSend({ kind:'game-event', event:{ event:'phase', phase:'goodbye' } });
+  setTimeout(disconnectNova, 9000);   // let Nova say goodbye, then drop the session
   const rate=game.total?game.hits/game.total:0;
   const stars=rate>=0.85?5:rate>=0.65?4:rate>=0.45?3:rate>=0.25?2:1;
   $('end-stars').textContent='⭐'.repeat(stars)+'☆'.repeat(5-stars);
@@ -569,6 +588,63 @@ let coachT=0; function coach(msg){ const c=$('coach'); c.textContent=msg; c.clas
 let lastSay=0; function say(t){ const now=Date.now(); if(now-lastSay<1300) return; lastSay=now; // light voice; safe in a cafe (muted-friendly: low volume)
   try{ if('speechSynthesis'in window){ const u=new SpeechSynthesisUtterance(t); u.rate=1.05; u.pitch=1.3; u.volume=0.55; speechSynthesis.speak(u);} }catch(e){} }
 
+// ════════════════════════════════════════════════════════════════════════
+// LIVE NOVA — worker session + Runway avatar (like hello-hello). Optional &
+// graceful: the game runs fine if she's cold/offline; she joins when ready and
+// reacts to game events. No mic published — she reacts to your DANCING, not noise.
+// ════════════════════════════════════════════════════════════════════════
+const NOVA = { RENDER_URL:'https://novapython.onrender.com' };
+let novaRoom=null, novaConnecting=false;
+function novaStatus(t){ const e=$('nova-status'); if(e){ e.textContent=t||''; e.style.display=t?'block':'none'; } }
+function novaSend(payload){ if(!novaRoom) return; try{ novaRoom.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(payload)),{reliable:true}); }catch(e){} }
+
+async function connectNova(){
+  if(novaRoom||novaConnecting||typeof LivekitClient==='undefined') return;
+  novaConnecting=true; novaStatus('waking Nova…');
+  try{
+    if(!window.__kidId) window.__kidId='nova-join-'+Date.now();
+    const res=await fetch(NOVA.RENDER_URL+'/v2/create-session',{ method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({ kidId:window.__kidId }) });
+    if(!res.ok) throw new Error('create-session '+res.status);
+    const creds=await res.json();
+    if(!creds.serverUrl||!creds.token) throw new Error('no creds');
+    window.__novaSessionId=creds.sessionId||creds.id;
+    const room=new LivekitClient.Room({ adaptiveStream:false, dynacast:false });
+    room.on(LivekitClient.RoomEvent.TrackSubscribed, t=>{
+      if(t.kind==='video'){ const v=$('nova-live'); try{ t.attach(v); }catch(e){} v.classList.add('show'); v.muted=true; v.play().catch(()=>{});
+        novaStatus('Nova is here!'); setTimeout(()=>novaStatus(''),1500); }
+      else if(t.kind==='audio'){ let a=$('nova-audio'); if(!a){ a=document.createElement('audio'); a.id='nova-audio'; a.autoplay=true; document.body.appendChild(a); }
+        try{ t.attach(a); }catch(e){} a.muted=false; a.play().catch(()=>{}); }
+    });
+    room.on(LivekitClient.RoomEvent.DataReceived, async payload=>{
+      let msg; try{ msg=JSON.parse(new TextDecoder().decode(payload)); }catch(e){ return; }
+      if(msg && msg.kind==='request-vision') sendVision();
+    });
+    room.on(LivekitClient.RoomEvent.ActiveSpeakersChanged, sp=>{
+      const talking=sp.some(p=>p.identity!==room.localParticipant?.identity);
+      $('nova-live').classList.toggle('talking', talking);
+      const nv=$('nova-vid'); if(nv) nv.volume = talking?0.22:0.7;   // duck the music while she speaks
+    });
+    room.on(LivekitClient.RoomEvent.Disconnected, ()=>{ novaRoom=null; $('nova-live').classList.remove('show'); novaStatus(''); });
+    await room.connect(creds.serverUrl, creds.token);
+    novaRoom=room; window.__novaRoom=room;
+    novaSend({ kind:'game-event', event:{ event:'phase', phase:'dance' } }); // she's in dance-energy
+  }catch(e){ console.warn('Nova session failed:', e.message); novaStatus('Nova offline — game still works'); setTimeout(()=>novaStatus(''),2600); }
+  finally{ novaConnecting=false; }
+}
+
+// answer the worker's vision request with a quick snapshot so her reactions are specific
+async function sendVision(){
+  try{ const v=$('cam'); if(!v||!v.videoWidth){ novaSend({ kind:'vision-observation', text:'(the kid is dancing)' }); return; }
+    const c=document.createElement('canvas'); c.width=320; c.height=Math.round(320*v.videoHeight/Math.max(1,v.videoWidth));
+    c.getContext('2d').drawImage(v,0,0,c.width,c.height);
+    const r=await fetch(NOVA.RENDER_URL+'/v2/vision-observe',{ method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ frameDataUrl:c.toDataURL('image/jpeg',0.6), kidId:window.__kidId }) });
+    const d=await r.json(); novaSend({ kind:'vision-observation', text:(d&&d.ok&&d.text)?d.text:'(the kid is dancing)' });
+  }catch(e){ novaSend({ kind:'vision-observation', text:'(the kid is dancing)' }); }
+}
+function disconnectNova(){ try{ if(novaRoom) novaRoom.disconnect(); }catch(e){} novaRoom=null; }
+
 // ---- wire up ------------------------------------------------------------
 $('start-btn').addEventListener('click', startFlow);
 $('replay-btn').addEventListener('click', ()=>{ $('end-screen').classList.add('hidden'); countdown().then(beginGame); });
@@ -580,7 +656,7 @@ $('copy-log').addEventListener('click', async ()=>{
   catch(e){ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch(_){} ta.remove(); }
   $('copy-log').textContent='✓ Copied — paste it to me!'; setTimeout(()=>$('copy-log').textContent='📋 Copy debug log',1800);
 });
-window.addEventListener('beforeunload', ()=>{ if(camStream) camStream.getTracks().forEach(t=>t.stop()); });
+window.addEventListener('beforeunload', ()=>{ if(camStream) camStream.getTracks().forEach(t=>t.stop()); disconnectNova(); });
 </script>
 </body>
 </html>
