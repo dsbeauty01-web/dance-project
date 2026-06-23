@@ -456,6 +456,10 @@ async function poseLoop(){
   if(_n-_lastTick>1500){ _lastTick=_n; logPost('tick',{ present:det.present, joints:det.joints,
     headDX:+det.headDX.toFixed(2), shTilt:+det.shTilt.toFixed(2), hipDX:+det.hipDX.toFixed(2),
     knee:+det.kneeLift.toFixed(2), motion:+det.motion.toFixed(2), playing:!!game.running, cue:game.cue&&game.cue.action }); }
+  // P6 energy mirror — report the kid's movement energy so Nova matches her tone (~5s)
+  if(novaRoom && _n-(window.__lastEnergy||0)>5000){ window.__lastEnergy=_n;
+    const lvl = det.motion>0.12?'high':(det.motion<0.04?'low':'med');
+    novaSend({ kind:'game-event', event:{ event:'energy', level:lvl } }); }
   rafId=requestAnimationFrame(poseLoop);
 }
 
@@ -583,17 +587,34 @@ function _sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 // Guided isolation warm-up — Nova walks the kid through each body part before the
 // song. Forgiving on purpose (it's practice): the specific signal OR any movement
 // counts, so every kid succeeds and gets cheered. Detection is ON; no scoring.
-const WARMUP = [
-  { emoji:'🙂', label:'HEAD',      say:'show me your head!',     check:d=> Math.abs(d.headDX)>0.07 || d.motion>0.06 },
-  { emoji:'👋', label:'WRIST',     say:'raise a hand and wave!', check:d=> d.motion>0.07 },
-  { emoji:'💪', label:'ELBOWS',    say:'pump your elbows!',      check:d=> d.motion>0.07 },
-  { emoji:'🤷', label:'SHOULDERS', say:'lift your shoulders!',   check:d=> Math.abs(d.shTilt)>0.04 || d.motion>0.06 },
-  { emoji:'🕺', label:'RIBS',      say:'slide your chest!',      check:d=> d.motion>0.07 },
-  { emoji:'🍑', label:'HIPS',      say:'swing your hips!',       check:d=> Math.abs(d.hipDX)>0.05 || d.motion>0.07 },
-];
+// P5 — age-adaptive bonding action menus (from the nova-intro spec). Detection is
+// forgiving (specific signal OR motion) since the warm-up is practice, not scoring.
+const WARMUP_MENUS = {
+  LITTLE: [
+    { emoji:'👏', label:'CLAP',     say:'can you clap?',        check:d=> d.motion>0.08 },
+    { emoji:'👋', label:'WAVE',     say:'wave at me!',          check:d=> d.motion>0.07 },
+    { emoji:'🙆', label:'HANDS UP', say:'hands up HIGH!',       check:d=> d.motion>0.07 },
+  ],
+  KID: [
+    { emoji:'🤷', label:'SHOULDER', say:'lift one shoulder up!', check:d=> Math.abs(d.shTilt)>0.04 || d.motion>0.06 },
+    { emoji:'👋', label:'WAVE',     say:'wave — the real way!',  check:d=> d.motion>0.07 },
+    { emoji:'🙂', label:'HEAD',     say:'tilt your head!',       check:d=> Math.abs(d.headDX)>0.07 || d.motion>0.06 },
+  ],
+  TEEN: [
+    { emoji:'🤷', label:'SHOULDER ISO', say:'isolate one shoulder — up, hold, down', check:d=> Math.abs(d.shTilt)>0.045 || d.motion>0.06 },
+    { emoji:'👋', label:'SLOW WAVE',    say:'one wave — slow',                       check:d=> d.motion>0.06 },
+    { emoji:'🙂', label:'HEAD ROLL',    say:'try a head roll',                       check:d=> Math.abs(d.headDX)>0.08 || d.motion>0.07 },
+  ],
+  ADULT: [
+    { emoji:'🤷', label:'SHOULDER ISO', say:'shoulder iso — show me one', check:d=> Math.abs(d.shTilt)>0.045 || d.motion>0.06 },
+    { emoji:'👋', label:'LOOSE WAVE',   say:'loose wrist wave',           check:d=> d.motion>0.06 },
+    { emoji:'✨', label:'ANY MOVE',     say:'any move you want',          check:d=> d.motion>0.07 },
+  ],
+};
+function warmupMenu(){ return WARMUP_MENUS[AGE_TIER] || WARMUP_MENUS.KID; }
 async function runWarmup(){
   coach('warm up with me! 💜'); await _sleep(700); calibrate();
-  for(const w of WARMUP){ await warmupCue(w); }
+  for(const w of warmupMenu()){ await warmupCue(w); }
   coach("now let's DANCE!"); if(!novaRoom) say("now let's dance!"); await _sleep(1100);
 }
 function warmupCue(w){
