@@ -754,6 +754,7 @@ function novaSend(payload){ if(!novaRoom) return; try{ novaRoom.localParticipant
 async function connectNova(initialPhase='recognition'){
   if(novaRoom||novaConnecting||typeof LivekitClient==='undefined') return;
   novaConnecting=true; novaStatus('waking Nova…');
+  window.__novaConnectStart=performance.now();   // latency: measure wake/cold-start time
   try{
     if(!window.__kidId) window.__kidId='nova-join-'+Date.now();
     const res=await fetch(NOVA.RENDER_URL+'/v2/create-session',{ method:'POST',
@@ -769,16 +770,29 @@ async function connectNova(initialPhase='recognition'){
         const ph=$('greet-placeholder'); if(ph) ph.style.display='none';
         novaStatus('Nova is here!'); greetStatus("hi! 💜 tap Let's Dance when you're ready"); setTimeout(()=>novaStatus(''),1500); }
       else if(t.kind==='audio'){ let a=$('nova-audio'); if(!a){ a=document.createElement('audio'); a.id='nova-audio'; a.autoplay=true; document.body.appendChild(a); }
-        try{ t.attach(a); }catch(e){} a.muted=false; a.play().catch(()=>{}); }
+        try{ t.attach(a); }catch(e){} a.muted=false; a.play().catch(()=>{});
+        if(!window.__novaFirstAudioLogged){ window.__novaFirstAudioLogged=true;
+          const ms=Math.round(performance.now()-(window.__novaConnectStart||performance.now()));
+          logPost('latency',{ connect_to_first_audio_ms:ms }); console.log('[latency] wake→first audio',ms,'ms'); } }
     });
     room.on(LivekitClient.RoomEvent.DataReceived, async payload=>{
       let msg; try{ msg=JSON.parse(new TextDecoder().decode(payload)); }catch(e){ return; }
       if(msg && msg.kind==='request-vision') sendVision();
     });
     room.on(LivekitClient.RoomEvent.ActiveSpeakersChanged, sp=>{
-      const talking=sp.some(p=>p.identity!==room.localParticipant?.identity);
-      $('nova-live').classList.toggle('talking', talking);
-      const nv=$('nova-vid'); if(nv) nv.volume = talking?0.22:0.7;   // duck the music while she speaks
+      const me=room.localParticipant?.identity;
+      const kidTalking=sp.some(p=>p.identity===me);
+      const novaTalking=sp.some(p=>p.identity!==me);
+      $('nova-live').classList.toggle('talking', novaTalking);
+      const nv=$('nova-vid'); if(nv) nv.volume = novaTalking?0.22:0.7;   // duck the music while she speaks
+      // latency: gap from when the kid stops talking → Nova starts replying
+      if(kidTalking){ window.__kidSpokeAt=performance.now(); }
+      if(novaTalking && !window.__novaReplying){
+        window.__novaReplying=true;
+        if(window.__kidSpokeAt){ const ms=Math.round(performance.now()-window.__kidSpokeAt);
+          if(ms>150 && ms<15000){ logPost('latency',{ nova_response_ms:ms }); console.log('[latency] Nova replied in',ms,'ms'); window.__kidSpokeAt=0; } }
+      }
+      if(!novaTalking) window.__novaReplying=false;
     });
     room.on(LivekitClient.RoomEvent.Disconnected, ()=>{ novaRoom=null; $('nova-live').classList.remove('show'); novaStatus(''); });
     await room.connect(creds.serverUrl, creds.token);
