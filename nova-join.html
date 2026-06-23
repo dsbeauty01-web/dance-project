@@ -57,7 +57,7 @@
 
   /* ── GREET (live Nova says hi first) ── */
   #greet-screen{ gap:18px; padding:24px; z-index:35; }
-  #greet-avatar-wrap{ width:min(82vw,440px); aspect-ratio:1; border-radius:50%; overflow:hidden; position:relative;
+  #greet-avatar-wrap{ width:min(90vw,560px); aspect-ratio:1; border-radius:36px; overflow:hidden; position:relative;
     border:5px solid var(--pink); box-shadow:0 0 60px rgba(255,95,216,.5), inset 0 0 30px rgba(255,138,226,.15);
     background:radial-gradient(circle,#3a1060,#1a0030); display:flex; align-items:center; justify-content:center;
     animation:greetGlow 2.6s ease-in-out infinite; }
@@ -71,7 +71,7 @@
   #greet-placeholder.poof{ animation:phPoof .5s ease-out forwards; }         /* the 🌟 poofs away as she arrives */
   #greet-placeholder{ font-size:100px; filter:drop-shadow(0 0 20px rgba(255,216,77,.6)); animation:twinkle 3s ease-in-out infinite; }
   #greet-status{ opacity:.9; font-size:clamp(15px,4.2vw,20px); font-weight:500; min-height:24px; }
-  #greet-cam{ position:fixed; bottom:16px; right:16px; width:clamp(140px,32vw,230px); aspect-ratio:3/4;
+  #greet-cam{ position:fixed; bottom:16px; right:16px; width:clamp(180px,40vw,320px); aspect-ratio:3/4;
     object-fit:cover; transform:scaleX(-1); border-radius:16px; border:2px solid rgba(110,231,255,.5);
     box-shadow:0 6px 20px rgba(0,0,0,.4); z-index:36; background:#000; }
 
@@ -175,14 +175,15 @@
   /* (Nova is now the left split panel — see #nova-side above) */
 
   /* CUE CARD */
-  #cue{ position:absolute; top:10px; left:50%; transform:translateX(-50%) scale(.9); z-index:8; width:min(86%,300px);
-    background:linear-gradient(160deg,rgba(40,0,70,.9),rgba(20,0,40,.88)); backdrop-filter:blur(8px); border:3px solid var(--pink);
-    border-radius:22px; padding:8px 14px 10px; text-align:center; opacity:0; transition:opacity .18s, transform .18s;
-    box-shadow:0 10px 36px rgba(255,95,216,.45); }
+  #cue{ position:absolute; top:8px; left:50%; transform:translateX(-50%) scale(.85); z-index:8; width:min(50%,178px);
+    background:linear-gradient(160deg,rgba(40,0,70,.9),rgba(20,0,40,.88)); backdrop-filter:blur(8px); border:2px solid var(--pink);
+    border-radius:16px; padding:6px 10px 7px; text-align:center; opacity:0; transition:opacity .18s, transform .18s;
+    box-shadow:0 8px 26px rgba(255,95,216,.4); }   /* compact — must NOT cover the kid */
   #cue.show{ opacity:1; transform:translateX(-50%) scale(1); animation:cuePop .35s cubic-bezier(.34,1.56,.64,1); }
   @keyframes cuePop{ 0%{ transform:translateX(-50%) scale(.7) } 60%{ transform:translateX(-50%) scale(1.06) } 100%{ transform:translateX(-50%) scale(1) } }
-  #cue-figure{ width:92px; height:116px; margin:0 auto -4px; filter:drop-shadow(0 2px 10px rgba(255,216,77,.4)); }
-  #cue-label{ font-weight:700; font-size:clamp(22px,5.5vw,32px); margin-top:0; line-height:1.05; letter-spacing:.5px;
+  #cue-figure{ width:48px; height:58px; margin:0 auto -2px; filter:drop-shadow(0 2px 10px rgba(255,216,77,.4)); }
+  #cue-figure div{ font-size:40px !important; }   /* warm-up emoji cue — keep compact too */
+  #cue-label{ font-weight:700; font-size:clamp(13px,3vw,18px); margin-top:0; line-height:1.05; letter-spacing:.5px;
     text-shadow:0 0 16px rgba(255,138,226,.6); }
   #cue-timer-wrap{ height:8px; background:rgba(255,255,255,.15); border-radius:6px; margin-top:8px; overflow:hidden; }
   #cue-timer{ height:100%; width:100%; background:linear-gradient(90deg,#ffd84d,#ff8ae2); transform-origin:left; box-shadow:0 0 10px rgba(255,216,77,.7); }
@@ -346,15 +347,18 @@ const CUES = (()=>{
   const out=[]; const add=(t,action,dur)=>out.push({ t, dur, action });
   // SLOW BUILD — starts early (~6s) so the kid LEARNS the slow moves first,
   // then it speeds up. Cards drive it (Nova dances behind as the backdrop).
+  // UPPER-BODY ONLY: head + shoulder. Hips/knee removed — they need lower-body
+  // tracking, which fails when the kid is sitting or far back (camera sees head+
+  // shoulders). Same slow-build → double-speed → freestyle shape, all trackable.
   const slow=1300, sw=1180; let t=3500;   // learn phase: a touch slower + more reaction time
   ['head-right','head-left','head-right','head-left'].forEach(a=>{ add(t,a,sw); t+=slow; });
   ['shoulder-right','shoulder-left','shoulder-right','shoulder-left'].forEach(a=>{ add(t,a,sw); t+=slow; });
-  for(let i=0;i<4;i++){ add(t,'hips',sw); t+=slow; }
-  for(let i=0;i<4;i++){ add(t,'knee',sw); t+=slow; }
-  // DOUBLE-SPEED — reversed knee→hips→shoulder→head
+  ['head-right','shoulder-right','head-left','shoulder-left'].forEach(a=>{ add(t,a,sw); t+=slow; });
+  ['shoulder-left','head-left','shoulder-right','head-right'].forEach(a=>{ add(t,a,sw); t+=slow; });
+  // DOUBLE-SPEED — mixed head/shoulder
   const fast=610, fw=520; t+=300;
-  for(let i=0;i<4;i++){ add(t,'knee',fw); t+=fast; }
-  for(let i=0;i<4;i++){ add(t,'hips',fw); t+=fast; }
+  ['shoulder-right','head-right','shoulder-left','head-left'].forEach(a=>{ add(t,a,fw); t+=fast; });
+  ['head-right','shoulder-right','head-left','shoulder-left'].forEach(a=>{ add(t,a,fw); t+=fast; });
   ['shoulder-right','shoulder-left','shoulder-right','shoulder-left'].forEach(a=>{ add(t,a,fw); t+=fast; });
   ['head-right','head-left','head-right','head-left'].forEach(a=>{ add(t,a,fw); t+=fast; });
   // FREESTYLE — any motion scores
