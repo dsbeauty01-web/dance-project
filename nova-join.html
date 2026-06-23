@@ -63,8 +63,12 @@
     animation:greetGlow 2.6s ease-in-out infinite; }
   @keyframes greetGlow{ 0%,100%{ box-shadow:0 0 50px rgba(255,95,216,.4),inset 0 0 30px rgba(255,138,226,.15) }
     50%{ box-shadow:0 0 80px rgba(255,95,216,.7),inset 0 0 30px rgba(255,138,226,.2) } }
-  #greet-avatar{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0; transition:opacity .35s ease; }
-  #greet-avatar.show{ opacity:1; }
+  #greet-avatar{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0; transform:scale(.8); transition:opacity .55s ease, transform .75s cubic-bezier(.34,1.56,.64,1); }
+  #greet-avatar.show{ opacity:1; transform:scale(1); }                       /* MAGIC REVEAL: spring-in, not a flat fade */
+  @keyframes revealBurst{ 0%{ box-shadow:0 0 0 0 rgba(255,138,226,.85), 0 0 70px 12px rgba(255,216,77,.7) } 100%{ box-shadow:0 0 0 48px rgba(255,138,226,0), 0 0 50px rgba(255,95,216,.4) } }
+  #greet-avatar-wrap.reveal{ animation:revealBurst 1s ease-out; }            /* one-shot sparkle ring on arrival */
+  @keyframes phPoof{ 0%{ transform:scale(1); opacity:1 } 100%{ transform:scale(2.3); opacity:0 } }
+  #greet-placeholder.poof{ animation:phPoof .5s ease-out forwards; }         /* the 🌟 poofs away as she arrives */
   #greet-placeholder{ font-size:100px; filter:drop-shadow(0 0 20px rgba(255,216,77,.6)); animation:twinkle 3s ease-in-out infinite; }
   #greet-status{ opacity:.9; font-size:clamp(15px,4.2vw,20px); font-weight:500; min-height:24px; }
   #greet-cam{ position:fixed; bottom:16px; right:16px; width:clamp(96px,22vw,140px); aspect-ratio:3/4;
@@ -956,7 +960,8 @@ function maybeReveal(){
   if(!(window.__novaVideoArrived && window.__novaAudioArrived)) return;
   window.__novaRevealed=true;
   ['nova-live','greet-avatar'].forEach(id=>{ const v=$(id); if(v) v.classList.add('show'); });
-  const ph=$('greet-placeholder'); if(ph) ph.style.display='none';
+  const wrap=$('greet-avatar-wrap'); if(wrap) wrap.classList.add('reveal');   // sparkle-ring burst
+  const ph=$('greet-placeholder'); if(ph){ ph.classList.add('poof'); setTimeout(()=>{ ph.style.display='none'; }, 500); } // 🌟 poofs away
   greetStatus('…');                                  // held beat, no words yet
   // P1 adaptive first line: NEW kid → fire ONE silent vision look during the hold so
   // her opener can reference what she sees ("ohh wait… [observation]"). RETURNING kid
