@@ -126,7 +126,7 @@
      landscape keeps side-by-side. */
   @media (orientation:portrait){ #stage{ flex-direction:column; } }
   #cam, #overlay{ position:absolute; inset:0; width:100%; height:100%; }
-  #cam{ object-fit:contain; transform:scaleX(-1); } /* mirror; contain = whole body visible */
+  #cam{ object-fit:contain; transform:scaleX(-1); filter:brightness(1.28) contrast(1.06) saturate(1.05); } /* mirror; contain = whole body visible; brighten for backlit rooms so the kid sees itself + pose tracks better */
   /* overlay is NOT css-mirrored: poses come from estimatePoses(flipHorizontal:true)
      which are already in mirrored space, so they match the mirrored video as-is. */
   /* detection window state */
@@ -590,8 +590,10 @@ async function startDance(){
   if(window.__danceStarted) return; window.__danceStarted=true;
   $('greet-screen').classList.add('hidden');
   try{ $('greet-cam').srcObject=null; }catch(e){}
-  $('dbg').classList.remove('hidden');
+  // debug monitor: devs only (add ?debug to the URL). Kids never see the joints HUD.
+  if(/[?&]debug/.test(location.search)) $('dbg').classList.remove('hidden');
   $('game').classList.remove('hidden');
+  $('score-box').style.visibility='hidden'; $('combo-box').style.visibility='hidden'; // no score during warm-up
   cancelAnimationFrame(rafId); poseLoop();   // detection on
   await runWarmup();                         // Phase 1b: guided isolation warm-up
   await countdown();
@@ -605,26 +607,36 @@ function _sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 // counts, so every kid succeeds and gets cheered. Detection is ON; no scoring.
 // P5 — age-adaptive bonding action menus (from the nova-intro spec). Detection is
 // forgiving (specific signal OR motion) since the warm-up is practice, not scoring.
+// P5 (rebuilt): SEATED UPPER-BODY moves only — the kid might be sitting, so NO
+// legs / standing / spins. Very forgiving (specific signal OR any motion) because
+// the warm-up is practice, not scoring — every kid succeeds and gets cheered.
+// Thresholds are LOW on purpose: backlit rooms + partial pose tracking (9/17 joints)
+// mean strict checks never fire. 'voice:true' = a sound move (yoo-hoo), motion-loose.
 const WARMUP_MENUS = {
   LITTLE: [
-    { emoji:'👏', label:'CLAP',     say:'can you clap?',        check:d=> d.motion>0.08 },
-    { emoji:'👋', label:'WAVE',     say:'wave at me!',          check:d=> d.motion>0.07 },
-    { emoji:'🙆', label:'HANDS UP', say:'hands up HIGH!',       check:d=> d.motion>0.07 },
+    { emoji:'👏', label:'CLAP',           say:'clap your hands!',           check:d=> d.motion>0.045 },
+    { emoji:'🗣️', label:'YOO-HOO',        say:'say YOO-HOO!',   voice:true, check:d=> d.motion>0.03 },
+    { emoji:'🙂', label:'HEAD',           say:'move your head!',            check:d=> Math.abs(d.headDX)>0.05 || d.motion>0.045 },
+    { emoji:'🤷', label:'SHOULDER',       say:'pop one shoulder up!',       check:d=> Math.abs(d.shTilt)>0.03 || d.motion>0.045 },
+    { emoji:'🫳', label:'TOUCH SHOULDER', say:'touch your LEFT shoulder!',  check:d=> d.motion>0.05 },
   ],
   KID: [
-    { emoji:'🤷', label:'SHOULDER', say:'lift one shoulder up!', check:d=> Math.abs(d.shTilt)>0.04 || d.motion>0.06 },
-    { emoji:'👋', label:'WAVE',     say:'wave — the real way!',  check:d=> d.motion>0.07 },
-    { emoji:'🙂', label:'HEAD',     say:'tilt your head!',       check:d=> Math.abs(d.headDX)>0.07 || d.motion>0.06 },
+    { emoji:'👏', label:'CLAP',           say:'clap 3 times!',              check:d=> d.motion>0.05 },
+    { emoji:'🗣️', label:'YOO-HOO',        say:'say YOO-HOO!',   voice:true, check:d=> d.motion>0.03 },
+    { emoji:'🙂', label:'HEAD',           say:'move your head!',            check:d=> Math.abs(d.headDX)>0.055 || d.motion>0.05 },
+    { emoji:'🤷', label:'SHOULDER',       say:'pop one shoulder!',          check:d=> Math.abs(d.shTilt)>0.035 || d.motion>0.05 },
+    { emoji:'🫳', label:'TOUCH SHOULDER', say:'touch your LEFT shoulder!',  check:d=> d.motion>0.05 },
   ],
   TEEN: [
-    { emoji:'🤷', label:'SHOULDER ISO', say:'isolate one shoulder — up, hold, down', check:d=> Math.abs(d.shTilt)>0.045 || d.motion>0.06 },
-    { emoji:'👋', label:'SLOW WAVE',    say:'one wave — slow',                       check:d=> d.motion>0.06 },
-    { emoji:'🙂', label:'HEAD ROLL',    say:'try a head roll',                       check:d=> Math.abs(d.headDX)>0.08 || d.motion>0.07 },
+    { emoji:'👏', label:'CLAP',           say:'give me a clap',             check:d=> d.motion>0.05 },
+    { emoji:'🤷', label:'SHOULDER',       say:'pop one shoulder',           check:d=> Math.abs(d.shTilt)>0.04 || d.motion>0.05 },
+    { emoji:'🙂', label:'HEAD',           say:'head — side to side',        check:d=> Math.abs(d.headDX)>0.06 || d.motion>0.05 },
+    { emoji:'🫳', label:'TOUCH SHOULDER', say:'touch your left shoulder',   check:d=> d.motion>0.05 },
   ],
   ADULT: [
-    { emoji:'🤷', label:'SHOULDER ISO', say:'shoulder iso — show me one', check:d=> Math.abs(d.shTilt)>0.045 || d.motion>0.06 },
-    { emoji:'👋', label:'LOOSE WAVE',   say:'loose wrist wave',           check:d=> d.motion>0.06 },
-    { emoji:'✨', label:'ANY MOVE',     say:'any move you want',          check:d=> d.motion>0.07 },
+    { emoji:'👏', label:'CLAP',     say:'clap once',          check:d=> d.motion>0.05 },
+    { emoji:'🤷', label:'SHOULDER', say:'one shoulder pop',   check:d=> Math.abs(d.shTilt)>0.04 || d.motion>0.05 },
+    { emoji:'🙂', label:'HEAD',     say:'head side to side',  check:d=> Math.abs(d.headDX)>0.06 || d.motion>0.05 },
   ],
 };
 function warmupMenu(){ return WARMUP_MENUS[AGE_TIER] || WARMUP_MENUS.KID; }
@@ -641,13 +653,17 @@ function warmupCue(w){
     setZone('full','armed');
     $('cam-wrap').classList.remove('hit','miss'); $('cam-wrap').classList.add('armed');
     const bar=$('cue-timer'); bar.style.transition='none'; bar.style.transform='scaleX(1)'; void bar.offsetWidth;
-    const MAXMS=4200; bar.style.transition=`transform ${MAXMS}ms linear`; bar.style.transform='scaleX(0)';
+    const MAXMS=3800; bar.style.transition=`transform ${MAXMS}ms linear`; bar.style.transform='scaleX(0)';
     coach(w.say); if(!novaRoom) say(w.say);
+    // tell the brain a move is coming so she names the body part live
     novaSend({ kind:'game-event', event:{ event:'move_cue', action:w.label.toLowerCase() } });
     const t0=performance.now(); let done=false;
     const finish=ok=>{ if(done) return; done=true; clearInterval(iv);
       $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('hit'); setZone('full','hit');
-      pop(ok?'YES!':'nice!', '#00ff99'); if(!novaRoom) say(ok?'yes!':'nice!');
+      // ALWAYS celebrate — warm-up is practice, never a fail. Instant local pop so
+      // Nova is NEVER silent, PLUS a result to the brain so she reacts specifically.
+      pop(ok?'YES!':'nice try!', '#00ff99'); if(!novaRoom) say(ok?'yes!':'nice!');
+      novaSend({ kind:'game-event', event:{ event:'move_done', action:w.label.toLowerCase(), hit:ok } });
       setTimeout(()=>{ $('cue').classList.remove('show'); setZone(null); $('cam-wrap').classList.remove('hit'); res(); }, 650); };
     const iv=setInterval(()=>{ if(det.present && w.check(det,base)) finish(true); else if(performance.now()-t0>MAXMS) finish(false); }, 70);
   });
@@ -687,6 +703,7 @@ function countdown(){
 function beginGame(){
   Object.assign(game,{ running:true, score:0, combo:0, maxCombo:0, hits:0, total:0, idx:0, cue:null, cueResolved:false, cueEnd:0, cueZone:null, log:[], _readyShown:false });
   $('score').textContent='0'; $('combo-box').textContent='x0'; $('progress').style.width='0%';
+  $('score-box').style.visibility='visible'; $('combo-box').style.visibility='visible'; // score shows now (real game)
   $('game').classList.remove('hidden');
   const nv=$('nova-vid'); nv.muted=false; nv.volume=0.8; nv.loop=false;
   try{ nv.currentTime=VIDEO_START; }catch(e){}
