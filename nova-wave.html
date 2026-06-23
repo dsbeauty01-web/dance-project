@@ -305,13 +305,17 @@ function zoneState(state){ const z=game.cueZone; if(!z) return;
 // ---- CUE TIMELINE (video.currentTime ms; music = handywave.mp4, ~28.5s) -
 const VIDEO_START = 0;           // play from the start so the kid can anticipate
 const CUES = (()=>{
-  const out=[]; const add=(t,action,dur)=>out.push({ t, dur, action });
-  // proximal → distal: shoulders, then elbows, then the hand wave, then freestyle
-  let t=3500; const gap=1900, dur=1550;   // cues begin during the short walk-up intro
-  for(let i=0;i<3;i++){ add(t,'shoulder-roll',dur); t+=gap; }
-  for(let i=0;i<3;i++){ add(t,'elbow-pump',dur);    t+=gap; }
-  for(let i=0;i<3;i++){ add(t,'wrist-wave',dur);    t+=gap; }
-  add(t,'free',5000);
+  // Synced to the video's choreography (counts read as SECONDS): she's close 0-6s
+  // (walks back), then arm isolations wrist/elbow/shoulder beat-by-beat 7-18s, a
+  // "slide" section 19-24s ("slide slide slide, lose yourself to dance"), wave again 26s.
+  const out=[]; const W=850;            // ~0.85s window (moves are ~1s apart)
+  const add=(sec,action)=>out.push({ t:Math.round(sec*1000), dur:W, action });
+  const seq=[ [7,'wrist-wave'],[8,'elbow-pump'],[9,'shoulder-roll'],[10,'shoulder-roll'],
+    [11,'elbow-pump'],[12,'wrist-wave'],[13,'wrist-wave'],[14,'elbow-pump'],
+    [15,'shoulder-roll'],[16,'shoulder-roll'],[17,'elbow-pump'],[18,'wrist-wave'] ];
+  seq.forEach(([s,a])=>add(s,a));
+  out.push({ t:19000, dur:5000, action:'free' });   // 19-24: slide / lose yourself
+  add(26,'wrist-wave'); add(27,'wrist-wave');        // wave again to the end
   return out.sort((a,b)=>a.t-b.t);
 })();
 const SONG_END = 28.4;           // seconds — stop + show results
