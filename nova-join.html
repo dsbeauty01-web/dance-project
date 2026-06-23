@@ -400,6 +400,17 @@ const SID='S'+Date.now(); let _lastTick=0;
 function logPost(kind,data){ try{ fetch(location.origin+'/log',{method:'POST',headers:{'Content-Type':'application/json'},
   body:JSON.stringify(Object.assign({kind,sid:SID,ts:Date.now()},data||{}))}); }catch(e){} }
 
+// ── MEMORY (P10) — persistent per-kid state in localStorage; the bonding/continuity ──
+const MEM_KEY='nova_mem_v1';
+function loadMem(){ try{ return JSON.parse(localStorage.getItem(MEM_KEY))||{}; }catch(e){ return {}; } }
+function saveMem(patch){ try{ const m=Object.assign(loadMem(),patch||{}); m.last_session_at=new Date().toISOString();
+  localStorage.setItem(MEM_KEY, JSON.stringify(m)); MEM=m; return m; }catch(e){ return MEM; } }
+let MEM=loadMem();
+if(!MEM.kid_id){ MEM=saveMem({ kid_id:'kid-'+Math.random().toString(36).slice(2,10), first_session_at:new Date().toISOString(), sessions_count:0, best_moments:[], reactions_used:[] }); }
+window.__kidId = MEM.kid_id;
+const AGE_TIER = MEM.age_tier || 'KID';     // indirect age read (stored; defaults KID)
+const RETURNING = !!MEM.name;               // we've met this kid before
+
 // ---- INIT ---------------------------------------------------------------
 function renderMovesPreview(){
   const wrap=$('moves-preview');
@@ -751,6 +762,14 @@ function endGame(){
   const hooks=['tomorrow I\'ll teach you the SPIN 🌀','next time: the ROBOT 🤖','come back for the WAVE 🌊'];
   $('end-hook').textContent=hooks[(game.maxCombo+game.hits)%hooks.length];
 
+  // P10 memory: remember THIS session so next time feels continuous
+  try{
+    const moves=[...new Set(game.log.filter(e=>e.result==='hit').map(e=>e.action))].slice(0,3);
+    saveMem({ sessions_count:(MEM.sessions_count||0)+1, age_tier:AGE_TIER,
+      best_moments:[...moves, ...((MEM.best_moments)||[])].slice(0,5),
+      last_promise:$('end-hook').textContent, last_score:game.score });
+  }catch(e){}
+
   // per-move breakdown — shows WHERE detection is limited (hit rate + avg joints seen)
   const by={};
   game.log.forEach(e=>{ const b=by[e.action]||(by[e.action]={n:0,hit:0,j:0}); b.n++; if(e.result==='hit')b.hit++; b.j+=e.joints; });
@@ -819,7 +838,10 @@ async function connectNova(initialPhase='recognition'){
     });
     room.on(LivekitClient.RoomEvent.DataReceived, async payload=>{
       let msg; try{ msg=JSON.parse(new TextDecoder().decode(payload)); }catch(e){ return; }
-      if(msg && msg.kind==='request-vision') sendVision();
+      if(!msg) return;
+      if(msg.kind==='request-vision') sendVision();
+      // worker tells us the captured name → persist for next time (the "you're BACK" path)
+      else if(msg.kind==='name' && msg.name){ saveMem({ name:String(msg.name).slice(0,24) }); }
     });
     room.on(LivekitClient.RoomEvent.ActiveSpeakersChanged, sp=>{
       const me=room.localParticipant?.identity;
@@ -841,6 +863,8 @@ async function connectNova(initialPhase='recognition'){
     novaRoom=room; window.__novaRoom=room;
     try{ await room.localParticipant.setMicrophoneEnabled(true); }catch(e){}      // kid can TALK to Nova (greet chat + Deepgram STT)
     novaSend({ kind:'game-event', event:{ event:'phase', phase:initialPhase } }); // greet mode by default
+    novaSend({ kind:'game-event', event:{ event:'age', tier:AGE_TIER } });          // age-aware tone
+    if(MEM.name) novaSend({ kind:'game-event', event:{ event:'name', name:MEM.name } }); // returning kid → she knows them
     // NOTE: client-ready (which releases her greeting) is sent by maybeReveal()
     // AFTER both tracks arrive + a 1500ms "presence-first" hold (the magic reveal).
   }catch(e){ console.warn('Nova session failed:', e.message); novaStatus('Nova offline — game still works');
@@ -860,7 +884,7 @@ function maybeReveal(){
   setTimeout(()=>{
     novaSend({ kind:'client-ready' });               // NOW release her greeting
     novaStatus('Nova is here!'); setTimeout(()=>novaStatus(''),1500);
-    greetStatus("hi! 💜 talk to me, or tap Let's Dance");
+    greetStatus(MEM.name ? ("hey "+MEM.name+"! 💜 tap Let's Dance") : "hi! 💜 talk to me, or tap Let's Dance");
   }, 1500);                                          // 1500ms presence-first hold
 }
 
