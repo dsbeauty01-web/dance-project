@@ -342,7 +342,7 @@ const CUES = (()=>{
   const out=[]; const add=(t,action,dur)=>out.push({ t, dur, action });
   // SLOW BUILD — starts early (~6s) so the kid LEARNS the slow moves first,
   // then it speeds up. Cards drive it (Nova dances behind as the backdrop).
-  const slow=1220, sw=1050; let t=3500;   // cues begin during Nova's walk-up intro
+  const slow=1300, sw=1180; let t=3500;   // learn phase: a touch slower + more reaction time
   ['head-right','head-left','head-right','head-left'].forEach(a=>{ add(t,a,sw); t+=slow; });
   ['shoulder-right','shoulder-left','shoulder-right','shoulder-left'].forEach(a=>{ add(t,a,sw); t+=slow; });
   for(let i=0;i<4;i++){ add(t,'hips',sw); t+=slow; }
