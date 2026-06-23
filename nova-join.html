@@ -902,11 +902,26 @@ function maybeReveal(){
   ['nova-live','greet-avatar'].forEach(id=>{ const v=$(id); if(v) v.classList.add('show'); });
   const ph=$('greet-placeholder'); if(ph) ph.style.display='none';
   greetStatus('…');                                  // held beat, no words yet
+  // P1 adaptive first line: NEW kid → fire ONE silent vision look during the hold so
+  // her opener can reference what she sees ("ohh wait… [observation]"). RETURNING kid
+  // → name already sent, she opens with "you're BACK". (Variant a vs d.)
+  if(!MEM.name) greetVision();
   setTimeout(()=>{
     novaSend({ kind:'client-ready' });               // NOW release her greeting
     novaStatus('Nova is here!'); setTimeout(()=>novaStatus(''),1500);
     greetStatus(MEM.name ? ("hey "+MEM.name+"! 💜 tap Let's Dance") : "hi! 💜 talk to me, or tap Let's Dance");
   }, 1500);                                          // 1500ms presence-first hold
+}
+// one silent vision "look" for the magic opener (sets observed_visual on the worker,
+// no drop-in speech — her greeting weaves it in). Strategic: 1 call, only for new kids.
+function greetVision(){
+  try{ const v=$('cam'); if(!v||!v.videoWidth) return;
+    const c=document.createElement('canvas'); c.width=320; c.height=Math.round(320*v.videoHeight/Math.max(1,v.videoWidth));
+    c.getContext('2d').drawImage(v,0,0,c.width,c.height);
+    fetch(NOVA.RENDER_URL+'/v2/vision-observe',{ method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ frameDataUrl:c.toDataURL('image/jpeg',0.6), kidId:window.__kidId }) })
+      .then(r=>r.json()).then(d=>{ const t=(d&&d.ok&&d.text)?d.text:''; if(t) novaSend({ kind:'game-event', event:{ event:'vision', observation:t } }); }).catch(()=>{});
+  }catch(e){}
 }
 
 // answer the worker's vision request with a quick snapshot so her reactions are specific
