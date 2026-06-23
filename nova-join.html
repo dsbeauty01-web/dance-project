@@ -408,8 +408,23 @@ function saveMem(patch){ try{ const m=Object.assign(loadMem(),patch||{}); m.last
 let MEM=loadMem();
 if(!MEM.kid_id){ MEM=saveMem({ kid_id:'kid-'+Math.random().toString(36).slice(2,10), first_session_at:new Date().toISOString(), sessions_count:0, best_moments:[], reactions_used:[] }); }
 window.__kidId = MEM.kid_id;
-const AGE_TIER = MEM.age_tier || 'KID';     // indirect age read (stored; defaults KID)
+let AGE_TIER = MEM.age_tier || 'KID';        // indirect age read (stored; refined by vision)
 const RETURNING = !!MEM.name;               // we've met this kid before
+// P3 — indirect age read from one vision frame (Gemini → LITTLE/KID/TEEN/ADULT).
+// Returning kids trust the stored tier (saves a call). Updates the worker live.
+async function readAge(){
+  if(RETURNING && MEM.age_tier) return;
+  try{ const v=document.getElementById('cam'); if(!v||!v.videoWidth) return;
+    const c=document.createElement('canvas'); c.width=320; c.height=Math.round(320*v.videoHeight/Math.max(1,v.videoWidth));
+    c.getContext('2d').drawImage(v,0,0,c.width,c.height);
+    const r=await fetch(NOVA.RENDER_URL+'/v2/age-estimate',{ method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ frameDataUrl:c.toDataURL('image/jpeg',0.6), kidId:window.__kidId }) });
+    const d=await r.json();
+    if(d&&d.ok&&d.tier){ AGE_TIER=d.tier; saveMem({ age_tier:d.tier });
+      if(novaRoom) novaSend({ kind:'game-event', event:{ event:'age', tier:d.tier } });
+      console.log('[age] read', d.tier); }
+  }catch(e){}
+}
 
 // ---- INIT ---------------------------------------------------------------
 function renderMovesPreview(){
@@ -552,6 +567,7 @@ async function startFlow(){
   // non-fatal: if the model is slow/unreachable, proceed anyway (pose just won't fire)
   await Promise.race([ ensureModel().catch(()=>{}), new Promise(r=>setTimeout(r,12000)) ]);
   $('cam-warn').textContent='';
+  readAge();                                 // P3: indirect age read (fire & forget; updates worker)
   $('start-screen').classList.add('hidden');
   showGreet();                               // Phase 1: Nova's live avatar greets the kid (camera on)
 }
@@ -772,6 +788,14 @@ function endGame(){
   if(!game.running) return; game.running=false;
   clearInterval(game.tick);
   try{ $('nova-vid').pause(); }catch(e){}
+  // P9 — feed the session's real moments to Nova so her goodbye calls them back
+  try{
+    const hits=game.log.filter(e=>e.result==='hit').map(e=>e.action);
+    const cnt={}; hits.forEach(a=>cnt[a]=(cnt[a]||0)+1);
+    const top=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]).slice(0,2);
+    if(top.length){ const moment=top.map(a=>`${a.replace(/-/g,' ')} x${cnt[a]}`).join(', ')+(game.maxCombo>=3?`, ${game.maxCombo}-combo`:'');
+      novaSend({ kind:'game-event', event:{ event:'best_moment', moment } }); }
+  }catch(e){}
   novaSend({ kind:'game-event', event:{ event:'phase', phase:'goodbye' } });
   setTimeout(disconnectNova, 9000);   // let Nova say goodbye, then drop the session
   const rate=game.total?game.hits/game.total:0;
