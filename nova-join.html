@@ -874,6 +874,20 @@ let novaRoom=null, novaConnecting=false;
 function novaStatus(t){ const e=$('nova-status'); if(e){ e.textContent=t||''; e.style.display=t?'block':'none'; } }
 function novaSend(payload){ if(!novaRoom) return; try{ novaRoom.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(payload)),{reliable:true}); }catch(e){} }
 
+// Audio autoplay rescue — if the browser blocks Nova's audio, show a tappable
+// button so the kid can ALWAYS hear her (silent-fail = dead Nova). One tap fixes it.
+function showTapToHear(a){
+  if(document.getElementById('tap-hear')) return;
+  const b=document.createElement('button'); b.id='tap-hear'; b.textContent='🔊 tap to hear Nova';
+  b.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:9999;'
+    +'padding:14px 22px;border:0;border-radius:999px;background:#8b5cf6;color:#fff;font-size:17px;'
+    +'font-weight:700;box-shadow:0 8px 30px rgba(0,0,0,.45);cursor:pointer';
+  b.onclick=()=>{ try{ a.muted=false; a.volume=1.0; a.play(); }catch(e){} b.remove(); };
+  document.body.appendChild(b);
+}
+// any tap anywhere also tries to resume Nova's audio (covers mobile autoplay locks)
+document.addEventListener('pointerdown', ()=>{ const a=window.__novaAudioEl; if(a&&a.paused){ try{ a.muted=false; a.play().catch(()=>{}); }catch(e){} } }, {passive:true});
+
 async function connectNova(initialPhase='recognition'){
   if(novaRoom||novaConnecting||typeof LivekitClient==='undefined') return;
   novaConnecting=true; novaStatus('waking Nova…');
@@ -892,7 +906,8 @@ async function connectNova(initialPhase='recognition'){
           try{ t.attach(v); }catch(e){} v.muted=true; v.play().catch(()=>{}); });
         window.__novaVideoArrived=true; maybeReveal(); }
       else if(t.kind==='audio'){ let a=$('nova-audio'); if(!a){ a=document.createElement('audio'); a.id='nova-audio'; a.autoplay=true; document.body.appendChild(a); }
-        try{ t.attach(a); }catch(e){} a.muted=false; a.play().catch(()=>{});
+        try{ t.attach(a); }catch(e){} a.muted=false; a.volume=1.0; window.__novaAudioEl=a;
+        a.play().catch(()=>showTapToHear(a));   // autoplay blocked → give the kid a tap-to-hear button (don't fail silently)
         window.__novaAudioArrived=true; maybeReveal();
         if(!window.__novaFirstAudioLogged){ window.__novaFirstAudioLogged=true;
           const ms=Math.round(performance.now()-(window.__novaConnectStart||performance.now()));
