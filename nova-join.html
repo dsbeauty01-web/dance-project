@@ -63,8 +63,8 @@
     animation:greetGlow 2.6s ease-in-out infinite; }
   @keyframes greetGlow{ 0%,100%{ box-shadow:0 0 50px rgba(255,95,216,.4),inset 0 0 30px rgba(255,138,226,.15) }
     50%{ box-shadow:0 0 80px rgba(255,95,216,.7),inset 0 0 30px rgba(255,138,226,.2) } }
-  #greet-avatar{ width:100%; height:100%; object-fit:cover; display:none; }
-  #greet-avatar.show{ display:block; }
+  #greet-avatar{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0; transition:opacity .35s ease; }
+  #greet-avatar.show{ opacity:1; }
   #greet-placeholder{ font-size:100px; filter:drop-shadow(0 0 20px rgba(255,216,77,.6)); animation:twinkle 3s ease-in-out infinite; }
   #greet-status{ opacity:.9; font-size:clamp(15px,4.2vw,20px); font-weight:500; min-height:24px; }
   #greet-cam{ position:fixed; bottom:16px; right:16px; width:clamp(96px,22vw,140px); aspect-ratio:3/4;
@@ -544,9 +544,12 @@ async function startFlow(){
 // Phase 1 — live Nova says hi BEFORE any dance video. Camera is on so she "sees" the kid.
 // Pose detection is NOT running yet (MoveNet would starve the CPU and choppy her greeting).
 function showGreet(){
+  window.__novaRevealed=false; window.__novaVideoArrived=false; window.__novaAudioArrived=false;
   $('greet-screen').classList.remove('hidden');
   const gc=$('greet-cam'); if(gc && camStream){ try{ gc.srcObject=camStream; gc.play().catch(()=>{}); }catch(e){} }
   greetStatus('waking Nova…');
+  // gentle wait feedback while the worker cold-starts (~45s). Button is always tappable.
+  setTimeout(()=>{ if(!window.__novaRevealed && !window.__danceStarted) greetStatus('almost there… (or tap Let\'s Dance)'); }, 9000);
 }
 function greetStatus(t){ const e=$('greet-status'); if(e) e.textContent=t||''; }
 
@@ -558,9 +561,48 @@ async function startDance(){
   try{ $('greet-cam').srcObject=null; }catch(e){}
   $('dbg').classList.remove('hidden');
   $('game').classList.remove('hidden');
-  cancelAnimationFrame(rafId); poseLoop();
+  cancelAnimationFrame(rafId); poseLoop();   // detection on
+  await runWarmup();                         // Phase 1b: guided isolation warm-up
   await countdown();
   beginGame();
+}
+
+function _sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+// Guided isolation warm-up — Nova walks the kid through each body part before the
+// song. Forgiving on purpose (it's practice): the specific signal OR any movement
+// counts, so every kid succeeds and gets cheered. Detection is ON; no scoring.
+const WARMUP = [
+  { emoji:'🙂', label:'HEAD',      say:'show me your head!',     check:d=> Math.abs(d.headDX)>0.07 || d.motion>0.06 },
+  { emoji:'👋', label:'WRIST',     say:'raise a hand and wave!', check:d=> d.motion>0.07 },
+  { emoji:'💪', label:'ELBOWS',    say:'pump your elbows!',      check:d=> d.motion>0.07 },
+  { emoji:'🤷', label:'SHOULDERS', say:'lift your shoulders!',   check:d=> Math.abs(d.shTilt)>0.04 || d.motion>0.06 },
+  { emoji:'🕺', label:'RIBS',      say:'slide your chest!',      check:d=> d.motion>0.07 },
+  { emoji:'🍑', label:'HIPS',      say:'swing your hips!',       check:d=> Math.abs(d.hipDX)>0.05 || d.motion>0.07 },
+];
+async function runWarmup(){
+  coach('warm up with me! 💜'); await _sleep(700); calibrate();
+  for(const w of WARMUP){ await warmupCue(w); }
+  coach("now let's DANCE!"); if(!novaRoom) say("now let's dance!"); await _sleep(1100);
+}
+function warmupCue(w){
+  return new Promise(res=>{
+    $('cue-figure').innerHTML = `<div style="font-size:84px;line-height:1.1">${w.emoji}</div>`;
+    $('cue-label').textContent = w.label;
+    $('cue').classList.add('show');
+    setZone('full','armed');
+    $('cam-wrap').classList.remove('hit','miss'); $('cam-wrap').classList.add('armed');
+    const bar=$('cue-timer'); bar.style.transition='none'; bar.style.transform='scaleX(1)'; void bar.offsetWidth;
+    const MAXMS=4200; bar.style.transition=`transform ${MAXMS}ms linear`; bar.style.transform='scaleX(0)';
+    coach(w.say); if(!novaRoom) say(w.say);
+    novaSend({ kind:'game-event', event:{ event:'move_cue', action:w.label.toLowerCase() } });
+    const t0=performance.now(); let done=false;
+    const finish=ok=>{ if(done) return; done=true; clearInterval(iv);
+      $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('hit'); setZone('full','hit');
+      pop(ok?'YES!':'nice!', '#00ff99'); if(!novaRoom) say(ok?'yes!':'nice!');
+      setTimeout(()=>{ $('cue').classList.remove('show'); setZone(null); $('cam-wrap').classList.remove('hit'); res(); }, 650); };
+    const iv=setInterval(()=>{ if(det.present && w.check(det,base)) finish(true); else if(performance.now()-t0>MAXMS) finish(false); }, 70);
+  });
 }
 
 function playIntro(){
@@ -766,11 +808,11 @@ async function connectNova(initialPhase='recognition'){
     const room=new LivekitClient.Room({ adaptiveStream:false, dynacast:false });
     room.on(LivekitClient.RoomEvent.TrackSubscribed, t=>{
       if(t.kind==='video'){ ['nova-live','greet-avatar'].forEach(id=>{ const v=$(id); if(!v) return;
-          try{ t.attach(v); }catch(e){} v.classList.add('show'); v.muted=true; v.play().catch(()=>{}); });
-        const ph=$('greet-placeholder'); if(ph) ph.style.display='none';
-        novaStatus('Nova is here!'); greetStatus("hi! 💜 tap Let's Dance when you're ready"); setTimeout(()=>novaStatus(''),1500); }
+          try{ t.attach(v); }catch(e){} v.muted=true; v.play().catch(()=>{}); });
+        window.__novaVideoArrived=true; maybeReveal(); }
       else if(t.kind==='audio'){ let a=$('nova-audio'); if(!a){ a=document.createElement('audio'); a.id='nova-audio'; a.autoplay=true; document.body.appendChild(a); }
         try{ t.attach(a); }catch(e){} a.muted=false; a.play().catch(()=>{});
+        window.__novaAudioArrived=true; maybeReveal();
         if(!window.__novaFirstAudioLogged){ window.__novaFirstAudioLogged=true;
           const ms=Math.round(performance.now()-(window.__novaConnectStart||performance.now()));
           logPost('latency',{ connect_to_first_audio_ms:ms }); console.log('[latency] wake→first audio',ms,'ms'); } }
@@ -799,10 +841,27 @@ async function connectNova(initialPhase='recognition'){
     novaRoom=room; window.__novaRoom=room;
     try{ await room.localParticipant.setMicrophoneEnabled(true); }catch(e){}      // kid can TALK to Nova (greet chat + Deepgram STT)
     novaSend({ kind:'game-event', event:{ event:'phase', phase:initialPhase } }); // greet mode by default
-    novaSend({ kind:'client-ready' });                                            // release her greeting
+    // NOTE: client-ready (which releases her greeting) is sent by maybeReveal()
+    // AFTER both tracks arrive + a 1500ms "presence-first" hold (the magic reveal).
   }catch(e){ console.warn('Nova session failed:', e.message); novaStatus('Nova offline — game still works');
     greetStatus("Nova's napping 😴 tap Let's Dance!"); setTimeout(()=>novaStatus(''),2600); }
   finally{ novaConnecting=false; }
+}
+
+// MAGIC REVEAL — gate on BOTH tracks ready, then hold 1500ms (presence first),
+// fade her in, THEN release her greeting. "She arrived, didn't load."
+function maybeReveal(){
+  if(window.__novaRevealed) return;
+  if(!(window.__novaVideoArrived && window.__novaAudioArrived)) return;
+  window.__novaRevealed=true;
+  ['nova-live','greet-avatar'].forEach(id=>{ const v=$(id); if(v) v.classList.add('show'); });
+  const ph=$('greet-placeholder'); if(ph) ph.style.display='none';
+  greetStatus('…');                                  // held beat, no words yet
+  setTimeout(()=>{
+    novaSend({ kind:'client-ready' });               // NOW release her greeting
+    novaStatus('Nova is here!'); setTimeout(()=>novaStatus(''),1500);
+    greetStatus("hi! 💜 talk to me, or tap Let's Dance");
+  }, 1500);                                          // 1500ms presence-first hold
 }
 
 // answer the worker's vision request with a quick snapshot so her reactions are specific
