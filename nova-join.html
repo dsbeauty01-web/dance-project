@@ -124,6 +124,13 @@
     border-radius:18px; border:3px solid var(--pink); box-shadow:0 0 24px rgba(255,95,216,.55);
     z-index:8; display:none; background:#1a0030; transition:border-color .15s, box-shadow .15s; }
   #nova-live.show{ display:block; }
+  /* P5 closing-mode: grow to center for the goodbye (whole face kept) */
+  #nova-live.closing{ position:fixed; top:50%; left:50%; width:min(70vw,400px); height:auto; aspect-ratio:3/4;
+    transform:translate(-50%,-50%); border-radius:32px; z-index:60; box-shadow:0 0 70px rgba(255,95,216,.65);
+    transition:all .7s cubic-bezier(.34,1.56,.64,1); }
+  #closing-veil{ position:fixed; inset:0; z-index:55; opacity:0; pointer-events:none; transition:opacity .5s;
+    background:radial-gradient(circle,rgba(26,0,48,.78),rgba(0,0,0,.93)); }
+  #closing-veil.show{ opacity:1; }
   #nova-live.talking{ border-color:var(--grn); box-shadow:0 0 38px rgba(0,255,150,.7); }
   #nova-status{ position:absolute; top:8px; left:8px; z-index:9; font-size:11px;
     background:rgba(0,0,0,.6); color:#ffd84d; padding:3px 10px; border-radius:12px; }
@@ -896,7 +903,8 @@ function endGame(){
     const hits=game.log.filter(e=>e.result==='hit').map(e=>e.action);
     const cnt={}; hits.forEach(a=>cnt[a]=(cnt[a]||0)+1);
     const top=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]).slice(0,2);
-    if(top.length){ const moment=top.map(a=>`${a.replace(/-/g,' ')} x${cnt[a]}`).join(', ')+(game.maxCombo>=3?`, ${game.maxCombo}-combo`:'');
+    if(top.length){ const clean=(game.cleanHits||0);
+      const moment=top.map(a=>`${a.replace(/-/g,' ')} x${cnt[a]}`).join(', ')+(game.maxCombo>=3?`, ${game.maxCombo}-combo`:'')+(clean>=2?`, ${clean} CLEAN isolations`:'');
       novaSend({ kind:'game-event', event:{ event:'best_moment', moment } }); }
   }catch(e){}
   novaSend({ kind:'game-event', event:{ event:'phase', phase:'goodbye' } });
@@ -906,16 +914,18 @@ function endGame(){
   $('end-stars').textContent='⭐'.repeat(stars)+'☆'.repeat(5-stars);
   $('end-title').textContent=['Good try!','Nice moves!','Great dancing!','Amazing!','PERFECT! 🔥'][stars-1];
   $('end-score').textContent=game.score+' pts';
-  $('end-detail').textContent=`${game.hits} of ${game.total} moves · best combo x${game.maxCombo}`;
+  $('end-detail').textContent=`${game.hits} of ${game.total} moves · best combo x${game.maxCombo}`+((game.cleanHits||0)?` · ${game.cleanHits} CLEAN ✨`:'');
   const hooks=['tomorrow I\'ll teach you the SPIN 🌀','next time: the ROBOT 🤖','come back for the WAVE 🌊'];
   $('end-hook').textContent=hooks[(game.maxCombo+game.hits)%hooks.length];
 
   // P10 memory: remember THIS session so next time feels continuous
   try{
     const moves=[...new Set(game.log.filter(e=>e.result==='hit').map(e=>e.action))].slice(0,3);
+    const topMove=moves[0]||''; const obs=topMove?`you're a ${topMove.replace(/-/g,' ')} mover`:'';
     saveMem({ sessions_count:(MEM.sessions_count||0)+1, age_tier:AGE_TIER,
       best_moments:[...moves, ...((MEM.best_moments)||[])].slice(0,5),
-      last_promise:$('end-hook').textContent, last_score:game.score });
+      last_promise:$('end-hook').textContent, next_session_focus:$('end-hook').textContent,
+      last_observation:obs, last_clean:(game.cleanHits||0), last_score:game.score });
   }catch(e){}
 
   // per-move breakdown — shows WHERE detection is limited (hit rate + avg joints seen)
@@ -933,7 +943,19 @@ function endGame(){
     arr.push({date:summary.date,score:summary.score,hits:summary.hits,total:summary.total,byAction:by});
     localStorage.setItem('nova_join_logs', JSON.stringify(arr.slice(-10))); }catch(e){}
 
-  $('game').classList.add('hidden'); $('end-screen').classList.remove('hidden');
+  startClosing();   // P8/P5: Nova grows to center & says goodbye, THEN the (secondary) recap
+}
+// P5 closing-mode + P8 beat 1: hold on Nova's face center while her live goodbye plays,
+// then reveal the small recap. If she's offline, skip straight to the recap.
+function startClosing(){
+  const nl=$('nova-live'); const live = nl && nl.classList.contains('show');
+  if(live){
+    let veil=$('closing-veil'); if(!veil){ veil=document.createElement('div'); veil.id='closing-veil'; document.body.appendChild(veil); }
+    veil.classList.add('show'); nl.classList.add('closing');
+  }
+  setTimeout(()=>{ const n2=$('nova-live'); if(n2) n2.classList.remove('closing');
+    const v=$('closing-veil'); if(v) v.classList.remove('show');
+    $('game').classList.add('hidden'); $('end-screen').classList.remove('hidden'); }, live?4800:500);
 }
 
 // ---- small helpers ------------------------------------------------------
