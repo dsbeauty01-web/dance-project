@@ -190,6 +190,10 @@
     text-shadow:0 0 16px rgba(255,138,226,.6); }
   #cue-timer-wrap{ height:8px; background:rgba(255,255,255,.15); border-radius:6px; margin-top:8px; overflow:hidden; }
   #cue-timer{ height:100%; width:100%; background:linear-gradient(90deg,#ffd84d,#ff8ae2); transform-origin:left; box-shadow:0 0 10px rgba(255,216,77,.7); }
+  /* GAME cue: lean = just a thin timer; the pulsing body DOT is the cue (no "stupid text") */
+  #cue.lean{ width:min(40%,130px); padding:4px 8px; background:rgba(20,0,40,.5); border-width:1px; box-shadow:none; }
+  #cue.lean #cue-figure, #cue.lean #cue-label{ display:none; }
+  #cue.lean #cue-timer-wrap{ margin-top:0; }
 
   /* feedback popups */
   #fx{ position:absolute; inset:0; pointer-events:none; z-index:15; display:flex; align-items:center; justify-content:center; }
@@ -589,12 +593,18 @@ function drawSkeleton(kps){
   SKELETON.forEach(([a,b])=>{ const A=m[a],B=m[b]; if(A&&B&&A.score>0.25&&B.score>0.25){ x.beginPath(); x.moveTo(X(A),Y(A)); x.lineTo(X(B),Y(B)); x.stroke(); }});
   x.fillStyle='rgba(255,95,216,.45)';
   kps.forEach(k=>{ if(k.score>0.25){ x.beginPath(); x.arc(X(k),Y(k),3,0,7); x.fill(); }});
-  // CUE → DETECTION: pulse a marker right ON the body part Nova is asking for
-  const parts=cuePartsFor(window.__cuePart);
+  // CUE → DETECTION: the body DOT *is* the cue (no "stupid text" card). Big pulsing
+  // ring on the cued part + a directional arrow glyph, readable at a glance.
+  const cueKey=(window.__cuePart||''); const parts=cuePartsFor(cueKey);
   if(parts){ const pulse=0.5+0.5*Math.sin(performance.now()/200);
-    parts.forEach(n=>{ const k=m[n]; if(k&&k.score>0.2){ const r=15+7*pulse;
-      x.beginPath(); x.arc(X(k),Y(k),r,0,7); x.lineWidth=4; x.strokeStyle='rgba(255,216,77,'+(0.55+0.4*pulse)+')'; x.stroke();
-      x.beginPath(); x.arc(X(k),Y(k),r*0.55,0,7); x.fillStyle='rgba(255,216,77,'+(0.12+0.15*pulse)+')'; x.fill(); }});
+    const isHead=/head/i.test(cueKey), dir=/right/i.test(cueKey)?1:(/left/i.test(cueKey)?-1:0);
+    const glyph = isHead ? (dir>0?'→':dir<0?'←':'↔') : '↑'; // head ←/→ ; shoulder ↑ (lift)
+    parts.forEach(n=>{ const k=m[n]; if(k&&k.score>0.2){ const cx=X(k),cy=Y(k), r=20+9*pulse;
+      x.beginPath(); x.arc(cx,cy,r,0,7); x.lineWidth=5; x.strokeStyle='rgba(255,216,77,'+(0.6+0.4*pulse)+')'; x.stroke();
+      x.beginPath(); x.arc(cx,cy,r*0.5,0,7); x.fillStyle='rgba(255,216,77,'+(0.14+0.16*pulse)+')'; x.fill();
+      x.font='bold 30px system-ui,sans-serif'; x.textAlign='center'; x.textBaseline='middle';
+      x.fillStyle='rgba(255,216,77,'+(0.7+0.3*pulse)+')';
+      x.fillText(glyph, cx + (isHead? dir*(r+22):0), cy + (isHead? 0 : -(r+22))); }});
   }
 }
 
@@ -805,7 +815,7 @@ function openCue(c){
   const m=MOVES[c.action];
   $('cue-figure').innerHTML=figureSVG(c.action==='free'?'hips':c.action);
   $('cue-label').textContent=m.name;
-  $('cue').classList.add('show');
+  $('cue').classList.add('show','lean');   // 'lean' = thin timer only; the body DOT is the cue (no text card)
   $('cam-wrap').classList.remove('hit','miss'); $('cam-wrap').classList.add('armed');
   game.cueZone = ZONE[c.action]; setZone(game.cueZone,'armed');
   novaSend({ kind:'game-event', event:{ event:'move_cue', action:c.action } });
@@ -816,7 +826,7 @@ function openCue(c){
   // announce locally ONLY when Nova's live brain is offline (else she'd be doubled)
   if(!novaRoom) say(m.name.replace(/[←→↑↔]/g,'').trim());
 }
-function closeCue(){ game.cue=null; window.__cuePart=null; $('cue').classList.remove('show'); $('cam-wrap').classList.remove('armed'); setZone(null); game.idx++; }
+function closeCue(){ game.cue=null; window.__cuePart=null; $('cue').classList.remove('show','lean'); $('cam-wrap').classList.remove('armed'); setZone(null); game.idx++; }
 
 // per-cue telemetry — captures the detection values at the moment of resolve so we
 // can see exactly WHERE detection is weak (e.g. knee always missing = legs off-frame)
