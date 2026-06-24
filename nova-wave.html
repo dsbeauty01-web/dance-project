@@ -97,8 +97,9 @@
     font-size:12px; font-weight:600; letter-spacing:1px; background:rgba(0,0,0,.5); backdrop-filter:blur(4px);
     padding:3px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.18); }
   /* Nova's LIVE reacting face (Runway avatar over the LiveKit session) */
-  #nova-live{ position:absolute; bottom:10px; left:10px; width:36%; max-width:160px; aspect-ratio:1;
-    object-fit:cover; border-radius:50%; border:3px solid var(--pink); box-shadow:0 0 22px rgba(255,95,216,.5);
+  #nova-live{ position:absolute; bottom:12px; left:12px; width:min(40%,190px); aspect-ratio:3/4;
+    object-fit:cover; object-position:center 28%;   /* portrait + face-framed = her WHOLE face, no squish */
+    border-radius:18px; border:3px solid var(--pink); box-shadow:0 0 24px rgba(255,95,216,.55);
     z-index:8; display:none; background:#1a0030; transition:border-color .15s, box-shadow .15s; }
   #nova-live.show{ display:block; }
   #nova-live.talking{ border-color:var(--grn); box-shadow:0 0 38px rgba(0,255,150,.7); }
@@ -459,14 +460,30 @@ function coverMap(){
   return { scale, ox:(cw-vw*scale)/2, oy:(ch-vh*scale)/2 };
 }
 function clearOverlay(){ const c=$('overlay'); c.getContext('2d').clearRect(0,0,c.width,c.height); }
+// map a wave cue → which body keypoints to mark ON the kid
+const CUE_PARTS = {
+  'shoulder-roll':['left_shoulder','right_shoulder'],
+  'elbow-pump':['left_elbow','right_elbow'],
+  'wrist-wave':['left_wrist','right_wrist'],
+};
+function cuePartsFor(key){ return CUE_PARTS[(key||'').toLowerCase()] || null; }
 function drawSkeleton(kps){
   const c=$('overlay'); const x=c.getContext('2d'); const {scale,ox,oy}=coverMap();
   x.clearRect(0,0,c.width,c.height);
   const X=p=>p.x*scale+ox, Y=p=>p.y*scale+oy;
-  x.strokeStyle='rgba(0,255,150,.85)'; x.lineWidth=3; x.fillStyle='#ff5fd8';
   const m={}; kps.forEach(k=>m[k.name]=k);
+  // SUBTLE base skeleton (bright green looked "funny")
+  x.strokeStyle='rgba(120,255,190,.26)'; x.lineWidth=2;
   SKELETON.forEach(([a,b])=>{ const A=m[a],B=m[b]; if(A&&B&&A.score>0.25&&B.score>0.25){ x.beginPath(); x.moveTo(X(A),Y(A)); x.lineTo(X(B),Y(B)); x.stroke(); }});
-  kps.forEach(k=>{ if(k.score>0.25){ x.beginPath(); x.arc(X(k),Y(k),4,0,7); x.fill(); }});
+  x.fillStyle='rgba(255,95,216,.45)';
+  kps.forEach(k=>{ if(k.score>0.25){ x.beginPath(); x.arc(X(k),Y(k),3,0,7); x.fill(); }});
+  // CUE → DETECTION: pulse a marker ON the body part Nova is asking for
+  const parts=cuePartsFor(window.__cuePart);
+  if(parts){ const pulse=0.5+0.5*Math.sin(performance.now()/200);
+    parts.forEach(n=>{ const k=m[n]; if(k&&k.score>0.2){ const r=15+7*pulse;
+      x.beginPath(); x.arc(X(k),Y(k),r,0,7); x.lineWidth=4; x.strokeStyle='rgba(255,216,77,'+(0.55+0.4*pulse)+')'; x.stroke();
+      x.beginPath(); x.arc(X(k),Y(k),r*0.55,0,7); x.fillStyle='rgba(255,216,77,'+(0.12+0.15*pulse)+')'; x.fill(); }});
+  }
 }
 
 // ---- GAME FLOW ----------------------------------------------------------
@@ -477,7 +494,7 @@ async function startFlow(){
   await Promise.race([ ensureModel().catch(()=>{}), new Promise(r=>setTimeout(r,12000)) ]);
   $('cam-warn').textContent='';
   $('start-screen').classList.add('hidden');
-  $('dbg').classList.remove('hidden');       // live monitor on
+  if(/[?&]debug/.test(location.search)) $('dbg').classList.remove('hidden');   // dev-only HUD (kids never see it)
   $('game').classList.remove('hidden');      // show split layout NOW — camera live during intro
   cancelAnimationFrame(rafId); poseLoop();   // detection + skeleton live immediately
   await countdown();                         // translucent 3-2-1 over the live camera; calibrates
@@ -551,6 +568,7 @@ function gameTick(){
 
 function openCue(c){
   game.cue=c; game.cueResolved=false; game.cueEnd=c.t+c.dur; game.total++;
+  window.__cuePart=c.action;   // mark the cued body part ON the kid (overlay highlight)
   const m=MOVES[c.action];
   $('cue-figure').innerHTML=figureSVG(c.action==='free'?'wrist-wave':c.action);
   $('cue-label').textContent=m.name;
@@ -565,7 +583,7 @@ function openCue(c){
   // announce locally ONLY when Nova's live brain is offline (else she'd be doubled)
   if(!novaRoom) say(m.name.replace(/[←→↑↔]/g,'').trim());
 }
-function closeCue(){ game.cue=null; $('cue').classList.remove('show'); $('cam-wrap').classList.remove('armed'); setZone(null); game.idx++; }
+function closeCue(){ game.cue=null; window.__cuePart=null; $('cue').classList.remove('show'); $('cam-wrap').classList.remove('armed'); setZone(null); game.idx++; }
 
 // per-cue telemetry — captures the detection values at the moment of resolve so we
 // can see exactly WHERE detection is weak (e.g. knee always missing = legs off-frame)
