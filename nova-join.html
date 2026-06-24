@@ -119,11 +119,15 @@
     font-size:12px; font-weight:600; letter-spacing:1px; background:rgba(0,0,0,.5); backdrop-filter:blur(4px);
     padding:3px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.18); }
   /* Nova's LIVE reacting face (Runway avatar over the LiveKit session) */
-  #nova-live{ position:absolute; bottom:12px; left:12px; width:min(40%,190px); aspect-ratio:3/4;
-    object-fit:cover; object-position:center 28%;   /* portrait + face-framed = her WHOLE face, no squish/crop */
-    border-radius:18px; border:3px solid var(--pink); box-shadow:0 0 24px rgba(255,95,216,.55);
-    z-index:8; display:none; background:#1a0030; transition:border-color .15s, box-shadow .15s; }
+  /* Nova LIVE face — ELLIPSE framing her WHOLE FACE, floating TOP-CENTER "watching"
+     over the game (not far-left, never covering the kid's body or the glow-cues). LOCKED shape. */
+  #nova-live{ position:fixed; top:54px; left:50%; transform:translateX(-50%); width:min(22vw,164px); aspect-ratio:1/1.12;
+    object-fit:cover; object-position:center 30%;
+    border-radius:50% / 56%; border:3px solid var(--pink); box-shadow:0 0 26px rgba(255,95,216,.6);
+    z-index:30; display:none; background:#1a0030; transition:border-color .18s, box-shadow .18s; }
   #nova-live.show{ display:block; }
+  @keyframes novaReact{ 0%{box-shadow:0 0 26px rgba(255,95,216,.6)} 40%{box-shadow:0 0 52px rgba(0,255,150,.9); border-color:var(--grn)} 100%{box-shadow:0 0 26px rgba(255,95,216,.6)} }
+  #nova-live.react{ animation:novaReact .6s ease-out; }   /* face reacts on every hit (she talks less) */
   /* P5 closing-mode: grow to center for the goodbye (whole face kept) */
   #nova-live.closing{ position:fixed; top:50%; left:50%; width:min(70vw,400px); height:auto; aspect-ratio:3/4;
     transform:translate(-50%,-50%); border-radius:32px; z-index:60; box-shadow:0 0 70px rgba(255,95,216,.65);
@@ -887,8 +891,17 @@ function resolveHit(){
   $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('hit'); zoneState('hit');
   pop(clean?('CLEAN! +'+pts):((fast?'PERFECT ':'+')+pts), (clean||fast)?'#ffd84d':'#00ff99');
   logCue(clean?'hit-clean':'hit');
-  novaSend({ kind:'game-event', event:{ event:(game.combo===1?'first_hit':(game.combo>=3?'streak':'hit')),
-    action:game.cue&&game.cue.action, streak:game.combo, fast, quality:+quality.toFixed(2), clean } });
+  flashNovaFace();   // her FACE reacts EVERY hit (alive) — but she SPEAKS far less:
+  // only on milestones (first / 3 / 5 / 10) or a throttled clean isolation.
+  const _n=performance.now();
+  const milestone = game.combo===1 || game.combo===3 || game.combo===5 || game.combo===10;
+  if(milestone){
+    novaSend({ kind:'game-event', event:{ event:(game.combo===1?'first_hit':'streak'),
+      action:game.cue&&game.cue.action, streak:game.combo, fast, quality:+quality.toFixed(2), clean } });
+  } else if(clean && _n-(window.__lastCleanVoice||0)>6000){
+    window.__lastCleanVoice=_n;
+    novaSend({ kind:'game-event', event:{ event:'streak', action:game.cue&&game.cue.action, streak:game.combo, fast, quality:+quality.toFixed(2), clean:true } });
+  }
   novaLocalReact('hit', game.combo, fast);
 }
 function resolveMiss(){
@@ -896,7 +909,10 @@ function resolveMiss(){
   $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('miss'); zoneState('miss');
   pop('miss','#ff4d6d');
   logCue('miss');
-  novaSend({ kind:'game-event', event:{ event:'miss', action:game.cue&&game.cue.action } });
+  // talk less: don't say "miss" every single time — throttle to once / 5s
+  const _n=performance.now();
+  if(_n-(window.__lastMissVoice||0)>5000){ window.__lastMissVoice=_n;
+    novaSend({ kind:'game-event', event:{ event:'miss', action:game.cue&&game.cue.action } }); }
   novaLocalReact('miss');
 }
 
@@ -975,6 +991,8 @@ const REACT={ hit:['yes!','nice!','got it!','woo!','there!'], fast:['so fast!','
 function novaLocalReact(kind,combo,fast){ if(novaRoom) return; // Nova's live brain handles it when online
   let arr = kind==='miss'?REACT.miss : (combo>=3?REACT.streak : (fast?REACT.fast:REACT.hit));
   const t=arr[Math.floor(Math.random()*arr.length)]; coach(t); say(t); }
+// her FACE reacts on every hit (quick green pulse) so she stays alive while SPEAKING less
+function flashNovaFace(){ const e=$('nova-live'); if(!e) return; e.classList.remove('react'); void e.offsetWidth; e.classList.add('react'); setTimeout(()=>{ try{e.classList.remove('react');}catch(_){} },650); }
 let lastSay=0; function say(t){ const now=Date.now(); if(now-lastSay<1300) return; lastSay=now; // light voice; safe in a cafe (muted-friendly: low volume)
   try{ if('speechSynthesis'in window){ const u=new SpeechSynthesisUtterance(t); u.rate=1.05; u.pitch=1.3; u.volume=0.55; speechSynthesis.speak(u);} }catch(e){} }
 
