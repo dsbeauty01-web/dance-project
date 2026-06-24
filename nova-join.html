@@ -896,6 +896,24 @@ function showTapToHear(a){
 // any tap anywhere also tries to resume Nova's audio (covers mobile autoplay locks)
 document.addEventListener('pointerdown', ()=>{ const a=window.__novaAudioEl; if(a&&a.paused){ try{ a.muted=false; a.play().catch(()=>{}); }catch(e){} } }, {passive:true});
 
+// PERCEIVED SPEED: instant "she heard you / thinking" cue. Runway's ~0.5s lipsync +
+// ~1s LLM are a hard floor, so we can't make her actually faster — but showing this
+// the MOMENT the kid stops talking makes the wait feel alive, not dead. Auto-hides.
+(function(){ const st=document.createElement('style');
+  st.textContent='@keyframes thinkDot{0%,100%{opacity:.3;transform:translateY(0)}50%{opacity:1;transform:translateY(-5px)}}'; document.head.appendChild(st); })();
+let _thinkT=0;
+function showThinking(on){
+  let e=document.getElementById('nova-think');
+  if(!e){ e=document.createElement('div'); e.id='nova-think';
+    e.style.cssText='position:fixed;left:50%;bottom:92px;transform:translateX(-50%);z-index:40;display:none;gap:7px;padding:10px 18px;background:rgba(40,0,70,.6);border-radius:999px;backdrop-filter:blur(6px);box-shadow:0 6px 24px rgba(255,95,216,.35)';
+    const dot='width:10px;height:10px;border-radius:50%;background:#ff8ae2;display:inline-block;animation:thinkDot 1s infinite';
+    e.innerHTML='<i style="'+dot+'"></i><i style="'+dot+' .15s"></i><i style="'+dot+' .3s"></i>';
+    document.body.appendChild(e); }
+  clearTimeout(_thinkT);
+  if(on){ e.style.display='flex'; _thinkT=setTimeout(()=>{ e.style.display='none'; }, 6000); }  // safety auto-hide
+  else e.style.display='none';
+}
+
 async function connectNova(initialPhase='recognition'){
   if(novaRoom||novaConnecting||typeof LivekitClient==='undefined') return;
   novaConnecting=true; novaStatus('waking Nova…');
@@ -935,7 +953,9 @@ async function connectNova(initialPhase='recognition'){
       $('nova-live').classList.toggle('talking', novaTalking);
       const nv=$('nova-vid'); if(nv) nv.volume = novaTalking?0.22:0.7;   // duck the music while she speaks
       // latency: gap from when the kid stops talking → Nova starts replying
-      if(kidTalking){ window.__kidSpokeAt=performance.now(); }
+      if(kidTalking){ window.__kidSpokeAt=performance.now(); window.__kidWasTalking=true; showThinking(false); }
+      else if(novaTalking){ showThinking(false); window.__kidWasTalking=false; }    // she's answering → hide cue
+      else if(window.__kidWasTalking){ showThinking(true); window.__kidWasTalking=false; } // kid just stopped → instant "thinking"
       if(novaTalking && !window.__novaReplying){
         window.__novaReplying=true;
         if(window.__kidSpokeAt){ const ms=Math.round(performance.now()-window.__kidSpokeAt);
