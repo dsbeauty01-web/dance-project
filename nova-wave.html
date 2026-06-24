@@ -477,12 +477,15 @@ function drawSkeleton(kps){
   SKELETON.forEach(([a,b])=>{ const A=m[a],B=m[b]; if(A&&B&&A.score>0.25&&B.score>0.25){ x.beginPath(); x.moveTo(X(A),Y(A)); x.lineTo(X(B),Y(B)); x.stroke(); }});
   x.fillStyle='rgba(255,95,216,.45)';
   kps.forEach(k=>{ if(k.score>0.25){ x.beginPath(); x.arc(X(k),Y(k),3,0,7); x.fill(); }});
-  // CUE → DETECTION: pulse a marker ON the body part Nova is asking for
+  // CUE → DETECTION: a glowing HALO + ↑ arrow drawn ON the kid's own cued body part
+  // (the cue IS the detection — no text card needed). Wave moves go UP, so arrow = ↑.
   const parts=cuePartsFor(window.__cuePart);
   if(parts){ const pulse=0.5+0.5*Math.sin(performance.now()/200);
-    parts.forEach(n=>{ const k=m[n]; if(k&&k.score>0.2){ const r=15+7*pulse;
-      x.beginPath(); x.arc(X(k),Y(k),r,0,7); x.lineWidth=4; x.strokeStyle='rgba(255,216,77,'+(0.55+0.4*pulse)+')'; x.stroke();
-      x.beginPath(); x.arc(X(k),Y(k),r*0.55,0,7); x.fillStyle='rgba(255,216,77,'+(0.12+0.15*pulse)+')'; x.fill(); }});
+    parts.forEach(n=>{ const k=m[n]; if(k&&k.score>0.2){ const px=X(k), py=Y(k), r=20+9*pulse;
+      x.beginPath(); x.arc(px,py,r,0,7); x.lineWidth=5; x.strokeStyle='rgba(255,216,77,'+(0.6+0.4*pulse)+')'; x.stroke();         // outer glow ring
+      x.beginPath(); x.arc(px,py,r*0.5,0,7); x.fillStyle='rgba(255,216,77,'+(0.14+0.16*pulse)+')'; x.fill();                      // soft fill
+      x.font='bold 30px sans-serif'; x.textAlign='center'; x.fillStyle='rgba(255,216,77,'+(0.7+0.3*pulse)+')'; x.fillText('↑', px, py-r-6); // direction
+    }});
   }
 }
 
