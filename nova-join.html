@@ -484,6 +484,13 @@ async function poseLoop(){
   if(novaRoom && _n-(window.__lastEnergy||0)>5000){ window.__lastEnergy=_n;
     const lvl = det.motion>0.12?'high':(det.motion<0.04?'low':'med');
     novaSend({ kind:'game-event', event:{ event:'energy', level:lvl } }); }
+  // P1/P2 — gentle framing + lighting nudge so detection actually works (the cafe-miss fix).
+  // Only during play, max once per 8s, softest possible (never alarming).
+  if(window.__danceStarted && _n-(window.__lastFrameNudge||0)>8000){
+    if(!det.present){ window.__lastFrameNudge=_n; coach('step in front of the camera 💜'); }
+    else if(det.joints<7){ window.__lastFrameNudge=_n; coach('a little more light on you? 💡'); }
+    else if(det.spanFrac>0.36){ window.__lastFrameNudge=_n; coach('scoot back so I can see you!'); }
+  }
   rafId=requestAnimationFrame(poseLoop);
 }
 
@@ -525,6 +532,12 @@ function analyze(kps){
   else if(lk&&lk.score>MIN) kneeY=lk.y; else if(rk&&rk.score>MIN) kneeY=rk.y;
   // are the legs/hips in frame at all? (used so seated players aren't punished)
   det.lowerVisible = !!((lh&&lh.score>MIN)||(rh&&rh.score>MIN)||(lk&&lk.score>MIN)||(rk&&rk.score>MIN));
+  // P1 — body-relative depth + framing quality (drives the step-back / lighting nudge)
+  const vw=($('cam').videoWidth)||640;
+  det.spanFrac   = sw/vw;                          // shoulder span as fraction of frame (small = too far)
+  det.depthRatio = base.sw ? sw/base.sw : 1;       // >1 closer than calibration, <1 farther
+  det.headConf   = nose ? nose.score : 0;
+  det.framingOK  = det.present && det.joints>=8 && det.spanFrac>0.10;   // enough of the kid is clearly visible
   // store deltas vs baseline
   det.headDX = headDX - base.headDX;
   det.shTilt = shTilt - base.shTilt;
