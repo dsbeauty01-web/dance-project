@@ -121,9 +121,9 @@
   /* Nova's LIVE reacting face (Runway avatar over the LiveKit session) */
   /* Nova LIVE face — ELLIPSE framing her WHOLE FACE, floating TOP-CENTER "watching"
      over the game (not far-left, never covering the kid's body or the glow-cues). LOCKED shape. */
-  #nova-live{ position:fixed; top:54px; left:50%; transform:translateX(-50%); width:min(22vw,164px); aspect-ratio:1/1.12;
-    object-fit:cover; object-position:center 30%;
-    border-radius:50% / 56%; border:3px solid var(--pink); box-shadow:0 0 26px rgba(255,95,216,.6);
+  #nova-live{ position:fixed; top:54px; left:50%; transform:translateX(-50%); width:min(23vw,172px); aspect-ratio:1/1.32;
+    object-fit:cover; object-position:center 26%;
+    border-radius:50% / 64%; border:3px solid var(--pink); box-shadow:0 0 26px rgba(255,95,216,.6);   /* EGG shape (taller) */
     z-index:30; display:none; background:#1a0030; transition:border-color .18s, box-shadow .18s; }
   #nova-live.show{ display:block; }
   @keyframes novaReact{ 0%{box-shadow:0 0 26px rgba(255,95,216,.6)} 40%{box-shadow:0 0 52px rgba(0,255,150,.9); border-color:var(--grn)} 100%{box-shadow:0 0 26px rgba(255,95,216,.6)} }
@@ -607,21 +607,29 @@ function drawSkeleton(kps){
   // CUE → DETECTION: the body DOT *is* the cue (no "stupid text" card). Big pulsing
   // ring on the cued part + a directional arrow glyph, readable at a glance.
   const cueKey=(window.__cuePart||''); const parts=cuePartsFor(cueKey);
-  if(parts){ const pulse=0.5+0.5*Math.sin(performance.now()/200);
+  if(parts){ const pulse=0.5+0.5*Math.sin(performance.now()/220);
     const isHead=/head/i.test(cueKey), dir=/right/i.test(cueKey)?1:(/left/i.test(cueKey)?-1:0);
-    // LEFT = blue, RIGHT = pink, neutral (no L/R) = gold. Same color on halo + arrow + screen-half.
-    const COL = dir<0 ? '90,170,255' : dir>0 ? '255,95,216' : '255,216,77';
-    const glyph = isHead ? (dir>0?'→':dir<0?'←':'↔') : '↑'; // head ←/→ ; shoulder ↑ (lift)
-    // screen-half tint on the cued side (split-screen readability) — drawn in-canvas so it tracks the cue
-    if(dir!==0){ const half=c.width*0.5; const gx = dir>0 ? c.width : 0;
-      const g=x.createLinearGradient(gx, 0, c.width*0.5, 0); g.addColorStop(0,'rgba('+COL+','+(0.10+0.05*pulse)+')'); g.addColorStop(1,'rgba('+COL+',0)');
-      x.fillStyle=g; x.fillRect(dir>0?half:0, 0, half, c.height); }
-    parts.forEach(n=>{ const k=m[n]; if(k&&k.score>0.2){ const cx=X(k),cy=Y(k), r=22+10*pulse;
-      x.beginPath(); x.arc(cx,cy,r,0,7); x.lineWidth=6; x.strokeStyle='rgba('+COL+','+(0.6+0.4*pulse)+')'; x.stroke();
-      x.beginPath(); x.arc(cx,cy,r*0.5,0,7); x.fillStyle='rgba('+COL+','+(0.14+0.16*pulse)+')'; x.fill();
-      x.font='bold 40px system-ui,sans-serif'; x.textAlign='center'; x.textBaseline='middle';
-      x.fillStyle='rgba('+COL+','+(0.78+0.22*pulse)+')';
-      x.fillText(glyph, cx + (isHead? dir*(r+28):0), cy + (isHead? 0 : -(r+28))); }});
+    const COL = dir<0 ? '90,170,255' : dir>0 ? '255,95,216' : '255,216,77';  // LEFT blue / RIGHT pink / neutral gold
+    const glyph = isHead ? (dir>0?'→':dir<0?'←':'↔') : '↑';
+    // screen-half tint on the target side (split-screen readability)
+    if(dir!==0){ const half=c.width*0.5;
+      const g=x.createLinearGradient(dir>0?c.width:0,0,c.width*0.5,0);
+      g.addColorStop(0,'rgba('+COL+','+(0.18+0.07*pulse)+')'); g.addColorStop(1,'rgba('+COL+',0)');
+      x.fillStyle=g; x.fillRect(dir>0?half:0,0,half,c.height); }
+    // HEAD cue: a dashed CENTER LINE the head must cross toward the target side
+    if(isHead && dir!==0){ const lx=c.width*0.5;
+      x.setLineDash([12,9]); x.lineWidth=3; x.strokeStyle='rgba(255,255,255,'+(0.45+0.25*pulse)+')';
+      x.beginPath(); x.moveTo(lx,30); x.lineTo(lx,c.height-30); x.stroke(); x.setLineDash([]); }
+    parts.forEach(n=>{ const k=m[n]; if(k&&k.score>0.18){ const cx=X(k),cy=Y(k), r=46+14*pulse;
+      // big soft TRANSPARENT halo (radial) — pretty, clearly visible around the body part
+      const rg=x.createRadialGradient(cx,cy,r*0.15,cx,cy,r);
+      rg.addColorStop(0,'rgba('+COL+','+(0.34+0.16*pulse)+')'); rg.addColorStop(1,'rgba('+COL+',0)');
+      x.fillStyle=rg; x.beginPath(); x.arc(cx,cy,r,0,7); x.fill();
+      x.beginPath(); x.arc(cx,cy,r*0.66,0,7); x.lineWidth=5; x.strokeStyle='rgba('+COL+','+(0.7+0.3*pulse)+')'; x.stroke();
+      // big transparent arrow next to the part (head: sideways toward target; shoulder: up)
+      x.font='bold 56px system-ui,sans-serif'; x.textAlign='center'; x.textBaseline='middle';
+      x.fillStyle='rgba('+COL+',0.9)';
+      x.fillText(glyph, cx + (isHead? dir*(r+30):0), cy + (isHead? 0 : -(r+26))); }});
   }
 }
 
@@ -850,9 +858,9 @@ function openCue(c){
   window.__cuePart=c.action;   // mark the cued body part ON the kid (overlay highlight)
   game.cueStart={ headDX:det.headDX, shTilt:det.shTilt, hipDX:det.hipDX }; game.cueMaxOther=0;  // P3 isolation baseline
   const m=MOVES[c.action];
-  $('cue-figure').innerHTML=figureSVG(c.action==='free'?'hips':c.action);
-  $('cue-label').textContent=m.name;
-  $('cue').classList.add('show','lean');   // 'lean' = thin timer only; the body DOT is the cue (no text card)
+  // NO floating text card — the cue is drawn ON the kid's body (halo + arrow + center line).
+  $('cue-figure').innerHTML=''; $('cue-label').textContent='';
+  $('cue').classList.add('show','lean');   // thin timer bar only
   $('cam-wrap').classList.remove('hit','miss'); $('cam-wrap').classList.add('armed');
   game.cueZone = ZONE[c.action]; setZone(game.cueZone,'armed');
   novaSend({ kind:'game-event', event:{ event:'move_cue', action:c.action } });
