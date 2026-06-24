@@ -645,12 +645,32 @@ async function startDance(){
   $('game').classList.remove('hidden');
   $('score-box').style.visibility='hidden'; $('combo-box').style.visibility='hidden'; // no score during warm-up
   cancelAnimationFrame(rafId); poseLoop();   // detection on
+  await framingGate();                        // P2: make sure she can actually SEE the kid first
   await runWarmup();                         // Phase 1b: guided isolation warm-up
   await countdown();
   beginGame();
 }
 
 function _sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+// P2 — STEP-BACK / FRAMING GATE: gentle check that detection can see the kid before
+// play. Auto-advances when framed ~1.5s, OR after an 8s hard cap so kids NEVER stick.
+async function framingGate(){
+  const deadline=performance.now()+8000; let goodSince=0, last='';
+  const show=t=>{ if(t!==last){ last=t; coach(t); } };
+  show('let me see you... 💜');
+  while(performance.now()<deadline){
+    if(det.framingOK){ if(!goodSince) goodSince=performance.now(); if(performance.now()-goodSince>1500) break; }
+    else { goodSince=0;
+      if(!det.present)             show('step in front of the camera 💜');
+      else if(det.joints<7)        show('a little more light on you? 💡');
+      else if(det.spanFrac>0.40)   show('scoot back so I can see you!');
+      else                         show('get your head & shoulders in view 💜');
+    }
+    await _sleep(350);
+  }
+  show("perfect — let's GO!"); await _sleep(500);
+}
 
 // Guided isolation warm-up — Nova walks the kid through each body part before the
 // song. Forgiving on purpose (it's practice): the specific signal OR any movement
