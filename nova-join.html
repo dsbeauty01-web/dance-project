@@ -776,6 +776,9 @@ function gameTick(){
   }
   // live-check active cue
   if(game.cue){
+    // P3: track how much the NON-cued anchors drift during the window (less = cleaner isolation)
+    if(game.cueStart){ const o=ISO_OTHERS[game.cue.action];
+      if(o){ let mx=0; o.forEach(k=>{ mx=Math.max(mx, Math.abs((det[k]||0)-(game.cueStart[k]||0))); }); if(mx>game.cueMaxOther) game.cueMaxOther=mx; } }
     if(!game.cueResolved && MOVES[game.cue.action].check(det, base) && det.present){ resolveHit(); }
     if(now>=game.cueEnd){
       if(!game.cueResolved){
@@ -788,9 +791,15 @@ function gameTick(){
   }
 }
 
+// P3 ISOLATION SCORING — the "dance-teacher x-ray": for each cue, which anchors
+// must stay STILL (the non-cued ones). Clean isolation = cued part moved, others didn't.
+const ISO_OTHERS = { 'head-left':['shTilt','hipDX'], 'head-right':['shTilt','hipDX'],
+  'shoulder-left':['headDX','hipDX'], 'shoulder-right':['headDX','hipDX'] };
+const ISO_TOL = 0.13;   // 'other' movement at/above this = messy (isolation → 0)
 function openCue(c){
   game.cue=c; game.cueResolved=false; game.cueEnd=c.t+c.dur; game.total++;
   window.__cuePart=c.action;   // mark the cued body part ON the kid (overlay highlight)
+  game.cueStart={ headDX:det.headDX, shTilt:det.shTilt, hipDX:det.hipDX }; game.cueMaxOther=0;  // P3 isolation baseline
   const m=MOVES[c.action];
   $('cue-figure').innerHTML=figureSVG(c.action==='free'?'hips':c.action);
   $('cue-label').textContent=m.name;
@@ -821,15 +830,20 @@ function resolveHit(){
   game.cueResolved=true;
   const m=MOVES[game.cue.action];
   const fast=(game.cueEnd-$('nova-vid').currentTime*1000)>game.cue.dur*0.45;
-  const pts=Math.round(m.pts*(fast?1.5:1)*(1+Math.min(game.combo,8)*0.1));
+  // P3 ISOLATION QUALITY = 0.5 direction (it's a hit) + 0.3 isolation + 0.2 timing → 0.6..1.0
+  const iso=Math.max(0,Math.min(1,1-(game.cueMaxOther||0)/ISO_TOL));
+  const quality=0.5 + 0.3*iso + 0.2*(fast?1:0.6);
+  game.lastQuality=quality; const clean=quality>=0.85;
+  game.cleanHits=(game.cleanHits||0)+(clean?1:0);
+  const pts=Math.round(m.pts*(fast?1.5:1)*(clean?1.25:1)*(1+Math.min(game.combo,8)*0.1)); // isolation bonus
   game.score+=pts; game.hits++; game.combo++; game.maxCombo=Math.max(game.maxCombo,game.combo);
   $('score').textContent=game.score;
   const cb=$('combo-box'); cb.textContent='x'+game.combo; cb.classList.remove('pulse'); void cb.offsetWidth; cb.classList.add('pulse');
   $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('hit'); zoneState('hit');
-  pop((fast?'PERFECT ':'+')+pts, fast?'#ffd84d':'#00ff99');
-  logCue('hit');
+  pop(clean?('CLEAN! +'+pts):((fast?'PERFECT ':'+')+pts), (clean||fast)?'#ffd84d':'#00ff99');
+  logCue(clean?'hit-clean':'hit');
   novaSend({ kind:'game-event', event:{ event:(game.combo===1?'first_hit':(game.combo>=3?'streak':'hit')),
-    action:game.cue&&game.cue.action, streak:game.combo, fast } });
+    action:game.cue&&game.cue.action, streak:game.combo, fast, quality:+quality.toFixed(2), clean } });
   novaLocalReact('hit', game.combo, fast);
 }
 function resolveMiss(){
