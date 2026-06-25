@@ -638,6 +638,14 @@ function drawSkeleton(kps){
   SKELETON.forEach(([a,b])=>{ const A=m[a],B=m[b]; if(A&&B&&A.score>0.25&&B.score>0.25){ x.beginPath(); x.moveTo(X(A),Y(A)); x.lineTo(X(B),Y(B)); x.stroke(); }});
   x.fillStyle='rgba(255,95,216,.45)';
   kps.forEach(k=>{ if(k.score>0.25){ x.beginPath(); x.arc(X(k),Y(k),3,0,7); x.fill(); }});
+  // DEBUG: bright cyan tracking dots so we can SEE where the mapping puts each joint.
+  // (Temporary calibration aid — remove once the aura lands on the body.)
+  if(window.__DOTS){ kps.forEach(k=>{ if(k.score>0.2){ const px=X(k),py=Y(k);
+    x.beginPath(); x.arc(px,py,7,0,7); x.fillStyle='rgba(0,240,255,.95)'; x.fill();
+    x.lineWidth=2; x.strokeStyle='rgba(0,0,0,.75)'; x.stroke();
+    if(k.name==='nose'||k.name==='left_shoulder'||k.name==='right_shoulder'){
+      x.font='bold 13px system-ui'; x.fillStyle='#fff'; x.textAlign='left'; x.textBaseline='middle';
+      x.fillText(k.name.replace('_',' '), px+11, py); } }}); }
   // CUE → kid: keypoint-anchored HTML/CSS aura glow + glowing direction arrow (positionAuras).
   positionAuras(m, X, Y);
 }
@@ -708,6 +716,7 @@ async function startDance(){
   try{ $('greet-cam').srcObject=null; }catch(e){}
   // debug monitor: devs only (add ?debug to the URL). Kids never see the joints HUD.
   if(/[?&]debug/.test(location.search)) $('dbg').classList.remove('hidden');
+  if(/[?&](debug|dots)/.test(location.search)) window.__DOTS=true;   // show cyan joint dots for calibration
   $('game').classList.remove('hidden');
   $('score-box').style.visibility='hidden'; $('combo-box').style.visibility='hidden'; // no score during warm-up
   cancelAnimationFrame(rafId); poseLoop();   // detection on
