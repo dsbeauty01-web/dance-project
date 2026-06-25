@@ -211,19 +211,23 @@
      direction arrow. Transparent centre + screen-blend = it brightens the kid,
      never covers them. Positions come from positionAuras() each frame. */
   #aura-layer{ position:absolute; inset:0; z-index:6; pointer-events:none; overflow:hidden; }
-  .aura{ position:absolute; left:0; top:0; width:0; height:0; --c:255,216,77; --x:-500px; --y:-500px;
+  .aura{ position:absolute; left:0; top:0; width:0; height:0; --c:255,216,77; --x:-500px; --y:-500px; --size:170px;
     opacity:0; transform:translate(var(--x),var(--y)); transition:opacity .22s ease;
     animation:auraPulse 1.05s ease-in-out infinite; }
   .aura.on{ opacity:1; }
-  @keyframes auraPulse{ 0%,100%{ transform:translate(var(--x),var(--y)) scale(.90);}
-                        50%{ transform:translate(var(--x),var(--y)) scale(1.12);} }
-  .aura .glow{ position:absolute; left:-100px; top:-100px; width:200px; height:200px; border-radius:50%;
-    background:radial-gradient(circle, rgba(var(--c),0) 22%, rgba(var(--c),.50) 49%,
-      rgba(var(--c),.20) 68%, rgba(var(--c),0) 80%);
+  @keyframes auraPulse{ 0%,100%{ transform:translate(var(--x),var(--y)) scale(.92);}
+                        50%{ transform:translate(var(--x),var(--y)) scale(1.09);} }
+  /* glow auto-sizes to the body part (--size, set per-frame from shoulder width).
+     Transparent centre (35%) so the face/part shows THROUGH — it lights, never covers. */
+  .aura .glow{ position:absolute; left:calc(var(--size) / -2); top:calc(var(--size) / -2);
+    width:var(--size); height:var(--size); border-radius:50%;
+    background:radial-gradient(circle, rgba(var(--c),0) 35%, rgba(var(--c),.55) 55%,
+      rgba(var(--c),.18) 72%, rgba(var(--c),0) 82%);
     filter:blur(2px); mix-blend-mode:screen; }
+  /* small, elegant direction arrow (scales gently with the part) */
   .aura .arrow{ position:absolute; left:0; top:0; --ax:0px; --ay:0px;
-    font:900 56px/1 system-ui,sans-serif; white-space:nowrap; color:rgba(var(--c),.97);
-    text-shadow:0 0 12px rgba(var(--c),.95), 0 0 26px rgba(var(--c),.55), 0 2px 5px rgba(0,0,0,.6);
+    font:900 calc(var(--size) * 0.26)/1 system-ui,sans-serif; white-space:nowrap; color:rgba(var(--c),.98);
+    text-shadow:0 0 10px rgba(var(--c),.95), 0 0 22px rgba(var(--c),.5), 0 2px 4px rgba(0,0,0,.6);
     transform:translate(calc(-50% + var(--ax)), calc(-50% + var(--ay))); }
   /* freestyle: gentle full-panel golden breathe — edges only, kid stays clear */
   #aura-full{ position:absolute; inset:0; z-index:5; pointer-events:none; opacity:0; border-radius:20px;
@@ -405,17 +409,21 @@ const CUES = (()=>{
   const seq = [
     'head-left','head-right','head-left','head-right',
     'shoulder-left','shoulder-right','shoulder-left','shoulder-right',
-    'shoulder-left','shoulder-right','shoulder-left','shoulder-right',
     'hips-left','hips-right','hips-left','hips-right',
   ];
-  // SLOW learn pass
-  const slow=1250, sw=1120; let t=3500;
+  const BEAT=609;                 // 98.5 BPM (matches the song)
+  // Tracking starts ~4s: the video opens with a 3-2-1 + Nova walking back 2 steps
+  // (~0–3s, confirmed from the frames), so the kid only starts moving once she's set.
+  let t=4000;
+  // SLOW learn pass — one move every 2 beats
+  const slow=BEAT*2, sw=BEAT*2-150;
   seq.forEach(a=>{ add(t,a,sw); t+=slow; });
-  // DOUBLE-SPEED pass — same moves, half the gap
-  const fast=620, fw=540; t+=600;
+  // DOUBLE-SPEED pass — same moves, one per beat
+  t+=BEAT;
+  const fast=BEAT, fw=BEAT-90;
   seq.forEach(a=>{ add(t,a,fw); t+=fast; });
-  // FREESTYLE finale — any motion scores
-  t+=600; add(t,'free',6000); t+=6500; add(t,'free',6000); t+=6500; add(t,'free',6000);
+  // FREESTYLE / "move it all" finale
+  t+=BEAT; add(t,'free',6000); t+=6500; add(t,'free',6000); t+=6500; add(t,'free',6000);
   return out.sort((a,b)=>a.t-b.t);
 })();
 const SONG_END = 56.0;           // seconds — stop + show results
@@ -669,16 +677,27 @@ function positionAuras(m, X, Y){
   const COL = isFree ? '255,216,77' : dir<0 ? '90,170,255' : dir>0 ? '255,95,216' : '255,216,77'; // LEFT blue / RIGHT pink / gold
   const glyph = isFree ? '' : isSide ? (dir>0?'→':dir<0?'←':'↔') : '↑';
   const full=$('aura-full'); if(full) full.classList.toggle('on', isFree);
+  // SMART SIZING: scale the glow to the kid's actual body (shoulder width on screen),
+  // so it fits whether they're close or far — not a fixed blob.
+  const ls=m['left_shoulder'], rs=m['right_shoulder'];
+  const shoulderPx = (ls&&rs&&ls.score>0.2&&rs.score>0.2) ? Math.abs(X(ls)-X(rs)) : 0;
+  const bodyW = shoulderPx>20 ? shoulderPx : 200;          // fallback if shoulders not seen
+  const headSize = Math.max(90, Math.min(360, bodyW*1.15));  // head glow ≈ head width
+  const partSize = Math.max(70, Math.min(280, bodyW*0.70));  // shoulder/hip glow = smaller
   let i=0;
   parts.forEach(n=>{ const k=m[n], a=auras[i]; if(!a) return;
     if(k && k.score>0.12){
+      const isHeadPart = n==='nose';
+      const size = isHeadPart ? headSize : partSize;
       a.style.setProperty('--c',COL);
       a.style.setProperty('--x', X(k).toFixed(1)+'px');
       a.style.setProperty('--y', Y(k).toFixed(1)+'px');
+      a.style.setProperty('--size', size.toFixed(0)+'px');
       const ar=a.querySelector('.arrow');
       if(ar){ ar.textContent=glyph;
-        ar.style.setProperty('--ax', (isSide?dir*82:0)+'px');
-        ar.style.setProperty('--ay', (isSide?0:-82)+'px'); }
+        // small arrow sits just OUTSIDE the glow, toward the target direction
+        ar.style.setProperty('--ax', (isSide?dir*(size*0.62):0).toFixed(0)+'px');
+        ar.style.setProperty('--ay', (isSide?0:-(size*0.62)).toFixed(0)+'px'); }
       a.classList.add('on'); i++;
     }
   });
