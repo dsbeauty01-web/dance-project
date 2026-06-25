@@ -371,14 +371,16 @@ const MOVES = {
   'head-left':      { name:'← HEAD',      coach:'tilt your head LEFT',   pts:100, check:d=> Math.abs(d.headDX) > THRESH.head },
   'shoulder-right': { name:'SHOULDER →',  coach:'lift your RIGHT shoulder', pts:120, check:d=> Math.abs(d.shTilt) > THRESH.sh },
   'shoulder-left':  { name:'← SHOULDER',  coach:'lift your LEFT shoulder',  pts:120, check:d=> Math.abs(d.shTilt) > THRESH.sh },
-  'hips':           { name:'HIPS',        coach:'swing your hips!',      pts:130, needs:'lower', check:d=> Math.abs(d.hipDX) > THRESH.hip },
+  'hips-left':      { name:'← HIPS',      coach:'swing hips LEFT!',      pts:130, needs:'lower', check:d=> Math.abs(d.hipDX) > THRESH.hip },
+  'hips-right':     { name:'HIPS →',      coach:'swing hips RIGHT!',     pts:130, needs:'lower', check:d=> Math.abs(d.hipDX) > THRESH.hip },
   'knee':           { name:'KNEE UP',     coach:'lift a knee!',          pts:140, needs:'lower', check:d=> d.kneeLift > THRESH.knee },
   'free':           { name:'FREESTYLE!',  coach:'move it ALL!',          pts:60,  check:d=> d.motion > THRESH.motion },
 };
 
 // which detection ZONE lights up: half-screen for sideways moves, full for full-body
-const ZONE = { 'head-left':'left','shoulder-left':'left','head-right':'right','shoulder-right':'right',
-  'hips':'full','knee':'full','free':'full' };
+const ZONE = { 'head-left':'left','shoulder-left':'left','hips-left':'left',
+  'head-right':'right','shoulder-right':'right','hips-right':'right',
+  'knee':'full','free':'full' };
 function setZone(z, state){
   ['zone-left','zone-right','zone-full'].forEach(id=>$(id).classList.remove('show','armed','hit','miss'));
   if(!z) return;
@@ -396,24 +398,24 @@ const VIDEO_START = 0;           // start from the very beginning (no seek glitc
                                  // kid watches Nova's intro and can anticipate the moves
 const CUES = (()=>{
   const out=[]; const add=(t,action,dur)=>out.push({ t, dur, action });
-  // SLOW BUILD — starts early (~6s) so the kid LEARNS the slow moves first,
-  // then it speeds up. Cards drive it (Nova dances behind as the backdrop).
-  // UPPER-BODY ONLY: head + shoulder. Hips/knee removed — they need lower-body
-  // tracking, which fails when the kid is sitting or far back (camera sees head+
-  // shoulders). Same slow-build → double-speed → freestyle shape, all trackable.
-  const slow=1300, sw=1180; let t=3500;   // learn phase: a touch slower + more reaction time
-  ['head-right','head-left','head-right','head-left'].forEach(a=>{ add(t,a,sw); t+=slow; });
-  ['shoulder-right','shoulder-left','shoulder-right','shoulder-left'].forEach(a=>{ add(t,a,sw); t+=slow; });
-  ['head-right','shoulder-right','head-left','shoulder-left'].forEach(a=>{ add(t,a,sw); t+=slow; });
-  ['shoulder-left','head-left','shoulder-right','head-right'].forEach(a=>{ add(t,a,sw); t+=slow; });
-  // DOUBLE-SPEED — mixed head/shoulder
-  const fast=610, fw=520; t+=300;
-  ['shoulder-right','head-right','shoulder-left','head-left'].forEach(a=>{ add(t,a,fw); t+=fast; });
-  ['head-right','shoulder-right','head-left','shoulder-left'].forEach(a=>{ add(t,a,fw); t+=fast; });
-  ['shoulder-right','shoulder-left','shoulder-right','shoulder-left'].forEach(a=>{ add(t,a,fw); t+=fast; });
-  ['head-right','head-left','head-right','head-left'].forEach(a=>{ add(t,a,fw); t+=fast; });
-  // FREESTYLE — any motion scores
-  t+=500; add(t,'free',6000); t+=6500; add(t,'free',6000); t+=6500; add(t,'free',6000);
+  // ROUTINE (Refael's spec): head L-R-L-R  →  shoulder L-R ×4  →  hips L-R-L-R.
+  // Run SLOW first so the kid learns it, then the SAME run at DOUBLE speed (energy
+  // goes up), then a freestyle finale. Hips need the waist in frame — if the kid is
+  // seated/close those cues auto-skip (needs:'lower') instead of punishing them.
+  const seq = [
+    'head-left','head-right','head-left','head-right',
+    'shoulder-left','shoulder-right','shoulder-left','shoulder-right',
+    'shoulder-left','shoulder-right','shoulder-left','shoulder-right',
+    'hips-left','hips-right','hips-left','hips-right',
+  ];
+  // SLOW learn pass
+  const slow=1250, sw=1120; let t=3500;
+  seq.forEach(a=>{ add(t,a,sw); t+=slow; });
+  // DOUBLE-SPEED pass — same moves, half the gap
+  const fast=620, fw=540; t+=600;
+  seq.forEach(a=>{ add(t,a,fw); t+=fast; });
+  // FREESTYLE finale — any motion scores
+  t+=600; add(t,'free',6000); t+=6500; add(t,'free',6000); t+=6500; add(t,'free',6000);
   return out.sort((a,b)=>a.t-b.t);
 })();
 const SONG_END = 56.0;           // seconds — stop + show results
@@ -624,6 +626,7 @@ function clearOverlay(){ const c=$('overlay'); c.getContext('2d').clearRect(0,0,
 const CUE_PARTS = {
   'head':['nose'], 'head-left':['nose'], 'head-right':['nose'],
   'shoulder':['left_shoulder','right_shoulder'], 'shoulder-left':['left_shoulder','right_shoulder'], 'shoulder-right':['left_shoulder','right_shoulder'],
+  'hips':['left_hip','right_hip'], 'hips-left':['left_hip','right_hip'], 'hips-right':['left_hip','right_hip'],
   'clap':['left_wrist','right_wrist'], 'touch shoulder':['left_shoulder','right_shoulder'],
   'free':['nose','left_shoulder','right_shoulder','left_hip','right_hip'],   // freestyle = light up the WHOLE body
 };
@@ -660,11 +663,11 @@ const AURA_FREE_PARTS = ['nose','left_shoulder','right_shoulder'];
 function positionAuras(m, X, Y){
   const auras = document.querySelectorAll('#aura-layer .aura');
   const cueKey=(window.__cuePart||'');
-  const isFree=/free/i.test(cueKey), isHead=/head/i.test(cueKey);
+  const isFree=/free/i.test(cueKey), isSide=/head|hips/i.test(cueKey);   // head + hips = side-to-side; shoulder = up
   const dir=/right/i.test(cueKey)?1:(/left/i.test(cueKey)?-1:0);
   const parts = !cueKey ? [] : isFree ? AURA_FREE_PARTS : (cuePartsFor(cueKey)||[]);
   const COL = isFree ? '255,216,77' : dir<0 ? '90,170,255' : dir>0 ? '255,95,216' : '255,216,77'; // LEFT blue / RIGHT pink / gold
-  const glyph = isFree ? '' : isHead ? (dir>0?'→':dir<0?'←':'↔') : '↑';
+  const glyph = isFree ? '' : isSide ? (dir>0?'→':dir<0?'←':'↔') : '↑';
   const full=$('aura-full'); if(full) full.classList.toggle('on', isFree);
   let i=0;
   parts.forEach(n=>{ const k=m[n], a=auras[i]; if(!a) return;
@@ -674,8 +677,8 @@ function positionAuras(m, X, Y){
       a.style.setProperty('--y', Y(k).toFixed(1)+'px');
       const ar=a.querySelector('.arrow');
       if(ar){ ar.textContent=glyph;
-        ar.style.setProperty('--ax', (isHead?dir*82:0)+'px');
-        ar.style.setProperty('--ay', (isHead?0:-82)+'px'); }
+        ar.style.setProperty('--ax', (isSide?dir*82:0)+'px');
+        ar.style.setProperty('--ay', (isSide?0:-82)+'px'); }
       a.classList.add('on'); i++;
     }
   });
@@ -903,7 +906,8 @@ function gameTick(){
 // P3 ISOLATION SCORING — the "dance-teacher x-ray": for each cue, which anchors
 // must stay STILL (the non-cued ones). Clean isolation = cued part moved, others didn't.
 const ISO_OTHERS = { 'head-left':['shTilt','hipDX'], 'head-right':['shTilt','hipDX'],
-  'shoulder-left':['headDX','hipDX'], 'shoulder-right':['headDX','hipDX'] };
+  'shoulder-left':['headDX','hipDX'], 'shoulder-right':['headDX','hipDX'],
+  'hips-left':['headDX','shTilt'], 'hips-right':['headDX','shTilt'] };
 const ISO_TOL = 0.13;   // 'other' movement at/above this = messy (isolation → 0)
 function openCue(c){
   game.cue=c; game.cueResolved=false; game.cueEnd=c.t+c.dur; game.total++;
