@@ -660,8 +660,47 @@ function drawSkeleton(kps){
     if(k.name==='nose'||k.name==='left_shoulder'||k.name==='right_shoulder'){
       x.font='bold 13px system-ui'; x.fillStyle='#fff'; x.textAlign='left'; x.textBaseline='middle';
       x.fillText(k.name.replace('_',' '), px+11, py); } }}); }
-  // CUE → kid: keypoint-anchored HTML/CSS aura glow + glowing direction arrow (positionAuras).
-  positionAuras(m, X, Y);
+  // CUE → kid: LIGHT UP the actual body part (glowing limb segments) + a direction arrow.
+  hideAuras();                 // not using the HTML circle-auras anymore
+  drawCueGlow(x, m, X, Y);
+}
+
+// Light the cued BODY PART on the canvas: a glowing thick stroke along the relevant
+// bones (shoulders line / hip line / arm) or a glow ring around the head, + an arrow.
+function drawCueGlow(ctx, m, X, Y){
+  const cueKey=(window.__cuePart||''); if(!cueKey) return;
+  const isFree=/free/i.test(cueKey), isHead=/head/i.test(cueKey), isHip=/hip/i.test(cueKey), isShoulder=/shoulder/i.test(cueKey);
+  const dir=/right/i.test(cueKey)?1:(/left/i.test(cueKey)?-1:0);
+  const COL = isFree?'255,216,77' : dir<0?'90,170,255' : dir>0?'255,95,216' : '255,216,77';
+  const pulse=0.5+0.5*Math.sin(performance.now()/300);
+  const A=0.82+0.18*pulse;
+  function seg(a,b,wMul){ const P=m[a],Q=m[b]; if(!P||!Q||P.score<0.2||Q.score<0.2) return null;
+    const ax=X(P),ay=Y(P),bx=X(Q),by=Y(Q); const lw=(10+4*pulse)*(wMul||1);
+    ctx.save(); ctx.lineCap='round';
+    ctx.lineWidth=lw+6; ctx.strokeStyle='rgba(0,0,0,.4)';                 // dark underlay (contrast on bright bg)
+    ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+    ctx.shadowBlur=18; ctx.shadowColor='rgba('+COL+',.9)';                // glow
+    ctx.lineWidth=lw; ctx.strokeStyle='rgba('+COL+','+A+')';
+    ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+    ctx.restore(); return {mx:(ax+bx)/2,my:(ay+by)/2}; }
+  function headRing(){ const n=m['nose']; if(!n||n.score<0.2) return null;
+    const le=m['left_ear'], re=m['right_ear'];
+    const rr=(le&&re&&le.score>0.2&&re.score>0.2)?Math.max(34,Math.abs(X(le)-X(re))*0.75):44;
+    const cx=X(n), cy=Y(n);
+    ctx.save();
+    ctx.lineWidth=10; ctx.strokeStyle='rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(cx,cy,rr*1.08,rr*1.32,0,0,7); ctx.stroke();
+    ctx.shadowBlur=18; ctx.shadowColor='rgba('+COL+',.9)';
+    ctx.lineWidth=7+3*pulse; ctx.strokeStyle='rgba('+COL+','+A+')'; ctx.beginPath(); ctx.ellipse(cx,cy,rr,rr*1.25,0,0,7); ctx.stroke();
+    ctx.restore(); return {cx,cy,rr}; }
+  function arrow(cx,cy,glyph){ if(!glyph) return; ctx.save();
+    ctx.shadowBlur=10; ctx.shadowColor='rgba('+COL+',.9)';
+    ctx.font='bold 38px system-ui,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.lineWidth=5; ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.strokeText(glyph,cx,cy);
+    ctx.fillStyle='rgba('+COL+',.96)'; ctx.fillText(glyph,cx,cy); ctx.restore(); }
+  if(isHead){ const h=headRing(); if(h) arrow(h.cx+dir*(h.rr+30), h.cy, dir>0?'→':dir<0?'←':'↔'); }
+  else if(isShoulder){ const c=seg('left_shoulder','right_shoulder',1.1); if(c) arrow(c.mx, c.my-48, '↑'); }
+  else if(isHip){ const c=seg('left_hip','right_hip',1.1); if(c) arrow(c.mx, c.my-44, dir>0?'→':dir<0?'←':'↔'); }
+  else if(isFree){ seg('left_shoulder','right_shoulder'); seg('left_shoulder','left_elbow'); seg('right_shoulder','right_elbow'); headRing(); }
 }
 
 // ── KEYPOINT-ANCHORED AURA CUES ─────────────────────────────────────────
