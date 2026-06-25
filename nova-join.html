@@ -206,6 +206,33 @@
   #cue.lean #cue-figure, #cue.lean #cue-label{ display:none; }
   #cue.lean #cue-timer-wrap{ margin-top:0; }
 
+  /* ── KEYPOINT-ANCHORED AURA CUES (HTML/CSS driven by MoveNet joints) ──
+     A transparent "lighten-up" glow that sits ON the body part + a glowing
+     direction arrow. Transparent centre + screen-blend = it brightens the kid,
+     never covers them. Positions come from positionAuras() each frame. */
+  #aura-layer{ position:absolute; inset:0; z-index:6; pointer-events:none; overflow:hidden; }
+  .aura{ position:absolute; left:0; top:0; width:0; height:0; --c:255,216,77; --x:-500px; --y:-500px;
+    opacity:0; transform:translate(var(--x),var(--y)); transition:opacity .22s ease;
+    animation:auraPulse 1.05s ease-in-out infinite; }
+  .aura.on{ opacity:1; }
+  @keyframes auraPulse{ 0%,100%{ transform:translate(var(--x),var(--y)) scale(.90);}
+                        50%{ transform:translate(var(--x),var(--y)) scale(1.12);} }
+  .aura .glow{ position:absolute; left:-100px; top:-100px; width:200px; height:200px; border-radius:50%;
+    background:radial-gradient(circle, rgba(var(--c),0) 22%, rgba(var(--c),.50) 49%,
+      rgba(var(--c),.20) 68%, rgba(var(--c),0) 80%);
+    filter:blur(2px); mix-blend-mode:screen; }
+  .aura .arrow{ position:absolute; left:0; top:0; --ax:0px; --ay:0px;
+    font:900 56px/1 system-ui,sans-serif; white-space:nowrap; color:rgba(var(--c),.97);
+    text-shadow:0 0 12px rgba(var(--c),.95), 0 0 26px rgba(var(--c),.55), 0 2px 5px rgba(0,0,0,.6);
+    transform:translate(calc(-50% + var(--ax)), calc(-50% + var(--ay))); }
+  /* freestyle: gentle full-panel golden breathe — edges only, kid stays clear */
+  #aura-full{ position:absolute; inset:0; z-index:5; pointer-events:none; opacity:0; border-radius:20px;
+    background:radial-gradient(circle at 50% 55%, transparent 46%, rgba(255,216,77,.18) 100%);
+    transition:opacity .25s ease; animation:fullBreathe 1.5s ease-in-out infinite; }
+  #aura-full.on{ opacity:1; }
+  @keyframes fullBreathe{ 0%,100%{ box-shadow:inset 0 0 40px rgba(255,216,77,.22);}
+                          50%{ box-shadow:inset 0 0 85px rgba(255,216,77,.5);} }
+
   /* feedback popups */
   #fx{ position:absolute; inset:0; pointer-events:none; z-index:15; display:flex; align-items:center; justify-content:center; }
   .pop{ position:absolute; font-weight:700; font-size:clamp(28px,9vw,52px); animation:popUp .9s ease-out forwards; text-shadow:0 3px 12px rgba(0,0,0,.5); }
@@ -289,6 +316,12 @@
     <div id="cam-wrap">
       <video id="cam" playsinline muted autoplay></video>
       <canvas id="overlay"></canvas>
+      <div id="aura-full"></div>
+      <div id="aura-layer">
+        <div class="aura"><span class="glow"></span><span class="arrow"></span></div>
+        <div class="aura"><span class="glow"></span><span class="arrow"></span></div>
+        <div class="aura"><span class="glow"></span><span class="arrow"></span></div>
+      </div>
       <div id="zone-left" class="zone"></div>
       <div id="zone-right" class="zone"></div>
       <div id="zone-full" class="zone"></div>
@@ -490,7 +523,7 @@ async function poseLoop(){
     let poses=[];
     try{ poses = await detector.estimatePoses(v,{flipHorizontal:true}); }catch(e){}
     if(poses[0]){ analyze(poses[0].keypoints); drawSkeleton(poses[0].keypoints); }
-    else { det.present=false; clearOverlay(); }
+    else { det.present=false; clearOverlay(); hideAuras(); }
   }
   updateDbg();
   const _n=performance.now();
@@ -605,49 +638,41 @@ function drawSkeleton(kps){
   SKELETON.forEach(([a,b])=>{ const A=m[a],B=m[b]; if(A&&B&&A.score>0.25&&B.score>0.25){ x.beginPath(); x.moveTo(X(A),Y(A)); x.lineTo(X(B),Y(B)); x.stroke(); }});
   x.fillStyle='rgba(255,95,216,.45)';
   kps.forEach(k=>{ if(k.score>0.25){ x.beginPath(); x.arc(X(k),Y(k),3,0,7); x.fill(); }});
-  // CUE → DETECTION: the body DOT *is* the cue (no "stupid text" card). Big pulsing
-  // ring on the cued part + a directional arrow glyph, readable at a glance.
-  const cueKey=(window.__cuePart||''); const parts=cuePartsFor(cueKey);
-  if(parts){ const pulse=0.5+0.5*Math.sin(performance.now()/220);
-    const isHead=/head/i.test(cueKey), isFree=/free/i.test(cueKey);
-    const dir=/right/i.test(cueKey)?1:(/left/i.test(cueKey)?-1:0);
-    const COL = isFree ? '255,216,77' : dir<0 ? '90,170,255' : dir>0 ? '255,95,216' : '255,216,77';  // free/neutral gold, LEFT blue, RIGHT pink
-    const glyph = isFree ? '✨' : isHead ? (dir>0?'→':dir<0?'←':'↔') : '↑';
-    // screen-half tint on the target side (split-screen readability)
-    if(dir!==0){ const half=c.width*0.5;
-      const g=x.createLinearGradient(dir>0?c.width:0,0,c.width*0.5,0);
-      g.addColorStop(0,'rgba('+COL+','+(0.20+0.08*pulse)+')'); g.addColorStop(1,'rgba('+COL+',0)');
-      x.fillStyle=g; x.fillRect(dir>0?half:0,0,half,c.height); }
-    // FREESTYLE: full-frame pulsing golden vignette + border so it's unmistakable (no part to point at)
-    if(isFree){ const vg=x.createRadialGradient(c.width/2,c.height/2,c.height*0.2,c.width/2,c.height/2,c.height*0.78);
-      vg.addColorStop(0,'rgba('+COL+',0)'); vg.addColorStop(1,'rgba('+COL+','+(0.20+0.12*pulse)+')');
-      x.fillStyle=vg; x.fillRect(0,0,c.width,c.height);
-      x.lineWidth=10+6*pulse; x.strokeStyle='rgba('+COL+','+(0.55+0.35*pulse)+')'; x.strokeRect(7,7,c.width-14,c.height-14); }
-    // HEAD cue: a dashed CENTER LINE the head must cross toward the target side
-    if(isHead && dir!==0){ const lx=c.width*0.5;
-      x.setLineDash([12,9]); x.lineWidth=3; x.strokeStyle='rgba(255,255,255,'+(0.5+0.3*pulse)+')';
-      x.beginPath(); x.moveTo(lx,30); x.lineTo(lx,c.height-30); x.stroke(); x.setLineDash([]); }
-    parts.forEach(n=>{ const k=m[n]; if(k&&k.score>0.12){ const cx=X(k),cy=Y(k), r=(isFree?38:54)+14*pulse;
-      // DARK contrast ring underneath — keeps the cue readable in bright / backlit rooms (café fix)
-      x.beginPath(); x.arc(cx,cy,r*0.7,0,7); x.lineWidth=10; x.strokeStyle='rgba(0,0,0,.45)'; x.stroke();
-      // big soft TRANSPARENT halo (radial)
-      const rg=x.createRadialGradient(cx,cy,r*0.15,cx,cy,r);
-      rg.addColorStop(0,'rgba('+COL+','+(0.42+0.18*pulse)+')'); rg.addColorStop(1,'rgba('+COL+',0)');
-      x.fillStyle=rg; x.beginPath(); x.arc(cx,cy,r,0,7); x.fill();
-      // bold colored ring
-      x.beginPath(); x.arc(cx,cy,r*0.7,0,7); x.lineWidth=6; x.strokeStyle='rgba('+COL+','+(0.85+0.15*pulse)+')'; x.stroke();
-      // big arrow with dark outline (skip per-point arrow in freestyle to avoid clutter)
-      if(!isFree){ x.font='bold 62px system-ui,sans-serif'; x.textAlign='center'; x.textBaseline='middle';
-        const ax=cx+(isHead?dir*(r+34):0), ay=cy+(isHead?0:-(r+30));
-        x.lineWidth=6; x.strokeStyle='rgba(0,0,0,.55)'; x.strokeText(glyph,ax,ay);
-        x.fillStyle='rgba('+COL+',0.95)'; x.fillText(glyph,ax,ay); } }});
-    // FREESTYLE big center label so the kid knows exactly what to do
-    if(isFree){ x.font='bold '+Math.round(c.width*0.075)+'px system-ui,sans-serif'; x.textAlign='center'; x.textBaseline='middle';
-      const ly=c.height*0.15; x.lineWidth=7; x.strokeStyle='rgba(0,0,0,.6)';
-      x.strokeText('MOVE EVERYTHING! ✨', c.width/2, ly);
-      x.fillStyle='rgba('+COL+','+(0.85+0.15*pulse)+')'; x.fillText('MOVE EVERYTHING! ✨', c.width/2, ly); }
-  }
+  // CUE → kid: keypoint-anchored HTML/CSS aura glow + glowing direction arrow (positionAuras).
+  positionAuras(m, X, Y);
 }
+
+// ── KEYPOINT-ANCHORED AURA CUES ─────────────────────────────────────────
+// Drives real HTML/CSS elements (transparent "lighten-up" glow + glowing arrow)
+// so each cue sits ON the body part via the live MoveNet keypoints — pretty,
+// GPU-smooth, never covers the kid (transparent centre + screen-blend = lighten).
+const AURA_FREE_PARTS = ['nose','left_shoulder','right_shoulder'];
+function positionAuras(m, X, Y){
+  const auras = document.querySelectorAll('#aura-layer .aura');
+  const cueKey=(window.__cuePart||'');
+  const isFree=/free/i.test(cueKey), isHead=/head/i.test(cueKey);
+  const dir=/right/i.test(cueKey)?1:(/left/i.test(cueKey)?-1:0);
+  const parts = !cueKey ? [] : isFree ? AURA_FREE_PARTS : (cuePartsFor(cueKey)||[]);
+  const COL = isFree ? '255,216,77' : dir<0 ? '90,170,255' : dir>0 ? '255,95,216' : '255,216,77'; // LEFT blue / RIGHT pink / gold
+  const glyph = isFree ? '' : isHead ? (dir>0?'→':dir<0?'←':'↔') : '↑';
+  const full=$('aura-full'); if(full) full.classList.toggle('on', isFree);
+  let i=0;
+  parts.forEach(n=>{ const k=m[n], a=auras[i]; if(!a) return;
+    if(k && k.score>0.12){
+      a.style.setProperty('--c',COL);
+      a.style.setProperty('--x', X(k).toFixed(1)+'px');
+      a.style.setProperty('--y', Y(k).toFixed(1)+'px');
+      const ar=a.querySelector('.arrow');
+      if(ar){ ar.textContent=glyph;
+        ar.style.setProperty('--ax', (isHead?dir*82:0)+'px');
+        ar.style.setProperty('--ay', (isHead?0:-82)+'px'); }
+      a.classList.add('on'); i++;
+    }
+  });
+  for(; i<auras.length; i++) auras[i].classList.remove('on');
+}
+function hideAuras(){ document.querySelectorAll('#aura-layer .aura.on').forEach(a=>a.classList.remove('on'));
+  const f=$('aura-full'); if(f) f.classList.remove('on'); }
 
 // ---- GAME FLOW ----------------------------------------------------------
 async function startFlow(){
@@ -887,7 +912,7 @@ function openCue(c){
   // announce locally ONLY when Nova's live brain is offline (else she'd be doubled)
   if(!novaRoom) say(m.name.replace(/[←→↑↔]/g,'').trim());
 }
-function closeCue(){ game.cue=null; window.__cuePart=null; $('cue').classList.remove('show','lean'); $('cam-wrap').classList.remove('armed'); setZone(null); game.idx++; }
+function closeCue(){ game.cue=null; window.__cuePart=null; hideAuras(); $('cue').classList.remove('show','lean'); $('cam-wrap').classList.remove('armed'); setZone(null); game.idx++; }
 
 // per-cue telemetry — captures the detection values at the moment of resolve so we
 // can see exactly WHERE detection is weak (e.g. knee always missing = legs off-frame)
