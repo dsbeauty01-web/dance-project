@@ -184,9 +184,9 @@
      Transparent centre (40%) keeps the face/part clear — it rings the part, never covers it. */
   .aura .glow{ position:absolute; left:calc(var(--size) / -2); top:calc(var(--size) / -2);
     width:var(--size); height:var(--size); border-radius:50%;
-    background:radial-gradient(circle, rgba(var(--c),0) 40%, rgba(var(--c),.92) 53%,
-      rgba(var(--c),.38) 64%, rgba(var(--c),0) 79%);
-    filter: drop-shadow(0 0 5px rgba(0,0,0,.5)) drop-shadow(0 0 16px rgba(var(--c),.7)); }
+    background:radial-gradient(circle, rgba(var(--c),0) 46%, rgba(var(--c),.72) 56%,
+      rgba(var(--c),.22) 67%, rgba(var(--c),0) 80%);
+    filter: drop-shadow(0 0 4px rgba(0,0,0,.45)) drop-shadow(0 0 11px rgba(var(--c),.55)); }
   .aura .arrow{ position:absolute; left:0; top:0; --ax:0px; --ay:0px;
     font:900 calc(var(--size) * 0.26)/1 system-ui,sans-serif; white-space:nowrap; color:rgba(var(--c),.98);
     text-shadow:0 0 10px rgba(var(--c),.95), 0 0 22px rgba(var(--c),.5), 0 2px 4px rgba(0,0,0,.6);
@@ -540,7 +540,7 @@ function positionAuras(m, X, Y){
   const ls=m['left_shoulder'], rs=m['right_shoulder'];
   const shoulderPx=(ls&&rs&&ls.score>0.2&&rs.score>0.2)?Math.abs(X(ls)-X(rs)):0;
   const bodyW = shoulderPx>20 ? shoulderPx : 200;
-  const size = Math.max(70, Math.min(260, bodyW*0.62));    // glow sized to the kid
+  const size = Math.max(48, Math.min(150, bodyW*0.44));    // subtle glow sized to the kid
   let i=0;
   parts.forEach(n=>{ const k=m[n], a=auras[i]; if(!a) return;
     if(k && k.score>0.12){

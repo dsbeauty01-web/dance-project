@@ -222,9 +222,9 @@
      Transparent centre (40%) so the face/part shows THROUGH — it rings the part, never covers. */
   .aura .glow{ position:absolute; left:calc(var(--size) / -2); top:calc(var(--size) / -2);
     width:var(--size); height:var(--size); border-radius:50%;
-    background:radial-gradient(circle, rgba(var(--c),0) 40%, rgba(var(--c),.92) 53%,
-      rgba(var(--c),.38) 64%, rgba(var(--c),0) 79%);
-    filter: drop-shadow(0 0 5px rgba(0,0,0,.5)) drop-shadow(0 0 16px rgba(var(--c),.7)); }
+    background:radial-gradient(circle, rgba(var(--c),0) 46%, rgba(var(--c),.72) 56%,
+      rgba(var(--c),.22) 67%, rgba(var(--c),0) 80%);
+    filter: drop-shadow(0 0 4px rgba(0,0,0,.45)) drop-shadow(0 0 11px rgba(var(--c),.55)); }
   /* small, elegant direction arrow (scales gently with the part) */
   .aura .arrow{ position:absolute; left:0; top:0; --ax:0px; --ay:0px;
     font:900 calc(var(--size) * 0.26)/1 system-ui,sans-serif; white-space:nowrap; color:rgba(var(--c),.98);
@@ -683,8 +683,8 @@ function positionAuras(m, X, Y){
   const ls=m['left_shoulder'], rs=m['right_shoulder'];
   const shoulderPx = (ls&&rs&&ls.score>0.2&&rs.score>0.2) ? Math.abs(X(ls)-X(rs)) : 0;
   const bodyW = shoulderPx>20 ? shoulderPx : 200;          // fallback if shoulders not seen
-  const headSize = Math.max(90, Math.min(360, bodyW*1.15));  // head glow ≈ head width
-  const partSize = Math.max(70, Math.min(280, bodyW*0.70));  // shoulder/hip glow = smaller
+  const headSize = Math.max(60, Math.min(210, bodyW*0.74));  // subtle: rings the head, not a big circle
+  const partSize = Math.max(46, Math.min(150, bodyW*0.44));  // shoulder/hip glow = smaller still
   let i=0;
   parts.forEach(n=>{ const k=m[n], a=auras[i]; if(!a) return;
     if(k && k.score>0.12){

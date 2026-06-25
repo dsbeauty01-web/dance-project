@@ -4330,8 +4330,8 @@ window.__initRunwayNova = initDID;
   @keyframes ajPulse{ 0%,100%{ transform:translate(var(--x),var(--y)) scale(.92);} 50%{ transform:translate(var(--x),var(--y)) scale(1.09);} }
   #aura-layer .glow{ position:absolute; left:calc(var(--size) / -2); top:calc(var(--size) / -2);
     width:var(--size); height:var(--size); border-radius:50%;
-    background:radial-gradient(circle, rgba(var(--c),0) 40%, rgba(var(--c),.92) 53%, rgba(var(--c),.38) 64%, rgba(var(--c),0) 79%);
-    filter: drop-shadow(0 0 5px rgba(0,0,0,.5)) drop-shadow(0 0 16px rgba(var(--c),.7)); }
+    background:radial-gradient(circle, rgba(var(--c),0) 46%, rgba(var(--c),.72) 56%, rgba(var(--c),.22) 67%, rgba(var(--c),0) 80%);
+    filter: drop-shadow(0 0 4px rgba(0,0,0,.45)) drop-shadow(0 0 11px rgba(var(--c),.55)); }
   #aura-layer .arrow{ position:absolute; left:0; top:0; --ax:0px; --ay:0px;
     font:900 calc(var(--size) * 0.26)/1 system-ui,sans-serif; white-space:nowrap; color:rgba(var(--c),.98);
     text-shadow:0 0 10px rgba(var(--c),.95), 0 0 22px rgba(var(--c),.5), 0 2px 4px rgba(0,0,0,.6);
@@ -4382,7 +4382,7 @@ window.__initRunwayNova = initDID;
       const COL=isFull?'255,216,77':dir==='L'?'90,170,255':dir==='R'?'255,95,216':'255,216,77';
       let i=0;
       parts.forEach(n=>{ const k=m[n],a=auras[i]; if(!a) return;
-        if(k && k.score>0.12){ const isHead=(n==='nose'); const size=Math.max(70,Math.min(340,bodyW*(isHead?1.15:0.7)));
+        if(k && k.score>0.12){ const isHead=(n==='nose'); const size=Math.max(48,Math.min(210,bodyW*(isHead?0.74:0.44)));
           a.style.setProperty('--c',COL); a.style.setProperty('--x',X(k).toFixed(1)+'px'); a.style.setProperty('--y',Y(k).toFixed(1)+'px'); a.style.setProperty('--size',size.toFixed(0)+'px');
           const ar=a.querySelector('.arrow'); if(ar){ ar.textContent=glyph;
             ar.style.setProperty('--ax',(isSide?(dir==='L'?-1:1)*(size*0.62):0).toFixed(0)+'px');
