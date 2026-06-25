@@ -716,7 +716,7 @@ async function startDance(){
   try{ $('greet-cam').srcObject=null; }catch(e){}
   // debug monitor: devs only (add ?debug to the URL). Kids never see the joints HUD.
   if(/[?&]debug/.test(location.search)) $('dbg').classList.remove('hidden');
-  if(/[?&](debug|dots)/.test(location.search)) window.__DOTS=true;   // show cyan joint dots for calibration
+  window.__DOTS = !/[?&]nodots/.test(location.search);   // calibration: cyan joint dots ON by default (disable with ?nodots)
   $('game').classList.remove('hidden');
   $('score-box').style.visibility='hidden'; $('combo-box').style.visibility='hidden'; // no score during warm-up
   cancelAnimationFrame(rafId); poseLoop();   // detection on
