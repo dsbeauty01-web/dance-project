@@ -261,7 +261,7 @@
   <div id="stage">
     <div id="nova-side">
       <video id="nova-vid" playsinline preload="auto" loop>
-        <source src="handywave.mp4" type="video/mp4">
+        <source src="handywave-full.mp4" type="video/mp4">
       </video>
       <video id="nova-live" playsinline autoplay></video>
       <div id="nova-status"></div>
@@ -356,7 +356,7 @@ const CUES = (()=>{
   add(26,'wrist-wave'); add(27,'wrist-wave');        // wave again to the end
   return out.sort((a,b)=>a.t-b.t);
 })();
-const SONG_END = 28.4;           // seconds — stop + show results
+const SONG_END = 58.4;           // seconds — full wave (part1 28.5s + wave2 30s = 58.5s)
 
 // ---- SVG MOVE FIGURES ---------------------------------------------------
 // A simple front-facing figure (mirror of the kid). Active part glows + arrow.
