@@ -172,6 +172,30 @@
   #cue-timer-wrap{ height:8px; background:rgba(255,255,255,.15); border-radius:6px; margin-top:8px; overflow:hidden; }
   #cue-timer{ height:100%; width:100%; background:linear-gradient(90deg,#ffd84d,#ff8ae2); transform-origin:left; box-shadow:0 0 10px rgba(255,216,77,.7); }
 
+  /* ── KEYPOINT-ANCHORED AURA CUES (transparent body-sized glow + small arrow) ── */
+  #aura-layer{ position:absolute; inset:0; z-index:6; pointer-events:none; overflow:hidden; }
+  .aura{ position:absolute; left:0; top:0; width:0; height:0; --c:255,216,77; --x:-500px; --y:-500px; --size:170px;
+    opacity:0; transform:translate(var(--x),var(--y)); transition:opacity .22s ease;
+    animation:auraPulse 1.05s ease-in-out infinite; }
+  .aura.on{ opacity:1; }
+  @keyframes auraPulse{ 0%,100%{ transform:translate(var(--x),var(--y)) scale(.92);}
+                        50%{ transform:translate(var(--x),var(--y)) scale(1.09);} }
+  .aura .glow{ position:absolute; left:calc(var(--size) / -2); top:calc(var(--size) / -2);
+    width:var(--size); height:var(--size); border-radius:50%;
+    background:radial-gradient(circle, rgba(var(--c),0) 35%, rgba(var(--c),.55) 55%,
+      rgba(var(--c),.18) 72%, rgba(var(--c),0) 82%);
+    filter:blur(2px); mix-blend-mode:screen; }
+  .aura .arrow{ position:absolute; left:0; top:0; --ax:0px; --ay:0px;
+    font:900 calc(var(--size) * 0.26)/1 system-ui,sans-serif; white-space:nowrap; color:rgba(var(--c),.98);
+    text-shadow:0 0 10px rgba(var(--c),.95), 0 0 22px rgba(var(--c),.5), 0 2px 4px rgba(0,0,0,.6);
+    transform:translate(calc(-50% + var(--ax)), calc(-50% + var(--ay))); }
+  #aura-full{ position:absolute; inset:0; z-index:5; pointer-events:none; opacity:0; border-radius:20px;
+    background:radial-gradient(circle at 50% 55%, transparent 46%, rgba(255,216,77,.18) 100%);
+    transition:opacity .25s ease; animation:fullBreathe 1.5s ease-in-out infinite; }
+  #aura-full.on{ opacity:1; }
+  @keyframes fullBreathe{ 0%,100%{ box-shadow:inset 0 0 40px rgba(255,216,77,.22);}
+                          50%{ box-shadow:inset 0 0 85px rgba(255,216,77,.5);} }
+
   /* feedback popups */
   #fx{ position:absolute; inset:0; pointer-events:none; z-index:15; display:flex; align-items:center; justify-content:center; }
   .pop{ position:absolute; font-weight:700; font-size:clamp(28px,9vw,52px); animation:popUp .9s ease-out forwards; text-shadow:0 3px 12px rgba(0,0,0,.5); }
@@ -244,6 +268,13 @@
     <div id="cam-wrap">
       <video id="cam" playsinline muted autoplay></video>
       <canvas id="overlay"></canvas>
+      <div id="aura-full"></div>
+      <div id="aura-layer">
+        <div class="aura"><span class="glow"></span><span class="arrow"></span></div>
+        <div class="aura"><span class="glow"></span><span class="arrow"></span></div>
+        <div class="aura"><span class="glow"></span><span class="arrow"></span></div>
+        <div class="aura"><span class="glow"></span><span class="arrow"></span></div>
+      </div>
       <div id="zone-left" class="zone"></div>
       <div id="zone-right" class="zone"></div>
       <div id="zone-full" class="zone"></div>
@@ -394,7 +425,7 @@ async function poseLoop(){
     let poses=[];
     try{ poses = await detector.estimatePoses(v,{flipHorizontal:true}); }catch(e){}
     if(poses[0]){ analyze(poses[0].keypoints); drawSkeleton(poses[0].keypoints); }
-    else { det.present=false; clearOverlay(); }
+    else { det.present=false; clearOverlay(); hideAuras(); }
   }
   updateDbg();
   rafId=requestAnimationFrame(poseLoop);
@@ -474,24 +505,58 @@ function cuePartsFor(key){ return CUE_PARTS[(key||'').toLowerCase()] || null; }
 function drawSkeleton(kps){
   const c=$('overlay'); const x=c.getContext('2d'); const {scale,ox,oy}=coverMap();
   x.clearRect(0,0,c.width,c.height);
-  const X=p=>p.x*scale+ox, Y=p=>p.y*scale+oy;
+  // X is MIRRORED to match the selfie-flipped video (#cam transform:scaleX(-1)) —
+  // without this the cues land on the horizontal mirror of the body (empty air).
+  const X=p=> c.width - (p.x*scale+ox), Y=p=>p.y*scale+oy;
   const m={}; kps.forEach(k=>m[k.name]=k);
   // SUBTLE base skeleton (bright green looked "funny")
   x.strokeStyle='rgba(120,255,190,.26)'; x.lineWidth=2;
   SKELETON.forEach(([a,b])=>{ const A=m[a],B=m[b]; if(A&&B&&A.score>0.25&&B.score>0.25){ x.beginPath(); x.moveTo(X(A),Y(A)); x.lineTo(X(B),Y(B)); x.stroke(); }});
   x.fillStyle='rgba(255,95,216,.45)';
   kps.forEach(k=>{ if(k.score>0.25){ x.beginPath(); x.arc(X(k),Y(k),3,0,7); x.fill(); }});
-  // CUE → DETECTION: a glowing HALO + ↑ arrow drawn ON the kid's own cued body part
-  // (the cue IS the detection — no text card needed). Wave moves go UP, so arrow = ↑.
-  const parts=cuePartsFor(window.__cuePart);
-  if(parts){ const pulse=0.5+0.5*Math.sin(performance.now()/200);
-    parts.forEach(n=>{ const k=m[n]; if(k&&k.score>0.2){ const px=X(k), py=Y(k), r=20+9*pulse;
-      x.beginPath(); x.arc(px,py,r,0,7); x.lineWidth=5; x.strokeStyle='rgba(255,216,77,'+(0.6+0.4*pulse)+')'; x.stroke();         // outer glow ring
-      x.beginPath(); x.arc(px,py,r*0.5,0,7); x.fillStyle='rgba(255,216,77,'+(0.14+0.16*pulse)+')'; x.fill();                      // soft fill
-      x.font='bold 30px sans-serif'; x.textAlign='center'; x.fillStyle='rgba(255,216,77,'+(0.7+0.3*pulse)+')'; x.fillText('↑', px, py-r-6); // direction
-    }});
-  }
+  // DEBUG: bright cyan tracking dots (calibration; default ON, disable with ?nodots)
+  if(window.__DOTS){ kps.forEach(k=>{ if(k.score>0.2){ const px=X(k),py=Y(k);
+    x.beginPath(); x.arc(px,py,7,0,7); x.fillStyle='rgba(0,240,255,.95)'; x.fill();
+    x.lineWidth=2; x.strokeStyle='rgba(0,0,0,.75)'; x.stroke();
+    if(/wrist|elbow|shoulder/.test(k.name)){ x.font='bold 12px system-ui'; x.fillStyle='#fff';
+      x.textAlign='left'; x.textBaseline='middle'; x.fillText(k.name.replace('_',' '), px+10, py); } }}); }
+  // CUE → kid: keypoint-anchored HTML/CSS aura glow + small direction arrow (positionAuras).
+  positionAuras(m, X, Y);
 }
+
+// ── KEYPOINT-ANCHORED AURA CUES (wave) — transparent body-sized glow + small arrow ──
+const WAVE_GLYPH = { 'shoulder-roll':'↻', 'elbow-pump':'↑', 'wrist-wave':'↔' };  // the motion of each move
+const AURA_FREE_PARTS = ['left_wrist','right_wrist','left_elbow','right_elbow'];
+function positionAuras(m, X, Y){
+  const auras = document.querySelectorAll('#aura-layer .aura');
+  const cueKey=(window.__cuePart||'');
+  const isFree=/free/i.test(cueKey);
+  const parts = !cueKey ? [] : isFree ? AURA_FREE_PARTS : (cuePartsFor(cueKey)||[]);
+  const COL='255,216,77';                                  // wave moves are symmetric → warm gold
+  const glyph = isFree ? '' : (WAVE_GLYPH[cueKey]||'↑');
+  const full=$('aura-full'); if(full) full.classList.toggle('on', isFree);
+  const ls=m['left_shoulder'], rs=m['right_shoulder'];
+  const shoulderPx=(ls&&rs&&ls.score>0.2&&rs.score>0.2)?Math.abs(X(ls)-X(rs)):0;
+  const bodyW = shoulderPx>20 ? shoulderPx : 200;
+  const size = Math.max(70, Math.min(260, bodyW*0.62));    // glow sized to the kid
+  let i=0;
+  parts.forEach(n=>{ const k=m[n], a=auras[i]; if(!a) return;
+    if(k && k.score>0.12){
+      a.style.setProperty('--c',COL);
+      a.style.setProperty('--x', X(k).toFixed(1)+'px');
+      a.style.setProperty('--y', Y(k).toFixed(1)+'px');
+      a.style.setProperty('--size', size.toFixed(0)+'px');
+      const ar=a.querySelector('.arrow');
+      if(ar){ ar.textContent=glyph; ar.style.setProperty('--ax','0px');
+        ar.style.setProperty('--ay', (-(size*0.62)).toFixed(0)+'px'); }
+      a.classList.add('on'); i++;
+    }
+  });
+  for(; i<auras.length; i++) auras[i].classList.remove('on');
+}
+function hideAuras(){ document.querySelectorAll('#aura-layer .aura.on').forEach(a=>a.classList.remove('on'));
+  const f=$('aura-full'); if(f) f.classList.remove('on'); }
+window.__DOTS = !/[?&]nodots/.test(location.search);   // calibration dots ON by default
 
 // ---- GAME FLOW ----------------------------------------------------------
 async function startFlow(){
@@ -590,7 +655,7 @@ function openCue(c){
   // announce locally ONLY when Nova's live brain is offline (else she'd be doubled)
   if(!novaRoom) say(m.name.replace(/[←→↑↔]/g,'').trim());
 }
-function closeCue(){ game.cue=null; window.__cuePart=null; $('cue').classList.remove('show'); $('cam-wrap').classList.remove('armed'); setZone(null); game.idx++; }
+function closeCue(){ game.cue=null; window.__cuePart=null; hideAuras(); $('cue').classList.remove('show'); $('cam-wrap').classList.remove('armed'); setZone(null); game.idx++; }
 
 // per-cue telemetry — captures the detection values at the moment of resolve so we
 // can see exactly WHERE detection is weak (e.g. knee always missing = legs off-frame)
