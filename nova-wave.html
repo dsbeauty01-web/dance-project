@@ -180,11 +180,13 @@
   .aura.on{ opacity:1; }
   @keyframes auraPulse{ 0%,100%{ transform:translate(var(--x),var(--y)) scale(.92);}
                         50%{ transform:translate(var(--x),var(--y)) scale(1.09);} }
+  /* bright ring + dark contrast shadow → visible on ANY background (bright café OR dark room).
+     Transparent centre (40%) keeps the face/part clear — it rings the part, never covers it. */
   .aura .glow{ position:absolute; left:calc(var(--size) / -2); top:calc(var(--size) / -2);
     width:var(--size); height:var(--size); border-radius:50%;
-    background:radial-gradient(circle, rgba(var(--c),0) 35%, rgba(var(--c),.55) 55%,
-      rgba(var(--c),.18) 72%, rgba(var(--c),0) 82%);
-    filter:blur(2px); mix-blend-mode:screen; }
+    background:radial-gradient(circle, rgba(var(--c),0) 40%, rgba(var(--c),.92) 53%,
+      rgba(var(--c),.38) 64%, rgba(var(--c),0) 79%);
+    filter: drop-shadow(0 0 5px rgba(0,0,0,.5)) drop-shadow(0 0 16px rgba(var(--c),.7)); }
   .aura .arrow{ position:absolute; left:0; top:0; --ax:0px; --ay:0px;
     font:900 calc(var(--size) * 0.26)/1 system-ui,sans-serif; white-space:nowrap; color:rgba(var(--c),.98);
     text-shadow:0 0 10px rgba(var(--c),.95), 0 0 22px rgba(var(--c),.5), 0 2px 4px rgba(0,0,0,.6);
