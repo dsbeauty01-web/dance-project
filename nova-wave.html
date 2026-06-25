@@ -172,6 +172,11 @@
   #cue-timer-wrap{ height:8px; background:rgba(255,255,255,.15); border-radius:6px; margin-top:8px; overflow:hidden; }
   #cue-timer{ height:100%; width:100%; background:linear-gradient(90deg,#ffd84d,#ff8ae2); transform-origin:left; box-shadow:0 0 10px rgba(255,216,77,.7); }
 
+  /* big readable timecode (for authoring the move timeline while watching) */
+  #timecode{ position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:30;
+    font:800 30px 'SF Mono',Consolas,monospace; color:#fff; background:rgba(0,0,0,.6);
+    padding:4px 16px; border-radius:14px; letter-spacing:1px; text-shadow:0 0 10px rgba(110,231,255,.7); }
+
   /* ── KEYPOINT-ANCHORED AURA CUES (transparent body-sized glow + small arrow) ── */
   #aura-layer{ position:absolute; inset:0; z-index:6; pointer-events:none; overflow:hidden; }
   .aura{ position:absolute; left:0; top:0; width:0; height:0; --c:255,216,77; --x:-500px; --y:-500px; --size:170px;
@@ -252,6 +257,7 @@
 
 <!-- GAME -->
 <div id="game" class="screen hidden">
+  <div id="timecode">0.0s</div>
   <div id="hud">
     <div id="score-box"><span id="score">0</span><small>score</small></div>
     <div id="progress-wrap"><div id="progress"></div></div>
@@ -653,6 +659,7 @@ function gameTick(){
   if(!game.running) return;
   const nv=$('nova-vid'); const now=nv.currentTime*1000;
   const span=(SONG_END-VIDEO_START)*1000;
+  const tc=$('timecode'); if(tc) tc.textContent=nv.currentTime.toFixed(1)+'s';
   $('progress').style.width=Math.min(100,((nv.currentTime-VIDEO_START)/(SONG_END-VIDEO_START))*100)+'%';
   if(nv.currentTime>=SONG_END){ endGame(); return; }
 
