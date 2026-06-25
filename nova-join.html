@@ -631,7 +631,9 @@ function cuePartsFor(key){ return CUE_PARTS[(key||'').toLowerCase()] || null; }
 function drawSkeleton(kps){
   const c=$('overlay'); const x=c.getContext('2d'); const {scale,ox,oy}=coverMap();
   x.clearRect(0,0,c.width,c.height);
-  const X=p=>p.x*scale+ox, Y=p=>p.y*scale+oy;
+  // X is MIRRORED to match the selfie-flipped video (#cam transform:scaleX(-1)).
+  // Without this the cues land on the horizontal mirror of the body (empty air).
+  const X=p=> c.width - (p.x*scale+ox), Y=p=>p.y*scale+oy;
   const m={}; kps.forEach(k=>m[k.name]=k);
   // SUBTLE base skeleton (the bright-green version looked "funny")
   x.strokeStyle='rgba(120,255,190,.26)'; x.lineWidth=2;
