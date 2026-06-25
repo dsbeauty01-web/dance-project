@@ -596,7 +596,7 @@ window.__DOTS = !/[?&]nodots/.test(location.search);   // calibration dots ON by
 // ---- GAME FLOW ----------------------------------------------------------
 async function startFlow(){
   $('start-btn').disabled=true; $('cam-warn').textContent='loading…';
-  connectNova();   // warm the worker session in parallel (cold start ~30-50s)
+  if(!/[?&]nonova/.test(location.search)) connectNova();   // ?nonova = game only, skip Nova avatar/voice
   const okCam=await ensureCamera(); if(!okCam){ $('start-btn').disabled=false; return; }
   await Promise.race([ ensureModel().catch(()=>{}), new Promise(r=>setTimeout(r,12000)) ]);
   $('cam-warn').textContent='';

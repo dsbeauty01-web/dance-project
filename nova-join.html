@@ -756,7 +756,7 @@ function hideAuras(){ document.querySelectorAll('#aura-layer .aura.on').forEach(
 async function startFlow(){
   $('start-btn').disabled=true; $('cam-warn').textContent='loading…';
   logPost('start',{ ua:navigator.userAgent, w:innerWidth, h:innerHeight });
-  connectNova();   // warm the worker session in parallel (cold start ~30-50s)
+  if(!/[?&]nonova/.test(location.search)) connectNova();   // ?nonova = game only, skip Nova
   const okCam=await ensureCamera(); if(!okCam){ $('start-btn').disabled=false; return; }
   // non-fatal: if the model is slow/unreachable, proceed anyway (pose just won't fire)
   await Promise.race([ ensureModel().catch(()=>{}), new Promise(r=>setTimeout(r,12000)) ]);
