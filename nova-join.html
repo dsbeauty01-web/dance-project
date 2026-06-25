@@ -592,6 +592,7 @@ const CUE_PARTS = {
   'head':['nose'], 'head-left':['nose'], 'head-right':['nose'],
   'shoulder':['left_shoulder','right_shoulder'], 'shoulder-left':['left_shoulder','right_shoulder'], 'shoulder-right':['left_shoulder','right_shoulder'],
   'clap':['left_wrist','right_wrist'], 'touch shoulder':['left_shoulder','right_shoulder'],
+  'free':['nose','left_shoulder','right_shoulder','left_hip','right_hip'],   // freestyle = light up the WHOLE body
 };
 function cuePartsFor(key){ return CUE_PARTS[(key||'').toLowerCase()] || null; }
 function drawSkeleton(kps){
@@ -608,28 +609,43 @@ function drawSkeleton(kps){
   // ring on the cued part + a directional arrow glyph, readable at a glance.
   const cueKey=(window.__cuePart||''); const parts=cuePartsFor(cueKey);
   if(parts){ const pulse=0.5+0.5*Math.sin(performance.now()/220);
-    const isHead=/head/i.test(cueKey), dir=/right/i.test(cueKey)?1:(/left/i.test(cueKey)?-1:0);
-    const COL = dir<0 ? '90,170,255' : dir>0 ? '255,95,216' : '255,216,77';  // LEFT blue / RIGHT pink / neutral gold
-    const glyph = isHead ? (dir>0?'→':dir<0?'←':'↔') : '↑';
+    const isHead=/head/i.test(cueKey), isFree=/free/i.test(cueKey);
+    const dir=/right/i.test(cueKey)?1:(/left/i.test(cueKey)?-1:0);
+    const COL = isFree ? '255,216,77' : dir<0 ? '90,170,255' : dir>0 ? '255,95,216' : '255,216,77';  // free/neutral gold, LEFT blue, RIGHT pink
+    const glyph = isFree ? '✨' : isHead ? (dir>0?'→':dir<0?'←':'↔') : '↑';
     // screen-half tint on the target side (split-screen readability)
     if(dir!==0){ const half=c.width*0.5;
       const g=x.createLinearGradient(dir>0?c.width:0,0,c.width*0.5,0);
-      g.addColorStop(0,'rgba('+COL+','+(0.18+0.07*pulse)+')'); g.addColorStop(1,'rgba('+COL+',0)');
+      g.addColorStop(0,'rgba('+COL+','+(0.20+0.08*pulse)+')'); g.addColorStop(1,'rgba('+COL+',0)');
       x.fillStyle=g; x.fillRect(dir>0?half:0,0,half,c.height); }
+    // FREESTYLE: full-frame pulsing golden vignette + border so it's unmistakable (no part to point at)
+    if(isFree){ const vg=x.createRadialGradient(c.width/2,c.height/2,c.height*0.2,c.width/2,c.height/2,c.height*0.78);
+      vg.addColorStop(0,'rgba('+COL+',0)'); vg.addColorStop(1,'rgba('+COL+','+(0.20+0.12*pulse)+')');
+      x.fillStyle=vg; x.fillRect(0,0,c.width,c.height);
+      x.lineWidth=10+6*pulse; x.strokeStyle='rgba('+COL+','+(0.55+0.35*pulse)+')'; x.strokeRect(7,7,c.width-14,c.height-14); }
     // HEAD cue: a dashed CENTER LINE the head must cross toward the target side
     if(isHead && dir!==0){ const lx=c.width*0.5;
-      x.setLineDash([12,9]); x.lineWidth=3; x.strokeStyle='rgba(255,255,255,'+(0.45+0.25*pulse)+')';
+      x.setLineDash([12,9]); x.lineWidth=3; x.strokeStyle='rgba(255,255,255,'+(0.5+0.3*pulse)+')';
       x.beginPath(); x.moveTo(lx,30); x.lineTo(lx,c.height-30); x.stroke(); x.setLineDash([]); }
-    parts.forEach(n=>{ const k=m[n]; if(k&&k.score>0.18){ const cx=X(k),cy=Y(k), r=46+14*pulse;
-      // big soft TRANSPARENT halo (radial) — pretty, clearly visible around the body part
+    parts.forEach(n=>{ const k=m[n]; if(k&&k.score>0.12){ const cx=X(k),cy=Y(k), r=(isFree?38:54)+14*pulse;
+      // DARK contrast ring underneath — keeps the cue readable in bright / backlit rooms (café fix)
+      x.beginPath(); x.arc(cx,cy,r*0.7,0,7); x.lineWidth=10; x.strokeStyle='rgba(0,0,0,.45)'; x.stroke();
+      // big soft TRANSPARENT halo (radial)
       const rg=x.createRadialGradient(cx,cy,r*0.15,cx,cy,r);
-      rg.addColorStop(0,'rgba('+COL+','+(0.34+0.16*pulse)+')'); rg.addColorStop(1,'rgba('+COL+',0)');
+      rg.addColorStop(0,'rgba('+COL+','+(0.42+0.18*pulse)+')'); rg.addColorStop(1,'rgba('+COL+',0)');
       x.fillStyle=rg; x.beginPath(); x.arc(cx,cy,r,0,7); x.fill();
-      x.beginPath(); x.arc(cx,cy,r*0.66,0,7); x.lineWidth=5; x.strokeStyle='rgba('+COL+','+(0.7+0.3*pulse)+')'; x.stroke();
-      // big transparent arrow next to the part (head: sideways toward target; shoulder: up)
-      x.font='bold 56px system-ui,sans-serif'; x.textAlign='center'; x.textBaseline='middle';
-      x.fillStyle='rgba('+COL+',0.9)';
-      x.fillText(glyph, cx + (isHead? dir*(r+30):0), cy + (isHead? 0 : -(r+26))); }});
+      // bold colored ring
+      x.beginPath(); x.arc(cx,cy,r*0.7,0,7); x.lineWidth=6; x.strokeStyle='rgba('+COL+','+(0.85+0.15*pulse)+')'; x.stroke();
+      // big arrow with dark outline (skip per-point arrow in freestyle to avoid clutter)
+      if(!isFree){ x.font='bold 62px system-ui,sans-serif'; x.textAlign='center'; x.textBaseline='middle';
+        const ax=cx+(isHead?dir*(r+34):0), ay=cy+(isHead?0:-(r+30));
+        x.lineWidth=6; x.strokeStyle='rgba(0,0,0,.55)'; x.strokeText(glyph,ax,ay);
+        x.fillStyle='rgba('+COL+',0.95)'; x.fillText(glyph,ax,ay); } }});
+    // FREESTYLE big center label so the kid knows exactly what to do
+    if(isFree){ x.font='bold '+Math.round(c.width*0.075)+'px system-ui,sans-serif'; x.textAlign='center'; x.textBaseline='middle';
+      const ly=c.height*0.15; x.lineWidth=7; x.strokeStyle='rgba(0,0,0,.6)';
+      x.strokeText('MOVE EVERYTHING! ✨', c.width/2, ly);
+      x.fillStyle='rgba('+COL+','+(0.85+0.15*pulse)+')'; x.fillText('MOVE EVERYTHING! ✨', c.width/2, ly); }
   }
 }
 
