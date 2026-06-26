@@ -371,21 +371,24 @@
 // (kids often tilt the opposite way — the arrow guides, any tilt of that part scores).
 const THRESH = { head:0.09, sh:0.045, hip:0.06, knee:0.10, motion:0.06 };
 
+// UP GROOVE moves (per nova-games-joints-timing.md): head → shoulder → HIPS(visual only,
+// always passes — kids sitting can't do them) → knee → freestyle.
 const MOVES = {
   'head-right':     { name:'HEAD →',      coach:'tilt your head RIGHT',  pts:100, check:d=> Math.abs(d.headDX) > THRESH.head },
   'head-left':      { name:'← HEAD',      coach:'tilt your head LEFT',   pts:100, check:d=> Math.abs(d.headDX) > THRESH.head },
   'shoulder-right': { name:'SHOULDER →',  coach:'lift your RIGHT shoulder', pts:120, check:d=> Math.abs(d.shTilt) > THRESH.sh },
   'shoulder-left':  { name:'← SHOULDER',  coach:'lift your LEFT shoulder',  pts:120, check:d=> Math.abs(d.shTilt) > THRESH.sh },
-  'hips-left':      { name:'← HIPS',      coach:'swing hips LEFT!',      pts:130, needs:'lower', check:d=> Math.abs(d.hipDX) > THRESH.hip },
-  'hips-right':     { name:'HIPS →',      coach:'swing hips RIGHT!',     pts:130, needs:'lower', check:d=> Math.abs(d.hipDX) > THRESH.hip },
-  'knee':           { name:'KNEE UP',     coach:'lift a knee!',          pts:140, needs:'lower', check:d=> d.kneeLift > THRESH.knee },
-  'free':           { name:'FREESTYLE!',  coach:'move it ALL!',          pts:60,  check:d=> d.motion > THRESH.motion },
+  'hips-left':      { name:'← HIPS',      coach:'sway your hips!',  pts:80, visual:true, check:d=> false },  // visual only — always passes
+  'hips-right':     { name:'HIPS →',      coach:'sway your hips!',  pts:80, visual:true, check:d=> false },
+  'knee-left':      { name:'← KNEE',      coach:'lift your knee!',  pts:140, needs:'lower', check:d=> d.kneeLift > THRESH.knee },
+  'knee-right':     { name:'KNEE →',      coach:'lift your knee!',  pts:140, needs:'lower', check:d=> d.kneeLift > THRESH.knee },
+  'free':           { name:'FREESTYLE!',  coach:'move it ALL!',     pts:60,  check:d=> d.motion > THRESH.motion },
 };
 
 // which detection ZONE lights up: half-screen for sideways moves, full for full-body
-const ZONE = { 'head-left':'left','shoulder-left':'left','hips-left':'left',
-  'head-right':'right','shoulder-right':'right','hips-right':'right',
-  'knee':'full','free':'full' };
+const ZONE = { 'head-left':'left','shoulder-left':'left','hips-left':'left','knee-left':'left',
+  'head-right':'right','shoulder-right':'right','hips-right':'right','knee-right':'right',
+  'free':'full' };
 function setZone(z, state){
   ['zone-left','zone-right','zone-full'].forEach(id=>$(id).classList.remove('show','armed','hit','miss'));
   if(!z) return;
@@ -402,29 +405,23 @@ function zoneState(state){ const z=game.cueZone; if(!z) return;
 const VIDEO_START = 0;           // start from the very beginning (no seek glitch) so the
                                  // kid watches Nova's intro and can anticipate the moves
 const CUES = (()=>{
-  const out=[]; const add=(t,action,dur)=>out.push({ t, dur, action });
-  // ROUTINE (Refael's spec): head L-R-L-R  →  shoulder L-R ×4  →  hips L-R-L-R.
-  // Run SLOW first so the kid learns it, then the SAME run at DOUBLE speed (energy
-  // goes up), then a freestyle finale. Hips need the waist in frame — if the kid is
-  // seated/close those cues auto-skip (needs:'lower') instead of punishing them.
-  const seq = [
-    'head-left','head-right','head-left','head-right',
-    'shoulder-left','shoulder-right','shoulder-left','shoulder-right',
-    'hips-left','hips-right','hips-left','hips-right',
-  ];
-  const BEAT=609;                 // 98.5 BPM (matches the song)
-  // Tracking starts ~4s: the video opens with a 3-2-1 + Nova walking back 2 steps
-  // (~0–3s, confirmed from the frames), so the kid only starts moving once she's set.
-  let t=4000;
-  // SLOW learn pass — one move every 2 beats
-  const slow=BEAT*2, sw=BEAT*2-150;
-  seq.forEach(a=>{ add(t,a,sw); t+=slow; });
-  // DOUBLE-SPEED pass — same moves, one per beat
-  t+=BEAT;
-  const fast=BEAT, fw=BEAT-90;
-  seq.forEach(a=>{ add(t,a,fw); t+=fast; });
-  // FREESTYLE / "move it all" finale
-  t+=BEAT; add(t,'free',6000); t+=6500; add(t,'free',6000); t+=6500; add(t,'free',6000);
+  // Exact timeline from nova-games-joints-timing.md (GAME 2 — UP GROOVE).
+  // SLOW build 4-25s (1.22s spacing, ~1.05s window): head→shoulder→HIPS(visual)→knee.
+  // DOUBLE-SPEED reverse 25-35s (0.61s spacing, ~0.55s window): knee→hips→shoulder→head.
+  // FREESTYLE 36-56s (3 windows).
+  const out=[]; const add=(sec,action,durMs)=>out.push({ t:Math.round(sec*1000), dur:durMs, action });
+  const SLOW=1050, FAST=550;
+  [[6.0,'head-left'],[7.2,'head-right'],[8.4,'head-left'],[9.6,'head-right'],
+   [10.8,'shoulder-left'],[12.0,'shoulder-right'],[13.2,'shoulder-left'],[14.4,'shoulder-right'],
+   [15.6,'hips-left'],[16.8,'hips-right'],[18.0,'hips-left'],[19.2,'hips-right'],
+   [20.4,'knee-left'],[21.6,'knee-right'],[22.8,'knee-left'],[24.0,'knee-right']
+  ].forEach(([s,a])=>add(s,a,SLOW));
+  [[25.5,'knee-right'],[26.1,'knee-left'],[26.7,'knee-right'],[27.3,'knee-left'],
+   [27.9,'hips-right'],[28.5,'hips-left'],[29.1,'hips-right'],[29.7,'hips-left'],
+   [30.3,'shoulder-right'],[30.9,'shoulder-left'],[31.5,'shoulder-right'],[32.1,'shoulder-left'],
+   [32.7,'head-right'],[33.3,'head-left'],[33.9,'head-right'],[34.5,'head-left']
+  ].forEach(([s,a])=>add(s,a,FAST));
+  add(36,'free',6000); add(44,'free',6000); add(52,'free',4000);
   return out.sort((a,b)=>a.t-b.t);
 })();
 const SONG_END = 56.0;           // seconds — stop + show results
@@ -636,6 +633,7 @@ const CUE_PARTS = {
   'head':['nose'], 'head-left':['nose'], 'head-right':['nose'],
   'shoulder':['left_shoulder','right_shoulder'], 'shoulder-left':['left_shoulder','right_shoulder'], 'shoulder-right':['left_shoulder','right_shoulder'],
   'hips':['left_hip','right_hip'], 'hips-left':['left_hip','right_hip'], 'hips-right':['left_hip','right_hip'],
+  'knee-left':['left_knee'], 'knee-right':['right_knee'],
   'clap':['left_wrist','right_wrist'], 'touch shoulder':['left_shoulder','right_shoulder'],
   'free':['nose','left_shoulder','right_shoulder','left_hip','right_hip'],   // freestyle = light up the WHOLE body
 };
@@ -677,6 +675,7 @@ function smartAnchor(cueKey, m){
   if(/head/.test(cueKey)) return m.nose&&m.nose.score>0.2?m.nose:null;
   if(/shoulder/.test(cueKey)) return mid(m.left_shoulder,m.right_shoulder);
   if(/hip/.test(cueKey)) return mid(m.left_hip,m.right_hip);
+  if(/knee/.test(cueKey)){ const k=/left/.test(cueKey)?m.left_knee:m.right_knee; return k&&k.score>0.2?k:null; }
   return m.nose&&m.nose.score>0.2?m.nose:null;   // free → head
 }
 function drawSmartLight(ctx, m, X, Y){
@@ -966,7 +965,8 @@ function gameTick(){
     if(now>=game.cueEnd){
       if(!game.cueResolved){
         const m=MOVES[game.cue.action];
-        if(m.needs==='lower' && !det.lowerVisible){ coachStand(); }  // legs off-camera → don't punish
+        if(m.visual){ resolveHit(); }                               // hips: visual-only, always passes
+        else if(m.needs==='lower' && !det.lowerVisible){ coachStand(); }  // legs off-camera → don't punish
         else resolveMiss();
       }
       closeCue();
