@@ -4326,17 +4326,23 @@ window.__initRunwayNova = initDID;
 </style>
 <script>
 (function(){
-  // NOVA SMART LIGHT (hello-hello) — canvas: focus ring + motion trail + glyph on
-  // the cued body part. Reads window.__cueAction {action,dir} + window.__lastPoseKeypoints.
-  const PARTS = {
-    headbob:['nose'], shrug:['left_shoulder','right_shoulder'], ribslide:['__rib'],
-    hipbounce:['left_hip','right_hip'], clap:['left_wrist','right_wrist'], both:['left_wrist','right_wrist'],
-    head:['nose'], left:['left_wrist'], right:['right_wrist'],
-    combo:['nose','left_shoulder','right_shoulder','left_hip','right_hip'], freeze:['nose','left_shoulder','right_shoulder'],
-  };
-  const GLYPH = { headbob:'side', shrug:'↑', ribslide:'↔', hipbounce:'↕', clap:'↔', both:'↑', head:'↑', left:'↑', right:'↑', combo:'', freeze:'✋' };
-  const LIGHT_COL = { armed:'255,170,0', hit:'0,255,136', messy:'255,155,61', miss:'255,77,109', streak:'255,111,216' };
-  let trails={};
+  // NOVA MAGIC LIGHT (hello-hello) — Pixar wand-trail (nova-magic-visuals SKILL):
+  // additive bloom ribbon + comet orb + sparkles + top-strip chevron, on the cued part.
+  const ML={core:'255,253,245',gold:'255,210,122',amber:'255,166,61',deep:'242,115,12',clean:'191,255,200',messy:'255,122,61'};
+  const TRAIL={nodes:22,smooth:0.35,waveAmp:14,waveSpeed:6.0,wavePhase:0.55,headWidth:16,fade:0.16};
+  const SPARK={spawnPerVel:0.6,ttl:[400,900],drift:0.4,size:[1,3]};
+  const ANCH={headbob:'nose',head:'nose',shrug:'shoulder',ribslide:'__rib',hipbounce:'hip',clap:'wrist',both:'wrist',left:'left_wrist',right:'right_wrist',combo:'nose',freeze:'nose'};
+  let spine=[],sparks=[];
+  const lerp=(a,b,t)=>a+(b-a)*t;
+  const mix=(t1,t2,f)=>{const a=t1.split(',').map(Number),b=t2.split(',').map(Number);return a.map((v,i)=>Math.round(lerp(v,b[i],f))).join(',');};
+  function orb(c,x,y,r,trip,al){ if(r<=0)return; const g=c.createRadialGradient(x,y,0,x,y,r); g.addColorStop(0,'rgba('+trip+',1)'); g.addColorStop(0.45,'rgba('+trip+',0.5)'); g.addColorStop(1,'rgba('+ML.gold+',0)'); c.globalAlpha=al==null?1:al; c.fillStyle=g; c.beginPath(); c.arc(x,y,r,0,7); c.fill(); c.globalAlpha=1; }
+  function chevron(c,cx,cy,ang,k,trip,now){ const L=46*k,P=[[-L*0.45,-L*0.55],[L*0.55,0],[-L*0.45,L*0.55]],w=5*k*(1+0.2*Math.sin(now/300)); c.save(); c.translate(cx,cy); c.rotate(ang); c.lineCap='round'; c.lineJoin='round'; for(const [wm,a,trp] of [[3.2,0.16,ML.amber],[1.6,0.5,trip],[0.7,0.95,ML.core]]){ c.beginPath(); c.moveTo(P[0][0],P[0][1]); c.lineTo(P[1][0],P[1][1]); c.lineTo(P[2][0],P[2][1]); c.strokeStyle='rgba('+trp+','+a+')'; c.lineWidth=w*wm; c.stroke(); } c.restore(); }
+  function pick(act,m){ const g=n=>{const k=m[n];return k&&k.score>0.2?k:null;}; const a=ANCH[act]||'nose';
+    if(a==='shoulder'){ const l=g('left_shoulder'),r=g('right_shoulder'); return l&&r?{x:(l.x+r.x)/2,y:(l.y+r.y)/2}:(l||r); }
+    if(a==='hip'){ const l=g('left_hip'),r=g('right_hip'); return l&&r?{x:(l.x+r.x)/2,y:(l.y+r.y)/2}:(l||r); }
+    if(a==='wrist') return g('right_wrist')||g('left_wrist');
+    if(a==='__rib') return m.__rib||null;
+    return g(a); }
   function init(){
     const side=document.getElementById('cam-side'), webcam=document.getElementById('webcam');
     if(!side||!webcam){ return setTimeout(init,500); }
@@ -4346,38 +4352,34 @@ window.__initRunwayNova = initDID;
       requestAnimationFrame(loop);
       const cw=webcam.clientWidth||1, ch=webcam.clientHeight||1;
       if(cv.width!==cw||cv.height!==ch){ cv.width=cw; cv.height=ch; }
-      ctx.clearRect(0,0,cw,ch);
+      ctx.globalCompositeOperation='destination-out'; ctx.fillStyle='rgba(0,0,0,'+TRAIL.fade+')'; ctx.fillRect(0,0,cw,ch); ctx.globalCompositeOperation='source-over';
       const e=window.__cueAction, kps=window.__lastPoseKeypoints;
-      if(!e||!kps){ trails={}; return; }
+      if(!e||!kps){ spine.length=0; return; }
       const vw=webcam.videoWidth||640, vh=webcam.videoHeight||480;
-      const scale=Math.max(cw/vw, ch/vh), ox=(cw-vw*scale)/2, oy=(ch-vh*scale)/2;
-      const X=p=> cw-(p.x*scale+ox), Y=p=> p.y*scale+oy;   // X mirrored (webcam scaleX(-1)); kps RAW
+      const scale=Math.max(cw/vw,ch/vh), ox=(cw-vw*scale)/2, oy=(ch-vh*scale)/2;
+      const X=p=>cw-(p.x*scale+ox), Y=p=>p.y*scale+oy;   // X mirrored; kps RAW (flip:false)
       const m={}; kps.forEach(k=>m[k.name]=k);
       const act=e.action, dir=e.dir;
-      const state=window.__cueState||'armed'; const col=LIGHT_COL[state]||LIGHT_COL.armed;
-      const parts=(PARTS[act]||[]).slice();
-      if(parts.includes('__rib')){ const ls=m.left_shoulder,rs=m.right_shoulder,lh=m.left_hip,rh=m.right_hip;
-        if(ls&&rs){ const sx=(ls.x+rs.x)/2,sy=(ls.y+rs.y)/2; const hx=(lh&&rh)?(lh.x+rh.x)/2:sx,hy=(lh&&rh)?(lh.y+rh.y)/2:sy+90;
-          m.__rib={x:sx*0.5+hx*0.5,y:sy*0.45+hy*0.55,score:Math.min(ls.score,rs.score)}; } }
-      const spec=GLYPH[act]||'↑';
-      const glyph=(act==='combo')?'':(spec==='side'?(dir==='L'?'←':dir==='R'?'→':'↔'):spec);
-      const pulse=0.5+0.5*Math.sin(performance.now()/240);
-      let first=null;
-      parts.forEach(n=>{ const k=m[n]; if(!k||k.score<0.2) return; const cx=X(k),cy=Y(k);
-        let tr=trails[n]||(trails[n]=[]); tr.push({x:cx,y:cy}); if(tr.length>12) tr.shift();
-        if(tr.length>2){ ctx.save(); ctx.lineCap='round'; ctx.shadowBlur=14; ctx.shadowColor='rgba('+col+',.85)';
-          for(let i=1;i<tr.length;i++){ const al=i/tr.length; ctx.strokeStyle='rgba('+col+','+(al*0.8).toFixed(2)+')'; ctx.lineWidth=2+4*al;
-            ctx.beginPath(); ctx.moveTo(tr[i-1].x,tr[i-1].y); ctx.lineTo(tr[i].x,tr[i].y); ctx.stroke(); } ctx.restore(); }
-        const isHead=(n==='nose'); const r=(isHead?26:20)+4*pulse;
-        ctx.save(); ctx.shadowBlur=16; ctx.shadowColor='rgba('+col+',.9)';
-        ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.lineWidth=isHead?5:4; ctx.strokeStyle='rgba('+col+','+(0.85+0.15*pulse)+')'; ctx.stroke();
-        ctx.beginPath(); ctx.arc(cx,cy,r*0.5,0,7); ctx.fillStyle='rgba('+col+',0.16)'; ctx.fill(); ctx.restore();
-        if(!first) first={x:cx,y:cy,r}; });
-      Object.keys(trails).forEach(k=>{ if(parts.indexOf(k)<0) delete trails[k]; });
-      if(state==='armed' && glyph && first){ const ax=first.x, ay=first.y-(first.r+26);
-        ctx.save(); ctx.shadowBlur=12; ctx.shadowColor='rgba('+col+',.9)'; ctx.font='900 32px system-ui,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.lineWidth=5; ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.strokeText(glyph,ax,ay);
-        ctx.fillStyle='rgba('+col+',0.96)'; ctx.fillText(glyph,ax,ay); ctx.restore(); }
+      { const l=m.left_shoulder,r=m.right_shoulder,lh=m.left_hip,rh=m.right_hip; if(l&&r){ const sx=(l.x+r.x)/2,sy=(l.y+r.y)/2,hx=(lh&&rh)?(lh.x+rh.x)/2:sx,hy=(lh&&rh)?(lh.y+rh.y)/2:sy+90; m.__rib={x:sx*0.5+hx*0.5,y:sy*0.45+hy*0.55,score:Math.min(l.score,r.score)}; } }
+      const a=pick(act,m); if(!a){ return; }
+      const p={x:X(a),y:Y(a)};
+      const ls=m.left_shoulder,rs=m.right_shoulder;
+      const unit=(ls&&rs&&ls.score>0.2&&rs.score>0.2)?Math.hypot(X(ls)-X(rs),Y(ls)-Y(rs)):180;
+      const k=Math.max(0.4,Math.min(3,unit/220));
+      const qMap={armed:0.5,hit:0.85,streak:0.95,messy:0.35,miss:0.2}; const q=qMap[window.__cueState]||0.5;
+      const headTrip=q>0.66?mix(ML.gold,ML.clean,(q-0.66)/0.34):q<0.4?mix(ML.gold,ML.messy,(0.4-q)/0.4):ML.gold;
+      spine.unshift({x:p.x,y:p.y}); if(spine.length>TRAIL.nodes) spine.pop();
+      for(let i=1;i<spine.length;i++){ spine[i].x=lerp(spine[i].x,spine[i-1].x,TRAIL.smooth); spine[i].y=lerp(spine[i].y,spine[i-1].y,TRAIL.smooth); }
+      ctx.globalCompositeOperation='lighter'; const t=performance.now()/1000;
+      function ribbon(wm,al,trip){ if(spine.length<2)return; ctx.beginPath(); for(let i=0;i<spine.length;i++){ const A=spine[i],Bn=spine[Math.min(i+1,spine.length-1)]; const ang=Math.atan2(Bn.y-A.y,Bn.x-A.x)+Math.PI/2,taper=i/spine.length; const off=Math.sin(t*TRAIL.waveSpeed+i*TRAIL.wavePhase)*TRAIL.waveAmp*k*taper; const x=A.x+Math.cos(ang)*off,y=A.y+Math.sin(ang)*off; i?ctx.lineTo(x,y):ctx.moveTo(x,y);} const hd=spine[0],tl=spine[spine.length-1]; const g=ctx.createLinearGradient(hd.x,hd.y,tl.x,tl.y); g.addColorStop(0,'rgba('+trip+','+al+')'); g.addColorStop(1,'rgba('+ML.deep+',0)'); ctx.strokeStyle=g; ctx.lineWidth=TRAIL.headWidth*wm*k; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.stroke(); }
+      ribbon(3.5,0.14,ML.amber); ribbon(1.8,0.45,headTrip); ribbon(0.6,0.95,ML.core);
+      orb(ctx,p.x,p.y,16*k,headTrip,1);
+      const vel=spine[1]?Math.hypot(p.x-spine[1].x,p.y-spine[1].y):0; const now2=performance.now();
+      if(Math.random()<vel*SPARK.spawnPerVel*0.05){ sparks.push({x:p.x,y:p.y,vx:(Math.random()-0.5)*1.2,vy:-Math.random()*SPARK.drift-0.2,born:now2,ttl:lerp(SPARK.ttl[0],SPARK.ttl[1],Math.random()),r:lerp(SPARK.size[0],SPARK.size[1],Math.random())*k}); }
+      sparks=sparks.filter(s=>{ const age=(now2-s.born)/s.ttl; if(age>=1)return false; s.x+=s.vx; s.y+=s.vy; s.vy-=0.01; const tw=0.6+0.4*Math.sin(now2/80+s.x); orb(ctx,s.x,s.y,s.r*(1-age*0.5),ML.core,(1-age)*tw); return true; });
+      let ang=-Math.PI/2; if(act==='headbob'){ ang=dir==='L'?Math.PI:dir==='R'?0:-Math.PI/2; }
+      if(act!=='combo'&&act!=='freeze') chevron(ctx, cw*0.5, ch*0.09, ang, k, headTrip, now2);
+      ctx.globalCompositeOperation='source-over';
     }
     requestAnimationFrame(loop);
   }
