@@ -766,7 +766,8 @@ function endGame(){
 function pop(text,color){ const fx=$('fx'); const e=document.createElement('div'); e.className='pop'; e.textContent=text; e.style.color=color;
   e.style.left=(20+Math.random()*55)+'%'; e.style.top=(30+Math.random()*30)+'%'; fx.appendChild(e); setTimeout(()=>e.remove(),900); }
 let coachT=0; function coach(msg){ const c=$('coach'); c.textContent=msg; c.classList.add('show'); clearTimeout(coachT); coachT=setTimeout(()=>c.classList.remove('show'),1800); }
-let lastSay=0; function say(t){ const now=Date.now(); if(now-lastSay<1300) return; lastSay=now; // light voice; safe in a cafe (muted-friendly: low volume)
+let lastSay=0; function say(t){ if(/[?&](nonova|novoice)/.test(location.search)) return;   // silence TTS for testing
+  const now=Date.now(); if(now-lastSay<1300) return; lastSay=now; // light voice; safe in a cafe (muted-friendly: low volume)
   try{ if('speechSynthesis'in window){ const u=new SpeechSynthesisUtterance(t); u.rate=1.05; u.pitch=1.3; u.volume=0.55; speechSynthesis.speak(u);} }catch(e){} }
 
 // ════════════════════════════════════════════════════════════════════════

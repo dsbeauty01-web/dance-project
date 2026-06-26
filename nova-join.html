@@ -1122,7 +1122,8 @@ function novaLocalReact(kind,combo,fast){ if(novaRoom) return; // Nova's live br
   const t=arr[Math.floor(Math.random()*arr.length)]; coach(t); say(t); }
 // her FACE reacts on every hit (quick green pulse) so she stays alive while SPEAKING less
 function flashNovaFace(){ const e=$('nova-live'); if(!e) return; e.classList.remove('react'); void e.offsetWidth; e.classList.add('react'); setTimeout(()=>{ try{e.classList.remove('react');}catch(_){} },650); }
-let lastSay=0; function say(t){ const now=Date.now(); if(now-lastSay<1300) return; lastSay=now; // light voice; safe in a cafe (muted-friendly: low volume)
+let lastSay=0; function say(t){ if(/[?&](nonova|novoice)/.test(location.search)) return;   // silence TTS for testing
+  const now=Date.now(); if(now-lastSay<1300) return; lastSay=now; // light voice; safe in a cafe (muted-friendly: low volume)
   try{ if('speechSynthesis'in window){ const u=new SpeechSynthesisUtterance(t); u.rate=1.05; u.pitch=1.3; u.volume=0.55; speechSynthesis.speak(u);} }catch(e){} }
 
 // ════════════════════════════════════════════════════════════════════════
