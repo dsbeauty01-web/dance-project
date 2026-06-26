@@ -559,10 +559,11 @@ function drawCueGlow(ctx, m, X, Y){
   const glyph = isFree?'' : (WAVE_GLYPH[cueKey]||'↑');
   const ls=m['left_shoulder'], rs=m['right_shoulder'];
   const shPx=(ls&&rs&&ls.score>0.2&&rs.score>0.2)?Math.abs(X(ls)-X(rs)):0;
-  const bodyW=shPx>20?shPx:200; const t=performance.now(); let anchor=null;
-  parts.forEach(n=>{ const k=m[n]; if(!k||k.score<0.18) return;
+  const bodyW=shPx>20?shPx:200; const t=performance.now(); let anchor=null, found=0;
+  parts.forEach(n=>{ const k=m[n]; if(!k||k.score<0.18) return; found++;
     const r=cuePartSize(n, bodyW); liquidAura(ctx, X(k), Y(k), r, COL, t);
     if(!anchor) anchor={x:X(k), y:Y(k), r}; });
+  window.__glowFound = found+'/'+parts.length;   // session-tracking: did the aura find the body part?
   if(anchor && glyph) cueArrow(ctx, anchor.x, anchor.y-(anchor.r+20), glyph, COL);
 }
 function positionAuras(m, X, Y){
@@ -679,6 +680,7 @@ function gameTick(){
 
 function openCue(c){
   game.cue=c; game.cueResolved=false; game.cueEnd=c.t+c.dur; game.total++;
+  c.openSec=+($('nova-vid').currentTime).toFixed(2);   // actual video time the cue opened (vs scheduled c.t)
   window.__cuePart=c.action;   // mark the cued body part ON the kid (overlay highlight)
   const m=MOVES[c.action];
   $('cue-figure').innerHTML=figureSVG(c.action==='free'?'wrist-wave':c.action);
@@ -700,10 +702,21 @@ function closeCue(){ game.cue=null; window.__cuePart=null; hideAuras(); $('cue')
 // can see exactly WHERE detection is weak (e.g. knee always missing = legs off-frame)
 function logCue(result){
   const c=game.cue; if(!c) return;
-  game.log.push({ action:c.action, result, shoulderLift:+det.shoulderLift.toFixed(3),
-    elbowUp:+det.elbowUp.toFixed(3), handUp:+det.handUp.toFixed(3), motion:+det.motion.toFixed(3),
-    joints:det.joints||0, present:det.present });
+  const sched=+(c.t/1000).toFixed(2), open=c.openSec!=null?c.openSec:sched;
+  game.log.push({ action:c.action, result, sched, open, drift:+(open-sched).toFixed(2),
+    glow:window.__glowFound||'-',
+    shoulderLift:+det.shoulderLift.toFixed(3), elbowUp:+det.elbowUp.toFixed(3), handUp:+det.handUp.toFixed(3),
+    motion:+det.motion.toFixed(3), joints:det.joints||0, present:det.present });
 }
+// AUTO-SESSION-TRACK: save the whole round to Downloads so it can be reviewed offline.
+function saveSession(){ try{
+  const summary={ song:'handywave-full', cues:CUES.length, total:game.total, hits:game.hits,
+    maxCombo:game.maxCombo, score:game.score, log:game.log };
+  const blob=new Blob([JSON.stringify(summary,null,1)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='nova-wave-session.json'; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ a.remove(); URL.revokeObjectURL(a.href); }, 1000);
+}catch(e){} }
 
 function resolveHit(){
   game.cueResolved=true;
@@ -733,6 +746,7 @@ function resolveMiss(){
 function endGame(){
   if(!game.running) return; game.running=false;
   clearInterval(game.tick);
+  saveSession();   // auto-download the full session log to Downloads for review
   try{ $('nova-vid').pause(); }catch(e){}
   novaSend({ kind:'game-event', event:{ event:'phase', phase:'goodbye' } });
   setTimeout(disconnectNova, 9000);   // let Nova say goodbye, then drop the session
