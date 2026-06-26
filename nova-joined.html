@@ -4322,73 +4322,62 @@ window.__initRunwayNova = initDID;
      direction arrow, anchored to MoveNet joints. Self-contained so it can't destabilise
      the main engine. Reads window.__cueAction (active cue) + window.__lastPoseKeypoints. ── -->
 <style>
-  #aura-layer{ position:absolute; inset:0; z-index:4; pointer-events:none; overflow:hidden; }
-  #aura-layer .aura{ position:absolute; left:0; top:0; width:0; height:0; --c:255,216,77; --x:-600px; --y:-600px; --size:170px;
-    opacity:0; transform:translate(var(--x),var(--y)); transition:opacity .22s ease;
-    animation:ajPulse 1.05s ease-in-out infinite; }
-  #aura-layer .aura.on{ opacity:1; }
-  @keyframes ajPulse{ 0%,100%{ transform:translate(var(--x),var(--y)) scale(.92);} 50%{ transform:translate(var(--x),var(--y)) scale(1.09);} }
-  #aura-layer .glow{ position:absolute; left:calc(var(--size) / -2); top:calc(var(--size) / -2);
-    width:var(--size); height:var(--size); border-radius:50%;
-    background:radial-gradient(circle, rgba(var(--c),0) 46%, rgba(var(--c),.72) 56%, rgba(var(--c),.22) 67%, rgba(var(--c),0) 80%);
-    filter: drop-shadow(0 0 4px rgba(0,0,0,.45)) drop-shadow(0 0 11px rgba(var(--c),.55)); }
-  #aura-layer .arrow{ position:absolute; left:0; top:0; --ax:0px; --ay:0px;
-    font:900 calc(var(--size) * 0.26)/1 system-ui,sans-serif; white-space:nowrap; color:rgba(var(--c),.98);
-    text-shadow:0 0 10px rgba(var(--c),.95), 0 0 22px rgba(var(--c),.5), 0 2px 4px rgba(0,0,0,.6);
-    transform:translate(calc(-50% + var(--ax)), calc(-50% + var(--ay))); }
-  #aura-full{ position:absolute; inset:0; z-index:3; pointer-events:none; opacity:0;
-    background:radial-gradient(circle at 50% 55%, transparent 46%, rgba(255,216,77,.18) 100%);
-    transition:opacity .25s ease; animation:ajBreathe 1.5s ease-in-out infinite; }
-  #aura-full.on{ opacity:1; }
-  @keyframes ajBreathe{ 0%,100%{ box-shadow:inset 0 0 40px rgba(255,216,77,.22);} 50%{ box-shadow:inset 0 0 85px rgba(255,216,77,.5);} }
+  #aura-canvas{ position:absolute; inset:0; width:100%; height:100%; z-index:4; pointer-events:none; }
 </style>
 <script>
 (function(){
-  // action → keypoints it lights up (matches nova-joined's move set)
+  // NOVA SMART LIGHT (hello-hello) — canvas: focus ring + motion trail + glyph on
+  // the cued body part. Reads window.__cueAction {action,dir} + window.__lastPoseKeypoints.
   const PARTS = {
     headbob:['nose'], shrug:['left_shoulder','right_shoulder'], ribslide:['__rib'],
     hipbounce:['left_hip','right_hip'], clap:['left_wrist','right_wrist'], both:['left_wrist','right_wrist'],
     head:['nose'], left:['left_wrist'], right:['right_wrist'],
     combo:['nose','left_shoulder','right_shoulder','left_hip','right_hip'], freeze:['nose','left_shoulder','right_shoulder'],
   };
-  const ARROW = { headbob:'side', shrug:'↑', ribslide:'↔', hipbounce:'↕', clap:'↔', both:'↑', head:'↑', left:'↑', right:'↑', combo:'', freeze:'✋' };
+  const GLYPH = { headbob:'side', shrug:'↑', ribslide:'↔', hipbounce:'↕', clap:'↔', both:'↑', head:'↑', left:'↑', right:'↑', combo:'', freeze:'✋' };
+  const LIGHT_COL = { armed:'255,170,0', hit:'0,255,136', messy:'255,155,61', miss:'255,77,109', streak:'255,111,216' };
+  let trails={};
   function init(){
     const side=document.getElementById('cam-side'), webcam=document.getElementById('webcam');
     if(!side||!webcam){ return setTimeout(init,500); }
-    const layer=document.createElement('div'); layer.id='aura-layer';
-    layer.innerHTML='<div id="aura-full"></div>'+Array.from({length:5},()=>'<div class="aura"><span class="glow"></span><span class="arrow"></span></div>').join('');
-    side.appendChild(layer);
-    const auras=layer.querySelectorAll('.aura'), full=document.getElementById('aura-full');
+    const cv=document.createElement('canvas'); cv.id='aura-canvas'; side.appendChild(cv);
+    const ctx=cv.getContext('2d');
     function loop(){
       requestAnimationFrame(loop);
+      const cw=webcam.clientWidth||1, ch=webcam.clientHeight||1;
+      if(cv.width!==cw||cv.height!==ch){ cv.width=cw; cv.height=ch; }
+      ctx.clearRect(0,0,cw,ch);
       const e=window.__cueAction, kps=window.__lastPoseKeypoints;
-      if(!e||!kps){ auras.forEach(a=>a.classList.remove('on')); if(full) full.classList.remove('on'); return; }
-      const cw=webcam.clientWidth||1, ch=webcam.clientHeight||1, vw=webcam.videoWidth||640, vh=webcam.videoHeight||480;
-      const scale=Math.max(cw/vw, ch/vh);                 // object-fit: cover
-      const ox=(cw-vw*scale)/2, oy=(ch-vh*scale)/2;
-      const X=p=> cw-(p.x*scale+ox), Y=p=> p.y*scale+oy;  // X mirrored (webcam scaleX(-1)); kps are RAW (flip:false)
+      if(!e||!kps){ trails={}; return; }
+      const vw=webcam.videoWidth||640, vh=webcam.videoHeight||480;
+      const scale=Math.max(cw/vw, ch/vh), ox=(cw-vw*scale)/2, oy=(ch-vh*scale)/2;
+      const X=p=> cw-(p.x*scale+ox), Y=p=> p.y*scale+oy;   // X mirrored (webcam scaleX(-1)); kps RAW
       const m={}; kps.forEach(k=>m[k.name]=k);
-      const act=e.action, dir=e.dir, isFull=(act==='combo'||act==='freeze');
-      if(full) full.classList.toggle('on', isFull);
+      const act=e.action, dir=e.dir;
+      const state=window.__cueState||'armed'; const col=LIGHT_COL[state]||LIGHT_COL.armed;
       const parts=(PARTS[act]||[]).slice();
       if(parts.includes('__rib')){ const ls=m.left_shoulder,rs=m.right_shoulder,lh=m.left_hip,rh=m.right_hip;
         if(ls&&rs){ const sx=(ls.x+rs.x)/2,sy=(ls.y+rs.y)/2; const hx=(lh&&rh)?(lh.x+rh.x)/2:sx,hy=(lh&&rh)?(lh.y+rh.y)/2:sy+90;
           m.__rib={x:sx*0.5+hx*0.5,y:sy*0.45+hy*0.55,score:Math.min(ls.score,rs.score)}; } }
-      const ls=m.left_shoulder,rs=m.right_shoulder;
-      const shPx=(ls&&rs&&ls.score>0.2&&rs.score>0.2)?Math.abs(X(ls)-X(rs)):0;
-      const bodyW=shPx>20?shPx:200;
-      const spec=ARROW[act]||'↑', isSide=(spec==='side'||spec==='↔');
-      const glyph=isFull?'':(spec==='side'?(dir==='L'?'←':dir==='R'?'→':'↔'):spec);
-      const COL=isFull?'255,216,77':dir==='L'?'90,170,255':dir==='R'?'255,95,216':'255,216,77';
-      let i=0;
-      parts.forEach(n=>{ const k=m[n],a=auras[i]; if(!a) return;
-        if(k && k.score>0.12){ const isHead=(n==='nose'); const size=Math.max(48,Math.min(210,bodyW*(isHead?0.74:0.44)));
-          a.style.setProperty('--c',COL); a.style.setProperty('--x',X(k).toFixed(1)+'px'); a.style.setProperty('--y',Y(k).toFixed(1)+'px'); a.style.setProperty('--size',size.toFixed(0)+'px');
-          const ar=a.querySelector('.arrow'); if(ar){ ar.textContent=glyph;
-            ar.style.setProperty('--ax',(isSide?(dir==='L'?-1:1)*(size*0.62):0).toFixed(0)+'px');
-            ar.style.setProperty('--ay',(isSide?0:-(size*0.62)).toFixed(0)+'px'); }
-          a.classList.add('on'); i++; } });
-      for(;i<auras.length;i++) auras[i].classList.remove('on');
+      const spec=GLYPH[act]||'↑';
+      const glyph=(act==='combo')?'':(spec==='side'?(dir==='L'?'←':dir==='R'?'→':'↔'):spec);
+      const pulse=0.5+0.5*Math.sin(performance.now()/240);
+      let first=null;
+      parts.forEach(n=>{ const k=m[n]; if(!k||k.score<0.2) return; const cx=X(k),cy=Y(k);
+        let tr=trails[n]||(trails[n]=[]); tr.push({x:cx,y:cy}); if(tr.length>12) tr.shift();
+        if(tr.length>2){ ctx.save(); ctx.lineCap='round'; ctx.shadowBlur=14; ctx.shadowColor='rgba('+col+',.85)';
+          for(let i=1;i<tr.length;i++){ const al=i/tr.length; ctx.strokeStyle='rgba('+col+','+(al*0.8).toFixed(2)+')'; ctx.lineWidth=2+4*al;
+            ctx.beginPath(); ctx.moveTo(tr[i-1].x,tr[i-1].y); ctx.lineTo(tr[i].x,tr[i].y); ctx.stroke(); } ctx.restore(); }
+        const isHead=(n==='nose'); const r=(isHead?26:20)+4*pulse;
+        ctx.save(); ctx.shadowBlur=16; ctx.shadowColor='rgba('+col+',.9)';
+        ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.lineWidth=isHead?5:4; ctx.strokeStyle='rgba('+col+','+(0.85+0.15*pulse)+')'; ctx.stroke();
+        ctx.beginPath(); ctx.arc(cx,cy,r*0.5,0,7); ctx.fillStyle='rgba('+col+',0.16)'; ctx.fill(); ctx.restore();
+        if(!first) first={x:cx,y:cy,r}; });
+      Object.keys(trails).forEach(k=>{ if(parts.indexOf(k)<0) delete trails[k]; });
+      if(state==='armed' && glyph && first){ const ax=first.x, ay=first.y-(first.r+26);
+        ctx.save(); ctx.shadowBlur=12; ctx.shadowColor='rgba('+col+',.9)'; ctx.font='900 32px system-ui,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.lineWidth=5; ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.strokeText(glyph,ax,ay);
+        ctx.fillStyle='rgba('+col+',0.96)'; ctx.fillText(glyph,ax,ay); ctx.restore(); }
     }
     requestAnimationFrame(loop);
   }
