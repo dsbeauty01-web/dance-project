@@ -639,79 +639,84 @@ const CUE_PARTS = {
 };
 function cuePartsFor(key){ return CUE_PARTS[(key||'').toLowerCase()] || null; }
 function drawSkeleton(kps){
+  // KID'S VIEW (nova-magic-visuals): NO skeleton, dots, polygon or boxes. Only the
+  // Pixar magic-light ribbon on the cued limb. X is MIRRORED for the selfie-flip.
   const c=$('overlay'); const x=c.getContext('2d'); const {scale,ox,oy}=coverMap();
-  x.clearRect(0,0,c.width,c.height);
-  // X is MIRRORED to match the selfie-flipped video (#cam transform:scaleX(-1)).
-  // Without this the cues land on the horizontal mirror of the body (empty air).
   const X=p=> c.width - (p.x*scale+ox), Y=p=>p.y*scale+oy;
   const m={}; kps.forEach(k=>m[k.name]=k);
-  // SUBTLE base skeleton (the bright-green version looked "funny")
-  x.strokeStyle='rgba(120,255,190,.26)'; x.lineWidth=2;
-  SKELETON.forEach(([a,b])=>{ const A=m[a],B=m[b]; if(A&&B&&A.score>0.25&&B.score>0.25){ x.beginPath(); x.moveTo(X(A),Y(A)); x.lineTo(X(B),Y(B)); x.stroke(); }});
-  x.fillStyle='rgba(255,95,216,.45)';
-  kps.forEach(k=>{ if(k.score>0.25){ x.beginPath(); x.arc(X(k),Y(k),3,0,7); x.fill(); }});
-  // DEBUG: bright cyan tracking dots so we can SEE where the mapping puts each joint.
-  // (Temporary calibration aid — remove once the aura lands on the body.)
-  if(window.__DOTS){ kps.forEach(k=>{ if(k.score>0.2){ const px=X(k),py=Y(k);
-    x.beginPath(); x.arc(px,py,7,0,7); x.fillStyle='rgba(0,240,255,.95)'; x.fill();
-    x.lineWidth=2; x.strokeStyle='rgba(0,0,0,.75)'; x.stroke();
-    if(k.name==='nose'||k.name==='left_shoulder'||k.name==='right_shoulder'){
-      x.font='bold 13px system-ui'; x.fillStyle='#fff'; x.textAlign='left'; x.textBaseline='middle';
-      x.fillText(k.name.replace('_',' '), px+11, py); } }}); }
-  // CUE → kid: LIGHT UP the actual body part (glowing limb segments) + a direction arrow.
-  hideAuras();                 // not using the HTML circle-auras anymore
-  drawSmartLight(x, m, X, Y);
+  hideAuras();
+  renderMagic(x, m, X, Y, c.width, c.height);
 }
 
-// ── NOVA SMART LIGHT ── focus ring + direction arrow + live motion trail, drawn ON
-// the cued body part (per nova-smart-light.md). Condensed, tracks the keypoint,
-// colour = cue state. Never a floating text box; always fades when the cue clears.
-const LIGHT_COL = { armed:'255,170,0', hit:'0,255,136', messy:'255,155,61', miss:'255,77,109', streak:'255,111,216' };
-let _trail = [];            // FIFO of recent anchor {x,y} (motion trail)
-let _anchorSmooth = null;   // smoothed anchor (reduce jitter)
-function resetSmartLight(){ _trail.length=0; _anchorSmooth=null; }
-function smartAnchor(cueKey, m){
-  const mid=(a,b)=> (a&&b&&a.score>0.2&&b.score>0.2) ? {x:(a.x+b.x)/2,y:(a.y+b.y)/2,score:Math.min(a.score,b.score)} : (a&&a.score>0.2?a:(b&&b.score>0.2?b:null));
+// ── NOVA MAGIC LIGHT (nova-magic-visuals SKILL) ── Pixar wand-trail cue on the webcam:
+// additive multi-pass bloom ribbon that undulates along the moving limb + comet orb +
+// velocity sparkles + a glowing chevron in the top strip. Warm gold; colour driven by the
+// live quality score (clean→mint-gold, messy→amber). One body part lit at a time.
+const ML = { core:'255,253,245', gold:'255,210,122', amber:'255,166,61', deep:'242,115,12', clean:'191,255,200', messy:'255,122,61' };
+const TRAIL = { nodes:22, smooth:0.35, waveAmp:14, waveSpeed:6.0, wavePhase:0.55, headWidth:16, fade:0.16 };
+const SPARK = { spawnPerVel:0.6, ttl:[400,900], drift:0.4, size:[1,3] };
+let _spine=[], _sparks=[];
+function resetSmartLight(){ _spine.length=0; _sparks.length=0; }   // (name kept — called by cue lifecycle)
+function _lerp(a,b,t){ return a+(b-a)*t; }
+function _mix(t1,t2,f){ const a=t1.split(',').map(Number),b=t2.split(',').map(Number); return a.map((v,i)=>Math.round(_lerp(v,b[i],f))).join(','); }
+function _orb(c,x,y,r,trip,alpha){ if(r<=0) return; const g=c.createRadialGradient(x,y,0,x,y,r);
+  g.addColorStop(0,'rgba('+trip+',1)'); g.addColorStop(0.45,'rgba('+trip+',0.5)'); g.addColorStop(1,'rgba('+ML.gold+',0)');
+  c.globalAlpha=(alpha==null?1:alpha); c.fillStyle=g; c.beginPath(); c.arc(x,y,r,0,7); c.fill(); c.globalAlpha=1; }
+function _chevron(c,cx,cy,ang,k,trip,now){
+  const L=46*k; const pts=[[-L*0.45,-L*0.55],[L*0.55,0],[-L*0.45,L*0.55]]; const w=5*k*(1+0.2*Math.sin(now/300));
+  c.save(); c.translate(cx,cy); c.rotate(ang); c.lineCap='round'; c.lineJoin='round';
+  for(const [wm,al,trp] of [[3.2,0.16,ML.amber],[1.6,0.5,trip],[0.7,0.95,ML.core]]){
+    c.beginPath(); c.moveTo(pts[0][0],pts[0][1]); c.lineTo(pts[1][0],pts[1][1]); c.lineTo(pts[2][0],pts[2][1]);
+    c.strokeStyle='rgba('+trp+','+al+')'; c.lineWidth=w*wm; c.stroke(); }
+  c.restore(); }
+function magicAnchor(cueKey,m){
+  const mid=(a,b)=>(a&&b&&a.score>0.2&&b.score>0.2)?{x:(a.x+b.x)/2,y:(a.y+b.y)/2}:(a&&a.score>0.2?a:(b&&b.score>0.2?b:null));
   if(/head/.test(cueKey)) return m.nose&&m.nose.score>0.2?m.nose:null;
-  if(/shoulder/.test(cueKey)) return mid(m.left_shoulder,m.right_shoulder);
+  if(/shoulder/.test(cueKey)){ const s=/left/.test(cueKey)?m.left_shoulder:(/right/.test(cueKey)?m.right_shoulder:null); return (s&&s.score>0.2)?s:mid(m.left_shoulder,m.right_shoulder); }
   if(/hip/.test(cueKey)) return mid(m.left_hip,m.right_hip);
-  if(/knee/.test(cueKey)){ const k=/left/.test(cueKey)?m.left_knee:m.right_knee; return k&&k.score>0.2?k:null; }
-  return m.nose&&m.nose.score>0.2?m.nose:null;   // free → head
+  if(/knee/.test(cueKey)){ const kk=/left/.test(cueKey)?m.left_knee:m.right_knee; return kk&&kk.score>0.2?kk:null; }
+  return m.nose&&m.nose.score>0.2?m.nose:null;
 }
-function drawSmartLight(ctx, m, X, Y){
-  const cueKey=(window.__cuePart||'');
-  if(!cueKey){ resetSmartLight(); return; }
-  const state=window.__cueState||'armed';
-  const col=LIGHT_COL[state]||LIGHT_COL.armed;
-  const isShoulder=/shoulder/.test(cueKey), isFree=/free/.test(cueKey);
-  const dir=/right/i.test(cueKey)?1:(/left/i.test(cueKey)?-1:0);
-  const a=smartAnchor(cueKey,m); if(!a){ return; }
-  // smooth + trail
-  const px=X(a), py=Y(a);
-  if(!_anchorSmooth) _anchorSmooth={x:px,y:py}; else { _anchorSmooth.x=_anchorSmooth.x*0.55+px*0.45; _anchorSmooth.y=_anchorSmooth.y*0.55+py*0.45; }
-  const cx=_anchorSmooth.x, cy=_anchorSmooth.y;
-  _trail.push({x:cx,y:cy}); if(_trail.length>12) _trail.shift();
-  const pulse=0.5+0.5*Math.sin(performance.now()/240);
-  // 1) TRAIL — glowing streak through recent motion, fades head→tail
-  if(_trail.length>2){ ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round'; ctx.shadowBlur=14; ctx.shadowColor='rgba('+col+',.85)';
-    for(let i=1;i<_trail.length;i++){ const al=i/_trail.length;
-      ctx.strokeStyle='rgba('+col+','+(al*0.8).toFixed(2)+')'; ctx.lineWidth=2+5*al;
-      ctx.beginPath(); ctx.moveTo(_trail[i-1].x,_trail[i-1].y); ctx.lineTo(_trail[i].x,_trail[i].y); ctx.stroke(); }
-    ctx.restore(); }
-  // 2) FOCUS RING — condensed glowing ring on the keypoint (+ soft fill)
-  const r=24+4*pulse;
-  ctx.save(); ctx.shadowBlur=18; ctx.shadowColor='rgba('+col+',.9)';
-  ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.lineWidth=5; ctx.strokeStyle='rgba('+col+','+(0.85+0.15*pulse)+')'; ctx.stroke();
-  ctx.beginPath(); ctx.arc(cx,cy,r*0.5,0,7); ctx.fillStyle='rgba('+col+',0.16)'; ctx.fill();
-  ctx.restore();
-  // 3) DIRECTION ARROW — only while armed (fades on resolve)
-  if(state==='armed' && !isFree){
-    const glyph = isShoulder ? '↑' : (dir>0?'→':dir<0?'←':'↔');
-    const off=r+34, ax= isShoulder? cx : cx+dir*off, ay= isShoulder? cy-off : cy;
-    ctx.save(); ctx.shadowBlur=12; ctx.shadowColor='rgba('+col+',.9)'; ctx.font='900 40px system-ui,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.lineWidth=5; ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.strokeText(glyph,ax,ay);
-    ctx.fillStyle='rgba('+col+',0.96)'; ctx.fillText(glyph,ax,ay); ctx.restore();
-  }
+function renderMagic(ctx, m, X, Y, W, H){
+  // trail persistence — fade old light (destination-out keeps the webcam clear, never darkens it)
+  ctx.globalCompositeOperation='destination-out'; ctx.fillStyle='rgba(0,0,0,'+TRAIL.fade+')'; ctx.fillRect(0,0,W,H);
+  ctx.globalCompositeOperation='source-over';
+  const cueKey=(window.__cuePart||''); const now=performance.now();
+  if(!cueKey){ _spine.length=0; return; }
+  const a=magicAnchor(cueKey,m); if(!a){ return; }
+  const p={ x:X(a), y:Y(a) };
+  const ls=m.left_shoulder, rs=m.right_shoulder;
+  const unit=(ls&&rs&&ls.score>0.2&&rs.score>0.2)?Math.hypot(X(ls)-X(rs),Y(ls)-Y(rs)):180;
+  const k=Math.max(0.4,Math.min(3, unit/220));   // body-relative unit
+  const qMap={armed:0.5,hit:0.85,streak:0.95,messy:0.35,miss:0.2};
+  const q=(window.__cueQuality!=null)?window.__cueQuality:(qMap[window.__cueState]||0.5);
+  const headTrip = q>0.66 ? _mix(ML.gold,ML.clean,(q-0.66)/0.34) : q<0.4 ? _mix(ML.gold,ML.messy,(0.4-q)/0.4) : ML.gold;
+  // spine (newest first) + smoothing
+  _spine.unshift({x:p.x,y:p.y}); if(_spine.length>TRAIL.nodes) _spine.pop();
+  for(let i=1;i<_spine.length;i++){ _spine[i].x=_lerp(_spine[i].x,_spine[i-1].x,TRAIL.smooth); _spine[i].y=_lerp(_spine[i].y,_spine[i-1].y,TRAIL.smooth); }
+  ctx.globalCompositeOperation='lighter';   // ADD blend = light reads as light
+  const t=now/1000;
+  function ribbon(widthMul, alpha, trip){ if(_spine.length<2) return;
+    ctx.beginPath();
+    for(let i=0;i<_spine.length;i++){ const A=_spine[i], Bn=_spine[Math.min(i+1,_spine.length-1)];
+      const ang=Math.atan2(Bn.y-A.y,Bn.x-A.x)+Math.PI/2, taper=i/_spine.length;
+      const off=Math.sin(t*TRAIL.waveSpeed + i*TRAIL.wavePhase)*TRAIL.waveAmp*k*taper;
+      const x=A.x+Math.cos(ang)*off, y=A.y+Math.sin(ang)*off;
+      i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+    const head=_spine[0], tail=_spine[_spine.length-1];
+    const g=ctx.createLinearGradient(head.x,head.y,tail.x,tail.y);
+    g.addColorStop(0,'rgba('+trip+','+alpha+')'); g.addColorStop(1,'rgba('+ML.deep+',0)');
+    ctx.strokeStyle=g; ctx.lineWidth=TRAIL.headWidth*widthMul*k; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.stroke(); }
+  ribbon(3.5,0.14,ML.amber); ribbon(1.8,0.45,headTrip); ribbon(0.6,0.95,ML.core);
+  _orb(ctx,p.x,p.y,18*k,headTrip,1);   // comet head
+  // sparkles ∝ velocity (still limb = none; fast move = erupts)
+  const vel=_spine[1]?Math.hypot(p.x-_spine[1].x,p.y-_spine[1].y):0;
+  if(Math.random()<vel*SPARK.spawnPerVel*0.05){ _sparks.push({x:p.x,y:p.y,vx:(Math.random()-0.5)*1.2,vy:-Math.random()*SPARK.drift-0.2,born:now,ttl:_lerp(SPARK.ttl[0],SPARK.ttl[1],Math.random()),r:_lerp(SPARK.size[0],SPARK.size[1],Math.random())*k}); }
+  _sparks=_sparks.filter(s=>{ const age=(now-s.born)/s.ttl; if(age>=1) return false; s.x+=s.vx; s.y+=s.vy; s.vy-=0.01; const tw=0.6+0.4*Math.sin(now/80+s.x); _orb(ctx,s.x,s.y,s.r*(1-age*0.5),ML.core,(1-age)*tw); return true; });
+  // direction chevron — top strip only (never on the body)
+  const dir=/right/i.test(cueKey)?'right':(/left/i.test(cueKey)?'left':(/shoulder|knee/.test(cueKey)?'up':'none'));
+  if(dir!=='none' && !/free/.test(cueKey)){ const ang= dir==='left'?Math.PI : dir==='right'?0 : -Math.PI/2; _chevron(ctx, W*0.5, H*0.09, ang, k, headTrip, now); }
+  ctx.globalCompositeOperation='source-over';
 }
 
 // ── KEYPOINT-ANCHORED AURA CUES ─────────────────────────────────────────
