@@ -267,7 +267,7 @@
   <div id="stage">
     <div id="nova-side">
       <video id="nova-vid" playsinline preload="auto" loop>
-        <source src="handywave-full.mp4" type="video/mp4">
+        <source src="handywave.mp4" type="video/mp4">
       </video>
       <video id="nova-live" playsinline autoplay></video>
       <div id="nova-status"></div>
@@ -349,17 +349,22 @@ function zoneState(state){ const z=game.cueZone; if(!z) return;
 // ---- CUE TIMELINE (video.currentTime ms; music = handywave.mp4, ~28.5s) -
 const VIDEO_START = 0;           // play from the start so the kid can anticipate
 const CUES = (()=>{
-  // Refael's wave loop on the song's ~1s beat, starting ~7s. The 8-move sequence
-  // repeats (she does it again in the opposite direction): wrist, shoulder, elbow,
-  // shoulder, wrist, elbow, wrist, wrist. Beat ≈ 1.0s; tweak GAP if it drifts.
-  const out=[];
-  const SEQ=['wrist-wave','shoulder-roll','elbow-pump','shoulder-roll','wrist-wave','elbow-pump','wrist-wave','wrist-wave'];
-  const GAP=1.0, DUR=900, START=7, END=57;
-  let i=0; for(let t=START; t<END; t+=GAP, i++){ out.push({ t:Math.round(t*1000), dur:DUR, action:SEQ[i%SEQ.length] }); }
-  out.push({ t:Math.round(END*1000), dur:1800, action:'free' });
+  // Exact timeline from nova-games-joints-timing.md (GAME 3 — HAND WAVE, handywave.mp4 28.5s).
+  // Practice each part, then the 6-count wave chain, then freestyle.
+  const out=[]; const add=(sec,action,durMs)=>out.push({ t:Math.round(sec*1000), dur:durMs, action });
+  // 4-8s shoulder-roll practice / 8-12 elbow / 12-18 wrist
+  add(4.5,'shoulder-roll',1600); add(6.5,'shoulder-roll',1500);
+  add(8.5,'elbow-pump',1600);    add(10.5,'elbow-pump',1500);
+  add(12.5,'wrist-wave',1600);   add(14.5,'wrist-wave',1600); add(16.5,'wrist-wave',1300);
+  // 18-23s FULL WAVE CHAIN — 6-count shown as a sequence (wrist→elbow→shoulder→shoulder→elbow→wrist)
+  // NOTE: true Pattern-D sequential chain SCORING is a follow-up; this lays the chain visually on the beat.
+  const chain=['wrist-wave','elbow-pump','shoulder-roll','shoulder-roll','elbow-pump','wrist-wave'];
+  let t=18.0; chain.forEach(a=>{ add(t,a,760); t+=0.83; });
+  // 23-28s freestyle wave
+  add(23.2,'free',5000);
   return out.sort((a,b)=>a.t-b.t);
 })();
-const SONG_END = 58.4;           // seconds — full wave (part1 28.5s + wave2 30s = 58.5s)
+const SONG_END = 28.4;           // seconds — handywave.mp4 (per spec)
 
 // ---- SVG MOVE FIGURES ---------------------------------------------------
 // A simple front-facing figure (mirror of the kid). Active part glows + arrow.
