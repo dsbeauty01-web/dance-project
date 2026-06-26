@@ -662,51 +662,57 @@ function drawSkeleton(kps){
       x.fillText(k.name.replace('_',' '), px+11, py); } }}); }
   // CUE → kid: LIGHT UP the actual body part (glowing limb segments) + a direction arrow.
   hideAuras();                 // not using the HTML circle-auras anymore
-  drawCueGlow(x, m, X, Y);
+  drawSmartLight(x, m, X, Y);
 }
 
-// Light the cued BODY PART on the canvas: a glowing thick stroke along the relevant
-// bones (shoulders line / hip line / arm) or a glow ring around the head, + an arrow.
-// LIQUID AURA — soft drifting glow blobs centred ON each cued body part + a small arrow.
-function liquidAura(ctx, cx, cy, r, col, t){ ctx.save(); ctx.globalCompositeOperation='screen';
-  for(let i=0;i<3;i++){ const a=t/600 + i*2.1;
-    const ox=Math.cos(a)*r*0.18, oy=Math.sin(a*1.3)*r*0.18, rr=r*(0.85+0.14*Math.sin(a));
-    const g=ctx.createRadialGradient(cx+ox,cy+oy,0,cx+ox,cy+oy,rr);
-    g.addColorStop(0,'rgba('+col+',.55)'); g.addColorStop(1,'rgba('+col+',0)');
-    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx+ox,cy+oy,rr,0,7); ctx.fill(); }
-  ctx.restore(); }
-function cueArrow(ctx, cx, cy, glyph, col){ if(!glyph) return; ctx.save();
-  ctx.font='900 30px system-ui,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.lineWidth=5; ctx.strokeStyle='rgba(0,0,0,.55)'; ctx.strokeText(glyph,cx,cy);
-  ctx.shadowBlur=10; ctx.shadowColor='rgba('+col+',.9)'; ctx.fillStyle='rgba('+col+',.97)'; ctx.fillText(glyph,cx,cy); ctx.restore(); }
-// per-part glow size — head & hips BIGGER, limbs (shoulder/elbow/wrist) small.
-function cuePartSize(name, bodyW){
-  if(name==='nose')        return Math.max(48, bodyW*0.60);   // head — bigger
-  if(/hip/.test(name))     return Math.max(42, bodyW*0.52);   // hips — bigger
-  if(/shoulder/.test(name))return Math.max(26, bodyW*0.30);   // small
-  if(/elbow/.test(name))   return Math.max(24, bodyW*0.27);   // small
-  if(/wrist/.test(name))   return Math.max(22, bodyW*0.25);   // small
-  return Math.max(26, bodyW*0.30);
+// ── NOVA SMART LIGHT ── focus ring + direction arrow + live motion trail, drawn ON
+// the cued body part (per nova-smart-light.md). Condensed, tracks the keypoint,
+// colour = cue state. Never a floating text box; always fades when the cue clears.
+const LIGHT_COL = { armed:'255,170,0', hit:'0,255,136', messy:'255,155,61', miss:'255,77,109', streak:'255,111,216' };
+let _trail = [];            // FIFO of recent anchor {x,y} (motion trail)
+let _anchorSmooth = null;   // smoothed anchor (reduce jitter)
+function resetSmartLight(){ _trail.length=0; _anchorSmooth=null; }
+function smartAnchor(cueKey, m){
+  const mid=(a,b)=> (a&&b&&a.score>0.2&&b.score>0.2) ? {x:(a.x+b.x)/2,y:(a.y+b.y)/2,score:Math.min(a.score,b.score)} : (a&&a.score>0.2?a:(b&&b.score>0.2?b:null));
+  if(/head/.test(cueKey)) return m.nose&&m.nose.score>0.2?m.nose:null;
+  if(/shoulder/.test(cueKey)) return mid(m.left_shoulder,m.right_shoulder);
+  if(/hip/.test(cueKey)) return mid(m.left_hip,m.right_hip);
+  return m.nose&&m.nose.score>0.2?m.nose:null;   // free → head
 }
-function drawCueGlow(ctx, m, X, Y){
-  const cueKey=(window.__cuePart||''); if(!cueKey) return;
-  const isFree=/free/i.test(cueKey), isHead=/head/i.test(cueKey), isHip=/hip/i.test(cueKey);
+function drawSmartLight(ctx, m, X, Y){
+  const cueKey=(window.__cuePart||'');
+  if(!cueKey){ resetSmartLight(); return; }
+  const state=window.__cueState||'armed';
+  const col=LIGHT_COL[state]||LIGHT_COL.armed;
+  const isShoulder=/shoulder/.test(cueKey), isFree=/free/.test(cueKey);
   const dir=/right/i.test(cueKey)?1:(/left/i.test(cueKey)?-1:0);
-  const COL = isFree?'255,216,77' : dir<0?'120,180,255' : dir>0?'255,120,225' : '255,216,77'; // L blue / R pink / gold
-  const parts = isFree ? ['nose','left_shoulder','right_shoulder'] : (cuePartsFor(cueKey)||[]);
-  const ls=m['left_shoulder'], rs=m['right_shoulder'];
-  const shPx=(ls&&rs&&ls.score>0.2&&rs.score>0.2)?Math.abs(X(ls)-X(rs)):0;
-  const bodyW = shPx>20 ? shPx : 180;
-  const t=performance.now(); let anchor=null;
-  parts.forEach(n=>{ const k=m[n]; if(!k||k.score<0.18) return;
-    const r=cuePartSize(n, bodyW);
-    liquidAura(ctx, X(k), Y(k), r, COL, t);
-    if(!anchor) anchor={x:X(k), y:Y(k), r}; });
-  if(anchor && !isFree){ const sideArrow=(isHead||isHip);
-    const g = sideArrow ? (dir>0?'→':dir<0?'←':'↔') : '↑';
-    const ax = sideArrow ? anchor.x+dir*(anchor.r+24) : anchor.x;
-    const ay = sideArrow ? anchor.y : anchor.y-(anchor.r+22);
-    cueArrow(ctx, ax, ay, g, COL); }
+  const a=smartAnchor(cueKey,m); if(!a){ return; }
+  // smooth + trail
+  const px=X(a), py=Y(a);
+  if(!_anchorSmooth) _anchorSmooth={x:px,y:py}; else { _anchorSmooth.x=_anchorSmooth.x*0.55+px*0.45; _anchorSmooth.y=_anchorSmooth.y*0.55+py*0.45; }
+  const cx=_anchorSmooth.x, cy=_anchorSmooth.y;
+  _trail.push({x:cx,y:cy}); if(_trail.length>12) _trail.shift();
+  const pulse=0.5+0.5*Math.sin(performance.now()/240);
+  // 1) TRAIL — glowing streak through recent motion, fades head→tail
+  if(_trail.length>2){ ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round'; ctx.shadowBlur=14; ctx.shadowColor='rgba('+col+',.85)';
+    for(let i=1;i<_trail.length;i++){ const al=i/_trail.length;
+      ctx.strokeStyle='rgba('+col+','+(al*0.8).toFixed(2)+')'; ctx.lineWidth=2+5*al;
+      ctx.beginPath(); ctx.moveTo(_trail[i-1].x,_trail[i-1].y); ctx.lineTo(_trail[i].x,_trail[i].y); ctx.stroke(); }
+    ctx.restore(); }
+  // 2) FOCUS RING — condensed glowing ring on the keypoint (+ soft fill)
+  const r=24+4*pulse;
+  ctx.save(); ctx.shadowBlur=18; ctx.shadowColor='rgba('+col+',.9)';
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.lineWidth=5; ctx.strokeStyle='rgba('+col+','+(0.85+0.15*pulse)+')'; ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx,cy,r*0.5,0,7); ctx.fillStyle='rgba('+col+',0.16)'; ctx.fill();
+  ctx.restore();
+  // 3) DIRECTION ARROW — only while armed (fades on resolve)
+  if(state==='armed' && !isFree){
+    const glyph = isShoulder ? '↑' : (dir>0?'→':dir<0?'←':'↔');
+    const off=r+34, ax= isShoulder? cx : cx+dir*off, ay= isShoulder? cy-off : cy;
+    ctx.save(); ctx.shadowBlur=12; ctx.shadowColor='rgba('+col+',.9)'; ctx.font='900 40px system-ui,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.lineWidth=5; ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.strokeText(glyph,ax,ay);
+    ctx.fillStyle='rgba('+col+',0.96)'; ctx.fillText(glyph,ax,ay); ctx.restore();
+  }
 }
 
 // ── KEYPOINT-ANCHORED AURA CUES ─────────────────────────────────────────
@@ -786,7 +792,7 @@ async function startDance(){
   try{ $('greet-cam').srcObject=null; }catch(e){}
   // debug monitor: devs only (add ?debug to the URL). Kids never see the joints HUD.
   if(/[?&]debug/.test(location.search)) $('dbg').classList.remove('hidden');
-  window.__DOTS = !/[?&]nodots/.test(location.search);   // calibration: cyan joint dots ON by default (disable with ?nodots)
+  window.__DOTS = /[?&](dots|debug)/.test(location.search);   // calibration dots OFF by default (enable with ?dots)
   $('game').classList.remove('hidden');
   $('score-box').style.visibility='hidden'; $('combo-box').style.visibility='hidden'; // no score during warm-up
   cancelAnimationFrame(rafId); poseLoop();   // detection on
@@ -978,6 +984,7 @@ function openCue(c){
   game.cue=c; game.cueResolved=false; game.cueEnd=c.t+c.dur; game.total++;
   window.__cuePart=c.action;   // mark the cued body part ON the kid (overlay highlight)
   game.cueStart={ headDX:det.headDX, shTilt:det.shTilt, hipDX:det.hipDX }; game.cueMaxOther=0;  // P3 isolation baseline
+  window.__cueState='armed'; resetSmartLight();   // smart-light: new cue → armed (yellow), fresh trail
   const m=MOVES[c.action];
   // NO floating text card — the cue is drawn ON the kid's body (halo + arrow + center line).
   $('cue-figure').innerHTML=''; $('cue-label').textContent='';
@@ -1012,6 +1019,7 @@ function resolveHit(){
   const iso=Math.max(0,Math.min(1,1-(game.cueMaxOther||0)/ISO_TOL));
   const quality=0.5 + 0.3*iso + 0.2*(fast?1:0.6);
   game.lastQuality=quality; const clean=quality>=0.85;
+  window.__cueState = clean ? (game.combo>=3?'streak':'hit') : 'messy';   // smart-light colour
   game.cleanHits=(game.cleanHits||0)+(clean?1:0);
   const pts=Math.round(m.pts*(fast?1.5:1)*(clean?1.25:1)*(1+Math.min(game.combo,8)*0.1)); // isolation bonus
   game.score+=pts; game.hits++; game.combo++; game.maxCombo=Math.max(game.maxCombo,game.combo);
@@ -1034,6 +1042,7 @@ function resolveHit(){
   novaLocalReact('hit', game.combo, fast);
 }
 function resolveMiss(){
+  window.__cueState='miss';   // smart-light colour (soft red, gentle)
   game.combo=0; $('combo-box').textContent='x0';
   $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('miss'); zoneState('miss');
   pop('miss','#ff4d6d');
