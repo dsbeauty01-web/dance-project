@@ -1103,6 +1103,10 @@ function endGame(){
     maxCombo:game.maxCombo, thresholds:THRESH, byAction:by, log:game.log };
   window.__lastSession=summary;
   logPost('end', summary);
+  // AUTO-SAVE full session to Downloads (frontend record; backend logged on the worker).
+  try{ const blob=new Blob([JSON.stringify(summary,null,1)],{type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='nova-join-session.json';
+    document.body.appendChild(a); a.click(); setTimeout(()=>{ a.remove(); URL.revokeObjectURL(a.href); },1000); }catch(e){}
   console.log('[nova-join session]', summary);
   try{ const arr=JSON.parse(localStorage.getItem('nova_join_logs')||'[]');
     arr.push({date:summary.date,score:summary.score,hits:summary.hits,total:summary.total,byAction:by});

@@ -4157,6 +4157,13 @@ function endGame() {
   document.getElementById('end-detail').textContent =
     `${hits} of ${attempts} moves · best streak: ${maxCombo}`;
 
+  // AUTO-SAVE full session to Downloads (frontend record; backend logged on the worker).
+  try{ const summary={ date:new Date().toISOString(), game:'hello-hello', score, hits, attempts, maxCombo,
+      name:(memory&&memory.name)||null, sessions:(memory&&memory.sessions_count)||null };
+    const blob=new Blob([JSON.stringify(summary,null,1)],{type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='nova-hello-session.json';
+    document.body.appendChild(a); a.click(); setTimeout(()=>{ a.remove(); URL.revokeObjectURL(a.href); },1000); }catch(e){}
+
   // nova-joined: a forward "hook" so the ritual has a tomorrow. Teases the NEXT
   // move she'll teach, so the kid leaves wanting to come back.
   const hookEl = document.getElementById('end-hook');
