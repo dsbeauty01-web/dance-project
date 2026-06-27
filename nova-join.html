@@ -827,7 +827,7 @@ async function startDance(){
   $('game').classList.remove('hidden');
   $('score-box').style.visibility='hidden'; $('combo-box').style.visibility='hidden'; // no score during warm-up
   cancelAnimationFrame(rafId); poseLoop();   // detection on
-  await framingGate();                        // P2: make sure she can actually SEE the kid first
+  await presenceTest();                       // INTRO: "she sees me" — frame + one live move + her real reaction
   await runWarmup();                         // Phase 1b: guided isolation warm-up
   await countdown();
   beginGame();
@@ -853,6 +853,52 @@ async function framingGate(){
   }
   show("perfect — let's GO!"); await _sleep(500);
 }
+
+// ── INTRO PRESENCE TEST (CLI-SHARED-INTRO) — the "she sees me" moment ──────────
+// The magic before the game: Nova frames the kid, asks for ONE tiny action, and the
+// cue light blooms on that exact part ("here's where I'm looking"). MoveNet watches
+// that one signal live; the instant the kid does it she reacts to the REAL event.
+// Never a pass/fail — if they don't move, she warms them in anyway. No score, no music.
+async function presenceTest(){
+  window.__inPresence=true; window.__presenceSeen=false;
+  // 1) FRAMING — won't go on until she can actually see the upper body (gentle reframe)
+  const fdl=performance.now()+10000; let fl='';
+  const fcoach=t=>{ if(t!==fl){ fl=t; coach(t); } };
+  while(performance.now()<fdl){
+    if(det.framingOK) break;
+    if(!det.present)            fcoach('come where I can see you 💜');
+    else if(det.spanFrac>0.40)  fcoach('scooch back a little! 💜');
+    else if(det.joints<7)       fcoach('a bit more light on you? 💡');
+    else                        fcoach('head & shoulders in view 💜');
+    await _sleep(350);
+  }
+  // 2) ASK for ONE easy action; bloom the cue light on that exact part
+  const side = Math.random()<0.5 ? 'left' : 'right';
+  window.__cuePart = 'shoulder-'+side; window.__cueState='armed'; window.__cueQuality=null; resetSmartLight();
+  coach('lift your '+side.toUpperCase()+' shoulder for me! 🤚');
+  novaSend({ kind:'game-event', event:{ event:'presence_ask', action:'shoulder', side } });   // she asks, in her words
+  // 3) WATCH that one signal live — react within ~0.5s of the real thing
+  const pdl=performance.now()+8000; let nudged=false;
+  while(performance.now()<pdl){
+    if(det.present && Math.abs(det.shTilt) > THRESH.sh*1.1){ window.__presenceSeen=true; break; }
+    if(!nudged && performance.now()>pdl-3500){ nudged=true; coach('take your time… whenever you’re ready 💜'); }
+    await _sleep(110);
+  }
+  // 4) REACT to what actually happened (never a fail)
+  if(window.__presenceSeen){
+    window.__cueState='streak'; window.__cueQuality=0.95;          // light flares mint
+    coach('WHOA — I SAW that! your '+side+' shoulder went UP! ✨');
+    novaSend({ kind:'game-event', event:{ event:'presence_seen', action:'shoulder', side } });
+  } else {
+    window.__cueState='hit';
+    coach('there you are — I see you! let’s dance 💜');
+    novaSend({ kind:'game-event', event:{ event:'presence_timeout' } });
+  }
+  await _sleep(1700);
+  window.__cuePart=null; window.__cueState='armed'; window.__cueQuality=null; resetSmartLight();
+  window.__inPresence=false;
+}
+window.__presenceTest=presenceTest;   // (self-test hook)
 
 // Guided isolation warm-up — Nova walks the kid through each body part before the
 // song. Forgiving on purpose (it's practice): the specific signal OR any movement
