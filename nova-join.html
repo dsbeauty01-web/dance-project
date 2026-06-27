@@ -393,7 +393,7 @@ function setZone(z, state){
   ['zone-left','zone-right','zone-full'].forEach(id=>$(id).classList.remove('show','armed','hit','miss'));
   if(!z) return;
   const id = z==='left'?'zone-left':z==='right'?'zone-right':'zone-full';
-  const e=$(id); e.textContent = z==='full'?'🕺':(z==='left'?'←':'→'); e.classList.add('show', state||'armed');
+  const e=$(id); e.textContent=''; e.classList.add('show', state||'armed');   // edge GLOW only — no stray arrow glyph (direction = top-strip chevron)
 }
 function zoneState(state){ const z=game.cueZone; if(!z) return;
   const id=z==='left'?'zone-left':z==='right'?'zone-right':'zone-full';
@@ -647,6 +647,8 @@ function drawSkeleton(kps){
   const c=$('overlay'); const x=c.getContext('2d'); const {scale,ox,oy}=coverMap();
   const X=p=> c.width - (p.x*scale+ox), Y=p=>p.y*scale+oy;
   const m={}; kps.forEach(k=>m[k.name]=k);
+  if(window.__expose){ window.__scr={}; ['nose','left_ear','right_ear','left_shoulder','right_shoulder','left_hip','right_hip']
+    .forEach(n=>{ const kk=m[n]; window.__scr[n]= (kk&&kk.score>=0.5)?{x:Math.round(X(kk)),y:Math.round(Y(kk)),s:+kk.score.toFixed(2)}:null; }); }
   hideAuras();
   renderMagic(x, m, X, Y, c.width, c.height);
 }
@@ -658,8 +660,10 @@ function drawSkeleton(kps){
 const ML = { core:'255,253,245', gold:'255,210,122', amber:'255,166,61', deep:'242,115,12', clean:'191,255,200', messy:'255,122,61' };
 const TRAIL = { nodes:22, smooth:0.35, waveAmp:14, waveSpeed:6.0, wavePhase:0.55, headWidth:16, fade:0.16 };
 const SPARK = { spawnPerVel:0.6, ttl:[400,900], drift:0.4, size:[1,3] };
-let _spine=[], _sparks=[];
-function resetSmartLight(){ _spine.length=0; _sparks.length=0; _activeJoint=null; }   // (name kept — called by cue lifecycle)
+let _sparks=[];
+let _wrap={}, _bursts=[], _burstPending=null;   // per-anchor wrap spines + outward-burst state
+function resetSmartLight(){ _wrap={}; _sparks.length=0; _bursts.length=0; _burstPending=null; }   // (cue lifecycle)
+window.__fireBurst = q => { _burstPending = (q==null?0.8:q); };   // resolveHit fires this on a hit
 function _lerp(a,b,t){ return a+(b-a)*t; }
 function _mix(t1,t2,f){ const a=t1.split(',').map(Number),b=t2.split(',').map(Number); return a.map((v,i)=>Math.round(_lerp(v,b[i],f))).join(','); }
 function _orb(c,x,y,r,trip,alpha){ if(r<=0) return; const g=c.createRadialGradient(x,y,0,x,y,r);
@@ -672,79 +676,117 @@ function _chevron(c,cx,cy,ang,k,trip,now){
     c.beginPath(); c.moveTo(pts[0][0],pts[0][1]); c.lineTo(pts[1][0],pts[1][1]); c.lineTo(pts[2][0],pts[2][1]);
     c.strokeStyle='rgba('+trp+','+al+')'; c.lineWidth=w*wm; c.stroke(); }
   c.restore(); }
-// FOLLOW-THE-MOVER (nova-light-final spec): don't prescribe a joint — watch ALL of
-// them and light whichever one is actually MOVING. Direction emerges from the trail.
-// Same pretty Pixar ribbon; colour still driven by the cue scoring state.
-const FOLLOW_JOINTS=['left_wrist','right_wrist','left_elbow','right_elbow',
-  'left_shoulder','right_shoulder','nose','left_hip','right_hip','left_knee','right_knee'];
-const FOLLOW = { gate:0.35, smooth:3, vThresh:4.5 };   // vThresh × body-unit k
-const _jraw={}, _jhist={}; let _activeJoint=null;
-function _jblank(j){ _jraw[j]=[]; _jhist[j]=[]; }
-FOLLOW_JOINTS.forEach(_jblank);
-
-function renderMagic(ctx, m, X, Y, W, H){
-  // trail persistence — fade old light (destination-out keeps the webcam clear, never darkens it)
-  ctx.globalCompositeOperation='destination-out'; ctx.fillStyle='rgba(0,0,0,'+TRAIL.fade+')'; ctx.fillRect(0,0,W,H);
-  ctx.globalCompositeOperation='source-over';
-  const now=performance.now();
-  // body-relative unit (shoulder span on screen)
-  const ls=m.left_shoulder, rs=m.right_shoulder;
-  const unit=(ls&&rs&&ls.score>0.3&&rs.score>0.3)?Math.hypot(X(ls)-X(rs),Y(ls)-Y(rs)):180;
-  const k=Math.max(0.4,Math.min(3, unit/220));
-  // 1) smooth each tracked joint's SCREEN position (X/Y already mirror-correct); drop low-confidence
-  for(const j of FOLLOW_JOINTS){ const kp=m[j];
-    if(!kp || kp.score<FOLLOW.gate){ _jblank(j); continue; }   // missing limb = no light, no stale smear
-    const rb=_jraw[j]; rb.push({x:X(kp),y:Y(kp)}); if(rb.length>FOLLOW.smooth) rb.shift();
-    let ax=0,ay=0; for(const p of rb){ax+=p.x;ay+=p.y;} ax/=rb.length; ay/=rb.length;
-    const h=_jhist[j]; h.push({x:ax,y:ay}); if(h.length>6) h.shift();
+// ── ANCHORED WRAP + OUTWARD BURST (CLI-UPGROOVE-DETAIL spec) ──────────────
+// Prescriptive: the light sits ON the cued keypoint(s) — EARS for head (NEVER the
+// nose), shoulders, hips — each gated ≥0.5 with no fallback. A tight gold wrap hugs
+// the joint; on a hit the joint SHOUTS light OUTWARD (radial rays away from the torso,
+// narrowing as they extend). Colour by quality: clean→mint-gold, messy→amber.
+const GATE = 0.5;   // every anchor keypoint gated ≥0.5 (spec) — below this, draw nothing for it
+const WRAP = { nodes:7, smooth:0.45, waveAmp:5, waveSpeed:6.0, wavePhase:0.8, headWidth:13, coreR:15, fade:0.20 };
+// which ON-SCREEN points the cue lights. Side resolved by screen-X so the light always
+// matches the side the kid actually moves (mirror-proof). Ears for head — no nose anywhere.
+function magicAnchors(cueKey, m, X, Y){
+  const ok=k=>k&&k.score>=GATE, pt=k=>({x:X(k),y:Y(k)});
+  const side=(a,b,wantLeft)=>{ const A=ok(a)?pt(a):null, B=ok(b)?pt(b):null;
+    if(A&&B) return wantLeft?(A.x<B.x?A:B):(A.x>B.x?A:B); return A||B||null; };
+  const both=(a,b)=>{ const o=[]; if(ok(a))o.push(pt(a)); if(ok(b))o.push(pt(b)); return o; };
+  const out=[];
+  if(/head/.test(cueKey)){
+    if(/left/.test(cueKey)){ const p=side(m.left_ear,m.right_ear,true); if(p) out.push(p); }
+    else if(/right/.test(cueKey)){ const p=side(m.left_ear,m.right_ear,false); if(p) out.push(p); }
+    else out.push(...both(m.left_ear,m.right_ear));
+  } else if(/shoulder/.test(cueKey)){
+    if(/left/.test(cueKey)){ const p=side(m.left_shoulder,m.right_shoulder,true); if(p) out.push(p); }
+    else if(/right/.test(cueKey)){ const p=side(m.left_shoulder,m.right_shoulder,false); if(p) out.push(p); }
+    else out.push(...both(m.left_shoulder,m.right_shoulder));
+  } else if(/hip/.test(cueKey)){
+    out.push(...both(m.left_hip,m.right_hip));   // hips = both, swaying out
+  } else if(/knee/.test(cueKey)){
+    if(/left/.test(cueKey)){ const p=side(m.left_knee,m.right_knee,true); if(p) out.push(p); }
+    else if(/right/.test(cueKey)){ const p=side(m.left_knee,m.right_knee,false); if(p) out.push(p); }
+    else out.push(...both(m.left_knee,m.right_knee));
+  } else if(/free|groove/.test(cueKey)){
+    out.push(...both(m.left_ear,m.right_ear), ...both(m.left_hip,m.right_hip));   // Round 2 = head+hips together
   }
-  // 2) pick the single fastest-moving joint over threshold
-  let active=null,bestV=0;
-  for(const j of FOLLOW_JOINTS){ const h=_jhist[j]; if(h.length<2) continue;
-    const a=h[h.length-1], b=h[h.length-2]; const v=Math.hypot(a.x-b.x,a.y-b.y);
-    if(v>FOLLOW.vThresh*k && v>bestV){ bestV=v; active=j; } }
-  window.__activeJointDbg=active;   // (debug hook for the self-test harness)
-  // 3) quality colour from the cue scoring state (clean→mint-gold, messy→amber, default warm gold)
+  return out;
+}
+function _bodyCenter(m, X, Y){
+  const ok=k=>k&&k.score>=GATE; const ps=[m.left_shoulder,m.right_shoulder,m.left_hip,m.right_hip].filter(ok);
+  if(!ps.length) return null; let sx=0,sy=0; ps.forEach(k=>{ sx+=X(k); sy+=Y(k); }); return {x:sx/ps.length,y:sy/ps.length};
+}
+function _spawnBurst(a, center, q, k, trip, now){
+  const base = center ? Math.atan2(a.y-center.y, a.x-center.x) : -Math.PI/2;   // OUTWARD from torso
+  const n = 5 + Math.round(Math.max(0,Math.min(1,q))*4);    // 5..9 rays by quality
+  const rays=[]; for(let i=0;i<n;i++){ const f=n>1?(i/(n-1)-0.5):0;
+    rays.push({ a:base + f*(70*Math.PI/180), lenMul:0.8+( (i*0.37)%0.5 ), wMul:0.6+((i*0.29)%0.8) }); }
+  _bursts.push({ x:a.x, y:a.y, born:now, ttl:430, maxLen:72*k, trip, rays });
+  for(let i=0;i<n;i++){ const ang=base+(((i*0.41)%1)-0.5)*(70*Math.PI/180); const sp=(1.4+((i*0.53)%1.6))*k;
+    _sparks.push({ x:a.x, y:a.y, vx:Math.cos(ang)*sp, vy:Math.sin(ang)*sp-0.2, born:now,
+      ttl:_lerp(SPARK.ttl[0],SPARK.ttl[1],(i*0.17)%1), r:_lerp(SPARK.size[0],SPARK.size[1],(i*0.23)%1)*k }); }
+}
+function renderMagic(ctx, m, X, Y, W, H){
+  // fade old light (destination-out keeps the webcam clear, never darkens it)
+  ctx.globalCompositeOperation='destination-out'; ctx.fillStyle='rgba(0,0,0,'+WRAP.fade+')'; ctx.fillRect(0,0,W,H);
+  ctx.globalCompositeOperation='source-over';
+  const now=performance.now(); const cueKey=(window.__cuePart||'');
+  // body-relative unit k = shoulderDist/220
+  const ls=m.left_shoulder, rs=m.right_shoulder;
+  const unit=(ls&&rs&&ls.score>=GATE&&rs.score>=GATE)?Math.hypot(X(ls)-X(rs),Y(ls)-Y(rs)):180;
+  const k=Math.max(0.4,Math.min(3, unit/220));
+  // live quality colour
   const qMap={armed:0.6,hit:0.85,streak:0.95,messy:0.35,miss:0.2};
   const q=(window.__cueQuality!=null)?window.__cueQuality:(qMap[window.__cueState]||0.6);
-  const headTrip = q>0.66 ? _mix(ML.gold,ML.clean,(q-0.66)/0.34) : q<0.4 ? _mix(ML.gold,ML.messy,(0.4-q)/0.4) : ML.gold;
+  const trip = q>0.66 ? _mix(ML.gold,ML.clean,(q-0.66)/0.34) : q<0.4 ? _mix(ML.gold,ML.messy,(0.4-q)/0.4) : ML.gold;
 
-  if(active){
-    if(active!==_activeJoint){ _spine.length=0; _activeJoint=active; }   // limb switched → fresh trail (no jump)
-    const head=_jhist[active][_jhist[active].length-1];
-    _spine.unshift({x:head.x,y:head.y}); if(_spine.length>TRAIL.nodes) _spine.pop();
-    for(let i=1;i<_spine.length;i++){ _spine[i].x=_lerp(_spine[i].x,_spine[i-1].x,TRAIL.smooth); _spine[i].y=_lerp(_spine[i].y,_spine[i-1].y,TRAIL.smooth); }
-    ctx.globalCompositeOperation='lighter';   // ADD blend = light reads as light
-    const t=now/1000;
-    function ribbon(widthMul, alpha, trip){ if(_spine.length<2) return;
-      ctx.beginPath();
-      for(let i=0;i<_spine.length;i++){ const A=_spine[i], Bn=_spine[Math.min(i+1,_spine.length-1)];
-        const ang=Math.atan2(Bn.y-A.y,Bn.x-A.x)+Math.PI/2, taper=i/_spine.length;
-        const off=Math.sin(t*TRAIL.waveSpeed + i*TRAIL.wavePhase)*TRAIL.waveAmp*k*taper;
-        const x=A.x+Math.cos(ang)*off, y=A.y+Math.sin(ang)*off;
-        i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
-      const hd=_spine[0], tl=_spine[_spine.length-1];
-      const g=ctx.createLinearGradient(hd.x,hd.y,tl.x,tl.y);
-      g.addColorStop(0,'rgba('+trip+','+alpha+')'); g.addColorStop(1,'rgba('+ML.deep+',0)');
-      ctx.strokeStyle=g; ctx.lineWidth=TRAIL.headWidth*widthMul*k; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.stroke(); }
-    ribbon(3.5,0.14,ML.amber); ribbon(1.8,0.45,headTrip); ribbon(0.6,0.95,ML.core);
-    _orb(ctx,head.x,head.y,26*k,ML.amber,0.28);   // soft dreamy halo (magic wand-tip bloom)
-    _orb(ctx,head.x,head.y,18*k,headTrip,1);       // warm core
-    // sparkles ∝ velocity (still limb = none; fast move = erupts)
-    if(Math.random()<bestV*SPARK.spawnPerVel*0.05){ _sparks.push({x:head.x,y:head.y,vx:(Math.random()-0.5)*1.2,vy:-Math.random()*SPARK.drift-0.2,born:now,ttl:_lerp(SPARK.ttl[0],SPARK.ttl[1],Math.random()),r:_lerp(SPARK.size[0],SPARK.size[1],Math.random())*k}); }
-    ctx.globalCompositeOperation='source-over';
-  } else { _activeJoint=null; _spine.length=0; }
+  const anchors = cueKey ? magicAnchors(cueKey,m,X,Y) : [];
+  window.__anchorsDbg = anchors.map(a=>({x:Math.round(a.x),y:Math.round(a.y)}));   // (self-test hook)
+  const center = _bodyCenter(m,X,Y);
+  // pending burst from a hit → fire OUTWARD from each lit anchor
+  if(_burstPending!=null){ if(anchors.length) anchors.forEach(a=>_spawnBurst(a,center,_burstPending,k,trip,now)); _burstPending=null; }
 
-  // sparkles finish their life even after the limb stops
-  ctx.globalCompositeOperation='lighter';
-  _sparks=_sparks.filter(s=>{ const age=(now-s.born)/s.ttl; if(age>=1) return false; s.x+=s.vx; s.y+=s.vy; s.vy-=0.01; const tw=0.6+0.4*Math.sin(now/80+s.x); _orb(ctx,s.x,s.y,s.r*(1-age*0.5),ML.core,(1-age)*tw); return true; });
+  ctx.globalCompositeOperation='lighter';   // ADD blend = light reads as light
+  const t=now/1000;
+  // LAYER A — tight wrap hugging each cued joint (short spine + sine shimmer)
+  anchors.forEach((a,idx)=>{
+    let sp=_wrap[idx]||(_wrap[idx]=[]);
+    sp.unshift({x:a.x,y:a.y}); if(sp.length>WRAP.nodes) sp.pop();
+    for(let i=1;i<sp.length;i++){ sp[i].x=_lerp(sp[i].x,sp[i-1].x,WRAP.smooth); sp[i].y=_lerp(sp[i].y,sp[i-1].y,WRAP.smooth); }
+    function ribbon(widthMul, alpha, trp){ if(sp.length<2) return; ctx.beginPath();
+      for(let i=0;i<sp.length;i++){ const A=sp[i], Bn=sp[Math.min(i+1,sp.length-1)];
+        const ang=Math.atan2(Bn.y-A.y,Bn.x-A.x)+Math.PI/2, taper=i/sp.length;
+        const off=Math.sin(t*WRAP.waveSpeed + i*WRAP.wavePhase)*WRAP.waveAmp*k*taper;
+        const x=A.x+Math.cos(ang)*off, y=A.y+Math.sin(ang)*off; i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+      const hd=sp[0], tl=sp[sp.length-1]; const g=ctx.createLinearGradient(hd.x,hd.y,tl.x,tl.y);
+      g.addColorStop(0,'rgba('+trp+','+alpha+')'); g.addColorStop(1,'rgba('+ML.deep+',0)');
+      ctx.strokeStyle=g; ctx.lineWidth=WRAP.headWidth*widthMul*k; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.stroke(); }
+    ribbon(3.2,0.14,ML.amber); ribbon(1.7,0.45,trip); ribbon(0.6,0.95,ML.core);
+    _orb(ctx,a.x,a.y,WRAP.coreR*k*1.4,ML.amber,0.26);   // soft halo
+    _orb(ctx,a.x,a.y,WRAP.coreR*k,trip,1);               // bright comet core ON the joint
+  });
+  for(const key in _wrap){ if(+key>=anchors.length) delete _wrap[key]; }   // drop stale spines
+
+  // LAYER B — outward bursts (the "shout"): rays narrow as they extend, gold→white
+  _bursts=_bursts.filter(b=>{ const age=(now-b.born)/b.ttl; if(age>=1) return false;
+    const reach=b.maxLen*(age<0.55?age/0.55:1), al=1-age;
+    for(const r of b.rays){ const x1=b.x+Math.cos(r.a)*reach*r.lenMul, y1=b.y+Math.sin(r.a)*reach*r.lenMul;
+      const g=ctx.createLinearGradient(b.x,b.y,x1,y1);
+      g.addColorStop(0,'rgba('+b.trip+',0)'); g.addColorStop(0.35,'rgba('+b.trip+','+(0.75*al)+')'); g.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.strokeStyle=g; ctx.lineWidth=Math.max(1,6*k*al*r.wMul); ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(x1,y1); ctx.stroke();
+      _orb(ctx,x1,y1,3.2*k*al,'255,255,255',al); }
+    return true; });
+  // sparkle freckles riding the rays outward
+  _sparks=_sparks.filter(s=>{ const age=(now-s.born)/s.ttl; if(age>=1) return false; s.x+=s.vx; s.y+=s.vy; s.vy-=0.012; const tw=0.6+0.4*Math.sin(now/80+s.x); _orb(ctx,s.x,s.y,s.r*(1-age*0.5),ML.core,(1-age)*tw); return true; });
   ctx.globalCompositeOperation='source-over';
 
-  // direction chevron — top strip only (never on the body), from the active cue if any
-  const cueKey=(window.__cuePart||'');
-  if(cueKey && !/free/.test(cueKey)){ const dir=/right/i.test(cueKey)?'right':(/left/i.test(cueKey)?'left':(/shoulder|knee|hip/.test(cueKey)?'up':'none'));
-    if(dir!=='none'){ const ang= dir==='left'?Math.PI : dir==='right'?0 : -Math.PI/2; ctx.globalCompositeOperation='lighter'; _chevron(ctx, W*0.5, H*0.09, ang, k, headTrip, now); ctx.globalCompositeOperation='source-over'; } }
+  // direction chevron — TOP STRIP ONLY (alternating ears flip it), never on the body
+  if(cueKey && !/free/.test(cueKey)){
+    const dir=/right/i.test(cueKey)?'right':(/left/i.test(cueKey)?'left':(/shoulder|knee|hip/.test(cueKey)?'up':'none'));
+    if(dir!=='none'){ const ang= dir==='left'?Math.PI : dir==='right'?0 : -Math.PI/2;
+      ctx.globalCompositeOperation='lighter'; _chevron(ctx, W*0.5, H*0.09, ang, k, trip, now); ctx.globalCompositeOperation='source-over'; }
+  }
 }
+window.__renderMagic=renderMagic; window.__magicAnchors=magicAnchors; window.__resetLight=resetSmartLight;   // (self-test hooks)
 
 // ── KEYPOINT-ANCHORED AURA CUES ─────────────────────────────────────────
 // Drives real HTML/CSS elements (transparent "lighten-up" glow + glowing arrow)
@@ -1016,7 +1058,7 @@ function openCue(c){
   game.cue=c; game.cueResolved=false; game.cueEnd=c.t+c.dur; game.total++;
   window.__cuePart=c.action;   // mark the cued body part ON the kid (overlay highlight)
   game.cueStart={ headDX:det.headDX, shTilt:det.shTilt, hipDX:det.hipDX }; game.cueMaxOther=0;  // P3 isolation baseline
-  window.__cueState='armed'; resetSmartLight();   // smart-light: new cue → armed (yellow), fresh trail
+  window.__cueState='armed'; window.__cueQuality=null; resetSmartLight();   // new cue → armed (warm gold), fresh wrap
   const m=MOVES[c.action];
   // NO floating text card — the cue is drawn ON the kid's body (halo + arrow + center line).
   $('cue-figure').innerHTML=''; $('cue-label').textContent='';
@@ -1027,7 +1069,8 @@ function openCue(c){
   // timer bar shrink across the window
   const bar=$('cue-timer'); bar.style.transition='none'; bar.style.transform='scaleX(1)';
   void bar.offsetWidth; bar.style.transition=`transform ${c.dur}ms linear`; bar.style.transform='scaleX(0)';
-  coach(m.coach);
+  // NO caption pill on cues (spec): the move reads from the light on the body + the
+  // top-strip chevron. Nova still says it with her voice.
   // announce locally ONLY when Nova's live brain is offline (else she'd be doubled)
   if(!novaRoom) say(m.name.replace(/[←→↑↔]/g,'').trim());
 }
@@ -1052,6 +1095,7 @@ function resolveHit(){
   const quality=0.5 + 0.3*iso + 0.2*(fast?1:0.6);
   game.lastQuality=quality; const clean=quality>=0.85;
   window.__cueState = clean ? (game.combo>=3?'streak':'hit') : 'messy';   // smart-light colour
+  window.__cueQuality=quality; try{ window.__fireBurst(quality); }catch(e){}   // SHOUT the light outward on the hit
   game.cleanHits=(game.cleanHits||0)+(clean?1:0);
   const pts=Math.round(m.pts*(fast?1.5:1)*(clean?1.25:1)*(1+Math.min(game.combo,8)*0.1)); // isolation bonus
   game.score+=pts; game.hits++; game.combo++; game.maxCombo=Math.max(game.maxCombo,game.combo);
@@ -1155,8 +1199,7 @@ function startClosing(){
 }
 
 // ---- small helpers ------------------------------------------------------
-function pop(text,color){ const fx=$('fx'); const e=document.createElement('div'); e.className='pop'; e.textContent=text; e.style.color=color;
-  e.style.left=(20+Math.random()*55)+'%'; e.style.top=(30+Math.random()*30)+'%'; fx.appendChild(e); setTimeout(()=>e.remove(),900); }
+function pop(){ /* no on-body score text (spec): the score lives in the corner box only */ }
 let coachT=0; function coach(msg){ const c=$('coach'); c.textContent=msg; c.classList.add('show'); clearTimeout(coachT); coachT=setTimeout(()=>c.classList.remove('show'),1800); }
 let _standT=0; function coachStand(){ const n=Date.now(); if(n-_standT<6000) return; _standT=n; coach('stand back so I can see your legs! 🦵'); }
 // local reactions so Nova still feels alive when her live worker is offline
