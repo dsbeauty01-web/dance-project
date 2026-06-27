@@ -134,6 +134,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 <script src="nova-light.js"></script>
+<script src="nova-report.js"></script>
 <script>
 "use strict";
 const $=id=>document.getElementById(id);
@@ -285,6 +286,7 @@ const MOVES={
 };
 const SEQ=[['head-left',1500],['head-right',1500],['shoulder-left',1600],['shoulder-right',1600],
   ['hips-left',1500],['hips-right',1500],['head-left',1300],['shoulder-right',1300],['free',5000]];
+try{ window.CUES=SEQ.map(s=>({action:s[0],dur:s[1]})); }catch(e){}   // expose for nova-report.js
 let lastSpeak=0;
 async function playGame(){
   game.running=true; game.score=0; game.combo=0; $('streak').classList.add('show');
