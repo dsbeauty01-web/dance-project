@@ -542,8 +542,8 @@ async function poseLoop(){
   if(_n-_lastTick>1500){ _lastTick=_n; logPost('tick',{ present:det.present, joints:det.joints,
     headDX:+det.headDX.toFixed(2), shTilt:+det.shTilt.toFixed(2), hipDX:+det.hipDX.toFixed(2),
     knee:+det.kneeLift.toFixed(2), motion:+det.motion.toFixed(2), playing:!!game.running, cue:game.cue&&game.cue.action }); }
-  // P6 energy mirror — report the kid's movement energy so Nova matches her tone (~5s)
-  if(novaRoom && _n-(window.__lastEnergy||0)>5000){ window.__lastEnergy=_n;
+  // P6 energy mirror — report the kid's movement energy so Nova matches her tone (~20s, context only)
+  if(novaRoom && _n-(window.__lastEnergy||0)>20000){ window.__lastEnergy=_n;
     const lvl = det.motion>0.12?'high':(det.motion<0.04?'low':'med');
     novaSend({ kind:'game-event', event:{ event:'energy', level:lvl } }); }
   // P1/P2 — gentle framing + lighting nudge so detection actually works (the cafe-miss fix).
@@ -1023,7 +1023,8 @@ function openCue(c){
   $('cue').classList.add('show','lean');   // thin timer bar only
   $('cam-wrap').classList.remove('hit','miss'); $('cam-wrap').classList.add('armed');
   game.cueZone = ZONE[c.action]; setZone(game.cueZone,'armed');
-  novaSend({ kind:'game-event', event:{ event:'move_cue', action:c.action } });
+  // NOTE: no per-cue event to Nova during the dance — the LIGHT calls the move, not her
+  // voice (she'd talk over every single cue). She only speaks on big milestones now.
   // timer bar shrink across the window
   const bar=$('cue-timer'); bar.style.transition='none'; bar.style.transform='scaleX(1)';
   void bar.offsetWidth; bar.style.transition=`transform ${c.dur}ms linear`; bar.style.transform='scaleX(0)';
@@ -1065,13 +1066,14 @@ function resolveHit(){
   flashNovaFace();   // her FACE reacts EVERY hit (alive) — but she SPEAKS far less:
   // only on milestones (first / 3 / 5 / 10) or a throttled clean isolation.
   const _n=performance.now();
-  const milestone = game.combo===1 || game.combo===3 || game.combo===5 || game.combo===10;
-  if(milestone){
+  // SUBTLE: she speaks rarely during the dance (reaction-engine speak-gate). Big milestones
+  // only (first hit + 5/10 streaks), and a hard 14s global cooldown between any spoken beat.
+  const milestone = game.combo===1 || game.combo===5 || game.combo===10;
+  const GAP=14000;
+  if(milestone && _n-(window.__lastNovaSpeak||0)>GAP){
+    window.__lastNovaSpeak=_n;
     novaSend({ kind:'game-event', event:{ event:(game.combo===1?'first_hit':'streak'),
       action:game.cue&&game.cue.action, streak:game.combo, fast, quality:+quality.toFixed(2), clean } });
-  } else if(clean && _n-(window.__lastCleanVoice||0)>6000){
-    window.__lastCleanVoice=_n;
-    novaSend({ kind:'game-event', event:{ event:'streak', action:game.cue&&game.cue.action, streak:game.combo, fast, quality:+quality.toFixed(2), clean:true } });
   }
   novaLocalReact('hit', game.combo, fast);
 }
