@@ -965,6 +965,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js"></script>
+<script src="nova-light.js"></script>
 
 <!-- LiveKit (for Runway Nova) — UMD attaches LivekitClient to window -->
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.13.3/dist/livekit-client.umd.min.js"></script>
@@ -4362,38 +4363,35 @@ window.__initRunwayNova = initDID;
     if(!side||!webcam){ return setTimeout(init,500); }
     const cv=document.createElement('canvas'); cv.id='aura-canvas'; side.appendChild(cv);
     const ctx=cv.getContext('2d');
+    // Rendering delegated to the SHARED engine (nova-light.js) in CALM mode. This module
+    // owns the anchor pick (ears not nose); NovaLight owns the gentle wrap draw.
+    let eng=null;
     function loop(){
       requestAnimationFrame(loop);
       const cw=webcam.clientWidth||1, ch=webcam.clientHeight||1;
       if(cv.width!==cw||cv.height!==ch){ cv.width=cw; cv.height=ch; }
-      ctx.globalCompositeOperation='destination-out'; ctx.fillStyle='rgba(0,0,0,'+TRAIL.fade+')'; ctx.fillRect(0,0,cw,ch); ctx.globalCompositeOperation='source-over';
+      if(!window.NovaLight) return;
+      if(!eng || eng._ctx!==ctx){ eng=window.NovaLight.create(ctx, window.NovaLight.PRESETS.hellohello); eng._ctx=ctx; }
+      const now=performance.now();
       const e=window.__cueAction, kps=window.__lastPoseKeypoints;
-      if(!e||!kps){ spine.length=0; return; }
+      if(!kps){ eng.render({ anchors:[], center:null, k:1, W:cw, H:ch, quality:0.6, velocity:0, dir:null, active:false, now }); return; }
       const vw=webcam.videoWidth||640, vh=webcam.videoHeight||480;
       const scale=Math.max(cw/vw,ch/vh), ox=(cw-vw*scale)/2, oy=(ch-vh*scale)/2;
       const X=p=>cw-(p.x*scale+ox), Y=p=>p.y*scale+oy;   // X mirrored; kps RAW (flip:false)
       const m={}; kps.forEach(k=>m[k.name]=k);
-      const act=e.action, dir=e.dir;
       { const l=m.left_shoulder,r=m.right_shoulder,lh=m.left_hip,rh=m.right_hip; if(l&&r){ const sx=(l.x+r.x)/2,sy=(l.y+r.y)/2,hx=(lh&&rh)?(lh.x+rh.x)/2:sx,hy=(lh&&rh)?(lh.y+rh.y)/2:sy+90; m.__rib={x:sx*0.5+hx*0.5,y:sy*0.45+hy*0.55,score:Math.min(l.score,r.score)}; } }
-      const a=pick(act,m); if(!a){ return; }
-      const p={x:X(a),y:Y(a)};
       const ls=m.left_shoulder,rs=m.right_shoulder;
-      const unit=(ls&&rs&&ls.score>0.2&&rs.score>0.2)?Math.hypot(X(ls)-X(rs),Y(ls)-Y(rs)):180;
+      const unit=(ls&&rs&&ls.score>=0.5&&rs.score>=0.5)?Math.hypot(X(ls)-X(rs),Y(ls)-Y(rs)):180;
       const k=Math.max(0.4,Math.min(3,unit/220));
-      const qMap={armed:0.5,hit:0.85,streak:0.95,messy:0.35,miss:0.2}; const q=qMap[window.__cueState]||0.5;
-      const headTrip=q>0.66?mix(ML.gold,ML.clean,(q-0.66)/0.34):q<0.4?mix(ML.gold,ML.messy,(0.4-q)/0.4):ML.gold;
-      spine.unshift({x:p.x,y:p.y}); if(spine.length>TRAIL.nodes) spine.pop();
-      for(let i=1;i<spine.length;i++){ spine[i].x=lerp(spine[i].x,spine[i-1].x,TRAIL.smooth); spine[i].y=lerp(spine[i].y,spine[i-1].y,TRAIL.smooth); }
-      ctx.globalCompositeOperation='lighter'; const t=performance.now()/1000;
-      function ribbon(wm,al,trip){ if(spine.length<2)return; ctx.beginPath(); for(let i=0;i<spine.length;i++){ const A=spine[i],Bn=spine[Math.min(i+1,spine.length-1)]; const ang=Math.atan2(Bn.y-A.y,Bn.x-A.x)+Math.PI/2,taper=i/spine.length; const off=Math.sin(t*TRAIL.waveSpeed+i*TRAIL.wavePhase)*TRAIL.waveAmp*k*taper; const x=A.x+Math.cos(ang)*off,y=A.y+Math.sin(ang)*off; i?ctx.lineTo(x,y):ctx.moveTo(x,y);} const hd=spine[0],tl=spine[spine.length-1]; const g=ctx.createLinearGradient(hd.x,hd.y,tl.x,tl.y); g.addColorStop(0,'rgba('+trip+','+al+')'); g.addColorStop(1,'rgba('+ML.deep+',0)'); ctx.strokeStyle=g; ctx.lineWidth=TRAIL.headWidth*wm*k; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.stroke(); }
-      ribbon(3.5,0.14,ML.amber); ribbon(1.8,0.45,headTrip); ribbon(0.6,0.95,ML.core);
-      orb(ctx,p.x,p.y,16*k,headTrip,1);
-      const vel=spine[1]?Math.hypot(p.x-spine[1].x,p.y-spine[1].y):0; const now2=performance.now();
-      if(Math.random()<vel*SPARK.spawnPerVel*0.05){ sparks.push({x:p.x,y:p.y,vx:(Math.random()-0.5)*1.2,vy:-Math.random()*SPARK.drift-0.2,born:now2,ttl:lerp(SPARK.ttl[0],SPARK.ttl[1],Math.random()),r:lerp(SPARK.size[0],SPARK.size[1],Math.random())*k}); }
-      sparks=sparks.filter(s=>{ const age=(now2-s.born)/s.ttl; if(age>=1)return false; s.x+=s.vx; s.y+=s.vy; s.vy-=0.01; const tw=0.6+0.4*Math.sin(now2/80+s.x); orb(ctx,s.x,s.y,s.r*(1-age*0.5),ML.core,(1-age)*tw); return true; });
-      let ang=-Math.PI/2; if(act==='headbob'){ ang=dir==='L'?Math.PI:dir==='R'?0:-Math.PI/2; }
-      if(act!=='combo'&&act!=='freeze') chevron(ctx, cw*0.5, ch*0.09, ang, k, headTrip, now2);
-      ctx.globalCompositeOperation='source-over';
+      // idle-breath centre (present-only)
+      let center=null; { const ok=kp=>kp&&kp.score>=0.5; const ps=[m.left_shoulder,m.right_shoulder,m.left_hip,m.right_hip].filter(ok);
+        if(ps.length){ let sx=0,sy=0; ps.forEach(pp=>{sx+=X(pp);sy+=Y(pp);}); center={x:sx/ps.length,y:sy/ps.length}; } }
+      const qMap={armed:0.6,hit:0.85,streak:0.95,messy:0.35,miss:0.2}; const quality=qMap[window.__cueState]||0.6;
+      let anchors=[], dir=null;
+      if(e){ const act=e.action, a=pick(act,m); if(a) anchors=[{x:X(a),y:Y(a)}];
+        if(act==='headbob') dir = e.dir==='L'?'left':e.dir==='R'?'right':'up';
+        else if(act!=='combo'&&act!=='freeze') dir='up'; }
+      eng.render({ anchors, center, k, W:cw, H:ch, quality, velocity:0, dir, active:!!(e&&anchors.length), now });
     }
     requestAnimationFrame(loop);
   }

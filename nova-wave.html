@@ -10,6 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.20.0/dist/tf-converter.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.20.0/dist/tf-backend-webgl.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<script src="nova-light.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.13.3/dist/livekit-client.umd.min.js"></script>
 <style>
   :root{ --pink:#ff5fd8; --grn:#00ff99; --yel:#ffd84d; --bg:#140022; }
@@ -533,7 +534,7 @@ const ML = { core:'255,253,245', gold:'255,210,122', amber:'255,166,61', deep:'2
 const TRAIL = { nodes:22, smooth:0.35, waveAmp:14, waveSpeed:6.0, wavePhase:0.55, headWidth:16, fade:0.16 };
 const SPARK = { spawnPerVel:0.6, ttl:[400,900], drift:0.4, size:[1,3] };
 let _sparks=[], _river=[], _blooms=[], _wavePhase=0, _lastVertex=-1; const _lastPos={};
-function resetSmartLight(){ _river.length=0; _blooms.length=0; _sparks.length=0; _wavePhase=0; _lastVertex=-1; }
+function resetSmartLight(){ _river.length=0; _blooms.length=0; _sparks.length=0; _wavePhase=0; _lastVertex=-1; if(_eng) _eng.reset(); }
 function _lerp(a,b,t){ return a+(b-a)*t; }
 function _mix(t1,t2,f){ const a=t1.split(',').map(Number),b=t2.split(',').map(Number); return a.map((v,i)=>Math.round(_lerp(v,b[i],f))).join(','); }
 function _orb(c,x,y,r,trip,alpha){ if(r<=0) return; const g=c.createRadialGradient(x,y,0,x,y,r);
@@ -572,51 +573,33 @@ function alongPath(P, ph){
   i=Math.min(i,seg.length-1); const f=seg[i]?target/seg[i]:0; const a=P[i], b=P[i+1]||P[i];
   return { x:_lerp(a.x,b.x,f), y:_lerp(a.y,b.y,f), vi:i+(f>0.5?1:0) };
 }
+// Rendering delegated to the SHARED engine (nova-light.js) in TRAVEL mode. This game
+// owns the 6-count path (buildPath: per-joint floors + elbow-hold) + the sweep phase;
+// NovaLight owns the river draw + vertex blooms.
+let _eng=null;
 function renderMagic(ctx, m, X, Y, W, H){
-  ctx.globalCompositeOperation='destination-out'; ctx.fillStyle='rgba(0,0,0,'+TRAIL.fade+')'; ctx.fillRect(0,0,W,H);
-  ctx.globalCompositeOperation='source-over';
+  if(!window.NovaLight) return;
+  if(!_eng || _eng._ctx!==ctx){ _eng=window.NovaLight.create(ctx, window.NovaLight.PRESETS.handwave); _eng._ctx=ctx; }
   const cueKey=(window.__cuePart||''); const now=performance.now();
   const ls=m.left_shoulder, rs=m.right_shoulder;
   const unit=(ls&&rs&&ls.score>=0.5&&rs.score>=0.5)?Math.hypot(X(ls)-X(rs),Y(ls)-Y(rs)):180;
   const k=Math.max(0.4,Math.min(3, unit/220));
   const qMap={armed:0.6,hit:0.85,streak:0.95,messy:0.35,miss:0.2};
-  const q=(window.__cueQuality!=null)?window.__cueQuality:(qMap[window.__cueState]||0.6);
-  const trip = q>0.66 ? _mix(ML.gold,ML.clean,(q-0.66)/0.34) : q<0.4 ? _mix(ML.gold,ML.messy,(0.4-q)/0.4) : ML.gold;
-
+  const quality=(window.__cueQuality!=null)?window.__cueQuality:(qMap[window.__cueState]||0.6);
+  let travelHead=null, travelVertex=null;
   if(cueKey){
     const P=buildPath(m,X,Y).filter(Boolean);
     if(P.length>=2){
       _wavePhase += (16.7/2600); if(_wavePhase>=1) _wavePhase-=1;   // musical sweep ~2.6s per pass
       const head=alongPath(P,_wavePhase);
-      // river spine — head leads in travel direction, long tail drags behind
-      _river.unshift({x:head.x,y:head.y}); if(_river.length>TRAIL.nodes) _river.pop();
-      for(let i=1;i<_river.length;i++){ _river[i].x=_lerp(_river[i].x,_river[i-1].x,TRAIL.smooth); _river[i].y=_lerp(_river[i].y,_river[i-1].y,TRAIL.smooth); }
-      // BLOOM (not burst) each time the comet passes a joint vertex
-      const vi=Math.max(0,Math.min(P.length-1,head.vi));
-      if(vi!==_lastVertex){ _lastVertex=vi; const jp=P[vi];
-        _blooms.push({x:jp.x,y:jp.y,born:now,ttl:300,trip});
-        for(let s=0;s<5;s++){ const ang=Math.random()*6.283; const sp=(0.5+Math.random()*0.5)*k;
-          _sparks.push({x:jp.x,y:jp.y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-0.1,born:now,ttl:_lerp(SPARK.ttl[0],SPARK.ttl[1],Math.random()),r:_lerp(SPARK.size[0],SPARK.size[1],Math.random())*k}); } }
-      // draw the undulating river
-      ctx.globalCompositeOperation='lighter'; const t=now/1000;
-      function ribbon(widthMul, alpha, trp){ if(_river.length<2) return; ctx.beginPath();
-        for(let i=0;i<_river.length;i++){ const A=_river[i], Bn=_river[Math.min(i+1,_river.length-1)];
-          const ang=Math.atan2(Bn.y-A.y,Bn.x-A.x)+Math.PI/2, taper=i/_river.length;
-          const off=Math.sin(t*TRAIL.waveSpeed + i*TRAIL.wavePhase)*TRAIL.waveAmp*k*taper;
-          const x=A.x+Math.cos(ang)*off, y=A.y+Math.sin(ang)*off; i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
-        const hd=_river[0], tl=_river[_river.length-1]; const g=ctx.createLinearGradient(hd.x,hd.y,tl.x,tl.y);
-        g.addColorStop(0,'rgba('+trp+','+alpha+')'); g.addColorStop(1,'rgba('+ML.deep+',0)');
-        ctx.strokeStyle=g; ctx.lineWidth=TRAIL.headWidth*widthMul*k; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.stroke(); }
-      ribbon(3.5,0.14,ML.amber); ribbon(1.8,0.45,trip); ribbon(0.6,0.95,ML.core);
-      _orb(ctx,head.x,head.y,17*k,trip,1);   // bright comet head
-    } else { _river.length=0; }
-  } else { _river.length=0; window.__glowFound='-'; }
-
-  // blooms — soft gold flares ALONG the path (no outward rays)
-  ctx.globalCompositeOperation='lighter';
-  _blooms=_blooms.filter(b=>{ const age=(now-b.born)/b.ttl; if(age>=1) return false; const r=(9+16*Math.sin(Math.min(1,age)*Math.PI))*k; _orb(ctx,b.x,b.y,r,b.trip,(1-age)*0.9); return true; });
-  _sparks=_sparks.filter(s=>{ const age=(now-s.born)/s.ttl; if(age>=1) return false; s.x+=s.vx; s.y+=s.vy; s.vy-=0.01; const tw=0.6+0.4*Math.sin(now/80+s.x); _orb(ctx,s.x,s.y,s.r*(1-age*0.5),ML.core,(1-age)*tw); return true; });
-  ctx.globalCompositeOperation='source-over';
+      travelHead={x:head.x,y:head.y};
+      travelVertex=Math.max(0,Math.min(P.length-1,head.vi));
+    }
+  } else { window.__glowFound='-'; }
+  // idle-breath centre = shoulders/hips midpoint (present-only)
+  let center=null; { const ok=kp=>kp&&kp.score>=0.5; const ps=[m.left_shoulder,m.right_shoulder,m.left_hip,m.right_hip].filter(ok);
+    if(ps.length){ let sx=0,sy=0; ps.forEach(p=>{sx+=X(p);sy+=Y(p);}); center={x:sx/ps.length,y:sy/ps.length}; } }
+  _eng.render({ travelHead, travelVertex, center, k, W, H, quality, velocity:0, dir:null, active:!!(cueKey&&travelHead), now });
 }
 window.__renderMagic=renderMagic; window.__buildPath=buildPath; window.__resetLight=resetSmartLight;   // (self-test hooks)
 function positionAuras(m, X, Y){
