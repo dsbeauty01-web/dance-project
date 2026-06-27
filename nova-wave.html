@@ -340,7 +340,7 @@ function setZone(z, state){
   ['zone-left','zone-right','zone-full'].forEach(id=>$(id).classList.remove('show','armed','hit','miss'));
   if(!z) return;
   const id = z==='left'?'zone-left':z==='right'?'zone-right':'zone-full';
-  const e=$(id); e.textContent = z==='full'?'🕺':(z==='left'?'←':'→'); e.classList.add('show', state||'armed');
+  const e=$(id); e.textContent=''; e.classList.add('show', state||'armed');   // edge GLOW only — no glyph (light + voice)
 }
 function zoneState(state){ const z=game.cueZone; if(!z) return;
   const id=z==='left'?'zone-left':z==='right'?'zone-right':'zone-full';
@@ -410,7 +410,10 @@ renderMovesPreview();
 
 async function ensureModel(){
   if(detector) return;
-  await tf.setBackend('webgl'); await tf.ready();
+  // WebGL is fastest, but fall back to CPU so low-end tablets (or no-GL contexts) still
+  // get pose detection instead of silently running with no light.
+  try{ await tf.setBackend('webgl'); }catch(e){ try{ await tf.setBackend('cpu'); }catch(_){} }
+  await tf.ready();
   detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,
     { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING });
 }
@@ -529,8 +532,8 @@ const SL_FREE_PARTS = ['left_wrist','right_wrist','left_elbow','right_elbow'];
 const ML = { core:'255,253,245', gold:'255,210,122', amber:'255,166,61', deep:'242,115,12', clean:'191,255,200', messy:'255,122,61' };
 const TRAIL = { nodes:22, smooth:0.35, waveAmp:14, waveSpeed:6.0, wavePhase:0.55, headWidth:16, fade:0.16 };
 const SPARK = { spawnPerVel:0.6, ttl:[400,900], drift:0.4, size:[1,3] };
-let _spine=[], _sparks=[];
-function resetSmartLight(){ _spine.length=0; _sparks.length=0; }
+let _sparks=[], _river=[], _blooms=[], _wavePhase=0, _lastVertex=-1; const _lastPos={};
+function resetSmartLight(){ _river.length=0; _blooms.length=0; _sparks.length=0; _wavePhase=0; _lastVertex=-1; }
 function _lerp(a,b,t){ return a+(b-a)*t; }
 function _mix(t1,t2,f){ const a=t1.split(',').map(Number),b=t2.split(',').map(Number); return a.map((v,i)=>Math.round(_lerp(v,b[i],f))).join(','); }
 function _orb(c,x,y,r,trip,alpha){ if(r<=0) return; const g=c.createRadialGradient(x,y,0,x,y,r);
@@ -543,48 +546,79 @@ function _chevron(c,cx,cy,ang,k,trip,now){
     c.beginPath(); c.moveTo(pts[0][0],pts[0][1]); c.lineTo(pts[1][0],pts[1][1]); c.lineTo(pts[2][0],pts[2][1]);
     c.strokeStyle='rgba('+trp+','+al+')'; c.lineWidth=w*wm; c.stroke(); }
   c.restore(); }
-function magicAnchor(cueKey,m){
-  const pick=(...names)=>{ for(const n of names){ const k=m[n]; if(k&&k.score>0.2) return k; } return null; };
-  if(/wrist/.test(cueKey)) return pick('right_wrist','left_wrist');
-  if(/elbow/.test(cueKey)) return pick('right_elbow','left_elbow');
-  if(/shoulder/.test(cueKey)) return pick('right_shoulder','left_shoulder');
-  return pick('right_wrist','left_wrist','nose');   // free
+// ── TRAVELING COMET (CLI-HANDWAVE-DETAIL spec) ── a river of warm-gold light flows the
+// 6-count wave path (R wrist→elbow→shoulder → L shoulder→elbow→wrist). Per-joint floors;
+// the elbow holds the light when a wrist flickers. Each joint BLOOMS as the comet passes
+// (energy travels ALONG the body — NOT an outward burst). Colour by quality.
+const PATH = ['right_wrist','right_elbow','right_shoulder','left_shoulder','left_elbow','left_wrist'];
+const FLOOR = { right_wrist:0.40,left_wrist:0.40, right_elbow:0.45,left_elbow:0.45, right_shoulder:0.50,left_shoulder:0.50 };
+// build the visible path polyline, gating each joint at its own floor; hold last-good
+// position on a brief dropout so a 1-frame wrist flicker doesn't snap the river.
+function buildPath(m, X, Y){
+  const pts=[]; let seen=0;
+  for(const j of PATH){ const kp=m[j], floor=FLOOR[j];
+    if(kp && kp.score>=floor){ const p={x:X(kp),y:Y(kp)}; _lastPos[j]=p; pts.push(p); seen++; }
+    else if(_lastPos[j]) pts.push(_lastPos[j]);   // elbow-of-truth / flicker hold
+    else pts.push(null); }
+  window.__glowFound = seen+'/6';
+  return pts;
+}
+// point at phase (0..1) along the polyline by arc length + nearest vertex index
+function alongPath(P, ph){
+  if(P.length<2) return null;
+  const seg=[]; let total=0; for(let i=1;i<P.length;i++){ const d=Math.hypot(P[i].x-P[i-1].x,P[i].y-P[i-1].y); seg.push(d); total+=d; }
+  if(total<=0) return { x:P[0].x, y:P[0].y, vi:0 };
+  let target=ph*total, i=0; while(i<seg.length && target>seg[i]){ target-=seg[i]; i++; }
+  i=Math.min(i,seg.length-1); const f=seg[i]?target/seg[i]:0; const a=P[i], b=P[i+1]||P[i];
+  return { x:_lerp(a.x,b.x,f), y:_lerp(a.y,b.y,f), vi:i+(f>0.5?1:0) };
 }
 function renderMagic(ctx, m, X, Y, W, H){
   ctx.globalCompositeOperation='destination-out'; ctx.fillStyle='rgba(0,0,0,'+TRAIL.fade+')'; ctx.fillRect(0,0,W,H);
   ctx.globalCompositeOperation='source-over';
   const cueKey=(window.__cuePart||''); const now=performance.now();
-  if(!cueKey){ _spine.length=0; window.__glowFound='-'; return; }
-  const a=magicAnchor(cueKey,m); window.__glowFound = a?'1/1':'0/1'; if(!a){ return; }
-  const p={ x:X(a), y:Y(a) };
   const ls=m.left_shoulder, rs=m.right_shoulder;
-  const unit=(ls&&rs&&ls.score>0.2&&rs.score>0.2)?Math.hypot(X(ls)-X(rs),Y(ls)-Y(rs)):180;
+  const unit=(ls&&rs&&ls.score>=0.5&&rs.score>=0.5)?Math.hypot(X(ls)-X(rs),Y(ls)-Y(rs)):180;
   const k=Math.max(0.4,Math.min(3, unit/220));
-  const qMap={armed:0.5,hit:0.85,streak:0.95,messy:0.35,miss:0.2};
-  const q=(window.__cueQuality!=null)?window.__cueQuality:(qMap[window.__cueState]||0.5);
-  const headTrip = q>0.66 ? _mix(ML.gold,ML.clean,(q-0.66)/0.34) : q<0.4 ? _mix(ML.gold,ML.messy,(0.4-q)/0.4) : ML.gold;
-  _spine.unshift({x:p.x,y:p.y}); if(_spine.length>TRAIL.nodes) _spine.pop();
-  for(let i=1;i<_spine.length;i++){ _spine[i].x=_lerp(_spine[i].x,_spine[i-1].x,TRAIL.smooth); _spine[i].y=_lerp(_spine[i].y,_spine[i-1].y,TRAIL.smooth); }
+  const qMap={armed:0.6,hit:0.85,streak:0.95,messy:0.35,miss:0.2};
+  const q=(window.__cueQuality!=null)?window.__cueQuality:(qMap[window.__cueState]||0.6);
+  const trip = q>0.66 ? _mix(ML.gold,ML.clean,(q-0.66)/0.34) : q<0.4 ? _mix(ML.gold,ML.messy,(0.4-q)/0.4) : ML.gold;
+
+  if(cueKey){
+    const P=buildPath(m,X,Y).filter(Boolean);
+    if(P.length>=2){
+      _wavePhase += (16.7/2600); if(_wavePhase>=1) _wavePhase-=1;   // musical sweep ~2.6s per pass
+      const head=alongPath(P,_wavePhase);
+      // river spine — head leads in travel direction, long tail drags behind
+      _river.unshift({x:head.x,y:head.y}); if(_river.length>TRAIL.nodes) _river.pop();
+      for(let i=1;i<_river.length;i++){ _river[i].x=_lerp(_river[i].x,_river[i-1].x,TRAIL.smooth); _river[i].y=_lerp(_river[i].y,_river[i-1].y,TRAIL.smooth); }
+      // BLOOM (not burst) each time the comet passes a joint vertex
+      const vi=Math.max(0,Math.min(P.length-1,head.vi));
+      if(vi!==_lastVertex){ _lastVertex=vi; const jp=P[vi];
+        _blooms.push({x:jp.x,y:jp.y,born:now,ttl:300,trip});
+        for(let s=0;s<5;s++){ const ang=Math.random()*6.283; const sp=(0.5+Math.random()*0.5)*k;
+          _sparks.push({x:jp.x,y:jp.y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-0.1,born:now,ttl:_lerp(SPARK.ttl[0],SPARK.ttl[1],Math.random()),r:_lerp(SPARK.size[0],SPARK.size[1],Math.random())*k}); } }
+      // draw the undulating river
+      ctx.globalCompositeOperation='lighter'; const t=now/1000;
+      function ribbon(widthMul, alpha, trp){ if(_river.length<2) return; ctx.beginPath();
+        for(let i=0;i<_river.length;i++){ const A=_river[i], Bn=_river[Math.min(i+1,_river.length-1)];
+          const ang=Math.atan2(Bn.y-A.y,Bn.x-A.x)+Math.PI/2, taper=i/_river.length;
+          const off=Math.sin(t*TRAIL.waveSpeed + i*TRAIL.wavePhase)*TRAIL.waveAmp*k*taper;
+          const x=A.x+Math.cos(ang)*off, y=A.y+Math.sin(ang)*off; i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+        const hd=_river[0], tl=_river[_river.length-1]; const g=ctx.createLinearGradient(hd.x,hd.y,tl.x,tl.y);
+        g.addColorStop(0,'rgba('+trp+','+alpha+')'); g.addColorStop(1,'rgba('+ML.deep+',0)');
+        ctx.strokeStyle=g; ctx.lineWidth=TRAIL.headWidth*widthMul*k; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.stroke(); }
+      ribbon(3.5,0.14,ML.amber); ribbon(1.8,0.45,trip); ribbon(0.6,0.95,ML.core);
+      _orb(ctx,head.x,head.y,17*k,trip,1);   // bright comet head
+    } else { _river.length=0; }
+  } else { _river.length=0; window.__glowFound='-'; }
+
+  // blooms — soft gold flares ALONG the path (no outward rays)
   ctx.globalCompositeOperation='lighter';
-  const t=now/1000;
-  function ribbon(widthMul, alpha, trip){ if(_spine.length<2) return;
-    ctx.beginPath();
-    for(let i=0;i<_spine.length;i++){ const A=_spine[i], Bn=_spine[Math.min(i+1,_spine.length-1)];
-      const ang=Math.atan2(Bn.y-A.y,Bn.x-A.x)+Math.PI/2, taper=i/_spine.length;
-      const off=Math.sin(t*TRAIL.waveSpeed + i*TRAIL.wavePhase)*TRAIL.waveAmp*k*taper;
-      const x=A.x+Math.cos(ang)*off, y=A.y+Math.sin(ang)*off; i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
-    const head=_spine[0], tail=_spine[_spine.length-1];
-    const g=ctx.createLinearGradient(head.x,head.y,tail.x,tail.y);
-    g.addColorStop(0,'rgba('+trip+','+alpha+')'); g.addColorStop(1,'rgba('+ML.deep+',0)');
-    ctx.strokeStyle=g; ctx.lineWidth=TRAIL.headWidth*widthMul*k; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.stroke(); }
-  ribbon(3.5,0.14,ML.amber); ribbon(1.8,0.45,headTrip); ribbon(0.6,0.95,ML.core);
-  _orb(ctx,p.x,p.y,16*k,headTrip,1);
-  const vel=_spine[1]?Math.hypot(p.x-_spine[1].x,p.y-_spine[1].y):0;
-  if(Math.random()<vel*SPARK.spawnPerVel*0.05){ _sparks.push({x:p.x,y:p.y,vx:(Math.random()-0.5)*1.2,vy:-Math.random()*SPARK.drift-0.2,born:now,ttl:_lerp(SPARK.ttl[0],SPARK.ttl[1],Math.random()),r:_lerp(SPARK.size[0],SPARK.size[1],Math.random())*k}); }
+  _blooms=_blooms.filter(b=>{ const age=(now-b.born)/b.ttl; if(age>=1) return false; const r=(9+16*Math.sin(Math.min(1,age)*Math.PI))*k; _orb(ctx,b.x,b.y,r,b.trip,(1-age)*0.9); return true; });
   _sparks=_sparks.filter(s=>{ const age=(now-s.born)/s.ttl; if(age>=1) return false; s.x+=s.vx; s.y+=s.vy; s.vy-=0.01; const tw=0.6+0.4*Math.sin(now/80+s.x); _orb(ctx,s.x,s.y,s.r*(1-age*0.5),ML.core,(1-age)*tw); return true; });
-  if(!/free/.test(cueKey)) _chevron(ctx, W*0.5, H*0.09, -Math.PI/2, k, headTrip, now);   // wave = up chevron, top strip
   ctx.globalCompositeOperation='source-over';
 }
+window.__renderMagic=renderMagic; window.__buildPath=buildPath; window.__resetLight=resetSmartLight;   // (self-test hooks)
 function positionAuras(m, X, Y){
   const auras = document.querySelectorAll('#aura-layer .aura');
   const cueKey=(window.__cuePart||'');
@@ -700,7 +734,7 @@ function gameTick(){
 function openCue(c){
   game.cue=c; game.cueResolved=false; game.cueEnd=c.t+c.dur; game.total++;
   c.openSec=+($('nova-vid').currentTime).toFixed(2);   // actual video time the cue opened (vs scheduled c.t)
-  window.__cuePart=c.action; window.__cueState='armed'; resetSmartLight();   // smart-light: armed
+  window.__cuePart=c.action; window.__cueState='armed'; window.__cueQuality=null; resetSmartLight();   // new cue → fresh river
   const m=MOVES[c.action];
   // NO floating cue card — the Smart Light on the body IS the cue (per nova-smart-light.md).
   $('cam-wrap').classList.remove('hit','miss'); $('cam-wrap').classList.add('armed');
@@ -709,7 +743,7 @@ function openCue(c){
   // timer bar shrink across the window
   const bar=$('cue-timer'); bar.style.transition='none'; bar.style.transform='scaleX(1)';
   void bar.offsetWidth; bar.style.transition=`transform ${c.dur}ms linear`; bar.style.transform='scaleX(0)';
-  coach(m.coach);
+  // NO caption pill on cues (spec): the wave reads from the traveling light + Nova's voice.
   // announce locally ONLY when Nova's live brain is offline (else she'd be doubled)
   if(!novaRoom) say(m.name.replace(/[←→↑↔]/g,'').trim());
 }
@@ -794,8 +828,7 @@ function endGame(){
 }
 
 // ---- small helpers ------------------------------------------------------
-function pop(text,color){ const fx=$('fx'); const e=document.createElement('div'); e.className='pop'; e.textContent=text; e.style.color=color;
-  e.style.left=(20+Math.random()*55)+'%'; e.style.top=(30+Math.random()*30)+'%'; fx.appendChild(e); setTimeout(()=>e.remove(),900); }
+function pop(){ /* no on-body score text (spec): the score lives in the corner box only */ }
 let coachT=0; function coach(msg){ const c=$('coach'); c.textContent=msg; c.classList.add('show'); clearTimeout(coachT); coachT=setTimeout(()=>c.classList.remove('show'),1800); }
 let lastSay=0; function say(t){ if(/[?&](nonova|novoice)/.test(location.search)) return;   // silence TTS for testing
   const now=Date.now(); if(now-lastSay<1300) return; lastSay=now; // light voice; safe in a cafe (muted-friendly: low volume)
