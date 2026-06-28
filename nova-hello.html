@@ -175,12 +175,35 @@ async function presence(){ setCue('clap','armed'); novaSay('Can you clap your ha
   _cueState='streak'; _cueQual=.95; novaSay(seen?'YAY — I saw that clap! 👏':'there you are! let\'s play 💜','excited'); await sleep(1400); setCue(null); }
 
 // sequence: scored clap/stretch/wave + free-fun toes/turn (no score, pure hype)
+// FULL-LENGTH sequence for the whole song (shit.mp3 ~111s) — verses + choruses + finale.
+const CL=()=>det.wristsClose||det.motion>0.06, UP=()=>det.wristsUp, WV=()=>det.waving||det.motion>0.05;
 const SEQ=[
-  {move:'clap',   scored:true,  say:'Clap your hands! 👏',     check:()=>det.wristsClose||det.motion>0.06, dur:4000},
-  {move:'stretch',scored:true,  say:'Reach up HIGH! 🙌',        check:()=>det.wristsUp, dur:4500},
-  {move:'toes',   scored:false, say:'Touch your toes! 🫳',       hype:'wheee!', dur:3500},
-  {move:'turn',   scored:false, say:'Turn around! 🌀',           hype:'spiiin!', dur:3500},
-  {move:'wave',   scored:true,  say:'Say hello — wave! 👋',     check:()=>det.waving||det.motion>0.05, dur:4500},
+  // VERSE 1
+  {move:'clap',   scored:true,  say:'Clap your hands! 👏',   check:CL, dur:4200},
+  {move:'stretch',scored:true,  say:'Reach up HIGH! 🙌',      check:UP, dur:4600},
+  {move:'toes',   scored:false, say:'Touch your toes! 🫳',    hype:'wheee!', dur:3800},
+  {move:'turn',   scored:false, say:'Turn around! 🌀',        hype:'spiiin!', dur:3800},
+  {move:'wave',   scored:true,  say:'Say hello — wave! 👋',   check:WV, dur:4600},
+  // CHORUS
+  {move:'clap',   scored:true,  say:'Clap clap clap! 👏',     check:CL, dur:3800},
+  {move:'stretch',scored:true,  say:'Up to the sky! 🙌',       check:UP, dur:4200},
+  {move:'wave',   scored:true,  say:'Wave hello! 👋',          check:WV, dur:4200},
+  // VERSE 2 (stamp opener per spec)
+  {move:'stamp',  scored:false, say:'Stamp your feet! 🦶',     hype:'stomp stomp!', dur:3800},
+  {move:'stretch',scored:true,  say:'Reach up tall! 🙌',       check:UP, dur:4200},
+  {move:'toes',   scored:false, say:'Down to your toes! 🫳',   hype:'wheee!', dur:3800},
+  {move:'turn',   scored:false, say:'Spin around! 🌀',         hype:'spiiin!', dur:3800},
+  {move:'wave',   scored:true,  say:'Wave to me! 👋',          check:WV, dur:4200},
+  // CHORUS 2
+  {move:'clap',   scored:true,  say:'Big claps! 👏',           check:CL, dur:3800},
+  {move:'stretch',scored:true,  say:'So tall! 🙌',             check:UP, dur:4200},
+  {move:'clap',   scored:true,  say:'Clap again! 👏',          check:CL, dur:3800},
+  {move:'wave',   scored:true,  say:'Hello hello! 👋',         check:WV, dur:4200},
+  // FINALE
+  {move:'stretch',scored:true,  say:'Reach for the stars! 🙌', check:UP, dur:4600},
+  {move:'clap',   scored:true,  say:'Clap with me! 👏',        check:CL, dur:3800},
+  {move:'wave',   scored:true,  say:'Wave goodbye! 👋',        check:WV, dur:4600},
+  {move:'free',   scored:false, say:'DANCE your way! 🌟',      hype:'you\'re amazing!', dur:6000},
 ];
 let lastSpeak=0;
 async function playGame(){

@@ -286,8 +286,14 @@ const MOVES={
   'hips-right': {say:'sway your hips!', pts:80, visual:true, check:d=>false},
   'free':       {say:'FREESTYLE — go!', pts:120, check:d=>d.motion>0.05},
 };
-const SEQ=[['head-left',1500],['head-right',1500],['shoulder-left',1600],['shoulder-right',1600],
-  ['hips-left',1500],['hips-right',1500],['head-left',1300],['shoulder-right',1300],['free',5000]];
+// FULL Up Groove choreography (~46s): slow build → double-speed reverse → freestyle.
+const SEQ=[
+  ['head-left',1600],['head-right',1600],['head-left',1600],['head-right',1600],
+  ['shoulder-left',1700],['shoulder-right',1700],['shoulder-left',1700],['shoulder-right',1700],
+  ['hips-left',1600],['hips-right',1600],['hips-left',1600],['hips-right',1600],
+  ['hips-right',1000],['hips-left',1000],['shoulder-right',1000],['shoulder-left',1000],
+  ['head-right',1000],['head-left',1000],['head-right',1000],['head-left',1000],
+  ['free',6000],['free',6000]];
 try{ window.CUES=SEQ.map(s=>({action:s[0],dur:s[1]})); }catch(e){}   // expose for nova-report.js
 let lastSpeak=0;
 async function playGame(){
