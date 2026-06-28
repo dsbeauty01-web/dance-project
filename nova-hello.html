@@ -16,6 +16,13 @@
   :root{ --gold:#FFD27A; --mint:#BFFFC8; --bg:#0a0612; --camH:60svh; --novaH:40svh; }
   html,body{height:100%;background:var(--bg);font-family:'Fredoka',system-ui,'Segoe UI',sans-serif;color:#fff;overflow:hidden}
   #app{position:fixed;inset:0;display:flex;flex-direction:column}
+  /* DESKTOP / landscape: same app, side-by-side (Nova left, camera right) */
+  @media (orientation:landscape){
+    #app{flex-direction:row}
+    #app #nova{height:100svh;flex:0 0 38vw;width:38vw}
+    #app #stage{height:100svh;flex:1 1 62vw}
+    #app #nova-fig{width:auto;height:46vh;max-width:80%}
+  }
   #nova{position:relative;height:var(--novaH);flex:0 0 var(--novaH);display:flex;align-items:center;justify-content:center;
     background:radial-gradient(120% 100% at 50% 30%,#2a1052 0%,#160a2e 55%,#0a0612 100%);overflow:hidden}
   #nova-glow{position:absolute;width:78vw;max-width:420px;aspect-ratio:1;border-radius:50%;
