@@ -82,6 +82,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 <script src="nova-light.js"></script>
 <script src="nova-report.js"></script>
+<script src="nova-tracker.js"></script>
 <script>
 "use strict";
 const $=id=>document.getElementById(id);
@@ -89,6 +90,7 @@ const cam=$('cam'), fx=$('fx'), fxc=fx.getContext('2d'), novaEl=$('nova');
 let detector=null, stream=null, rafId=0, eng=null;
 const det={ present:false,joints:0,shTilt:0,spanFrac:0,motion:0,framingOK:false,
   wristsClose:false, wristsUp:false, waving:false, lw:null, rw:null, nose:null, sw:180 };
+window.__novaDet=()=>det;
 let prevKp=null, smooth={}, wxBuf=[];
 const game={ running:false, score:0, combo:0, maxCombo:0, hits:0, total:0 };
 
@@ -150,7 +152,7 @@ function renderLight(kps){ if(!window.NovaLight) return; if(!eng) eng=window.Nov
   eng.render({ anchors, center, k, W:cw, H:ch, quality, velocity:0, dir:null, active:!!_cue, now:performance.now() }); }
 function clearLight(){ if(eng) eng.reset(); fxc.clearRect(0,0,fx.width,fx.height); }
 async function loop(){ if(detector&&cam.readyState>=2){ let poses=[]; try{ poses=await detector.estimatePoses(cam,{flipHorizontal:true}); }catch(e){}
-    if(poses[0]){ analyze(poses[0].keypoints); renderLight(poses[0].keypoints); } else { det.present=false; if(eng) eng.render({anchors:[],center:null,k:1,W:fx.width,H:fx.height,quality:.6,active:false,now:performance.now()}); } }
+    if(poses[0]){ window.__lastPoseKeypoints=poses[0].keypoints; analyze(poses[0].keypoints); renderLight(poses[0].keypoints); } else { det.present=false; if(eng) eng.render({anchors:[],center:null,k:1,W:fx.width,H:fx.height,quality:.6,active:false,now:performance.now()}); } }
   rafId=requestAnimationFrame(loop); }
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function setCue(c,s){ _cue=c; _cueState=s||'armed'; _cueQual=null; if(eng)eng.reset(); }
