@@ -28,6 +28,12 @@
   #nova.talking #nova-fig{box-shadow:0 0 0 5px rgba(255,221,150,1),0 0 46px 8px rgba(255,190,90,.65),0 10px 40px rgba(0,0,0,.45)}
   #nova.excited #nova-fig{transform:scale(1.07);box-shadow:0 0 0 6px var(--mint),0 0 64px 14px rgba(191,255,200,.55),0 10px 40px rgba(0,0,0,.45)}
   #nova.excited #nova-glow{background:radial-gradient(circle, rgba(191,255,200,.55) 0%, rgba(255,210,122,.28) 42%, transparent 72%)}
+  /* WITNESS MODE glow-border feedback channel (nova-during-game spec): halo colour = state */
+  #nova.g-idle  #nova-glow{background:radial-gradient(circle, rgba(255,150,210,.4) 0%, rgba(200,110,180,.16) 46%, transparent 72%)}
+  #nova.g-hit   #nova-glow{background:radial-gradient(circle, rgba(124,255,176,.6) 0%, rgba(124,255,176,.2) 44%, transparent 70%)}
+  #nova.g-streak#nova-glow{background:radial-gradient(circle, rgba(255,120,230,.62) 0%, rgba(255,120,230,.22) 44%, transparent 72%)}
+  #nova.g-miss  #nova-glow{background:radial-gradient(circle, rgba(255,210,90,.46) 0%, rgba(255,170,60,.18) 46%, transparent 70%)}
+  #nova.g-speak #nova-glow{background:radial-gradient(circle, rgba(255,255,255,.46) 0%, rgba(255,240,210,.18) 46%, transparent 68%)}
   #nova-name{position:absolute;bottom:6px;font-size:13px;font-weight:700;color:#ffe9c9;opacity:.8}
   #cap{position:absolute;bottom:8px;left:50%;transform:translateX(-50%) translateY(8px);max-width:92%;
     background:rgba(20,10,40,.55);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15);padding:7px 16px;border-radius:18px;
@@ -97,7 +103,10 @@ const game={ running:false, score:0, combo:0, maxCombo:0, hits:0, total:0 };
 let capT=0;
 function novaState(s){ novaEl.classList.remove('idle','talking','excited'); novaEl.classList.add(s);
   if(s!=='idle'){ clearTimeout(novaState._t); novaState._t=setTimeout(()=>{novaEl.classList.remove('talking','excited');novaEl.classList.add('idle');}, s==='excited'?1600:1900);} }
-function novaSay(t,s){ const c=$('cap'); c.textContent=t; c.classList.add('show'); novaState(s||'talking'); speak(t); clearTimeout(capT); capT=setTimeout(()=>c.classList.remove('show'),2600); }
+function novaSay(t,s){ const c=$('cap'); c.textContent=t; c.classList.add('show'); novaState(s||'talking'); glow('speak'); speak(t); clearTimeout(capT); capT=setTimeout(()=>c.classList.remove('show'),2600); }
+// WITNESS-MODE glow-border feedback: idle→pink, hit→green, streak→magenta, miss→amber, speak→white
+function glow(s){ novaEl.classList.remove('g-idle','g-hit','g-streak','g-miss','g-speak'); novaEl.classList.add('g-'+s);
+  if(s!=='idle'){ clearTimeout(glow._t); glow._t=setTimeout(()=>{ novaEl.classList.remove('g-hit','g-streak','g-miss','g-speak'); novaEl.classList.add('g-idle'); }, 1100); } }
 function speak(t){ if(!/[?&](novoice|nonova)/.test(location.search)){ try{ const u=new SpeechSynthesisUtterance(t.replace(/[✨🌟💜👋🙌🤚]/g,'')); u.rate=1.0; u.pitch=1.3; speechSynthesis.cancel(); speechSynthesis.speak(u);}catch(e){} } }
 function warn(t){ const w=$('warn'); if(!t){w.classList.remove('show');return;} w.textContent=t; w.classList.add('show'); clearTimeout(warn._t); warn._t=setTimeout(()=>w.classList.remove('show'),2600); }
 
@@ -209,7 +218,7 @@ let lastSpeak=0;
 async function playGame(){
   game.running=true; game.score=0; game.combo=0; $('streak').classList.add('show');
   try{ const s=$('song'); s.currentTime=0; s.volume=.6; if(!/[?&](nonova|novoice)/.test(location.search)) s.play().catch(()=>{}); }catch(e){}
-  novaState('excited'); novaSay("Let's sing and dance! 🎵",'excited'); await sleep(1200);
+  novaState('excited'); glow('idle'); novaSay("Let's sing and dance! 🎵",'excited'); await sleep(1200);
   for(const c of SEQ){ if(!game.running) break; game.total++;
     if(c.scored){ setCue(c.move,'armed'); novaSay(c.say,'talking');
       const end=performance.now()+c.dur; let hit=false;
@@ -224,7 +233,7 @@ async function playGame(){
   try{ $('song').pause(); }catch(e){}
 }
 function onHit(move){ game.hits++; game.combo++; game.maxCombo=Math.max(game.maxCombo,game.combo); game.score+=120;
-  _cueState=game.combo>=3?'streak':'hit'; _cueQual=.92; $('streak').textContent='🌟 '+game.combo;
+  _cueState=game.combo>=3?'streak':'hit'; _cueQual=.92; glow(game.combo>=3?'streak':'hit'); $('streak').textContent='🌟 '+game.combo;
   const n=performance.now(); if(n-lastSpeak>5000){ lastSpeak=n;
     const L={clap:'Lovely clap! 👏',stretch:'WOW so tall! 🙌',wave:'Hello hello! 👋'}; novaSay(L[move]||'Yay! ✨','excited'); } }
 function endGame(){ clearLight(); $('streak').classList.remove('show'); novaState('talking');

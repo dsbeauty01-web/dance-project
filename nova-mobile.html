@@ -44,6 +44,12 @@
     padding:7px 16px;border-radius:18px;font-size:clamp(14px,4.2vw,18px);font-weight:600;text-align:center;
     opacity:0;transition:opacity .2s ease, transform .2s ease;pointer-events:none;white-space:nowrap;color:#fff}
   #cap.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  /* WITNESS MODE glow-border feedback channel (nova-during-game spec): the halo colour = state */
+  #nova.g-idle  #nova-glow{background:radial-gradient(circle, rgba(168,120,255,.42) 0%, rgba(120,80,200,.18) 45%, transparent 70%)}
+  #nova.g-hit   #nova-glow{background:radial-gradient(circle, rgba(124,255,176,.62) 0%, rgba(124,255,176,.22) 42%, transparent 68%);animation-duration:.8s}
+  #nova.g-streak#nova-glow{background:radial-gradient(circle, rgba(255,120,230,.66) 0%, rgba(255,120,230,.24) 42%, transparent 70%);animation-duration:.7s}
+  #nova.g-miss  #nova-glow{background:radial-gradient(circle, rgba(255,210,90,.5) 0%, rgba(255,170,60,.2) 44%, transparent 68%)}
+  #nova.g-speak #nova-glow{background:radial-gradient(circle, rgba(255,255,255,.5) 0%, rgba(255,240,210,.2) 44%, transparent 66%);animation-duration:1.2s}
 
   /* ── BOTTOM 60% — CAMERA (the kid is the star; detection room) ── */
   #stage{position:relative;height:var(--camH);flex:1 1 var(--camH);background:#06070b;overflow:hidden}
@@ -150,8 +156,11 @@ const game={ running:false, score:0, combo:0, maxCombo:0, hits:0, total:0, clean
 let capT=0;
 function novaState(s){ novaEl.classList.remove('idle','talking','excited'); novaEl.classList.add(s);
   if(s!=='idle'){ clearTimeout(novaState._t); novaState._t=setTimeout(()=>{ novaEl.classList.remove('talking','excited'); novaEl.classList.add('idle'); }, s==='excited'?1400:1800); } }
-function novaSay(text, state){ const c=$('cap'); c.textContent=text; c.classList.add('show'); novaState(state||'talking');
+function novaSay(text, state){ const c=$('cap'); c.textContent=text; c.classList.add('show'); novaState(state||'talking'); glow('speak');
   speak(text); clearTimeout(capT); capT=setTimeout(()=>c.classList.remove('show'), 2600); }
+// WITNESS-MODE glow-border feedback channel: idle→purple, hit→green, streak→magenta, miss→amber, speak→white
+function glow(s){ novaEl.classList.remove('g-idle','g-hit','g-streak','g-miss','g-speak'); novaEl.classList.add('g-'+s);
+  if(s!=='idle'){ clearTimeout(glow._t); glow._t=setTimeout(()=>{ novaEl.classList.remove('g-hit','g-streak','g-miss','g-speak'); novaEl.classList.add('g-idle'); }, 1100); } }
 function speak(t){ if(!/[?&](novoice|nonova)/.test(location.search)){ try{ const u=new SpeechSynthesisUtterance(t.replace(/[✨🌟💜🤚]/g,'')); u.rate=1.05; u.pitch=1.25; speechSynthesis.cancel(); speechSynthesis.speak(u);}catch(e){} } }
 function warn(t){ const w=$('warn'); if(!t){ w.classList.remove('show'); return; } w.textContent=t; w.classList.add('show'); clearTimeout(warn._t); warn._t=setTimeout(()=>w.classList.remove('show'),2600); }
 
@@ -298,7 +307,7 @@ try{ window.CUES=SEQ.map(s=>({action:s[0],dur:s[1]})); }catch(e){}   // expose f
 let lastSpeak=0;
 async function playGame(){
   game.running=true; game.score=0; game.combo=0; $('streak').classList.add('show');
-  novaState('small'); novaSay("Watch me, then copy! Let's GO 💃",'excited'); await sleep(1200);
+  novaState('small'); glow('idle'); novaSay("Watch me, then copy! Let's GO 💃",'excited'); await sleep(1200);
   for(const [action,dur] of SEQ){
     if(!game.running) break;
     const mv=MOVES[action]; game.total++;
@@ -308,7 +317,7 @@ async function playGame(){
       if(!resolved && det.present && mv.check(det)){ resolved=true; onHit(action,dur,end); }
       await sleep(80);
     }
-    if(!resolved){ if(mv.visual){ onHit(action,dur,end); } else { _cueState='miss'; } }
+    if(!resolved){ if(mv.visual){ onHit(action,dur,end); } else { _cueState='miss'; glow('miss'); } }
     await sleep(180); setCue(null); await sleep(120);
   }
   game.running=false; $('streak').classList.remove('show'); setCue(null); clearLight();
@@ -318,6 +327,7 @@ function onHit(action,dur,end){
   game.score+=Math.round(mv.pts*(fast?1.4:1)); game.hits++; game.combo++; game.maxCombo=Math.max(game.maxCombo,game.combo);
   const clean=fast||mv.visual; if(clean) game.cleanHits++;
   _cueState=game.combo>=3?'streak':'hit'; _cueQual=clean?.92:.6;
+  glow(game.combo>=3?'streak':'hit');   // Nova's border pulses the reaction (Witness Mode channel)
   $('streak').textContent='🔥 '+game.combo;
   // SUBTLE voice: milestones only, 7s cooldown (reaction-engine speak-gate)
   const n=performance.now();
