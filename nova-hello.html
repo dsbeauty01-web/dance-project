@@ -34,6 +34,14 @@
   #nova.g-streak#nova-glow{background:radial-gradient(circle, rgba(255,120,230,.62) 0%, rgba(255,120,230,.22) 44%, transparent 72%)}
   #nova.g-miss  #nova-glow{background:radial-gradient(circle, rgba(255,210,90,.46) 0%, rgba(255,170,60,.18) 46%, transparent 70%)}
   #nova.g-speak #nova-glow{background:radial-gradient(circle, rgba(255,255,255,.46) 0%, rgba(255,240,210,.18) 46%, transparent 68%)}
+  /* STATE MACHINE: FULL (talking, figure) ↔ VOICE-ONLY (singing/dancing) */
+  #nova,#stage{ transition: flex-basis .55s cubic-bezier(.4,0,.2,1), height .55s cubic-bezier(.4,0,.2,1); }
+  #app.full  #nova{ flex-basis:42svh; height:42svh } #app.full  #stage{ flex-basis:58svh; height:58svh }
+  #app.voice #nova{ flex-basis:8svh;  height:8svh  } #app.voice #stage{ flex-basis:92svh; height:92svh }
+  #app.voice #nova-fig{ opacity:0; transition:opacity .45s ease }
+  #app.voice #nova-name{ opacity:0 }
+  #tunnel{ position:fixed; inset:0; z-index:30; background:#0a0612; opacity:0; pointer-events:none; transition:opacity .3s ease }
+  #tunnel.on{ opacity:1 }
   #nova-name{position:absolute;bottom:6px;font-size:13px;font-weight:700;color:#ffe9c9;opacity:.8}
   #cap{position:absolute;bottom:8px;left:50%;transform:translateX(-50%) translateY(8px);max-width:92%;
     background:rgba(20,10,40,.55);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15);padding:7px 16px;border-radius:18px;
@@ -63,7 +71,8 @@
 </style>
 </head>
 <body>
-<div id="app">
+<div id="tunnel"></div>
+<div id="app" class="full">
   <div id="nova" class="idle"><div id="nova-glow"></div><div id="nova-fig"></div><div id="cap"></div><div id="nova-name">Nova</div></div>
   <div id="stage"><video id="cam" autoplay playsinline muted></video><canvas id="fx"></canvas><div id="guide"></div><div id="streak"></div></div>
 </div>
@@ -107,6 +116,9 @@ function novaSay(t,s){ const c=$('cap'); c.textContent=t; c.classList.add('show'
 // WITNESS-MODE glow-border feedback: idle→pink, hit→green, streak→magenta, miss→amber, speak→white
 function glow(s){ novaEl.classList.remove('g-idle','g-hit','g-streak','g-miss','g-speak'); novaEl.classList.add('g-'+s);
   if(s!=='idle'){ clearTimeout(glow._t); glow._t=setTimeout(()=>{ novaEl.classList.remove('g-hit','g-streak','g-miss','g-speak'); novaEl.classList.add('g-idle'); }, 1100); } }
+function setMode(m){ const a=$('app'); if(a){ a.classList.remove('full','voice'); a.classList.add(m); } }
+async function tunnel(){ const t=$('tunnel'); if(t) t.classList.add('on'); glow('speak'); await sleep(330); if(t) t.classList.remove('on'); await sleep(140); }
+async function novaReturn(){ setMode('full'); novaState('talking'); glow('speak'); novaSay('You reached SO high and your wave was the best! 💜','excited'); await sleep(2400); }
 function speak(t){ if(!/[?&](novoice|nonova)/.test(location.search)){ try{ const u=new SpeechSynthesisUtterance(t.replace(/[✨🌟💜👋🙌🤚]/g,'')); u.rate=1.0; u.pitch=1.3; speechSynthesis.cancel(); speechSynthesis.speak(u);}catch(e){} } }
 function warn(t){ const w=$('warn'); if(!t){w.classList.remove('show');return;} w.textContent=t; w.classList.add('show'); clearTimeout(warn._t); warn._t=setTimeout(()=>w.classList.remove('show'),2600); }
 
@@ -170,9 +182,11 @@ $('play-btn').addEventListener('click', start);
 async function start(){
   $('play-btn').disabled=true; novaSay('Let me see you! 📷','talking');
   if(!await ensureCamera()){ $('play-btn').disabled=false; return; }
-  $('s-launch').classList.add('hidden');
+  $('s-launch').classList.add('hidden'); setMode('full');
   await Promise.race([ ensureModel().catch(()=>{}), sleep(12000) ]); loop();
-  await frameGuide(); await presence(); await playGame(); endGame();
+  await frameGuide(); await presence();                 // FULL: Nova talking, figure up
+  novaSay("Okay — sing and DANCE with me! 🎵",'excited'); await tunnel(); setMode('voice');   // → VOICE-ONLY
+  await playGame(); await novaReturn(); endGame();       // dance, then bring her back
 }
 async function frameGuide(){ $('guide').classList.add('show'); novaState('talking'); novaSay('Step back till you fit the sparkles! ✨','talking');
   const dl=performance.now()+12000; let g=0;
@@ -243,7 +257,7 @@ function endGame(){ clearLight(); $('streak').classList.remove('show'); novaStat
 document.querySelectorAll('#fb button').forEach(b=>b.addEventListener('click',()=>{ try{localStorage.setItem('nova-fb-'+Date.now(),b.dataset.fb);}catch(e){}
   novaSay('Thank you! 💜','excited'); setTimeout(()=>{ $('s-end').classList.add('hidden'); restart(); },700); }));
 $('again-btn').addEventListener('click',()=>{ $('s-end').classList.add('hidden'); restart(); });
-function restart(){ game.combo=0; (async()=>{ await presence(); await playGame(); endGame(); })(); }
+function restart(){ game.combo=0; (async()=>{ setMode('full'); await presence(); novaSay('Again! 🎵','excited'); await tunnel(); setMode('voice'); await playGame(); await novaReturn(); endGame(); })(); }
 document.addEventListener('visibilitychange',()=>{ if(document.hidden){ try{speechSynthesis.cancel(); $('song').pause();}catch(e){} } });
 window.__nova={ det, game, setCue, get cue(){return _cue;}, frameGuide, presence, playGame };
 </script>
