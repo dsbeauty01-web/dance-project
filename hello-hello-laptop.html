@@ -129,7 +129,11 @@
   </div>
   <div id="stage">
     <div id="nova-side">
-      <img id="nova-face" src="nova-face.png" alt="Nova" onerror="this.style.display='none'">
+      <!-- Nova demo: no dedicated hello-hello clip exists, so loop her dance video; fall back to the still face -->
+      <video id="nova-demo" src="nova-joined-small.mp4" poster="nova-face.png" muted loop playsinline autoplay
+             style="width:min(92%,360px);aspect-ratio:9/16;object-fit:cover;border-radius:18px"
+             onerror="this.style.display='none';var f=document.getElementById('nova-face');if(f)f.style.display='block'"></video>
+      <img id="nova-face" src="nova-face.png" alt="Nova" style="display:none" onerror="this.style.display='none'">
       <div id="nova-move">Hello Hello! 👋</div>
       <div class="side-tag">Watch</div>
     </div>
