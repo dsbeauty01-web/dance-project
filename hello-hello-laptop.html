@@ -62,12 +62,20 @@
     background:radial-gradient(120% 100% at 50% 20%,#2a1052,#16002e); border:3px solid rgba(167,139,250,.4);
     box-shadow:0 10px 40px rgba(120,60,160,.4), inset 0 0 30px rgba(255,138,226,.08);
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; }
-  #nova-face{ width:min(42%,200px); aspect-ratio:1/1; border-radius:50%; object-fit:cover;
-    border:4px solid rgba(255,210,122,.8); box-shadow:0 0 30px rgba(255,166,61,.5); background:#3a1566;
-    animation:breathe 3.2s ease-in-out infinite; }
-  @keyframes breathe{ 0%,100%{ transform:scale(1) } 50%{ transform:scale(1.05) } }
-  #nova-move{ font-size:clamp(22px,4vw,40px); font-weight:700; text-align:center; padding:0 14px;
-    text-shadow:0 0 18px rgba(255,138,226,.6); min-height:1.2em; }
+  /* Nova fills the ~50% panel, object-fit:contain → WHOLE figure visible (not zoomed on her face) */
+  #nova-demo{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#0d0820; }
+  #nova-face{ width:min(42%,200px); aspect-ratio:1/1; border-radius:50%; object-fit:cover; z-index:1;
+    border:4px solid rgba(255,210,122,.8); box-shadow:0 0 30px rgba(255,166,61,.5); background:#3a1566; }
+  #flourish{ position:absolute; top:22%; font-size:clamp(44px,9vw,96px); opacity:0; z-index:6; pointer-events:none;
+    text-shadow:0 0 24px rgba(255,216,77,.85); transition:opacity .2s, transform .3s; }
+  #flourish.show{ opacity:1; }
+  #flourish.fl-L{ left:14%; transform:translateY(-6px) rotate(-12deg); }
+  #flourish.fl-R{ right:14%; transform:translateY(-6px) rotate(12deg); }
+  #nova-move{ position:absolute; bottom:42px; left:0; right:0; z-index:5; font-size:clamp(20px,3.4vw,38px); font-weight:700;
+    text-align:center; padding:0 14px; text-shadow:0 1px 10px #000,0 0 18px rgba(255,138,226,.6); }
+  #lyric{ width:100%; text-align:center; z-index:20; font-size:clamp(18px,3.6vw,30px); font-weight:600; min-height:1.3em;
+    color:#fff; text-shadow:0 0 16px rgba(167,139,250,.7); opacity:0; transition:opacity .2s; padding:2px 12px; }
+  #lyric.show{ opacity:1; }
   .side-tag{ position:absolute; bottom:8px; left:50%; transform:translateX(-50%); z-index:9;
     font-size:12px; font-weight:600; letter-spacing:1px; background:rgba(0,0,0,.5); padding:3px 14px; border-radius:12px; }
   #cam-wrap{ position:relative; flex:1 1 50%; min-width:0; border-radius:24px; overflow:hidden; background:#000;
@@ -127,15 +135,16 @@
     <div id="combo-box">x0</div>
     <button id="quit" title="Quit">✕</button>
   </div>
+  <div id="lyric"></div>
   <div id="stage">
     <div id="nova-side">
-      <!-- Hello Hello Nova demo clip (she steps back-and-forth at the start). Centered, contain so she's never cropped. -->
+      <!-- Nova fills ~50% of the screen, object-fit:contain so her WHOLE figure shows (not zoomed). -->
       <video id="nova-demo" src="nova-hello.mp4" poster="nova-face.png" muted loop playsinline autoplay preload="auto"
-             style="width:min(96%,420px);aspect-ratio:9/16;object-fit:contain;background:#0d0820;border-radius:18px;margin:0 auto;display:block"
              onerror="this.style.display='none';var f=document.getElementById('nova-face');if(f)f.style.display='block'"></video>
-      <img id="nova-face" src="nova-face.png" alt="Nova" style="display:none" onerror="this.style.display='none'">
+      <img id="nova-face" src="nova-face.png" alt="Nova" style="display:none">
+      <div id="flourish"></div>
       <div id="nova-move">Hello Hello! 👋</div>
-      <div class="side-tag">Watch</div>
+      <div class="side-tag">Watch Nova</div>
     </div>
     <div id="cam-wrap">
       <video id="cam" playsinline muted autoplay></video>
@@ -161,32 +170,94 @@
 "use strict";
 const $ = id => document.getElementById(id);
 
-// ── MOVES (Hello Hello, ages 4-7) ──────────────────────────────────────────
-const THRESH = { up:0.12, both:0.05, motion:0.06 };
+// ── MOVES (Hello Hello — 7 actions, LENIENT for kids; check(d) reads det) ───
 const MOVES = {
-  'right_hand_up': { name:'RIGHT hand UP! ✋', coach:'raise your right hand!', pts:120, check:d=> d.handUpR>THRESH.up },
-  'left_hand_up':  { name:'LEFT hand UP! ✋',  coach:'raise your left hand!',  pts:120, check:d=> d.handUpL>THRESH.up },
-  'clap':          { name:'CLAP! 👏',         coach:'clap your hands!',        pts:140, check:d=> d.clap },
-  'both_up':       { name:'BOTH hands UP! 🙌',coach:'both hands up high!',     pts:160, check:d=> d.handUpL>THRESH.both && d.handUpR>THRESH.both },
-  'free':          { name:'FREESTYLE! ✨',    coach:'dance it ALL!',           pts:60,  check:d=> d.motion>THRESH.motion },
+  clap:  { name:'CLAP! 👏',           parts:['left_wrist','right_wrist'],      zone:'full', check:d=> d.clap },
+  both:  { name:'BOTH hands UP! 🙌',  parts:['left_wrist','right_wrist'],      zone:'full', check:d=> d.handUpL>0.03 && d.handUpR>0.03 },
+  wave:  { name:'WAVE! 👋',           parts:['right_wrist','left_wrist'],      zone:'full', check:d=> d.handUpL>0.10 || d.handUpR>0.10 },
+  head:  { name:'Hands on HEAD! 🙆',  parts:['left_wrist','right_wrist'],      zone:'full', check:d=> d.nearHead },
+  star:  { name:'STAR — arms WIDE! ⭐',parts:['left_wrist','right_wrist'],     zone:'full', check:d=> d.starPose },
+  shrug: { name:'SHRUG! 🤷',          parts:['left_shoulder','right_shoulder'],zone:'full', check:d=> d.shoulderLift>0.04 || d.motion>0.09 },
+  toes:  { name:'Touch TOES! 👇',     parts:['left_wrist','right_wrist'],      zone:'full', check:d=> d.wristsLow },
 };
-const CUE_PARTS = {
-  'right_hand_up':['right_wrist'], 'left_hand_up':['left_wrist'],
-  'clap':['left_wrist','right_wrist'], 'both_up':['left_wrist','right_wrist'], 'free':['left_wrist','right_wrist'],
-};
-const ZONE = { 'right_hand_up':'right','left_hand_up':'left','clap':'full','both_up':'full','free':'full' };
+const CUE_PARTS={}, ZONE={}; for(const k in MOVES){ CUE_PARTS[k]=MOVES[k].parts; ZONE[k]=MOVES[k].zone; }
 
-// ── CUE TIMELINE (JS-clock seconds) — FULL Hello Hello song (~111s) ──────────
-// warm-up (no dead intro) → main sequence across the whole track → freestyle to the end.
-const CUES = (()=>{ const out=[]; const add=(s,a,d)=>out.push({t:Math.round(s*1000),dur:d,action:a});
-  add(5,'right_hand_up',1500);  add(8.5,'left_hand_up',1500); add(12,'clap',1500);
-  add(17,'right_hand_up',1600); add(21,'left_hand_up',1600);  add(25,'clap',1600);  add(28,'both_up',1600);
-  add(31,'right_hand_up',1500); add(35,'clap',1500);          add(39,'left_hand_up',1500); add(43,'both_up',1500);
-  add(47,'right_hand_up',1500); add(51,'clap',1500);          add(55,'left_hand_up',1500); add(59,'both_up',1500);
-  add(63,'right_hand_up',1400); add(67,'left_hand_up',1400);  add(71,'clap',1400);  add(75,'both_up',1400);
-  add(79,'right_hand_up',1300); add(82,'left_hand_up',1300);  add(85,'clap',1300);  add(88,'both_up',1300);
-  add(92,'free',16000);   // freestyle / outro — runs to ~108; the song ends at ~111
-  return out.sort((a,b)=>a.t-b.t); })();
+// ── EVENT-DRIVEN TIMELINE (ms) — verbatim from hello-hello-timeline.js ──────
+//   lyric=text · helloL/helloR=Nova arm flourish · demo=preview (no score) ·
+//   open=detection window starts · close=window ends (miss if not hit).
+const TIMELINE = [
+  {t:1000,  type:'lyric', text:"🎵 Hello Hello! 🎵"},
+  {t:3000,  type:'lyric', text:"Get ready! Watch Nova!"},
+  {t:5000,  type:'helloL'}, {t:5000, type:'lyric', text:"Hello,"},
+  {t:6100,  type:'helloR'}, {t:6100, type:'lyric', text:"hello."},
+  {t:7200,  type:'lyric', text:"Can you clap your hands?"},
+  {t:7200,  type:'demo', action:'clap', emoji:'👏', label:'CLAP!', instruction:'Get ready to clap!'},
+  {t:9800,  type:'open',  action:'clap', emoji:'👏', label:'CLAP!', instruction:'Clap your hands!', pts:150},
+  {t:12300, type:'close', action:'clap'},
+  {t:12500, type:'helloL'}, {t:12500, type:'lyric', text:"Hello,"},
+  {t:13600, type:'helloR'}, {t:13600, type:'lyric', text:"hello."},
+  {t:14700, type:'lyric', text:"Can you clap your hands?"},
+  {t:14700, type:'demo', action:'clap', emoji:'👏', label:'CLAP AGAIN!', instruction:'Get ready!'},
+  {t:17200, type:'open',  action:'clap', emoji:'👏', label:'CLAP!', instruction:'Clap your hands!', pts:150},
+  {t:19700, type:'close', action:'clap'},
+  {t:20000, type:'lyric', text:"Can you stretch up high?"},
+  {t:20000, type:'demo', action:'both', emoji:'🙌', label:'STRETCH!', instruction:'Get ready to stretch!'},
+  {t:22500, type:'open',  action:'both', emoji:'🙌', label:'STRETCH!', instruction:'BOTH arms UP HIGH!', pts:200},
+  {t:25000, type:'close', action:'both'},
+  {t:25200, type:'lyric', text:"Can you touch your toes?"},
+  {t:25200, type:'demo', action:'toes', emoji:'👇', label:'TOES!', instruction:'Bend down to toes!'},
+  {t:27500, type:'open',  action:'toes', emoji:'👇', label:'TOES!', instruction:'Reach to your toes!', pts:200},
+  {t:30000, type:'close', action:'toes'},
+  {t:30200, type:'lyric', text:"Can you touch your head?"},
+  {t:30200, type:'demo', action:'head', emoji:'🙆', label:'HEAD!', instruction:'Hands on your head!'},
+  {t:32700, type:'open',  action:'head', emoji:'🙆', label:'HEAD!', instruction:'Hands on your head!', pts:150},
+  {t:35200, type:'close', action:'head'},
+  {t:35400, type:'lyric', text:"Can you turn around?"},
+  {t:35400, type:'demo', action:'star', emoji:'⭐', label:'STAR POSE!', instruction:'Arms out wide!'},
+  {t:37900, type:'open',  action:'star', emoji:'⭐', label:'TURN!', instruction:'Arms out wide!', pts:150},
+  {t:40400, type:'close', action:'star'},
+  {t:40600, type:'lyric', text:"Can you say... Hello!"},
+  {t:40600, type:'demo', action:'wave', emoji:'👋', label:'WAVE!', instruction:'Wave one hand!'},
+  {t:43100, type:'open',  action:'wave', emoji:'👋', label:'WAVE!', instruction:'Wave one hand!', pts:150},
+  {t:45600, type:'close', action:'wave'},
+  {t:46000, type:'helloL'}, {t:46000, type:'lyric', text:"Hello,"},
+  {t:47100, type:'helloR'}, {t:47100, type:'lyric', text:"hello."},
+  {t:48200, type:'lyric', text:"Can you stamp your feet?"},
+  {t:48200, type:'demo', action:'shrug', emoji:'🤷', label:'SHRUG!', instruction:'Raise shoulders!'},
+  {t:50700, type:'open',  action:'shrug', emoji:'🤷', label:'SHRUG!', instruction:'Raise shoulders!', pts:150},
+  {t:53200, type:'close', action:'shrug'},
+  {t:53400, type:'helloL'}, {t:53400, type:'lyric', text:"Hello,"},
+  {t:54500, type:'helloR'}, {t:54500, type:'lyric', text:"hello."},
+  {t:55600, type:'lyric', text:"Can you stamp your feet?"},
+  {t:55600, type:'demo', action:'shrug', emoji:'🤷', label:'SHRUG AGAIN!', instruction:'Get ready!'},
+  {t:58000, type:'open',  action:'both', emoji:'🙌', label:'STRETCH!', instruction:'BOTH arms UP HIGH!', pts:200},
+  {t:60500, type:'close', action:'both'},
+  {t:60700, type:'lyric', text:"Can you touch your toes?"},
+  {t:60700, type:'demo', action:'toes', emoji:'👇', label:'TOES!', instruction:'Get ready!'},
+  {t:63200, type:'open',  action:'toes', emoji:'👇', label:'TOES!', instruction:'Reach to your toes!', pts:200},
+  {t:65700, type:'close', action:'toes'},
+  {t:66000, type:'lyric', text:"Can you turn around?"},
+  {t:66000, type:'demo', action:'star', emoji:'⭐', label:'TURN!', instruction:'Get ready!'},
+  {t:68500, type:'open',  action:'star', emoji:'⭐', label:'TURN!', instruction:'Arms out wide!', pts:150},
+  {t:71000, type:'close', action:'star'},
+  {t:71200, type:'lyric', text:"Can you say... Hello!"},
+  {t:71200, type:'demo', action:'wave', emoji:'👋', label:'WAVE!', instruction:'Get ready!'},
+  {t:73500, type:'open',  action:'wave', emoji:'👋', label:'WAVE!', instruction:'Wave one hand!', pts:150},
+  {t:76000, type:'close', action:'wave'},
+  {t:76500, type:'helloL'}, {t:76500, type:'lyric', text:"Hello,"},
+  {t:77600, type:'helloR'}, {t:77600, type:'lyric', text:"hello."},
+  {t:78700, type:'lyric', text:"Can you clap your hands?"},
+  {t:78700, type:'demo', action:'clap', emoji:'👏', label:'CLAP!', instruction:'Get ready!'},
+  {t:81200, type:'open',  action:'clap', emoji:'👏', label:'CLAP!', instruction:'Clap your hands!', pts:150},
+  {t:83700, type:'close', action:'clap'},
+  {t:84000, type:'helloL'}, {t:84000, type:'lyric', text:"Hello,"},
+  {t:85100, type:'helloR'}, {t:85100, type:'lyric', text:"hello."},
+  {t:86200, type:'lyric', text:"Can you stamp your feet?"},
+  {t:86200, type:'demo', action:'shrug', emoji:'🦶', label:'STAMP!', instruction:'Get ready!'},
+  {t:88700, type:'open',  action:'shrug', emoji:'🦶', label:'STAMP!', instruction:'Bounce!', pts:150},
+  {t:91000, type:'close', action:'shrug'},
+  {t:92000, type:'lyric', text:"🌟 Amazing! 🌟"},
+];
 const SONG_END = 111;   // full song length; real end follows the audio (see gameTick / song 'ended')
 
 // ── THE CLOCK (JS source of truth; ./shit.mp3 layered ON it; runs silent) ───
@@ -197,10 +268,10 @@ function clockS(){ if(audioOK && !song.paused && song.currentTime>0) return song
 
 // ── STATE ───────────────────────────────────────────────────────────────────
 let detector=null, camStream=null, rafId=0;
-let det = { handUpL:-1, handUpR:-1, clap:false, motion:0, present:false, joints:0 };
+let det = { handUpL:-1, handUpR:-1, clap:false, spread:0, shoulderLift:0, wristsLow:false, nearHead:false, starPose:false, motion:0, present:false, joints:0 };
 let base = { shoulderBaseY:0, sw:120, ok:false };
 let smooth = {};
-let game = { running:false, score:0, combo:0, maxCombo:0, hits:0, total:0, idx:0, cue:null, cueResolved:false, cueEnd:0, cueZone:null, log:[], _readyShown:false };
+let game = { running:false, score:0, combo:0, maxCombo:0, hits:0, total:0, evIdx:0, window:null, cueZone:null, log:[] };
 let prevKp = null;
 
 async function ensureModel(){
@@ -234,20 +305,36 @@ function analyze(kps){
   det.joints = kps.filter(k=>k.score>MIN).length;
   const ls=kp(kps,'left_shoulder'), rs=kp(kps,'right_shoulder');
   const lw=kp(kps,'left_wrist'), rw=kp(kps,'right_wrist');
+  const lh=kp(kps,'left_hip'), rh=kp(kps,'right_hip');
+  const nose=kp(kps,'nose'), lear=kp(kps,'left_ear'), rear=kp(kps,'right_ear');
   det.present = ls&&rs&&ls.score>MIN&&rs.score>MIN;
-  if(!det.present){ det.handUpL=det.handUpR=-1; det.clap=false; return; }
+  if(!det.present){ det.handUpL=det.handUpR=-1; det.clap=false; det.spread=0; det.shoulderLift=0; det.wristsLow=false; det.nearHead=false; det.starPose=false; return; }
   const Ls=sm('ls',ls.x,ls.y), Rs=sm('rs',rs.x,rs.y);
   const sw = Math.max(Math.abs(Ls.x-Rs.x),60);
   const midShY=(Ls.y+Rs.y)/2;
   const Lw= lw&&lw.score>MIN? sm('lw',lw.x,lw.y):null;
   const Rw= rw&&rw.score>MIN? sm('rw',rw.x,rw.y):null;
-  det.handUpL = Lw ? (midShY-Lw.y)/sw : -1;
+  det.handUpL = Lw ? (midShY-Lw.y)/sw : -1;     // + = above shoulder line
   det.handUpR = Rw ? (midShY-Rw.y)/sw : -1;
-  if(Lw && Rw){ const dx=Math.abs(Lw.x-Rw.x)/sw;
+  if(Lw && Rw){
+    const dx=Math.abs(Lw.x-Rw.x)/sw; det.spread=dx;
     const lY=(Lw.y-midShY)/sw, rY=(Rw.y-midShY)/sw;            // 0 ≈ shoulder line, + = below
-    const nearChest = lY>-0.6 && lY<0.7 && rY>-0.6 && rY<0.7;
-    det.clap = dx<0.45 && nearChest;
-  } else det.clap=false;
+    det.clap = dx<0.5 && lY>-0.7&&lY<0.9 && rY>-0.7&&rY<0.9;   // wrists together near chest
+    det.starPose = dx>1.5 && Math.abs(lY)<0.75 && Math.abs(rY)<0.75;   // arms out wide at shoulder height
+  } else { det.clap=false; det.spread=0; det.starPose=false; }
+  // shrug: shoulders raised vs calibrated neutral
+  det.shoulderLift = base.shoulderBaseY ? (base.shoulderBaseY - midShY)/sw : 0;
+  // toes: wrists LOW (near/below hips, or well below shoulders if hips unseen)
+  const hipY=(lh&&rh&&lh.score>MIN&&rh.score>MIN)?((lh.y+rh.y)/2):null;
+  if(Lw && Rw){
+    det.wristsLow = (hipY!=null) ? (Lw.y>hipY-0.1*sw && Rw.y>hipY-0.1*sw) : (det.handUpL<-0.55 && det.handUpR<-0.55);
+  } else det.wristsLow=false;
+  // head: both wrists near nose/ear, at/above shoulder line
+  const head = (nose&&nose.score>MIN)?nose : (lear&&lear.score>MIN)?lear : (rear&&rear.score>MIN)?rear : null;
+  if(Lw && Rw && head){
+    const dl=Math.hypot(Lw.x-head.x,Lw.y-head.y)/sw, dr=Math.hypot(Rw.x-head.x,Rw.y-head.y)/sw;
+    det.nearHead = dl<0.85 && dr<0.85 && det.handUpL>-0.15 && det.handUpR>-0.15;
+  } else det.nearHead=false;
   det._raw = { midShY, sw };
   if(prevKp){ let tot=0,c=0; for(let i=0;i<kps.length;i++){ if(kps[i].score>MIN&&prevKp[i]&&prevKp[i].score>MIN){ tot+=Math.hypot(kps[i].x-prevKp[i].x,kps[i].y-prevKp[i].y); c++; } } if(c) det.motion=0.6*det.motion+0.4*Math.min(1,(tot/c)/sw*3); }
   prevKp=kps.map(k=>({x:k.x,y:k.y,score:k.score}));
@@ -306,8 +393,9 @@ function countdown(){ return new Promise(res=>{
   step();
 }); }
 function beginGame(){
-  Object.assign(game,{ running:true, score:0, combo:0, maxCombo:0, hits:0, total:0, idx:0, cue:null, cueResolved:false, cueEnd:0, cueZone:null, log:[], _readyShown:false });
+  Object.assign(game,{ running:true, score:0, combo:0, maxCombo:0, hits:0, total:0, evIdx:0, window:null, cueZone:null, log:[] });
   $('score').textContent='0'; $('combo-box').textContent='x0'; $('progress').style.width='0%';
+  window.__cuePart=null; window.__cueState=null; setLyric('');
   startMs=performance.now();                                  // THE CLOCK STARTS (independent of any media)
   try{ song.currentTime=0; song.volume=0.7; song.play().then(()=>audioOK=true).catch(()=>audioOK=false); }catch(e){}
   $('nova-move').textContent='Watch me — copy! 👋';
@@ -322,44 +410,58 @@ function gameTick(){
   const endAt = (audioOK && song.duration>1) ? song.duration : SONG_END;
   $('progress').style.width=Math.min(100,(clockS()/endAt)*100)+'%';
   if(clockS()>=endAt){ endGame(); return; }
-  if(game.idx===0 && !game.cue && !game._readyShown && CUES.length){
-    const lead=CUES[0].t-now; if(lead<=3500 && lead>300){ game._readyShown=true; coach('Get ready… first move! ✨'); }
-  }
-  if(!game.cue && game.idx<CUES.length && now>=CUES[game.idx].t) openCue(CUES[game.idx]);
-  if(game.cue){
-    if(!game.cueResolved && MOVES[game.cue.action].check(det, base) && det.present) resolveHit();
-    // actionable feedback: cued hands not in frame → tell them, don't leave a blank screen
-    else if(!game.cueResolved && window.__litAny===false && game.cue.action!=='free') coach('stand back — show me your hands! ✋');
-    if(now>=game.cueEnd){ if(!game.cueResolved) resolveMiss(); closeCue(); }
+  // fire every TIMELINE event whose time has passed, in order
+  while(game.evIdx<TIMELINE.length && now>=TIMELINE[game.evIdx].t){ dispatch(TIMELINE[game.evIdx]); game.evIdx++; }
+  // score the OPEN detection window the first frame the move matches
+  if(game.window && !game.window.resolved){
+    const mv=MOVES[game.window.action];
+    if(mv && det.present && mv.check(det,base)) resolveHit();
+    else if(window.__litAny===false) coach('stand back — show me your hands! ✋');
   }
 }
+function dispatch(ev){ switch(ev.type){
+  case 'lyric':  setLyric(ev.text); break;
+  case 'helloL': flourish('L'); break;
+  case 'helloR': flourish('R'); break;
+  case 'demo':   showMove(ev); break;          // preview only — scoring starts at 'open'
+  case 'open':   openWindow(ev); break;
+  case 'close':  closeWindow(); break;
+} }
+function setLyric(text){ const el=$('lyric'); if(!el) return; el.textContent=text||''; el.classList.toggle('show', !!text); }
+function flourish(side){ const f=$('flourish'); if(!f) return; f.textContent='👋'; f.classList.remove('show','fl-L','fl-R'); void f.offsetWidth;
+  f.classList.add('show', side==='L'?'fl-L':'fl-R'); clearTimeout(flourish._t); flourish._t=setTimeout(()=>f.classList.remove('show','fl-L','fl-R'),900); }
 function setZone(z,state){ ['zone-left','zone-right','zone-full'].forEach(id=>$(id).classList.remove('show','armed','hit','miss'));
   if(!z) return; const id=z==='left'?'zone-left':z==='right'?'zone-right':'zone-full'; $(id).classList.add('show', state||'armed'); }
 function zoneState(state){ const z=game.cueZone; if(!z) return; const id=z==='left'?'zone-left':z==='right'?'zone-right':'zone-full';
   $(id).classList.remove('armed','hit','miss'); $(id).classList.add(state); }
-function openCue(c){
-  game.cue=c; game.cueResolved=false; game.cueEnd=c.t+c.dur; game.total++; c.openSec=+clockS().toFixed(2);
-  window.__cuePart=c.action; window.__cueState='armed';
-  const m=MOVES[c.action];
+function showMove(ev){   // demo OR open — light the joints + call the move on Nova's side
+  window.__cuePart=ev.action; window.__cueState='armed';
+  game.cueZone=ZONE[ev.action]||'full'; setZone(game.cueZone,'armed');
   $('cam-wrap').classList.remove('hit','miss'); $('cam-wrap').classList.add('armed');
-  game.cueZone=ZONE[c.action]; setZone(game.cueZone,'armed');
-  $('nova-move').textContent=m.name;                  // LEFT panel calls the move
-  coach(m.coach);
+  const lbl=(ev.emoji?ev.emoji+' ':'')+(ev.label||(MOVES[ev.action]&&MOVES[ev.action].name)||'');
+  $('nova-move').textContent=lbl; coach(ev.instruction||'copy me!');
 }
-function closeCue(){ game.cue=null; window.__cuePart=null; $('cam-wrap').classList.remove('armed'); setZone(null); game.idx++; }
-function logCue(result){ const c=game.cue; if(!c) return; const sched=+(c.t/1000).toFixed(2), open=c.openSec!=null?c.openSec:sched;
-  game.log.push({ action:c.action, result, sched, open, drift:+(open-sched).toFixed(2),
-    handUpL:+det.handUpL.toFixed(3), handUpR:+det.handUpR.toFixed(3), clap:det.clap, motion:+det.motion.toFixed(3), joints:det.joints||0, present:det.present }); }
+function openWindow(ev){
+  game.window={ action:ev.action, resolved:false, pts:ev.pts||150, openSec:+clockS().toFixed(2) };
+  game.total++; showMove(ev); window.__cueState='armed';
+}
+function closeWindow(){
+  if(game.window && !game.window.resolved) resolveMiss();
+  game.window=null; window.__cuePart=null; window.__cueState=null;
+  $('cam-wrap').classList.remove('armed'); setZone(null);
+}
+function logCue(result){ const w=game.window; if(!w) return;
+  game.log.push({ action:w.action, result, t:w.openSec,
+    handUpL:+det.handUpL.toFixed(3), handUpR:+det.handUpR.toFixed(3), clap:det.clap, shoulderLift:+det.shoulderLift.toFixed(3),
+    wristsLow:det.wristsLow, nearHead:det.nearHead, starPose:det.starPose, motion:+det.motion.toFixed(3), joints:det.joints||0, present:det.present }); }
 function resolveHit(){
-  game.cueResolved=true; window.__cueState=(game.combo>=2?'streak':'hit');
-  const m=MOVES[game.cue.action];
-  const fast=(game.cueEnd-clockS()*1000)>game.cue.dur*0.45;
-  const pts=Math.round(m.pts*(fast?1.5:1)*(1+Math.min(game.combo,8)*0.1));
+  const w=game.window; if(!w) return; w.resolved=true; window.__cueState=(game.combo>=2?'streak':'hit');
+  const pts=Math.round((w.pts||150)*(1+Math.min(game.combo,8)*0.1));
   game.score+=pts; game.hits++; game.combo++; game.maxCombo=Math.max(game.maxCombo,game.combo);
   $('score').textContent=game.score;
   const cb=$('combo-box'); cb.textContent='x'+game.combo; cb.classList.remove('pulse'); void cb.offsetWidth; cb.classList.add('pulse');
   $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('hit'); zoneState('hit');
-  $('nova-move').textContent='YES! '+m.name; logCue('hit');
+  $('nova-move').textContent='YES! 🌟'; logCue('hit');
 }
 function resolveMiss(){ window.__cueState='miss'; game.combo=0; $('combo-box').textContent='x0';
   $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('miss'); zoneState('miss'); logCue('miss'); }
@@ -376,7 +478,7 @@ function endGame(){
   $('game').classList.add('hidden'); $('end-screen').classList.remove('hidden');
 }
 function saveSession(){ try{
-  const summary={ song:'hello-hello-laptop', cues:CUES.length, total:game.total, hits:game.hits, maxCombo:game.maxCombo, score:game.score, log:game.log };
+  const summary={ song:'hello-hello-laptop', events:TIMELINE.length, total:game.total, hits:game.hits, maxCombo:game.maxCombo, score:game.score, log:game.log };
   const blob=new Blob([JSON.stringify(summary,null,1)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='hello-hello-laptop-session.json';
   document.body.appendChild(a); a.click(); setTimeout(()=>{ a.remove(); URL.revokeObjectURL(a.href); },1000);
@@ -390,7 +492,9 @@ $('quit').addEventListener('click', ()=>{ endGame(); });
 window.addEventListener('beforeunload', ()=>{ if(camStream) camStream.getTracks().forEach(t=>t.stop()); });
 
 // self-test hooks
-window.__hhl = { get clock(){return clockS();}, get det(){return det;}, CUES, get game(){return game;}, get litAny(){return window.__litAny;}, get song(){return song;}, get audioOK(){return audioOK;} };
+window.__hhl = { get clock(){return clockS();}, get det(){return det;}, TIMELINE, get game(){return game;},
+  get litAny(){return window.__litAny;}, get song(){return song;}, get audioOK(){return audioOK;},
+  get activeAction(){return game.window?game.window.action:(window.__cuePart||null);}, get lyric(){return ($('lyric')||{}).textContent||'';} };
 </script>
 </body>
 </html>
