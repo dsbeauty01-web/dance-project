@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Hello Hello · Dance (laptop)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- LAPTOP Hello Hello — adapted from nova-wave.html (the chassis proven to work on this laptop).
+     NO Nova / NO LiveKit / NO backend. Clock = JS performance.now (song layered on top, never gates
+     cues). MoveNet poseLoop runs EVERY frame, not behind any conversation phase. -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.20.0/dist/tf-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.20.0/dist/tf-converter.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.20.0/dist/tf-backend-webgl.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<style>
+  :root{ --pink:#ff5fd8; --grn:#00ff99; --yel:#ffd84d; --bg:#140022; }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    font-family:'Fredoka','Segoe UI',system-ui,sans-serif; color:#fff; overflow:hidden;
+    background:
+      radial-gradient(70% 55% at 18% 0%, rgba(255,138,226,.20), transparent 60%),
+      radial-gradient(70% 55% at 92% 8%, rgba(110,231,255,.16), transparent 60%),
+      radial-gradient(120% 120% at 50% 0%, #46157033 0%, #45146e 0%, #1d0838 52%, #0b0017 100%);
+    -webkit-user-select:none; user-select:none;
+  }
+  .screen{ position:fixed; inset:0; z-index:1; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .hidden{ display:none !important; }
+
+  #start-screen{ gap:18px; text-align:center; padding:24px; }
+  #start-screen h1{ font-size:clamp(40px,10vw,72px); font-weight:700;
+    background:linear-gradient(90deg,#ff8ae2,#a78bfa,#6ee7ff); -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 4px 24px rgba(167,139,250,.55)); }
+  #start-screen p{ opacity:.85; font-size:clamp(14px,4vw,18px); max-width:460px; line-height:1.55; }
+  .big-btn{ background:linear-gradient(135deg,#ff7ae0,#a06bff 60%,#6ee7ff); color:#1a0030; border:none; cursor:pointer;
+    font-family:inherit; font-weight:700; font-size:clamp(20px,5.5vw,26px); padding:18px 50px; border-radius:50px;
+    box-shadow:0 10px 40px rgba(160,107,255,.55); }
+  .big-btn:active{ transform:scale(.95); }
+  #cam-warn{ font-size:13px; opacity:.7; min-height:18px; }
+
+  #countdown{ background:rgba(8,0,20,.45); z-index:40; }
+  #cd-num{ font-size:min(40vw,240px); font-weight:700; color:#fff; text-shadow:0 0 40px var(--pink); }
+  #cd-sub{ font-size:clamp(16px,5vw,24px); opacity:.85; margin-top:10px; }
+
+  #game{ justify-content:flex-start; }
+  #hud{ width:100%; display:flex; align-items:center; gap:12px; padding:10px 16px; position:relative; z-index:20;
+    background:linear-gradient(rgba(15,0,32,.6),transparent); }
+  #score-box{ font-weight:700; font-size:clamp(22px,6vw,30px); color:var(--yel); min-width:78px;
+    background:rgba(255,255,255,.08); border:1px solid rgba(255,216,77,.3); border-radius:14px; padding:4px 12px; }
+  #score-box small{ display:block; font-size:10px; color:#fff9; font-weight:500; letter-spacing:1px; }
+  #progress-wrap{ flex:1; height:12px; background:rgba(255,255,255,.12); border-radius:8px; overflow:hidden; }
+  #progress{ height:100%; width:0%; background:linear-gradient(90deg,#ff5fd8,#a78bfa,#ffd84d); border-radius:8px; transition:width .2s linear; }
+  #combo-box{ font-weight:700; font-size:clamp(16px,4.5vw,22px); color:var(--grn); min-width:58px; text-align:right; }
+  #combo-box.pulse{ animation:comboPulse .4s; }
+  @keyframes comboPulse{ 50%{ transform:scale(1.35) } }
+  #quit{ background:rgba(255,255,255,.1); border:none; color:#fff; font-size:18px; width:34px; height:34px; border-radius:50%; cursor:pointer; }
+
+  /* LAPTOP split screen: Nova LEFT, you RIGHT */
+  #stage{ position:relative; width:100%; flex:1; display:flex; flex-direction:row; gap:6px; padding:6px; align-items:stretch; overflow:hidden; }
+  #nova-side{ position:relative; flex:1 1 50%; min-width:0; border-radius:24px; overflow:hidden;
+    background:radial-gradient(120% 100% at 50% 20%,#2a1052,#16002e); border:3px solid rgba(167,139,250,.4);
+    box-shadow:0 10px 40px rgba(120,60,160,.4), inset 0 0 30px rgba(255,138,226,.08);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; }
+  #nova-face{ width:min(42%,200px); aspect-ratio:1/1; border-radius:50%; object-fit:cover;
+    border:4px solid rgba(255,210,122,.8); box-shadow:0 0 30px rgba(255,166,61,.5); background:#3a1566;
+    animation:breathe 3.2s ease-in-out infinite; }
+  @keyframes breathe{ 0%,100%{ transform:scale(1) } 50%{ transform:scale(1.05) } }
+  #nova-move{ font-size:clamp(22px,4vw,40px); font-weight:700; text-align:center; padding:0 14px;
+    text-shadow:0 0 18px rgba(255,138,226,.6); min-height:1.2em; }
+  .side-tag{ position:absolute; bottom:8px; left:50%; transform:translateX(-50%); z-index:9;
+    font-size:12px; font-weight:600; letter-spacing:1px; background:rgba(0,0,0,.5); padding:3px 14px; border-radius:12px; }
+  #cam-wrap{ position:relative; flex:1 1 50%; min-width:0; border-radius:24px; overflow:hidden; background:#000;
+    border:4px solid rgba(110,231,255,.35); box-shadow:0 10px 40px rgba(0,0,0,.5); transition:border-color .15s, box-shadow .15s; }
+  @media (orientation:portrait){ #stage{ flex-direction:column; } }
+  #cam, #overlay{ position:absolute; inset:0; width:100%; height:100%; }
+  #cam{ object-fit:contain; transform:scaleX(-1); }  /* mirror; contain = whole body visible on laptop */
+  #cam-wrap.armed{ border-color:var(--yel); box-shadow:0 0 0 4px rgba(255,216,77,.35),0 14px 50px rgba(0,0,0,.5); }
+  #cam-wrap.hit{ border-color:var(--grn); box-shadow:0 0 0 6px rgba(0,255,150,.5),0 14px 50px rgba(0,0,0,.5); }
+  #cam-wrap.miss{ border-color:#ff4d6d; box-shadow:0 0 0 6px rgba(255,77,109,.45),0 14px 50px rgba(0,0,0,.5); }
+
+  .zone{ position:absolute; top:0; bottom:0; z-index:7; pointer-events:none; opacity:0; transition:opacity .14s; }
+  #zone-left{ left:0; width:58%; } #zone-right{ right:0; width:58%; } #zone-full{ left:0; width:100%; }
+  .zone.show{ opacity:1; }
+  #zone-left.armed { background:linear-gradient(to right,rgba(255,216,77,.40),transparent 70%); }
+  #zone-right.armed{ background:linear-gradient(to left, rgba(255,216,77,.40),transparent 70%); }
+  #zone-full.armed { background:radial-gradient(circle,rgba(255,216,77,.18),transparent 72%); }
+  #zone-left.hit,#zone-right.hit,#zone-full.hit{ background:radial-gradient(circle,rgba(0,255,150,.26),transparent 74%); }
+  #zone-left.miss,#zone-right.miss,#zone-full.miss{ background:radial-gradient(circle,rgba(255,77,109,.22),transparent 74%); }
+
+  #coach{ position:absolute; bottom:12px; left:50%; transform:translateX(-50%); z-index:9;
+    background:rgba(20,0,40,.6); border:1px solid rgba(255,255,255,.18);
+    padding:9px 18px; border-radius:22px; font-size:clamp(14px,4vw,18px); font-weight:500;
+    max-width:90%; text-align:center; opacity:0; transition:opacity .2s; }
+  #coach.show{ opacity:1; }
+  #timecode{ position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:30;
+    font:800 22px 'SF Mono',Consolas,monospace; color:#fff; background:rgba(0,0,0,.55);
+    padding:3px 12px; border-radius:12px; }
+
+  #end-screen{ gap:14px; text-align:center; padding:28px; z-index:30; }
+  #end-stars{ font-size:54px; letter-spacing:8px; min-height:60px; }
+  #end-title{ font-size:clamp(30px,8vw,50px); font-weight:700;
+    background:linear-gradient(90deg,#ff8ae2,#6ee7ff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  #end-score{ font-size:clamp(22px,6vw,32px); color:var(--yel); font-weight:700; }
+  #end-detail{ opacity:.85; }
+</style>
+</head>
+<body>
+
+<div id="start-screen" class="screen">
+  <h1>Hello Hello 👋</h1>
+  <p>Copy the moves! Raise your right hand, your left hand, clap, and put both hands up. <b>Stand back so the camera sees your hands and arms.</b> No Nova — just you, the moves, and the light.</p>
+  <button class="big-btn" id="start-btn">▶ Start Dancing</button>
+  <div id="cam-warn"></div>
+</div>
+
+<div id="countdown" class="screen hidden">
+  <div id="cd-num">3</div>
+  <div id="cd-sub">stand back, show me your hands…</div>
+</div>
+
+<div id="game" class="screen hidden">
+  <div id="timecode">0.0s</div>
+  <div id="hud">
+    <div id="score-box"><span id="score">0</span><small>score</small></div>
+    <div id="progress-wrap"><div id="progress"></div></div>
+    <div id="combo-box">x0</div>
+    <button id="quit" title="Quit">✕</button>
+  </div>
+  <div id="stage">
+    <div id="nova-side">
+      <img id="nova-face" src="nova-face.png" alt="Nova" onerror="this.style.display='none'">
+      <div id="nova-move">Hello Hello! 👋</div>
+      <div class="side-tag">Watch</div>
+    </div>
+    <div id="cam-wrap">
+      <video id="cam" playsinline muted autoplay></video>
+      <canvas id="overlay"></canvas>
+      <div id="zone-left" class="zone"></div>
+      <div id="zone-right" class="zone"></div>
+      <div id="zone-full" class="zone"></div>
+      <div class="side-tag">You</div>
+      <div id="coach"></div>
+    </div>
+  </div>
+</div>
+
+<div id="end-screen" class="screen hidden">
+  <div id="end-stars"></div>
+  <div id="end-title">Nice dancing!</div>
+  <div id="end-score">0 pts</div>
+  <div id="end-detail"></div>
+  <button class="big-btn" id="replay-btn">▶ Dance again</button>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+
+// ── MOVES (Hello Hello, ages 4-7) ──────────────────────────────────────────
+const THRESH = { up:0.12, both:0.05, motion:0.06 };
+const MOVES = {
+  'right_hand_up': { name:'RIGHT hand UP! ✋', coach:'raise your right hand!', pts:120, check:d=> d.handUpR>THRESH.up },
+  'left_hand_up':  { name:'LEFT hand UP! ✋',  coach:'raise your left hand!',  pts:120, check:d=> d.handUpL>THRESH.up },
+  'clap':          { name:'CLAP! 👏',         coach:'clap your hands!',        pts:140, check:d=> d.clap },
+  'both_up':       { name:'BOTH hands UP! 🙌',coach:'both hands up high!',     pts:160, check:d=> d.handUpL>THRESH.both && d.handUpR>THRESH.both },
+  'free':          { name:'FREESTYLE! ✨',    coach:'dance it ALL!',           pts:60,  check:d=> d.motion>THRESH.motion },
+};
+const CUE_PARTS = {
+  'right_hand_up':['right_wrist'], 'left_hand_up':['left_wrist'],
+  'clap':['left_wrist','right_wrist'], 'both_up':['left_wrist','right_wrist'], 'free':['left_wrist','right_wrist'],
+};
+const ZONE = { 'right_hand_up':'right','left_hand_up':'left','clap':'full','both_up':'full','free':'full' };
+
+// ── CUE TIMELINE (JS-clock seconds) — short & testable ──────────────────────
+const CUES = (()=>{ const out=[]; const add=(s,a,d)=>out.push({t:Math.round(s*1000),dur:d,action:a});
+  add(4.5,'right_hand_up',1600); add(6.5,'left_hand_up',1600);
+  add(8.5,'clap',1600);          add(10.5,'both_up',1600);
+  add(12.5,'right_hand_up',1500);add(14.5,'left_hand_up',1500);
+  add(16.5,'clap',1500);         add(18.5,'both_up',1500);
+  add(20.5,'free',5000);
+  return out.sort((a,b)=>a.t-b.t); })();
+const SONG_END = 26.0;
+
+// ── THE CLOCK (JS source of truth; ./shit.mp3 layered ON it; runs silent) ───
+let startMs=null; const song=new Audio('./shit.mp3'); let audioOK=false;
+song.preload='auto'; song.addEventListener('canplaythrough',()=>audioOK=true); song.addEventListener('error',()=>audioOK=false);
+function clockS(){ if(audioOK && !song.paused && song.currentTime>0) return song.currentTime; return startMs?(performance.now()-startMs)/1000:0; }
+
+// ── STATE ───────────────────────────────────────────────────────────────────
+let detector=null, camStream=null, rafId=0;
+let det = { handUpL:-1, handUpR:-1, clap:false, motion:0, present:false, joints:0 };
+let base = { shoulderBaseY:0, sw:120, ok:false };
+let smooth = {};
+let game = { running:false, score:0, combo:0, maxCombo:0, hits:0, total:0, idx:0, cue:null, cueResolved:false, cueEnd:0, cueZone:null, log:[], _readyShown:false };
+let prevKp = null;
+
+async function ensureModel(){
+  if(detector) return;
+  try{ await tf.setBackend('webgl'); }catch(e){ try{ await tf.setBackend('cpu'); }catch(_){} }
+  await tf.ready();
+  detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,
+    { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING });
+}
+async function ensureCamera(){
+  if(camStream) return true;
+  try{ camStream = await navigator.mediaDevices.getUserMedia({ video:{ width:{ideal:640}, height:{ideal:480}, facingMode:'user' }, audio:false });
+    const v=$('cam'); v.srcObject=camStream; await v.play(); return true;
+  }catch(e){ $('cam-warn').textContent='⚠ Camera blocked — allow camera and reload.'; return false; }
+}
+
+// ── POSE LOOP (runs EVERY frame; NOT gated on any phase) ────────────────────
+function kp(kps,name){ return kps.find(k=>k.name===name); }
+function sm(key,x,y){ const a=0.6; if(!smooth[key]) smooth[key]={x,y}; smooth[key].x=smooth[key].x*a+x*(1-a); smooth[key].y=smooth[key].y*a+y*(1-a); return smooth[key]; }
+async function poseLoop(){
+  const v=$('cam');
+  if(detector && v && v.readyState>=2){
+    let poses=[]; try{ poses = await detector.estimatePoses(v,{flipHorizontal:true}); }catch(e){}
+    if(poses[0]){ window.__lastPoseKeypoints=poses[0].keypoints; analyze(poses[0].keypoints); drawSkeleton(poses[0].keypoints); }
+    else { det.present=false; window.__litAny=false; clearOverlay(); }
+  }
+  rafId=requestAnimationFrame(poseLoop);
+}
+function analyze(kps){
+  const MIN=0.3;
+  det.joints = kps.filter(k=>k.score>MIN).length;
+  const ls=kp(kps,'left_shoulder'), rs=kp(kps,'right_shoulder');
+  const lw=kp(kps,'left_wrist'), rw=kp(kps,'right_wrist');
+  det.present = ls&&rs&&ls.score>MIN&&rs.score>MIN;
+  if(!det.present){ det.handUpL=det.handUpR=-1; det.clap=false; return; }
+  const Ls=sm('ls',ls.x,ls.y), Rs=sm('rs',rs.x,rs.y);
+  const sw = Math.max(Math.abs(Ls.x-Rs.x),60);
+  const midShY=(Ls.y+Rs.y)/2;
+  const Lw= lw&&lw.score>MIN? sm('lw',lw.x,lw.y):null;
+  const Rw= rw&&rw.score>MIN? sm('rw',rw.x,rw.y):null;
+  det.handUpL = Lw ? (midShY-Lw.y)/sw : -1;
+  det.handUpR = Rw ? (midShY-Rw.y)/sw : -1;
+  if(Lw && Rw){ const dx=Math.abs(Lw.x-Rw.x)/sw;
+    const lY=(Lw.y-midShY)/sw, rY=(Rw.y-midShY)/sw;            // 0 ≈ shoulder line, + = below
+    const nearChest = lY>-0.6 && lY<0.7 && rY>-0.6 && rY<0.7;
+    det.clap = dx<0.45 && nearChest;
+  } else det.clap=false;
+  det._raw = { midShY, sw };
+  if(prevKp){ let tot=0,c=0; for(let i=0;i<kps.length;i++){ if(kps[i].score>MIN&&prevKp[i]&&prevKp[i].score>MIN){ tot+=Math.hypot(kps[i].x-prevKp[i].x,kps[i].y-prevKp[i].y); c++; } } if(c) det.motion=0.6*det.motion+0.4*Math.min(1,(tot/c)/sw*3); }
+  prevKp=kps.map(k=>({x:k.x,y:k.y,score:k.score}));
+}
+function calibrate(){ const r=det._raw; if(!r) return; base.shoulderBaseY=r.midShY; base.sw=r.sw; base.ok=true; }
+
+// ── OVERLAY + FOCUS LIGHT (lands on the body via coverMap; additive bloom) ──
+function coverMap(){ const v=$('cam'), c=$('overlay');
+  const cw=c.clientWidth||1, ch=c.clientHeight||1, vw=v.videoWidth||640, vh=v.videoHeight||480;
+  if(c.width!==cw||c.height!==ch){ c.width=cw; c.height=ch; }
+  const scale=Math.min(cw/vw, ch/vh);          // contain — matches #cam object-fit:contain
+  return { scale, ox:(cw-vw*scale)/2, oy:(ch-vh*scale)/2 };
+}
+function clearOverlay(){ const c=$('overlay'); c.getContext('2d').clearRect(0,0,c.width,c.height); }
+const ML = { core:'255,253,245', gold:'255,210,122', clean:'191,255,200' };
+function _orb(c,x,y,r,trip,alpha){ if(r<=0) return; const g=c.createRadialGradient(x,y,0,x,y,r);
+  g.addColorStop(0,'rgba('+trip+',1)'); g.addColorStop(0.45,'rgba('+trip+',0.5)'); g.addColorStop(1,'rgba('+ML.gold+',0)');
+  c.globalAlpha=(alpha==null?1:alpha); c.fillStyle=g; c.beginPath(); c.arc(x,y,r,0,7); c.fill(); c.globalAlpha=1; }
+function drawSkeleton(kps){
+  const c=$('overlay'); const x=c.getContext('2d'); const {scale,ox,oy}=coverMap();
+  const X=p=> c.width - (p.x*scale+ox), Y=p=>p.y*scale+oy;   // mirror back to match the mirrored video
+  const m={}; kps.forEach(k=>m[k.name]=k);
+  // fade trail (never clearRect every frame)
+  x.globalCompositeOperation='destination-out'; x.fillStyle='rgba(0,0,0,0.16)'; x.fillRect(0,0,c.width,c.height); x.globalCompositeOperation='source-over';
+  const cueKey=(window.__cuePart||''); if(!cueKey){ window.__litAny=false; return; }
+  const parts=CUE_PARTS[cueKey]||[];
+  const hit = window.__cueState==='hit'||window.__cueState==='streak';
+  const trip = hit ? ML.clean : ML.gold;
+  const ls=m.left_shoulder, rs=m.right_shoulder;
+  const unit=(ls&&rs&&ls.score>=0.3&&rs.score>=0.3)?Math.hypot(X(ls)-X(rs),Y(ls)-Y(rs)):180;
+  const k=Math.max(0.4,Math.min(3,unit/220));
+  x.globalCompositeOperation='lighter'; let litAny=false;
+  parts.forEach(n=>{ const j=m[n]; if(j && j.score>=0.3){ litAny=true; const px=X(j),py=Y(j);
+    _orb(x,px,py,36*k,trip,hit?0.95:0.7); _orb(x,px,py,16*k,ML.core,0.9); } });
+  x.globalCompositeOperation='source-over';
+  window.__litAny=litAny;
+}
+
+// ── GAME FLOW ───────────────────────────────────────────────────────────────
+async function startFlow(){
+  $('start-btn').disabled=true; $('cam-warn').textContent='loading…';
+  const okCam=await ensureCamera(); if(!okCam){ $('start-btn').disabled=false; return; }
+  await Promise.race([ ensureModel().catch(()=>{}), new Promise(r=>setTimeout(r,12000)) ]);
+  $('cam-warn').textContent='';
+  $('start-screen').classList.add('hidden');
+  $('game').classList.remove('hidden');
+  cancelAnimationFrame(rafId); poseLoop();      // detection live immediately
+  await countdown();                            // 3-2-1 calibrates the neutral stance
+  beginGame();
+}
+function countdown(){ return new Promise(res=>{
+  $('countdown').classList.remove('hidden');
+  const num=$('cd-num'), sub=$('cd-sub'); let n=3;
+  const step=()=>{ if(n>0){ num.textContent=n; sub.textContent = n===3?'stand back, show me your hands':'get ready…'; n--; setTimeout(step,900); }
+    else { num.textContent='GO!'; sub.textContent='copy the moves!'; calibrate(); setTimeout(()=>{ $('countdown').classList.add('hidden'); res(); },700); } };
+  step();
+}); }
+function beginGame(){
+  Object.assign(game,{ running:true, score:0, combo:0, maxCombo:0, hits:0, total:0, idx:0, cue:null, cueResolved:false, cueEnd:0, cueZone:null, log:[], _readyShown:false });
+  $('score').textContent='0'; $('combo-box').textContent='x0'; $('progress').style.width='0%';
+  startMs=performance.now();                                  // THE CLOCK STARTS (independent of any media)
+  try{ song.currentTime=0; song.volume=0.7; song.play().then(()=>audioOK=true).catch(()=>audioOK=false); }catch(e){}
+  $('nova-move').textContent='Watch me — copy! 👋';
+  coach('Stand back so I can see your hands! ✋');
+  clearInterval(game.tick); game.tick=setInterval(gameTick,60);
+}
+function gameTick(){
+  if(!game.running) return;
+  const now=clockS()*1000;
+  $('timecode').textContent=clockS().toFixed(1)+'s';
+  $('progress').style.width=Math.min(100,(clockS()/SONG_END)*100)+'%';
+  if(clockS()>=SONG_END){ endGame(); return; }
+  if(game.idx===0 && !game.cue && !game._readyShown && CUES.length){
+    const lead=CUES[0].t-now; if(lead<=3500 && lead>300){ game._readyShown=true; coach('Get ready… first move! ✨'); }
+  }
+  if(!game.cue && game.idx<CUES.length && now>=CUES[game.idx].t) openCue(CUES[game.idx]);
+  if(game.cue){
+    if(!game.cueResolved && MOVES[game.cue.action].check(det, base) && det.present) resolveHit();
+    // actionable feedback: cued hands not in frame → tell them, don't leave a blank screen
+    else if(!game.cueResolved && window.__litAny===false && game.cue.action!=='free') coach('stand back — show me your hands! ✋');
+    if(now>=game.cueEnd){ if(!game.cueResolved) resolveMiss(); closeCue(); }
+  }
+}
+function setZone(z,state){ ['zone-left','zone-right','zone-full'].forEach(id=>$(id).classList.remove('show','armed','hit','miss'));
+  if(!z) return; const id=z==='left'?'zone-left':z==='right'?'zone-right':'zone-full'; $(id).classList.add('show', state||'armed'); }
+function zoneState(state){ const z=game.cueZone; if(!z) return; const id=z==='left'?'zone-left':z==='right'?'zone-right':'zone-full';
+  $(id).classList.remove('armed','hit','miss'); $(id).classList.add(state); }
+function openCue(c){
+  game.cue=c; game.cueResolved=false; game.cueEnd=c.t+c.dur; game.total++; c.openSec=+clockS().toFixed(2);
+  window.__cuePart=c.action; window.__cueState='armed';
+  const m=MOVES[c.action];
+  $('cam-wrap').classList.remove('hit','miss'); $('cam-wrap').classList.add('armed');
+  game.cueZone=ZONE[c.action]; setZone(game.cueZone,'armed');
+  $('nova-move').textContent=m.name;                  // LEFT panel calls the move
+  coach(m.coach);
+}
+function closeCue(){ game.cue=null; window.__cuePart=null; $('cam-wrap').classList.remove('armed'); setZone(null); game.idx++; }
+function logCue(result){ const c=game.cue; if(!c) return; const sched=+(c.t/1000).toFixed(2), open=c.openSec!=null?c.openSec:sched;
+  game.log.push({ action:c.action, result, sched, open, drift:+(open-sched).toFixed(2),
+    handUpL:+det.handUpL.toFixed(3), handUpR:+det.handUpR.toFixed(3), clap:det.clap, motion:+det.motion.toFixed(3), joints:det.joints||0, present:det.present }); }
+function resolveHit(){
+  game.cueResolved=true; window.__cueState=(game.combo>=2?'streak':'hit');
+  const m=MOVES[game.cue.action];
+  const fast=(game.cueEnd-clockS()*1000)>game.cue.dur*0.45;
+  const pts=Math.round(m.pts*(fast?1.5:1)*(1+Math.min(game.combo,8)*0.1));
+  game.score+=pts; game.hits++; game.combo++; game.maxCombo=Math.max(game.maxCombo,game.combo);
+  $('score').textContent=game.score;
+  const cb=$('combo-box'); cb.textContent='x'+game.combo; cb.classList.remove('pulse'); void cb.offsetWidth; cb.classList.add('pulse');
+  $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('hit'); zoneState('hit');
+  $('nova-move').textContent='YES! '+m.name; logCue('hit');
+}
+function resolveMiss(){ window.__cueState='miss'; game.combo=0; $('combo-box').textContent='x0';
+  $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('miss'); zoneState('miss'); logCue('miss'); }
+function endGame(){
+  if(!game.running) return; game.running=false; clearInterval(game.tick);
+  try{ song.pause(); }catch(e){}
+  saveSession();
+  const rate=game.total?game.hits/game.total:0;
+  const stars=rate>=0.85?5:rate>=0.65?4:rate>=0.45?3:rate>=0.25?2:1;
+  $('end-stars').textContent='⭐'.repeat(stars)+'☆'.repeat(5-stars);
+  $('end-title').textContent=['Good try!','Nice moves!','Great dancing!','Amazing!','PERFECT! 🔥'][stars-1];
+  $('end-score').textContent=game.score+' pts';
+  $('end-detail').textContent=`${game.hits} of ${game.total} moves · best combo x${game.maxCombo}`;
+  $('game').classList.add('hidden'); $('end-screen').classList.remove('hidden');
+}
+function saveSession(){ try{
+  const summary={ song:'hello-hello-laptop', cues:CUES.length, total:game.total, hits:game.hits, maxCombo:game.maxCombo, score:game.score, log:game.log };
+  const blob=new Blob([JSON.stringify(summary,null,1)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='hello-hello-laptop-session.json';
+  document.body.appendChild(a); a.click(); setTimeout(()=>{ a.remove(); URL.revokeObjectURL(a.href); },1000);
+}catch(e){} }
+
+let coachT=0; function coach(msg){ const c=$('coach'); if(c.textContent!==msg){ c.textContent=msg; } c.classList.add('show'); clearTimeout(coachT); coachT=setTimeout(()=>c.classList.remove('show'),1800); }
+
+$('start-btn').addEventListener('click', startFlow);
+$('replay-btn').addEventListener('click', ()=>{ $('end-screen').classList.add('hidden'); countdown().then(beginGame); });
+$('quit').addEventListener('click', ()=>{ endGame(); });
+window.addEventListener('beforeunload', ()=>{ if(camStream) camStream.getTracks().forEach(t=>t.stop()); });
+
+// self-test hooks
+window.__hhl = { get clock(){return clockS();}, get det(){return det;}, CUES, get game(){return game;}, get litAny(){return window.__litAny;} };
+</script>
+</body>
+</html>
