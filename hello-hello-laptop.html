@@ -62,8 +62,8 @@
     background:radial-gradient(120% 100% at 50% 20%,#2a1052,#16002e); border:3px solid rgba(167,139,250,.4);
     box-shadow:0 10px 40px rgba(120,60,160,.4), inset 0 0 30px rgba(255,138,226,.08);
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; }
-  /* Nova fills the ~50% panel, object-fit:contain → WHOLE figure visible (not zoomed on her face) */
-  #nova-demo{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#0d0820; }
+  /* Nova fills the ~50% panel, object-fit:cover → the dance MP4 IS the focus, fills the panel, no black bars */
+  #nova-demo{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:#0d0820; }
   #nova-face{ width:min(42%,200px); aspect-ratio:1/1; border-radius:50%; object-fit:cover; z-index:1;
     border:4px solid rgba(255,210,122,.8); box-shadow:0 0 30px rgba(255,166,61,.5); background:#3a1566; }
   #flourish{ position:absolute; top:22%; font-size:clamp(44px,9vw,96px); opacity:0; z-index:6; pointer-events:none;
@@ -139,8 +139,8 @@
   <div id="stage">
     <div id="nova-side">
       <!-- Nova fills ~50% of the screen, object-fit:contain so her WHOLE figure shows (not zoomed). -->
-      <video id="nova-demo" src="nova-hello.mp4" poster="nova-face.png" muted loop playsinline autoplay preload="auto"
-             onerror="this.style.display='none';var f=document.getElementById('nova-face');if(f)f.style.display='block'"></video>
+      <video id="nova-demo" poster="nova-face.png" muted loop playsinline autoplay preload="auto"
+             onerror="novaVideoFallback(this)"></video>
       <img id="nova-face" src="nova-face.png" alt="Nova" style="display:none">
       <div id="flourish"></div>
       <div id="nova-move">Hello Hello! 👋</div>
@@ -170,6 +170,24 @@
 "use strict";
 const $ = id => document.getElementById(id);
 
+// MP4 filename fallback — try the names this project has used; show face image only if all fail.
+const NOVA_VIDEO_CANDIDATES = ['nova-dance.mp4','nova-hello.mp4','nova-joined-small.mp4','nova-dance (3).mp4','upgroove.mp4'];
+let _novaVidTry = 0;
+function novaVideoFallback(v){
+  _novaVidTry++;
+  if(_novaVidTry < NOVA_VIDEO_CANDIDATES.length){
+    v.src = NOVA_VIDEO_CANDIDATES[_novaVidTry];
+    v.load(); v.play().catch(()=>{});
+  } else {
+    v.style.display='none';
+    const f=document.getElementById('nova-face'); if(f) f.style.display='block';
+  }
+}
+// kick off the first candidate
+window.addEventListener('DOMContentLoaded', ()=>{
+  const v=$('nova-demo'); if(v && !v.src){ v.src = NOVA_VIDEO_CANDIDATES[0]; v.load(); v.play().catch(()=>{}); }
+});
+
 // ── MOVES (Hello Hello — 7 actions, LENIENT for kids; check(d) reads det) ───
 const MOVES = {
   clap:  { name:'CLAP! 👏',           parts:['left_wrist','right_wrist'],      zone:'full', check:d=> d.clap },
@@ -185,7 +203,7 @@ const CUE_PARTS={}, ZONE={}; for(const k in MOVES){ CUE_PARTS[k]=MOVES[k].parts;
 // ── EVENT-DRIVEN TIMELINE (ms) — verbatim from hello-hello-timeline.js ──────
 //   lyric=text · helloL/helloR=Nova arm flourish · demo=preview (no score) ·
 //   open=detection window starts · close=window ends (miss if not hit).
-const TIMELINE = [
+const TIMELINE_RAW = [
   {t:1000,  type:'lyric', text:"🎵 Hello Hello! 🎵"},
   {t:3000,  type:'lyric', text:"Get ready! Watch Nova!"},
   {t:5000,  type:'helloL'}, {t:5000, type:'lyric', text:"Hello,"},
@@ -258,6 +276,12 @@ const TIMELINE = [
   {t:91000, type:'close', action:'shrug'},
   {t:92000, type:'lyric', text:"🌟 Amazing! 🌟"},
 ];
+// PROVEN TIMING FIX (from working index__29 build): cues fire 0.5s before the vocal
+// lands so the kid has anticipation. Raw times above are the vocal positions;
+// shift the scoring/cue events earlier by this offset. Lyrics also shift so the
+// on-screen word matches what the kid hears.
+const TIMELINE_OFFSET = 1500;
+const TIMELINE = TIMELINE_RAW.map(e => ({ ...e, t: Math.max(0, e.t - TIMELINE_OFFSET) }));
 const SONG_END = 111;   // full song length; real end follows the audio (see gameTick / song 'ended')
 
 // ── THE CLOCK (JS source of truth; ./shit.mp3 layered ON it; runs silent) ───
@@ -479,7 +503,12 @@ function endGame(){
 }
 function saveSession(){ try{
   const summary={ song:'hello-hello-laptop', events:TIMELINE.length, total:game.total, hits:game.hits, maxCombo:game.maxCombo, score:game.score, log:game.log };
-  const blob=new Blob([JSON.stringify(summary,null,1)],{type:'application/json'});
+  // Keep in memory only — no auto-download during testing. Call __downloadSession() in console if you want the file.
+  window.__lastSession = summary;
+}catch(e){} }
+function __downloadSession(){ try{
+  const s = window.__lastSession; if(!s) return;
+  const blob=new Blob([JSON.stringify(s,null,1)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='hello-hello-laptop-session.json';
   document.body.appendChild(a); a.click(); setTimeout(()=>{ a.remove(); URL.revokeObjectURL(a.href); },1000);
 }catch(e){} }
