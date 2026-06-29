@@ -565,7 +565,7 @@ let _dbgLast=0;
 function updateDbg(){
   const el=$('dbg'); if(!el || el.classList.contains('hidden')) return;
   const now=performance.now(); if(now-_dbgLast<150) return; _dbgLast=now;
-  const flag=k=> (det.present && MOVES[k].check(det,base)) ? `<span class="on">${k}</span>` : `<span class="no">${k}</span>`;
+  const flag=k=> (det.present && MOVES[k] && MOVES[k].check(det,base)) ? `<span class="on">${k}</span>` : `<span class="no">${k}</span>`;  // guard: skip keys not in MOVES (debug HUD)
   const f=v=> (v>=0?'+':'')+v.toFixed(2);
   el.innerHTML =
     `<b>present</b> ${det.present?'<span class="on">yes</span>':'<span class="no">NO</span>'}  joints ${det.joints||0}/17\n`+
@@ -804,7 +804,8 @@ async function startFlow(){
   $('cam-warn').textContent='';
   readAge();                                 // P3: indirect age read (fire & forget; updates worker)
   $('start-screen').classList.add('hidden');
-  showGreet();                               // Phase 1: Nova's live avatar greets the kid (camera on)
+  if(/[?&]nonova/.test(location.search)) startDance();   // no Nova → skip the "waking Nova" greet, go straight to the game + detection
+  else showGreet();                          // Phase 1: Nova's live avatar greets the kid (camera on)
 }
 
 // Phase 1 — live Nova says hi BEFORE any dance video. Camera is on so she "sees" the kid.
