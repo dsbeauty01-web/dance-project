@@ -85,13 +85,20 @@ function orb(x,y,r,trip,alpha){ if(r<=0)return; const g=ctx.createRadialGradient
 function glow3(x,y,baseR,rampTrip){   // pass1 bloom amber, pass2 body ramp, pass3 core near-white
   orb(x,y,baseR*3.5,C_AMBER,0.14); orb(x,y,baseR*1.8,rampTrip,0.45); orb(x,y,baseR*0.6,C_HOT,0.95); }
 
-// ── PATH (mirror-aware, the side he moves lights; here both arms = full meteor path) ──
-const PATH=['right_wrist','right_elbow','right_shoulder','left_shoulder','left_elbow','left_wrist'];
+// ── CHAIN (live, mirror-aware): wrist→elbow→shoulder→MID(chest)→shoulder→elbow→wrist ──
+// Every point is the LIVE MoveNet position this frame; 'mid' is synthesized from the live shoulders.
+const PATH=['right_wrist','right_elbow','right_shoulder','mid','left_shoulder','left_elbow','left_wrist'];
 function pathPoints(X,Y){ const pts=[]; let seen=0;
-  for(const n of PATH){ const k=gate(n); if(k){ const s=ema(n,X(k),Y(k)); const p={x:s.x,y:s.y}; _last[n]=p; pts.push(p); seen++; }
-    else if(_last[n]) pts.push(_last[n]);            // ELBOW HOLDS / flicker hold — never disappear
-    else pts.push(null); }
-  window.__wfxSeen=seen+'/6';
+  for(const n of PATH){ let p=null;
+    if(n==='mid'){ const ls=gate('left_shoulder'), rs=gate('right_shoulder');
+      if(ls&&rs){ const sw=dist({x:X(ls),y:Y(ls)},{x:X(rs),y:Y(rs)});
+        const lh=gate('left_hip'), rh=gate('right_hip');
+        const cy=(lh&&rh)? lerp((Y(ls)+Y(rs))/2,(Y(lh)+Y(rh))/2,0.40) : (Y(ls)+Y(rs))/2 + 0.45*sw;  // mid-CHEST, well below the chin (never on the face)
+        p={x:(X(ls)+X(rs))/2, y:cy}; _last.mid=p; }
+      else if(_last.mid) p=_last.mid; }
+    else { const k=gate(n); if(k){ const s=ema(n,X(k),Y(k)); p={x:s.x,y:s.y}; _last[n]=p; } else if(_last[n]) p=_last[n]; }  // ELBOW HOLDS / flicker hold — never disappear
+    if(p){ pts.push(p); seen++; } else pts.push(null); }
+  window.__wfxSeen=seen+'/7';
   return pts.filter(Boolean); }
 function along(P,ph){ if(P.length<2) return P[0]?{...P[0],vi:0,seg:0}:null;
   const seg=[]; let total=0; for(let i=1;i<P.length;i++){const d=dist(P[i],P[i-1]); seg.push(d); total+=d;}
@@ -101,7 +108,7 @@ function along(P,ph){ if(P.length<2) return P[0]?{...P[0],vi:0,seg:0}:null;
   return {x:lerp(a.x,b.x,f),y:lerp(a.y,b.y,f),vi:i+(f>0.5?1:0),seg:i+f}; }
 
 // ── sparkles + meteor state ──
-let sparks=[], phase=0, started=null, prevVi=-1, lastBloom={}, headTrail=[];
+let sparks=[], phase=0, dir=1, reversals=0, started=null, prevVi=-1, lastBloom={}, headTrail=[];
 function bloom(x,y,k,trip){ lastBloom={x,y,t:performance.now(),k,trip}; const n=6+Math.floor(Math.random()*5);
   for(let s=0;s<n;s++){ const a=Math.random()*6.283; sparks.push({x,y,vx:Math.cos(a)*0.9*k,vy:Math.sin(a)*0.9*k-0.5*k,born:performance.now(),ttl:400+Math.random()*500,r:(1+Math.random()*1.6)*k,seed:Math.random()*6.28}); } }
 function drawSparks(){ const now=performance.now(); sparks=sparks.filter(s=>{ const age=(now-s.born)/s.ttl; if(age>=1)return false;
@@ -137,21 +144,30 @@ function render(dt,now){
   const u=unit(); const k=Math.max(0.4,Math.min(3.0,u/220));
   const P=pathPoints(X,Y);
   if(P.length>=2){
-    if(started==null){ started=now; phase=0; prevVi=-1; headTrail.length=0; }
-    // TRAVEL PACING: phase advances by base speed BLENDED with the user's real motion; min speed so it always flows.
-    // full path ≈ 2.2s base; motion speeds it to match the real wave; lead ~150ms via a small phase nudge.
-    const base=dt/2200; const moved=dt/2200*Math.min(2.2, motion*6); const lead=0.06;
-    phase += Math.max(base*0.5, base+moved); if(phase>=1){ phase-=1; prevVi=-1; headTrail.length=0; }
+    if(started==null){ started=now; phase=0; dir=1; prevVi=-1; headTrail.length=0; }
     const segCount=P.length-1;
-    const head=along(P, Math.min(0.999, phase+lead));
-    const segProg=head.seg/segCount;          // 0→1 along whole arm (for color/size)
-    const trip=rampColor(segProg);
-    const rHead=lerp(16,11,segProg)*k;         // head SHRINKS as it climbs
+    // TIMING: ~1s per joint hop (baseline) so the full chain flows even when still; BLENDED with the
+    // user's REAL motion so the light rides the actual arm; a small floor keeps it alive; lead in the
+    // travel direction to guide. It is NOT animate(A,B,dur) — POINT is recomputed from LIVE joints below.
+    const perHop=900; const baseFull=dt/(perHop*segCount);
+    const moveBoost=baseFull*Math.min(2.5, motion*6);
+    const step=Math.max(baseFull*0.35, baseFull+moveBoost);
+    phase += dir*step;
+    // REVERSAL: at the far wrist, flip direction and bounce back — wrist↔wrist, like a real wave.
+    if(phase>=1){ phase=1; dir=-1; reversals++; prevVi=-1; headTrail.length=0; const e=P[P.length-1]; bloom(e.x,e.y,k,C_START); }
+    else if(phase<=0){ phase=0; dir=1; reversals++; prevVi=-1; headTrail.length=0; const e=P[0]; bloom(e.x,e.y,k,C_START); }
+    const lead=0.04*dir;
+    const head=along(P, Math.max(0.001,Math.min(0.999, phase+lead)));
+    const segProg=head.seg/segCount;                 // 0(right wrist)→1(left wrist)
+    const colorProg=1-Math.abs(2*segProg-1);         // HEATS toward the chest (mid), cools at the wrists
+    const trip=rampColor(colorProg);
+    const rHead=lerp(11,16,colorProg)*k;             // hottest/biggest crossing the core, narrows at the wrists
 
-    // EVENT 1 · START PULSE + expanding ring (only near the very start, on the first wrist)
-    if(phase<0.10){
-      const e=phase/0.10; const a=0.9*(1-Math.pow(1-e,2));         // ease-out
-      const w=P[0]; const pr=14*k*(1+0.35*Math.sin(now*0.018));
+    // EVENT 1 · START PULSE + expanding ring at whichever wrist this sweep ignites from (both ends)
+    const nearStart=(dir>0 && phase<0.10) || (dir<0 && phase>0.90);
+    if(nearStart){
+      const e=(dir>0?phase:1-phase)/0.10; const a=0.9*(1-Math.pow(1-e,2));         // ease-out
+      const w=dir>0?P[0]:P[P.length-1]; const pr=14*k*(1+0.35*Math.sin(now*0.018));
       glow3(w.x,w.y,pr*0.5,C_START); orb(w.x,w.y,pr,C_START,a*0.6);
       const rr=lerp(8,30,e)*k; ctx.strokeStyle='rgba('+C_START+','+(0.5*(1-e))+')'; ctx.lineWidth=2.5*k;
       ctx.beginPath(); ctx.arc(w.x,w.y,rr,0,7); ctx.stroke();
@@ -199,7 +215,7 @@ $('start').addEventListener('click', async ()=>{
   await Promise.race([ensureModel().catch(()=>{}), new Promise(r=>setTimeout(r,12000))]);
   requestAnimationFrame(loop);
 });
-window.__wfx={ get joints(){return window.__wfxJoints||0;}, get seen(){return window.__wfxSeen||'-';}, get phase(){return phase;} };
+window.__wfx={ get joints(){return window.__wfxJoints||0;}, get seen(){return window.__wfxSeen||'-';}, get phase(){return phase;}, get dir(){return dir;}, get reversals(){return reversals;} };
 </script>
 </body>
 </html>
