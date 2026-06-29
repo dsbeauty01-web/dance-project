@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0a0612">
+<title>Hand Wave — Nova Dance</title>
+<!--
+  HAND WAVE — STANDALONE (one-clock, fixes the broken 6-count river).
+  THE CLOCK = JS performance.now (source of truth); song/MP4 layered on it; runs silent too.
+  The HERO fix: the 6-count CHAIN is ONE CONTINUOUS RIVER that sweeps the FULL path
+  right_wrist→elbow→shoulder→[ACROSS]→left_shoulder→elbow→left_wrist — last-good fallback so
+  a dropped joint never breaks it (it kept dying at the first shoulder before).
+-->
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;-webkit-user-select:none;user-select:none}
+  :root{--gold:#FFD27A;--mint:#BFFFC8;--bg:#0a0612}
+  html,body{height:100%;background:var(--bg);font-family:'Fredoka',system-ui,'Segoe UI',sans-serif;color:#fff;overflow:hidden}
+  #stage{position:fixed;inset:0;background:#06070b;overflow:hidden}
+  #cam,#fx{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1);object-fit:cover}
+  #fx{pointer-events:none}
+  #strip{position:absolute;top:0;left:0;right:0;height:15%;z-index:3;pointer-events:none;display:flex;flex-direction:column;align-items:center;padding-top:8px;gap:6px}
+  #bar{width:80%;height:7px;border-radius:6px;background:rgba(255,255,255,.14);overflow:hidden;opacity:0;transition:opacity .25s} #bar.show{opacity:1}
+  #bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ffd27a,#ffa63d);transition:width .1s linear}
+  #cue{font-size:clamp(16px,5vw,24px);font-weight:800;text-shadow:0 2px 10px rgba(0,0,0,.6);opacity:0;transition:opacity .2s} #cue.show{opacity:1}
+  #nova{position:absolute;top:10px;right:10px;width:54px;height:54px;border-radius:50%;z-index:3;background:center/cover no-repeat url('nova-face.png'),#2a1052;box-shadow:0 0 0 3px rgba(255,210,122,.8),0 0 22px rgba(255,166,61,.5);animation:breathe 3.2s ease-in-out infinite}
+  @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+  #nova.hit{box-shadow:0 0 0 3px var(--mint),0 0 30px rgba(191,255,200,.7)}
+  #streak{position:absolute;top:74px;right:10px;z-index:3;font-size:13px;font-weight:800;color:var(--gold);background:rgba(10,6,18,.5);padding:3px 9px;border-radius:12px;opacity:0;transition:.3s}#streak.show{opacity:1}
+  #load{position:absolute;bottom:max(20px,env(safe-area-inset-bottom));left:12px;z-index:4;background:rgba(20,10,40,.7);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:18px;padding:8px 14px;font:600 13px system-ui;cursor:pointer}
+  .screen{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;padding:24px;background:radial-gradient(120% 90% at 50% 25%,#2a1052,#0a0612 70%)}
+  .screen.hidden{display:none}.hero{font-size:clamp(28px,8vw,44px);font-weight:800;text-shadow:0 0 24px rgba(255,210,122,.5)}
+  .sub{font-size:clamp(14px,4vw,18px);color:#e9d5ff;opacity:.85;max-width:82%}
+  .big-btn{position:absolute;bottom:max(28px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);min-width:72vw;min-height:64px;border:none;border-radius:34px;cursor:pointer;color:#3a0a00;font-weight:800;font-size:clamp(18px,5.4vw,24px);background:linear-gradient(160deg,#ffe39a,#ff9ad1);box-shadow:0 10px 30px rgba(0,0,0,.4),0 0 26px rgba(255,210,122,.5)}
+  #warn{position:absolute;bottom:104px;left:50%;transform:translateX(-50%);z-index:21;font-size:15px;color:#ffd27a;background:rgba(20,10,40,.7);backdrop-filter:blur(6px);padding:8px 16px;border-radius:16px;opacity:0;transition:.3s;text-align:center}#warn.show{opacity:1}
+</style>
+</head>
+<body>
+<div id="stage"><video id="cam" autoplay playsinline muted></video><canvas id="fx"></canvas>
+  <div id="strip"><div id="cue"></div><div id="bar"><i></i></div></div><div id="nova"></div><div id="streak"></div>
+  <button id="load">🎵 Load song</button></div>
+<div class="screen" id="s-launch"><div class="hero">Hand Wave 👋</div><div class="sub">I'll show you — roll your shoulders, pump your elbows, then WAVE it across!</div><button class="big-btn" id="play">▶ Play with Nova</button></div>
+<div class="screen hidden" id="s-end"><div class="hero">Smooth waves! 🌊</div><div class="sub" id="endsub"></div><button class="big-btn" id="again">🔄 Again!</button></div>
+<div id="warn"></div><input id="songinput" type="file" accept="audio/*" style="display:none">
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const cam=$('cam'), fx=$('fx'), ctx=fx.getContext('2d');
+let detector=null, stream=null, started=false;
+// clock (JS source of truth; handywave.mp4 audio layered on it; silent ok)
+let startMs=null, audio=new Audio('./handywave.mp4'), audioOK=false;
+audio.preload='auto'; audio.muted=false;
+audio.addEventListener('canplaythrough',()=>audioOK=true); audio.addEventListener('error',()=>audioOK=false);
+function clockS(){ if(audioOK&&audio&&!audio.paused&&audio.currentTime>0) return audio.currentTime; return startMs?(performance.now()-startMs)/1000:0; }
+$('load').addEventListener('click',()=>$('songinput').click());
+$('songinput').addEventListener('change',e=>{const f=e.target.files[0]; if(f){try{audio.src=URL.createObjectURL(f);audioOK=true;if(started){audio.currentTime=Math.max(0,clockS());audio.play().catch(()=>{});}warn('song loaded 🎵');}catch(_){}}});
+const SONG_END=28.5;
+
+// ── timeline (SONGMAP-HAND-WAVE) — practice singles + the CONTINUOUS chain + free ──
+const PRACTICE=[
+  {t:4.5,move:'roll',label:'Roll your SHOULDERS! 🤷'}, {t:6.5,move:'roll',label:'Shoulders UP! 🤷'},
+  {t:8.5,move:'elbow',label:'Pump your ELBOWS! 💪'}, {t:10.5,move:'elbow',label:'Elbows OUT! 💪'},
+  {t:12.5,move:'wrist',label:'WAVE your hand! 👋'}, {t:14.5,move:'wrist',label:'Wave it! 👋'}, {t:16.5,move:'wrist',label:'Big wave! 👋'},
+];
+PRACTICE.forEach((c,i)=>c.close=Math.min((PRACTICE[i+1]?PRACTICE[i+1].t:c.t+1.6), c.t+1.6));
+const CHAIN_START=18.0, CHAIN_END=23.0;   // the 6-count river sweeps the full path here
+const FREE_START=23.2, FREE_END=28.5;
+
+// ── MoveNet ──
+async function ensureCamera(){ if(stream) return true; try{ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:720},height:{ideal:1280}},audio:false}); cam.srcObject=stream; await cam.play(); sizeFx(); return true; }catch(e){ warn('allow the camera 📷'); return false; } }
+async function ensureModel(){ if(detector) return; try{await tf.setBackend('webgl');}catch(e){try{await tf.setBackend('cpu');}catch(_){}} await tf.ready();
+  detector=await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,{modelType:poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING}); }
+function sizeFx(){ if(cam.videoWidth){ fx.width=cam.videoWidth; fx.height=cam.videoHeight; } }
+cam.addEventListener('loadedmetadata',sizeFx); addEventListener('resize',sizeFx);
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+let M={}, prevM=null, motion=0, baseShY=null;
+function buildM(kps){ const cw=fx.width||640; const m={}; kps.forEach(k=>m[k.name]={name:k.name,x:cw-k.x,y:k.y,score:(k.score==null?k.confidence:k.score)}); return m; }
+function g(n,fl){ const k=M[n]; return (k&&k.score>=(fl||0.4))?k:null; }
+function gFloor(n){ return g(n, n.indexOf('shoulder')>=0?0.5:n.indexOf('elbow')>=0?0.45:0.4); }
+function unit(){ const l=g('left_shoulder',.5),r=g('right_shoulder',.5); return (l&&r)?dist(l,r):180; }
+function midShY(){ const l=g('left_shoulder',.5),r=g('right_shoulder',.5); return (l&&r)?(l.y+r.y)/2:null; }
+function handUp(side){ const w=g(side+'_wrist',.4),sy=midShY(); return (w&&sy!=null)?(sy-w.y)/unit():null; }
+function elbowUp(side){ const e=g(side+'_elbow',.45),sy=midShY(); return (e&&sy!=null)?(sy-e.y)/unit():null; }
+function checkMove(move){ const u=unit();
+  if(move==='roll'){ const sy=midShY(); const lift=(baseShY!=null&&sy!=null)?(baseShY-sy)/u:0; const e=elbowUp('right'); return (lift>0.05&&(e==null||e<-0.18))?{q:.8}:false; }
+  if(move==='elbow'){ const e=elbowUp('right'),h=handUp('right'); return (e!=null&&e>-0.05&&(h==null||h<0.10))?{q:.8}:false; }
+  if(move==='wrist'){ const h=handUp('right')||handUp('left'); return (h!=null&&h>0.12)?{q:.85}:false; }
+  return false; }
+
+// ── THE 6-COUNT PATH (right→across→left). last-good fallback so it never breaks. ──
+const PATH=['right_wrist','right_elbow','right_shoulder','left_shoulder','left_elbow','left_wrist'];
+const lastGood={};
+function pathPoints(){ const pts=[]; let seen=0;
+  for(const n of PATH){ const k=gFloor(n); if(k){ lastGood[n]={x:k.x,y:k.y}; pts.push(lastGood[n]); seen++; } else if(lastGood[n]) pts.push(lastGood[n]); else pts.push(null); }
+  return {pts:pts.filter(Boolean), seen}; }
+// point at phase 0..1 along a polyline by arc length
+function along(P,ph){ if(P.length<2) return P[0]||null;
+  const seg=[]; let total=0; for(let i=1;i<P.length;i++){ const d=dist(P[i],P[i-1]); seg.push(d); total+=d; }
+  if(total<=0) return P[0];
+  let tgt=ph*total,i=0; while(i<seg.length&&tgt>seg[i]){ tgt-=seg[i]; i++; } i=Math.min(i,seg.length-1);
+  const f=seg[i]?tgt/seg[i]:0, a=P[i], b=P[i+1]||P[i]; return {x:a.x+(b.x-a.x)*f, y:a.y+(b.y-a.y)*f, vi:i+(f>0.5?1:0)}; }
+
+// ── light primitives ──
+const COL={core:'255,253,245',gold:'255,210,122',amber:'255,166,61',mint:'191,255,200',deep:'242,115,12'};
+function orb(x,y,r,trip,a){ if(r<=0)return; const grd=ctx.createRadialGradient(x,y,0,x,y,r); grd.addColorStop(0,'rgba('+trip+','+a+')'); grd.addColorStop(.45,'rgba('+trip+','+a*0.5+')'); grd.addColorStop(1,'rgba('+trip+',0)'); ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill(); }
+let river=[], sparks=[], lastVi=-1;
+function fade(){ ctx.globalCompositeOperation='destination-out'; ctx.fillStyle='rgba(0,0,0,0.16)'; ctx.fillRect(0,0,fx.width,fx.height); ctx.globalCompositeOperation='source-over'; }
+function sparkUpdate(){ const now=performance.now(); ctx.globalCompositeOperation='lighter';
+  sparks=sparks.filter(s=>{ const age=(now-s.born)/s.ttl; if(age>=1)return false; s.x+=s.vx; s.y+=s.vy; s.vy-=0.01; orb(s.x,s.y,s.r*(1-age*.5),COL.core,(1-age)*0.8); return true; }); ctx.globalCompositeOperation='source-over'; }
+
+// single-joint cue light (practice): pulse → flare
+function drawSingle(joints, elapsed, hit, k){ ctx.globalCompositeOperation='lighter'; const trip=hit?COL.mint:COL.gold;
+  joints.forEach(p=>{ if(!hit&&elapsed<0.3){ const r=16*k*(1+0.35*Math.sin(elapsed*12*Math.PI)); orb(p.x,p.y,r*1.8,COL.gold,0.4); orb(p.x,p.y,r*0.6,COL.core,0.9); }
+    else { const reach=40*k*(hit?1:0.6); ctx.beginPath(); for(let j=0;j<8;j++){const f=j/7; j?ctx.lineTo(p.x,p.y-reach*f):ctx.moveTo(p.x,p.y);} const grd=ctx.createLinearGradient(p.x,p.y,p.x,p.y-reach); grd.addColorStop(0,'rgba('+trip+','+(hit?0.9:0.5)+')'); grd.addColorStop(1,'rgba('+COL.deep+',0)'); ctx.strokeStyle=grd; ctx.lineWidth=13*k; ctx.lineCap='round'; ctx.stroke();
+      orb(p.x,p.y,16*k*(hit?1.1:0.7),trip,hit?0.95:0.6); if(hit&&Math.random()<0.3) sparks.push({x:p.x,y:p.y,vx:(Math.random()-.5)*1.4,vy:-Math.random()*1.2-0.3,born:performance.now(),ttl:600,r:(1+Math.random()*2)*k}); } });
+  ctx.globalCompositeOperation='source-over'; }
+
+// THE RIVER: continuous light sweeping the FULL 6-joint path by phase
+function drawRiver(ph, k){ const {pts,seen}=pathPoints(); window.__wave={seen, pathLen:pts.length}; if(pts.length<2) return;
+  const head=along(pts,ph); if(!head) return;
+  river.unshift({x:head.x,y:head.y}); if(river.length>26) river.pop();
+  for(let i=1;i<river.length;i++){ river[i].x=river[i].x*0.6+river[i-1].x*0.4; river[i].y=river[i].y*0.6+river[i-1].y*0.4; }
+  // bloom + spark as the head passes each joint (a "count")
+  if(head.vi!=null && head.vi!==lastVi){ lastVi=head.vi; const j=pts[Math.min(head.vi,pts.length-1)];
+    for(let s=0;s<5;s++){ const a=Math.random()*6.283; sparks.push({x:j.x,y:j.y,vx:Math.cos(a)*0.7*k,vy:Math.sin(a)*0.7*k-0.1,born:performance.now(),ttl:500,r:(1+Math.random()*1.5)*k}); } }
+  ctx.globalCompositeOperation='lighter'; const t=performance.now()/1000;
+  function ribbon(wm,al,trip){ if(river.length<2)return; ctx.beginPath();
+    for(let i=0;i<river.length;i++){ const A=river[i],B=river[Math.min(i+1,river.length-1)]; const ang=Math.atan2(B.y-A.y,B.x-A.x)+Math.PI/2,taper=i/river.length; const off=Math.sin(t*6+i*0.55)*8*k*taper; const x=A.x+Math.cos(ang)*off,y=A.y+Math.sin(ang)*off; i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+    const hd=river[0],tl=river[river.length-1]; const grd=ctx.createLinearGradient(hd.x,hd.y,tl.x,tl.y); grd.addColorStop(0,'rgba('+trip+','+al+')'); grd.addColorStop(1,'rgba('+COL.deep+',0)'); ctx.strokeStyle=grd; ctx.lineWidth=16*wm*k; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.stroke(); }
+  ribbon(3.5,0.14,COL.amber); ribbon(1.8,0.45,COL.mint); ribbon(0.6,0.95,COL.core);
+  orb(head.x,head.y,18*k,COL.mint,1);   // bright comet head
+  ctx.globalCompositeOperation='source-over'; }
+
+function say(t){ $('cue').textContent=t; $('cue').classList.add('show'); clearTimeout(say._t); say._t=setTimeout(()=>$('cue').classList.remove('show'),2200);
+  if(!/[?&](novoice|nonova)/.test(location.search)){ try{ const u=new SpeechSynthesisUtterance(t.replace(/[^\w !?.,'-]/g,'')); u.rate=1.05; u.pitch=1.2; speechSynthesis.cancel(); speechSynthesis.speak(u);}catch(e){} } }
+function warn(t){ const w=$('warn'); if(!t){w.classList.remove('show');return;} w.textContent=t; w.classList.add('show'); clearTimeout(warn._t); warn._t=setTimeout(()=>w.classList.remove('show'),2200); }
+
+let game={running:false,hits:0,combo:0}, practiceIdx=-1, announced={}, confirmed={};
+function curPractice(s){ let idx=-1; for(let i=0;i<PRACTICE.length;i++){ const c=PRACTICE[i]; if(s>=c.t&&s<c.close) idx=i; } return idx; }
+async function loop(){
+  if(detector && cam.readyState>=2){
+    let poses=[]; try{ poses=await detector.estimatePoses(cam,{flipHorizontal:true}); }catch(e){}
+    if(poses[0]){ M=buildM(poses[0].keypoints);
+      if(baseShY==null){ const sy=midShY(); if(sy!=null) baseShY=sy; }
+      if(prevM){ let t=0,c=0; for(const n in M){const a=M[n],b=prevM[n]; if(a&&b&&a.score>.3&&b.score>.3){t+=dist(a,b);c++;}} motion=c?Math.min(1,(t/c)/unit()*3):0; } prevM=M;
+    } else { ctx.clearRect(0,0,fx.width,fx.height); requestAnimationFrame(loop); return; }
+  }
+  if(game.running){
+    const s=clockS(); if(s>=SONG_END){ endGame(); return; }
+    fade(); const k=Math.max(0.4,Math.min(3,unit()/220));
+    if(s>=CHAIN_START && s<CHAIN_END){
+      // ── THE 6-COUNT RIVER (continuous across both arms) ──
+      if(!announced.chain){ announced.chain=true; say('Now WAVE it across! 🌊'); river=[]; lastVi=-1; }
+      const ph=(s-CHAIN_START)/(CHAIN_END-CHAIN_START);
+      drawRiver(ph,k);
+      const b=$('bar'); b.classList.add('show'); b.firstElementChild.style.width=Math.round(ph*100)+'%';  // sequence-progress
+      sparkUpdate();
+    } else if(s>=FREE_START && s<FREE_END){
+      if(!announced.free){ announced.free=true; say('Freestyle — wave it ALL! ✨'); }
+      // ambient: light both wrists with motion
+      ctx.globalCompositeOperation='lighter'; [g('left_wrist',.4),g('right_wrist',.4)].forEach(w=>{ if(w) orb(w.x,w.y,16*k*(0.5+motion),COL.gold,0.4+motion*0.4); }); ctx.globalCompositeOperation='source-over';
+      sparkUpdate(); $('bar').classList.remove('show');
+    } else {
+      // ── PRACTICE singles ──
+      const idx=curPractice(s);
+      if(idx!==practiceIdx){ practiceIdx=idx; }
+      if(idx>=0){ const c=PRACTICE[idx], elapsed=s-c.t;
+        if(!announced['p'+idx]){ announced['p'+idx]=true; say(c.label); }
+        if(confirmed['p'+idx]===undefined) confirmed['p'+idx]=false;
+        if(!confirmed['p'+idx] && checkMove(c.move)){ confirmed['p'+idx]=true; onHit(); }
+        const jn = c.move==='roll'?[g('left_shoulder',.5),g('right_shoulder',.5)] : c.move==='elbow'?[g('left_elbow',.45),g('right_elbow',.45)] : [g('right_wrist',.4)];
+        drawSingle(jn.filter(Boolean), elapsed, !!confirmed['p'+idx], k);
+        const b=$('bar'); b.classList.add('show'); b.firstElementChild.style.width=Math.round(Math.max(0,1-elapsed/(c.close-c.t))*100)+'%';
+        sparkUpdate();
+      } else { sparkUpdate(); $('bar').classList.remove('show');
+        if(s<4) { const lbl='watch me… 👋'; const ce=$('cue'); if(ce.textContent!==lbl){ce.textContent=lbl;ce.classList.add('show');} } }
+    }
+  }
+  requestAnimationFrame(loop);
+}
+function onHit(){ game.hits++; game.combo++; $('nova').classList.add('hit'); setTimeout(()=>$('nova').classList.remove('hit'),600); $('streak').classList.add('show'); $('streak').textContent='🌊 '+game.combo; }
+$('play').addEventListener('click', start);
+async function start(){ $('play').disabled=true; if(!await ensureCamera()){ $('play').disabled=false; return; }
+  $('s-launch').classList.add('hidden'); await Promise.race([ensureModel().catch(()=>{}), new Promise(r=>setTimeout(r,12000))]);
+  started=true; startMs=performance.now();
+  try{ audio.currentTime=0; if(!/[?&](nonova|novoice)/.test(location.search)) audio.play().then(()=>audioOK=true).catch(()=>audioOK=false); }catch(e){}
+  game.running=true; announced={}; confirmed={}; practiceIdx=-1; say('Watch me — copy the wave! 👋'); loop(); }
+function endGame(){ game.running=false; $('bar').classList.remove('show'); $('streak').classList.remove('show'); ctx.clearRect(0,0,fx.width,fx.height); try{audio.pause();}catch(e){}
+  $('endsub').textContent='You waved '+game.hits+' times — so smooth! 💜'; $('s-end').classList.remove('hidden'); say('Beautiful wave! 👋'); }
+$('again').addEventListener('click',()=>location.reload());
+window.__hw={ get clock(){return clockS();}, get game(){return game;}, CHAIN_START, CHAIN_END, get wave(){return window.__wave;} };
+</script>
+</body>
+</html>
