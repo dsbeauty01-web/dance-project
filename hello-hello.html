@@ -181,7 +181,7 @@ async function loop(){
     if(poses[0]){ M=buildM(poses[0].keypoints);
       // motion (for freeze)
       if(prevM){ let t=0,c=0; for(const n in M){ const a=M[n],b=prevM[n]; if(a&&b&&a.score>.3&&b.score>.3){t+=dist(a,b);c++;} } motion=c?Math.min(1,(t/c)/unit()*3):0; } prevM=M;
-    } else { ctx.clearRect(0,0,fx.width,fx.height); requestAnimationFrame(loop); return; }
+    } else { M={}; }   // no pose THIS frame → still run the game (cues/labels/bar/clock never freeze)
   }
   if(game.running){
     const s=clockS();
@@ -210,7 +210,9 @@ async function start(){
   $('play').disabled=true;
   if(!await ensureCamera()){ $('play').disabled=false; return; }
   $('s-launch').classList.add('hidden');
+  const ce=$('cue'); ce.textContent='warming up… stand back so I see you! ✨'; ce.classList.add('show');
   await Promise.race([ensureModel().catch(()=>{}), new Promise(r=>setTimeout(r,12000))]);
+  if(!detector){ ce.textContent='dance along with me! 👋'; }   // graceful: AI didn't load → still playable
   started=true; startMs=performance.now();                 // ← THE CLOCK STARTS (independent of song)
   try{ audio.currentTime=0; if(!/[?&](nonova|novoice)/.test(location.search)) audio.play().then(()=>{audioOK=true;}).catch(()=>{audioOK=false;}); }catch(e){}
   game.running=true; lastCueIdx=-1; game.announced={}; _confirmed={};

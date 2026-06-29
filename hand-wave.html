@@ -150,7 +150,7 @@ async function loop(){
     if(poses[0]){ M=buildM(poses[0].keypoints);
       if(baseShY==null){ const sy=midShY(); if(sy!=null) baseShY=sy; }
       if(prevM){ let t=0,c=0; for(const n in M){const a=M[n],b=prevM[n]; if(a&&b&&a.score>.3&&b.score>.3){t+=dist(a,b);c++;}} motion=c?Math.min(1,(t/c)/unit()*3):0; } prevM=M;
-    } else { ctx.clearRect(0,0,fx.width,fx.height); requestAnimationFrame(loop); return; }
+    } else { M={}; }   // no pose THIS frame → still run the game (cues/labels/bar/clock never freeze)
   }
   if(game.running){
     const s=clockS(); if(s>=SONG_END){ endGame(); return; }
@@ -188,7 +188,10 @@ async function loop(){
 function onHit(){ game.hits++; game.combo++; $('nova').classList.add('hit'); setTimeout(()=>$('nova').classList.remove('hit'),600); $('streak').classList.add('show'); $('streak').textContent='🌊 '+game.combo; }
 $('play').addEventListener('click', start);
 async function start(){ $('play').disabled=true; if(!await ensureCamera()){ $('play').disabled=false; return; }
-  $('s-launch').classList.add('hidden'); await Promise.race([ensureModel().catch(()=>{}), new Promise(r=>setTimeout(r,12000))]);
+  $('s-launch').classList.add('hidden');
+  const ce=$('cue'); ce.textContent='warming up… stand back so I see you! ✨'; ce.classList.add('show');
+  await Promise.race([ensureModel().catch(()=>{}), new Promise(r=>setTimeout(r,12000))]);
+  if(!detector){ ce.textContent='dance along with me! 👋'; }   // graceful: AI didn't load → still playable
   started=true; startMs=performance.now();
   try{ audio.currentTime=0; if(!/[?&](nonova|novoice)/.test(location.search)) audio.play().then(()=>audioOK=true).catch(()=>audioOK=false); }catch(e){}
   game.running=true; announced={}; confirmed={}; practiceIdx=-1; say('Watch me — copy the wave! 👋'); loop(); }
