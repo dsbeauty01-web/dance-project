@@ -129,9 +129,9 @@
   </div>
   <div id="stage">
     <div id="nova-side">
-      <!-- Nova demo: no dedicated hello-hello clip exists, so loop her dance video; fall back to the still face -->
-      <video id="nova-demo" src="nova-joined-small.mp4" poster="nova-face.png" muted loop playsinline autoplay
-             style="width:min(92%,360px);aspect-ratio:9/16;object-fit:cover;border-radius:18px"
+      <!-- Hello Hello Nova demo clip (she steps back-and-forth at the start). Centered, contain so she's never cropped. -->
+      <video id="nova-demo" src="nova-hello.mp4" poster="nova-face.png" muted loop playsinline autoplay preload="auto"
+             style="width:min(96%,420px);aspect-ratio:9/16;object-fit:contain;background:#0d0820;border-radius:18px;margin:0 auto;display:block"
              onerror="this.style.display='none';var f=document.getElementById('nova-face');if(f)f.style.display='block'"></video>
       <img id="nova-face" src="nova-face.png" alt="Nova" style="display:none" onerror="this.style.display='none'">
       <div id="nova-move">Hello Hello! 👋</div>
