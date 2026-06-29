@@ -538,7 +538,7 @@ const ML = { core:'255,253,245', gold:'255,210,122', amber:'255,166,61', deep:'2
 const TRAIL = { nodes:22, smooth:0.35, waveAmp:14, waveSpeed:6.0, wavePhase:0.55, headWidth:16, fade:0.16 };
 const SPARK = { spawnPerVel:0.6, ttl:[400,900], drift:0.4, size:[1,3] };
 let _sparks=[], _river=[], _blooms=[], _wavePhase=0, _lastVertex=-1; const _lastPos={};
-function resetSmartLight(){ _river.length=0; _blooms.length=0; _sparks.length=0; _wavePhase=0; _lastVertex=-1; if(_eng) _eng.reset(); }
+function resetSmartLight(){ _river.length=0; _blooms.length=0; _sparks.length=0; _wavePhase=0; _lastVertex=-1; if(_eng) _eng.reset(); if(typeof wvResetEngine==='function') wvResetEngine(); }
 function _lerp(a,b,t){ return a+(b-a)*t; }
 function _mix(t1,t2,f){ const a=t1.split(',').map(Number),b=t2.split(',').map(Number); return a.map((v,i)=>Math.round(_lerp(v,b[i],f))).join(','); }
 function _orb(c,x,y,r,trip,alpha){ if(r<=0) return; const g=c.createRadialGradient(x,y,0,x,y,r);
@@ -581,29 +581,94 @@ function alongPath(P, ph){
 // owns the 6-count path (buildPath: per-joint floors + elbow-hold) + the sweep phase;
 // NovaLight owns the river draw + vertex blooms.
 let _eng=null;
+// ══ LIVE-REACTION METEOR ENGINE (ported from wave-fx.html, per wave-nova-integration-plan.md) ══
+// POINT recomputed from LIVE joints every frame; motion-gated travel; reversal/bounce at the ends.
+// Namespaced wv* so it doesn't collide with the old river helpers (orb/buildPath/_sparks…).
+const WV_START='242,115,12', WV_MID='255,210,122', WV_HOT='255,253,245', WV_DEEP='242,115,12', WV_AMBER='255,166,61';
+const WV_GATE={ wrist:0.40, elbow:0.45, shoulder:0.50 };
+let wvLastT=null, wvSparks=[], wvPhase=0, wvDir=1, wvReversals=0, wvStarted=null, wvPrevVi=-1, wvLastBloom={}, wvHeadTrail=[];
+const wvSm={}, wvLast={};
+function wvFloor(n){ return n.indexOf('wrist')>=0?WV_GATE.wrist:n.indexOf('elbow')>=0?WV_GATE.elbow:WV_GATE.shoulder; }
+function wvGate(m,n){ const k=m[n]; return (k&&k.score>=wvFloor(n))?k:null; }
+function wvEma(name,x,y){ const a=0.5; if(!wvSm[name])wvSm[name]={x,y}; wvSm[name].x=_lerp(wvSm[name].x,x,1-a); wvSm[name].y=_lerp(wvSm[name].y,y,1-a); return wvSm[name]; }
+// MOVE → CHAIN (the only game-specific part). Shoulders connect DIRECTLY (no mid).
+function CHAIN_FOR(part){ switch(part){
+  case 'wrist-wave':    return ['right_wrist','right_elbow','right_shoulder','left_shoulder','left_elbow','left_wrist'];
+  case 'shoulder-roll': return ['right_shoulder','left_shoulder'];
+  case 'elbow-pump':    return ['right_elbow','right_shoulder','left_shoulder','left_elbow'];
+  default: return null; } }   // free / none → both-wrist motion glow
+function wvChainPoints(m,X,Y,chain){ const pts=[]; let seen=0;
+  for(const n of chain){ const k=wvGate(m,n);
+    if(k){ const s=wvEma(n,X(k),Y(k)); const p={x:s.x,y:s.y}; wvLast[n]=p; pts.push(p); seen++; }
+    else if(wvLast[n]) pts.push(wvLast[n]); }   // hold last-good — never disappear/jump
+  return {pts, seen}; }
+function wvAlong(P,ph){ if(P.length<2) return P[0]?{x:P[0].x,y:P[0].y,vi:0,seg:0}:null;
+  const seg=[]; let total=0; for(let i=1;i<P.length;i++){const d=Math.hypot(P[i].x-P[i-1].x,P[i].y-P[i-1].y); seg.push(d); total+=d;}
+  if(total<=0) return {x:P[0].x,y:P[0].y,vi:0,seg:0};
+  let tgt=ph*total,i=0; while(i<seg.length&&tgt>seg[i]){tgt-=seg[i];i++;} i=Math.min(i,seg.length-1);
+  const f=seg[i]?tgt/seg[i]:0,a=P[i],b=P[i+1]||P[i]; return {x:_lerp(a.x,b.x,f),y:_lerp(a.y,b.y,f),vi:i+(f>0.5?1:0),seg:i+f}; }
+function wvRamp(p,hot){ p=Math.max(0,Math.min(1,p)); return p<0.5?_mix(WV_START,WV_MID,p/0.5):_mix(WV_MID,hot||WV_HOT,(p-0.5)/0.5); }
+function wvOrb(ctx,x,y,r,trip,alpha){ if(r<=0)return; const g=ctx.createRadialGradient(x,y,0,x,y,r);
+  g.addColorStop(0,'rgba('+trip+','+alpha+')'); g.addColorStop(0.45,'rgba('+trip+','+(alpha*0.5)+')'); g.addColorStop(1,'rgba('+trip+',0)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill(); }
+function wvGlow3(ctx,x,y,baseR,trip){ wvOrb(ctx,x,y,baseR*3.5,WV_AMBER,0.14); wvOrb(ctx,x,y,baseR*1.8,trip,0.45); wvOrb(ctx,x,y,baseR*0.6,WV_HOT,0.95); }
+function wvBloom(x,y,k,trip){ wvLastBloom={x,y,t:performance.now(),trip}; const n=6+Math.floor(Math.random()*5);
+  for(let s=0;s<n;s++){ const a=Math.random()*6.283; wvSparks.push({x,y,vx:Math.cos(a)*0.9*k,vy:Math.sin(a)*0.9*k-0.5*k,born:performance.now(),ttl:400+Math.random()*500,r:(1+Math.random()*1.6)*k,seed:Math.random()*6.28}); } }
+function wvDrawSparks(ctx){ const now=performance.now(); wvSparks=wvSparks.filter(s=>{ const age=(now-s.born)/s.ttl; if(age>=1)return false;
+  s.x+=s.vx; s.y+=s.vy; const tw=(0.6+0.4*Math.sin(now*0.08+s.seed)); wvOrb(ctx,s.x,s.y,s.r*(1-age*0.4),WV_HOT,(1-age)*tw); return true; }); }
+function wvResetEngine(){ wvPhase=0; wvDir=1; wvPrevVi=-1; wvHeadTrail.length=0; wvStarted=null; }
+
 function renderMagic(ctx, m, X, Y, W, H){
-  if(!window.NovaLight) return;
-  if(!_eng || _eng._ctx!==ctx){ _eng=window.NovaLight.create(ctx, window.NovaLight.PRESETS.handwave); _eng._ctx=ctx; }
-  const cueKey=(window.__cuePart||''); const now=performance.now();
+  const now=performance.now(); const dt=Math.min(50, wvLastT?now-wvLastT:16); wvLastT=now;
+  // FADE the trail (destination-out → camera shows through), then additive glow
+  ctx.globalCompositeOperation='destination-out'; ctx.fillStyle='rgba(0,0,0,0.16)'; ctx.fillRect(0,0,W,H);
+  ctx.globalCompositeOperation='lighter';
   const ls=m.left_shoulder, rs=m.right_shoulder;
-  const unit=(ls&&rs&&ls.score>=0.5&&rs.score>=0.5)?Math.hypot(X(ls)-X(rs),Y(ls)-Y(rs)):180;
-  const k=Math.max(0.4,Math.min(3, unit/220));
-  const qMap={armed:0.6,hit:0.85,streak:0.95,messy:0.35,miss:0.2};
-  const quality=(window.__cueQuality!=null)?window.__cueQuality:(qMap[window.__cueState]||0.6);
-  let travelHead=null, travelVertex=null;
-  if(cueKey){
-    const P=buildPath(m,X,Y).filter(Boolean);
-    if(P.length>=2){
-      _wavePhase += (16.7/2600); if(_wavePhase>=1) _wavePhase-=1;   // musical sweep ~2.6s per pass
-      const head=alongPath(P,_wavePhase);
-      travelHead={x:head.x,y:head.y};
-      travelVertex=Math.max(0,Math.min(P.length-1,head.vi));
-    }
-  } else { window.__glowFound='-'; }
-  // idle-breath centre = shoulders/hips midpoint (present-only)
-  let center=null; { const ok=kp=>kp&&kp.score>=0.5; const ps=[m.left_shoulder,m.right_shoulder,m.left_hip,m.right_hip].filter(ok);
-    if(ps.length){ let sx=0,sy=0; ps.forEach(p=>{sx+=X(p);sy+=Y(p);}); center={x:sx/ps.length,y:sy/ps.length}; } }
-  _eng.render({ travelHead, travelVertex, center, k, W, H, quality, velocity:0, dir:null, active:!!(cueKey&&travelHead), now });
+  const u=(ls&&rs&&ls.score>=0.5&&rs.score>=0.5)?Math.hypot(X(ls)-X(rs),Y(ls)-Y(rs)):180;
+  const k=Math.max(0.4,Math.min(3, u/220));
+  const motion=(typeof det!=='undefined'&&det.motion)?det.motion:0; const moving=motion>0.05; window.__wvMoving=moving;
+  const st=window.__cueState; const hot=(st==='hit'||st==='streak')?ML.clean:(st==='miss')?ML.messy:WV_HOT;
+  const cuePart=window.__cuePart||'';
+  const chain=CHAIN_FOR(cuePart);
+  if(!chain){   // FREE / no cue → both wrists pulse with motion
+    window.__wvSeen='free';
+    for(const wn of ['left_wrist','right_wrist']){ const w=wvGate(m,wn); if(w){ const x=X(w),y=Y(w); wvGlow3(ctx,x,y,(8+10*Math.min(1,motion))*k,hot); } }
+    wvDrawSparks(ctx); ctx.globalCompositeOperation='source-over'; return;
+  }
+  const {pts:P,seen}=wvChainPoints(m,X,Y,chain); window.__wvSeen=seen+'/'+chain.length; window.__glowFound=window.__wvSeen;
+  if(P.length>=2){
+    if(wvStarted==null){ wvStarted=now; wvPhase=0; wvDir=1; wvPrevVi=-1; wvHeadTrail.length=0; }
+    const segCount=P.length-1;
+    // MOTION-GATED: advance ONLY when the kid moves; still → park + soft head pulse.
+    const step = moving ? (dt/(900*segCount))*Math.min(3.0, motion*9) : 0;
+    wvPhase += wvDir*step;
+    if(wvPhase>=1){ wvPhase=1; wvDir=-1; wvReversals++; wvPrevVi=-1; wvHeadTrail.length=0; const e=P[P.length-1]; wvBloom(e.x,e.y,k,hot); }
+    else if(wvPhase<=0){ wvPhase=0; wvDir=1; wvReversals++; wvPrevVi=-1; wvHeadTrail.length=0; const e=P[0]; wvBloom(e.x,e.y,k,hot); }
+    window.__wvDir=wvDir; window.__wvReversals=wvReversals;
+    const lead=0.04*wvDir;
+    const head=wvAlong(P, Math.max(0.001,Math.min(0.999, wvPhase+lead)));
+    const segProg=head.seg/segCount; const colorProg=1-Math.abs(2*segProg-1);
+    const trip=wvRamp(colorProg,hot);
+    const rHead=_lerp(11,16,colorProg)*k*(moving?1:(1+0.18*Math.sin(now*0.012)));   // parked → soft pulse
+    // START PULSE at whichever end ignites this sweep
+    const nearStart=(wvDir>0&&wvPhase<0.10)||(wvDir<0&&wvPhase>0.90);
+    if(nearStart){ const e=(wvDir>0?wvPhase:1-wvPhase)/0.10; const a=0.9*(1-Math.pow(1-e,2));
+      const w=wvDir>0?P[0]:P[P.length-1]; const pr=14*k*(1+0.35*Math.sin(now*0.018));
+      wvGlow3(ctx,w.x,w.y,pr*0.5,WV_DEEP); wvOrb(ctx,w.x,w.y,pr,WV_DEEP,a*0.6);
+      const rr=_lerp(8,30,e)*k; ctx.strokeStyle='rgba('+WV_DEEP+','+(0.5*(1-e))+')'; ctx.lineWidth=2.5*k; ctx.beginPath(); ctx.arc(w.x,w.y,rr,0,7); ctx.stroke(); }
+    // METEOR TAIL
+    wvHeadTrail.unshift({x:head.x,y:head.y}); if(wvHeadTrail.length>16) wvHeadTrail.pop();
+    if(wvHeadTrail.length>=2){ const hd=wvHeadTrail[0],tl=wvHeadTrail[wvHeadTrail.length-1]; const ang=Math.atan2(hd.y-tl.y,hd.x-tl.x)+Math.PI/2;
+      ctx.beginPath(); for(let i=0;i<wvHeadTrail.length;i++){ const tt=i/wvHeadTrail.length; const off=Math.sin(now*0.036+i*0.6)*5*k*tt; const x=wvHeadTrail[i].x+Math.cos(ang)*off,y=wvHeadTrail[i].y+Math.sin(ang)*off; i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+      const g=ctx.createLinearGradient(hd.x,hd.y,tl.x,tl.y); g.addColorStop(0,'rgba('+trip+',0.85)'); g.addColorStop(1,'rgba('+WV_DEEP+',0)'); ctx.strokeStyle=g; ctx.lineWidth=10*k; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.stroke(); }
+    wvGlow3(ctx,head.x,head.y,rHead,trip);   // comet head
+    // ARRIVAL BLOOM + residual joint glow
+    if(head.vi!==wvPrevVi && head.vi>0){ wvPrevVi=head.vi; const j=P[Math.min(head.vi,P.length-1)]; wvBloom(j.x,j.y,k,trip); }
+    for(let vi=1; vi<=Math.min(head.vi,P.length-1); vi++){ const j=P[vi]; wvOrb(ctx,j.x,j.y,8*k,wvRamp(1-Math.abs(2*(vi/segCount)-1),hot),0.4); }
+    if(wvLastBloom.t){ const age=(now-wvLastBloom.t)/130; if(age<1){ const fl=1+0.45*Math.sin(age*Math.PI); wvGlow3(ctx,wvLastBloom.x,wvLastBloom.y,12*k*fl,wvLastBloom.trip); } }
+    wvDrawSparks(ctx);
+  } else { wvStarted=null; wvDrawSparks(ctx); }
+  ctx.globalCompositeOperation='source-over';
 }
 window.__renderMagic=renderMagic; window.__buildPath=buildPath; window.__resetLight=resetSmartLight;   // (self-test hooks)
 function positionAuras(m, X, Y){
