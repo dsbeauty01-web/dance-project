@@ -185,19 +185,19 @@ async function loop(){
   }
   if(game.running){
     const s=clockS();
+    const INTRO=13, cs=s+INTRO;        // skip the song's 17s cue-free intro → first move at ~4s (testable fast)
     if(s>=SONG_END){ endGame(); return; }
-    const idx=activeCueIdx(s);
+    const idx=activeCueIdx(cs);
     if(idx!==lastCueIdx){ lastCueIdx=idx; spine={}; }
     if(idx>=0){
-      const c=HELLO_CUES[idx], elapsed=s-c.t;
+      const c=HELLO_CUES[idx], elapsed=cs-c.t;
       if(!game.announced[idx]){ game.announced[idx]=true; say(c.label); }   // Nova CALLS the move (she leads)
       if(_confirmed[idx]===undefined) _confirmed[idx]=false;
       if(!_confirmed[idx] && checkMove(c.move)){ _confirmed[idx]=true; onHit(idx,c); }
       drawLight(c, elapsed, !!_confirmed[idx]);
       const b=$('bar'); b.classList.add('show'); b.firstElementChild.style.width=Math.round(Math.max(0,1-elapsed/(c.close-c.t))*100)+'%';
     } else { drawLight(null,0,false); $('bar').classList.remove('show');
-      // fill the no-cue windows so it never feels blank: intro = "get ready", outro = celebrate
-      const lbl = s<17 ? ('Watch me… first move in '+Math.max(1,Math.ceil(17-s))+'s ✨') : 'you did it — wave goodbye! 👋';
+      const lbl = cs<17 ? ('Watch me… first move in '+Math.max(1,Math.ceil(17-cs))+'s ✨') : 'you did it — wave goodbye! 👋';
       const ce=$('cue'); if(ce.textContent!==lbl){ ce.textContent=lbl; ce.classList.add('show'); } }
   }
   requestAnimationFrame(loop);
