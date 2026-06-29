@@ -176,19 +176,23 @@ const CUE_PARTS = {
 };
 const ZONE = { 'right_hand_up':'right','left_hand_up':'left','clap':'full','both_up':'full','free':'full' };
 
-// ── CUE TIMELINE (JS-clock seconds) — short & testable ──────────────────────
+// ── CUE TIMELINE (JS-clock seconds) — FULL Hello Hello song (~111s) ──────────
+// warm-up (no dead intro) → main sequence across the whole track → freestyle to the end.
 const CUES = (()=>{ const out=[]; const add=(s,a,d)=>out.push({t:Math.round(s*1000),dur:d,action:a});
-  add(4.5,'right_hand_up',1600); add(6.5,'left_hand_up',1600);
-  add(8.5,'clap',1600);          add(10.5,'both_up',1600);
-  add(12.5,'right_hand_up',1500);add(14.5,'left_hand_up',1500);
-  add(16.5,'clap',1500);         add(18.5,'both_up',1500);
-  add(20.5,'free',5000);
+  add(5,'right_hand_up',1500);  add(8.5,'left_hand_up',1500); add(12,'clap',1500);
+  add(17,'right_hand_up',1600); add(21,'left_hand_up',1600);  add(25,'clap',1600);  add(28,'both_up',1600);
+  add(31,'right_hand_up',1500); add(35,'clap',1500);          add(39,'left_hand_up',1500); add(43,'both_up',1500);
+  add(47,'right_hand_up',1500); add(51,'clap',1500);          add(55,'left_hand_up',1500); add(59,'both_up',1500);
+  add(63,'right_hand_up',1400); add(67,'left_hand_up',1400);  add(71,'clap',1400);  add(75,'both_up',1400);
+  add(79,'right_hand_up',1300); add(82,'left_hand_up',1300);  add(85,'clap',1300);  add(88,'both_up',1300);
+  add(92,'free',16000);   // freestyle / outro — runs to ~108; the song ends at ~111
   return out.sort((a,b)=>a.t-b.t); })();
-const SONG_END = 26.0;
+const SONG_END = 111;   // full song length; real end follows the audio (see gameTick / song 'ended')
 
 // ── THE CLOCK (JS source of truth; ./shit.mp3 layered ON it; runs silent) ───
 let startMs=null; const song=new Audio('./shit.mp3'); let audioOK=false;
 song.preload='auto'; song.addEventListener('canplaythrough',()=>audioOK=true); song.addEventListener('error',()=>audioOK=false);
+song.addEventListener('ended',()=>{ if(game.running) endGame(); });   // end follows the SONG, not a timer
 function clockS(){ if(audioOK && !song.paused && song.currentTime>0) return song.currentTime; return startMs?(performance.now()-startMs)/1000:0; }
 
 // ── STATE ───────────────────────────────────────────────────────────────────
@@ -314,8 +318,10 @@ function gameTick(){
   if(!game.running) return;
   const now=clockS()*1000;
   $('timecode').textContent=clockS().toFixed(1)+'s';
-  $('progress').style.width=Math.min(100,(clockS()/SONG_END)*100)+'%';
-  if(clockS()>=SONG_END){ endGame(); return; }
+  // end follows the SONG's real duration when it's playing; SONG_END is the silent-mode fallback
+  const endAt = (audioOK && song.duration>1) ? song.duration : SONG_END;
+  $('progress').style.width=Math.min(100,(clockS()/endAt)*100)+'%';
+  if(clockS()>=endAt){ endGame(); return; }
   if(game.idx===0 && !game.cue && !game._readyShown && CUES.length){
     const lead=CUES[0].t-now; if(lead<=3500 && lead>300){ game._readyShown=true; coach('Get ready… first move! ✨'); }
   }
@@ -384,7 +390,7 @@ $('quit').addEventListener('click', ()=>{ endGame(); });
 window.addEventListener('beforeunload', ()=>{ if(camStream) camStream.getTracks().forEach(t=>t.stop()); });
 
 // self-test hooks
-window.__hhl = { get clock(){return clockS();}, get det(){return det;}, CUES, get game(){return game;}, get litAny(){return window.__litAny;} };
+window.__hhl = { get clock(){return clockS();}, get det(){return det;}, CUES, get game(){return game;}, get litAny(){return window.__litAny;}, get song(){return song;}, get audioOK(){return audioOK;} };
 </script>
 </body>
 </html>
