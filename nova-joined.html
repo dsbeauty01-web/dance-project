@@ -1828,7 +1828,24 @@ function showIdleEverywhere() {
 // (agentManager, didReady, didStream, didIdleVideoUrl already declared above near line 961)
 window.__novaSessionId = null;
 
+// ── STANDALONE MODE (?nonova): camera + MoveNet + cues + light, ZERO Nova/LiveKit. ──
+const NONOVA = /[?&]nonova/.test(location.search);
+async function startCamNonova(){
+  if (window.__kidStream) return;                         // already up
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({ video:{ width:640, height:480, facingMode:'user' }, audio:false });
+    window.__kidStream = stream;
+    const v = document.getElementById('webcam');
+    if (v){ v.srcObject = stream; v.muted = true; v.playsInline = true; await v.play().catch(()=>{}); }
+    memory.phase = 'dance';                               // un-gate the CUE/LIGHT layer (detection is always on now)
+    try{ showPhase('phase-game'); }catch(e){}
+    LOG('NONOVA','standalone camera up · phase=dance · Nova skipped');
+  }catch(e){ LOG('ERROR','nonova camera failed', { msg:e.message }); }
+}
+
+window.__NONOVA = NONOVA; window.__startCamNonova = startCamNonova;   // expose to the init() IIFE (separate scope)
 async function initDID() {
+  if (NONOVA) return startCamNonova();                    // standalone: no Render session, no LiveKit, no Nova
   // v91: this function name is kept for back-compat. It now initializes Runway.
   if (window.__novaRoom) {
     LOG('ROOM', 'initDID called but room already exists, skipping');
@@ -2922,19 +2939,17 @@ async function poseLoop() {
     requestAnimationFrame(poseLoop);
     return;
   }
-  // PERF FIX: MoveNet only runs during the DANCE phase. Running it every frame
-  // during recognition/conversation starved the CPU → choppy/distorted Nova audio
-  // ("hi hi hi", "feels slow"). Idle cheaply otherwise.
-  if (memory.phase !== 'song' && memory.phase !== 'dance') {
-    setTimeout(() => requestAnimationFrame(poseLoop), 500);
-    return;
-  }
+  // DECOUPLED: MoveNet is INFRASTRUCTURE — it runs whenever the webcam + model are ready,
+  // NEVER gated on memory.phase or Nova. (Phase only gates the CUE/LIGHT layer, separately,
+  // via window.__cueAction — see the light loop in init().) This is the fix for the
+  // "[POSE] 1 frame, 0/17 joints" bug where detection stayed gated off until the dance phase.
   try {
     const poses = await detector.estimatePoses(v, { flipHorizontal: false });
     if(poses.length > 0) {
       const kps = poses[0].keypoints;
       analyzePose(kps);
       window.__lastPoseKeypoints = kps;
+      window.__poseFrames = (window.__poseFrames||0) + 1;   // module-scope frame counter (self-test)
       window.__posePresent = kps.filter(k => k.score > 0.3).length >= 5;
       
       // v111: compute motion level from keypoint movement frame-to-frame
@@ -4396,8 +4411,10 @@ window.__initRunwayNova = initDID;
       eng.render({ anchors, center, k, W:cw, H:ch, quality, velocity:0, dir, active:!!(e&&anchors.length), now });
     }
     requestAnimationFrame(loop);
+    if (window.__NONOVA) window.__startCamNonova();   // standalone: bring the camera up on load (no Nova trigger needed)
   }
   window.__joinedPick=pick; window.__joinedANCH=ANCH;   // (self-test hooks)
+  window.__poseCount=()=>(window.__poseFrames||0);      // (self-test: frames detected)
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 })();
 </script>
