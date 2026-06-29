@@ -19,8 +19,9 @@
   html,body{height:100%;background:var(--bg);font-family:'Fredoka',system-ui,'Segoe UI',sans-serif;color:#fff;overflow:hidden}
   /* webcam dominant (no MP4 — the song carries it); works portrait phone + laptop */
   #stage{position:fixed;inset:0;background:#06070b;overflow:hidden}
-  /* DESKTOP: frame the camera as a phone-shaped column (not a giant full-bleed zoom) */
-  @media (orientation:landscape){ #stage{ left:50%; transform:translateX(-50%); width:min(520px,56svh); box-shadow:0 0 0 1px #2a1a3a, 0 0 60px rgba(0,0,0,.6) } }
+  /* DESKTOP (wide webcam): fill the window, object-fit CONTAIN so the WHOLE body fits
+     (not a zoom, not a phone column). cam+fx contain identically → the light stays aligned. */
+  @media (orientation:landscape){ #cam,#fx{object-fit:contain} }
   #cam,#fx{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1);object-fit:cover}
   #fx{pointer-events:none}
   /* top strip: cue label + timing bar (never on the body) */

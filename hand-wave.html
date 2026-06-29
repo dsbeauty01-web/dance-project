@@ -17,9 +17,10 @@
   :root{--gold:#FFD27A;--mint:#BFFFC8;--bg:#0a0612}
   html,body{height:100%;background:var(--bg);font-family:'Fredoka',system-ui,'Segoe UI',sans-serif;color:#fff;overflow:hidden}
   #stage{position:fixed;inset:0;background:#06070b;overflow:hidden}
-  /* DESKTOP: don't full-bleed the camera into a giant zoom — frame it as a phone-shaped column */
-  @media (orientation:landscape){ #stage{ left:50%; transform:translateX(-50%); width:min(520px,56svh); box-shadow:0 0 0 1px #2a1a3a, 0 0 60px rgba(0,0,0,.6) } }
   #cam,#fx{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1);object-fit:cover}
+  /* DESKTOP (wide webcam): fill the window, object-fit CONTAIN so the WHOLE body fits
+     (not a zoom, not a phone column). cam+fx contain identically → the light stays aligned. */
+  @media (orientation:landscape){ #cam,#fx{object-fit:contain} }
   #fx{pointer-events:none}
   #strip{position:absolute;top:0;left:0;right:0;height:15%;z-index:3;pointer-events:none;display:flex;flex-direction:column;align-items:center;padding-top:8px;gap:6px}
   #bar{width:80%;height:7px;border-radius:6px;background:rgba(255,255,255,.14);overflow:hidden;opacity:0;transition:opacity .25s} #bar.show{opacity:1}
