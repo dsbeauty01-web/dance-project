@@ -52,6 +52,7 @@
 const $=id=>document.getElementById(id);
 const cam=$('cam'), fx=$('fx'), ctx=fx.getContext('2d');
 let detector=null, stream=null, started=false;
+if(/[?&]nonova/.test(location.search)){ const n=$('nova'); if(n) n.style.display='none'; }  // no Nova orb — just the dance + tracking
 // clock (JS source of truth; handywave.mp4 audio layered on it; silent ok)
 let startMs=null, audio=new Audio('./handywave.mp4'), audioOK=false;
 audio.preload='auto'; audio.muted=false;

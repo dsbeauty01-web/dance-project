@@ -74,6 +74,7 @@
 const $=id=>document.getElementById(id);
 const cam=$('cam'), fx=$('fx'), ctx=fx.getContext('2d');
 let detector=null, stream=null, started=false;
+if(/[?&]nonova/.test(location.search)){ const n=$('nova'); if(n) n.style.display='none'; }  // no Nova orb — just the dance + tracking
 
 // ── THE CLOCK (source of truth). Audio layered ON it; runs silent if no song. ──
 let startMs=null, audio=new Audio('./shit.mp3'), audioOK=false;
