@@ -889,7 +889,12 @@ $('copy-log').addEventListener('click', async ()=>{
   catch(e){ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch(_){} ta.remove(); }
   $('copy-log').textContent='✓ Copied — paste it to me!'; setTimeout(()=>$('copy-log').textContent='📋 Copy debug log',1800);
 });
-window.addEventListener('beforeunload', ()=>{ if(camStream) camStream.getTracks().forEach(t=>t.stop()); disconnectNova(); });
+// QUIT (✕) → save the log + end, so a mid-game test still produces nova-wave-session.json
+(function(){ const q=document.getElementById('quit'); if(q) q.addEventListener('click', ()=>{
+  if(game.running){ try{ saveSession(); }catch(e){} endGame(); } else { location.reload(); } }); })();
+// closing the tab mid-game also saves the log
+window.addEventListener('pagehide', ()=>{ try{ if(game.running && game.log && game.log.length) saveSession(); }catch(e){} });
+window.addEventListener('beforeunload', ()=>{ try{ if(game.running && game.log && game.log.length) saveSession(); }catch(e){} if(camStream) camStream.getTracks().forEach(t=>t.stop()); disconnectNova(); });
 </script>
 </body>
 </html>
