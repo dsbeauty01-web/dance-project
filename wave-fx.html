@@ -128,8 +128,10 @@ function unit(){ const l=M.left_shoulder,r=M.right_shoulder; return (l&&r&&l.sco
 
 function render(dt,now){
   const W=fx.width,H=fx.height; if(!W) return;
-  // FADE old light (never clearRect) → dreamy trail
-  ctx.globalCompositeOperation='source-over'; ctx.fillStyle='rgba(0,0,0,'+FADE+')'; ctx.fillRect(0,0,W,H);
+  // FADE the light trail WITHOUT darkening the camera: destination-out erases FADE% of the
+  // canvas's existing alpha each frame (old light fades), leaving empty areas TRANSPARENT so the
+  // webcam shows through. (source-over black accumulated to opaque → it blacked out the camera.)
+  ctx.globalCompositeOperation='destination-out'; ctx.fillStyle='rgba(0,0,0,'+FADE+')'; ctx.fillRect(0,0,W,H);
   ctx.globalCompositeOperation='lighter';
   const {X,Y}=mapper();
   const u=unit(); const k=Math.max(0.4,Math.min(3.0,u/220));
