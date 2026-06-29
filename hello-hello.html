@@ -195,6 +195,8 @@ async function loop(){
       if(_confirmed[idx]===undefined) _confirmed[idx]=false;
       if(!_confirmed[idx] && checkMove(c.move)){ _confirmed[idx]=true; onHit(idx,c); }
       drawLight(c, elapsed, !!_confirmed[idx]);
+      // actionable feedback: if the cued hands aren't in frame, tell them (instead of a blank screen)
+      if(!_confirmed[idx] && anchorsFor(c.move).length===0) warn('stand back — show me your hands! ✋');
       const b=$('bar'); b.classList.add('show'); b.firstElementChild.style.width=Math.round(Math.max(0,1-elapsed/(c.close-c.t))*100)+'%';
     } else { drawLight(null,0,false); $('bar').classList.remove('show');
       const lbl = cs<17 ? ('Watch me… first move in '+Math.max(1,Math.ceil(17-cs))+'s ✨') : 'you did it — wave goodbye! 👋';
