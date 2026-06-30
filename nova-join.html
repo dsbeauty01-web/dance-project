@@ -696,19 +696,22 @@ function magicAnchors(cueKey, m, X, Y){
     if(A&&B) return wantLeft?(A.x<B.x?A:B):(A.x>B.x?A:B); return A||B||null; };
   const both=(a,b)=>{ const o=[]; if(ok(a))o.push(pt(a)); if(ok(b))o.push(pt(b)); return o; };
   const out=[];
+  // SIDE: on the mirrored selfie view, a "left" nudge should light the ear/shoulder the kid sees
+  // on THEIR left → screen-right (larger x) after the double flip. (Flipped from the prior build,
+  // which lit the wrong ear.)
   if(/head/.test(cueKey)){
-    if(/left/.test(cueKey)){ const p=side(m.left_ear,m.right_ear,true); if(p) out.push(p); }
-    else if(/right/.test(cueKey)){ const p=side(m.left_ear,m.right_ear,false); if(p) out.push(p); }
+    if(/left/.test(cueKey)){ const p=side(m.left_ear,m.right_ear,false); if(p) out.push(p); }
+    else if(/right/.test(cueKey)){ const p=side(m.left_ear,m.right_ear,true); if(p) out.push(p); }
     else out.push(...both(m.left_ear,m.right_ear));
   } else if(/shoulder/.test(cueKey)){
-    if(/left/.test(cueKey)){ const p=side(m.left_shoulder,m.right_shoulder,true); if(p) out.push(p); }
-    else if(/right/.test(cueKey)){ const p=side(m.left_shoulder,m.right_shoulder,false); if(p) out.push(p); }
+    if(/left/.test(cueKey)){ const p=side(m.left_shoulder,m.right_shoulder,false); if(p) out.push(p); }
+    else if(/right/.test(cueKey)){ const p=side(m.left_shoulder,m.right_shoulder,true); if(p) out.push(p); }
     else out.push(...both(m.left_shoulder,m.right_shoulder));
   } else if(/hip/.test(cueKey)){
     out.push(...both(m.left_hip,m.right_hip));   // hips = both, swaying out
   } else if(/knee/.test(cueKey)){
-    if(/left/.test(cueKey)){ const p=side(m.left_knee,m.right_knee,true); if(p) out.push(p); }
-    else if(/right/.test(cueKey)){ const p=side(m.left_knee,m.right_knee,false); if(p) out.push(p); }
+    if(/left/.test(cueKey)){ const p=side(m.left_knee,m.right_knee,false); if(p) out.push(p); }
+    else if(/right/.test(cueKey)){ const p=side(m.left_knee,m.right_knee,true); if(p) out.push(p); }
     else out.push(...both(m.left_knee,m.right_knee));
   } else if(/free|groove/.test(cueKey)){
     out.push(...both(m.left_ear,m.right_ear), ...both(m.left_hip,m.right_hip));   // Round 2 = head+hips together
@@ -752,7 +755,8 @@ function renderMagic(ctx, m, X, Y, W, H){
   const TINT=(st==='hit'||st==='streak')?'191,255,200' : (st==='miss'||st==='messy')?'255,122,61' : '255,210,122';   // mint / amber / gold
   const motion=(typeof det!=='undefined' && det && det.motion)?det.motion:0;
   const moving=motion>0.05;                                  // motion-gated: brighter/larger when actually moving
-  const leanX=/left/i.test(cueKey)? -0.18*unit : /right/i.test(cueKey)? 0.18*unit : 0;   // lean the cue direction
+  const leanX=/left/i.test(cueKey)? 0.18*unit : /right/i.test(cueKey)? -0.18*unit : 0;   // lean toward the cued side (matches the flipped ear/shoulder pick)
+  const dirSign = leanX>0?1 : leanX<0?-1 : 0;   // +1 screen-right, -1 screen-left, 0 none
   let anchors, full=false;
   if(/head|shoulder|hip|knee/.test(cueKey)){
     anchors=magicAnchors(cueKey,m,X,Y);
@@ -767,9 +771,20 @@ function renderMagic(ctx, m, X, Y, W, H){
   const pulse=1+0.2*Math.sin(now*0.012);
   const baseR=(full?11:16)*k*pulse*(moving?1.15:1);
   anchors.forEach(p=>{ const cx=p.x+(full?0:leanX), cy=p.y;
+    // DIRECTIONAL comet-streak (gives the glow a direction + fade, like the wave) — non-full, has a dir
+    if(!full && dirSign!==0){ const len=38*k, gx=cx+dirSign*len;
+      const g=ctx.createLinearGradient(cx-dirSign*8*k,cy,gx,cy);
+      g.addColorStop(0,'rgba('+TINT+',0)'); g.addColorStop(0.35,'rgba('+TINT+','+(moving?0.75:0.5)+')'); g.addColorStop(1,'rgba(242,115,12,0)');
+      ctx.strokeStyle=g; ctx.lineWidth=11*k; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(cx-dirSign*8*k,cy); ctx.lineTo(gx,cy); ctx.stroke();
+    }
     _ugOrb(ctx,cx,cy,baseR*3.5,'255,166,61',full?0.10:0.14);  // bloom (amber)
     _ugOrb(ctx,cx,cy,baseR*1.8,TINT,full?0.30:0.45);          // body (tint)
     _ugOrb(ctx,cx,cy,baseR*0.6,'255,253,245',full?0.7:0.95);  // core (white)
+    // GUIDE ARROW (semi-transparent chevron pointing the cue direction), bobbing — like Hello Hello
+    if(!full && dirSign!==0){ const ax=cx+dirSign*(baseR*0.9+10*k)+Math.sin(now*0.006)*3*dirSign, ay=cy; const s=10*k;
+      ctx.strokeStyle='rgba(255,246,232,0.45)'; ctx.lineWidth=3.5*k; ctx.lineCap='round'; ctx.lineJoin='round';
+      ctx.beginPath(); ctx.moveTo(ax-dirSign*s,ay-s); ctx.lineTo(ax,ay); ctx.lineTo(ax-dirSign*s,ay+s); ctx.stroke();
+    }
   });
   // full groove: intermittent rising sparkles ("not always") when moving
   if(full && moving && anchors.length && Math.random()<0.18){ const p=anchors[Math.floor(Math.random()*anchors.length)];
