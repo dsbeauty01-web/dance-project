@@ -377,24 +377,73 @@ const ML = { core:'255,253,245', gold:'255,210,122', clean:'191,255,200' };
 function _orb(c,x,y,r,trip,alpha){ if(r<=0) return; const g=c.createRadialGradient(x,y,0,x,y,r);
   g.addColorStop(0,'rgba('+trip+',1)'); g.addColorStop(0.45,'rgba('+trip+',0.5)'); g.addColorStop(1,'rgba('+ML.gold+',0)');
   c.globalAlpha=(alpha==null?1:alpha); c.fillStyle=g; c.beginPath(); c.arc(x,y,r,0,7); c.fill(); c.globalAlpha=1; }
+const C_AMBER='255,166,61', C_DEEP='242,115,12';
+// 3 additive radial passes → hot white core (never a flat arc fill)
+function glow3(x,px,py,baseR,trip){ _orb(x,px,py,baseR*3.5,C_AMBER,0.14); _orb(x,px,py,baseR*1.8,trip,0.45); _orb(x,px,py,baseR*0.6,ML.core,0.95); }
+// COMET UP: gold beam shooting up from the wrist + hot head (the raise-hand look)
+function cometUp(x,px,py,k,hit){ const reach=48*k; const g=x.createLinearGradient(px,py,px,py-reach);
+  g.addColorStop(0,'rgba('+(hit?ML.clean:ML.gold)+','+(hit?0.95:0.7)+')'); g.addColorStop(0.5,'rgba('+ML.gold+','+(hit?0.6:0.4)+')'); g.addColorStop(1,'rgba('+C_DEEP+',0)');
+  x.strokeStyle=g; x.lineCap='round'; x.lineWidth=13*k; x.beginPath(); x.moveTo(px,py); x.lineTo(px,py-reach); x.stroke();
+  glow3(x,px,py,12*k,hit?ML.clean:ML.gold); }
+// GUIDE ARROW: small semi-transparent up-arrow above the wrist, gentle bob (fades as comet takes over)
+function upArrow(x,px,py,k){ const t=performance.now()*0.004; const ay=py-30*k+Math.sin(t)*3*k;
+  x.save(); x.globalCompositeOperation='source-over'; x.globalAlpha=0.4; x.strokeStyle='rgba(255,250,235,1)'; x.lineWidth=3*k; x.lineCap='round';
+  x.beginPath(); x.moveTo(px,ay+11*k); x.lineTo(px,ay-11*k); x.moveTo(px-7*k,ay-3*k); x.lineTo(px,ay-11*k); x.lineTo(px+7*k,ay-3*k); x.stroke(); x.restore(); }
+function dirArrow(x,px,py,ang,k){ const L=16*k; const tx=px+Math.cos(ang)*L, ty=py+Math.sin(ang)*L;
+  x.save(); x.globalCompositeOperation='source-over'; x.globalAlpha=0.4; x.strokeStyle='rgba(255,250,235,1)'; x.lineWidth=3*k; x.lineCap='round';
+  x.beginPath(); x.moveTo(px,py); x.lineTo(tx,ty);
+  x.moveTo(tx,ty); x.lineTo(tx-Math.cos(ang-0.5)*7*k, ty-Math.sin(ang-0.5)*7*k); x.moveTo(tx,ty); x.lineTo(tx-Math.cos(ang+0.5)*7*k, ty-Math.sin(ang+0.5)*7*k); x.stroke(); x.restore(); }
+// CLAP STAR burst: one 5-point star flare + radiating sparkle particles, fades ~500ms
+let hhSparks=[];
+function starBurst(cx,cy,k){ hhSparks.push({star:true,x:cx,y:cy,born:performance.now(),ttl:520,k});
+  for(let i=0;i<10;i++){ const a=Math.random()*6.283; hhSparks.push({x:cx,y:cy,vx:Math.cos(a)*1.3*k,vy:Math.sin(a)*1.3*k-0.3*k,born:performance.now(),ttl:480+Math.random()*260,r:(1.4+Math.random()*2)*k}); } }
+function drawStar(x,cx,cy,R,alpha,k){ glow3(x,cx,cy,R*0.4,ML.core);
+  for(let i=0;i<5;i++){ const a=-Math.PI/2+i*2*Math.PI/5; const sx=cx+Math.cos(a)*R, sy=cy+Math.sin(a)*R;
+    const g=x.createLinearGradient(cx,cy,sx,sy); g.addColorStop(0,'rgba('+ML.core+','+alpha+')'); g.addColorStop(1,'rgba('+ML.gold+',0)');
+    x.strokeStyle=g; x.lineWidth=3*k; x.beginPath(); x.moveTo(cx,cy); x.lineTo(sx,sy); x.stroke(); } }
+function drawHHsparks(x){ const now=performance.now(); hhSparks=hhSparks.filter(s=>{ const age=(now-s.born)/s.ttl; if(age>=1)return false;
+  if(s.star){ drawStar(x,s.x,s.y,(16*s.k)*(0.5+age),(1-age),s.k); } else { s.x+=s.vx; s.y+=s.vy; _orb(x,s.x,s.y,s.r*(1-age*0.4),ML.core,(1-age)*0.9); } return true; }); }
+
+let _hhLastCue='';
 function drawSkeleton(kps){
   const c=$('overlay'); const x=c.getContext('2d'); const {scale,ox,oy}=coverMap();
   const X=p=> c.width - (p.x*scale+ox), Y=p=>p.y*scale+oy;   // mirror back to match the mirrored video
   const m={}; kps.forEach(k=>m[k.name]=k);
-  // fade trail (never clearRect every frame)
+  // fade trail (never clearRect) — destination-out keeps the camera visible
   x.globalCompositeOperation='destination-out'; x.fillStyle='rgba(0,0,0,0.16)'; x.fillRect(0,0,c.width,c.height); x.globalCompositeOperation='source-over';
-  const cueKey=(window.__cuePart||''); if(!cueKey){ window.__litAny=false; return; }
-  const parts=CUE_PARTS[cueKey]||[];
-  const hit = window.__cueState==='hit'||window.__cueState==='streak';
-  const trip = hit ? ML.clean : ML.gold;
+  const cueKey=(window.__cuePart||'');
+  if(cueKey!==_hhLastCue){ _hhLastCue=cueKey; window.__hhClapFired=false; }   // reset star on new cue
   const ls=m.left_shoulder, rs=m.right_shoulder;
   const unit=(ls&&rs&&ls.score>=0.3&&rs.score>=0.3)?Math.hypot(X(ls)-X(rs),Y(ls)-Y(rs)):180;
   const k=Math.max(0.4,Math.min(3,unit/220));
-  x.globalCompositeOperation='lighter'; let litAny=false;
-  parts.forEach(n=>{ const j=m[n]; if(j && j.score>=0.3){ litAny=true; const px=X(j),py=Y(j);
-    _orb(x,px,py,36*k,trip,hit?0.95:0.7); _orb(x,px,py,16*k,ML.core,0.9); } });
+  const hit = window.__cueState==='hit'||window.__cueState==='streak';
+  let litAny=false, comet=false, star=false;
+  x.globalCompositeOperation='lighter';
+  drawHHsparks(x);                                  // active clap-star particles always fade out
+  if(cueKey){
+    const lw=m.left_wrist, rw=m.right_wrist, gw=n=>{ const j=m[n]; return (j&&j.score>=0.4)?j:null; };
+    if(cueKey==='clap'){
+      const L=gw('left_wrist'), R=gw('right_wrist');
+      if(L&&R){ const lx=X(L),ly=Y(L),rx=X(R),ry=Y(R); litAny=true;
+        if(!window.__hhClapFired){ dirArrow(x,lx,ly,Math.atan2(ry-ly,rx-lx),k); dirArrow(x,rx,ry,Math.atan2(ly-ry,lx-rx),k); }   // arrows hint INWARD
+        if(det.clap && !window.__hhClapFired){ window.__hhClapFired=true; starBurst((lx+rx)/2,(ly+ry)/2,k); }
+      }
+      if(window.__hhClapFired) star=true;
+    } else if(cueKey==='head'){
+      ['left_wrist','right_wrist'].forEach(n=>{ const j=gw(n); if(j){ litAny=true; comet=true; cometUp(x,X(j),Y(j),k,hit); } });
+    } else {  // wave / both / star / shrug / toes → comet-up on wrists, glow on shoulders
+      (CUE_PARTS[cueKey]||[]).forEach(n=>{ const j=(n.indexOf('shoulder')>=0)?(m[n]&&m[n].score>=0.5?m[n]:null):gw(n);
+        if(!j) return; litAny=true; const px=X(j),py=Y(j);
+        if(n.indexOf('wrist')>=0){ comet=true;
+          const rising=(n==='left_wrist'?det.handUpL:det.handUpR)>0.05;
+          if(!hit && !rising) upArrow(x,px,py,k);    // guide arrow before the lift
+          cometUp(x,px,py,k,hit);
+        } else { glow3(x,px,py,13*k,hit?ML.clean:ML.gold); }   // shoulder glow (shrug)
+      });
+    }
+  }
   x.globalCompositeOperation='source-over';
-  window.__litAny=litAny;
+  window.__litAny=litAny; window.__hhLight={comet,star};
 }
 
 // ── GAME FLOW ───────────────────────────────────────────────────────────────
