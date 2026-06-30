@@ -732,21 +732,51 @@ function _spawnBurst(a, center, q, k, trip, now){
 // Rendering is delegated to the SHARED engine (nova-light.js). This game owns the
 // anchor logic (ears not nose, etc.); NovaLight owns the wrap + outward-burst draw.
 let _eng=null;
+// UP GROOVE light = per-part GLOW-PULSE on the leading joint (NOT a traveling meteor),
+// leaning the cue's L/R dir. Meteor LOOK (3 additive radial passes) but stationary + pulsing.
+// Reuses magicAnchors (ears/shoulder/hip/knee, side mirror-resolved). Full-groove = all joints
+// gently + intermittent sparkles. Motion-gated brightness. destination-out fade → camera shows.
+let _ugSparks=[];
+function _ugOrb(ctx,x,y,r,trip,a){ if(r<=0)return; const g=ctx.createRadialGradient(x,y,0,x,y,r);
+  g.addColorStop(0,'rgba('+trip+','+a+')'); g.addColorStop(0.45,'rgba('+trip+','+(a*0.5)+')'); g.addColorStop(1,'rgba('+trip+',0)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill(); }
 function renderMagic(ctx, m, X, Y, W, H){
-  if(!window.NovaLight) return;                          // module not loaded yet → skip
-  if(!_eng || _eng._ctx!==ctx){ _eng=window.NovaLight.create(ctx, window.NovaLight.PRESETS.upgroove); _eng._ctx=ctx; }
-  const now=performance.now(); const cueKey=(window.__cuePart||'');
+  // FADE the light (not the camera): destination-out erases prior alpha; empty stays transparent.
+  ctx.globalCompositeOperation='destination-out'; ctx.fillStyle='rgba(0,0,0,0.16)'; ctx.fillRect(0,0,W,H);
+  ctx.globalCompositeOperation='lighter';
+  const now=performance.now(); const cueKey=(window.__cuePart||'').toLowerCase();   // lc → matches warmup labels (HEAD/SHOULDER) + game cues alike
   const ls=m.left_shoulder, rs=m.right_shoulder;
   const unit=(ls&&rs&&ls.score>=GATE&&rs.score>=GATE)?Math.hypot(X(ls)-X(rs),Y(ls)-Y(rs)):180;
   const k=Math.max(0.4,Math.min(3, unit/220));
-  const anchors = cueKey ? magicAnchors(cueKey,m,X,Y) : [];
+  const st=window.__cueState;
+  const TINT=(st==='hit'||st==='streak')?'191,255,200' : (st==='miss'||st==='messy')?'255,122,61' : '255,210,122';   // mint / amber / gold
+  const motion=(typeof det!=='undefined' && det && det.motion)?det.motion:0;
+  const moving=motion>0.05;                                  // motion-gated: brighter/larger when actually moving
+  const leanX=/left/i.test(cueKey)? -0.18*unit : /right/i.test(cueKey)? 0.18*unit : 0;   // lean the cue direction
+  let anchors, full=false;
+  if(/head|shoulder|hip|knee/.test(cueKey)){
+    anchors=magicAnchors(cueKey,m,X,Y);
+    window.__ugLitJoint = anchors.length ? (/head/.test(cueKey)?'ear':/shoulder/.test(cueKey)?'shoulder':/hip/.test(cueKey)?'hip':'knee') : null;
+  } else if(cueKey){                                          // free / "MOVE IT ALL" / combo → whole body, gently
+    full=true;
+    anchors=['left_ear','right_ear','left_shoulder','right_shoulder','left_hip','right_hip','left_wrist','right_wrist','left_knee','right_knee']
+      .map(n=>m[n]).filter(kp=>kp&&kp.score>=0.4).map(kp=>({x:X(kp),y:Y(kp)}));
+    window.__ugLitJoint='all';
+  } else { anchors=[]; window.__ugLitJoint=null; }
   window.__anchorsDbg = anchors.map(a=>({x:Math.round(a.x),y:Math.round(a.y)}));   // (self-test hook)
-  const center = _bodyCenter(m,X,Y);
-  const qMap={armed:0.6,hit:0.85,streak:0.95,messy:0.35,miss:0.2};
-  const quality=(window.__cueQuality!=null)?window.__cueQuality:(qMap[window.__cueState]||0.6);
-  let dir=null;
-  if(cueKey && !/free/.test(cueKey)) dir = /right/i.test(cueKey)?'right' : /left/i.test(cueKey)?'left' : (/shoulder|knee|hip/.test(cueKey)?'up':null);
-  _eng.render({ anchors, center, k, W, H, quality, velocity:0, dir, active:!!cueKey, now });
+  const pulse=1+0.2*Math.sin(now*0.012);
+  const baseR=(full?11:16)*k*pulse*(moving?1.15:1);
+  anchors.forEach(p=>{ const cx=p.x+(full?0:leanX), cy=p.y;
+    _ugOrb(ctx,cx,cy,baseR*3.5,'255,166,61',full?0.10:0.14);  // bloom (amber)
+    _ugOrb(ctx,cx,cy,baseR*1.8,TINT,full?0.30:0.45);          // body (tint)
+    _ugOrb(ctx,cx,cy,baseR*0.6,'255,253,245',full?0.7:0.95);  // core (white)
+  });
+  // full groove: intermittent rising sparkles ("not always") when moving
+  if(full && moving && anchors.length && Math.random()<0.18){ const p=anchors[Math.floor(Math.random()*anchors.length)];
+    _ugSparks.push({x:p.x,y:p.y,vx:(Math.random()-0.5)*1.2*k,vy:-(0.6+Math.random()*1.2)*k,born:now,ttl:500+Math.random()*400,r:(1+Math.random()*1.6)*k}); }
+  _ugSparks=_ugSparks.filter(s=>{ const age=(now-s.born)/s.ttl; if(age>=1)return false; s.x+=s.vx; s.y+=s.vy; s.vy+=0.01;
+    _ugOrb(ctx,s.x,s.y,s.r*(1-age*0.4),'255,253,245',(1-age)*0.85); return true; });
+  ctx.globalCompositeOperation='source-over';
 }
 window.__renderMagic=renderMagic; window.__magicAnchors=magicAnchors; window.__resetLight=resetSmartLight;   // (self-test hooks)
 
