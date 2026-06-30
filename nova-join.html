@@ -1120,7 +1120,7 @@ function closeCue(){ game.cue=null; window.__cuePart=null; hideAuras(); $('cue')
 // can see exactly WHERE detection is weak (e.g. knee always missing = legs off-frame)
 function logCue(result){
   const c=game.cue; if(!c) return;
-  game.log.push({ action:c.action, result, headDX:+det.headDX.toFixed(3), shTilt:+det.shTilt.toFixed(3),
+  game.log.push({ action:c.action, result, lit:window.__ugLitJoint||null, headDX:+det.headDX.toFixed(3), shTilt:+det.shTilt.toFixed(3),
     hipDX:+det.hipDX.toFixed(3), kneeLift:+det.kneeLift.toFixed(3), motion:+det.motion.toFixed(3),
     joints:det.joints||0, present:det.present });
   logPost('cue', game.log[game.log.length-1]);
@@ -1416,7 +1416,11 @@ $('copy-log').addEventListener('click', async ()=>{
   catch(e){ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch(_){} ta.remove(); }
   $('copy-log').textContent='✓ Copied — paste it to me!'; setTimeout(()=>$('copy-log').textContent='📋 Copy debug log',1800);
 });
-window.addEventListener('beforeunload', ()=>{ if(camStream) camStream.getTracks().forEach(t=>t.stop()); disconnectNova(); });
+// QUIT (✕) / tab-close → save the session log so a mid-game test still produces nova-join-session.json
+(function(){ const q=document.getElementById('quit'); if(q) q.addEventListener('click', ()=>{
+  try{ if(game.running && game.log && game.log.length) saveSession(); }catch(e){} if(typeof endGame==='function'){ try{ endGame(); }catch(e){} } else location.reload(); }); })();
+window.addEventListener('pagehide', ()=>{ try{ if(game.running && game.log && game.log.length) saveSession(); }catch(e){} });
+window.addEventListener('beforeunload', ()=>{ try{ if(game.running && game.log && game.log.length) saveSession(); }catch(e){} if(camStream) camStream.getTracks().forEach(t=>t.stop()); disconnectNova(); });
 </script>
 </body>
 </html>
