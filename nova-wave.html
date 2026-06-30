@@ -328,12 +328,19 @@
 // sense. Thresholds are normalised by shoulder width — tune in THRESH below.
 // arm-raise tiers (normalised by shoulder width), measured from the calibrated stance:
 //   shoulders up (arms down)  <  elbows up to shoulder height  <  hand up high (wave)
-const THRESH = { roll:0.05, elbow:-0.05, wave:0.12, motion:0.06 };
+// OSCILLATION-based isolation (from the real logs: shoulderLift was saturated ~0.9 all session →
+// the old "shoulderLift high" over-fired; elbow/wrist required arms UP so they never hit). Now each
+// move = MOVEMENT (max−min of its signal over a ~0.8s window, body-relative ÷ sw), with an isolation
+// guard so the shoulder can't steal the others. NEVER requires hands above the shoulder.
+const THRESH = { shOsc:0.045, elOsc:0.075, wxOsc:0.10, shQuiet:0.05, elQuiet:0.10, wxQuiet:0.11, motion:0.06 };
 
 const MOVES = {
-  'shoulder-roll': { name:'SHOULDERS', coach:'roll your shoulders up!', pts:120, check:d=> d.shoulderLift>THRESH.roll && d.elbowUp<-0.18 },
-  'elbow-pump':    { name:'ELBOWS',    coach:'pump your elbows out!',   pts:140, check:d=> d.elbowUp>THRESH.elbow && d.handUp<0.10 },
-  'wrist-wave':    { name:'WAVE 👋',   coach:'raise a hand & wave!',    pts:160, check:d=> d.handUp>THRESH.wave },
+  // shoulders moving up/down (NOT static-high) + arms relatively still
+  'shoulder-roll': { name:'SHOULDERS', coach:'roll your shoulders up!', pts:120, check:d=> d.shOsc>THRESH.shOsc && d.elbowOsc<THRESH.elQuiet && d.wristOsc<THRESH.wxQuiet },
+  // elbow moving relative to ITS rest (no hand-up needed) + shoulder quiet so it isn't stolen
+  'elbow-pump':    { name:'ELBOWS',    coach:'pump your elbows out!',   pts:140, check:d=> d.elbowOsc>THRESH.elOsc && d.shOsc<THRESH.shQuiet },
+  // wrist LATERAL side-to-side oscillation — never height/above-shoulder
+  'wrist-wave':    { name:'WAVE 👋',   coach:'wave side to side!',      pts:160, check:d=> d.wristOsc>THRESH.wxOsc },
   'free':          { name:'FREESTYLE!',coach:'wave it ALL!',            pts:60,  check:d=> d.motion>THRESH.motion },
 };
 
@@ -367,7 +374,7 @@ const CUES = (()=>{
   add(23.2,'free',5000);
   return out.sort((a,b)=>a.t-b.t);
 })();
-try{ window.CUES=CUES; }catch(e){}   // expose for nova-report.js diagnostics
+try{ window.CUES=CUES; window.MOVES=MOVES; window.THRESH=THRESH; }catch(e){}   // expose for diagnostics + self-test
 const SONG_END = 28.4;           // seconds — handywave.mp4 (per spec)
 
 // ---- SVG MOVE FIGURES ---------------------------------------------------
@@ -393,7 +400,7 @@ function figureSVG(action){
 
 // ---- STATE --------------------------------------------------------------
 let detector=null, camStream=null, rafId=0;
-let det = { shoulderLift:0, elbowUp:-1, handUp:-1, motion:0, present:false, joints:0 };
+let det = { shoulderLift:0, elbowUp:-1, handUp:-1, motion:0, present:false, joints:0, shOsc:0, elbowOsc:0, wristOsc:0 };
 window.__novaDet=()=>det;   // expose detection snapshot for nova-tracker.js
 let base = { shoulderBaseY:0, sw:120, ok:false };
 let smooth = {};
@@ -464,6 +471,16 @@ function updateDbg(){
     `${flag('shoulder-roll')} ${flag('elbow-pump')}\n${flag('wrist-wave')} ${flag('free')}`;
 }
 
+// ── OSCILLATION buffers (max−min over ~0.8s) — measures MOVEMENT, not absolute pose ──
+const OSC_N=24; const _osc={ sh:[], el:[], wx:[] };
+function _pushOsc(key,v){ const a=_osc[key];
+  if(v==null){ if(a.length) a.push(a[a.length-1]); }   // joint missing → repeat last (don't fake movement)
+  else a.push(v);
+  while(a.length>OSC_N) a.shift();
+  if(a.length<4) return 0;
+  let mn=Infinity,mx=-Infinity; for(const x of a){ if(x<mn)mn=x; if(x>mx)mx=x; } return mx-mn; }
+function _resetOsc(){ _osc.sh.length=0; _osc.el.length=0; _osc.wx.length=0; }
+
 function analyze(kps){
   const MIN=0.25;   // a bit lower so dim / backlit rooms still register joints
   det.joints = kps.filter(k=>k.score>MIN).length;
@@ -487,6 +504,11 @@ function analyze(kps){
   det.elbowUp = ae ? (midShY-ae.y)/sw : -1;
   det.shoulderLift = base.shoulderBaseY ? (base.shoulderBaseY - midShY)/sw : 0; // shrug up = +
   det._raw = { midShY, sw };
+  // OSCILLATION signals (body-relative): shoulder height, active-elbow height, active-wrist LATERAL x
+  const midShX=(Ls.x+Rs.x)/2;
+  det.shOsc    = _pushOsc('sh', det.shoulderLift);
+  det.elbowOsc = _pushOsc('el', ae ? (midShY-ae.y)/sw : null);
+  det.wristOsc = _pushOsc('wx', aw ? (aw.x-midShX)/sw : null);
   // motion from frame-to-frame keypoint travel
   if(prevKp){ let tot=0,c=0; for(let i=0;i<kps.length;i++){ if(kps[i].score>MIN&&prevKp[i]&&prevKp[i].score>MIN){ tot+=Math.hypot(kps[i].x-prevKp[i].x,kps[i].y-prevKp[i].y); c++; } } if(c) det.motion=0.6*det.motion+0.4*Math.min(1,(tot/c)/sw*3); }
   prevKp=kps.map(k=>({x:k.x,y:k.y,score:k.score}));
@@ -496,6 +518,7 @@ function calibrate(){
   // snapshot the neutral standing pose (arms down) as the zero point
   const r=det._raw; if(!r) return;
   base.shoulderBaseY=r.midShY; base.sw=r.sw; base.ok=true;
+  _resetOsc();   // fresh movement window from the calibrated stance
 }
 
 // ---- OVERLAY (skeleton) -------------------------------------------------
@@ -809,6 +832,7 @@ function logCue(result){
   game.log.push({ action:c.action, result, sched, open, drift:+(open-sched).toFixed(2),
     glow:window.__glowFound||'-',
     shoulderLift:+det.shoulderLift.toFixed(3), elbowUp:+det.elbowUp.toFixed(3), handUp:+det.handUp.toFixed(3),
+    shOsc:+det.shOsc.toFixed(3), elbowOsc:+det.elbowOsc.toFixed(3), wristOsc:+det.wristOsc.toFixed(3),
     motion:+det.motion.toFixed(3), joints:det.joints||0, present:det.present });
 }
 // AUTO-SESSION-TRACK: save the whole round to Downloads so it can be reviewed offline.
