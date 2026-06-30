@@ -686,7 +686,8 @@ function _chevron(c,cx,cy,ang,k,trip,now){
 // nose), shoulders, hips — each gated ≥0.5 with no fallback. A tight gold wrap hugs
 // the joint; on a hit the joint SHOUTS light OUTWARD (radial rays away from the torso,
 // narrowing as they extend). Colour by quality: clean→mint-gold, messy→amber.
-const GATE = 0.5;   // every anchor keypoint gated ≥0.5 (spec) — below this, draw nothing for it
+const GATE = 0.3;   // light-anchor gate lowered .5→.3: real sessions run ~8-9 joints so ears/hips
+                    // rarely cleared .5 → the light never drew (lit:null). .3 lets it land + fallbacks below.
 const WRAP = { nodes:7, smooth:0.45, waveAmp:5, waveSpeed:6.0, wavePhase:0.8, headWidth:13, coreR:15, fade:0.20 };
 // which ON-SCREEN points the cue lights. Side resolved by screen-X so the light always
 // matches the side the kid actually moves (mirror-proof). Ears for head — no nose anywhere.
@@ -715,6 +716,13 @@ function magicAnchors(cueKey, m, X, Y){
     else out.push(...both(m.left_knee,m.right_knee));
   } else if(/free|groove/.test(cueKey)){
     out.push(...both(m.left_ear,m.right_ear), ...both(m.left_hip,m.right_hip));   // Round 2 = head+hips together
+  }
+  // FALLBACK so the light always lands when the exact joint is low-confidence:
+  if(!out.length){
+    if(/head/.test(cueKey) && ok(m.nose)) out.push(pt(m.nose));                                   // head → nose
+    else if(/knee/.test(cueKey)){ const h=side(m.left_hip,m.right_hip,/right/.test(cueKey)); if(h) out.push(h); }   // knee → hip
+    else if(/shoulder|hip|head/.test(cueKey)){ const ls=ok(m.left_shoulder)?pt(m.left_shoulder):null, rs=ok(m.right_shoulder)?pt(m.right_shoulder):null;
+      if(ls&&rs) out.push({x:(ls.x+rs.x)/2,y:(ls.y+rs.y)/2}); else if(ls||rs) out.push(ls||rs); }     // → chest center
   }
   return out;
 }
