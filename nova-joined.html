@@ -3778,6 +3778,7 @@ function exitGame() {
 }
 window.togglePauseGame = togglePauseGame;
 window.exitGame = exitGame;
+window.__startGame = startGame; window.__endGame = endGame;   // (self-test hooks — hoisted fn decls)
 
 function startGame() {
   memory.phase = 'song';
@@ -3788,8 +3789,11 @@ function startGame() {
   setAvatarCloseup(false);
   setNovaState('watching');
   showPhase('phase-game');
-  // Show D-ID face frame at top-center between panels (in-game position)
-  document.getElementById('nova-face-frame').classList.add('in-game');
+  // PHASE 2: HIDE Nova's FACE for the whole game — voice + lights only. Her EVI voice keeps
+  // reacting over LiveKit; the MP4 + kid camera + live-reaction lights carry the visual. Returns at endGame.
+  { const _ff = document.getElementById('nova-face-frame');
+    _ff.classList.remove('in-game'); _ff.style.display = 'none';
+    try { const _fv = document.getElementById('nova-face-video'); if (_fv) _fv.pause(); } catch(e) {} }
   score = 0; hits = 0; attempts = 0; combo = 0; maxCombo = 0; timelineIdx = 0;
   anticipatedIdx.clear(); // reset anticipation tracking for fresh play
   document.getElementById('game-score').textContent = '0';
@@ -3816,13 +3820,25 @@ function startGame() {
     window.__songAudio = vid;    // pause / exit controls
     vid.onerror = () => console.error(selectedSong.videoFile + ' error:', vid.error);
     vid.onended = () => setTimeout(endGame, 1200);
-    vid.play()
-      .then(() => LOG('AV-SYNC', `${selectedSong.videoFile} playing (single-source, clock=video)`))
-      .catch(err => {
-        console.error(selectedSong.videoFile + ' play failed:', err.name, err.message);
-        setTimeout(() => vid.play().catch(e => console.error('retry failed:', e.message)), 200);
-      });
-    songTimer = setInterval(gameTick, 80);
+    // PHASE 2 HANDOFF BEAT: let Nova's live "here we go" (worker speaks on the phase:dance sent above)
+    // land first — start the MP4 the moment she's actually speaking, or after a 1.2s HARD CAP so the
+    // game never hangs on the handoff. Smooth, not a hard cut.
+    (function _handoff(){ const t0 = performance.now();
+      (function go(){
+        // WALL-CLOCK gate (not tick-counting): the heavy poseLoop starves timers, so a 100ms
+        // tick-counter under-counts badly. performance.now() elapsed is correct under load AND on a real machine.
+        if (window.__novaSpeakingNow || performance.now() - t0 >= 1200) {
+          window.__beatPlayed = true;
+          vid.play()
+            .then(() => LOG('AV-SYNC', `${selectedSong.videoFile} playing (single-source, clock=video)`))
+            .catch(err => {
+              console.error(selectedSong.videoFile + ' play failed:', err.name, err.message);
+              setTimeout(() => vid.play().catch(e => console.error('retry failed:', e.message)), 200);
+            });
+          songTimer = setInterval(gameTick, 80);
+        } else { setTimeout(go, 100); }
+      })();
+    })();
     return;
   }
 
@@ -4123,6 +4139,12 @@ function endGame() {
   hideCue();
   // v108: Bring Nova to closeup mode
   document.getElementById('nova-face-frame').classList.remove('in-game');
+  // PHASE 2: undo the in-game display:none → Nova's FACE RETURNS for the warm close (fade in, not a pop)
+  { const _ff = document.getElementById('nova-face-frame');
+    _ff.style.display = 'block';   // base #nova-face-frame is display:none → force visible for the close
+    _ff.style.transition = 'opacity .45s ease'; _ff.style.opacity = '0';
+    requestAnimationFrame(() => { _ff.style.opacity = '1'; });
+    try { const _fv = document.getElementById('nova-face-video'); if (_fv) _fv.play().catch(()=>{}); } catch(e) {} }
   if (typeof setAvatarCloseup === 'function') setAvatarCloseup(true);
   if (typeof setNovaState === 'function') setNovaState('talking');
   if(window._audio) try { window._audio.pause(); } catch(e){}
