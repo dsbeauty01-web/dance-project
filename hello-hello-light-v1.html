@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Hello Hello · TEST 6 (NEW)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- LAPTOP Hello Hello — adapted from nova-wave.html (the chassis proven to work on this laptop).
+     NO Nova / NO LiveKit / NO backend. Clock = JS performance.now (song layered on top, never gates
+     cues). MoveNet poseLoop runs EVERY frame, not behind any conversation phase. -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.20.0/dist/tf-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.20.0/dist/tf-converter.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.20.0/dist/tf-backend-webgl.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<style>
+  :root{ --pink:#00e5c0; --grn:#00ff99; --yel:#ff9f1c; --bg:#031a1f; }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    font-family:'Fredoka','Segoe UI',system-ui,sans-serif; color:#fff; overflow:hidden;
+    background:
+      radial-gradient(70% 55% at 18% 0%, rgba(0,229,192,.20), transparent 60%),
+      radial-gradient(70% 55% at 92% 8%, rgba(255,159,28,.16), transparent 60%),
+      radial-gradient(120% 120% at 50% 0%, #042a30 0%, #042a30 0%, #021f24 52%, #00080a 100%);
+    -webkit-user-select:none; user-select:none;
+  }
+  .screen{ position:fixed; inset:0; z-index:1; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .hidden{ display:none !important; }
+
+  #start-screen{ gap:18px; text-align:center; padding:24px; }
+  #start-screen h1{ font-size:clamp(40px,10vw,72px); font-weight:700;
+    background:linear-gradient(90deg,#ff8ae2,#a78bfa,#6ee7ff); -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 4px 24px rgba(167,139,250,.55)); }
+  #start-screen p{ opacity:.85; font-size:clamp(14px,4vw,18px); max-width:460px; line-height:1.55; }
+  .big-btn{ background:linear-gradient(135deg,#ff7ae0,#a06bff 60%,#6ee7ff); color:#1a0030; border:none; cursor:pointer;
+    font-family:inherit; font-weight:700; font-size:clamp(20px,5.5vw,26px); padding:18px 50px; border-radius:50px;
+    box-shadow:0 10px 40px rgba(160,107,255,.55); }
+  .big-btn:active{ transform:scale(.95); }
+  #cam-warn{ font-size:13px; opacity:.7; min-height:18px; }
+
+  #countdown{ background:rgba(8,0,20,.45); z-index:40; }
+  #cd-num{ font-size:min(40vw,240px); font-weight:700; color:#fff; text-shadow:0 0 40px var(--pink); }
+  #cd-sub{ font-size:clamp(16px,5vw,24px); opacity:.85; margin-top:10px; }
+
+  #game{ justify-content:flex-start; }
+  #hud{ width:100%; display:flex; align-items:center; gap:12px; padding:10px 16px; position:relative; z-index:20;
+    background:linear-gradient(rgba(15,0,32,.6),transparent); }
+  #score-box{ font-weight:700; font-size:clamp(22px,6vw,30px); color:var(--yel); min-width:78px;
+    background:rgba(255,255,255,.08); border:1px solid rgba(255,216,77,.3); border-radius:14px; padding:4px 12px; }
+  #score-box small{ display:block; font-size:10px; color:#fff9; font-weight:500; letter-spacing:1px; }
+  #progress-wrap{ flex:1; height:12px; background:rgba(255,255,255,.12); border-radius:8px; overflow:hidden; }
+  #progress{ height:100%; width:0%; background:linear-gradient(90deg,#ff5fd8,#a78bfa,#ffd84d); border-radius:8px; transition:width .2s linear; }
+  #combo-box{ font-weight:700; font-size:clamp(16px,4.5vw,22px); color:var(--grn); min-width:58px; text-align:right; }
+  #combo-box.pulse{ animation:comboPulse .4s; }
+  @keyframes comboPulse{ 50%{ transform:scale(1.35) } }
+  #quit{ background:rgba(255,255,255,.1); border:none; color:#fff; font-size:18px; width:34px; height:34px; border-radius:50%; cursor:pointer; }
+
+  /* LAPTOP split screen: Nova LEFT, you RIGHT */
+  #stage{ position:relative; width:100%; flex:1; display:flex; flex-direction:row; gap:6px; padding:6px; align-items:stretch; overflow:hidden; }
+  #nova-side{ position:relative; flex:1 1 50%; min-width:0; border-radius:24px; overflow:hidden;
+    background:radial-gradient(120% 100% at 50% 20%,#2a1052,#16002e); border:3px solid rgba(167,139,250,.4);
+    box-shadow:0 10px 40px rgba(120,60,160,.4), inset 0 0 30px rgba(255,138,226,.08);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; }
+  /* Nova MP4 is a TALL portrait video (full standing body, ~9:16). object-fit:contain shows the
+     WHOLE body; height:100% + auto width keeps it upright and centered in the wide half-panel,
+     with the panel's own gradient filling the side gutters (no crop, no squish, full body always). */
+  #nova-demo{ position:absolute; top:0; bottom:0; left:50%; transform:translateX(-50%);
+    height:100%; width:auto; max-width:100%; object-fit:contain; background:transparent; }
+  #nova-face{ width:min(42%,200px); aspect-ratio:1/1; border-radius:50%; object-fit:cover; z-index:1;
+    border:4px solid rgba(255,210,122,.8); box-shadow:0 0 30px rgba(255,166,61,.5); background:#3a1566; }
+  #flourish{ position:absolute; top:22%; font-size:clamp(44px,9vw,96px); opacity:0; z-index:6; pointer-events:none;
+    text-shadow:0 0 24px rgba(255,216,77,.85); transition:opacity .2s, transform .3s; }
+  #flourish.show{ opacity:1; }
+  #flourish.fl-L{ left:14%; transform:translateY(-6px) rotate(-12deg); }
+  #flourish.fl-R{ right:14%; transform:translateY(-6px) rotate(12deg); }
+  #nova-move{ position:absolute; bottom:42px; left:0; right:0; z-index:5; font-size:clamp(20px,3.4vw,38px); font-weight:700;
+    text-align:center; padding:0 14px; text-shadow:0 1px 10px #000,0 0 18px rgba(255,138,226,.6); }
+  #lyric{ width:100%; text-align:center; z-index:20; font-size:clamp(18px,3.6vw,30px); font-weight:600; min-height:1.3em;
+    color:#fff; text-shadow:0 0 16px rgba(167,139,250,.7); opacity:0; transition:opacity .2s; padding:2px 12px; }
+  #lyric.show{ opacity:1; }
+  .side-tag{ position:absolute; bottom:8px; left:50%; transform:translateX(-50%); z-index:9;
+    font-size:12px; font-weight:600; letter-spacing:1px; background:rgba(0,0,0,.5); padding:3px 14px; border-radius:12px; }
+  #cam-wrap{ position:relative; flex:1 1 50%; min-width:0; border-radius:24px; overflow:hidden; background:#000;
+    border:4px solid rgba(110,231,255,.35); box-shadow:0 10px 40px rgba(0,0,0,.5); transition:border-color .15s, box-shadow .15s; }
+  @media (orientation:portrait){ #stage{ flex-direction:column; } }
+  #cam, #overlay{ position:absolute; inset:0; width:100%; height:100%; }
+  #cam{ object-fit:contain; transform:scaleX(-1); }  /* mirror; contain = whole body visible on laptop */
+  #cam-wrap.armed{ border-color:var(--yel); box-shadow:0 0 0 4px rgba(255,216,77,.35),0 14px 50px rgba(0,0,0,.5); }
+  #cam-wrap.hit{ border-color:var(--grn); box-shadow:0 0 0 6px rgba(0,255,150,.5),0 14px 50px rgba(0,0,0,.5); }
+  #cam-wrap.miss{ border-color:#ff4d6d; box-shadow:0 0 0 6px rgba(255,77,109,.45),0 14px 50px rgba(0,0,0,.5); }
+
+  .zone{ position:absolute; top:0; bottom:0; z-index:7; pointer-events:none; opacity:0; transition:opacity .14s; }
+  #zone-left{ left:0; width:58%; } #zone-right{ right:0; width:58%; } #zone-full{ left:0; width:100%; }
+  .zone.show{ opacity:1; }
+  #zone-left.armed { background:linear-gradient(to right,rgba(255,216,77,.40),transparent 70%); }
+  #zone-right.armed{ background:linear-gradient(to left, rgba(255,216,77,.40),transparent 70%); }
+  #zone-full.armed { background:radial-gradient(circle,rgba(255,216,77,.18),transparent 72%); }
+  #zone-left.hit,#zone-right.hit,#zone-full.hit{ background:radial-gradient(circle,rgba(0,255,150,.26),transparent 74%); }
+  #zone-left.miss,#zone-right.miss,#zone-full.miss{ background:radial-gradient(circle,rgba(255,77,109,.22),transparent 74%); }
+
+  #coach{ position:absolute; bottom:12px; left:50%; transform:translateX(-50%); z-index:9;
+    background:rgba(20,0,40,.6); border:1px solid rgba(255,255,255,.18);
+    padding:9px 18px; border-radius:22px; font-size:clamp(14px,4vw,18px); font-weight:500;
+    max-width:90%; text-align:center; opacity:0; transition:opacity .2s; }
+  #coach.show{ opacity:1; }
+  #timecode{ position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:30;
+    font:800 22px 'SF Mono',Consolas,monospace; color:#fff; background:rgba(0,0,0,.55);
+    padding:3px 12px; border-radius:12px; }
+
+  #end-screen{ gap:14px; text-align:center; padding:28px; z-index:30; }
+  #end-stars{ font-size:54px; letter-spacing:8px; min-height:60px; }
+  #end-title{ font-size:clamp(30px,8vw,50px); font-weight:700;
+    background:linear-gradient(90deg,#ff8ae2,#6ee7ff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  #end-score{ font-size:clamp(22px,6vw,32px); color:var(--yel); font-weight:700; }
+  #end-detail{ opacity:.85; }
+</style>
+</head>
+<body>
+<div style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#ff9f1c;color:#031a1f;
+  text-align:center;font-family:'Fredoka',sans-serif;font-weight:700;font-size:15px;
+  letter-spacing:2px;padding:5px;box-shadow:0 2px 12px rgba(0,0,0,.4);">
+  🔆 LIGHT v1 · COMET+ARROW+STAR · GOLD BUILD · comet leans the move, clap=star, toes/turn=free-fun 🔆
+</div>
+
+<div id="start-screen" class="screen">
+  <h1>Hello Hello 👋 <span style="font-size:.4em;vertical-align:middle;opacity:.7;">TEST 6</span></h1>
+  <p>Copy the moves! Raise your right hand, your left hand, clap, and put both hands up. <b>Stand back so the camera sees your hands and arms.</b> No Nova — just you, the moves, and the light.</p>
+  <button class="big-btn" id="start-btn">▶ Start Dancing</button>
+  <div id="cam-warn"></div>
+</div>
+
+<div id="countdown" class="screen hidden">
+  <div id="cd-num">3</div>
+  <div id="cd-sub">stand back, show me your hands…</div>
+</div>
+
+<div id="game" class="screen hidden">
+  <div id="timecode">0.0s</div>
+  <div id="hud">
+    <div id="score-box"><span id="score">0</span><small>score</small></div>
+    <div id="progress-wrap"><div id="progress"></div></div>
+    <div id="combo-box">x0</div>
+    <button id="quit" title="Quit">✕</button>
+  </div>
+  <div id="lyric"></div>
+  <div id="stage">
+    <div id="nova-side">
+      <!-- Nova fills ~50% of the screen, object-fit:contain so her WHOLE figure shows (not zoomed). -->
+      <video id="nova-demo" poster="nova-face.png" muted loop playsinline preload="auto"
+             onerror="novaVideoFallback(this)"></video>
+      <img id="nova-face" src="nova-face.png" alt="Nova" style="display:none">
+      <div id="flourish"></div>
+      <div id="nova-move">Hello Hello! 👋</div>
+      <div class="side-tag">Watch Nova</div>
+    </div>
+    <div id="cam-wrap">
+      <video id="cam" playsinline muted autoplay></video>
+      <canvas id="overlay"></canvas>
+      <div id="zone-left" class="zone"></div>
+      <div id="zone-right" class="zone"></div>
+      <div id="zone-full" class="zone"></div>
+      <div class="side-tag">You</div>
+      <div id="coach"></div>
+    </div>
+  </div>
+</div>
+
+<div id="end-screen" class="screen hidden">
+  <div id="end-stars"></div>
+  <div id="end-title">Nice dancing!</div>
+  <div id="end-score">0 pts</div>
+  <div id="end-detail"></div>
+  <button class="big-btn" id="replay-btn">▶ Dance again</button>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+
+// MP4 filename fallback — try the names this project has used; show face image only if all fail.
+const NOVA_VIDEO_CANDIDATES = ['nova-dance.mp4','nova-hello.mp4','nova-joined-small.mp4','nova-dance (3).mp4','upgroove.mp4'];
+let _novaVidTry = 0;
+function novaVideoFallback(v){
+  _novaVidTry++;
+  if(_novaVidTry < NOVA_VIDEO_CANDIDATES.length){
+    v.src = NOVA_VIDEO_CANDIDATES[_novaVidTry];
+    v.load();
+    // only resume playing if the game is already running (never during loading/countdown)
+    if(window.__hhl_gameRunning) v.play().catch(()=>{});
+  } else {
+    v.style.display='none';
+    const f=document.getElementById('nova-face'); if(f) f.style.display='block';
+  }
+}
+// On load: set the MP4 source but DO NOT play — it must wait for the game to begin (after 3-2-1 GO).
+window.addEventListener('DOMContentLoaded', ()=>{
+  const v=$('nova-demo'); if(v && !v.src){ v.src = NOVA_VIDEO_CANDIDATES[0]; v.load(); v.pause(); }
+});
+
+// ── MOVES (Hello Hello — 7 actions, LENIENT for kids; check(d) reads det) ───
+const MOVES = {
+  clap:  { name:'CLAP! 👏',           parts:['left_wrist','right_wrist'],      zone:'full', check:d=> d.clap },
+  both:  { name:'BOTH hands UP! 🙌',  parts:['left_wrist','right_wrist'],      zone:'full', check:d=> d.handUpL>0.03 && d.handUpR>0.03 },
+  wave:  { name:'WAVE! 👋',           parts:['right_wrist','left_wrist'],      zone:'full', check:d=> d.handUpL>0.10 || d.handUpR>0.10 },
+  head:  { name:'Hands on HEAD! 🙆',  parts:['left_wrist','right_wrist'],      zone:'full', check:d=> d.nearHead },
+  star:  { name:'STAR — arms WIDE! ⭐',parts:['left_wrist','right_wrist'],     zone:'full', check:d=> d.starPose },
+  shrug: { name:'SHRUG! 🤷',          parts:['left_shoulder','right_shoulder'],zone:'full', check:d=> d.shoulderLift>0.04 || d.motion>0.09 },
+  toes:  { name:'Touch TOES! 👇',     parts:['left_wrist','right_wrist'],      zone:'full', check:d=> d.wristsLow },
+};
+const CUE_PARTS={}, ZONE={}; for(const k in MOVES){ CUE_PARTS[k]=MOVES[k].parts; ZONE[k]=MOVES[k].zone; }
+
+// ── EVENT-DRIVEN TIMELINE (ms) — verbatim from hello-hello-timeline.js ──────
+//   lyric=text · helloL/helloR=Nova arm flourish · demo=preview (no score) ·
+//   open=detection window starts · close=window ends (miss if not hit).
+const TIMELINE_RAW = [
+  {t:1000,  type:'lyric', text:"🎵 Hello Hello! 🎵"},
+  {t:3000,  type:'lyric', text:"Get ready! Watch Nova!"},
+  {t:5000,  type:'helloL'}, {t:5000, type:'lyric', text:"Hello,"},
+  {t:6100,  type:'helloR'}, {t:6100, type:'lyric', text:"hello."},
+  {t:7200,  type:'lyric', text:"Can you clap your hands?"},
+  {t:7200,  type:'demo', action:'clap', emoji:'👏', label:'CLAP!', instruction:'Get ready to clap!'},
+  {t:9800,  type:'open',  action:'clap', emoji:'👏', label:'CLAP!', instruction:'Clap your hands!', pts:150},
+  {t:12300, type:'close', action:'clap'},
+  {t:12500, type:'helloL'}, {t:12500, type:'lyric', text:"Hello,"},
+  {t:13600, type:'helloR'}, {t:13600, type:'lyric', text:"hello."},
+  {t:14700, type:'lyric', text:"Can you clap your hands?"},
+  {t:14700, type:'demo', action:'clap', emoji:'👏', label:'CLAP AGAIN!', instruction:'Get ready!'},
+  {t:17200, type:'open',  action:'clap', emoji:'👏', label:'CLAP!', instruction:'Clap your hands!', pts:150},
+  {t:19700, type:'close', action:'clap'},
+  {t:20000, type:'lyric', text:"Can you stretch up high?"},
+  {t:20000, type:'demo', action:'both', emoji:'🙌', label:'STRETCH!', instruction:'Get ready to stretch!'},
+  {t:22500, type:'open',  action:'both', emoji:'🙌', label:'STRETCH!', instruction:'BOTH arms UP HIGH!', pts:200},
+  {t:25000, type:'close', action:'both'},
+  {t:25200, type:'lyric', text:"Can you touch your toes?"},
+  {t:25200, type:'demo', action:'toes', emoji:'👇', label:'TOES!', instruction:'Bend down to toes!'},
+  {t:27500, type:'open',  action:'toes', emoji:'👇', label:'TOES!', instruction:'Reach to your toes!', pts:200},
+  {t:30000, type:'close', action:'toes'},
+  {t:30200, type:'lyric', text:"Can you touch your head?"},
+  {t:30200, type:'demo', action:'head', emoji:'🙆', label:'HEAD!', instruction:'Hands on your head!'},
+  {t:32700, type:'open',  action:'head', emoji:'🙆', label:'HEAD!', instruction:'Hands on your head!', pts:150},
+  {t:35200, type:'close', action:'head'},
+  {t:35400, type:'lyric', text:"Can you turn around?"},
+  {t:35400, type:'demo', action:'star', emoji:'⭐', label:'STAR POSE!', instruction:'Arms out wide!'},
+  {t:37900, type:'open',  action:'star', emoji:'⭐', label:'TURN!', instruction:'Arms out wide!', pts:150},
+  {t:40400, type:'close', action:'star'},
+  {t:40600, type:'lyric', text:"Can you say... Hello!"},
+  {t:40600, type:'demo', action:'wave', emoji:'👋', label:'WAVE!', instruction:'Wave one hand!'},
+  {t:43100, type:'open',  action:'wave', emoji:'👋', label:'WAVE!', instruction:'Wave one hand!', pts:150},
+  {t:45600, type:'close', action:'wave'},
+  {t:46000, type:'helloL'}, {t:46000, type:'lyric', text:"Hello,"},
+  {t:47100, type:'helloR'}, {t:47100, type:'lyric', text:"hello."},
+  {t:48200, type:'lyric', text:"Can you stamp your feet?"},
+  {t:48200, type:'demo', action:'shrug', emoji:'🤷', label:'SHRUG!', instruction:'Raise shoulders!'},
+  {t:50700, type:'open',  action:'shrug', emoji:'🤷', label:'SHRUG!', instruction:'Raise shoulders!', pts:150},
+  {t:53200, type:'close', action:'shrug'},
+  {t:53400, type:'helloL'}, {t:53400, type:'lyric', text:"Hello,"},
+  {t:54500, type:'helloR'}, {t:54500, type:'lyric', text:"hello."},
+  {t:55600, type:'lyric', text:"Can you stamp your feet?"},
+  {t:55600, type:'demo', action:'shrug', emoji:'🤷', label:'SHRUG AGAIN!', instruction:'Get ready!'},
+  {t:58000, type:'open',  action:'both', emoji:'🙌', label:'STRETCH!', instruction:'BOTH arms UP HIGH!', pts:200},
+  {t:60500, type:'close', action:'both'},
+  {t:60700, type:'lyric', text:"Can you touch your toes?"},
+  {t:60700, type:'demo', action:'toes', emoji:'👇', label:'TOES!', instruction:'Get ready!'},
+  {t:63200, type:'open',  action:'toes', emoji:'👇', label:'TOES!', instruction:'Reach to your toes!', pts:200},
+  {t:65700, type:'close', action:'toes'},
+  {t:66000, type:'lyric', text:"Can you turn around?"},
+  {t:66000, type:'demo', action:'star', emoji:'⭐', label:'TURN!', instruction:'Get ready!'},
+  {t:68500, type:'open',  action:'star', emoji:'⭐', label:'TURN!', instruction:'Arms out wide!', pts:150},
+  {t:71000, type:'close', action:'star'},
+  {t:71200, type:'lyric', text:"Can you say... Hello!"},
+  {t:71200, type:'demo', action:'wave', emoji:'👋', label:'WAVE!', instruction:'Get ready!'},
+  {t:73500, type:'open',  action:'wave', emoji:'👋', label:'WAVE!', instruction:'Wave one hand!', pts:150},
+  {t:76000, type:'close', action:'wave'},
+  {t:76500, type:'helloL'}, {t:76500, type:'lyric', text:"Hello,"},
+  {t:77600, type:'helloR'}, {t:77600, type:'lyric', text:"hello."},
+  {t:78700, type:'lyric', text:"Can you clap your hands?"},
+  {t:78700, type:'demo', action:'clap', emoji:'👏', label:'CLAP!', instruction:'Get ready!'},
+  {t:81200, type:'open',  action:'clap', emoji:'👏', label:'CLAP!', instruction:'Clap your hands!', pts:150},
+  {t:83700, type:'close', action:'clap'},
+  {t:84000, type:'helloL'}, {t:84000, type:'lyric', text:"Hello,"},
+  {t:85100, type:'helloR'}, {t:85100, type:'lyric', text:"hello."},
+  {t:86200, type:'lyric', text:"Can you stamp your feet?"},
+  {t:86200, type:'demo', action:'shrug', emoji:'🦶', label:'STAMP!', instruction:'Get ready!'},
+  {t:88700, type:'open',  action:'shrug', emoji:'🦶', label:'STAMP!', instruction:'Bounce!', pts:150},
+  {t:91000, type:'close', action:'shrug'},
+  {t:92000, type:'lyric', text:"🌟 Amazing! 🌟"},
+];
+// TIMING: events fire at their authored times (the times below are tuned to the song's
+// vocal/beat positions). No global offset — earlier builds shifting everything -1500ms
+// made cues land too early. Demo shows the move as a preview; scoring opens at 'open'.
+const TIMELINE_OFFSET = 0;
+const TIMELINE = TIMELINE_RAW.map(e => ({ ...e, t: Math.max(0, e.t - TIMELINE_OFFSET) }));
+const SONG_END = 111;   // full song length; real end follows the audio (see gameTick / song 'ended')
+
+// ── THE CLOCK (JS source of truth; song layered ON it; runs silent if no file) ───
+// Song filename has changed across versions — try the names this repo has used.
+const SONG_CANDIDATES = ['hello.mp3','shit.mp3','hello (1).mp3','hello (6).mp3','freeze.mp3'];
+let _songTry = 0;
+let startMs=null; const song=new Audio(SONG_CANDIDATES[0]); let audioOK=false;
+song.addEventListener('error', ()=>{
+  _songTry++;
+  if(_songTry < SONG_CANDIDATES.length){ song.src = SONG_CANDIDATES[_songTry]; song.load(); }
+  else { console.warn('No song file found — running silent timeline. Game still works.'); audioOK=false; }
+});
+song.preload='auto'; song.addEventListener('canplaythrough',()=>audioOK=true); song.addEventListener('error',()=>audioOK=false);
+song.addEventListener('ended',()=>{ if(game.running) endGame(); });   // end follows the SONG, not a timer
+function clockS(){ if(audioOK && !song.paused && song.currentTime>0) return song.currentTime; return startMs?(performance.now()-startMs)/1000:0; }
+
+// ── STATE ───────────────────────────────────────────────────────────────────
+let detector=null, camStream=null, rafId=0;
+let det = { handUpL:-1, handUpR:-1, clap:false, spread:0, shoulderLift:0, wristsLow:false, nearHead:false, starPose:false, motion:0, present:false, joints:0 };
+let base = { shoulderBaseY:0, sw:120, ok:false };
+let smooth = {};
+let game = { running:false, score:0, combo:0, maxCombo:0, hits:0, total:0, evIdx:0, window:null, cueZone:null, log:[] };
+let prevKp = null;
+
+async function ensureModel(){
+  if(detector) return;
+  try{ await tf.setBackend('webgl'); }catch(e){ try{ await tf.setBackend('cpu'); }catch(_){} }
+  await tf.ready();
+  detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,
+    { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING });
+}
+async function ensureCamera(){
+  if(camStream) return true;
+  try{ camStream = await navigator.mediaDevices.getUserMedia({ video:{ width:{ideal:640}, height:{ideal:480}, facingMode:'user' }, audio:false });
+    const v=$('cam'); v.srcObject=camStream; await v.play(); return true;
+  }catch(e){ $('cam-warn').textContent='⚠ Camera blocked — allow camera and reload.'; return false; }
+}
+
+// ── POSE LOOP (runs EVERY frame; NOT gated on any phase) ────────────────────
+function kp(kps,name){ return kps.find(k=>k.name===name); }
+function sm(key,x,y){ const a=0.6; if(!smooth[key]) smooth[key]={x,y}; smooth[key].x=smooth[key].x*a+x*(1-a); smooth[key].y=smooth[key].y*a+y*(1-a); return smooth[key]; }
+async function poseLoop(){
+  const v=$('cam');
+  if(detector && v && v.readyState>=2){
+    let poses=[]; try{ poses = await detector.estimatePoses(v,{flipHorizontal:true}); }catch(e){}
+    if(poses[0]){ window.__lastPoseKeypoints=poses[0].keypoints; analyze(poses[0].keypoints); drawSkeleton(poses[0].keypoints); }
+    else { det.present=false; window.__litAny=false; clearOverlay(); }
+  }
+  rafId=requestAnimationFrame(poseLoop);
+}
+function analyze(kps){
+  const MIN=0.3;
+  det.joints = kps.filter(k=>k.score>MIN).length;
+  const ls=kp(kps,'left_shoulder'), rs=kp(kps,'right_shoulder');
+  const lw=kp(kps,'left_wrist'), rw=kp(kps,'right_wrist');
+  const lh=kp(kps,'left_hip'), rh=kp(kps,'right_hip');
+  const nose=kp(kps,'nose'), lear=kp(kps,'left_ear'), rear=kp(kps,'right_ear');
+  det.present = ls&&rs&&ls.score>MIN&&rs.score>MIN;
+  if(!det.present){ det.handUpL=det.handUpR=-1; det.clap=false; det.spread=0; det.shoulderLift=0; det.wristsLow=false; det.nearHead=false; det.starPose=false; return; }
+  const Ls=sm('ls',ls.x,ls.y), Rs=sm('rs',rs.x,rs.y);
+  const sw = Math.max(Math.abs(Ls.x-Rs.x),60);
+  const midShY=(Ls.y+Rs.y)/2;
+  const Lw= lw&&lw.score>MIN? sm('lw',lw.x,lw.y):null;
+  const Rw= rw&&rw.score>MIN? sm('rw',rw.x,rw.y):null;
+  det.handUpL = Lw ? (midShY-Lw.y)/sw : -1;     // + = above shoulder line
+  det.handUpR = Rw ? (midShY-Rw.y)/sw : -1;
+  if(Lw && Rw){
+    const dx=Math.abs(Lw.x-Rw.x)/sw; det.spread=dx;
+    const lY=(Lw.y-midShY)/sw, rY=(Rw.y-midShY)/sw;            // 0 ≈ shoulder line, + = below
+    det.clap = dx<0.5 && lY>-0.7&&lY<0.9 && rY>-0.7&&rY<0.9;   // wrists together near chest
+    det.starPose = dx>1.5 && Math.abs(lY)<0.75 && Math.abs(rY)<0.75;   // arms out wide at shoulder height
+  } else { det.clap=false; det.spread=0; det.starPose=false; }
+  // shrug: shoulders raised vs calibrated neutral
+  det.shoulderLift = base.shoulderBaseY ? (base.shoulderBaseY - midShY)/sw : 0;
+  // toes: wrists LOW (near/below hips, or well below shoulders if hips unseen)
+  const hipY=(lh&&rh&&lh.score>MIN&&rh.score>MIN)?((lh.y+rh.y)/2):null;
+  if(Lw && Rw){
+    det.wristsLow = (hipY!=null) ? (Lw.y>hipY-0.1*sw && Rw.y>hipY-0.1*sw) : (det.handUpL<-0.55 && det.handUpR<-0.55);
+  } else det.wristsLow=false;
+  // head: both wrists near nose/ear, at/above shoulder line
+  const head = (nose&&nose.score>MIN)?nose : (lear&&lear.score>MIN)?lear : (rear&&rear.score>MIN)?rear : null;
+  if(Lw && Rw && head){
+    const dl=Math.hypot(Lw.x-head.x,Lw.y-head.y)/sw, dr=Math.hypot(Rw.x-head.x,Rw.y-head.y)/sw;
+    det.nearHead = dl<0.85 && dr<0.85 && det.handUpL>-0.15 && det.handUpR>-0.15;
+  } else det.nearHead=false;
+  det._raw = { midShY, sw };
+  if(prevKp){ let tot=0,c=0; for(let i=0;i<kps.length;i++){ if(kps[i].score>MIN&&prevKp[i]&&prevKp[i].score>MIN){ tot+=Math.hypot(kps[i].x-prevKp[i].x,kps[i].y-prevKp[i].y); c++; } } if(c) det.motion=0.6*det.motion+0.4*Math.min(1,(tot/c)/sw*3); }
+  prevKp=kps.map(k=>({x:k.x,y:k.y,score:k.score}));
+}
+function calibrate(){ const r=det._raw; if(!r) return; base.shoulderBaseY=r.midShY; base.sw=r.sw; base.ok=true; }
+
+// ── OVERLAY + FOCUS LIGHT (lands on the body via coverMap; additive bloom) ──
+function coverMap(){ const v=$('cam'), c=$('overlay');
+  const cw=c.clientWidth||1, ch=c.clientHeight||1, vw=v.videoWidth||640, vh=v.videoHeight||480;
+  if(c.width!==cw||c.height!==ch){ c.width=cw; c.height=ch; }
+  const scale=Math.min(cw/vw, ch/vh);          // contain — matches #cam object-fit:contain
+  return { scale, ox:(cw-vw*scale)/2, oy:(ch-vh*scale)/2 };
+}
+function clearOverlay(){ const c=$('overlay'); c.getContext('2d').clearRect(0,0,c.width,c.height); }
+// ════════════════════════════════════════════════════════════════════
+// LIGHT ENGINE — comet + direction lean + guide arrow + clap star
+// Not a dot marker: the light streaks toward where the move goes, an
+// arrow hints before the move, and clap fires a star burst.
+// ════════════════════════════════════════════════════════════════════
+const ML = { red:'242,115,12', gold:'255,210,122', core:'255,253,245', clean:'191,255,200', amber:'255,166,61' };
+let _sparks=[];   // star/sparkle particles {x,y,vx,vy,born,ttl,r,trip}
+
+function _orb(c,x,y,r,trip,alpha){ if(r<=0) return; const g=c.createRadialGradient(x,y,0,x,y,r);
+  g.addColorStop(0,'rgba('+trip+',1)'); g.addColorStop(0.45,'rgba('+trip+',0.5)'); g.addColorStop(1,'rgba('+ML.gold+',0)');
+  c.globalAlpha=(alpha==null?1:alpha); c.fillStyle=g; c.beginPath(); c.arc(x,y,r,0,7); c.fill(); c.globalAlpha=1; }
+
+// a comet: fat glowing base at (x,y), narrowing bright tip pointing (dx,dy), length L
+function _comet(c,x,y,dx,dy,L,wid,trip,now){
+  const n=Math.hypot(dx,dy)||1; dx/=n; dy/=n;
+  const tipx=x+dx*L, tipy=y+dy*L;
+  // shimmer the tip slightly perpendicular so it's alive
+  const sh=Math.sin(now/120)*wid*0.5; const px=-dy, py=dx;
+  const tx=tipx+px*sh, ty=tipy+py*sh;
+  const g=c.createLinearGradient(x,y,tx,ty);
+  g.addColorStop(0,'rgba('+ML.core+',0.95)'); g.addColorStop(0.4,'rgba('+trip+',0.6)'); g.addColorStop(1,'rgba('+ML.red+',0)');
+  c.strokeStyle=g; c.lineCap='round'; c.lineWidth=wid; c.beginPath(); c.moveTo(x,y); c.lineTo(tx,ty); c.stroke();
+  _orb(c,x,y,wid*2.2,trip,0.5);          // bloom at base
+  _orb(c,tx,ty,wid*0.9,ML.core,0.95);    // hot tip
+}
+
+// a small semi-transparent guide arrow at (x,y) pointing (dx,dy) — the "hint"
+function _arrow(c,x,y,dx,dy,k,now){
+  const n=Math.hypot(dx,dy)||1; dx/=n; dy/=n;
+  const bob=Math.sin(now/300)*4*k;       // gentle bob
+  const ax=x+dx*bob, ay=y+dy*bob;
+  const len=26*k, hw=9*k;
+  const ex=ax+dx*len, ey=ay+dy*len;      // arrow tip
+  const px=-dy, py=dx;                    // perpendicular for the head
+  c.globalAlpha=0.42; c.strokeStyle='rgba('+ML.core+',1)'; c.lineCap='round'; c.lineWidth=4*k;
+  c.beginPath(); c.moveTo(ax,ay); c.lineTo(ex,ey);                       // shaft
+  c.moveTo(ex,ey); c.lineTo(ex-dx*hw+px*hw, ey-dy*hw+py*hw);             // head left
+  c.moveTo(ex,ey); c.lineTo(ex-dx*hw-px*hw, ey-dy*hw-py*hw);             // head right
+  c.stroke(); c.globalAlpha=1;
+}
+
+// burst a star-shaped sparkle (clap) at (x,y)
+function _starBurst(x,y,k,trip){
+  // 6 long points (the star) + scatter sparkles
+  for(let i=0;i<6;i++){ const a=(i/6)*Math.PI*2; const sp=(3+Math.random()*2)*k;
+    _sparks.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,born:performance.now(),ttl:520,r:(3+Math.random()*2)*k,trip:ML.core,star:true}); }
+  for(let i=0;i<12;i++){ const a=Math.random()*Math.PI*2; const sp=(1+Math.random()*2.5)*k;
+    _sparks.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-0.4,born:performance.now(),ttl:400+Math.random()*400,r:(1+Math.random()*2)*k,trip}); }
+}
+window.__starBurstPending=false;
+
+// direction the move's light should LEAN, in VIDEO/canvas space (y grows down; up = -y)
+function moveDir(cueKey, m, X, Y){
+  switch(cueKey){
+    case 'both': case 'wave': case 'head': return {dx:0,dy:-1};      // up
+    case 'star': return {dx:1,dy:0};                                  // out wide (drawn per-wrist below)
+    case 'shrug': return {dx:0,dy:-1};                                // shoulders up
+    case 'toes': return {dx:0,dy:1};                                  // down
+    case 'clap': return {dx:0,dy:0};                                  // converge (star on hit)
+    default: return {dx:0,dy:-1};
+  }
+}
+
+function drawSkeleton(kps){
+  const c=$('overlay'); const x=c.getContext('2d'); const {scale,ox,oy}=coverMap();
+  const X=p=> c.width - (p.x*scale+ox), Y=p=>p.y*scale+oy;   // mirror back to match the mirrored video
+  const m={}; kps.forEach(k=>m[k.name]=k);
+  const now=performance.now();
+  // fade trail (never clearRect every frame)
+  x.globalCompositeOperation='destination-out'; x.fillStyle='rgba(0,0,0,0.16)'; x.fillRect(0,0,c.width,c.height); x.globalCompositeOperation='source-over';
+
+  const ls=m.left_shoulder, rs=m.right_shoulder;
+  const unit=(ls&&rs&&ls.score>=0.3&&rs.score>=0.3)?Math.hypot(X(ls)-X(rs),Y(ls)-Y(rs)):180;
+  const k=Math.max(0.4,Math.min(3,unit/220));
+
+  // update + draw sparks (star bursts, always, on top)
+  x.globalCompositeOperation='lighter';
+  if(window.__starBurstPending){ window.__starBurstPending=false;
+    const lw=m.left_wrist, rw=m.right_wrist;
+    if(lw&&rw){ _starBurst((X(lw)+X(rw))/2,(Y(lw)+Y(rw))/2,k,ML.clean); } }
+  _sparks=_sparks.filter(s=>{ const age=(now-s.born)/s.ttl; if(age>=1) return false;
+    s.x+=s.vx; s.y+=s.vy; s.vy+=0.04; const a=(1-age); _orb(x,s.x,s.y,s.r*(1.2-age*0.6),s.trip,a*0.95); return true; });
+
+  const cueKey=(window.__cuePart||''); if(!cueKey){ window.__litAny=false; x.globalCompositeOperation='source-over'; return; }
+  const parts=CUE_PARTS[cueKey]||[];
+  const state = window.__cueState||'armed';
+  const hit = state==='hit'||state==='streak';
+  const trip = hit ? ML.clean : ML.gold;
+  let litAny=false;
+
+  if(cueKey==='clap'){
+    // clap: comets on both wrists leaning INWARD toward each other; star fires on hit (handled above)
+    const lw=m.left_wrist, rw=m.right_wrist;
+    if(lw&&rw&&lw.score>=0.3&&rw.score>=0.3){ litAny=true;
+      const lx=X(lw),ly=Y(lw),rx=X(rw),ry=Y(rw); const mx=(lx+rx)/2,my=(ly+ry)/2;
+      if(!hit){ _arrow(x,lx,ly,mx-lx,my-ly,k,now); _arrow(x,rx,ry,mx-rx,my-ry,k,now);
+        _comet(x,lx,ly,mx-lx,my-ly,28*k,9*k,trip,now); _comet(x,rx,ry,mx-rx,my-ry,28*k,9*k,trip,now); }
+    }
+  } else if(cueKey==='star'){
+    // arms wide: comet out from each shoulder toward each wrist (outward)
+    parts.forEach(()=>{}); const lw=m.left_wrist,rw=m.right_wrist;
+    [['left_shoulder','left_wrist',-1],['right_shoulder','right_wrist',1]].forEach(([sN,wN,sgn])=>{
+      const s=m[sN]; if(s&&s.score>=0.3){ litAny=true; const sx=X(s),sy=Y(s);
+        if(!hit) _arrow(x,sx,sy,sgn,0,k,now);
+        _comet(x,sx,sy,sgn,-0.15,40*k,9*k,trip,now); } });
+  } else {
+    // single/both/head/shrug/toes/wave: comet on each cued joint leaning the move direction
+    const d=moveDir(cueKey,m,X,Y);
+    parts.forEach(n=>{ const j=m[n]; if(j && j.score>=0.3){ litAny=true; const px=X(j),py=Y(j);
+      if(!hit) _arrow(x,px,py,d.dx,d.dy,k,now);           // guide arrow BEFORE/while (only until hit)
+      _comet(x,px,py,d.dx,d.dy,44*k,11*k,trip,now);        // the comet streaks the move direction
+      _orb(x,px,py,14*k,ML.core,hit?0.95:0.8);             // bright base on the joint
+    }});
+  }
+  x.globalCompositeOperation='source-over';
+  window.__litAny=litAny;
+}
+
+// ── GAME FLOW ───────────────────────────────────────────────────────────────
+async function startFlow(){
+  $('start-btn').disabled=true; $('cam-warn').textContent='loading…';
+  const okCam=await ensureCamera(); if(!okCam){ $('start-btn').disabled=false; return; }
+  await Promise.race([ ensureModel().catch(()=>{}), new Promise(r=>setTimeout(r,12000)) ]);
+  $('cam-warn').textContent='';
+  $('start-screen').classList.add('hidden');
+  $('game').classList.remove('hidden');
+  cancelAnimationFrame(rafId); poseLoop();      // detection live immediately
+  await countdown();                            // 3-2-1 calibrates the neutral stance
+  beginGame();
+}
+function countdown(){ return new Promise(res=>{
+  // make sure NOTHING is playing during 3-2-1
+  try{ song.pause(); song.currentTime=0; }catch(e){}
+  try{ const nv=$('nova-demo'); if(nv){ nv.pause(); nv.currentTime=0; } }catch(e){}
+  $('countdown').classList.remove('hidden');
+  const num=$('cd-num'), sub=$('cd-sub'); let n=3;
+  const step=()=>{ if(n>0){ num.textContent=n; sub.textContent = n===3?'stand back, show me your hands':'get ready…'; n--; setTimeout(step,900); }
+    else { num.textContent='GO!'; sub.textContent='copy the moves!'; calibrate(); setTimeout(()=>{ $('countdown').classList.add('hidden'); res(); },700); } };
+  step();
+}); }
+function beginGame(){
+  window.__hhl_gameRunning = true;
+  Object.assign(game,{ running:true, score:0, combo:0, maxCombo:0, hits:0, total:0, evIdx:0, window:null, cueZone:null, log:[] });
+  $('score').textContent='0'; $('combo-box').textContent='x0'; $('progress').style.width='0%';
+  window.__cuePart=null; window.__cueState=null; setLyric('');
+  startMs=performance.now();                                  // THE CLOCK STARTS (independent of any media)
+  try{ song.currentTime=0; song.volume=0.7; song.play().then(()=>audioOK=true).catch(()=>audioOK=false); }catch(e){}
+  try{ const nv=$('nova-demo'); if(nv){ nv.currentTime=0; nv.play().catch(()=>{}); } }catch(e){}  // MP4 starts WITH the game, not before
+  $('nova-move').textContent='Watch me — copy! 👋';
+  coach('Stand back so I can see your hands! ✋');
+  clearInterval(game.tick); game.tick=setInterval(gameTick,60);
+}
+function gameTick(){
+  if(!game.running) return;
+  const now=clockS()*1000;
+  $('timecode').textContent=clockS().toFixed(1)+'s';
+  // end follows the SONG's real duration when it's playing; SONG_END is the silent-mode fallback
+  const endAt = (audioOK && song.duration>1) ? song.duration : SONG_END;
+  $('progress').style.width=Math.min(100,(clockS()/endAt)*100)+'%';
+  if(clockS()>=endAt){ endGame(); return; }
+  // fire every TIMELINE event whose time has passed, in order
+  while(game.evIdx<TIMELINE.length && now>=TIMELINE[game.evIdx].t){ dispatch(TIMELINE[game.evIdx]); game.evIdx++; }
+  // score the OPEN detection window the first frame the move matches
+  if(game.window && !game.window.resolved){
+    const mv=MOVES[game.window.action];
+    if(game.window.freeFun){ /* free-fun: celebrated on a timer in openWindow, no detection nag */ }
+    else if(mv && det.present && mv.check(det,base)) resolveHit();
+    else if(window.__litAny===false) coach('stand back — show me your hands! ✋');
+  }
+}
+function dispatch(ev){ switch(ev.type){
+  case 'lyric':  setLyric(ev.text); break;
+  case 'helloL': flourish('L'); break;
+  case 'helloR': flourish('R'); break;
+  case 'demo':   showMove(ev); break;          // preview only — scoring starts at 'open'
+  case 'open':   openWindow(ev); break;
+  case 'close':  closeWindow(); break;
+} }
+function setLyric(text){ const el=$('lyric'); if(!el) return; el.textContent=text||''; el.classList.toggle('show', !!text); }
+function flourish(side){ const f=$('flourish'); if(!f) return; f.textContent='👋'; f.classList.remove('show','fl-L','fl-R'); void f.offsetWidth;
+  f.classList.add('show', side==='L'?'fl-L':'fl-R'); clearTimeout(flourish._t); flourish._t=setTimeout(()=>f.classList.remove('show','fl-L','fl-R'),900); }
+function setZone(z,state){ ['zone-left','zone-right','zone-full'].forEach(id=>$(id).classList.remove('show','armed','hit','miss'));
+  if(!z) return; const id=z==='left'?'zone-left':z==='right'?'zone-right':'zone-full'; $(id).classList.add('show', state||'armed'); }
+function zoneState(state){ const z=game.cueZone; if(!z) return; const id=z==='left'?'zone-left':z==='right'?'zone-right':'zone-full';
+  $(id).classList.remove('armed','hit','miss'); $(id).classList.add(state); }
+function showMove(ev){   // demo OR open — light the joints + call the move on Nova's side
+  window.__cuePart=ev.action; window.__cueState='armed';
+  game.cueZone=ZONE[ev.action]||'full'; setZone(game.cueZone,'armed');
+  $('cam-wrap').classList.remove('hit','miss'); $('cam-wrap').classList.add('armed');
+  const lbl=(ev.emoji?ev.emoji+' ':'')+(ev.label||(MOVES[ev.action]&&MOVES[ev.action].name)||'');
+  $('nova-move').textContent=lbl; coach(ev.instruction||'copy me!');
+}
+function openWindow(ev){
+  game.window={ action:ev.action, resolved:false, pts:ev.pts||150, openSec:+clockS().toFixed(2),
+    freeFun:(ev.action==='toes'||ev.action==='star') };   // toes/turn can't track on laptop → celebrate, don't score
+  game.total++; showMove(ev); window.__cueState='armed';
+  if(game.window.freeFun){ // free fun: hype + auto-succeed shortly, no pass/fail pressure
+    coach(ev.action==='toes'?'reach down — woohoo! 👇':'spin around — yay! ⭐');
+    setTimeout(()=>{ if(game.window && game.window.action===ev.action && !game.window.resolved){ resolveHit(); } }, 1400);
+  }
+}
+function closeWindow(){
+  if(game.window && !game.window.resolved) resolveMiss();
+  game.window=null; window.__cuePart=null; window.__cueState=null;
+  $('cam-wrap').classList.remove('armed'); setZone(null);
+}
+function logCue(result){ const w=game.window; if(!w) return;
+  game.log.push({ action:w.action, result, t:w.openSec,
+    handUpL:+det.handUpL.toFixed(3), handUpR:+det.handUpR.toFixed(3), clap:det.clap, shoulderLift:+det.shoulderLift.toFixed(3),
+    wristsLow:det.wristsLow, nearHead:det.nearHead, starPose:det.starPose, motion:+det.motion.toFixed(3), joints:det.joints||0, present:det.present }); }
+function resolveHit(){
+  const w=game.window; if(!w) return; w.resolved=true; window.__cueState=(game.combo>=2?'streak':'hit');
+  const pts=Math.round((w.pts||150)*(1+Math.min(game.combo,8)*0.1));
+  game.score+=pts; game.hits++; game.combo++; game.maxCombo=Math.max(game.maxCombo,game.combo);
+  $('score').textContent=game.score;
+  const cb=$('combo-box'); cb.textContent='x'+game.combo; cb.classList.remove('pulse'); void cb.offsetWidth; cb.classList.add('pulse');
+  $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('hit'); zoneState('hit');
+  $('nova-move').textContent='YES! 🌟'; logCue('hit');
+  if(w.action==='clap') window.__starBurstPending=true;   // star sparkle burst at the hands
+}
+function resolveMiss(){ window.__cueState='miss'; game.combo=0; $('combo-box').textContent='x0';
+  $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('miss'); zoneState('miss'); logCue('miss'); }
+function endGame(){
+  if(!game.running) return; game.running=false; clearInterval(game.tick);
+  try{ song.pause(); }catch(e){}
+  saveSession();
+  const rate=game.total?game.hits/game.total:0;
+  const stars=rate>=0.85?5:rate>=0.65?4:rate>=0.45?3:rate>=0.25?2:1;
+  $('end-stars').textContent='⭐'.repeat(stars)+'☆'.repeat(5-stars);
+  $('end-title').textContent=['Good try!','Nice moves!','Great dancing!','Amazing!','PERFECT! 🔥'][stars-1];
+  $('end-score').textContent=game.score+' pts';
+  $('end-detail').textContent=`${game.hits} of ${game.total} moves · best combo x${game.maxCombo}`;
+  $('game').classList.add('hidden'); $('end-screen').classList.remove('hidden');
+}
+function saveSession(){ try{
+  const summary={ song:'hello-hello-laptop', events:TIMELINE.length, total:game.total, hits:game.hits, maxCombo:game.maxCombo, score:game.score, log:game.log };
+  // Keep in memory only — no auto-download during testing. Call __downloadSession() in console if you want the file.
+  window.__lastSession = summary;
+}catch(e){} }
+function __downloadSession(){ try{
+  const s = window.__lastSession; if(!s) return;
+  const blob=new Blob([JSON.stringify(s,null,1)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='hello-hello-laptop-session.json';
+  document.body.appendChild(a); a.click(); setTimeout(()=>{ a.remove(); URL.revokeObjectURL(a.href); },1000);
+}catch(e){} }
+
+let coachT=0; function coach(msg){ const c=$('coach'); if(c.textContent!==msg){ c.textContent=msg; } c.classList.add('show'); clearTimeout(coachT); coachT=setTimeout(()=>c.classList.remove('show'),1800); }
+
+$('start-btn').addEventListener('click', startFlow);
+$('replay-btn').addEventListener('click', ()=>{ $('end-screen').classList.add('hidden'); countdown().then(beginGame); });
+$('quit').addEventListener('click', ()=>{ endGame(); });
+window.addEventListener('beforeunload', ()=>{ if(camStream) camStream.getTracks().forEach(t=>t.stop()); });
+
+// self-test hooks
+window.__hhl = { get clock(){return clockS();}, get det(){return det;}, TIMELINE, get game(){return game;},
+  get litAny(){return window.__litAny;}, get song(){return song;}, get audioOK(){return audioOK;},
+  get activeAction(){return game.window?game.window.action:(window.__cuePart||null);}, get lyric(){return ($('lyric')||{}).textContent||'';} };
+</script>
+</body>
+</html>
