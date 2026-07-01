@@ -104,8 +104,36 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   flex-direction:row}
 
 /* Avatar side */
-#rec-avatar-col{flex:1.5;display:flex;flex-direction:column;align-items:center;
+#rec-avatar-col{flex:1;display:flex;flex-direction:column;align-items:center;
   justify-content:center;gap:20px;padding:32px;position:relative}
+/* POINT 3 (2026-07-01): BIG self-view during the intro. The recognition phase had
+   NO kid camera, so the child couldn't see himself or the try-move light when Nova
+   said "show me a clap." The camera is now the dominant panel; Nova sits smaller
+   beside it. On a portrait phone the columns stack (camera on top). */
+#rec-cam-col{flex:2.2;position:relative;display:flex;align-items:center;
+  justify-content:center;padding:18px;min-width:0;min-height:0}
+#rec-cam-wrap{position:relative;width:100%;height:100%;max-height:80vh;
+  border-radius:24px;overflow:hidden;background:#000;
+  border:4px solid rgba(124,111,255,.55);box-shadow:0 0 50px rgba(124,111,255,.35)}
+#rec-webcam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  transform:scaleX(-1);background:#000;display:block}
+/* keypoint-anchored try-move glow — moved onto the kid's wrists by JS */
+#rec-cam-glow{position:absolute;left:0;top:0;width:120px;height:120px;
+  margin:-60px 0 0 -60px;border-radius:50%;pointer-events:none;opacity:0;
+  transition:opacity .15s,width .15s,height .15s;
+  background:radial-gradient(circle,rgba(255,240,200,.95) 0%,rgba(255,210,122,.6) 40%,rgba(255,166,61,0) 72%);
+  filter:drop-shadow(0 0 10px rgba(255,200,90,.85))}
+#rec-cam-glow.hit{width:180px;height:180px;margin:-90px 0 0 -90px;
+  background:radial-gradient(circle,rgba(255,255,255,1) 0%,rgba(191,255,200,.85) 38%,rgba(120,255,150,0) 72%)}
+#rec-cam-hint{position:absolute;left:0;right:0;bottom:14px;text-align:center;color:#fff;
+  font:600 15px 'Fredoka',cursive;text-shadow:0 2px 8px rgba(0,0,0,.7);pointer-events:none}
+@media (max-aspect-ratio:1/1){
+  #phase-recognition{flex-direction:column}
+  #rec-cam-col{flex:1.7;width:100%;padding:10px}
+  #rec-avatar-col{flex:.7;flex-direction:row;padding:10px;gap:12px}
+  #rec-chat-col{flex:.9;width:100%;border-left:none;
+    border-top:1px solid rgba(255,111,216,0.12)}
+}
 /* v113 Nova frame: rounded-rectangle "square" like v222 (was a circle).
    aspect-ratio 0.8 = portrait, border-radius 28px = v222's rounded-[28px]. */
 #rec-avatar-frame{width:min(420px,56vmin);aspect-ratio:0.8;border-radius:28px;
@@ -375,9 +403,13 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   min-height:0;position:relative;z-index:1}
 
 /* Nova side */
-#nova-side{position:relative;overflow:hidden}
+/* POINT 7 (2026-07-01): MP4 was object-fit:contain over the pastel #game-bg
+   gradient → when the video's aspect didn't match the 60% panel it letterboxed
+   and the gradient showed through as a flat colour block. cover = fill+crop, and
+   an opaque black backdrop guarantees no gradient bleed if a frame decodes late. */
+#nova-side{position:relative;overflow:hidden;background:#000}
 #nova-video{position:absolute;inset:0;width:100%;height:100%;
-  object-fit:contain;background:transparent}
+  object-fit:cover;background:#000;z-index:1;display:block}
 
 /* D-ID face — top-left of Nova panel */
 /* D-ID face — FIXED top-center of game phase, straddling the boundary
@@ -791,6 +823,14 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 
 <!-- ═══ PHASE 2: RECOGNITION ═══ -->
 <div class="phase" id="phase-recognition">
+  <!-- POINT 3+4: big self-view + keypoint-anchored try-move light (JS below) -->
+  <div id="rec-cam-col">
+    <div id="rec-cam-wrap">
+      <video id="rec-webcam" autoplay playsinline muted></video>
+      <div id="rec-cam-glow"></div>
+      <div id="rec-cam-hint">I can see you! 🌟</div>
+    </div>
+  </div>
   <div id="rec-avatar-col">
     <div id="rec-avatar-name">Nova</div>
     <div id="rec-avatar-frame">
@@ -1745,26 +1785,24 @@ function handoffFromIntro() {
       if (bothReady) {
         clearInterval(poll);
         if (capEl) capEl.textContent = 'almost…';
-        // Tracks ready → tell the worker to greet NOW, but DON'T reveal yet.
-        if (window.__novaSend) window.__novaSend({ kind: 'client-ready' });
-        LOG('INTRO', 'tracks ready → client-ready sent; holding cover until she SPEAKS');
-        // MAGIC REVEAL: fade ONLY when Nova is actually making sound (saying hi) —
-        // no 4s confused idle gap. 9s fallback so we never get stuck.
-        let w2 = 0;
-        const revealPoll = setInterval(() => {
-          w2 += 150;
-          if (window.__novaSpeakingNow || w2 >= 9000) {
-            clearInterval(revealPoll);
-            ov.classList.add('fade');
-            const hum = document.getElementById('intro-humming');
-            if (hum) { try { hum.pause(); } catch (_) {} }
-            setTimeout(() => ov.classList.remove('show'), 350);
-            LOG('INTRO', `MAGIC REVEAL (speaking=${!!window.__novaSpeakingNow}, +${w2}ms after ready)`);
-            // Move-game: the WORKER drives vision per move (request-vision). The
-            // old self-timed client vision is disabled to avoid duplicate calls.
-            // startVisionMirror();
-          }
-        }, 150);
+        // POINT 1 (2026-07-01): FACE-BEFORE-VOICE. Reveal Nova's avatar FIRST
+        // (fade the cover the moment her video+audio tracks are attached), THEN
+        // send client-ready — which is what triggers the backend greeting. This
+        // guarantees her face is on screen before her first word, never a voice
+        // from a hidden avatar. OLD behaviour sent client-ready immediately and
+        // only faded once it HEARD her speak → voice arrived before the face.
+        ov.classList.add('fade');
+        const hum = document.getElementById('intro-humming');
+        if (hum) { try { hum.pause(); } catch (_) {} }
+        setTimeout(() => ov.classList.remove('show'), 350);
+        LOG('INTRO', 'MAGIC REVEAL (face shown on tracks-ready) — greeting released AFTER fade');
+        // Fade is 350ms; release the greeting just after the face is fully up so
+        // the first word lands with the face already visible. ~550ms << the
+        // backend's 12s client-ready fallback, so the greeting is never released early.
+        setTimeout(() => {
+          if (window.__novaSend) window.__novaSend({ kind: 'client-ready' });
+          LOG('INTRO', 'client-ready sent (post-reveal) → Nova may greet now');
+        }, 550);
       }
     }, 250);
   } catch (e) { LOG('ERROR', 'handoffFromIntro: ' + e.message); }
@@ -3299,6 +3337,16 @@ const TIMELINE_FREEZE_RAW = [
 const TIMELINE_JOINED_RAW = [
   { t: 100, type: 'beat', name: 'intro' },
 
+  // POINT 6 (2026-07-01): WARM-UP LIGHTS 0-30s. The first real cue used to be at
+  // 30.1s, so the kid danced ~30s with NO lights (test log showed empty cue fields
+  // because it ended before the video reached 30s). Add gentle "just move — you're
+  // lit up" combo glows so lights appear from ~4s. combo is direction-agnostic (any
+  // movement scores) and anchored to head/ears, so no precise beat-matching is
+  // needed — a safe warm-up before the tuned 30s+ routine.
+  { t: 4000,  type:'open', action:'combo', emoji:'✨', label:"LET'S GO!",     instr:'start moving!', pts:80 }, { t: 12000, type:'close', action:'combo' },
+  { t: 13000, type:'open', action:'combo', emoji:'🌟', label:'KEEP MOVING!', instr:'feel it!',      pts:80 }, { t: 21000, type:'close', action:'combo' },
+  { t: 22000, type:'open', action:'combo', emoji:'💫', label:'YEAH!',        instr:'warm up!',      pts:80 }, { t: 29000, type:'close', action:'combo' },
+
   // ── SLOW BUILD — alternating L/R, every ~1.22s (windows ~1.08s) ──
   { t: 30100, type: 'beat', name: 'easy-wins' },
   // HEAD
@@ -4437,6 +4485,66 @@ window.__initRunwayNova = initDID;
   }
   window.__joinedPick=pick; window.__joinedANCH=ANCH;   // (self-test hooks)
   window.__poseCount=()=>(window.__poseFrames||0);      // (self-test: frames detected)
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
+})();
+</script>
+
+<!-- ── POINT 4 (2026-07-01): INTRO TRY-MOVE — detect the clap + fire a light on the
+     kid's hands during the recognition/intro phase, and tell the worker so Nova
+     reacts to the REAL clap. Reuses the always-on poseLoop (window.__lastPoseKeypoints)
+     + move engine (checkAction). Self-contained; only active while phase==='recognition'. ── -->
+<script>
+(function(){
+  function init(){
+    const cam  = document.getElementById('rec-webcam');
+    const glow = document.getElementById('rec-cam-glow');
+    if(!cam || !glow){ return setTimeout(init, 400); }
+    // Attach the SAME camera stream the game/poseLoop uses (mirrored via CSS).
+    const attach = () => { if(window.__kidStream && cam.srcObject !== window.__kidStream){ cam.srcObject = window.__kidStream; cam.play().catch(()=>{}); } };
+    attach(); setInterval(attach, 800);
+
+    let sentClap = false, flashUntil = 0;
+    const inRecognition = () => (typeof memory !== 'undefined' && memory && memory.phase === 'recognition');
+    const clapNow = () => {
+      try { if(typeof checkAction === 'function' && checkAction('clap')) return true; } catch(_){}
+      try { if(window.moves && window.moves.clap) return true; } catch(_){}
+      return false;
+    };
+
+    function loop(){
+      requestAnimationFrame(loop);
+      if(!inRecognition()){ glow.style.opacity='0'; sentClap=false; return; }
+      const kps = window.__lastPoseKeypoints;
+      if(!kps){ glow.style.opacity='0'; return; }
+      const m={}; kps.forEach(k=>{ m[k.name]=k; });
+      const pts=[m.left_wrist, m.right_wrist].filter(p=>p && p.score>0.2);
+      if(!pts.length){ glow.style.opacity='0'; return; }
+      // Map RAW MoveNet coords → mirrored display coords (matches the selfie flip),
+      // same math as the game aura module so the glow lands on the real hands.
+      const vw=cam.videoWidth||640, vh=cam.videoHeight||480;
+      const cw=cam.clientWidth||1, ch=cam.clientHeight||1;
+      const scale=Math.max(cw/vw, ch/vh), ox=(cw-vw*scale)/2, oy=(ch-vh*scale)/2;
+      const X=p=>cw-(p.x*scale+ox), Y=p=>p.y*scale+oy;
+      let gx=0, gy=0; pts.forEach(p=>{ gx+=X(p); gy+=Y(p); }); gx/=pts.length; gy/=pts.length;
+      glow.style.left = gx+'px'; glow.style.top = gy+'px';
+
+      const now = performance.now();
+      if(clapNow()){
+        flashUntil = now + 600;
+        if(!sentClap){
+          sentClap = true;
+          try { if(window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'try_move', action:'clap' } }); } catch(_){}
+          try { if(typeof LOG === 'function') LOG('INTRO', 'try-move CLAP detected → light + Nova signal'); } catch(_){}
+        }
+      }
+      const hot = now < flashUntil;
+      glow.style.opacity = hot ? '1' : '0.5';
+      glow.classList.toggle('hit', hot);
+    }
+    requestAnimationFrame(loop);
+    // self-test hook: force a glow at a screen point (used by qa harness)
+    window.__introGlowAt = (x,y,hit)=>{ glow.style.left=x+'px'; glow.style.top=y+'px'; glow.style.opacity='1'; glow.classList.toggle('hit',!!hit); };
+  }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 })();
 </script>
