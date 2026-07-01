@@ -1878,6 +1878,14 @@ async function startCamNonova(){
     memory.phase = 'dance';                               // un-gate the CUE/LIGHT layer (detection is always on now)
     try{ showPhase('phase-game'); }catch(e){}
     LOG('NONOVA','standalone camera up · phase=dance · Nova skipped');
+    // 2026-07-01: actually LAUNCH the dance so ?nonova is a PLAYABLE game (MP4 + cue
+    // scheduler + lights), not just a live camera. selectedSong defaults to the joined
+    // song (has the 0-30s warm-up lights + object-fit:cover fix). Small delay so the
+    // webcam has a first frame before the pose/light loop keys off it.
+    setTimeout(() => {
+      try { if (typeof startGame === 'function') startGame(); }
+      catch(err){ LOG('ERROR','nonova startGame failed', { msg: err.message }); }
+    }, 700);
   }catch(e){ LOG('ERROR','nonova camera failed', { msg:e.message }); }
 }
 
