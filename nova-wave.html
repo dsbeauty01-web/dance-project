@@ -334,15 +334,28 @@
 // guard so the shoulder can't steal the others. NEVER requires hands above the shoulder.
 const THRESH = { shOsc:0.045, elOsc:0.075, wxOsc:0.10, shQuiet:0.05, elQuiet:0.10, wxQuiet:0.11, motion:0.06 };
 
+// FIX 1 — DOMINANCE, not silence (session log 9: every shoulder window carried
+// wristOsc 1.6-3.7 — residual wave + active-arm switches never settle — so the old
+// quiet-wrist guard made shoulder-roll 0/4 unpassable). A move counts when ITS signal
+// is the DOMINANT mover: ratios are threshold-normalized, capped (arm signals blow up
+// to 2-4 shoulder-widths on arm switches), and rival signals get a 0.6 discount
+// because the waving arm always carries residual motion.
+const DOM = { cap:3, disc:0.6 };
+const domScores = d => ({
+  S: Math.min(DOM.cap, d.shOsc   /THRESH.shOsc),
+  E: Math.min(DOM.cap, d.elbowOsc/THRESH.elOsc),
+  W: Math.min(DOM.cap, d.wristOsc/THRESH.wxOsc),
+});
 const MOVES = {
-  // shoulders moving up/down (NOT static-high) + arms relatively still
-  'shoulder-roll': { name:'SHOULDERS', coach:'roll your shoulders up!', pts:120, check:d=> d.shOsc>THRESH.shOsc && d.elbowOsc<THRESH.elQuiet && d.wristOsc<THRESH.wxQuiet },
-  // elbow moving relative to ITS rest (no hand-up needed) + shoulder quiet so it isn't stolen
-  'elbow-pump':    { name:'ELBOWS',    coach:'pump your elbows out!',   pts:140, check:d=> d.elbowOsc>THRESH.elOsc && d.shOsc<THRESH.shQuiet },
-  // wrist LATERAL side-to-side oscillation — never height/above-shoulder
+  // shoulders moving up/down (NOT static-high) + shoulder is the dominant mover
+  'shoulder-roll': { name:'SHOULDERS', coach:'roll your shoulders up!', pts:120, check:d=>{ const s=domScores(d); return d.shOsc>THRESH.shOsc && s.S>s.E*DOM.disc && s.S>s.W*DOM.disc; } },
+  // elbow moving relative to ITS rest + elbow is the dominant mover (wrist discounted)
+  'elbow-pump':    { name:'ELBOWS',    coach:'pump your elbows out!',   pts:140, check:d=>{ const s=domScores(d); return d.elbowOsc>THRESH.elOsc && s.E>s.S*DOM.disc && s.E>s.W*DOM.disc; } },
+  // wrist LATERAL side-to-side oscillation — 5/5 in the log, untouched
   'wrist-wave':    { name:'WAVE 👋',   coach:'wave side to side!',      pts:160, check:d=> d.wristOsc>THRESH.wxOsc },
   'free':          { name:'FREESTYLE!',coach:'wave it ALL!',            pts:60,  check:d=> d.motion>THRESH.motion },
 };
+try{ window.__domScores=domScores; window.DOM=DOM; }catch(e){}   // self-test hooks
 
 // wave moves are full-body (no left/right zone) — light the whole frame
 const ZONE = { 'shoulder-roll':'full','elbow-pump':'full','wrist-wave':'full','free':'full' };
@@ -610,6 +623,8 @@ let _eng=null;
 const WV_START='242,115,12', WV_MID='255,210,122', WV_HOT='255,253,245', WV_DEEP='242,115,12', WV_AMBER='255,166,61';
 const WV_GATE={ wrist:0.40, elbow:0.45, shoulder:0.50 };
 let wvLastT=null, wvSparks=[], wvPhase=0, wvDir=1, wvReversals=0, wvStarted=null, wvPrevVi=-1, wvLastBloom={}, wvHeadTrail=[];
+let wvArrowA=0;   // guide-arrow fade level (rises while armed, fades on hit)
+window.__ml={lights:0,arrows:0,blooms:0,pulses:0};   // FIX 2 evidence counters
 const wvSm={}, wvLast={};
 function wvFloor(n){ return n.indexOf('wrist')>=0?WV_GATE.wrist:n.indexOf('elbow')>=0?WV_GATE.elbow:WV_GATE.shoulder; }
 function wvGate(m,n){ const k=m[n]; return (k&&k.score>=wvFloor(n))?k:null; }
@@ -635,7 +650,7 @@ function wvOrb(ctx,x,y,r,trip,alpha){ if(r<=0)return; const g=ctx.createRadialGr
   g.addColorStop(0,'rgba('+trip+','+alpha+')'); g.addColorStop(0.45,'rgba('+trip+','+(alpha*0.5)+')'); g.addColorStop(1,'rgba('+trip+',0)');
   ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill(); }
 function wvGlow3(ctx,x,y,baseR,trip){ wvOrb(ctx,x,y,baseR*3.5,WV_AMBER,0.14); wvOrb(ctx,x,y,baseR*1.8,trip,0.45); wvOrb(ctx,x,y,baseR*0.6,WV_HOT,0.95); }
-function wvBloom(x,y,k,trip){ wvLastBloom={x,y,t:performance.now(),trip}; const n=6+Math.floor(Math.random()*5);
+function wvBloom(x,y,k,trip){ window.__ml.blooms++; wvLastBloom={x,y,t:performance.now(),trip}; const n=6+Math.floor(Math.random()*5);
   for(let s=0;s<n;s++){ const a=Math.random()*6.283; wvSparks.push({x,y,vx:Math.cos(a)*0.9*k,vy:Math.sin(a)*0.9*k-0.5*k,born:performance.now(),ttl:400+Math.random()*500,r:(1+Math.random()*1.6)*k,seed:Math.random()*6.28}); } }
 function wvDrawSparks(ctx){ const now=performance.now(); wvSparks=wvSparks.filter(s=>{ const age=(now-s.born)/s.ttl; if(age>=1)return false;
   s.x+=s.vx; s.y+=s.vy; const tw=(0.6+0.4*Math.sin(now*0.08+s.seed)); wvOrb(ctx,s.x,s.y,s.r*(1-age*0.4),WV_HOT,(1-age)*tw); return true; }); }
@@ -655,7 +670,7 @@ function renderMagic(ctx, m, X, Y, W, H){
   const chain=CHAIN_FOR(cuePart);
   if(!chain){   // FREE / no cue → both wrists pulse with motion
     window.__wvSeen='free';
-    for(const wn of ['left_wrist','right_wrist']){ const w=wvGate(m,wn); if(w){ const x=X(w),y=Y(w); wvGlow3(ctx,x,y,(8+10*Math.min(1,motion))*k,hot); } }
+    for(const wn of ['left_wrist','right_wrist']){ const w=wvGate(m,wn); if(w){ const x=X(w),y=Y(w); wvGlow3(ctx,x,y,(8+10*Math.min(1,motion))*k,hot); window.__ml.lights++; } }
     wvDrawSparks(ctx); ctx.globalCompositeOperation='source-over'; return;
   }
   const {pts:P,seen}=wvChainPoints(m,X,Y,chain); window.__wvSeen=seen+'/'+chain.length; window.__glowFound=window.__wvSeen;
@@ -678,13 +693,28 @@ function renderMagic(ctx, m, X, Y, W, H){
     if(nearStart){ const e=(wvDir>0?wvPhase:1-wvPhase)/0.10; const a=0.9*(1-Math.pow(1-e,2));
       const w=wvDir>0?P[0]:P[P.length-1]; const pr=14*k*(1+0.35*Math.sin(now*0.018));
       wvGlow3(ctx,w.x,w.y,pr*0.5,WV_DEEP); wvOrb(ctx,w.x,w.y,pr,WV_DEEP,a*0.6);
-      const rr=_lerp(8,30,e)*k; ctx.strokeStyle='rgba('+WV_DEEP+','+(0.5*(1-e))+')'; ctx.lineWidth=2.5*k; ctx.beginPath(); ctx.arc(w.x,w.y,rr,0,7); ctx.stroke(); }
+      const rr=_lerp(8,30,e)*k; ctx.strokeStyle='rgba('+WV_DEEP+','+(0.5*(1-e))+')'; ctx.lineWidth=2.5*k; ctx.beginPath(); ctx.arc(w.x,w.y,rr,0,7); ctx.stroke(); window.__ml.pulses++; }
+    // GUIDE ARROW (FIX 2): small, semi-transparent, gently bobbing, pointing the move's
+    // direction — up for wave/pump lift, the travel side for rolls. Fades on hit.
+    wvArrowA=_lerp(wvArrowA, st==='armed'?1:0, st==='armed'?0.22:0.16);
+    if(wvArrowA>0.03){
+      const bob=Math.sin(now*0.006)*4*k;
+      let ang=-Math.PI/2, ax=head.x, ay=head.y-30*k+bob;   // wave/pump → lift UP
+      if(cuePart==='shoulder-roll'){   // roll → lean side = where the light travels
+        const T=wvAlong(P,Math.max(0.001,Math.min(0.999,wvPhase+0.18*wvDir)));
+        ang=Math.atan2(T.y-head.y,T.x-head.x)||0;
+        ax=head.x+Math.cos(ang)*28*k; ay=head.y+Math.sin(ang)*28*k+bob*0.5;
+      }
+      ctx.globalAlpha=0.42*wvArrowA*(0.85+0.15*Math.sin(now*0.005));
+      _chevron(ctx,ax,ay,ang,k*0.8,trip,now);
+      ctx.globalAlpha=1; window.__ml.arrows++;
+    }
     // METEOR TAIL
     wvHeadTrail.unshift({x:head.x,y:head.y}); if(wvHeadTrail.length>16) wvHeadTrail.pop();
     if(wvHeadTrail.length>=2){ const hd=wvHeadTrail[0],tl=wvHeadTrail[wvHeadTrail.length-1]; const ang=Math.atan2(hd.y-tl.y,hd.x-tl.x)+Math.PI/2;
       ctx.beginPath(); for(let i=0;i<wvHeadTrail.length;i++){ const tt=i/wvHeadTrail.length; const off=Math.sin(now*0.036+i*0.6)*5*k*tt; const x=wvHeadTrail[i].x+Math.cos(ang)*off,y=wvHeadTrail[i].y+Math.sin(ang)*off; i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
       const g=ctx.createLinearGradient(hd.x,hd.y,tl.x,tl.y); g.addColorStop(0,'rgba('+trip+',0.85)'); g.addColorStop(1,'rgba('+WV_DEEP+',0)'); ctx.strokeStyle=g; ctx.lineWidth=10*k; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.stroke(); }
-    wvGlow3(ctx,head.x,head.y,rHead,trip);   // comet head
+    wvGlow3(ctx,head.x,head.y,rHead,trip); window.__ml.lights++; window.__wvPhase=wvPhase;   // comet head
     // ARRIVAL BLOOM + residual joint glow
     if(head.vi!==wvPrevVi && head.vi>0){ wvPrevVi=head.vi; const j=P[Math.min(head.vi,P.length-1)]; wvBloom(j.x,j.y,k,trip); }
     for(let vi=1; vi<=Math.min(head.vi,P.length-1); vi++){ const j=P[vi]; wvOrb(ctx,j.x,j.y,8*k,wvRamp(1-Math.abs(2*(vi/segCount)-1),hot),0.4); }
