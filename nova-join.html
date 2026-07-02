@@ -850,27 +850,36 @@ function hideAuras(){ document.querySelectorAll('#aura-layer .aura.on').forEach(
 async function startFlow(){
   $('start-btn').disabled=true; $('cam-warn').textContent='loading…';
   logPost('start',{ ua:navigator.userAgent, w:innerWidth, h:innerHeight });
-  if(!/[?&]nonova/.test(location.search)) connectNova();   // ?nonova = game only, skip Nova
+  if(!/[?&]nonova/.test(location.search)){
+    window.__novaRevealed=false; window.__novaVideoArrived=false; window.__novaAudioArrived=false;
+    connectNova();   // ?nonova = game only, skip Nova
+  }
   const okCam=await ensureCamera(); if(!okCam){ $('start-btn').disabled=false; return; }
   // non-fatal: if the model is slow/unreachable, proceed anyway (pose just won't fire)
   await Promise.race([ ensureModel().catch(()=>{}), new Promise(r=>setTimeout(r,12000)) ]);
   $('cam-warn').textContent='';
   readAge();                                 // P3: indirect age read (fire & forget; updates worker)
   $('start-screen').classList.add('hidden');
-  if(/[?&]nonova/.test(location.search)) startDance();   // no Nova → skip the "waking Nova" greet, go straight to the game + detection
-  else showGreet();                          // Phase 1: Nova's live avatar greets the kid (camera on)
+  if(/[?&]nonova/.test(location.search)){ startDance(); return; }   // no Nova → skip greet, straight to game
+  await playIntro();                         // Nova's intro clip plays while she wakes in the background (covers cold-start)
+  showGreet();                               // Phase 1: Nova's live avatar greets the kid (camera on)
 }
 
 // Phase 1 — live Nova says hi BEFORE any dance video. Camera is on so she "sees" the kid.
 // Pose detection is NOT running yet (MoveNet would starve the CPU and choppy her greeting).
 function showGreet(){
-  window.__novaRevealed=false; window.__novaVideoArrived=false; window.__novaAudioArrived=false;
   $('greet-screen').classList.remove('hidden');
   const gc=$('greet-cam'); if(gc && camStream){ try{ gc.srcObject=camStream; gc.play().catch(()=>{}); }catch(e){} }
+  // GATE: don't let the kid jump into a Nova-LESS dance — the button waits for her to actually arrive.
+  if(window.__novaRevealed){ enableLetsDance(); return; }            // she already woke during the intro clip
+  const ld=$('lets-dance-btn'); if(ld){ ld.disabled=true; ld.style.opacity='.45'; ld.textContent='waking Nova…'; }
   greetStatus('waking Nova…');
-  // gentle wait feedback while the worker cold-starts (~45s). Button is always tappable.
-  setTimeout(()=>{ if(!window.__novaRevealed && !window.__danceStarted) greetStatus('almost there… (or tap Let\'s Dance)'); }, 9000);
+  setTimeout(()=>{ if(!window.__novaRevealed && !window.__danceStarted) greetStatus('almost there… 💜'); }, 9000);
+  // safety: never trap the kid — if Nova still hasn't woken after 35s, let them start anyway.
+  setTimeout(()=>{ if(!window.__danceStarted && !window.__novaRevealed) enableLetsDance("Nova's still waking — tap to dance!"); }, 35000);
 }
+// enable the "Let's Dance" button (Nova arrived, or a fallback/timeout fired)
+function enableLetsDance(msg){ const ld=$('lets-dance-btn'); if(ld){ ld.disabled=false; ld.style.opacity='1'; ld.textContent="💃 Let's Dance!"; } if(msg) greetStatus(msg); }
 function greetStatus(t){ const e=$('greet-status'); if(e) e.textContent=t||''; }
 
 // "Let's Dance!" → leave the greet into the game. Detection starts NOW (not during the
@@ -1379,7 +1388,7 @@ async function connectNova(initialPhase='recognition'){
     // NOTE: client-ready (which releases her greeting) is sent by maybeReveal()
     // AFTER both tracks arrive + a 1500ms "presence-first" hold (the magic reveal).
   }catch(e){ console.warn('Nova session failed:', e.message); novaStatus('Nova offline — game still works');
-    greetStatus("Nova's napping 😴 tap Let's Dance!"); setTimeout(()=>novaStatus(''),2600); }
+    setTimeout(()=>novaStatus(''),2600); enableLetsDance("Nova's napping 😴 tap Let's Dance!"); }
   finally{ novaConnecting=false; }
 }
 
@@ -1401,6 +1410,7 @@ function maybeReveal(){
     novaSend({ kind:'client-ready' });               // NOW release her greeting
     novaStatus('Nova is here!'); setTimeout(()=>novaStatus(''),1500);
     greetStatus(MEM.name ? ("hey "+MEM.name+"! 💜 tap Let's Dance") : "hi! 💜 talk to me, or tap Let's Dance");
+    enableLetsDance();                               // Nova has ARRIVED → now the kid can start (never before)
   }, 1500);                                          // 1500ms presence-first hold
 }
 // one silent vision "look" for the magic opener (sets observed_visual on the worker,
