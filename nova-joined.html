@@ -1034,6 +1034,8 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 function showPhase(id){
   document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  // TASK 4: phase transitions with timestamps → session log (the loop's eyes, forever)
+  (window.__phaseLog = window.__phaseLog || []).push({ phase: id, at: Math.round(performance.now()) });
 }
 function onArrivalTap(){
   // v103: log first so we know click registered
@@ -4059,6 +4061,9 @@ function startGame() {
     try { const _fv = document.getElementById('nova-face-video'); if (_fv) _fv.pause(); } catch(e) {} }
   score = 0; hits = 0; attempts = 0; combo = 0; maxCombo = 0; timelineIdx = 0;
   anticipatedIdx.clear(); // reset anticipation tracking for fresh play
+  // TASK 4: snapshot layout while the game panels are actually visible (endGame hides them)
+  setTimeout(()=>{ try{ const c=document.getElementById('cam-side'), n=document.getElementById('nova-side');
+    window.__layoutSnap={ camPanelW:c?c.offsetWidth:0, novaPanelW:n?n.offsetWidth:0, camDominant:!!(c&&n&&c.offsetWidth>n.offsetWidth) }; }catch(e){} }, 1200);
   document.getElementById('game-score').textContent = '0';
   document.getElementById('game-progress').style.width = '0%';
   freezeBuffer = null;
@@ -4468,11 +4473,21 @@ function endGame() {
     `${hits} of ${attempts} moves · best streak: ${maxCombo}`;
 
   // AUTO-SAVE full session to Downloads (frontend record; backend logged on the worker).
-  try{ const summary={ date:new Date().toISOString(), game:'hello-hello', score, hits, attempts, maxCombo,
-      detector:{ backend:window.__tfBackend||'', error:window.__tfBackendError||'', loopFps:window.__poseAttemptFPS||0, loopFpsPeak:window.__poseAttemptFPSPeak||0, detectFps:window.__poseFPS||0, frames:window.__poseFrames||0, iterDurs:(window.__poseDur||[]).slice(-12), calibrated:!!window.__calibratedAt },  // TASK 0+2 evidence
+  try{ const _v=document.getElementById('nova-video'), _cam=document.getElementById('cam-side'), _nv=document.getElementById('nova-side');
+    const summary={ date:new Date().toISOString(),
+      game: window.__selectedSongId || (selectedSong&&selectedSong.id) || '?',   // was hardcoded 'hello-hello'
+      score, hits, attempts, maxCombo,
+      // TASK 4: full self-report — every field the PASS/FAIL loop needs, with real values
+      detector:{ backend:window.__tfBackend||'', error:window.__tfBackendError||'', loopFps:window.__poseAttemptFPS||0, loopFpsPeak:window.__poseAttemptFPSPeak||0, detectFps:window.__poseFPS||0, frames:window.__poseFrames||0, iterDurs:(window.__poseDur||[]).slice(-12), calibrated:!!window.__calibratedAt },
+      mp4:{ src:(_v&&_v.currentSrc||'').split('/').pop(), videoWidth:_v?_v.videoWidth:0, reachedS:_v?+(_v.currentTime||0).toFixed(1):0, durationS:_v&&_v.duration?+_v.duration.toFixed(1):0, ended:!!(_v&&_v.ended) },
+      layout: window.__layoutSnap || { camPanelW:_cam?_cam.offsetWidth:0, novaPanelW:_nv?_nv.offsetWidth:0, camDominant:!!(_cam&&_nv&&_cam.offsetWidth>_nv.offsetWidth) },
+      cues:{ fired:window.__cuesFired||0, log:(window.__cueLog||[]).slice(0,40) },
+      lightsDrawn:window.__lightsDrawn||0,
+      phases:(window.__phaseLog||[]).slice(0,20),
+      wake:{ connectStartMs:window.__connectStartMs??null, connectDoneMs:window.__connectDoneMs??null, audioTrackMs:window.__audioTrackMs??null, firstWordMs:window.__firstWordMs??null, voiceOnly:!!window.__voiceOnlyMode },
       name:(memory&&memory.name)||null, sessions:(memory&&memory.sessions_count)||null };
     const blob=new Blob([JSON.stringify(summary,null,1)],{type:'application/json'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='nova-hello-session.json';
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='nova-session.json';   // TASK 4: one name, every game
     document.body.appendChild(a); a.click(); setTimeout(()=>{ a.remove(); URL.revokeObjectURL(a.href); },1000); }catch(e){}
 
   // nova-joined: a forward "hook" so the ritual has a tomorrow. Teases the NEXT
