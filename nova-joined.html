@@ -1010,8 +1010,9 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 <div id="version-tag">💚 V113 — MIC INJECTION · REAL FACE TEST</div>
 
 <!-- Pose Detection -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.20.0/dist/tf-backend-wasm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 <script src="nova-light.js"></script>
 <script src="nova-report.js"></script>
 <script src="nova-tracker.js"></script>
@@ -2959,16 +2960,69 @@ async function initDetector() {
     return;
   }
   console.log('initDetector: tf version', tf.version?.tfjs);
-  // WebGL is fastest, but fall back to CPU so low-end tablets (or no-GL contexts) still
-  // get pose detection instead of silently running with no light.
-  try{ await tf.setBackend('webgl'); }catch(e){ try{ await tf.setBackend('cpu'); }catch(_){} }
+  // TASK 0 (fable5): detection MUST run at real fps. Backend policy (all loudly logged):
+  //   1. webgl first (fastest when the GPU is free).
+  //   2. If webgl can't init (HW-accel off / blocklist) → WASM (CPU-SIMD ~20-30fps), NOT
+  //      the pure-JS cpu backend (1 frame / 2-3s — the bug that crippled all detection).
+  //   3. A live watchdog (below) re-checks measured fps: on iGPUs the game's MP4 + glow
+  //      rendering saturates the GPU and webgl inference stalls for SECONDS — if fps stays
+  //      low, we auto-switch the running detector to WASM and log the switch.
+  window.__tfBackend=''; window.__tfBackendError='';
+  try{ if(tf.wasm && tf.wasm.setWasmPaths) tf.wasm.setWasmPaths('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.20.0/dist/'); }catch(_){}
+  let wgl=false, wglErr='';
+  try{ wgl = await tf.setBackend('webgl'); }catch(e){ wglErr=(e&&e.message)||String(e); }
+  if(!wgl){
+    window.__tfBackendError = 'WebGL FAILED to init' + (wglErr?(': '+wglErr):' (setBackend=false — GPU/hardware-acceleration off?)') + ' → using WASM';
+    console.error('initDetector: ⚠️ ' + window.__tfBackendError);
+    try{ LOG('ERROR', 'TF-BACKEND: ' + window.__tfBackendError); }catch(_){}
+    let wok=false; try{ wok = await tf.setBackend('wasm'); }catch(e){ console.error('initDetector: wasm failed too:', e&&e.message); }
+    if(!wok){ try{ await tf.setBackend('cpu'); }catch(_){} }
+  }
   await tf.ready();
-  console.log('initDetector: TF ready, backend =', tf.getBackend());
+  window.__tfBackend = (tf.getBackend && tf.getBackend()) || '?';
+  console.log('initDetector: TF ready, backend =', window.__tfBackend);
+  try{ LOG('POSE', 'backend=' + window.__tfBackend + (window.__tfBackendError?(' ('+window.__tfBackendError+')'):'')); }catch(_){}
   detector = await poseDetection.createDetector(
     poseDetection.SupportedModels.MoveNet,
     { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
   );
   console.log('initDetector: ✅ MoveNet ready');
+  _startBackendWatchdog();
+}
+
+// TASK 0: live fps watchdog — webgl that measures SLOW (GPU contention with the game's
+// rendering) gets swapped to WASM at runtime. One-way switch, loudly logged.
+let _wdTimer=null;
+function _startBackendWatchdog(){
+  if(_wdTimer) return;
+  let lowStreak=0;
+  _wdTimer=setInterval(async ()=>{
+    if(window.__tfBackend!=='webgl' || !detector) { clearInterval(_wdTimer); return; }
+    const v=document.getElementById('webcam');
+    if(!v || v.readyState<2) return;                    // camera not live yet — don't judge
+    const fps=window.__poseFPS||0;
+    if(fps<8) lowStreak++; else lowStreak=0;
+    if(lowStreak>=3){                                   // ~6s of bad fps with camera live
+      clearInterval(_wdTimer); _wdTimer=null;
+      const msg='webgl measured '+fps+'fps (GPU contention) → switching MoveNet to WASM';
+      console.warn('backend-watchdog: '+msg);
+      try{ LOG('POSE','BACKEND-SWITCH: '+msg); }catch(_){}
+      try{
+        const old=detector; detector=null;              // poseLoop idles during swap
+        try{ old && old.dispose && old.dispose(); }catch(_){}
+        const wok=await tf.setBackend('wasm'); await tf.ready();
+        window.__tfBackend=(tf.getBackend&&tf.getBackend())||'?';
+        detector = await poseDetection.createDetector(
+          poseDetection.SupportedModels.MoveNet,
+          { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING });
+        window.__fpsWin=[]; window.__poseFPSPeak=0;     // fresh fps stats on the new backend
+        try{ LOG('POSE','backend now '+window.__tfBackend+' (watchdog switch, wasmOk='+wok+')'); }catch(_){}
+      }catch(e){
+        console.error('backend-watchdog: WASM switch failed:', e&&e.message);
+        try{ LOG('ERROR','BACKEND-SWITCH failed: '+(e&&e.message)); }catch(_){}
+      }
+    }
+  }, 2000);
 }
 
 function smoothKp(key, kp) {
@@ -2986,10 +3040,14 @@ let _poseLogLast = 0;
 let __prevKeypoints = null;
 window.__motionLevel = 0;
 window.__posePresent = false;
+// TASK 0: poseLoop is NOT chained to requestAnimationFrame — rAF ties inference to the
+// render/vsync pipeline, so the lights/MP4 drawing starved it to 1-2fps on iGPUs. A
+// setTimeout(0) chain lets MoveNet run as fast as the GPU allows, independent of rendering.
+function _poseNext(){ setTimeout(poseLoop, 0); }
 async function poseLoop() {
   const v = document.getElementById('webcam');
   if(!detector || !v || v.readyState < 2) {
-    requestAnimationFrame(poseLoop);
+    setTimeout(poseLoop, 120);
     return;
   }
   // DECOUPLED: MoveNet is INFRASTRUCTURE — it runs whenever the webcam + model are ready,
@@ -2997,12 +3055,22 @@ async function poseLoop() {
   // via window.__cueAction — see the light loop in init().) This is the fix for the
   // "[POSE] 1 frame, 0/17 joints" bug where detection stayed gated off until the dance phase.
   try {
+    const _tGap = performance.now();                              // TASK 0 diag: time each stage
+    window.__poseGapMs = _tGap - (window.__poseIterEnd || _tGap);
     const poses = await detector.estimatePoses(v, { flipHorizontal: false });
+    const _tEst = performance.now(); window.__poseEstMs = _tEst - _tGap;
     if(poses.length > 0) {
       const kps = poses[0].keypoints;
       analyzePose(kps);
+      window.__poseAnaMs = performance.now() - _tEst;
       window.__lastPoseKeypoints = kps;
       window.__poseFrames = (window.__poseFrames||0) + 1;   // module-scope frame counter (self-test)
+      // TASK 0: measured pose FPS (rolling 1s window) — the real health number for detection
+      const _fn = performance.now();
+      const _fw = (window.__fpsWin = window.__fpsWin || []);
+      _fw.push(_fn); while(_fw.length && _fn - _fw[0] > 1000) _fw.shift();
+      window.__poseFPS = _fw.length;
+      window.__poseFPSPeak = Math.max(window.__poseFPSPeak||0, _fw.length);
       window.__posePresent = kps.filter(k => k.score > 0.3).length >= 5;
       
       // v111: compute motion level from keypoint movement frame-to-frame
@@ -3031,7 +3099,7 @@ async function poseLoop() {
         const visibleJoints = kps.filter(k => k.score > 0.3).length;
         const movesStr = Object.entries(moves)
           .map(([k,v]) => `${k}:${v?'T':'.'}`).join(' ');
-        LOG('POSE', `${_poseLogCount} frames, ${visibleJoints}/17 joints, motion=${window.__motionLevel.toFixed(2)}, ${movesStr}`);
+        LOG('POSE', `${_poseLogCount} frames @${window.__poseFPS||0}fps [${window.__tfBackend||'?'}], ${visibleJoints}/17 joints, motion=${window.__motionLevel.toFixed(2)}, ${movesStr}`);
         _poseLogLast = now;
         updateLiveMovesPanel();
       }
@@ -3041,7 +3109,8 @@ async function poseLoop() {
   } catch(e){
     LOG('ERROR', 'poseLoop: ' + e.message);
   }
-  requestAnimationFrame(poseLoop);
+  window.__poseIterEnd = performance.now();
+  _poseNext();
 }
 
 // v94: live moves panel showing what detection sees RIGHT NOW
@@ -4267,6 +4336,7 @@ function endGame() {
 
   // AUTO-SAVE full session to Downloads (frontend record; backend logged on the worker).
   try{ const summary={ date:new Date().toISOString(), game:'hello-hello', score, hits, attempts, maxCombo,
+      detector:{ backend:window.__tfBackend||'', error:window.__tfBackendError||'', fps:window.__poseFPS||0, fpsPeak:window.__poseFPSPeak||0, frames:window.__poseFrames||0 },  // TASK 0 evidence
       name:(memory&&memory.name)||null, sessions:(memory&&memory.sessions_count)||null };
     const blob=new Blob([JSON.stringify(summary,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='nova-hello-session.json';
