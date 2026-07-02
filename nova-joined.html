@@ -1779,7 +1779,16 @@ function handoffFromIntro() {
     let waited = 0;
     const poll = setInterval(() => {
       waited += 250;
-      const bothReady = window.__novaVideoArrived && window.__novaAudioArrived;
+      // VOICE-ONLY FALLBACK (2026-07-02): if her AUDIO is here but video hasn't shown in
+      // 8s more, the worker is running without the Runway face (e.g. credits/outage) —
+      // reveal anyway with the static face so Nova is never "dead" when she can talk.
+      if (window.__novaAudioArrived && !window.__novaVideoArrived && !window.__audioOnlySince) window.__audioOnlySince = Date.now();
+      const audioOnlyReady = window.__audioOnlySince && (Date.now() - window.__audioOnlySince) > 8000;
+      if (audioOnlyReady && !window.__voiceOnlyMode) { window.__voiceOnlyMode = true;
+        LOG('INTRO', 'VOICE-ONLY reveal — audio present, no avatar video (static face shown)');
+        document.querySelectorAll('#rec-avatar-video,#nova-face-video').forEach(v=>{ v.style.display='none'; });
+      }
+      const bothReady = (window.__novaVideoArrived && window.__novaAudioArrived) || audioOnlyReady;
       const minHeld = (Date.now() - (__introShownAt || Date.now())) >= 5000;
       if (capEl && waited === 15000) capEl.textContent = 'connecting' + '…';
       // gate FAILED (>90s, still not both-ready) → friendly retry, do NOT reveal.
@@ -1912,7 +1921,7 @@ async function initDID() {
     // TTL is 10). The kid stared at the orb while it provisioned, so creds are usually
     // in hand at tap-time → room.connect starts ~instantly. Stale/missing → fetch now.
     let sessionPromise, usedPrefetch = false;
-    if (window.__sessionPrefetch && (performance.now() - window.__sessionPrefetchTs) < 480000) {
+    if (window.__sessionPrefetch && (performance.now() - window.__sessionPrefetchTs) < 240000) {   // <4 min: LiveKit closes empty rooms ~5 min
       sessionPromise = window.__sessionPrefetch;
       usedPrefetch = true;
       LOG('RPC-OUT', 'using PREFETCHED create-session (started at page load)');
@@ -2047,7 +2056,7 @@ async function initDID() {
     // wiped tracks that already arrived during a slow connect, firing a false
     // "Nova didn't connect" error at ~30s after publish. Fixed.)
     setTimeout(() => {
-      if (!window.__novaVideoArrived || !window.__novaAudioArrived) {
+      if (!window.__novaAudioArrived) {   // AUDIO is the lifeline; video optional (voice-only fallback)
         LOG('ERROR', `Nova tracks did NOT arrive in 90s (video=${window.__novaVideoArrived}, audio=${window.__novaAudioArrived})`);
         showNovaRetryUI();
       }
