@@ -2184,7 +2184,17 @@ function setupNovaRoomEvents(room) {
   room.on(LivekitClient.RoomEvent.DataReceived, async (payload) => {
     let msg;
     try { msg = JSON.parse(new TextDecoder().decode(payload)); } catch (e) { return; }
-    if (!msg || msg.kind !== 'request-vision') return;
+    if (!msg) return;
+    // GAME-PUSH: Nova TAKES the kid to the game — she says her hype line and the picker
+    // opens. Fires on kid's "let's start/dance!" or when her chit-chat cap hits.
+    if (msg.kind === 'go-picker') {
+      if (memory.phase === 'recognition' && typeof goToPicker === 'function') {
+        LOG('GAME', 'Nova pushed to the game → opening picker');
+        setTimeout(() => { try { goToPicker(); } catch(e){} }, 1800);   // let her line land first
+      }
+      return;
+    }
+    if (msg.kind !== 'request-vision') return;
     try {
       const frame = (typeof captureWebcamFrame === 'function') ? captureWebcamFrame() : null;
       if (!frame) { LOG('VISION', 'request-vision: no frame ready'); if (window.__novaSend) window.__novaSend({ kind: 'vision-observation', text: '(could not see clearly)' }); return; }
