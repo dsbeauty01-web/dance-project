@@ -416,7 +416,9 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
    an opaque black backdrop guarantees no gradient bleed if a frame decodes late. */
 #nova-side{position:relative;overflow:hidden;background:#000}
 #nova-video{position:absolute;inset:0;width:100%;height:100%;
-  object-fit:cover;background:#000;z-index:1;display:block}
+  /* FULL FIGURE (2026-07-02): contain, never cover — cover cropped her to a torso when
+     the panel aspect ≠ video aspect. Black letterbox is fine; a cropped Nova is not. */
+  object-fit:contain;background:#000;z-index:1;display:block}
 
 /* D-ID face — top-left of Nova panel */
 /* D-ID face — FIXED top-center of game phase, straddling the boundary
@@ -540,7 +542,10 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 /* Cam side */
 #cam-side{position:relative;background:#000;overflow:hidden}
 #webcam{position:absolute;inset:0;width:100%;height:100%;
-  object-fit:cover;transform:scaleX(-1);
+  /* FULL CAMERA FRAME (2026-07-02): contain, native aspect, NO artificial zoom — cover
+     magnified a 16:9 stream ~2x (giant face, body off-frame → MoveNet blind). Detection
+     needs shoulders+arms+hips visible. Aura mapping below uses matching contain math. */
+  object-fit:contain;transform:scaleX(-1);
   filter:brightness(1.25) contrast(1.05) saturate(1.1)}
 #cam-border{position:absolute;inset:0;border:6px solid transparent;
   pointer-events:none;z-index:3;transition:all .15s}
@@ -4746,7 +4751,7 @@ window.__initRunwayNova = initDID;
       const e=window.__cueAction, kps=window.__lastPoseKeypoints;
       if(!kps){ eng.render({ anchors:[], center:null, k:1, W:cw, H:ch, quality:0.6, velocity:0, dir:null, active:false, now }); return; }
       const vw=webcam.videoWidth||640, vh=webcam.videoHeight||480;
-      const scale=Math.max(cw/vw,ch/vh), ox=(cw-vw*scale)/2, oy=(ch-vh*scale)/2;
+      const scale=Math.min(cw/vw,ch/vh), ox=(cw-vw*scale)/2, oy=(ch-vh*scale)/2;   // CONTAIN math (webcam is object-fit:contain now)
       const X=p=>cw-(p.x*scale+ox), Y=p=>p.y*scale+oy;   // X mirrored; kps RAW (flip:false)
       const m={}; kps.forEach(k=>m[k.name]=k);
       { const l=m.left_shoulder,r=m.right_shoulder,lh=m.left_hip,rh=m.right_hip; if(l&&r){ const sx=(l.x+r.x)/2,sy=(l.y+r.y)/2,hx=(lh&&rh)?(lh.x+rh.x)/2:sx,hy=(lh&&rh)?(lh.y+rh.y)/2:sy+90; m.__rib={x:sx*0.5+hx*0.5,y:sy*0.45+hy*0.55,score:Math.min(l.score,r.score)}; } }
