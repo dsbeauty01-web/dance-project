@@ -1908,22 +1908,51 @@ async function initDID() {
   try {
     LOG('ROOM', 'Step 1: get camera + mic permission (+ create-session in parallel)');
 
-    // v105: START SESSION CREATION IN PARALLEL with camera prompt
-    // Session create takes 6-30s; camera permission takes 1-3s.
-    // By running them in parallel we save the camera time entirely.
-    // v113-live: novapython worker "front desk". Returns { serverUrl, token,
-    // roomName }. kidId lets the worker load/save THIS kid's memory server-side.
-    if (!window.__kidId) window.__kidId = 'v113-' + Date.now();
-    const sessionPromise = fetch(CFG.RENDER_URL + '/v2/create-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kidId: window.__kidId }),
-    }).catch(e => {
-      LOG('ERROR', '/create-session network failed', { msg: e.message });
-      return null;
-    });
+    // TASK 1: use the PAGE-LOAD PREFETCHED session if it's still fresh (<8 min — token
+    // TTL is 10). The kid stared at the orb while it provisioned, so creds are usually
+    // in hand at tap-time → room.connect starts ~instantly. Stale/missing → fetch now.
+    let sessionPromise;
+    if (window.__sessionPrefetch && (performance.now() - window.__sessionPrefetchTs) < 480000) {
+      sessionPromise = window.__sessionPrefetch;
+      LOG('RPC-OUT', 'using PREFETCHED create-session (started at page load)');
+    } else {
+      sessionPromise = fetch(CFG.RENDER_URL + '/v2/create-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kidId: window.__kidId }),
+      }).catch(e => {
+        LOG('ERROR', '/create-session network failed', { msg: e.message });
+        return null;
+      });
+    }
+    window.__sessionPrefetch = null;   // single-use — a retry must mint a fresh session
     const sessionStart = performance.now();
     LOG('RPC-OUT', 'POST /create-session (parallel with camera)');
+
+    // TASK 1 PRE-CONNECT: LiveKit room.connect() starts the INSTANT creds arrive —
+    // in parallel with the camera prompt, not serialized behind it. On a warm worker
+    // this puts connect-start ~1-2s after the orb tap.
+    const _dTap = () => window.__tapTs ? Math.round(performance.now() - window.__tapTs) : -1;
+    const roomPromise = (async () => {
+      const res = await sessionPromise;
+      if (!res) throw new Error('/create-session returned null (network failed earlier)');
+      if (!res.ok) { const t = await res.text().catch(()=>'(unreadable)'); throw new Error(`/create-session HTTP ${res.status}: ${t.slice(0,120)}`); }
+      const creds = await res.json();
+      if (!creds.serverUrl || !creds.token) throw new Error('/create-session missing creds');
+      window.__novaSessionId = creds.sessionId || creds.id;
+      LOG('RPC-IN', `/create-session READY (${(performance.now()-sessionStart).toFixed(0)}ms)`, { sid: window.__novaSessionId?.slice(0,8) });
+      window.__novaVideoArrived = false;
+      window.__novaAudioArrived = false;
+      const room = new LivekitClient.Room({ adaptiveStream: false, dynacast: false });
+      setupNovaRoomEvents(room);
+      window.__connectStartMs = _dTap();
+      LOG('ROOM', `connecting to LiveKit... (+${window.__connectStartMs}ms after tap, PRE-CONNECT)`);
+      await room.connect(creds.serverUrl, creds.token);
+      window.__connectDoneMs = _dTap();
+      LOG('ROOM', `LiveKit connected (+${window.__connectDoneMs}ms after tap)`);
+      return room;
+    })();
+    roomPromise.catch(()=>{});   // awaited below — this just silences early-rejection noise
 
     let stream;
     try {
@@ -1948,48 +1977,17 @@ async function initDID() {
       LOG('ROOM', 'webcam attached to local element');
     }
 
-    // Now await the session response (likely already in flight by now)
-    const res = await sessionPromise;
-    if (!res) {
-      LOG('ERROR', '/create-session returned null (network failed earlier)');
+    // TASK 1: the room has been connecting since creds arrived (pre-connect above) —
+    // by now it's usually already done. Await + keep the old retry-on-failure behavior.
+    let room;
+    try {
+      room = await roomPromise;
+    } catch(e) {
+      LOG('ERROR', 'pre-connect failed: ' + e.message);
       setTimeout(initDID, 8000);
       return;
     }
-    const provisionMs = (performance.now() - sessionStart).toFixed(0);
-    if (!res.ok) {
-      const t = await res.text().catch(()=>'(unreadable)');
-      LOG('ERROR', `/create-session HTTP ${res.status}`, { body: t });
-      setTimeout(initDID, 8000);
-      return;
-    }
-    const creds = await res.json();
-    if (!creds.serverUrl || !creds.token) {
-      LOG('ERROR', '/create-session missing creds', { creds });
-      setTimeout(initDID, 8000);
-      return;
-    }
-    window.__novaSessionId = creds.sessionId || creds.id;
-    LOG('RPC-IN', `/create-session READY (${provisionMs}ms)`, { sid: window.__novaSessionId?.slice(0,8) });
-    // v113-live: the old nova-rpc-server /session-log and /transcript polling
-    // endpoints do not exist on the novapython worker — disabled. Nova's words
-    // now arrive directly through her LiveKit audio track (worker is the brain).
-    // startServerLogPoll(window.__novaSessionId);
-    // startTranscriptPoll(window.__novaSessionId);
-
-    // Connect LiveKit room
-    // Reset track-arrival flags BEFORE wiring handlers + connecting, so tracks
-    // that arrive DURING a slow connect set them true and are NOT wiped after
-    // (the old reset ran post-connect and caused a false "didn't connect" error).
-    window.__novaVideoArrived = false;
-    window.__novaAudioArrived = false;
-    // adaptiveStream/dynacast OFF: they dynamically down-rez the single avatar
-    // track and were contributing to choppy/distorted audio. Full quality instead.
-    const room = new LivekitClient.Room({ adaptiveStream: false, dynacast: false });
-    setupNovaRoomEvents(room);
-    LOG('ROOM', 'connecting to LiveKit...');
-    await room.connect(creds.serverUrl, creds.token);
     window.__novaRoom = room;
-    LOG('ROOM', 'LiveKit connected');
 
     // Phase-1 STT swap (Jun 17 2026): PUBLISH the mic to the worker. STT is now
     // Deepgram Nova-3 server-side (replaces browser SpeechRecognition). The worker
@@ -2139,13 +2137,19 @@ function setupNovaRoomEvents(room) {
         ac.createMediaStreamSource(ms).connect(an);
         const buf = new Uint8Array(an.frequencyBinCount);
         window.__novaSpeakingNow = false;
-        setInterval(() => { an.getByteFrequencyData(buf); let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i]; window.__novaSpeakingNow = (s / buf.length) > 7; }, 100);
+        setInterval(() => { an.getByteFrequencyData(buf); let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i]; window.__novaSpeakingNow = (s / buf.length) > 7;
+          if (window.__novaSpeakingNow && !window.__firstWordMs && window.__tapTs) {   // TASK 1: measured tap→first-WORD
+            window.__firstWordMs = Math.round(performance.now() - window.__tapTs);
+            LOG('WAKE', `Nova FIRST WORD (+${window.__firstWordMs}ms after tap)`);
+          } }, 100);
       } catch (e) { LOG('AUDIO', 'sound-detector unavailable: ' + e.message); }
       a.play().catch(()=>{});
       LOG('AUDIO', 'Nova audio track attached + playing');
       window.__runwayAudioReady = true;
       window.__novaAudioArrived = true;
       window.__novaAudioArrivedAt = Date.now();  // v102: STT budget starts now
+      if (window.__tapTs && !window.__audioTrackMs) { window.__audioTrackMs = Math.round(performance.now() - window.__tapTs);
+        LOG('WAKE', `Nova audio track (+${window.__audioTrackMs}ms after tap)`); }
       // v110 KIDS — closeup mode when Nova arrives (Pattern 1)
       setAvatarCloseup(true);
       setNovaState('talking');
@@ -4431,6 +4435,8 @@ function endGame() {
 // PHASE WIRING
 // ═══════════════════════════════════════════════════════════════
 document.addEventListener('arrival-done', async () => {
+  window.__tapTs = performance.now();          // TASK 1: t0 for wake→connect→first-word metrics
+  LOG('WAKE', 'orb tap (t0)');
   memory.phase = 'recognition';
   window.__recognitionStartedAt = Date.now();  // v96: for STT 90s cutoff
   showPhase('phase-recognition');
@@ -4514,6 +4520,20 @@ window.addEventListener('beforeunload', () => {
 fetch(CFG.RENDER_URL + '/health', { method: 'GET' })
   .then(r => LOG('BOOT', `server pre-wake: ${r.status}`))
   .catch(e => LOG('BOOT', `server pre-wake failed: ${e.message}`));
+// TASK 1 PREFETCH: provision the LiveKit session (room + Nova dispatch) at PAGE LOAD,
+// while the kid is still looking at the orb. By tap-time the creds are already here and
+// room.connect starts ~instantly. Token TTL 10 min; initDID treats >8 min as stale.
+if (!window.__kidId) window.__kidId = 'v113-' + Date.now();
+window.__sessionPrefetchTs = performance.now();
+window.__sessionPrefetch = fetch(CFG.RENDER_URL + '/v2/create-session', {
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ kidId: window.__kidId }),
+}).then(r => { LOG('BOOT', `session PREFETCH done (${r.status}) — creds ready before tap`); return r; })
+  .catch(e => { LOG('BOOT', `session prefetch failed: ${e.message}`); return null; });
+// TASK 1 KEEP-WARM: re-ping every 4 min while the page is open so the free-tier server
+// (sleeps after ~15 min idle) never goes cold mid-visit. External cron covers closed-page
+// gaps (.github/workflows/keepwarm.yml).
+setInterval(() => { fetch(CFG.RENDER_URL + '/health').catch(()=>{}); }, 240000);
 
 initEars();
 initDetector().then(() => poseLoop()).catch(()=>{});
