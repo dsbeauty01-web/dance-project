@@ -1300,6 +1300,11 @@ function cancelPendingFiller() {
   }
 }
 function schedulePresenceFiller(delayMs = 300) {
+  // VOICE-LOSS FIX (2026-07-02, from nova-log 09-12): NEVER play a speaker filler while a
+  // live Nova session exists — the kid's published mic picks it up, the worker's VAD reads
+  // it as "kid talking" and INTERRUPTS Nova's in-flight reply → she goes silent after every
+  // question. The worker paces itself; local fillers are only for offline/no-Nova mode.
+  if (window.__novaRoom) return;
   cancelPendingFiller();
   __pendingFillerTimer = setTimeout(async () => {
     // If Nova already started talking by now, don't play the filler
@@ -2343,12 +2348,9 @@ window._sendChat = async function() {
   schedulePresenceFiller(1500);
   // Show in our chat bubble immediately so kid sees their input
   handleKidInput(text);
-  // v104: speak the typed text into Runway via TTS-to-mic-track replacement
-  try {
-    await speakTextIntoMic(text);
-  } catch (e) {
-    LOG('ERROR', 'speakTextIntoMic failed', { msg: e.message });
-  }
+  // VOICE-LOSS FIX (2026-07-02): the old speakTextIntoMic path fetched a TTS endpoint that
+  // no longer exists (404) — handleKidInput already sends 'user-said' to the worker, which
+  // IS the proven reply path. The dead call added noise + risk, so it's gone.
 };
 
 // v104: speak typed text via ElevenLabs TTS, route through Web Audio into mic track.
