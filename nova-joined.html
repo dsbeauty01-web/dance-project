@@ -2987,6 +2987,18 @@ async function initDetector() {
     { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
   );
   console.log('initDetector: ✅ MoveNet ready');
+  // TASK 0: WARM-UP — the FIRST webgl inference compiles shaders (~16s measured on Intel
+  // iGPU!). Pay that cost NOW, at page load on a dummy frame, so the first real camera
+  // frame is instant instead of stalling 16s into the intro/game.
+  try{
+    const wc=document.createElement('canvas'); wc.width=640; wc.height=480;
+    wc.getContext('2d').fillRect(0,0,640,480);
+    const t0=performance.now();
+    await detector.estimatePoses(wc); await detector.estimatePoses(wc);
+    const ms=Math.round(performance.now()-t0);
+    console.log('initDetector: warm-up done in '+ms+'ms');
+    try{ LOG('POSE','warm-up '+ms+'ms (shader compile absorbed at load)'); }catch(_){}
+  }catch(e){ console.warn('initDetector: warm-up failed (non-fatal):', e&&e.message); }
   _startBackendWatchdog();
 }
 
@@ -3000,11 +3012,11 @@ function _startBackendWatchdog(){
     if(window.__tfBackend!=='webgl' || !detector) { clearInterval(_wdTimer); return; }
     const v=document.getElementById('webcam');
     if(!v || v.readyState<2) return;                    // camera not live yet — don't judge
-    const fps=window.__poseFPS||0;
+    const fps=window.__poseAttemptFPS||0;               // ATTEMPT rate — empty room must not trigger a switch
     if(fps<8) lowStreak++; else lowStreak=0;
     if(lowStreak>=3){                                   // ~6s of bad fps with camera live
       clearInterval(_wdTimer); _wdTimer=null;
-      const msg='webgl measured '+fps+'fps (GPU contention) → switching MoveNet to WASM';
+      const msg='webgl measured '+fps+' attempts/s (GPU contention) → switching MoveNet to WASM';
       console.warn('backend-watchdog: '+msg);
       try{ LOG('POSE','BACKEND-SWITCH: '+msg); }catch(_){}
       try{
@@ -3015,7 +3027,7 @@ function _startBackendWatchdog(){
         detector = await poseDetection.createDetector(
           poseDetection.SupportedModels.MoveNet,
           { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING });
-        window.__fpsWin=[]; window.__poseFPSPeak=0;     // fresh fps stats on the new backend
+        window.__fpsWin=[]; window.__poseFPSPeak=0; window.__attWin=[]; window.__poseAttemptFPSPeak=0;  // fresh fps stats on the new backend
         try{ LOG('POSE','backend now '+window.__tfBackend+' (watchdog switch, wasmOk='+wok+')'); }catch(_){}
       }catch(e){
         console.error('backend-watchdog: WASM switch failed:', e&&e.message);
@@ -3045,8 +3057,10 @@ window.__posePresent = false;
 // setTimeout(0) chain lets MoveNet run as fast as the GPU allows, independent of rendering.
 function _poseNext(){ setTimeout(poseLoop, 0); }
 async function poseLoop() {
+  window.__poseIter=(window.__poseIter||0)+1;               // TASK 0 diag: loop entries
   const v = document.getElementById('webcam');
   if(!detector || !v || v.readyState < 2) {
+    window.__poseBail=(window.__poseBail||0)+1;
     setTimeout(poseLoop, 120);
     return;
   }
@@ -3059,6 +3073,14 @@ async function poseLoop() {
     window.__poseGapMs = _tGap - (window.__poseIterEnd || _tGap);
     const poses = await detector.estimatePoses(v, { flipHorizontal: false });
     const _tEst = performance.now(); window.__poseEstMs = _tEst - _tGap;
+    // TASK 0: TRUE loop fps = estimate ATTEMPTS/sec (poses found or not). The old counter
+    // only ticked on DETECTED poses, so an empty room read as "1fps" and looked like a
+    // backend problem. Detected-pose rate is tracked separately below.
+    { const _fw2=(window.__attWin=window.__attWin||[]); _fw2.push(_tEst);
+      while(_fw2.length && _tEst-_fw2[0]>1000) _fw2.shift();
+      window.__poseAttemptFPS=_fw2.length;
+      window.__poseAttemptFPSPeak=Math.max(window.__poseAttemptFPSPeak||0,_fw2.length);
+      const _dur=(window.__poseDur=window.__poseDur||[]); _dur.push(Math.round(_tEst-_tGap)); if(_dur.length>30) _dur.shift(); }
     if(poses.length > 0) {
       const kps = poses[0].keypoints;
       analyzePose(kps);
@@ -3099,7 +3121,7 @@ async function poseLoop() {
         const visibleJoints = kps.filter(k => k.score > 0.3).length;
         const movesStr = Object.entries(moves)
           .map(([k,v]) => `${k}:${v?'T':'.'}`).join(' ');
-        LOG('POSE', `${_poseLogCount} frames @${window.__poseFPS||0}fps [${window.__tfBackend||'?'}], ${visibleJoints}/17 joints, motion=${window.__motionLevel.toFixed(2)}, ${movesStr}`);
+        LOG('POSE', `${_poseLogCount} frames · loop@${window.__poseAttemptFPS||0}fps · detect@${window.__poseFPS||0}fps [${window.__tfBackend||'?'}], ${visibleJoints}/17 joints, motion=${window.__motionLevel.toFixed(2)}, ${movesStr}`);
         _poseLogLast = now;
         updateLiveMovesPanel();
       }
@@ -3107,6 +3129,7 @@ async function poseLoop() {
       window.__posePresent = false;
     }
   } catch(e){
+    window.__poseErr=(window.__poseErr||0)+1; window.__poseErrLast=e.message;
     LOG('ERROR', 'poseLoop: ' + e.message);
   }
   window.__poseIterEnd = performance.now();
@@ -4336,7 +4359,7 @@ function endGame() {
 
   // AUTO-SAVE full session to Downloads (frontend record; backend logged on the worker).
   try{ const summary={ date:new Date().toISOString(), game:'hello-hello', score, hits, attempts, maxCombo,
-      detector:{ backend:window.__tfBackend||'', error:window.__tfBackendError||'', fps:window.__poseFPS||0, fpsPeak:window.__poseFPSPeak||0, frames:window.__poseFrames||0 },  // TASK 0 evidence
+      detector:{ backend:window.__tfBackend||'', error:window.__tfBackendError||'', loopFps:window.__poseAttemptFPS||0, loopFpsPeak:window.__poseAttemptFPSPeak||0, detectFps:window.__poseFPS||0, frames:window.__poseFrames||0, iterDurs:(window.__poseDur||[]).slice(-12) },  // TASK 0 evidence
       name:(memory&&memory.name)||null, sessions:(memory&&memory.sessions_count)||null };
     const blob=new Blob([JSON.stringify(summary,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='nova-hello-session.json';
