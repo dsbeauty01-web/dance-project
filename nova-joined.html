@@ -1911,9 +1911,10 @@ async function initDID() {
     // TASK 1: use the PAGE-LOAD PREFETCHED session if it's still fresh (<8 min — token
     // TTL is 10). The kid stared at the orb while it provisioned, so creds are usually
     // in hand at tap-time → room.connect starts ~instantly. Stale/missing → fetch now.
-    let sessionPromise;
+    let sessionPromise, usedPrefetch = false;
     if (window.__sessionPrefetch && (performance.now() - window.__sessionPrefetchTs) < 480000) {
       sessionPromise = window.__sessionPrefetch;
+      usedPrefetch = true;
       LOG('RPC-OUT', 'using PREFETCHED create-session (started at page load)');
     } else {
       sessionPromise = fetch(CFG.RENDER_URL + '/v2/create-session', {
@@ -1941,6 +1942,15 @@ async function initDID() {
       if (!creds.serverUrl || !creds.token) throw new Error('/create-session missing creds');
       window.__novaSessionId = creds.sessionId || creds.id;
       LOG('RPC-IN', `/create-session READY (${(performance.now()-sessionStart).toFixed(0)}ms)`, { sid: window.__novaSessionId?.slice(0,8) });
+      if (usedPrefetch && creds.roomName) {
+        // prefetched session was created dispatch:false → summon Nova NOW (at tap),
+        // in parallel with room.connect. She joins a room the kid is entering.
+        fetch(CFG.RENDER_URL + '/v2/dispatch', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roomName: creds.roomName, kidId: window.__kidId }),
+        }).then(r => LOG('ROOM', `Nova dispatched at tap (${r.status})`))
+          .catch(e => LOG('ERROR', 'tap dispatch failed: ' + e.message));
+      }
       window.__novaVideoArrived = false;
       window.__novaAudioArrived = false;
       const room = new LivekitClient.Room({ adaptiveStream: false, dynacast: false });
@@ -4525,9 +4535,11 @@ fetch(CFG.RENDER_URL + '/health', { method: 'GET' })
 // room.connect starts ~instantly. Token TTL 10 min; initDID treats >8 min as stale.
 if (!window.__kidId) window.__kidId = 'v113-' + Date.now();
 window.__sessionPrefetchTs = performance.now();
+// dispatch:false → room+token only. Nova is summoned via /v2/dispatch AT THE TAP —
+// dispatching her into an empty room at page load left her tracks unpublished (verified).
 window.__sessionPrefetch = fetch(CFG.RENDER_URL + '/v2/create-session', {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ kidId: window.__kidId }),
+  body: JSON.stringify({ kidId: window.__kidId, dispatch: false }),
 }).then(r => { LOG('BOOT', `session PREFETCH done (${r.status}) — creds ready before tap`); return r; })
   .catch(e => { LOG('BOOT', `session prefetch failed: ${e.message}`); return null; });
 // TASK 1 KEEP-WARM: re-ping every 4 min while the page is open so the free-tier server
