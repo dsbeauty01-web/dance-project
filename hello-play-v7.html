@@ -12,6 +12,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.20.0/dist/tf-core.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.20.0/dist/tf-converter.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.20.0/dist/tf-backend-webgl.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-cpu@4.20.0/dist/tf-backend-cpu.min.js"></script><!-- fallback backend: without it a WebGL-fail device has NO detection at all -->
+
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 <style>
   :root{ --pink:#00e5c0; --grn:#00ff99; --yel:#ff9f1c; --bg:#031a1f; }
@@ -197,6 +199,30 @@ function novaVideoFallback(v){
 window.addEventListener('DOMContentLoaded', ()=>{
   const v=$('nova-demo'); if(v && !v.src){ v.src = NOVA_VIDEO_CANDIDATES[0]; v.load(); v.pause(); }
 });
+// FIX 1 (green screen): a candidate that 404s fires 'error', but one whose DECODE fails
+// keeps "playing" while painting a solid block (classically green). Probe REAL pixels
+// shortly after play: no frames, or a uniform/green frame → next candidate → after all,
+// the poster face. Never leave a colored block on screen.
+let _probeAdvancedAt=0;
+function probeNovaVideo(){
+  const v=$('nova-demo');
+  if(!v || v.style.display==='none' || performance.now()-_probeAdvancedAt<1500) return;
+  const advance=()=>{ _probeAdvancedAt=performance.now(); novaVideoFallback(v); setTimeout(probeNovaVideo,1800); };
+  try{
+    if(!v.videoWidth){ console.warn('nova-demo: no frames within probe window → fallback'); advance(); return; }
+    const c=document.createElement('canvas'); c.width=48; c.height=64;
+    const ctx=c.getContext('2d',{willReadFrequently:true});
+    ctx.drawImage(v,0,0,48,64);
+    const d=ctx.getImageData(0,0,48,64).data;
+    let n=0,sr=0,sg=0,sb=0; for(let i=0;i<d.length;i+=4){ sr+=d[i]; sg+=d[i+1]; sb+=d[i+2]; n++; }
+    const mr=sr/n, mg=sg/n, mb=sb/n; let varSum=0;
+    for(let i=0;i<d.length;i+=4){ varSum+=Math.abs(d[i]-mr)+Math.abs(d[i+1]-mg)+Math.abs(d[i+2]-mb); }
+    const spread=varSum/n;                                   // ~0 = one solid colour
+    const greenish = mg>110 && mg>mr*1.6 && mg>mb*1.6;       // the reported green block
+    window.__novaProbe={ src:(v.currentSrc||v.src||'').split('/').pop(), mr:Math.round(mr), mg:Math.round(mg), mb:Math.round(mb), spread:+spread.toFixed(1), greenish };
+    if(spread<6 || greenish){ console.warn('nova-demo paints a solid block → fallback', JSON.stringify(window.__novaProbe)); advance(); }
+  }catch(e){ /* decode race — the next scheduled probe retries */ }
+}
 
 // ── MOVES (Hello Hello — 7 actions, LENIENT for kids; check(d) reads det) ───
 const MOVES = {
@@ -286,16 +312,20 @@ const TIMELINE_RAW = [
   {t:91000, type:'close', action:'shrug'},
   {t:92000, type:'lyric', text:"🌟 Amazing! 🌟"},
 ];
-// TIMING: events fire at their authored times (the times below are tuned to the song's
-// vocal/beat positions). No global offset — earlier builds shifting everything -1500ms
-// made cues land too early. Demo shows the move as a preview; scoring opens at 'open'.
-const TIMELINE_OFFSET = 0;
+// TIMING: the times above were authored against a TRIMMED song ("hello.mp3") that never
+// landed in the repo (it's a 2-byte stub) — so the game actually plays shit.mp3, whose
+// first vocal phrase starts ~17.5s (energy analysis in nova-joined.html; songmap: intro
+// 0-15s is sacred, first cue ~16-17s). Shift the whole timeline +7400ms so the first
+// scored cue opens at 17.2s and nothing scores inside the intro.
+const TIMELINE_OFFSET = -7400;
 const TIMELINE = TIMELINE_RAW.map(e => ({ ...e, t: Math.max(0, e.t - TIMELINE_OFFSET) }));
 const SONG_END = 111;   // full song length; real end follows the audio (see gameTick / song 'ended')
 
 // ── THE CLOCK (JS source of truth; song layered ON it; runs silent if no file) ───
 // Song filename has changed across versions — try the names this repo has used.
-const SONG_CANDIDATES = ['hello.mp3','shit.mp3','hello (1).mp3','hello (6).mp3','freeze.mp3'];
+// shit.mp3 FIRST: it is the real 111s song. hello.mp3 in this repo is a 2-byte stub
+// (invalid mp3) — starting with it forced an error+reload dance on every boot.
+const SONG_CANDIDATES = ['shit.mp3','hello.mp3','hello (1).mp3','hello (6).mp3','freeze.mp3'];
 let _songTry = 0;
 let startMs=null; const song=new Audio(SONG_CANDIDATES[0]); let audioOK=false;
 song.addEventListener('error', ()=>{
@@ -317,8 +347,19 @@ let prevKp = null;
 
 async function ensureModel(){
   if(detector) return;
-  try{ await tf.setBackend('webgl'); }catch(e){ try{ await tf.setBackend('cpu'); }catch(_){} }
+  // MoveNet MUST run on WebGL (~20-30fps; CPU ≈ frames per SECOND). If WebGL fails we
+  // log LOUDLY and fall back to CPU so a slow session is never a silent mystery.
+  window.__tfBackend=''; window.__tfBackendError='';
+  let wgl=false, wglErr='';
+  try{ wgl = await tf.setBackend('webgl'); }catch(e){ wglErr=(e&&e.message)||String(e); }
+  if(!wgl){
+    window.__tfBackendError='WebGL backend FAILED'+(wglErr?': '+wglErr:' (setBackend returned false)');
+    console.error('ensureModel: ⚠️ '+window.__tfBackendError+' → CPU fallback (detection will be VERY slow)');
+    try{ await tf.setBackend('cpu'); }catch(_){}
+  }
   await tf.ready();
+  window.__tfBackend=(tf.getBackend&&tf.getBackend())||'?';
+  console.log('ensureModel: backend='+window.__tfBackend);
   detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,
     { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING });
 }
@@ -336,7 +377,9 @@ async function poseLoop(){
   const v=$('cam');
   if(detector && v && v.readyState>=2){
     let poses=[]; try{ poses = await detector.estimatePoses(v,{flipHorizontal:true}); }catch(e){}
-    if(poses[0]){ window.__lastPoseKeypoints=poses[0].keypoints; analyze(poses[0].keypoints); drawSkeleton(poses[0].keypoints); }
+    if(poses[0]){ window.__lastPoseKeypoints=poses[0].keypoints; analyze(poses[0].keypoints); drawSkeleton(poses[0].keypoints);
+      const fn=performance.now(); const fw=(window.__fpsWin=window.__fpsWin||[]);   // measured pose FPS (1s window)
+      fw.push(fn); while(fw.length && fn-fw[0]>1000) fw.shift(); window.__poseFPS=fw.length; }
     else { det.present=false; window.__litAny=false; clearOverlay(); }
   }
   rafId=requestAnimationFrame(poseLoop);
@@ -390,26 +433,73 @@ function coverMap(){ const v=$('cam'), c=$('overlay');
   return { scale, ox:(cw-vw*scale)/2, oy:(ch-vh*scale)/2 };
 }
 function clearOverlay(){ const c=$('overlay'); c.getContext('2d').clearRect(0,0,c.width,c.height); }
-const ML = { core:'255,253,245', gold:'255,210,122', clean:'191,255,200' };
+const ML = { core:'255,253,245', gold:'255,210,122', clean:'191,255,200', deep:'242,115,12' };
 function _orb(c,x,y,r,trip,alpha){ if(r<=0) return; const g=c.createRadialGradient(x,y,0,x,y,r);
   g.addColorStop(0,'rgba('+trip+',1)'); g.addColorStop(0.45,'rgba('+trip+',0.5)'); g.addColorStop(1,'rgba('+ML.gold+',0)');
   c.globalAlpha=(alpha==null?1:alpha); c.fillStyle=g; c.beginPath(); c.arc(x,y,r,0,7); c.fill(); c.globalAlpha=1; }
+function _lerp(a,b,t){ return a+(b-a)*t; }
+function _chevron(c,cx,cy,ang,k,trip,now){   // small guide arrow (ported from nova-wave)
+  const L=40*k, pts=[[-L*0.45,-L*0.55],[L*0.55,0],[-L*0.45,L*0.55]], w=4.5*k*(1+0.2*Math.sin(now/300));
+  c.save(); c.translate(cx,cy); c.rotate(ang); c.lineCap='round'; c.lineJoin='round';
+  for(const [wm,al,trp] of [[3.0,0.16,ML.gold],[1.5,0.5,trip],[0.7,0.95,ML.core]]){
+    c.beginPath(); c.moveTo(pts[0][0],pts[0][1]); c.lineTo(pts[1][0],pts[1][1]); c.lineTo(pts[2][0],pts[2][1]);
+    c.strokeStyle='rgba('+trp+','+al+')'; c.lineWidth=w*wm; c.stroke(); }
+  c.restore(); }
+// STAR sparkle burst (clap!) — little 4-point stars that fly out and fade
+let _sparks=[], _arrowA=0;
+window.__ml={ lights:0, arrows:0, star:0 };   // FIX 2 evidence counters
+function starBurst(x,y,k,n){ for(let i=0;i<(n||22);i++){ const a=Math.random()*6.283, sp=(0.7+Math.random()*1.5)*k;
+  _sparks.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-0.45*k,born:performance.now(),ttl:450+Math.random()*500,r:(1.3+Math.random()*2.2)*k,seed:Math.random()*6.28}); } }
+function _drawSparks(x){ const now=performance.now(); _sparks=_sparks.filter(s=>{ const age=(now-s.born)/s.ttl; if(age>=1) return false;
+  s.x+=s.vx; s.y+=s.vy; const r=s.r*(1-age*0.5), al=1-age;
+  x.save(); x.translate(s.x,s.y); x.rotate(s.seed+now*0.002);
+  x.strokeStyle='rgba('+ML.core+','+al+')'; x.lineWidth=Math.max(1,r*0.5); x.lineCap='round';
+  x.beginPath(); x.moveTo(-r*2,0); x.lineTo(r*2,0); x.moveTo(0,-r*2); x.lineTo(0,r*2); x.stroke(); x.restore();
+  return true; }); }
+// which way each move LEANS (the comet's tip + guide arrow point this way)
+const LEAN = { clap:'in', both:[0,-1], wave:[0,-1], head:[0,-1], shrug:[0,-1], toes:[0,1], star:'out' };
 function drawSkeleton(kps){
   const c=$('overlay'); const x=c.getContext('2d'); const {scale,ox,oy}=coverMap();
   const X=p=> c.width - (p.x*scale+ox), Y=p=>p.y*scale+oy;   // mirror back to match the mirrored video
   const m={}; kps.forEach(k=>m[k.name]=k);
+  const now=performance.now();
   // fade trail (never clearRect every frame)
   x.globalCompositeOperation='destination-out'; x.fillStyle='rgba(0,0,0,0.16)'; x.fillRect(0,0,c.width,c.height); x.globalCompositeOperation='source-over';
-  const cueKey=(window.__cuePart||''); if(!cueKey){ window.__litAny=false; return; }
-  const parts=CUE_PARTS[cueKey]||[];
+  const cueKey=(window.__cuePart||'');
+  if(!cueKey && !_sparks.length){ window.__litAny=false; return; }
+  const parts=cueKey?(CUE_PARTS[cueKey]||[]):[];
   const hit = window.__cueState==='hit'||window.__cueState==='streak';
   const trip = hit ? ML.clean : ML.gold;
   const ls=m.left_shoulder, rs=m.right_shoulder;
   const unit=(ls&&rs&&ls.score>=0.3&&rs.score>=0.3)?Math.hypot(X(ls)-X(rs),Y(ls)-Y(rs)):180;
-  const k=Math.max(0.4,Math.min(3,unit/220));
+  const k=Math.max(0.4,Math.min(3,unit/220)); window.__k=k;
+  const cx0=(ls&&rs)?(X(ls)+X(rs))/2:c.width/2;
   x.globalCompositeOperation='lighter'; let litAny=false;
-  parts.forEach(n=>{ const j=m[n]; if(j && j.score>=0.3){ litAny=true; const px=X(j),py=Y(j);
-    _orb(x,px,py,36*k,trip,hit?0.95:0.7); _orb(x,px,py,16*k,ML.core,0.9); } });
+  // positions of the cued joints this frame (for lean 'in' + the clap star burst)
+  const pos=[]; parts.forEach(n=>{ const j=m[n]; if(j&&j.score>=0.3) pos.push({n,x:X(j),y:Y(j)}); });
+  if(pos.length) window.__lastPartsMid={ x:pos.reduce((s,p)=>s+p.x,0)/pos.length, y:pos.reduce((s,p)=>s+p.y,0)/pos.length };
+  _arrowA=_lerp(_arrowA, window.__cueState==='armed'?1:0, window.__cueState==='armed'?0.22:0.16);
+  for(const p of pos){ litAny=true;
+    // lean vector for THIS joint
+    let lv=LEAN[cueKey]||[0,-1];
+    if(lv==='in'){ const o=pos.find(q=>q!==p); lv = o? [(o.x-p.x),(o.y-p.y)] : [0,-1]; }
+    else if(lv==='out') lv=[(p.x-cx0)||1,0];
+    const len=Math.hypot(lv[0],lv[1])||1; lv=[lv[0]/len,lv[1]/len];
+    // COMET — fat base ON the joint, narrowing brighter tip pointing where the move goes
+    const L=42*k;
+    _orb(x,p.x,p.y,26*k,trip,hit?0.9:0.55);                       // base glow
+    for(let s=0;s<=5;s++){ const f=s/5;
+      _orb(x, p.x+lv[0]*L*f, p.y+lv[1]*L*f, _lerp(15,4.5,f)*k, f>0.7?ML.core:trip, 0.25+0.55*f); }
+    window.__ml.lights++;
+    // GUIDE ARROW — small, semi-transparent, gently bobbing; fades once he nails it
+    if(_arrowA>0.03){
+      const bob=Math.sin(now*0.006)*3.5*k, ang=Math.atan2(lv[1],lv[0]);
+      x.globalAlpha=0.42*_arrowA*(0.85+0.15*Math.sin(now*0.005));
+      _chevron(x, p.x+lv[0]*(L+14*k), p.y+lv[1]*(L+14*k)+bob, ang, k*0.7, trip, now);
+      x.globalAlpha=1; window.__ml.arrows++;
+    }
+  }
+  _drawSparks(x);
   x.globalCompositeOperation='source-over';
   window.__litAny=litAny;
 }
@@ -444,6 +534,7 @@ function beginGame(){
   startMs=performance.now();                                  // THE CLOCK STARTS (independent of any media)
   try{ song.currentTime=0; song.volume=0.7; song.play().then(()=>audioOK=true).catch(()=>audioOK=false); }catch(e){}
   try{ const nv=$('nova-demo'); if(nv){ nv.currentTime=0; nv.play().catch(()=>{}); } }catch(e){}  // MP4 starts WITH the game, not before
+  setTimeout(probeNovaVideo,1200); setTimeout(probeNovaVideo,2100);   // FIX 1: green-block guard (within 2s)
   $('nova-move').textContent='Watch me — copy! 👋';
   coach('Stand back so I can see your hands! ✋');
   clearInterval(game.tick); game.tick=setInterval(gameTick,60);
@@ -469,8 +560,9 @@ function gameTick(){
   // score the OPEN detection window the first frame the move matches
   if(game.window && !game.window.resolved){
     const mv=MOVES[game.window.action];
-    if(mv && det.present && mv.check(det,base)) resolveHit();
-    else if(window.__litAny===false) coach('stand back — show me your hands! ✋');
+    const pass = mv && det.present && mv.check(det,base);
+    if(pass){ game.window.freeFun ? resolveCelebrate() : resolveHit(); }
+    else if(!game.window.freeFun && window.__litAny===false) coach('stand back — show me your hands! ✋');
   }
 }
 function dispatch(ev){ switch(ev.type){
@@ -495,14 +587,26 @@ function showMove(ev){   // demo OR open — light the joints + call the move on
   const lbl=(ev.emoji?ev.emoji+' ':'')+(ev.label||(MOVES[ev.action]&&MOVES[ev.action].name)||'');
   $('nova-move').textContent=lbl; coach(ev.instruction||'copy me!');
 }
+// FREE-FUN moves (untrackable on a laptop camera): auto-celebrate — NEVER a miss, never
+// scored/counted. toes = legs usually off-frame; star ("turn around") = MoveNet can't
+// track a turn. The kid just gets hyped.
+const FREE_FUN = new Set(['toes','star']);
 function openWindow(ev){
-  game.window={ action:ev.action, resolved:false, pts:ev.pts||150, openSec:+clockS().toFixed(2) };
-  game.total++; showMove(ev); window.__cueState='armed';
+  game.window={ action:ev.action, resolved:false, pts:ev.pts||150, openSec:+clockS().toFixed(2), freeFun:FREE_FUN.has(ev.action) };
+  if(!game.window.freeFun) game.total++;
+  showMove(ev); window.__cueState='armed';
 }
 function closeWindow(){
-  if(game.window && !game.window.resolved) resolveMiss();
+  if(game.window && !game.window.resolved){ game.window.freeFun ? resolveCelebrate() : resolveMiss(); }
   game.window=null; window.__cuePart=null; window.__cueState=null;
   $('cam-wrap').classList.remove('armed'); setZone(null);
+}
+function resolveCelebrate(){   // free-fun close: pure hype, no score, no miss, no nag
+  const w=game.window; if(!w) return; w.resolved=true; window.__cueState='hit';
+  $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('hit'); zoneState('hit');
+  $('nova-move').textContent='WOO! 🎉'; coach('you are AWESOME! 🎉');
+  if(window.__lastPartsMid) starBurst(window.__lastPartsMid.x, window.__lastPartsMid.y, window.__k||1, 14);
+  logCue('celebrate');
 }
 function logCue(result){ const w=game.window; if(!w) return;
   game.log.push({ action:w.action, result, t:w.openSec,
@@ -516,6 +620,12 @@ function resolveHit(){
   const cb=$('combo-box'); cb.textContent='x'+game.combo; cb.classList.remove('pulse'); void cb.offsetWidth; cb.classList.add('pulse');
   $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('hit'); zoneState('hit');
   $('nova-move').textContent='YES! 🌟'; logCue('hit');
+  // CLAP → STAR sparkle burst at the hands (small burst on every other hit too)
+  if(window.__lastPartsMid){
+    const big = w.action==='clap';
+    starBurst(window.__lastPartsMid.x, window.__lastPartsMid.y, window.__k||1, big?26:10);
+    if(big) window.__ml.star++;
+  }
 }
 function resolveMiss(){ window.__cueState='miss'; game.combo=0; $('combo-box').textContent='x0';
   $('cam-wrap').classList.remove('armed'); $('cam-wrap').classList.add('miss'); zoneState('miss'); logCue('miss'); }
