@@ -1790,7 +1790,12 @@ function handoffFromIntro() {
         LOG('INTRO', 'VOICE-ONLY reveal — audio present, no avatar video (static face shown)');
         document.querySelectorAll('#rec-avatar-video,#nova-face-video').forEach(v=>{ v.style.display='none'; });
       }
-      const bothReady = (window.__novaVideoArrived && window.__novaAudioArrived) || audioOnlyReady;
+      // FIX 1: tracks arriving isn't enough — she looked alive but couldn't respond yet.
+      // Wait for the worker's nova-ready signal too (safety: reveal anyway 12s after tracks).
+      const tracksIn = window.__novaVideoArrived && window.__novaAudioArrived;
+      if (tracksIn && !window.__tracksInAt) window.__tracksInAt = Date.now();
+      const readyOrTimeout = window.__novaPipelineReady || (window.__tracksInAt && Date.now() - window.__tracksInAt > 12000);
+      const bothReady = (tracksIn && readyOrTimeout) || audioOnlyReady;
       const minHeld = (Date.now() - (__introShownAt || Date.now())) >= 5000;
       if (capEl && waited === 15000) capEl.textContent = 'connecting' + '…';
       // gate FAILED (>90s, still not both-ready) → friendly retry, do NOT reveal.
@@ -2186,12 +2191,25 @@ function setupNovaRoomEvents(room) {
     try { msg = JSON.parse(new TextDecoder().decode(payload)); } catch (e) { return; }
     if (!msg) return;
     // GAME-PUSH: Nova TAKES the kid to the game — she says her hype line and the picker
-    // opens. Fires on kid's "let's start/dance!" or when her chit-chat cap hits.
+    // opens. Fires on kid's "let's start/dance!", her own "let's DANCE!", or the chat cap.
     if (msg.kind === 'go-picker') {
       if (memory.phase === 'recognition' && typeof goToPicker === 'function') {
         LOG('GAME', 'Nova pushed to the game → opening picker');
         setTimeout(() => { try { goToPicker(); } catch(e){} }, 1800);   // let her line land first
       }
+      return;
+    }
+    // FIX 1: worker says Nova is TRULY ready (pipeline up) — reveal gate waits for this
+    if (msg.kind === 'nova-ready') {
+      window.__novaPipelineReady = true;
+      LOG('INTRO', 'nova-ready received — she can actually respond now');
+      return;
+    }
+    // FIX 2: Nova named a body part → light THAT organ on the kid's camera (intro glow)
+    if (msg.kind === 'cue-part') {
+      window.__introCuePart = msg.part || 'hands';
+      window.__introCuePartAt = Date.now();
+      LOG('INTRO', 'Nova named "' + window.__introCuePart + '" → glow moves there');
       return;
     }
     if (msg.kind !== 'request-vision') return;
@@ -4776,6 +4794,26 @@ window.__initRunwayNova = initDID;
       try { if(window.moves && window.moves.clap) return true; } catch(_){}
       return false;
     };
+    // FIX 2: the glow follows the body part NOVA NAMED (cue-part from the worker):
+    // hands → wrists · head → nose/ears · shoulder → mid-shoulders. Falls back to hands.
+    // A named part stays lit for 10s, then reverts to hands (the default try-move).
+    const partPts = (m) => {
+      const fresh = window.__introCuePartAt && (Date.now() - window.__introCuePartAt < 10000);
+      const part = fresh ? (window.__introCuePart || 'hands') : 'hands';
+      if (part === 'head')     return [m.nose, m.left_ear, m.right_ear].filter(p=>p && p.score>0.2);
+      if (part === 'shoulder') return [m.left_shoulder, m.right_shoulder].filter(p=>p && p.score>0.2);
+      return [m.left_wrist, m.right_wrist].filter(p=>p && p.score>0.2);
+    };
+    // detection for the named part: hands=clap, head=head move, shoulder=shrug pulse
+    const partHit = () => {
+      const fresh = window.__introCuePartAt && (Date.now() - window.__introCuePartAt < 10000);
+      const part = fresh ? (window.__introCuePart || 'hands') : 'hands';
+      try {
+        if (part === 'head')     return !!(window.moves && (window.moves.head || window.moves.headbob));
+        if (part === 'shoulder') return !!(window.moves && window.moves.shrug);
+      } catch(_){}
+      return clapNow();
+    };
 
     function loop(){
       requestAnimationFrame(loop);
@@ -4783,10 +4821,10 @@ window.__initRunwayNova = initDID;
       const kps = window.__lastPoseKeypoints;
       if(!kps){ glow.style.opacity='0'; return; }
       const m={}; kps.forEach(k=>{ m[k.name]=k; });
-      const pts=[m.left_wrist, m.right_wrist].filter(p=>p && p.score>0.2);
+      const pts=partPts(m);
       if(!pts.length){ glow.style.opacity='0'; return; }
       // Map RAW MoveNet coords → mirrored display coords (matches the selfie flip),
-      // same math as the game aura module so the glow lands on the real hands.
+      // same math as the game aura module so the glow lands on the real body part.
       const vw=cam.videoWidth||640, vh=cam.videoHeight||480;
       const cw=cam.clientWidth||1, ch=cam.clientHeight||1;
       const scale=Math.max(cw/vw, ch/vh), ox=(cw-vw*scale)/2, oy=(ch-vh*scale)/2;
@@ -4795,12 +4833,15 @@ window.__initRunwayNova = initDID;
       glow.style.left = gx+'px'; glow.style.top = gy+'px';
 
       const now = performance.now();
-      if(clapNow()){
+      if(partHit()){
         flashUntil = now + 600;
-        if(!sentClap){
-          sentClap = true;
-          try { if(window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'try_move', action:'clap' } }); } catch(_){}
-          try { if(typeof LOG === 'function') LOG('INTRO', 'try-move CLAP detected → light + Nova signal'); } catch(_){}
+        // one report per NAMED part (a fresh cue-part re-arms it, so every ask gets its echo)
+        const cueStamp = window.__introCuePartAt || 0;
+        if(!sentClap || window.__sentForCue !== cueStamp){
+          sentClap = true; window.__sentForCue = cueStamp;
+          const act = (cueStamp && Date.now()-cueStamp<10000) ? (window.__introCuePart||'clap') : 'clap';
+          try { if(window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'try_move', action:act } }); } catch(_){}
+          try { if(typeof LOG === 'function') LOG('INTRO', 'try-move '+act.toUpperCase()+' detected → light + Nova signal'); } catch(_){}
         }
       }
       const hot = now < flashUntil;
