@@ -399,8 +399,15 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 #game-score{font-family:'Fredoka',cursive;font-weight:600;font-size:18px;
   color:#ffd700;text-shadow:0 0 16px rgba(255,215,0,0.4)}
 
-#game-split{flex:1;display:grid;grid-template-columns:60fr 40fr;
+/* POINT 3 (2026-07-02): the KID CAMERA is the BIG panel. Was 60/40 with the dance
+   MP4 dominant and the kid (where the lights fire) squeezed into 40% — and NO
+   portrait layout, so on a phone it was a cramped side-by-side. Landscape: camera
+   58%. Portrait phone: stack — dance MP4 on top, BIG kid camera below. */
+#game-split{flex:1;display:grid;grid-template-columns:42fr 58fr;
   min-height:0;position:relative;z-index:1}
+@media (max-aspect-ratio:1/1){
+  #game-split{grid-template-columns:1fr;grid-template-rows:40fr 60fr}
+}
 
 /* Nova side */
 /* POINT 7 (2026-07-01): MP4 was object-fit:contain over the pastel #game-bg
