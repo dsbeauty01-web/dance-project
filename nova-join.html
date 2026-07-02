@@ -9,6 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.20.0/dist/tf-core.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.20.0/dist/tf-converter.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.20.0/dist/tf-backend-webgl.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-cpu@4.20.0/dist/tf-backend-cpu.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 <script src="nova-light.js"></script>
 <script src="nova-report.js"></script>
@@ -511,12 +512,25 @@ renderMovesPreview();
 
 async function ensureModel(){
   if(detector) return;
-  // WebGL is fastest, but fall back to CPU so low-end tablets (or no-GL contexts)
-  // still get pose detection instead of silently running with no light.
-  try{ await tf.setBackend('webgl'); }catch(e){ try{ await tf.setBackend('cpu'); }catch(_){} }
-  await tf.ready();
-  detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,
+  window.__modelBackend=''; window.__modelError='';
+  const mk=()=> poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,
     { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING });
+  // WebGL is fastest, but fall back to CPU (now actually loaded) so phones / no-GL
+  // contexts still track instead of silently running with NO detection (present:false forever).
+  try{
+    let ok=false; try{ ok=await tf.setBackend('webgl'); }catch(e){ ok=false; }
+    if(!ok){ try{ ok=await tf.setBackend('cpu'); }catch(e){ ok=false; } }
+    await tf.ready();
+    window.__modelBackend = (tf.getBackend&&tf.getBackend())||'?';
+    detector = await mk();
+  }catch(e){
+    window.__modelError = (e&&e.message)||String(e);
+    try{ logPost('model-error',{ err:window.__modelError, backend:(tf.getBackend&&tf.getBackend())||'?' }); }catch(_){}
+    // one hard retry on CPU — covers WebGL that "inits" then dies, or a flaky first fetch
+    try{ await tf.setBackend('cpu'); await tf.ready(); window.__modelBackend='cpu(retry)'; detector = await mk(); window.__modelError=''; }
+    catch(e2){ window.__modelError='retry:'+((e2&&e2.message)||e2); }
+  }
+  try{ logPost(detector?'model-ready':'model-failed',{ backend:window.__modelBackend, err:window.__modelError }); }catch(_){}
 }
 
 async function ensureCamera(){
@@ -553,7 +567,8 @@ async function poseLoop(){
   // P1/P2 — gentle framing + lighting nudge so detection actually works (the cafe-miss fix).
   // Only during play, max once per 8s, softest possible (never alarming).
   if(window.__danceStarted && _n-(window.__lastFrameNudge||0)>8000){
-    if(!det.present){ window.__lastFrameNudge=_n; coach('step in front of the camera 💜'); }
+    if(!detector){ window.__lastFrameNudge=_n; coach('one sec — waking up my eyes… 👀'); }   // model still loading / failed
+    else if(!det.present){ window.__lastFrameNudge=_n; coach('step in front of the camera 💜'); }
     else if(det.joints<7){ window.__lastFrameNudge=_n; coach('a little more light on you? 💡'); }
     else if(det.spanFrac>0.36){ window.__lastFrameNudge=_n; coach('scoot back so I can see you!'); }
   }
@@ -1244,7 +1259,9 @@ function endGame(){
     return `<div class="${cls}">${a.padEnd(15)} ${b.hit}/${b.n}  joints~${Math.round(b.j/b.n)}/17</div>`; }).join('') || '(no cues ran)';
 
   const summary={ date:new Date().toISOString(), score:game.score, hits:game.hits, total:game.total,
-    maxCombo:game.maxCombo, thresholds:THRESH, byAction:by, log:game.log };
+    maxCombo:game.maxCombo, thresholds:THRESH,
+    detector:{ loaded:!!detector, backend:window.__modelBackend||'', error:window.__modelError||'' },  // WHY tracking worked/failed
+    byAction:by, log:game.log };
   window.__lastSession=summary;
   logPost('end', summary);
   // AUTO-SAVE full session to Downloads (frontend record; backend logged on the worker).
