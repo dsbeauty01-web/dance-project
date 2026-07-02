@@ -749,9 +749,18 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   transition: all 0.2s; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
 }
 .np-btn:hover { background: rgba(80, 40, 120, 0.9); transform: translateY(-2px); }
+/* TASK 2: subtle corner tick when calibration completes — "she can see me" */
+#sees-you-tick{ position:fixed; bottom:14px; left:14px; z-index:80; pointer-events:none;
+  display:flex; align-items:center; gap:6px; padding:6px 14px; border-radius:18px;
+  background:rgba(24,10,40,.78); border:1px solid rgba(148,255,190,.5); color:#b7ffd2;
+  font:600 13px 'Fredoka',sans-serif; opacity:0; transform:translateY(8px);
+  transition:opacity .4s ease, transform .4s ease; backdrop-filter:blur(6px); }
+#sees-you-tick.show{ opacity:1; transform:translateY(0); }
 </style>
 </head>
 <body>
+
+<div id="sees-you-tick">✓ Nova sees you</div>
 
 <div id="vbanner" style="position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:99999;font:600 12px monospace;color:#0a0015;background:#a855f7;padding:3px 10px;border-radius:7px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.4)">BUILD: brain-led r5 · warm-brain · fast first reply</div>
 <div id="debug-panel"></div>
@@ -3117,6 +3126,21 @@ async function poseLoop() {
       window.__poseFPS = _fw.length;
       window.__poseFPSPeak = Math.max(window.__poseFPSPeak||0, _fw.length);
       window.__posePresent = kps.filter(k => k.score > 0.3).length >= 5;
+      // TASK 2: BASELINE CALIBRATION — MoveNet has no "lock-on"; the only wait is OUR
+      // smoothing/pulse EMAs needing ~1.5s of a person in frame. Track it ONCE: when a
+      // person has been present ~1.5s, mark calibrated + show the "✓ Nova sees you" tick.
+      // Person leaving/re-entering does NOT re-calibrate (keypoints return instantly).
+      if (window.__posePresent) {
+        if (!window.__presentSince) window.__presentSince = performance.now();
+        if (!window.__calibratedAt && performance.now() - window.__presentSince > 1500) {
+          window.__calibratedAt = performance.now();
+          const dMs = Math.round(window.__calibratedAt - window.__presentSince);
+          LOG('POSE', `baseline CALIBRATED (+${dMs}ms after person entered frame)`);
+          try { const t=document.getElementById('sees-you-tick'); if(t){ t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 2600); } } catch(_){}
+        }
+      } else if (!window.__calibratedAt) {
+        window.__presentSince = 0;   // person left before calibration completed — restart the clock
+      }
       
       // v111: compute motion level from keypoint movement frame-to-frame
       if (__prevKeypoints && __prevKeypoints.length === kps.length) {
@@ -4382,7 +4406,7 @@ function endGame() {
 
   // AUTO-SAVE full session to Downloads (frontend record; backend logged on the worker).
   try{ const summary={ date:new Date().toISOString(), game:'hello-hello', score, hits, attempts, maxCombo,
-      detector:{ backend:window.__tfBackend||'', error:window.__tfBackendError||'', loopFps:window.__poseAttemptFPS||0, loopFpsPeak:window.__poseAttemptFPSPeak||0, detectFps:window.__poseFPS||0, frames:window.__poseFrames||0, iterDurs:(window.__poseDur||[]).slice(-12) },  // TASK 0 evidence
+      detector:{ backend:window.__tfBackend||'', error:window.__tfBackendError||'', loopFps:window.__poseAttemptFPS||0, loopFpsPeak:window.__poseAttemptFPSPeak||0, detectFps:window.__poseFPS||0, frames:window.__poseFrames||0, iterDurs:(window.__poseDur||[]).slice(-12), calibrated:!!window.__calibratedAt },  // TASK 0+2 evidence
       name:(memory&&memory.name)||null, sessions:(memory&&memory.sessions_count)||null };
     const blob=new Blob([JSON.stringify(summary,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='nova-hello-session.json';
