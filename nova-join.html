@@ -142,6 +142,22 @@
   #nova-live.talking{ border-color:var(--grn); box-shadow:0 0 38px rgba(0,255,150,.7); }
   #nova-status{ position:absolute; top:8px; left:8px; z-index:9; font-size:11px;
     background:rgba(0,0,0,.6); color:#ffd84d; padding:3px 10px; border-radius:12px; }
+  /* VOICE-ONLY IN GAMES: hide the live avatar face once the game starts — Nova is heard, not shown.
+     Her voice keeps playing (separate #nova-audio element). Her face still appears in the greet. */
+  body.voice-only #nova-live{ display:none !important; }
+  /* ── CHAT INPUT (talk to Nova by typing) ── */
+  #chat-bar{ position:fixed; left:50%; bottom:14px; transform:translateX(-50%); z-index:60;
+    display:none; align-items:center; gap:8px; width:min(92vw,520px);
+    background:rgba(12,6,20,.72); backdrop-filter:blur(8px); border:1px solid rgba(255,138,226,.35);
+    border-radius:26px; padding:7px 8px 7px 16px; box-shadow:0 8px 30px rgba(0,0,0,.45); }
+  #chat-bar.show{ display:flex; }
+  #chat-input{ flex:1; min-width:0; background:transparent; border:none; outline:none; color:#fff;
+    font-size:15px; font-family:inherit; }
+  #chat-input::placeholder{ color:rgba(255,255,255,.5); }
+  #chat-send{ flex:0 0 auto; width:38px; height:38px; border:none; border-radius:50%; cursor:pointer;
+    background:linear-gradient(135deg,#ff8ae2,#a06bff); color:#fff; font-size:17px; line-height:1;
+    box-shadow:0 4px 14px rgba(160,107,255,.5); }
+  #chat-send:active{ transform:scale(.92); }
   #cam-wrap{ position:relative; flex:1 1 50%; min-width:0; border-radius:24px; overflow:hidden; background:#000;
     border:4px solid rgba(110,231,255,.35); box-shadow:0 10px 40px rgba(0,0,0,.5), inset 0 0 30px rgba(110,231,255,.06); transition:border-color .15s, box-shadow .15s; }
   /* phone held upright → stack Nova on top, You on bottom (no squishing). Laptop /
@@ -294,6 +310,12 @@
     <source src="intro-small.mp4" type="video/mp4">
   </video>
   <button id="intro-skip">skip ▶</button>
+</div>
+
+<!-- CHAT INPUT — talk to Nova by typing (shows once she's connected) -->
+<div id="chat-bar">
+  <input id="chat-input" type="text" placeholder="talk to Nova…" autocomplete="off" maxlength="140" enterkeyhint="send">
+  <button id="chat-send" title="Send">➤</button>
 </div>
 
 <!-- COUNTDOWN -->
@@ -901,6 +923,7 @@ function greetStatus(t){ const e=$('greet-status'); if(e) e.textContent=t||''; }
 // greet) so her greeting audio stays clean.
 async function startDance(){
   if(window.__danceStarted) return; window.__danceStarted=true;
+  document.body.classList.add('voice-only');   // IN-GAME: Nova is voice only — hide the avatar face (she's still heard)
   $('greet-screen').classList.add('hidden');
   try{ $('greet-cam').srcObject=null; }catch(e){}
   // debug monitor: devs only (add ?debug to the URL). Kids never see the joints HUD.
@@ -1395,9 +1418,10 @@ async function connectNova(initialPhase='recognition'){
       }
       if(!novaTalking) window.__novaReplying=false;
     });
-    room.on(LivekitClient.RoomEvent.Disconnected, ()=>{ novaRoom=null; $('nova-live').classList.remove('show'); novaStatus(''); });
+    room.on(LivekitClient.RoomEvent.Disconnected, ()=>{ novaRoom=null; $('nova-live').classList.remove('show'); novaStatus(''); hideChat(); });
     await room.connect(creds.serverUrl, creds.token);
     novaRoom=room; window.__novaRoom=room;
+    showChat();   // kid can now type to Nova (works in greet + during the game)
     try{ await room.localParticipant.setMicrophoneEnabled(true); }catch(e){}      // kid can TALK to Nova (greet chat + Deepgram STT)
     novaSend({ kind:'game-event', event:{ event:'phase', phase:initialPhase } }); // greet mode by default
     novaSend({ kind:'game-event', event:{ event:'age', tier:AGE_TIER } });          // age-aware tone
@@ -1430,6 +1454,19 @@ function maybeReveal(){
     enableLetsDance();                               // Nova has ARRIVED → now the kid can start (never before)
   }, 1500);                                          // 1500ms presence-first hold
 }
+// ── CHAT INPUT — kid types → sent to the worker as "user-said" (worker already handles it) ──
+function showChat(){ const b=$('chat-bar'); if(b) b.classList.add('show'); }
+function hideChat(){ const b=$('chat-bar'); if(b) b.classList.remove('show'); }
+function sendChat(){
+  const inp=$('chat-input'); if(!inp) return; const text=(inp.value||'').trim(); if(!text) return;
+  inp.value='';
+  if(novaRoom){ novaSend({ kind:'user-said', text }); logPost('chat-typed',{ text }); }
+}
+(function wireChat(){ const inp=$('chat-input'), btn=$('chat-send'); if(!inp||!btn) return;
+  btn.addEventListener('click', sendChat);
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendChat(); } });
+})();
+
 // one silent vision "look" for the magic opener (sets observed_visual on the worker,
 // no drop-in speech — her greeting weaves it in). Strategic: 1 call, only for new kids.
 function greetVision(){
