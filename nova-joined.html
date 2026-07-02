@@ -881,23 +881,23 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
     <div id="picker-title">What do you wanna do?</div>
     <div id="picker-subtitle"></div>
     <div id="picker-cards">
-      <button class="picker-card joined-card" onclick="pickGame('joined')">
-        <div class="picker-emoji">🌟</div>
-        <div class="picker-name">Nova Joins!</div>
-        <div class="picker-tag">copy her body</div>
-        <div class="picker-desc">head · shoulders<br>ribs · hips</div>
-      </button>
-      <button class="picker-card freeze-card" onclick="pickGame('freeze')">
-        <div class="picker-emoji">🛑</div>
-        <div class="picker-name">Freeze Dance!</div>
-        <div class="picker-tag">ages 3-7</div>
-        <div class="picker-desc">dance and freeze!<br>so silly</div>
-      </button>
       <button class="picker-card hello-card" onclick="pickGame('hello')">
         <div class="picker-emoji">⚡</div>
         <div class="picker-name">Hello Hello!</div>
-        <div class="picker-tag">ages 7-10</div>
-        <div class="picker-desc">fast jumpy moves<br>more energy</div>
+        <div class="picker-tag">fast + jumpy</div>
+        <div class="picker-desc">hands up · clap<br>Nova says</div>
+      </button>
+      <button class="picker-card joined-card" onclick="pickGame('joined')">
+        <div class="picker-emoji">🕺</div>
+        <div class="picker-name">Up Groove!</div>
+        <div class="picker-tag">copy her body</div>
+        <div class="picker-desc">head · shoulders<br>ribs · hips</div>
+      </button>
+      <button class="picker-card wave-card" onclick="pickGame('wave')">
+        <div class="picker-emoji">🌊</div>
+        <div class="picker-name">Wave!</div>
+        <div class="picker-tag">river of light</div>
+        <div class="picker-desc">shoulders · elbows<br>wrists · flow</div>
       </button>
     </div>
     <button id="picker-back" onclick="pickerBack()">← back</button>
@@ -1064,27 +1064,13 @@ function goToPicker(){
   // Update picker recommendation based on age from memory
   const age = (window.__novaMemory && window.__novaMemory.age) || null;
   const subtitle = document.getElementById('picker-subtitle');
-  const freezeCard = document.querySelector('.freeze-card');
-  const helloCard = document.querySelector('.hello-card');
-  const joinedCard = document.querySelector('.joined-card');
-  freezeCard.classList.remove('recommended');
-  helloCard.classList.remove('recommended');
-  if (joinedCard) joinedCard.classList.remove('recommended');
-  // nova-joined is the headline game — always highlight it as Nova's pick.
-  if (joinedCard) {
-    joinedCard.classList.add('recommended');
-    if (subtitle) subtitle.textContent = "Nova's new game: copy her body! 🌟";
-    return;
-  }
-  if (age && age <= 6) {
-    if (subtitle) subtitle.textContent = "Nova picks: Freeze Dance! Slower and silly 🛑";
-    freezeCard.classList.add('recommended');
-  } else if (age && age >= 7) {
-    if (subtitle) subtitle.textContent = "Nova picks: Hello Hello! Fast and jumpy ⚡";
-    helloCard.classList.add('recommended');
-  } else {
-    if (subtitle) subtitle.textContent = "Pick the one you wanna play!";
-  }
+  // TASK 3 (fable5): the three games — Hello Hello · Up Groove · Wave
+  document.querySelectorAll('.picker-card').forEach(c => c.classList.remove('recommended'));
+  const rec = (age && age <= 6) ? '.hello-card' : '.joined-card';   // younger kids → simpler arm moves
+  const recCard = document.querySelector(rec);
+  if (recCard) recCard.classList.add('recommended');
+  if (subtitle) subtitle.textContent = (age && age <= 6)
+    ? "Nova picks: Hello Hello! ⚡" : "Nova's pick: Up Groove! 🕺";
 }
 function pickGame(songId){
   if(typeof markUserInteraction === 'function') markUserInteraction();
@@ -3320,6 +3306,29 @@ function analyzePose(kps) {
   const isoActive = (moves.headbob?1:0) + (moves.shrug?1:0) + (moves.ribslide?1:0) + (moves.hipbounce?1:0);
   moves.combo = isoActive >= 2 || (window.__motionLevel || 0) > 0.40;
 
+  // ── WAVE game checks (TASK 3, formulas from SONGMAP-HAND-WAVE.md) ──
+  // handUp=(midShY−wrist.y)/sw · elbowUp=(midShY−elbow.y)/sw · shoulderLift=(baseY−midShY)/sw.
+  // shoulderBaseY = slow EMA of resting shoulder height (self-calibrating per kid, adapts
+  // over ~seconds so a shrug reads as lift ABOVE baseline). Isolation guards per the map:
+  // roll needs elbows DOWN, elbow-pump needs hands DOWN — "only this part moved".
+  {
+    const le=g('left_elbow'), re=g('right_elbow');
+    const midShY=(sLs.y+sRs.y)/2, sw2=Math.max(Math.abs(sLs.x-sRs.x),60);
+    if(!window.__shBaseY) window.__shBaseY=midShY;
+    window.__shBaseY = window.__shBaseY*0.995 + midShY*0.005;            // ~5s time-constant
+    const bestWrist = (sLw.score>=sRw.score)?sLw:sRw;
+    const bestElbow = (le&&re) ? ((le.score>=re.score)?smoothKp('le',le):smoothKp('re',re))
+                     : (le?smoothKp('le',le):(re?smoothKp('re',re):null));
+    const handUp   = (midShY - bestWrist.y)/sw2;
+    const elbowUp  = bestElbow ? (midShY - bestElbow.y)/sw2 : -1;
+    const shoulderLift = (window.__shBaseY - midShY)/sw2;
+    moves.shoulderroll = shoulderLift > 0.05 && elbowUp < -0.18;
+    moves.elbowpump    = elbowUp > -0.05 && handUp < 0.10;
+    moves.wristwave    = handUp > 0.12;
+    moves.wavefree     = (window.__motionLevel||0) > 0.06;
+    window.__waveVals = { handUp:+handUp.toFixed(2), elbowUp:+elbowUp.toFixed(2), lift:+shoulderLift.toFixed(2) };
+  }
+
   // Update pills
   ['left','right','both','clap','head','freeze'].forEach(k => {
     const el = document.getElementById('p-' + k);
@@ -3554,6 +3563,45 @@ const TIMELINE_JOINED_RAW = [
   { t: 84000, type: 'beat', name: 'outro' },
 ];
 
+// TASK 3 (fable5): WAVE — timings + checks straight from SONGMAP-HAND-WAVE.md
+// (handywave.mp4, 28.5s, video carries its own audio).
+// Practice (shoulders→elbows→wrists) → 6-count chain on the 0.83s beat → freestyle.
+const TIMELINE_WAVE_RAW = [
+  { t: 100,   type: 'beat', name: 'intro' },
+  // — practice —
+  { t: 4500,  type: 'open',  action: 'shoulderroll', emoji: '🤷', label: 'SHOULDERS UP', instr: 'roll those shoulders!', pts: 100 },
+  { t: 6100,  type: 'close', action: 'shoulderroll' },
+  { t: 6500,  type: 'open',  action: 'shoulderroll', emoji: '🤷', label: 'SHOULDERS UP', instr: 'again!', pts: 100 },
+  { t: 8000,  type: 'close', action: 'shoulderroll' },
+  { t: 8500,  type: 'open',  action: 'elbowpump', emoji: '💪', label: 'ELBOWS OUT', instr: 'pump those elbows!', pts: 100 },
+  { t: 10100, type: 'close', action: 'elbowpump' },
+  { t: 10500, type: 'open',  action: 'elbowpump', emoji: '💪', label: 'ELBOWS OUT', instr: 'pump pump!', pts: 100 },
+  { t: 12000, type: 'close', action: 'elbowpump' },
+  { t: 12500, type: 'open',  action: 'wristwave', emoji: '👋', label: 'WAVE!', instr: 'wave that hand!', pts: 100 },
+  { t: 14100, type: 'close', action: 'wristwave' },
+  { t: 14500, type: 'open',  action: 'wristwave', emoji: '👋', label: 'WAVE!', instr: 'higher!', pts: 100 },
+  { t: 16100, type: 'close', action: 'wristwave' },
+  { t: 16500, type: 'open',  action: 'wristwave', emoji: '👋', label: 'WAVE!', instr: 'one more!', pts: 100 },
+  { t: 17800, type: 'close', action: 'wristwave' },
+  // — 6-COUNT CHAIN, 0.83s apart, 760ms each (the river of light travels the arm) —
+  { t: 18000, type: 'beat',  name: 'chain' },
+  { t: 18000, type: 'open',  action: 'wristwave',    emoji: '👋', label: 'WRIST',    instr: 'wave!',     pts: 150 },
+  { t: 18760, type: 'close', action: 'wristwave' },
+  { t: 18830, type: 'open',  action: 'elbowpump',    emoji: '💪', label: 'ELBOW',    instr: 'elbow!',    pts: 150 },
+  { t: 19590, type: 'close', action: 'elbowpump' },
+  { t: 19660, type: 'open',  action: 'shoulderroll', emoji: '🤷', label: 'SHOULDER', instr: 'shoulder!', pts: 150 },
+  { t: 20420, type: 'close', action: 'shoulderroll' },
+  { t: 20490, type: 'open',  action: 'shoulderroll', emoji: '🤷', label: 'SHOULDER', instr: 'shoulder!', pts: 150 },
+  { t: 21250, type: 'close', action: 'shoulderroll' },
+  { t: 21320, type: 'open',  action: 'elbowpump',    emoji: '💪', label: 'ELBOW',    instr: 'elbow!',    pts: 150 },
+  { t: 22080, type: 'close', action: 'elbowpump' },
+  { t: 22150, type: 'open',  action: 'wristwave',    emoji: '👋', label: 'WRIST',    instr: 'wave!',     pts: 150 },
+  { t: 22910, type: 'close', action: 'wristwave' },
+  // — freestyle —
+  { t: 23200, type: 'open',  action: 'wavefree', emoji: '🌊', label: 'FREESTYLE', instr: 'wave it ALL!', pts: 200 },
+  { t: 28200, type: 'close', action: 'wavefree' },
+];
+
 const SONGS = {
   joined: {
     id: 'joined',
@@ -3579,6 +3627,14 @@ const SONGS = {
     timeline: TIMELINE_FREEZE_RAW,
     offset: 0,
   },
+  wave: {
+    id: 'wave',
+    name: 'Wave!',
+    videoFile: 'handywave.mp4',   // single-source: video carries its own audio
+    durationMs: 28500,
+    timeline: TIMELINE_WAVE_RAW,
+    offset: 0,
+  },
 };
 
 // Default selected song — picker overrides. nova-joined.html defaults to the new game.
@@ -3600,7 +3656,12 @@ function setSelectedSong(songId) {
   TIMELINE = applyTimelineOffset(selectedSong.timeline, selectedSong.offset);
   CFG.SONG_DURATION = selectedSong.durationMs; // keep progress bar / auto-end correct
   LOG('GAME', `selected song: ${selectedSong.name}`);
+  window.__selectedSongId = selectedSong.id;   // observable for logs/self-tests
 }
+// TASK 3 FIX: this module's bindings are NOT window globals — pickGame() (classic script)
+// guards with `typeof setSelectedSong === 'function'`, which was ALWAYS false here, so the
+// picker silently NEVER switched songs (every choice played the default). Expose it.
+window.setSelectedSong = setSelectedSong;
 
 let score = 0, hits = 0, attempts = 0, combo = 0, maxCombo = 0;
 let timelineIdx = 0, songTimer = null;
@@ -4179,6 +4240,8 @@ function gameTick() {
       currentAction = e;
       window.__cueAction = e;   // expose active cue to the aura overlay module
       window.__cueState = 'armed';   // light starts warm gold; recolors on hit/miss
+      window.__cuesFired = (window.__cuesFired||0) + 1;   // TASK 3/4: machine-checkable cue counter
+      (window.__cueLog = window.__cueLog||[]).push({ t: Math.round((window._audio&&window._audio.currentTime||0)*1000), action: e.action });
       actionDetected = false;
       actionWindow = true;
       actionStartTime = Date.now();
@@ -4605,7 +4668,8 @@ window.__initRunwayNova = initDID;
   const TRAIL={nodes:22,smooth:0.35,waveAmp:14,waveSpeed:6.0,wavePhase:0.55,headWidth:16,fade:0.16};
   const SPARK={spawnPerVel:0.6,ttl:[400,900],drift:0.4,size:[1,3]};
   // head moves light the EARS (never the nose, per the Up-Groove finding)
-  const ANCH={headbob:'ears',head:'ears',shrug:'shoulder',ribslide:'__rib',hipbounce:'hip',clap:'wrist',both:'wrist',left:'left_wrist',right:'right_wrist',combo:'ears',freeze:'ears'};
+  const ANCH={headbob:'ears',head:'ears',shrug:'shoulder',ribslide:'__rib',hipbounce:'hip',clap:'wrist',both:'wrist',left:'left_wrist',right:'right_wrist',combo:'ears',freeze:'ears',
+    shoulderroll:'shoulder',elbowpump:'__elbow',wristwave:'wrist',wavefree:'__rib'};   // WAVE game (TASK 3)
   let spine=[],sparks=[];
   const lerp=(a,b,t)=>a+(b-a)*t;
   const mix=(t1,t2,f)=>{const a=t1.split(',').map(Number),b=t2.split(',').map(Number);return a.map((v,i)=>Math.round(lerp(v,b[i],f))).join(',');};
@@ -4616,6 +4680,7 @@ window.__initRunwayNova = initDID;
     if(a==='shoulder'){ const l=g('left_shoulder'),r=g('right_shoulder'); return l&&r?{x:(l.x+r.x)/2,y:(l.y+r.y)/2}:(l||r); }
     if(a==='hip'){ const l=g('left_hip'),r=g('right_hip'); return l&&r?{x:(l.x+r.x)/2,y:(l.y+r.y)/2}:(l||r); }
     if(a==='wrist') return g('right_wrist')||g('left_wrist');
+    if(a==='__elbow') return g('right_elbow')||g('left_elbow');   // WAVE: elbow-pump anchor
     if(a==='__rib') return m.__rib||null;
     return g(a); }
   function init(){
@@ -4651,6 +4716,7 @@ window.__initRunwayNova = initDID;
       if(e){ const act=e.action, a=pick(act,m); if(a) anchors=[{x:X(a),y:Y(a)}];
         if(act==='headbob') dir = e.dir==='L'?'left':e.dir==='R'?'right':'up';
         else if(act!=='combo'&&act!=='freeze') dir='up'; }
+      if(e && anchors.length) window.__lightsDrawn = (window.__lightsDrawn||0) + 1;   // TASK 3/4: light actually on a joint
       eng.render({ anchors, center, k, W:cw, H:ch, quality, velocity:0, dir, active:!!(e&&anchors.length), now });
     }
     requestAnimationFrame(loop);
