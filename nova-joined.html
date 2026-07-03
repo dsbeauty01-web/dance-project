@@ -1913,7 +1913,12 @@ async function startCamNonova(){
     // song (has the 0-30s warm-up lights + object-fit:cover fix). Small delay so the
     // webcam has a first frame before the pose/light loop keys off it.
     setTimeout(() => {
-      try { if (typeof startGame === 'function') startGame(); }
+      try {
+        // ?game=hello|joined|wave|freeze → standalone-test that game (default: joined)
+        const g = (location.search.match(/[?&]game=(\w+)/)||[])[1];
+        if (g && typeof window.setSelectedSong === 'function') window.setSelectedSong(g);
+        if (typeof startGame === 'function') startGame();
+      }
       catch(err){ LOG('ERROR','nonova startGame failed', { msg: err.message }); }
     }, 700);
   }catch(e){ LOG('ERROR','nonova camera failed', { msg:e.message }); }
