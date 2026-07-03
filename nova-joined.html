@@ -1866,9 +1866,9 @@ function handoffFromIntro() {
         if (window.__novaSend) window.__novaSend({ kind: 'client-ready' });
         LOG('INTRO', 'client-ready sent (gate complete) → greeting releasing');
       }
-      // melt the overlay the moment her voice actually starts (2.5s cap) — face and
-      // first word feel simultaneous; never a frozen face waiting to speak.
-      if (window.__novaSpeakingNow || Date.now() - window.__gateDoneAt > 2500) {
+      // melt the overlay the moment her voice actually starts (6s cap — EVI needs ~3-4s
+      // to generate) — face and first word land together; the cap only guards a hang.
+      if (window.__novaSpeakingNow || Date.now() - window.__gateDoneAt > 6000) {
         clearInterval(poll);
         window.__revealAt = Date.now();
         if (window.__firstWordAt && window.__revealToWordMs == null)   // voice led the fade → gap ≤0

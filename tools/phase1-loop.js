@@ -24,7 +24,8 @@ const check = (name, pass, evidence) => { results.push({ name, pass, evidence })
   await page.evaluate(() => { const b = document.getElementById('arrival-start-btn'); b && b.click(); });
   console.log('>>> tapped — waiting for the magic reveal (up to 90s)…');
   await page.waitForFunction(() => window.__revealAt, undefined, { timeout: 90000 }).catch(() => {});
-  await new Promise(r => setTimeout(r, 4000));                       // let the first word land + settle
+  await page.waitForFunction(() => window.__firstWordAt, undefined, { timeout: 15000 }).catch(() => {});
+  await new Promise(r => setTimeout(r, 1000));                       // settle after the word
 
   const s = await page.evaluate(() => ({
     gate: window.__gate || {}, gateDoneAt: window.__gateDoneAt || null, revealAt: window.__revealAt || null,
