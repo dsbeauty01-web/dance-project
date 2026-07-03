@@ -403,6 +403,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
    MP4 dominant and the kid (where the lights fire) squeezed into 40% — and NO
    portrait layout, so on a phone it was a cramped side-by-side. Landscape: camera
    58%. Portrait phone: stack — dance MP4 on top, BIG kid camera below. */
+#game-split.split-nova-big{grid-template-columns:55fr 45fr}  /* Hello Hello: Nova demos the moves → she gets the bigger panel (55/45) */
 #game-split{flex:1;display:grid;grid-template-columns:42fr 58fr;
   min-height:0;position:relative;z-index:1}
 @media (max-aspect-ratio:1/1){
@@ -4096,6 +4097,9 @@ function startGame() {
     try { const _fv = document.getElementById('nova-face-video'); if (_fv) _fv.pause(); } catch(e) {} }
   score = 0; hits = 0; attempts = 0; combo = 0; maxCombo = 0; timelineIdx = 0;
   anticipatedIdx.clear(); // reset anticipation tracking for fresh play
+  // per-game split: Hello Hello is copy-HER choreography → Nova 55 / camera 45.
+  // Up Groove / Wave stay camera-dominant (the kid is the star there).
+  try { document.getElementById('game-split').classList.toggle('split-nova-big', selectedSong.id === 'hello'); } catch(e) {}
   // TASK 4: snapshot layout while the game panels are actually visible (endGame hides them)
   setTimeout(()=>{ try{ const c=document.getElementById('cam-side'), n=document.getElementById('nova-side');
     window.__layoutSnap={ camPanelW:c?c.offsetWidth:0, novaPanelW:n?n.offsetWidth:0, camDominant:!!(c&&n&&c.offsetWidth>n.offsetWidth) }; }catch(e){} }, 1200);
