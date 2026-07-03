@@ -2468,6 +2468,7 @@ window.__pickPath = function(path) {
   const btns = document.getElementById('name-path-btns');
   if (btns) btns.style.opacity = '0.3';
 };
+window.showNameCaptureButtons = showNameCaptureButtons;   // mic-denied fallback + phase1-loop harness
 
 window._sendChat = async function() {
   const inp = document.getElementById('rec-input');
