@@ -1778,6 +1778,39 @@ function startIntroOverlay() {
   } catch (e) { LOG('ERROR', 'startIntroOverlay: ' + e.message); }
 }
 
+// PHASE 1 MAGIC REVEAL (2026-07-03): she is FULLY loaded seconds BEFORE she appears.
+// READY GATE — all five true before reveal (each timestamped in window.__gate):
+//   evi    — worker's nova-ready packet (voice pipeline live, can speak instantly)
+//   cam    — camera up + MoveNet actually producing pose attempts
+//   calib  — baseline calibration machinery running (calibrated, or loop live ≥1.5s)
+//   vision — ONE pre-reveal snapshot sent (detail or SKIP — never blocks on content)
+//   avatar — her video track attached + first frame rendered
+// THEN: client-ready releases her greeting → the overlay melts AS SHE SPEAKS, so face
+// and first word land together (measured; target ≤0.5s gap).
+window.__gate = {};
+function _gateStamp(k){ if(!window.__gate[k]){ window.__gate[k]=Date.now(); LOG('GATE', k+' ready'+(window.__tapTs?'':'')); } }
+// pre-reveal vision snapshot — fires once, as soon as the webcam has a frame
+function preRevealVision(){
+  if (window.__gateVisionStarted) return; window.__gateVisionStarted = true;
+  const cam = document.getElementById('webcam');
+  const snap = () => {
+    try {
+      if (!cam || !cam.videoWidth) { setTimeout(snap, 400); return; }
+      const c = document.createElement('canvas'); c.width = 320; c.height = Math.round(320 * cam.videoHeight / cam.videoWidth);
+      c.getContext('2d').drawImage(cam, 0, 0, c.width, c.height);
+      fetch(CFG.RENDER_URL + '/v2/vision-observe', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ frameDataUrl: c.toDataURL('image/jpeg', 0.6), kidId: window.__kidId }) })
+        .then(r => r.json()).then(d => {
+          const t = (d && d.ok && d.text) ? d.text : '';
+          if (t && window.__novaSend) window.__novaSend({ kind:'vision-observation', text: t });
+          LOG('GATE', 'vision snapshot → ' + (t ? ('"' + t + '"') : 'SKIP'));
+          _gateStamp('vision');
+        }).catch(() => { LOG('GATE', 'vision snapshot failed → SKIP'); _gateStamp('vision'); });
+    } catch(e){ _gateStamp('vision'); }
+  };
+  snap();
+  setTimeout(() => _gateStamp('vision'), 6000);   // vision may be slow/down — never blocks the reveal
+}
 function handoffFromIntro() {
   if (window.__handoffStarted) return;   // guard: only one readiness poll ever
   window.__handoffStarted = true;
@@ -1785,59 +1818,59 @@ function handoffFromIntro() {
   try {
     const ov = document.getElementById('intro-overlay');
     if (!ov || !ov.classList.contains('show')) return;
-    // READINESS GATE + cinematic reveal. Nova reveals ONLY when BOTH audio AND
-    // video tracks have arrived (+5s min hold). Staged overlay messages; retry at 30s.
     const capEl = ov.querySelector('.intro-caption');
     if (capEl) capEl.textContent = 'preparing Nova…';
-    let waited = 0;
+    preRevealVision();
+    let waited = 0, clientReadySent = false, poseLiveSince = 0;
     const poll = setInterval(() => {
       waited += 250;
-      // VOICE-ONLY FALLBACK (2026-07-02): if her AUDIO is here but video hasn't shown in
-      // 8s more, the worker is running without the Runway face (e.g. credits/outage) —
-      // reveal anyway with the static face so Nova is never "dead" when she can talk.
+      // VOICE-ONLY FALLBACK: audio present but no avatar video for 8s → static face mode.
       if (window.__novaAudioArrived && !window.__novaVideoArrived && !window.__audioOnlySince) window.__audioOnlySince = Date.now();
       const audioOnlyReady = window.__audioOnlySince && (Date.now() - window.__audioOnlySince) > 8000;
       if (audioOnlyReady && !window.__voiceOnlyMode) { window.__voiceOnlyMode = true;
         LOG('INTRO', 'VOICE-ONLY reveal — audio present, no avatar video (static face shown)');
         document.querySelectorAll('#rec-avatar-video,#nova-face-video').forEach(v=>{ v.style.display='none'; });
+        _gateStamp('avatar');   // static face counts — she must never be dead because Runway is
       }
-      // FIX 1: tracks arriving isn't enough — she looked alive but couldn't respond yet.
-      // Wait for the worker's nova-ready signal too (safety: reveal anyway 12s after tracks).
-      const tracksIn = window.__novaVideoArrived && window.__novaAudioArrived;
+      // ── gate stamps ──
+      if (window.__novaPipelineReady) _gateStamp('evi');
+      if ((window.__poseIter||0) > 3) { _gateStamp('cam'); if (!poseLiveSince) poseLiveSince = Date.now(); }
+      if (window.__calibratedAt || (poseLiveSince && Date.now() - poseLiveSince > 1500)) _gateStamp('calib');
+      if (window.__novaVideoArrived && window.__novaAudioArrived) _gateStamp('avatar');
+      const g = window.__gate;
+      const allReady = g.evi && g.cam && g.calib && g.vision && g.avatar;
+      // safety: gates that can't complete must not strand the kid — 15s after her tracks
+      // arrive (or audio-only mode), reveal with whatever is ready. Logged as forced.
+      const tracksIn = (window.__novaVideoArrived && window.__novaAudioArrived) || audioOnlyReady;
       if (tracksIn && !window.__tracksInAt) window.__tracksInAt = Date.now();
-      const readyOrTimeout = window.__novaPipelineReady || (window.__tracksInAt && Date.now() - window.__tracksInAt > 12000);
-      const bothReady = (tracksIn && readyOrTimeout) || audioOnlyReady;
-      const minHeld = (Date.now() - (__introShownAt || Date.now())) >= 5000;
-      if (capEl && waited === 15000) capEl.textContent = 'connecting' + '…';
-      // gate FAILED (>90s, still not both-ready) → friendly retry, do NOT reveal.
-      // 90s so a cold start never trips a false "didn't load" while she IS loading.
-      if (!bothReady && waited >= 90000) {
+      const forced = window.__tracksInAt && (Date.now() - window.__tracksInAt > 15000);
+      if (capEl && waited === 15000) capEl.textContent = 'connecting…';
+      if (!allReady && !forced && waited >= 90000) {
         clearInterval(poll);
         LOG('INTRO', 'readiness gate failed (>90s) — showing retry');
         if (typeof showNovaRetryUI === 'function') showNovaRetryUI();
         return;
       }
-      if (bothReady) {
+      if (!(allReady || forced)) return;
+      // ── RELEASE + REVEAL-ON-FIRST-WORD ──
+      if (!clientReadySent) {
+        clientReadySent = true;
+        window.__gateDoneAt = Date.now();
+        LOG('GATE', 'ALL READY' + (forced ? ' (forced after 15s)' : '') + ' → ' + JSON.stringify(Object.keys(g).reduce((o,k)=>{o[k]=g[k]-(window.__gate.evi||g[k]);return o;},{})));
+        if (capEl) capEl.textContent = 'here she comes…';
+        if (window.__novaSend) window.__novaSend({ kind: 'client-ready' });
+        LOG('INTRO', 'client-ready sent (gate complete) → greeting releasing');
+      }
+      // melt the overlay the moment her voice actually starts (2.5s cap) — face and
+      // first word feel simultaneous; never a frozen face waiting to speak.
+      if (window.__novaSpeakingNow || Date.now() - window.__gateDoneAt > 2500) {
         clearInterval(poll);
-        if (capEl) capEl.textContent = 'almost…';
-        // POINT 1 (2026-07-01): FACE-BEFORE-VOICE. Reveal Nova's avatar FIRST
-        // (fade the cover the moment her video+audio tracks are attached), THEN
-        // send client-ready — which is what triggers the backend greeting. This
-        // guarantees her face is on screen before her first word, never a voice
-        // from a hidden avatar. OLD behaviour sent client-ready immediately and
-        // only faded once it HEARD her speak → voice arrived before the face.
+        window.__revealAt = Date.now();
         ov.classList.add('fade');
         const hum = document.getElementById('intro-humming');
         if (hum) { try { hum.pause(); } catch (_) {} }
         setTimeout(() => ov.classList.remove('show'), 350);
-        LOG('INTRO', 'MAGIC REVEAL (face shown on tracks-ready) — greeting released AFTER fade');
-        // Fade is 350ms; release the greeting just after the face is fully up so
-        // the first word lands with the face already visible. ~550ms << the
-        // backend's 12s client-ready fallback, so the greeting is never released early.
-        setTimeout(() => {
-          if (window.__novaSend) window.__novaSend({ kind: 'client-ready' });
-          LOG('INTRO', 'client-ready sent (post-reveal) → Nova may greet now');
-        }, 550);
+        LOG('INTRO', 'MAGIC REVEAL (voice-synced) — gap to first word: ' + (window.__firstWordMs ? 'word already live' : 'measuring…'));
       }
     }, 250);
   } catch (e) { LOG('ERROR', 'handoffFromIntro: ' + e.message); }
@@ -1846,6 +1879,32 @@ function handoffFromIntro() {
 // Phase 3 ("I see you" at +8s) + Phase 4 (mirror loop +15..25s). Feeds the
 // worker brain as context (it speaks the observation). Circuit-breaks after 2
 // consecutive failures so it never spams while Gemini quota is exhausted (429).
+// PHASE 1 — the stage map she lives on (mirrored in her EVI prompt; exposed for self-tests)
+window.__UI_MAP = 'Nova appears in the LEFT panel. The dancer sees THEMSELVES in the RIGHT panel (their camera — the magic lights land on their body there). The big DANCE button is below; pressing it (or saying "let\'s start") opens the game picker: Hello Hello, Up Groove, Wave. During a game Nova is voice-only and returns at the end.';
+
+// PHASE 1 — WALK-AWAY WATCHER (intro only): no pose for ~12s while she isn't talking →
+// ONE 'away' event (worker sends ONE warm nudge, then waits quietly). Kid reappears →
+// 'back' event → warm re-greet, flow resumes at the same beat. Never restarts the intro.
+(function awayWatcher(){
+  let absentSince = 0, awaySent = false;
+  setInterval(() => {
+    try {
+      if (typeof memory === 'undefined' || !memory || memory.phase !== 'recognition') { absentSince = 0; return; }
+      if (!window.__novaRoom || !window.__calibratedAt) return;   // only once she HAS seen them
+      if (window.__posePresent || window.__novaSpeakingNow) {
+        if (awaySent) { awaySent = false; if (window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'back' } }); LOG('AWAY', 'kid returned → back event'); }
+        absentSince = 0; return;
+      }
+      if (!absentSince) { absentSince = Date.now(); return; }
+      if (!awaySent && Date.now() - absentSince > 12000) {
+        awaySent = true;
+        if (window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'away' } });
+        LOG('AWAY', '12s no pose → away event (one nudge, then quiet)');
+      }
+    } catch(_){}
+  }, 1000);
+})();
+
 function startVisionMirror() {
   if (window.__visionMirrorStarted) return;
   window.__visionMirrorStarted = true;
@@ -1996,17 +2055,43 @@ async function initDID() {
     })();
     roomPromise.catch(()=>{});   // awaited below — this just silences early-rejection noise
 
-    let stream;
+    // PHASE 1 PERMISSION FALLBACKS: denial of one device must NEVER dead-end the intro.
+    // combo fails → try camera-only (mic denied: name BUTTONS carry the flow, voice-out only)
+    //             → try mic-only (camera denied: no lights/try-move, dance-along mode)
+    //             → both denied: she still greets; buttons carry everything.
+    let stream = null;
+    window.__micDenied = false; window.__camDenied = false;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480, facingMode: 'user' },
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
-      window.__kidStream = stream;
       LOG('ROOM', 'got camera+mic stream');
     } catch(e) {
-      LOG('ERROR', 'getUserMedia failed', { msg: e.message });
-      return;
+      LOG('ERROR', 'getUserMedia combo failed: ' + e.message + ' — trying camera-only');
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } });
+        window.__micDenied = true;
+        LOG('ROOM', 'camera-only stream (MIC DENIED) → name buttons will carry the intro');
+        setTimeout(() => { try { showNameCaptureButtons(); } catch(_){} }, 1500);
+      } catch(e2) {
+        LOG('ERROR', 'camera-only failed: ' + e2.message + ' — trying mic-only');
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+          window.__camDenied = true;
+          LOG('ROOM', 'mic-only stream (CAMERA DENIED) → try-move skipped, dance-along mode');
+        } catch(e3) {
+          window.__micDenied = true; window.__camDenied = true;
+          LOG('ERROR', 'ALL media denied — voice-out only, buttons carry the flow');
+          setTimeout(() => { try { showNameCaptureButtons(); } catch(_){} }, 1500);
+        }
+      }
+    }
+    if (stream) window.__kidStream = stream;
+    if (window.__camDenied) {
+      // gate items that need the camera can never complete — stamp them so the reveal
+      // doesn't strand the kid, and tell the worker once (she asks warmly one time).
+      try { _gateStamp('cam'); _gateStamp('calib'); _gateStamp('vision'); } catch(_){}
     }
 
     // Attach kid camera to webcam video element (already exists in v43 HTML)
@@ -2052,7 +2137,7 @@ async function initDID() {
     // mid-greeting and swallow Nova's first words (BUG 2 fix). Vision uses
     // captureWebcamFrame over HTTP — NOT this published track — so deferring is safe.
     (function publishWebcamWhenStable() {
-      const videoTrack = stream.getVideoTracks?.()[0];
+      const videoTrack = stream && stream.getVideoTracks ? stream.getVideoTracks()[0] : null;
       if (!videoTrack) return;
       let waited = 0;
       const tick = setInterval(async () => {
@@ -2182,7 +2267,10 @@ function setupNovaRoomEvents(room) {
         setInterval(() => { an.getByteFrequencyData(buf); let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i]; window.__novaSpeakingNow = (s / buf.length) > 7;
           if (window.__novaSpeakingNow && !window.__firstWordMs && window.__tapTs) {   // TASK 1: measured tap→first-WORD
             window.__firstWordMs = Math.round(performance.now() - window.__tapTs);
-            LOG('WAKE', `Nova FIRST WORD (+${window.__firstWordMs}ms after tap)`);
+            window.__firstWordAt = Date.now();
+            const gap = window.__revealAt ? (window.__firstWordAt - window.__revealAt) : null;
+            window.__revealToWordMs = gap;
+            LOG('WAKE', `Nova FIRST WORD (+${window.__firstWordMs}ms after tap${gap!==null?(', '+gap+'ms after reveal'):''})`);
           } }, 100);
       } catch (e) { LOG('AUDIO', 'sound-detector unavailable: ' + e.message); }
       a.play().catch(()=>{});
@@ -4482,6 +4570,9 @@ function handleHit(actionEvent) {
 }
 
 function handleMiss(actionEvent) {
+  // PHASE 1 DANCE-ALONG MODE: camera denied → no detection exists, so a "miss" means
+  // nothing. Neutral close, no red, no streak reset — the kid just dances along.
+  if (window.__camDenied) { LOG('GAME-MISS', 'dance-along mode → miss ignored'); window.__cueState = 'armed'; return; }
   LOG('GAME-MISS', `${actionEvent?.action || 'move'} MISS (current moves: ${JSON.stringify(moves)})`);
   window.__cueState = 'miss';   // soft red on the body light
   combo = 0;
