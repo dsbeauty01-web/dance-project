@@ -403,8 +403,10 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
    MP4 dominant and the kid (where the lights fire) squeezed into 40% — and NO
    portrait layout, so on a phone it was a cramped side-by-side. Landscape: camera
    58%. Portrait phone: stack — dance MP4 on top, BIG kid camera below. */
-#game-split.split-nova-big{grid-template-columns:55fr 45fr}  /* Hello Hello: Nova demos the moves → she gets the bigger panel (55/45) */
-#game-split{flex:1;display:grid;grid-template-columns:42fr 58fr;
+/* ASPECT-FIT LAYOUT (2026-07-03): each panel is sized by ITS video's true aspect →
+   no black bars, no cropping, both subjects at MAX size (height is the limit; extra
+   width only ever became bars). JS fitGamePanels() sets the column widths live. */
+#game-split{flex:1;display:grid;grid-template-columns:42fr 58fr;justify-content:center;column-gap:6px;
   min-height:0;position:relative;z-index:1}
 @media (max-aspect-ratio:1/1){
   #game-split{grid-template-columns:1fr;grid-template-rows:40fr 60fr}
@@ -417,9 +419,9 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
    an opaque black backdrop guarantees no gradient bleed if a frame decodes late. */
 #nova-side{position:relative;overflow:hidden;background:#000}
 #nova-video{position:absolute;inset:0;width:100%;height:100%;
-  /* FULL FIGURE (2026-07-02): contain, never cover — cover cropped her to a torso when
-     the panel aspect ≠ video aspect. Black letterbox is fine; a cropped Nova is not. */
-  object-fit:contain;background:#000;z-index:1;display:block}
+  /* panel is aspect-fitted to the video (fitGamePanels) → cover ≈ exact fit, no bars,
+     no crop. If a clamp kicks in, bias framing toward her head (center 12%). */
+  object-fit:cover;object-position:center 12%;background:#f2efec;z-index:1;display:block}
 
 /* D-ID face — top-left of Nova panel */
 /* D-ID face — FIXED top-center of game phase, straddling the boundary
@@ -543,10 +545,9 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 /* Cam side */
 #cam-side{position:relative;background:#000;overflow:hidden}
 #webcam{position:absolute;inset:0;width:100%;height:100%;
-  /* FULL CAMERA FRAME (2026-07-02): contain, native aspect, NO artificial zoom — cover
-     magnified a 16:9 stream ~2x (giant face, body off-frame → MoveNet blind). Detection
-     needs shoulders+arms+hips visible. Aura mapping below uses matching contain math. */
-  object-fit:contain;transform:scaleX(-1);
+  /* panel is aspect-fitted to the camera stream (fitGamePanels) → cover ≈ exact fit,
+     no bars, no artificial zoom. Aura mapping uses cover math to match. */
+  object-fit:cover;transform:scaleX(-1);
   filter:brightness(1.25) contrast(1.05) saturate(1.1)}
 #cam-border{position:absolute;inset:0;border:6px solid transparent;
   pointer-events:none;z-index:3;transition:all .15s}
@@ -4086,6 +4087,38 @@ window.togglePauseGame = togglePauseGame;
 window.exitGame = exitGame;
 window.__startGame = startGame; window.__endGame = endGame;   // (self-test hooks — hoisted fn decls)
 
+// ASPECT-FIT LAYOUT (2026-07-03): panel widths = panel-height × each video's real aspect.
+// Nova's clip is portrait → she gets exactly her width (full figure, no bars, no crop);
+// the camera gets its native aspect (no zoom). Leftover width becomes centered margin.
+// If the window is too narrow for both, the CAMERA absorbs the squeeze (cover-crops sides
+// a little — detection reads the raw video, so tracking is unaffected).
+function fitGamePanels() {
+  const split = document.getElementById('game-split');
+  if (!split || !split.offsetParent) return;
+  const cs = getComputedStyle(split);
+  if (cs.gridTemplateRows.split(' ').length > 1 && cs.gridTemplateColumns.split(' ').length < 2 && innerWidth < innerHeight) return; // stacked mobile layout — leave it
+  const H = split.clientHeight, W = split.clientWidth - 6;   // minus column gap
+  if (H < 50 || W < 100) return;
+  const nv = document.getElementById('nova-video');
+  const cam = document.getElementById('webcam');
+  const novaAsp = (nv && nv.videoWidth) ? nv.videoWidth / nv.videoHeight : 832 / 1104;
+  const camAsp  = (cam && cam.videoWidth) ? cam.videoWidth / cam.videoHeight : 4 / 3;
+  const novaWant = Math.min(Math.round(H * novaAsp), Math.round(W * 0.55));
+  const camWant  = Math.round(H * camAsp);
+  let novaW, camW;
+  if (novaWant + camWant <= W) { novaW = novaWant; camW = camWant; }
+  else {
+    // squeeze: Nova gives first — her clip is a centered figure on plain white, so up to
+    // ~30% side-trim costs nothing visually. The camera keeps as much native width as possible.
+    const novaMin = Math.round(novaWant * 0.70);
+    camW = Math.min(camWant, W - novaMin);
+    novaW = Math.max(novaMin, W - camW);
+  }
+  split.style.gridTemplateColumns = novaW + 'px ' + camW + 'px';
+  try { LOG('LAYOUT', `aspect-fit → nova ${novaW}px (asp ${novaAsp.toFixed(2)}) · cam ${camW}px (asp ${camAsp.toFixed(2)}) · H ${H}`); } catch(_){}
+}
+window.addEventListener('resize', () => { try { fitGamePanels(); } catch(e){} });
+
 function startGame() {
   memory.phase = 'song';
   // v113-live: tell the worker we entered the dance phase, so Nova reacts to
@@ -4102,9 +4135,8 @@ function startGame() {
     try { const _fv = document.getElementById('nova-face-video'); if (_fv) _fv.pause(); } catch(e) {} }
   score = 0; hits = 0; attempts = 0; combo = 0; maxCombo = 0; timelineIdx = 0;
   anticipatedIdx.clear(); // reset anticipation tracking for fresh play
-  // per-game split: Hello Hello is copy-HER choreography → Nova 55 / camera 45.
-  // Up Groove / Wave stay camera-dominant (the kid is the star there).
-  try { document.getElementById('game-split').classList.toggle('split-nova-big', selectedSong.id === 'hello'); } catch(e) {}
+  // ASPECT-FIT: size each panel to its video's real aspect (no bars, no crop, max size)
+  try { fitGamePanels(); setTimeout(fitGamePanels, 900); setTimeout(fitGamePanels, 2500); } catch(e) {}
   // TASK 4: snapshot layout while the game panels are actually visible (endGame hides them)
   setTimeout(()=>{ try{ const c=document.getElementById('cam-side'), n=document.getElementById('nova-side');
     window.__layoutSnap={ camPanelW:c?c.offsetWidth:0, novaPanelW:n?n.offsetWidth:0, camDominant:!!(c&&n&&c.offsetWidth>n.offsetWidth) }; }catch(e){} }, 1200);
@@ -4760,7 +4792,7 @@ window.__initRunwayNova = initDID;
       const e=window.__cueAction, kps=window.__lastPoseKeypoints;
       if(!kps){ eng.render({ anchors:[], center:null, k:1, W:cw, H:ch, quality:0.6, velocity:0, dir:null, active:false, now }); return; }
       const vw=webcam.videoWidth||640, vh=webcam.videoHeight||480;
-      const scale=Math.min(cw/vw,ch/vh), ox=(cw-vw*scale)/2, oy=(ch-vh*scale)/2;   // CONTAIN math (webcam is object-fit:contain now)
+      const scale=Math.max(cw/vw,ch/vh), ox=(cw-vw*scale)/2, oy=(ch-vh*scale)/2;   // COVER math (webcam is object-fit:cover, panel aspect-fitted)
       const X=p=>cw-(p.x*scale+ox), Y=p=>p.y*scale+oy;   // X mirrored; kps RAW (flip:false)
       const m={}; kps.forEach(k=>m[k.name]=k);
       { const l=m.left_shoulder,r=m.right_shoulder,lh=m.left_hip,rh=m.right_hip; if(l&&r){ const sx=(l.x+r.x)/2,sy=(l.y+r.y)/2,hx=(lh&&rh)?(lh.x+rh.x)/2:sx,hy=(lh&&rh)?(lh.y+rh.y)/2:sy+90; m.__rib={x:sx*0.5+hx*0.5,y:sy*0.45+hy*0.55,score:Math.min(l.score,r.score)}; } }
