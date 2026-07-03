@@ -1927,19 +1927,13 @@ function handoffFromIntro() {
         return;
       }
       if (!(allReady || forced)) return;
-      // ── INTRO-FINAL: ONE AUTHORITY — THE FACE TRIGGERS THE VOICE ──
-      // Strictly serial: gates done → CALM 1.5s fade starts → reveal-now sent → the
-      // worker speaks ONLY on that packet. Voice-before-face is impossible, not "checked".
+      // ── INTRO-4FIXES #2: gates → reveal-now → HER FIRST AUDIO FRAME → fade ──
+      // The fade begins the instant her voice actually starts, so face and first word
+      // land together BY CONSTRUCTION (was: fade at gate-ready, word 3.3s later).
       clearInterval(poll);
       window.__gateDoneAt = Date.now();
       LOG('GATE', 'ALL READY' + (forced ? ' (forced after 15s)' : '') + ' → ' + JSON.stringify(Object.keys(g).reduce((o,k)=>{o[k]=g[k]-(window.__gate.evi||g[k]);return o;},{})));
-      window.__revealAt = Date.now();                   // the moment = fade START
-      ov.style.transition = 'opacity 1.5s ease';        // calm melt, not a pop
-      ov.classList.add('fade');
-      const hum = document.getElementById('intro-humming');
-      if (hum) { try { hum.pause(); } catch (_) {} }
-      setTimeout(() => ov.classList.remove('show'), 1550);
-      LOG('INTRO', 'CALM REVEAL started (1.5s fade) → sending reveal-now (single authority)');
+      if (capEl) capEl.textContent = 'here she comes…';
       // reveal-now with resend-until-ack (resilient against data-channel death)
       let acked = false;
       try { window.__novaRoom && window.__novaRoom.on(LivekitClient.RoomEvent.DataReceived, p => {
@@ -1950,9 +1944,30 @@ function handoffFromIntro() {
         if (acked || window.__novaSpeakingNow || ++tries > 20) { clearInterval(sendReveal); return; }
         if (window.__novaSend) window.__novaSend({ kind: 'reveal-now' });
         if (window.__novaSend) window.__novaSend({ kind: 'client-ready' });   // legacy ack (stops nova-ready announcer)
-        if (tries === 1) LOG('INTRO', 'reveal-now sent');
+        if (tries === 1) LOG('INTRO', 'reveal-now sent — overlay holds until her first audio frame');
       }, 1000);
       setTimeout(() => { if (window.__novaSend) { window.__novaSend({ kind: 'reveal-now' }); window.__novaSend({ kind: 'client-ready' }); } }, 10);
+      // FADE-ON-FIRST-WORD: poll for her audio energy; 8s cap so a mute failure never
+      // strands the kid behind the overlay.
+      const revealSentAt = Date.now();
+      const fadePoll = setInterval(() => {
+        const speaking = !!window.__novaSpeakingNow;
+        const capped = Date.now() - revealSentAt > 8000;
+        if (!speaking && !capped) return;
+        clearInterval(fadePoll);
+        window.__revealAt = Date.now();                 // the moment = fade start = her first word
+        if (window.__firstWordAt && window.__revealToWordMs == null)
+          window.__revealToWordMs = window.__firstWordAt - window.__revealAt;
+        ov.style.transition = 'opacity 1.5s ease';      // calm melt, not a pop
+        ov.classList.add('fade');
+        const hum = document.getElementById('intro-humming');
+        if (hum) { try { hum.pause(); } catch (_) {} }
+        setTimeout(() => ov.classList.remove('show'), 1550);
+        LOG('INTRO', 'CALM REVEAL — fade started ON her first word' + (capped && !speaking ? ' (8s cap, no voice yet!)' : ''));
+        // UI unlocks belong to the reveal (moved from the deleted novaArrivalGreet)
+        try { document.getElementById('rec-dance-btn').classList.add('ready'); } catch(_){}
+        try { showNameCaptureButtons(); } catch(_){}
+      }, 60);
     }, 250);
   } catch (e) { LOG('ERROR', 'handoffFromIntro: ' + e.message); }
 }
@@ -2251,11 +2266,11 @@ async function initDID() {
       }
     }, 90000);
 
-    // Trigger arrival greeting if we're in recognition phase
+    // INTRO-4FIXES #1: novaArrivalGreet (the startScript path) REMOVED — the ONLY
+    // speak-trigger is the reveal-now handler. UI unlocks (dance button, name buttons)
+    // now happen at the reveal itself, not on track-attach.
     if (memory.phase === 'recognition' && !window._greeted) {
       window._greeted = true;
-      novaArrivalGreet();
-      // v111-TEST: kick off the nervous system once we're in intro phase
       if (typeof startNervousSystem === 'function') {
         setTimeout(startNervousSystem, 2000);
       }
@@ -2307,10 +2322,48 @@ window.__retryNova = function() {
 };
 
 function setupNovaRoomEvents(room) {
-  room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
-    LOG('ROOM', `track subscribed: ${track.kind}`);
+  // INTRO-4FIXES #3 (LIPS): the room can carry TWO audio tracks — the avatar's
+  // (lipsynced by Runway) and the worker's raw voice. Last-attach-wins used to let the
+  // raw one play → audible voice, frozen lips. Now we PREFER the audio published by the
+  // SAME participant as the video (the avatar); a raw track only plays if no avatar.
+  const audioByPid = {};   // pid → track
+  function attachNovaAudio(track, pid) {
+    let a = document.getElementById('nova-audio');
+    if (!a) { a = document.createElement('audio'); a.id = 'nova-audio'; a.autoplay = true; document.body.appendChild(a); }
+    try { track.attach(a); } catch(e) { LOG('ERROR', 'audio attach', { msg: e.message }); }
+    a.muted = false;
+    window.__audioAttachedPid = pid;
+    // Sound detector — rebuilt per attach (sets window.__novaSpeakingNow)
+    try {
+      if (window.__sndIv) clearInterval(window.__sndIv);
+      const ms = new MediaStream([track.mediaStreamTrack]);
+      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      const an = ac.createAnalyser(); an.fftSize = 256;
+      ac.createMediaStreamSource(ms).connect(an);
+      const buf = new Uint8Array(an.frequencyBinCount);
+      window.__novaSpeakingNow = false;
+      window.__sndIv = setInterval(() => { an.getByteFrequencyData(buf); let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i]; window.__novaSpeakingNow = (s / buf.length) > 7;
+        if (window.__novaSpeakingNow && !window.__firstWordMs && window.__tapTs) {
+          window.__firstWordMs = Math.round(performance.now() - window.__tapTs);
+          window.__firstWordAt = Date.now();
+          const gap = window.__revealAt ? (window.__firstWordAt - window.__revealAt) : null;
+          window.__revealToWordMs = gap;
+          LOG('WAKE', `Nova FIRST WORD (+${window.__firstWordMs}ms after tap${gap!==null?(', '+gap+'ms after reveal'):''})`);
+        } }, 100);
+    } catch (e) { LOG('AUDIO', 'sound-detector unavailable: ' + e.message); }
+    a.play().catch(()=>{});
+    LOG('AUDIO', 'Nova audio attached from participant "' + pid + '"' + (pid === window.__avatarPid ? ' (AVATAR — lipsync path ✓)' : ' (no avatar yet)'));
+  }
+  function preferAvatarAudio() {
+    const want = window.__avatarPid && audioByPid[window.__avatarPid] ? window.__avatarPid : Object.keys(audioByPid)[0];
+    if (want && window.__audioAttachedPid !== want) attachNovaAudio(audioByPid[want], want);
+  }
+  room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+    const pid = (participant && participant.identity) || '?';
+    LOG('ROOM', `track subscribed: ${track.kind} from "${pid}"`);
     if (track.kind === 'video') {
       window.__novaVideoArrived = true;
+      window.__avatarPid = pid;   // the video publisher IS the avatar → its audio moves the lips
       // Attach Nova's video to all face elements
       [recAvatarVideo, novaFaceVideo, endAvatarVideo].forEach(v => {
         if (!v) return;
@@ -2323,39 +2376,16 @@ function setupNovaRoomEvents(room) {
       if (recAvatarPlaceholder) recAvatarPlaceholder.style.display = 'none';
       if (novaFacePlaceholder) novaFacePlaceholder.style.display = 'none';
       LOG('NOVA', 'Nova video track attached to all face elements');
+      preferAvatarAudio();        // if raw audio attached first, switch to the avatar's
       // v110 KIDS: start in idle state — warm overlay covers Runway's anxious idle frames
       if (typeof setNovaState === 'function') setNovaState('listening');
     } else if (track.kind === 'audio') {
-      // Create a hidden audio element for Nova's voice
-      let a = document.getElementById('nova-audio');
-      if (!a) {
-        a = document.createElement('audio');
-        a.id = 'nova-audio';
-        a.autoplay = true;
-        document.body.appendChild(a);
+      audioByPid[pid] = track;
+      if (window.__avatarPid && pid !== window.__avatarPid && window.__audioAttachedPid === window.__avatarPid) {
+        LOG('AUDIO', 'raw audio from "' + pid + '" IGNORED (avatar audio already playing — lips stay synced)');
+      } else {
+        preferAvatarAudio();
       }
-      try { track.attach(a); } catch(e) { LOG('ERROR', 'audio attach', { msg: e.message }); }
-      a.muted = false;
-      // Sound detector — lets us reveal Nova exactly when she STARTS speaking
-      // (not 4s of confused idle face first). Sets window.__novaSpeakingNow.
-      try {
-        const ms = new MediaStream([track.mediaStreamTrack]);
-        const ac = new (window.AudioContext || window.webkitAudioContext)();
-        const an = ac.createAnalyser(); an.fftSize = 256;
-        ac.createMediaStreamSource(ms).connect(an);
-        const buf = new Uint8Array(an.frequencyBinCount);
-        window.__novaSpeakingNow = false;
-        setInterval(() => { an.getByteFrequencyData(buf); let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i]; window.__novaSpeakingNow = (s / buf.length) > 7;
-          if (window.__novaSpeakingNow && !window.__firstWordMs && window.__tapTs) {   // TASK 1: measured tap→first-WORD
-            window.__firstWordMs = Math.round(performance.now() - window.__tapTs);
-            window.__firstWordAt = Date.now();
-            const gap = window.__revealAt ? (window.__firstWordAt - window.__revealAt) : null;
-            window.__revealToWordMs = gap;
-            LOG('WAKE', `Nova FIRST WORD (+${window.__firstWordMs}ms after tap${gap!==null?(', '+gap+'ms after reveal'):''})`);
-          } }, 100);
-      } catch (e) { LOG('AUDIO', 'sound-detector unavailable: ' + e.message); }
-      a.play().catch(()=>{});
-      LOG('AUDIO', 'Nova audio track attached + playing');
       window.__runwayAudioReady = true;
       window.__novaAudioArrived = true;
       window.__novaAudioArrivedAt = Date.now();  // v102: STT budget starts now
@@ -2484,18 +2514,8 @@ async function novaSay(text) {
   speak(text);
 }
 
-async function novaArrivalGreet() {
-  // v98: Nova greets autonomously via her startScript (set on session create).
-  // We don't push text here — she speaks when her audio track arrives.
-  if (!window.__runwayAudioReady) {
-    LOG('GAME', 'novaArrivalGreet waiting for Runway audio...');
-    const waited = await waitForRunwayAudio(20000);
-    if (!waited) LOG('ERROR', 'Runway audio never arrived');
-  }
-  LOG('NOVA', 'arrival greet — Nova speaks via her own startScript');
-  document.getElementById('rec-dance-btn').classList.add('ready');
-  showNameCaptureButtons();
-}
+// INTRO-4FIXES #1: novaArrivalGreet DELETED (the startScript log fired before reveal-now
+// and its legacy comment implied an auto-greet). UI unlocks moved to the reveal.
 
 // v94: Wait until Runway audio track has arrived in this room (or timeout)
 function waitForRunwayAudio(timeoutMs = 15000) {
