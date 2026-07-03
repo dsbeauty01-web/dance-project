@@ -352,6 +352,44 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   color:rgba(255,255,255,0.7);margin-top:8px}
 
 /* ═══════════════════════════════════════════
+   PHASE 2.75: TRANSITION — the live bridge (button → game)
+   Kid sees themselves (mirror) to frame up; Nova's words land as captions;
+   a soft glow says "alive, working" not "loading spinner".
+   ═══════════════════════════════════════════ */
+#phase-transition{align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 40%,#2d0750,#0a0015);z-index:200;overflow:hidden}
+#trans-cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  transform:scaleX(-1);   /* mirror — the kid frames themselves naturally */
+  opacity:.72;filter:saturate(1.05)}
+#trans-scrim{position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 42%,rgba(10,0,21,0) 30%,rgba(10,0,21,.55) 100%),
+             linear-gradient(to bottom,rgba(10,0,21,.35),rgba(10,0,21,0) 25%,rgba(10,0,21,0) 60%,rgba(10,0,21,.75))}
+#trans-glow{position:absolute;top:50%;left:50%;width:min(74vmin,560px);height:min(74vmin,560px);
+  transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,rgba(167,139,250,.28),rgba(255,111,216,.10) 45%,transparent 68%);
+  animation:transBreathe 2.4s ease-in-out infinite}
+@keyframes transBreathe{0%,100%{opacity:.55;transform:translate(-50%,-50%) scale(.96)}
+  50%{opacity:1;transform:translate(-50%,-50%) scale(1.04)}}
+/* soft head-and-shoulders guide the kid steps into (pure affordance, no logic) */
+#trans-frameguide{position:absolute;top:46%;left:50%;width:min(46vmin,340px);height:min(58vmin,430px);
+  transform:translate(-50%,-50%);border:3px dashed rgba(255,255,255,.28);
+  border-radius:46% 46% 40% 40%/52% 52% 40% 40%;pointer-events:none}
+#phase-transition.framed #trans-frameguide{border-color:rgba(52,211,153,.9);
+  box-shadow:0 0 40px rgba(52,211,153,.45);transition:.4s}
+#phase-transition.framed #trans-glow{background:radial-gradient(circle,rgba(52,211,153,.30),transparent 66%)}
+#trans-cap{position:absolute;left:50%;bottom:16%;transform:translateX(-50%);
+  max-width:86%;text-align:center;font-family:'Fredoka',cursive;font-weight:700;
+  font-size:clamp(24px,4.4vmin,40px);color:#fff;line-height:1.15;
+  text-shadow:0 2px 24px rgba(0,0,0,.6),0 0 40px rgba(167,139,250,.4);
+  opacity:0;transition:opacity .28s ease,transform .28s ease}
+#trans-cap.show{opacity:1}
+#trans-cap.bump{animation:transCapBump .4s cubic-bezier(.34,1.56,.64,1)}
+@keyframes transCapBump{from{transform:translateX(-50%) scale(.9)}to{transform:translateX(-50%) scale(1)}}
+#trans-sub{position:absolute;left:50%;bottom:10%;transform:translateX(-50%);
+  font-family:'Fredoka',cursive;font-weight:500;font-size:clamp(13px,2.2vmin,17px);
+  color:rgba(255,255,255,.6);text-shadow:0 1px 10px rgba(0,0,0,.6)}
+
+/* ═══════════════════════════════════════════
    PHASE 4: GAME — the song
    Adaptive background that shifts with energy
    ═══════════════════════════════════════════ */
@@ -915,7 +953,21 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<!-- ═══ PHASE 3: COUNTDOWN ═══ -->
+<!-- ═══ PHASE 2.75: TRANSITION (button → game start) — the LIVE BRIDGE ═══
+     The kid never feels "loading." Nova stays live (voice + captions + glow) while
+     the MP4/cues/detection load silently behind her. The kid sees THEMSELVES here so
+     they can step back to frame — MoveNet confirms the body, then the game starts. -->
+<div class="phase" id="phase-transition">
+  <video id="trans-cam" autoplay playsinline muted></video>
+  <div id="trans-scrim"></div>
+  <div id="trans-glow"></div>
+  <div id="trans-frameguide"></div>
+  <div id="trans-cap">getting ready…</div>
+  <div id="trans-sub">Nova's setting up the magic ✨</div>
+</div>
+
+<!-- ═══ PHASE 3: COUNTDOWN (legacy — kept for the skip path; the transition bridge
+     replaces it on the normal pick flow) ═══ -->
 <div class="phase" id="phase-countdown">
   <div id="cd-num">3</div>
   <div id="cd-label">get ready...</div>
@@ -1089,7 +1141,10 @@ function pickGame(songId){
   if(typeof markUserInteraction === 'function') markUserInteraction();
   if (typeof setSelectedSong === 'function') setSelectedSong(songId);
   if (typeof LOG === 'function') LOG('GAME', `kid picked song: ${songId}`);
-  startCountdown();
+  // PHASE 2: the live bridge covers the load (hype → tip → step-back → go). Falls back
+  // to the legacy 3-2-1 countdown only if the transition engine somehow isn't present.
+  if (window.__startTransition) window.__startTransition(songId);
+  else startCountdown();
 }
 function pickerBack(){
   showPhase('phase-recognition');
@@ -4187,6 +4242,248 @@ window.togglePauseGame = togglePauseGame;
 window.exitGame = exitGame;
 window.__startGame = startGame; window.__endGame = endGame;   // (self-test hooks — hoisted fn decls)
 
+// ═══════════════════════════════════════════════════════════════
+// PHASE 2 — TRANSITION: the LIVE BRIDGE (button → game start)
+// ───────────────────────────────────────────────────────────────
+// From the pick until the MP4's first beat, Nova stays live and the wait
+// becomes the show. On pick we (1) start the MP4/cues/detection loading SILENTLY,
+// (2) run a voiced bridge — hype → tip → framing (the step-back gate) — and
+// (3) hand off to the game only when the READY GATE is all true:
+//     mp4 (canplaythrough) · cues (timeline armed) · framed (body in frame) · bridge (her line finished).
+// The browser owns budget + timing; the worker just speaks each beat it asks for.
+// All state is on window.* so phase2-loop.js can machine-check it.
+const TRANS_CAPTIONS = {
+  hype:   s => ({hello:"ohh — Hello Hello! I LOVE this one! ⚡", joined:"YESSS — Up Groove! my song! 🕺", wave:"ohh — the Wave! so smooth! 🌊"}[s]||"ohh — great pick!"),
+  tip:    s => ({hello:"when the light glows on your hand — that's me!", joined:"copy my body — head, shoulders, ribs, hips!", wave:"let the light ride up your arm! 🌊"}[s]||"watch the lights — that's me!"),
+  framing:()=> "step back so I can see ALL of you! ✨",
+  framed: ()=> "perfect — right there! 🌟",
+  slow:   ()=> "almost ready — shake those hands out! ✨",
+  switch: ()=> "ohh — even better! 🌟",
+  fail:   ()=> "hmm — that one's being shy! pick another! 🌟",
+  dancealong:()=>"that's okay — let's just DANCE! 🌊",
+};
+window.__transTest = window.__transTest || {};   // { forceNoVoice, forceNoPose } — harness hooks
+
+function _transTimer(fn, ms, repeat){
+  const id = repeat ? setInterval(fn, ms) : setTimeout(fn, ms);
+  (window.__transTimers = window.__transTimers || []).push({ id, repeat });
+  return id;
+}
+function _clearTransTimers(){
+  (window.__transTimers || []).forEach(t => t.repeat ? clearInterval(t.id) : clearTimeout(t.id));
+  window.__transTimers = [];
+}
+function transCaption(beat, songId){
+  const el = document.getElementById('trans-cap'); if (!el) return;
+  const fn = TRANS_CAPTIONS[beat]; const txt = fn ? fn(songId || (selectedSong && selectedSong.id)) : '';
+  el.textContent = txt; el.classList.add('show'); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+}
+function transSpeak(beat, songId){
+  // worker speaks (personality.transition_line); caption carries it too (voice-independent)
+  if (window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'bridge', beat, song: songId || (selectedSong && selectedSong.id) } });
+  (window.__bridgeStartedBeats = window.__bridgeStartedBeats || []).push(beat);
+  (window.__bridgeLog = window.__bridgeLog || []).push({ beat, atMs: Math.round(performance.now() - (window.__transStartAt||performance.now())), readyWhenStarted: _loadReady() });
+  LOG('TRANS', `bridge beat → ${beat} (${songId || (selectedSong&&selectedSong.id)})`);
+}
+// full gate (releases the handoff) vs load-ready (the budget signal: game is ready,
+// only her voice is outstanding). Budget rule keys off _loadReady, NOT _readyAll —
+// `bridge` is the thing the loop produces, so it must not gate its own budget check.
+function _readyAll(){ const g = window.__readyGate || {}; return !!(g.mp4 && g.cues && g.framed && g.bridge); }
+function _loadReady(){ const g = window.__readyGate || {}; return !!(g.mp4 && g.cues && g.framed); }
+
+function attachTransCam(){
+  const v = document.getElementById('trans-cam'); if (!v) return;
+  const s = window.__kidStream;
+  if (s && v.srcObject !== s){ v.srcObject = s; v.play().catch(()=>{}); }
+  else if (!s){ _transTimer(attachTransCam, 400); }   // stream not up yet — retry
+}
+
+// upper body in frame = nose + BOTH shoulders + at least one hip visible, with headroom.
+// Requiring hips means the kid stepped back far enough that head→torso fits (the framing goal).
+function isUpperBodyFramed(){
+  if (window.__transTest.forceNoPose) return false;
+  const kps = window.__lastPoseKeypoints; if (!kps || !kps.length) return false;
+  const by = {}; kps.forEach(k => { if (k.name) by[k.name] = k; });
+  const ok = n => by[n] && by[n].score > 0.3;
+  if (!(ok('nose') && ok('left_shoulder') && ok('right_shoulder'))) return false;
+  if (!(ok('left_hip') || ok('right_hip'))) return false;   // hips in frame ⇒ stepped back
+  const cam = document.getElementById('webcam');
+  const H = (cam && cam.videoHeight) || 480;
+  const noseY = by['nose'].y / H;
+  const shY = ((by['left_shoulder'].y + by['right_shoulder'].y) / 2) / H;
+  return noseY > 0.06 && shY < 0.72;   // head not clipped at top, shoulders not at the very bottom
+}
+
+// (1) BACKGROUND LOAD — silent, starts immediately on pick.
+function beginBackgroundLoad(song){
+  const t0 = window.__transStartAt;
+  const vid = document.getElementById('nova-video');
+  const g = window.__readyGate;
+  const file = song.videoFile;
+  let cached = false;
+  window.__mp4PreloadStartAt = performance.now();
+  window.__mp4PreloadDelayMs = Math.round(window.__mp4PreloadStartAt - t0);
+  if (file){
+    const already = (vid.currentSrc || '').endsWith(file);
+    if (already && vid.readyState >= 4){
+      cached = true; g.mp4 = true; window.__mp4ReadyAt = performance.now();
+      LOG('TRANS', `MP4 already buffered (cached) — readyState=${vid.readyState}`);
+    } else {
+      if (!already){ vid.src = encodeURI(file); vid.load(); }
+      const markReady = () => { if (g.mp4 || window.__transEnded) return; g.mp4 = true; window.__mp4ReadyAt = performance.now();
+        LOG('TRANS', `MP4 canplaythrough (+${Math.round(performance.now()-t0)}ms) — mp4 gate`); };
+      vid.addEventListener('canplaythrough', markReady, { once:true });
+      _transTimer(() => { if (vid.readyState >= 4) markReady(); }, 150, true);   // belt+suspenders
+      vid.addEventListener('error', () => onLoadFail(song), { once:true });
+      LOG('TRANS', `MP4 preload started: ${file} (+${window.__mp4PreloadDelayMs}ms)`);
+    }
+  } else {
+    // dual-source games (hello/freeze): the visual MP4 is small/preloaded; no big buffer to wait on.
+    g.mp4 = true; window.__mp4ReadyAt = performance.now();
+    LOG('TRANS', `dual-source (${song.audioFile}) — mp4 gate auto-ready`);
+  }
+  // cues: setSelectedSong already armed TIMELINE for this song → mark it.
+  g.cues = true; LOG('TRANS', 'cue timeline armed — cues gate');
+  return { cached };
+}
+
+function onLoadFail(song){
+  if (window.__transEnded || window.__loadFailed) return;
+  window.__loadFailed = true;
+  LOG('ERROR', `TRANS LOAD FAILED for "${song.videoFile || song.audioFile}" — returning to picker`);
+  transSpeak('fail', song.id); transCaption('fail', song.id);
+  _cancelTransition();
+  _transTimer(() => { showPhase('phase-picker'); }, 1900);
+}
+
+// (2) THE BRIDGE — hype → tip (framing is driven by the framing gate). Budget: never
+// START a new line once the ready gate is all-true; caption carries it if voice is down.
+async function runBridge(song, cached){
+  const queue = cached ? [] : ['hype', 'tip'];
+  window.__bridgeQueue = queue.slice();
+  for (const beat of queue){
+    if (window.__transEnded) return;
+    if (_loadReady()){ LOG('TRANS', `load ready before "${beat}" → cutting remaining bridge lines (she finishes current, then go)`); break; }
+    transSpeak(beat, song.id); transCaption(beat, song.id);
+    await waitForNovaLineDone();
+  }
+  window.__readyGate.bridge = true;   // hype+tip narration done (or cached/cut) — bridge gate
+  LOG('TRANS', 'bridge narration finished — bridge gate');
+}
+
+// resolves when Nova finishes the current line (falling edge of speaking), or a 2.6s cap
+// so a silent/absent voice (EVI down, ElevenLabs off) never hangs the bridge.
+function waitForNovaLineDone(){
+  return new Promise(resolve => {
+    if (window.__transTest.forceNoVoice){ _transTimer(resolve, 700); return; }
+    const start = performance.now(); let sawSpeak = false;
+    const iv = _transTimer(() => {
+      if (window.__transEnded){ clearInterval(iv); return resolve(); }
+      if (window.__novaSpeakingNow) sawSpeak = true;
+      const finished = sawSpeak && !window.__novaSpeakingNow && (performance.now() - start > 350);
+      const capped = performance.now() - start > 2600;
+      if (finished || capped){ clearInterval(iv); resolve(); }
+    }, 120, true);
+  });
+}
+
+// (3) FRAMING GATE — the step-back prompt(s), body confirm, and dance-along fallback.
+function startFramingGate(song){
+  window.__framePrompts = 0;
+  let framedSince = 0, lastPromptAt = 0, prompted = false;
+  const iv = _transTimer(() => {
+    if (window.__transEnded){ clearInterval(iv); return; }
+    if (window.__readyGate.framed){ clearInterval(iv); return; }
+    const framed = isUpperBodyFramed();
+    window.__isFramedNow = framed;
+    const ph = document.getElementById('phase-transition');
+    if (framed){
+      if (ph) ph.classList.add('framed');
+      if (!framedSince) framedSince = performance.now();
+      if (performance.now() - framedSince > 700){        // sustained ⇒ really framed
+        window.__readyGate.framed = true;
+        LOG('TRANS', 'body FRAMED (upper body in frame) — framed gate');
+        transSpeak('framed', song.id); transCaption('framed', song.id);
+        clearInterval(iv);
+      }
+    } else {
+      framedSince = 0; if (ph) ph.classList.remove('framed');
+      // grace: let hype+tip lead (spec order: hype → tip → framing). Detection above is
+      // instant — only the spoken PROMPT waits, so an already-framed kid never hears it.
+      const graceOver = performance.now() - window.__transStartAt > 1600;
+      if ((!prompted && graceOver) || (prompted && performance.now() - lastPromptAt > 4200 && window.__framePrompts < 2)){
+        prompted = true; window.__framePrompts++; lastPromptAt = performance.now();
+        transSpeak('framing', song.id); transCaption('framing', song.id);
+        LOG('TRANS', `framing prompt #${window.__framePrompts}`);
+      } else if (window.__framePrompts >= 2 && performance.now() - lastPromptAt > 4200){
+        // EDGE: small room / won't move — start anyway, no scoring. Never a dead end.
+        window.__danceAlong = true; window.__scoringEnabled = false;
+        window.__readyGate.framed = true;
+        LOG('TRANS', '2 framing prompts, still not framed → DANCE-ALONG fallback (no scoring)');
+        transSpeak('dancealong', song.id); transCaption('dancealong', song.id);
+        clearInterval(iv);
+      }
+    }
+  }, 250, true);
+}
+
+// (4) READY GATE poll → handoff. Also fires the ONE slow-load warm line (>8s).
+function pollReadyGate(){
+  const t0 = window.__transStartAt; let slowFired = false;
+  const iv = _transTimer(() => {
+    if (window.__transEnded){ clearInterval(iv); return; }
+    const g = window.__readyGate;
+    if (!slowFired && !g.mp4 && performance.now() - t0 > 8000){
+      slowFired = true; transSpeak('slow'); transCaption('slow');
+      LOG('TRANS', 'slow load >8s → one extra warm line, then quiet glow');
+    }
+    if (g.mp4 && g.cues && g.framed && g.bridge){ clearInterval(iv); handoffToGame(); }
+  }, 150, true);
+}
+
+function handoffToGame(){
+  if (window.__transEnded || window.__gameStarting) return;
+  window.__gameStarting = true; window.__transEnded = true; window.__transitionActive = false;
+  window.__readyAllAt = performance.now();
+  if (window.__scoringEnabled === undefined) window.__scoringEnabled = true;
+  _clearTransTimers();
+  LOG('TRANS', `READY GATE all true (+${Math.round(performance.now()-window.__transStartAt)}ms) → HANDOFF · danceAlong=${!!window.__danceAlong} · bridgeLines=${(window.__bridgeStartedBeats||[]).join(',')||'none'}`);
+  startGame();   // sends phase:dance (the GO-LINE) + hides face + plays MP4 once she starts speaking
+}
+
+function _cancelTransition(){ window.__transEnded = true; window.__transitionActive = false; _clearTransTimers(); }
+
+// change-mind mid-load: cancel the old load, switch song, keep the bridge alive.
+function switchTransitionSong(songId){
+  const song = SONGS[songId] || SONGS.joined;
+  setSelectedSong(songId);
+  window.__readyGate.mp4 = false; window.__mp4ReadyAt = 0;
+  LOG('TRANS', `change-mind → switching to ${song.name}, reloading (no double-start)`);
+  transSpeak('switch', song.id); transCaption('switch', song.id);
+  beginBackgroundLoad(song);
+}
+
+function startTransition(songId){
+  // re-entry (kid tapped another card / changed mind) → switch cleanly, no double-start
+  if (window.__transitionActive && !window.__transEnded){ return switchTransitionSong(songId); }
+  window.__transitionActive = true; window.__transEnded = false; window.__gameStarting = false;
+  window.__transStartAt = performance.now();
+  window.__readyGate = { mp4:false, cues:false, framed:false, bridge:false };
+  window.__bridgeStartedBeats = []; window.__bridgeLog = []; window.__danceAlong = false;
+  window.__scoringEnabled = undefined; window.__loadFailed = false; window.__isFramedNow = false;
+  if (typeof stopNervousSystem === 'function') { try { stopNervousSystem(); } catch(_){} }
+  setSelectedSong(songId);
+  const song = selectedSong;
+  showPhase('phase-transition');
+  attachTransCam();
+  const { cached } = beginBackgroundLoad(song);
+  LOG('TRANS', `TRANSITION start · song=${song.id} · cached=${cached} · preloadDelay=${window.__mp4PreloadDelayMs}ms`);
+  runBridge(song, cached);       // hype/tip (skipped if cached)
+  startFramingGate(song);        // step-back prompt(s) → framed OR dance-along
+  pollReadyGate();               // → handoff when all four gates true
+}
+window.__startTransition = startTransition;
+
 // ASPECT-FIT LAYOUT (2026-07-03): panel widths = panel-height × each video's real aspect.
 // Nova's clip is portrait → she gets exactly her width (full figure, no bars, no crop);
 // the camera gets its native aspect (no zoom). Leftover width becomes centered margin.
@@ -4282,6 +4579,7 @@ function startGame() {
         // tick-counter under-counts badly. performance.now() elapsed is correct under load AND on a real machine.
         if (window.__novaSpeakingNow || performance.now() - t0 >= 1200) {
           window.__beatPlayed = true;
+          window.__mp4PlayAt = performance.now();   // PHASE 2 ready-gate check: MP4 starts only after handoff
           vid.play()
             .then(() => LOG('AV-SYNC', `${selectedSong.videoFile} playing (single-source, clock=video)`))
             .catch(err => {
@@ -4547,18 +4845,23 @@ function handleHit(actionEvent) {
   const isFast = reactionMs < 1000;
   const pts = isFast ? Math.round(actionEvent.pts * 1.5) : actionEvent.pts;
 
-  LOG('GAME-HIT', `${actionEvent.action} HIT (${reactionMs}ms, +${pts}pts, fast=${isFast})`);
+  // PHASE 2 dance-along fallback: kid never got framed → she still LIGHTS + reacts,
+  // but there's no competitive score (scoring off). Feels like play, not a test.
+  const scoring = window.__scoringEnabled !== false;
+  LOG('GAME-HIT', `${actionEvent.action} HIT (${reactionMs}ms, +${scoring?pts:0}pts, fast=${isFast}${scoring?'':', dance-along/no-score'})`);
 
-  score += pts;
-  hits++;
-  combo++;
-  maxCombo = Math.max(maxCombo, combo);
-  memory.hits++;
-  memory.streak++;
+  if (scoring){
+    score += pts;
+    hits++;
+    combo++;
+    maxCombo = Math.max(maxCombo, combo);
+    memory.hits++;
+    memory.streak++;
+  }
   memory.lastAction = actionEvent.action;
 
-  if(memory.streak >= 2) addMoment(`${memory.streak}-move streak`);
-  if(isFast) addMoment(`lightning fast ${actionEvent.action}`);
+  if(scoring && memory.streak >= 2) addMoment(`${memory.streak}-move streak`);
+  if(scoring && isFast) addMoment(`lightning fast ${actionEvent.action}`);
 
   window.__cueState = combo>=3 ? 'streak' : 'hit';   // recolor the body light: clean→mint-gold
   updateStreak(combo);
