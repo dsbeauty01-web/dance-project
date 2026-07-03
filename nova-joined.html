@@ -1947,12 +1947,12 @@ function handoffFromIntro() {
         if (tries === 1) LOG('INTRO', 'reveal-now sent — overlay holds until her first audio frame');
       }, 1000);
       setTimeout(() => { if (window.__novaSend) { window.__novaSend({ kind: 'reveal-now' }); window.__novaSend({ kind: 'client-ready' }); } }, 10);
-      // FADE-ON-FIRST-WORD: poll for her audio energy; 8s cap so a mute failure never
-      // strands the kid behind the overlay.
+      // FADE-ON-FIRST-WORD: poll for her audio energy; 12s cap so a mute failure never
+      // strands the kid behind the overlay (EVI first-gen can take ~5-8s cold).
       const revealSentAt = Date.now();
       const fadePoll = setInterval(() => {
         const speaking = !!window.__novaSpeakingNow;
-        const capped = Date.now() - revealSentAt > 8000;
+        const capped = Date.now() - revealSentAt > 12000;
         if (!speaking && !capped) return;
         clearInterval(fadePoll);
         window.__revealAt = Date.now();                 // the moment = fade start = her first word
