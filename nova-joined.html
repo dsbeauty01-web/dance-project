@@ -1833,6 +1833,11 @@ function handoffFromIntro() {
         _gateStamp('avatar');   // static face counts — she must never be dead because Runway is
       }
       // ── gate stamps ──
+      // evi: data packet OR the nova_ready participant ATTRIBUTE (survives data-channel death)
+      if (!window.__novaPipelineReady && window.__novaRoom) {
+        try { for (const p of window.__novaRoom.remoteParticipants.values())
+          if (p.attributes && p.attributes.nova_ready === '1') { window.__novaPipelineReady = true; LOG('GATE', 'evi via nova_ready attribute'); break; } } catch(_){}
+      }
       if (window.__novaPipelineReady) _gateStamp('evi');
       if ((window.__poseIter||0) > 3) { _gateStamp('cam'); if (!poseLiveSince) poseLiveSince = Date.now(); }
       if (window.__calibratedAt || (poseLiveSince && Date.now() - poseLiveSince > 1500)) _gateStamp('calib');
