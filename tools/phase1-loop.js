@@ -44,8 +44,9 @@ const check = (name, pass, evidence) => { results.push({ name, pass, evidence })
   check('(a) gate: 5 items stamped', allStamped, keys.map((k, i) => k + '=' + (stamps[i] ? 'ok' : 'MISSING')).join(' '));
   check('(a2) reveal after last gate', !!(allStamped && s.revealAt && s.revealAt >= lastGate), 'reveal ' + (s.revealAt && lastGate ? (s.revealAt - lastGate) + 'ms after last gate' : 'n/a'));
   // (b) first word vs reveal (reveal is voice-synced → gap should be ~0 or negative)
-  const gapOk = s.revealToWordMs !== null && s.revealToWordMs !== undefined && s.revealToWordMs <= 500;
-  check('(b) first word ≤0.5s of face', !!gapOk, 'gap=' + s.revealToWordMs + 'ms (negative = voice led the fade — perceived simultaneous)');
+  const gap2 = (s.firstWordAt && s.revealAt) ? (s.firstWordAt - s.revealAt) : null;
+  const gapOk = gap2 !== null && gap2 >= 0 && gap2 <= 1500;   // INTRO-FINAL: face leads, word 0..+1.5s after — NEVER negative
+  check('(b) word 0..+1500ms after reveal', !!gapOk, 'delta=' + gap2 + 'ms (must be 0..1500, NEVER negative)');
   // (c) backend + fps
   check('(c) webgl + fps≥15', s.backend === 'webgl' && s.fpsPeak >= 15, 'backend=' + s.backend + ' fpsPeak=' + s.fpsPeak);
   // (d) console errors

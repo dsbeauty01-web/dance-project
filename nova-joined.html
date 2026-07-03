@@ -1905,6 +1905,21 @@ function handoffFromIntro() {
       if (tracksIn && !window.__tracksInAt) window.__tracksInAt = Date.now();
       const forced = window.__tracksInAt && (Date.now() - window.__tracksInAt > 15000);
       if (capEl && waited === 15000) capEl.textContent = 'connecting…';
+      // FIX 5: avatar must show or SAY WHY — after 20s without the avatar gate, a small
+      // builder-facing status line appears with the best-known reason; fallback announced.
+      if (!g.avatar && waited >= 20000 && !window.__avStatusShown) {
+        window.__avStatusShown = true;
+        const reason = window.__novaAudioArrived ? 'no avatar VIDEO track — Runway session failed (credits? outage?)'
+                     : (window.__novaRoom ? 'no avatar tracks — worker/Runway not publishing' : 'no LiveKit room — connection failed');
+        let el = document.getElementById('avatar-status');
+        if (!el) { el = document.createElement('div'); el.id = 'avatar-status';
+          el.style.cssText = 'position:fixed;bottom:8px;left:8px;z-index:9999;font:11px monospace;color:#ffd84d;background:rgba(20,8,40,.85);padding:4px 10px;border-radius:8px;pointer-events:none';
+          document.body.appendChild(el); }
+        el.textContent = 'avatar: waiting… (' + reason + ')';
+        LOG('AVATAR', 'not rendered in 20s → ' + reason);
+        setTimeout(() => { if (!window.__gate.avatar) { el.textContent = 'avatar: FAILED (' + reason + ') — voice-only fallback';
+          LOG('AVATAR', 'FAILED after retry window → voice-only fallback (announced)'); } else { el.remove(); } }, 12000);
+      }
       if (!allReady && !forced && waited >= 90000) {
         clearInterval(poll);
         LOG('INTRO', 'readiness gate failed (>90s) — showing retry');
@@ -1912,28 +1927,32 @@ function handoffFromIntro() {
         return;
       }
       if (!(allReady || forced)) return;
-      // ── RELEASE + REVEAL-ON-FIRST-WORD ──
-      if (!clientReadySent) {
-        clientReadySent = true;
-        window.__gateDoneAt = Date.now();
-        LOG('GATE', 'ALL READY' + (forced ? ' (forced after 15s)' : '') + ' → ' + JSON.stringify(Object.keys(g).reduce((o,k)=>{o[k]=g[k]-(window.__gate.evi||g[k]);return o;},{})));
-        if (capEl) capEl.textContent = 'here she comes…';
-        if (window.__novaSend) window.__novaSend({ kind: 'client-ready' });
-        LOG('INTRO', 'client-ready sent (gate complete) → greeting releasing');
-      }
-      // melt the overlay the moment her voice actually starts (6s cap — EVI needs ~3-4s
-      // to generate) — face and first word land together; the cap only guards a hang.
-      if (window.__novaSpeakingNow || Date.now() - window.__gateDoneAt > 6000) {
-        clearInterval(poll);
-        window.__revealAt = Date.now();
-        if (window.__firstWordAt && window.__revealToWordMs == null)   // voice led the fade → gap ≤0
-          window.__revealToWordMs = window.__firstWordAt - window.__revealAt;
-        ov.classList.add('fade');
-        const hum = document.getElementById('intro-humming');
-        if (hum) { try { hum.pause(); } catch (_) {} }
-        setTimeout(() => ov.classList.remove('show'), 350);
-        LOG('INTRO', 'MAGIC REVEAL (voice-synced) — gap to first word: ' + (window.__firstWordMs ? 'word already live' : 'measuring…'));
-      }
+      // ── INTRO-FINAL: ONE AUTHORITY — THE FACE TRIGGERS THE VOICE ──
+      // Strictly serial: gates done → CALM 1.5s fade starts → reveal-now sent → the
+      // worker speaks ONLY on that packet. Voice-before-face is impossible, not "checked".
+      clearInterval(poll);
+      window.__gateDoneAt = Date.now();
+      LOG('GATE', 'ALL READY' + (forced ? ' (forced after 15s)' : '') + ' → ' + JSON.stringify(Object.keys(g).reduce((o,k)=>{o[k]=g[k]-(window.__gate.evi||g[k]);return o;},{})));
+      window.__revealAt = Date.now();                   // the moment = fade START
+      ov.style.transition = 'opacity 1.5s ease';        // calm melt, not a pop
+      ov.classList.add('fade');
+      const hum = document.getElementById('intro-humming');
+      if (hum) { try { hum.pause(); } catch (_) {} }
+      setTimeout(() => ov.classList.remove('show'), 1550);
+      LOG('INTRO', 'CALM REVEAL started (1.5s fade) → sending reveal-now (single authority)');
+      // reveal-now with resend-until-ack (resilient against data-channel death)
+      let acked = false;
+      try { window.__novaRoom && window.__novaRoom.on(LivekitClient.RoomEvent.DataReceived, p => {
+        try { const m = JSON.parse(new TextDecoder().decode(p)); if (m && m.kind === 'reveal-ack') { acked = true; LOG('INTRO', 'reveal-ack received'); } } catch(_){}
+      }); } catch(_){}
+      let tries = 0;
+      const sendReveal = setInterval(() => {
+        if (acked || window.__novaSpeakingNow || ++tries > 20) { clearInterval(sendReveal); return; }
+        if (window.__novaSend) window.__novaSend({ kind: 'reveal-now' });
+        if (window.__novaSend) window.__novaSend({ kind: 'client-ready' });   // legacy ack (stops nova-ready announcer)
+        if (tries === 1) LOG('INTRO', 'reveal-now sent');
+      }, 1000);
+      setTimeout(() => { if (window.__novaSend) { window.__novaSend({ kind: 'reveal-now' }); window.__novaSend({ kind: 'client-ready' }); } }, 10);
     }, 250);
   } catch (e) { LOG('ERROR', 'handoffFromIntro: ' + e.message); }
 }
