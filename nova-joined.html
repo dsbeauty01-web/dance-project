@@ -1866,6 +1866,8 @@ function handoffFromIntro() {
       if (window.__novaSpeakingNow || Date.now() - window.__gateDoneAt > 2500) {
         clearInterval(poll);
         window.__revealAt = Date.now();
+        if (window.__firstWordAt && window.__revealToWordMs == null)   // voice led the fade → gap ≤0
+          window.__revealToWordMs = window.__firstWordAt - window.__revealAt;
         ov.classList.add('fade');
         const hum = document.getElementById('intro-humming');
         if (hum) { try { hum.pause(); } catch (_) {} }
