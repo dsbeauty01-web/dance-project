@@ -1947,12 +1947,14 @@ function handoffFromIntro() {
         if (tries === 1) LOG('INTRO', 'reveal-now sent — overlay holds until her first audio frame');
       }, 1000);
       setTimeout(() => { if (window.__novaSend) { window.__novaSend({ kind: 'reveal-now' }); window.__novaSend({ kind: 'client-ready' }); } }, 10);
-      // FADE-ON-FIRST-WORD: poll for her audio energy; 12s cap so a mute failure never
-      // strands the kid behind the overlay (EVI first-gen can take ~5-8s cold).
+      // FADE-ON-FIRST-WORD: poll for her audio energy; 30s cap so a mute failure never
+      // strands the kid behind the overlay. Cap was 12s but Hume's cold first-gen hit
+      // 28s live (2026-07-04) — she appeared MUTE. She must appear only when she can talk;
+      // the sparkle+humming overlay carries the wait, worker retries the greeting behind it.
       const revealSentAt = Date.now();
       const fadePoll = setInterval(() => {
         const speaking = !!window.__novaSpeakingNow;
-        const capped = Date.now() - revealSentAt > 12000;
+        const capped = Date.now() - revealSentAt > 30000;
         if (!speaking && !capped) return;
         clearInterval(fadePoll);
         window.__revealAt = Date.now();                 // the moment = fade start = her first word
@@ -1963,7 +1965,7 @@ function handoffFromIntro() {
         const hum = document.getElementById('intro-humming');
         if (hum) { try { hum.pause(); } catch (_) {} }
         setTimeout(() => ov.classList.remove('show'), 1550);
-        LOG('INTRO', 'CALM REVEAL — fade started ON her first word' + (capped && !speaking ? ' (8s cap, no voice yet!)' : ''));
+        LOG('INTRO', 'CALM REVEAL — fade started ON her first word' + (capped && !speaking ? ' (30s cap, no voice yet!)' : ''));
         // UI unlocks belong to the reveal (moved from the deleted novaArrivalGreet)
         try { document.getElementById('rec-dance-btn').classList.add('ready'); } catch(_){}
         try { showNameCaptureButtons(); } catch(_){}
