@@ -2201,6 +2201,11 @@ async function initDID() {
       webcamEl.play().catch(()=>{});
       LOG('ROOM', 'webcam attached to local element');
     }
+    // EARLY-CAM handoff: the tap stream is now attached — release the page-load camera handle
+    if (stream && window.__earlyCamStream && stream !== window.__earlyCamStream) {
+      try { window.__earlyCamStream.getTracks().forEach(t => t.stop()); } catch(_){}
+      window.__earlyCamStream = null;
+    }
 
     // TASK 1: the room has been connecting since creds arrived (pre-connect above) —
     // by now it's usually already done. Await + keep the old retry-on-failure behavior.
@@ -3176,6 +3181,8 @@ let detector = null;
 const moves = { left:false, right:false, both:false, clap:false, head:false, freeze:false,
   // ── nova-joined: 4-point body-isolation "pulses" ──
   headbob:false, shrug:false, ribslide:false, hipbounce:false, combo:false };
+window.moves = moves;  // intro try-move module reads window.moves — was never exported, so
+                       // shoulder/head detection could NEVER confirm (2026-07-04 live bug)
 const holdCount = { left:0, right:0, both:0, clap:0, head:0 };
 const smooth = {};
 let freezeBuffer = null;
@@ -5192,6 +5199,22 @@ setInterval(() => { fetch(CFG.RENDER_URL + '/health').catch(()=>{}); }, 240000);
 
 initEars();
 initDetector().then(() => poseLoop()).catch(()=>{});
+// EARLY-CAM (2026-07-04 user ask): detection starts ON PAGE LOAD — camera + MoveNet track
+// BEFORE the orb tap, so by the time Nova cues a move the tracking is hot and calibrated.
+// The tap flow still does its own combo getUserMedia (permission already granted → instant);
+// its stream replaces this one and the early tracks are stopped there.
+(async () => {
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } });
+    window.__earlyCamStream = s;
+    if (!window.__kidStream) window.__kidStream = s;
+    const v = document.getElementById('webcam');
+    if (v && !v.srcObject) { v.srcObject = s; v.muted = true; v.play().catch(()=>{}); }
+    LOG('POSE', 'EARLY-CAM live at page load — MoveNet tracking before the tap');
+  } catch (e) {
+    LOG('POSE', 'early cam not available at load (' + e.message + ') — will ask at tap as before');
+  }
+})();
 
 document.getElementById('nova-video').load();
 
@@ -5300,7 +5323,7 @@ window.__initRunwayNova = initDID;
     // hands → wrists · head → nose/ears · shoulder → mid-shoulders. Falls back to hands.
     // A named part stays lit for 10s, then reverts to hands (the default try-move).
     const partPts = (m) => {
-      const fresh = window.__introCuePartAt && (Date.now() - window.__introCuePartAt < 10000);
+      const fresh = window.__introCuePartAt && (Date.now() - window.__introCuePartAt < 20000);
       const part = fresh ? (window.__introCuePart || 'hands') : 'hands';
       if (part === 'head')     return [m.nose, m.left_ear, m.right_ear].filter(p=>p && p.score>0.2);
       if (part === 'shoulder') return [m.left_shoulder, m.right_shoulder].filter(p=>p && p.score>0.2);
@@ -5308,7 +5331,7 @@ window.__initRunwayNova = initDID;
     };
     // detection for the named part: hands=clap, head=head move, shoulder=shrug pulse
     const partHit = () => {
-      const fresh = window.__introCuePartAt && (Date.now() - window.__introCuePartAt < 10000);
+      const fresh = window.__introCuePartAt && (Date.now() - window.__introCuePartAt < 20000);
       const part = fresh ? (window.__introCuePart || 'hands') : 'hands';
       try {
         if (part === 'head')     return !!(window.moves && (window.moves.head || window.moves.headbob));
@@ -5341,13 +5364,16 @@ window.__initRunwayNova = initDID;
         const cueStamp = window.__introCuePartAt || 0;
         if(!sentClap || window.__sentForCue !== cueStamp){
           sentClap = true; window.__sentForCue = cueStamp;
-          const act = (cueStamp && Date.now()-cueStamp<10000) ? (window.__introCuePart||'clap') : 'clap';
+          const act = (cueStamp && Date.now()-cueStamp<20000) ? (window.__introCuePart||'clap') : 'clap';
           try { if(window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'try_move', action:act } }); } catch(_){}
           try { if(typeof LOG === 'function') LOG('INTRO', 'try-move '+act.toUpperCase()+' detected → light + Nova signal'); } catch(_){}
         }
       }
       const hot = now < flashUntil;
-      glow.style.opacity = hot ? '1' : '0.5';
+      // a FRESH Nova cue = full-strength glow (0.5 was too faint to notice live 2026-07-04);
+      // idle default stays soft so it doesn't compete with the game lights
+      const cueFresh = window.__introCuePartAt && (Date.now() - window.__introCuePartAt < 20000);
+      glow.style.opacity = hot ? '1' : (cueFresh ? '0.95' : '0.5');
       glow.classList.toggle('hit', hot);
     }
     requestAnimationFrame(loop);
