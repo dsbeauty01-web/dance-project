@@ -2130,7 +2130,7 @@ async function initDID() {
       sessionPromise = fetch(CFG.RENDER_URL + '/v2/create-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kidId: window.__kidId, voiceOnly: VOICEONLY }),
+        body: JSON.stringify({ kidId: window.__kidId, voiceOnly: VOICEONLY, directGame: DIRECTGAME }),
       }).catch(e => {
         LOG('ERROR', '/create-session network failed', { msg: e.message });
         return null;
@@ -5215,7 +5215,8 @@ window.__sessionPrefetchTs = performance.now();
 // dispatching her into an empty room at page load left her tracks unpublished (verified).
 window.__sessionPrefetch = fetch(CFG.RENDER_URL + '/v2/create-session', {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ kidId: window.__kidId, dispatch: false, voiceOnly: /[?&]voiceonly/.test(location.search) }),
+  body: JSON.stringify({ kidId: window.__kidId, dispatch: false, voiceOnly: /[?&]voiceonly/.test(location.search),
+    directGame: (!/[?&]nonova/.test(location.search) && (location.search.match(/[?&]game=(\w+)/) || [])[1]) || null }),
 }).then(r => { LOG('BOOT', `session PREFETCH done (${r.status}) — creds ready before tap`); return r; })
   .catch(e => { LOG('BOOT', `session prefetch failed: ${e.message}`); return null; });
 // TASK 1 KEEP-WARM: re-ping every 4 min while the page is open so the free-tier server
