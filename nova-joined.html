@@ -2437,8 +2437,9 @@ function setupNovaRoomEvents(room) {
     // FIX 2: Nova named a body part → light THAT organ on the kid's camera (intro glow)
     if (msg.kind === 'cue-part') {
       window.__introCuePart = msg.part || 'hands';
+      window.__introCueJoint = msg.joint || null;   // scripted challenge: EXACT joint lock (e.g. right_shoulder)
       window.__introCuePartAt = Date.now();
-      LOG('INTRO', 'Nova named "' + window.__introCuePart + '" → glow moves there');
+      LOG('INTRO', 'Nova named "' + window.__introCuePart + '"' + (msg.joint ? ' (joint-locked: ' + msg.joint + ')' : '') + ' → glow moves there');
       return;
     }
     if (msg.kind !== 'request-vision') return;
@@ -5330,26 +5331,39 @@ window.__initRunwayNova = initDID;
     // hands → wrists · head → nose/ears · shoulder → mid-shoulders. Falls back to hands.
     // A named part stays lit for 10s, then reverts to hands (the default try-move).
     const partPts = (m) => {
-      const fresh = window.__introCuePartAt && (Date.now() - window.__introCuePartAt < 20000);
-      const part = fresh ? (window.__introCuePart || 'hands') : 'hands';
+      // scripted challenge sends the EXACT joint — the light locks to it (a shoulder cue
+      // used to average BOTH shoulders → the glow sat on the chest, live 2026-07-04)
+      const j = window.__introCueJoint;
+      if (j && m[j] && m[j].score > 0.2) return [m[j]];
+      const part = window.__introCuePart || 'hands';
       if (part === 'head')     return [m.nose, m.left_ear, m.right_ear].filter(p=>p && p.score>0.2);
-      if (part === 'shoulder') return [m.left_shoulder, m.right_shoulder].filter(p=>p && p.score>0.2);
+      if (part === 'shoulder') return [m.right_shoulder, m.left_shoulder].filter(p=>p && p.score>0.2).slice(0,1);
+      if (part === 'left')     return [m.left_wrist].filter(p=>p && p.score>0.2);
+      if (part === 'right')    return [m.right_wrist].filter(p=>p && p.score>0.2);
       return [m.left_wrist, m.right_wrist].filter(p=>p && p.score>0.2);
     };
-    // detection for the named part: hands=clap, head=head move, shoulder=shrug pulse
+    // detection for the named part: hands=clap, head=head move, shoulder=shrug pulse,
+    // left/right = that hand raised (scripted challenge move #2)
     const partHit = () => {
-      const fresh = window.__introCuePartAt && (Date.now() - window.__introCuePartAt < 20000);
-      const part = fresh ? (window.__introCuePart || 'hands') : 'hands';
+      const part = window.__introCuePart || 'hands';
       try {
         if (part === 'head')     return !!(window.moves && (window.moves.head || window.moves.headbob));
-        if (part === 'shoulder') return !!(window.moves && window.moves.shrug);
+        if (part === 'shoulder') return !!(window.moves && (window.moves.shrug || window.moves.shoulderroll));
+        if (part === 'left')     return !!(window.moves && (window.moves.left || window.moves.both));
+        if (part === 'right')    return !!(window.moves && (window.moves.right || window.moves.both));
       } catch(_){}
       return clapNow();
     };
 
+    let armDown = false;   // rising-edge arm: the move flag must go DOWN after the cue before a hit counts
     function loop(){
       requestAnimationFrame(loop);
-      if(!inRecognition()){ glow.style.opacity='0'; sentClap=false; return; }
+      if(!inRecognition()){ glow.style.opacity='0'; sentClap=false; armDown=false; return; }
+      // CUE-GATED (2026-07-04 live): light + detection exist ONLY while Nova's ask is fresh.
+      // The always-armed default reported a clap BEFORE any cue and she blurted mid-name-talk.
+      const cueStamp = window.__introCuePartAt || 0;
+      const cueFresh = cueStamp && (Date.now() - cueStamp < 20000);
+      if(!cueFresh){ glow.style.opacity='0'; armDown=false; return; }
       const kps = window.__lastPoseKeypoints;
       if(!kps){ glow.style.opacity='0'; return; }
       const m={}; kps.forEach(k=>{ m[k.name]=k; });
@@ -5365,22 +5379,21 @@ window.__initRunwayNova = initDID;
       glow.style.left = gx+'px'; glow.style.top = gy+'px';
 
       const now = performance.now();
-      if(partHit()){
+      const hitNow = partHit();
+      if(!hitNow) armDown = true;   // flag seen down since the cue → the next rise is a REAL fresh move
+      // a hit counts only if: flag rose AFTER the cue (not leftover motion) + a short settle window
+      if(hitNow && armDown && Date.now() - cueStamp > 400){
         flashUntil = now + 600;
         // one report per NAMED part (a fresh cue-part re-arms it, so every ask gets its echo)
-        const cueStamp = window.__introCuePartAt || 0;
         if(!sentClap || window.__sentForCue !== cueStamp){
           sentClap = true; window.__sentForCue = cueStamp;
-          const act = (cueStamp && Date.now()-cueStamp<20000) ? (window.__introCuePart||'clap') : 'clap';
+          const act = window.__introCuePart || 'clap';
           try { if(window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'try_move', action:act } }); } catch(_){}
           try { if(typeof LOG === 'function') LOG('INTRO', 'try-move '+act.toUpperCase()+' detected → light + Nova signal'); } catch(_){}
         }
       }
       const hot = now < flashUntil;
-      // a FRESH Nova cue = full-strength glow (0.5 was too faint to notice live 2026-07-04);
-      // idle default stays soft so it doesn't compete with the game lights
-      const cueFresh = window.__introCuePartAt && (Date.now() - window.__introCuePartAt < 20000);
-      glow.style.opacity = hot ? '1' : (cueFresh ? '0.95' : '0.5');
+      glow.style.opacity = hot ? '1' : '0.95';   // cue is fresh here — full-strength, she just asked
       glow.classList.toggle('hit', hot);
     }
     requestAnimationFrame(loop);
