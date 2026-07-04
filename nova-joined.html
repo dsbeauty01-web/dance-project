@@ -1443,6 +1443,7 @@ const memory = {
   name: null,
   age: null,                      // v103: kid's age (for picker recommendation)
   totalSessions: 0,                // v103: increment per session for returning kids
+  // (window.memory export happens right after this object — see below)
   hits: 0, attempts: 0, streak: 0, maxStreak: 0,
   moments: [], // ["nailed lightning fast right hand", "3-streak"]
   history: [], // last 16 LLM messages
@@ -1450,6 +1451,12 @@ const memory = {
   energy: 'calm', // calm | warm | high | max
   phase: 'arrival',
 };
+// ROOT-CAUSE FIX (2026-07-04): this file's main code is <script type="module"> — `memory`
+// is MODULE-scoped, invisible to the classic <script> blocks at the bottom (cue/light layer,
+// intro try-move glow). Their `typeof memory` guard was ALWAYS undefined → the intro glow
+// never showed and try_move never fired, silently, since the day they were written.
+window.memory = memory;
+window.LOG = LOG;
 
 // v103: Load returning-kid data from localStorage
 try {
