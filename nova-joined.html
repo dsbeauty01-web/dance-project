@@ -1976,6 +1976,11 @@ function handoffFromIntro() {
         // UI unlocks belong to the reveal (moved from the deleted novaArrivalGreet)
         try { document.getElementById('rec-dance-btn').classList.add('ready'); } catch(_){}
         try { showNameCaptureButtons(); } catch(_){}
+        // DIRECT-GAME (?game=): skip the intro chat — straight into the picked game,
+        // Nova rides along as the in-game voice (phase-3 presence).
+        if (window.__DIRECTGAME) setTimeout(() => {
+          try { LOG('GAME', 'DIRECT-GAME → ' + window.__DIRECTGAME); pickGame(window.__DIRECTGAME); } catch(e){ LOG('ERROR', 'direct-game failed: ' + e.message); }
+        }, 1500);
       }, 60);
     }, 250);
   } catch (e) { LOG('ERROR', 'handoffFromIntro: ' + e.message); }
@@ -2067,6 +2072,15 @@ window.__novaSessionId = null;
 
 // ── STANDALONE MODE (?nonova): camera + MoveNet + cues + light, ZERO Nova/LiveKit. ──
 const NONOVA = /[?&]nonova/.test(location.search);
+// ── VOICE-ONLY (?voiceonly): full Nova (voice, brain, lights) but NO Runway avatar —
+//    flag rides create-session → room metadata → worker skips the avatar. ──
+// ── DIRECT GAME (?game=hello|joined|wave|freeze WITHOUT nonova): skip the intro chat —
+//    after the reveal, auto-pick that game. Combine: ?voiceonly&game=hello ──
+const VOICEONLY = /[?&]voiceonly/.test(location.search);
+const DIRECTGAME = !NONOVA ? ((location.search.match(/[?&]game=(\w+)/) || [])[1] || null) : null;
+window.__VOICEONLY = VOICEONLY; window.__DIRECTGAME = DIRECTGAME;
+if (VOICEONLY) LOG('CFG', 'VOICE-ONLY mode — Nova speaks, no avatar');
+if (DIRECTGAME) LOG('CFG', 'DIRECT-GAME mode — auto-launching "' + DIRECTGAME + '" after the reveal');
 async function startCamNonova(){
   if (window.__kidStream) return;                         // already up
   try{
@@ -2116,7 +2130,7 @@ async function initDID() {
       sessionPromise = fetch(CFG.RENDER_URL + '/v2/create-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kidId: window.__kidId }),
+        body: JSON.stringify({ kidId: window.__kidId, voiceOnly: VOICEONLY }),
       }).catch(e => {
         LOG('ERROR', '/create-session network failed', { msg: e.message });
         return null;
@@ -2197,6 +2211,10 @@ async function initDID() {
       // gate items that need the camera can never complete — stamp them so the reveal
       // doesn't strand the kid, and tell the worker once (she asks warmly one time).
       try { _gateStamp('cam'); _gateStamp('calib'); _gateStamp('vision'); } catch(_){}
+    }
+    if (VOICEONLY) {
+      // no avatar video will EVER arrive — don't let the reveal wait for it
+      try { _gateStamp('avatar'); } catch(_){}
     }
 
     // Attach kid camera to webcam video element (already exists in v43 HTML)
@@ -5197,7 +5215,7 @@ window.__sessionPrefetchTs = performance.now();
 // dispatching her into an empty room at page load left her tracks unpublished (verified).
 window.__sessionPrefetch = fetch(CFG.RENDER_URL + '/v2/create-session', {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ kidId: window.__kidId, dispatch: false }),
+  body: JSON.stringify({ kidId: window.__kidId, dispatch: false, voiceOnly: /[?&]voiceonly/.test(location.search) }),
 }).then(r => { LOG('BOOT', `session PREFETCH done (${r.status}) — creds ready before tap`); return r; })
   .catch(e => { LOG('BOOT', `session prefetch failed: ${e.message}`); return null; });
 // TASK 1 KEEP-WARM: re-ping every 4 min while the page is open so the free-tier server
