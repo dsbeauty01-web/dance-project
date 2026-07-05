@@ -4181,6 +4181,9 @@ window.forceNovaMidDanceVoice = forceNovaMidDanceVoice;
 // ═══════════════════════════════════════════════════════════════
 let lastAnticipationTime = 0;
 function novaAnticipate(action, dir) {
+  // TALK SCORE (2026-07-05): when the REAL Nova is connected, HER voice score calls
+  // the moves — the robotic browser-TTS must stay silent. TTS remains for ?nonova.
+  if (window.__novaRoom) return;
   const now = Date.now();
   if(now - lastAnticipationTime < 5000) return; // max once per 5s
   lastAnticipationTime = now;
@@ -4621,6 +4624,7 @@ window.addEventListener('resize', () => { try { fitGamePanels(); } catch(e){} })
 
 function startGame() {
   memory.phase = 'song';
+  window.__songStartSent = false; window.__lastTickSent = 0;   // fresh talk-score clock per game
   // v113-live: tell the worker we entered the dance phase, so Nova reacts to
   // hits/freezes with dance-phase energy + fires her hype intro line.
   if (window.__novaSend) window.__novaSend({ kind: 'game-event', event: { event: 'phase', phase: 'dance' } });
@@ -4777,6 +4781,26 @@ function gameTick() {
   const elapsed = (window._audio?.currentTime || 0) * 1000;
   const pct = Math.min(100, (elapsed / CFG.SONG_DURATION) * 100);
   document.getElementById('game-progress').style.width = pct + '%';
+
+  // ── TALK SCORE feed (2026-07-05): the worker plays Nova's per-song voice score
+  // off THIS clock. song_start arms it; a 1s music_tick keeps the clocks glued. ──
+  if (elapsed > 50 && !window.__songStartSent) {
+    window.__songStartSent = true;
+    try { if (window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'song_start', song: (selectedSong&&selectedSong.id)||'joined', sec: elapsed/1000 } }); } catch(_){}
+    LOG('TALK', 'song_start sent (' + ((selectedSong&&selectedSong.id)||'?') + ')');
+  }
+  if (!window.__lastTickSent || elapsed - window.__lastTickSent > 1000) {
+    window.__lastTickSent = elapsed;
+    try { if (window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'music_tick', sec: elapsed/1000 } }); } catch(_){}
+  }
+  // ── DUCKING: song sits ~65% under her voice while she speaks, eases back after ──
+  try {
+    const a = window._audio;
+    if (a) {
+      const base = 0.85, target = window.__novaSpeakingNow ? base * 0.65 : base;
+      a.volume = a.volume + (target - a.volume) * 0.35;   // smooth ~4-frame glide
+    }
+  } catch(_){}
   
   // Auto-end if audio finishes or runs over
   if(elapsed >= CFG.SONG_DURATION + 500 && !window._audio?.paused) {
