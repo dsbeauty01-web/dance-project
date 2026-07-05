@@ -476,7 +476,9 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 /* HERO MODE (Hello Hello): panel is 55% wide; the video CONTAINs by height so her frame
    is never beheaded, sides blend into the matching white bg, and a bounded 1.18x zoom
    (origin biased up) makes her read bigger without ever cutting the head. */
-#nova-video.hero-zoom{object-fit:contain;transform:scale(1.18);transform-origin:50% 22%}
+/* head-to-top (2026-07-05): the clip has a tall white band ABOVE her head — zoom around
+   the head line and lift, so her head rides near the TOP of the panel, not mid-screen. */
+#nova-video.hero-zoom{object-fit:contain;transform:translateY(-22%) scale(1.35);transform-origin:50% 40%}
 
 /* D-ID face — top-left of Nova panel */
 /* D-ID face — FIXED top-center of game phase, straddling the boundary
