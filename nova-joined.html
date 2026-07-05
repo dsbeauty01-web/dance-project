@@ -444,7 +444,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 /* ASPECT-FIT LAYOUT (2026-07-03): each panel is sized by ITS video's true aspect →
    no black bars, no cropping, both subjects at MAX size (height is the limit; extra
    width only ever became bars). JS fitGamePanels() sets the column widths live. */
-#game-split{flex:1;display:grid;grid-template-columns:42fr 58fr;justify-content:center;column-gap:6px;
+#game-split{flex:1;display:grid;grid-template-columns:1fr 1fr;justify-content:center;column-gap:6px;
   min-height:0;position:relative;z-index:1}
 @media (max-aspect-ratio:1/1){
   #game-split{grid-template-columns:1fr;grid-template-rows:40fr 60fr}
@@ -455,11 +455,24 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
    gradient → when the video's aspect didn't match the 60% panel it letterboxed
    and the gradient showed through as a flat colour block. cover = fill+crop, and
    an opaque black backdrop guarantees no gradient bleed if a frame decodes late. */
-#nova-side{position:relative;overflow:hidden;background:#000}
+/* MAGIC STAGE (2026-07-04): panels are a hard 50/50 (fitGamePanels). Nova's portrait
+   clip CONTAINs — full body, never cropped — and the side space is a DESIGNED stage:
+   warm center glow her white clip melts into, purple depth, slow drifting spotlights. */
+#nova-side{position:relative;overflow:hidden;
+  background:
+    radial-gradient(120% 95% at 50% 32%, rgba(255,248,235,.95) 0%, rgba(255,240,224,.6) 30%, rgba(124,111,255,.25) 58%, rgba(46,24,92,.95) 100%),
+    linear-gradient(180deg,#3a206e 0%,#22103f 100%)}
+#nova-side::before{content:'';position:absolute;inset:-20%;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(18% 26% at 28% 20%, rgba(255,216,120,.32), transparent 70%),
+    radial-gradient(16% 22% at 74% 28%, rgba(186,150,255,.38), transparent 70%),
+    radial-gradient(32% 20% at 50% 90%, rgba(255,190,240,.28), transparent 72%);
+  animation:stageDrift 9s ease-in-out infinite alternate}
+@keyframes stageDrift{from{transform:translate3d(-2%,0,0) scale(1)}to{transform:translate3d(2%,1.5%,0) scale(1.06)}}
 #nova-video{position:absolute;inset:0;width:100%;height:100%;
-  /* panel is aspect-fitted to the video (fitGamePanels) → cover ≈ exact fit, no bars,
-     no crop. If a clamp kicks in, bias framing toward her head (center 12%). */
-  object-fit:cover;object-position:center 18%;background:#f2efec;z-index:1;display:block}
+  /* CONTAIN on the stage: her whole body always visible (cover in a 50% panel would
+     cut her feet); the stage backdrop owns the side space — no black bars ever. */
+  object-fit:contain;object-position:center 18%;background:transparent;z-index:1;display:block}
 /* HERO MODE (Hello Hello): panel is 55% wide; the video CONTAINs by height so her frame
    is never beheaded, sides blend into the matching white bg, and a bounded 1.18x zoom
    (origin biased up) makes her read bigger without ever cutting the head. */
@@ -4584,15 +4597,11 @@ function fitGamePanels() {
     novaW = Math.round(W * 0.55);
     camW  = Math.min(Math.round(H * camAsp), W - novaW);
   } else {
-    const novaWant = Math.min(Math.round(H * novaAsp), Math.round(W * 0.55));
-    const camWant  = Math.round(H * camAsp);
-    if (novaWant + camWant <= W) { novaW = novaWant; camW = camWant; }
-    else {
-      // squeeze: Nova gives first — side-trim on her white margins costs nothing visually.
-      const novaMin = Math.round(novaWant * 0.70);
-      camW = Math.min(camWant, W - novaMin);
-      novaW = Math.max(novaMin, W - camW);
-    }
+    // MAGIC STAGE (2026-07-04): hard 50/50 — the old aspect-fit gave the portrait clip
+    // only its native width (~30%) and the camera ate 70%. Now: her clip CONTAINs on
+    // the stage backdrop (full body, sides are designed stage), camera cover-crops.
+    novaW = Math.round(W * 0.5);
+    camW  = W - novaW;
   }
   split.style.gridTemplateColumns = novaW + 'px ' + camW + 'px';
   try { LOG('LAYOUT', `aspect-fit → nova ${novaW}px (asp ${novaAsp.toFixed(2)}) · cam ${camW}px (asp ${camAsp.toFixed(2)}) · H ${H}`); } catch(_){}
