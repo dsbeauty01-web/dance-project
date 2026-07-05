@@ -4598,31 +4598,22 @@ function fitGamePanels() {
   // Other games: aspect-fit (their clips are FULL-BODY — cropping would cut her feet).
   const heroMode = (typeof selectedSong !== 'undefined' && selectedSong && selectedSong.id === 'hello');
   const waveMode = (typeof selectedSong !== 'undefined' && selectedSong && selectedSong.id === 'wave');
-  try { nv.classList.toggle('hero-zoom', heroMode); nv.classList.toggle('wave-upper', waveMode); } catch(_){}
+  try { nv.classList.toggle('hero-zoom', heroMode); nv.classList.toggle('wave-upper', !heroMode); } catch(_){}
   let novaW, camW;
   if (heroMode) {
     novaW = Math.round(W * 0.55);
     camW  = Math.min(Math.round(H * camAsp), W - novaW);
-  } else if (waveMode) {
-    // WAVE (2026-07-05): equal space for both dancers; the clip cover-crops to waist-up
-    // (all Wave moves are upper-body) — reads widescreen, no borders, nobody beheaded.
+    nv.style.transform = ''; nv.style.transformOrigin = ''; nv.style.objectPosition = '';
+  } else {
+    // ALL GAMES 50/50 (2026-07-05, user rule): both dancers get equal width, period.
+    // Portrait clips cover-crop to the UPPER BODY — Wave biases higher (shoulders/
+    // elbows/wrists), Up Groove/Freeze keep the hips in frame (hip moves are cued).
+    // The earlier clip-hug mode read as "user gets 70%" — rejected.
     novaW = Math.round(W * 0.5);
     camW  = W - novaW;
     nv.style.transform = ''; nv.style.transformOrigin = '';
-  } else {
-    // NO-BORDERS (2026-07-05): the panel HUGS the clip — width = clip width at a 1.18
-    // zoom (the zoom eats only the sky/flower margins, never her body), capped at half
-    // the screen. Result: zero/minimal stage borders, she renders as big as physically
-    // possible without cropping her head or feet; the camera takes ALL the rest.
-    const ZOOM = 1.18;
-    novaW = Math.min(Math.round(H * novaAsp * ZOOM), Math.round(W * 0.5));
-    camW  = W - novaW;
-    const fitW = H * novaAsp;                       // clip width at full panel height
-    const s = Math.max(1, Math.min(ZOOM, novaW / fitW));
-    nv.style.transform = 'scale(' + s.toFixed(3) + ')';
-    nv.style.transformOrigin = '50% 58%';           // crop a bit more sky than floor
+    nv.style.objectPosition = waveMode ? 'center 12%' : 'center 22%';
   }
-  if (heroMode) { nv.style.transform = ''; nv.style.transformOrigin = ''; }   // hero CSS owns it
   split.style.gridTemplateColumns = novaW + 'px ' + camW + 'px';
   try { LOG('LAYOUT', `aspect-fit → nova ${novaW}px (asp ${novaAsp.toFixed(2)}) · cam ${camW}px (asp ${camAsp.toFixed(2)}) · H ${H}`); } catch(_){}
 }
