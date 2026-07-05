@@ -1091,6 +1091,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
         style="padding:12px 20px;border-radius:24px;border:none;background:linear-gradient(135deg,#ec4899,#9f1239);color:#fff;font:600 14px 'Fredoka',cursive;cursor:pointer">Send</button>
     </div>
     <div id="end-actions" style="display:flex;gap:12px;margin-top:14px;flex-wrap:wrap">
+      <button id="end-again" onclick="playAgainNow()" style="background:linear-gradient(135deg,#7c6fff,#4ecdc4);border:none;color:#fff;font:700 17px 'Fredoka',cursive;padding:12px 26px;border-radius:999px;cursor:pointer;margin-right:8px">🔁 Dance again!</button>
       <button id="end-save" onclick="saveNova()">💖 Save my Nova</button>
       <button id="end-replay" onclick="location.reload()">🔄 Play Again</button>
     </div>
@@ -1167,6 +1168,14 @@ function pickGame(songId){
 }
 function pickerBack(){
   showPhase('phase-recognition');
+}
+
+// THE ENDING: play-again — she rolls with delight, goodbye skipped, fast re-transition.
+function playAgainNow(){
+  try { if (window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'play_again' } }); } catch(_){}
+  if (typeof LOG === 'function') LOG('ENDING', 'play-again tapped → fast re-transition');
+  const g = window.__selectedSongId || (typeof selectedSong !== 'undefined' && selectedSong && selectedSong.id) || 'hello';
+  setTimeout(() => { try { pickGame(g); } catch(e){ location.reload(); } }, 600);
 }
 
 // v103 — Save kid data to localStorage so Nova remembers next session
@@ -2469,6 +2478,12 @@ function setupNovaRoomEvents(room) {
     if (msg.kind === 'nova-ready') {
       window.__novaPipelineReady = true;
       LOG('INTRO', 'nova-ready received — she can actually respond now');
+      return;
+    }
+    // THE ENDING: her last goodbye word finished → NOW the stars/feedback may appear
+    if (msg.kind === 'goodbye-done') {
+      LOG('ENDING', 'goodbye-done from worker → revealing end screen');
+      try { if (window.__showEndScreen) window.__showEndScreen(); } catch(_){}
       return;
     }
     // FIX 2: Nova named a body part → light THAT organ on the kid's camera (intro glow)
@@ -5061,25 +5076,35 @@ function endGame() {
   
   const rate = attempts > 0 ? hits / attempts : 0;
   const stars = rate >= 0.9 ? 5 : rate >= 0.7 ? 4 : rate >= 0.5 ? 3 : rate >= 0.3 ? 2 : 1;
-  
-  showPhase('phase-end');
-  
-  document.getElementById('end-title').textContent = 
-    ['So proud of you!','Good effort!','Great work!','Amazing dancer!','PERFECT! 🔥'][stars-1];
-  
-  // Animate stars in
-  const starEl = document.getElementById('end-stars');
-  starEl.textContent = '';
-  let s = 0;
-  const starIv = setInterval(() => {
-    if(s < stars) { starEl.textContent += '⭐'; s++; }
-    else if(s < 5) { starEl.textContent += '☆'; s++; }
-    else clearInterval(starIv);
-  }, 250);
-  
-  document.getElementById('end-pts').textContent = score + ' pts';
-  document.getElementById('end-detail').textContent =
-    `${hits} of ${attempts} moves · best streak: ${maxCombo}`;
+
+  // THE ENDING (2026-07-05): stars/feedback appear only AFTER her last word — the
+  // worker sends goodbye-done when the 4-beat close finishes. 14s hard fallback so
+  // a dead worker can never strand the kid on a black screen. Her face (or the glow
+  // placeholder on voice-only — the 2s rule is structural: the video element simply
+  // never shows without frames) carries the goodbye meanwhile.
+  window.__endScreenShown = false;
+  window.__showEndScreen = function(){
+    if (window.__endScreenShown) return;
+    window.__endScreenShown = true;
+    showPhase('phase-end');
+    document.getElementById('end-title').textContent =
+      ['So proud of you!','Good effort!','Great work!','Amazing dancer!','PERFECT! 🔥'][stars-1];
+    const starEl = document.getElementById('end-stars');
+    starEl.textContent = '';
+    let s = 0;
+    const starIv = setInterval(() => {
+      if(s < stars) { starEl.textContent += '⭐'; s++; }
+      else if(s < 5) { starEl.textContent += '☆'; s++; }
+      else clearInterval(starIv);
+    }, 250);
+    document.getElementById('end-pts').textContent = score + ' pts';
+    document.getElementById('end-detail').textContent =
+      `${hits} of ${attempts} moves · best streak: ${maxCombo}`;
+    LOG('ENDING', 'end screen + stars revealed (after her goodbye)');
+  };
+  setTimeout(() => { if (!window.__endScreenShown) { LOG('ENDING', '14s fallback → end screen (no goodbye-done heard)'); window.__showEndScreen(); } }, 14000);
+  // no Nova connected (nonova/standalone) → show it right away
+  if (!window.__novaRoom) window.__showEndScreen();
 
   // AUTO-SAVE full session to Downloads (frontend record; backend logged on the worker).
   try{ const _v=document.getElementById('nova-video'), _cam=document.getElementById('cam-side'), _nv=document.getElementById('nova-side');
