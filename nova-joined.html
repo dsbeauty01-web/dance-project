@@ -477,8 +477,9 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
    is never beheaded, sides blend into the matching white bg, and a bounded 1.18x zoom
    (origin biased up) makes her read bigger without ever cutting the head. */
 /* head-to-top (2026-07-05): the clip has a tall white band ABOVE her head — zoom around
-   the head line and lift, so her head rides near the TOP of the panel, not mid-screen. */
-#nova-video.hero-zoom{object-fit:contain;transform:translateY(-22%) scale(1.35);transform-origin:50% 40%}
+   the head line and lift, so her head rides near the TOP of the panel, not mid-screen.
+   v2: 1.35 still left dead margin — 1.55 fills the panel (white clip: crop costs nothing). */
+#nova-video.hero-zoom{object-fit:contain;transform:translateY(-24%) scale(1.55);transform-origin:50% 40%}
 /* WAVE waist-up (2026-07-05): all Wave moves are shoulders/elbows/wrists — panel is a
    full 50% and the portrait clip cover-crops to the UPPER BODY (head kept, legs cropped),
    which reads as widescreen. Both dancer panels get equal space. */
@@ -4749,17 +4750,30 @@ function startGame() {
   // vs near-instant audio playback.
   function startSongAfterMP4Ready() {
     const startSong = () => {
-      const delay = AV_SYNC_EXTRA_DELAY_MS;
-      LOG('AV-SYNC', `MP4 visible — waiting ${delay}ms then starting song`);
-      setTimeout(() => {
+      // AV-SYNC v2 (2026-07-05): the fixed 800ms was a per-machine GUESS — start the song
+      // on the video's FIRST RENDERED FRAME instead (frame-accurate), with the clip reset
+      // to 0 so music t=0 == dance t=0. Then PHASE-LOCK: the song is the master clock;
+      // decode stalls used to let the loop drift — corrected whenever >0.35s off.
+      const go = () => {
+        try { vid.currentTime = 0; } catch(_){}
         audio.play().then(() => {
-          LOG('AV-SYNC', SONG_FILE+' started — synced to MP4');
-          console.log(SONG_FILE+' playing OK');
+          LOG('AV-SYNC', SONG_FILE + ' started ON first rendered MP4 frame (v2 sync)');
+          window.__avLock = setInterval(() => {
+            try {
+              if (audio.paused || !vid.duration || vid.paused) return;
+              const want = audio.currentTime % vid.duration;
+              const drift = Math.abs(vid.currentTime - want);
+              const d = Math.min(drift, Math.abs(drift - vid.duration));
+              if (d > 0.35) { vid.currentTime = want; LOG('AV-SYNC', `phase-lock corrected video (drift ${d.toFixed(2)}s)`); }
+            } catch(_){}
+          }, 4000);
         }).catch(err => {
           console.error(SONG_FILE+' play() rejected:', err.name, err.message);
           setTimeout(() => audio.play().catch(e => console.error(SONG_FILE+' retry failed:', e.name, e.message)), 200);
         });
-      }, delay);
+      };
+      if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) vid.requestVideoFrameCallback(() => go());
+      else setTimeout(go, 150);
     };
     // 'playing' fires when video actually starts rendering frames (not just loaded)
     if (vid.readyState >= 3 && !vid.paused) {
@@ -5029,6 +5043,7 @@ function handleMiss(actionEvent) {
 
 function endGame() {
   clearInterval(songTimer);
+  try { clearInterval(window.__avLock); } catch(_){}
   setGreenFlash(false);
   hideCue();
   // v108: Bring Nova to closeup mode

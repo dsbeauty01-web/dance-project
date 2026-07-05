@@ -9,9 +9,9 @@ const MIME = { '.html':'text/html','.js':'text/javascript','.mp4':'video/mp4','.
   const b = await chromium.launch({ channel: 'chrome', headless: true, args: ['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream','--use-file-for-fake-video-capture=' + Y4M,'--autoplay-policy=no-user-gesture-required','--enable-unsafe-swiftshader'] });
   const ctx = await b.newContext({ permissions: ['camera','microphone'], viewport: { width: 1600, height: 900 } });
   const pg = await ctx.newPage();
-  await pg.goto(`http://localhost:${port}/nova-joined.html?nonova&game=joined`, { waitUntil: 'domcontentloaded' });
+  await pg.goto(`http://localhost:${port}/nova-joined.html?nonova&game=hello`, { waitUntil: 'domcontentloaded' });
   await pg.waitForTimeout(9000);
-  await pg.screenshot({ path: path.join(__dirname, 'shot-noborder.png'), clip: { x: 0, y: 0, width: 800, height: 900 } });
+  await pg.screenshot({ path: path.join(__dirname, 'shot-hero-margin.png'), clip: { x: 0, y: 0, width: 800, height: 900 } });
   console.log('shot saved');
   await b.close(); server.close();
 })();
