@@ -479,6 +479,10 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 /* head-to-top (2026-07-05): the clip has a tall white band ABOVE her head — zoom around
    the head line and lift, so her head rides near the TOP of the panel, not mid-screen. */
 #nova-video.hero-zoom{object-fit:contain;transform:translateY(-22%) scale(1.35);transform-origin:50% 40%}
+/* WAVE waist-up (2026-07-05): all Wave moves are shoulders/elbows/wrists — panel is a
+   full 50% and the portrait clip cover-crops to the UPPER BODY (head kept, legs cropped),
+   which reads as widescreen. Both dancer panels get equal space. */
+#nova-video.wave-upper{object-fit:cover;object-position:center 12%}
 
 /* D-ID face — top-left of Nova panel */
 /* D-ID face — FIXED top-center of game phase, straddling the boundary
@@ -4593,11 +4597,18 @@ function fitGamePanels() {
   // waist-up figure on plain white, so the cover-crop eats white + below-frame, not her.
   // Other games: aspect-fit (their clips are FULL-BODY — cropping would cut her feet).
   const heroMode = (typeof selectedSong !== 'undefined' && selectedSong && selectedSong.id === 'hello');
-  try { nv.classList.toggle('hero-zoom', heroMode); } catch(_){}
+  const waveMode = (typeof selectedSong !== 'undefined' && selectedSong && selectedSong.id === 'wave');
+  try { nv.classList.toggle('hero-zoom', heroMode); nv.classList.toggle('wave-upper', waveMode); } catch(_){}
   let novaW, camW;
   if (heroMode) {
     novaW = Math.round(W * 0.55);
     camW  = Math.min(Math.round(H * camAsp), W - novaW);
+  } else if (waveMode) {
+    // WAVE (2026-07-05): equal space for both dancers; the clip cover-crops to waist-up
+    // (all Wave moves are upper-body) — reads widescreen, no borders, nobody beheaded.
+    novaW = Math.round(W * 0.5);
+    camW  = W - novaW;
+    nv.style.transform = ''; nv.style.transformOrigin = '';
   } else {
     // NO-BORDERS (2026-07-05): the panel HUGS the clip — width = clip width at a 1.18
     // zoom (the zoom eats only the sky/flower margins, never her body), capped at half
