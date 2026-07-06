@@ -417,6 +417,26 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 }
 .game-ctrl-btn:hover{background:rgba(255,255,255,0.25);transform:scale(1.05)}
 .game-ctrl-btn.paused{background:rgba(16,185,129,0.5);border-color:#10b981}
+/* GAME FOOTER pause (2026-07-06): one big friendly control, bottom-center */
+#game-footer{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:8500;pointer-events:none}
+#game-pause-btn{pointer-events:auto;width:58px;height:58px;border-radius:50%;border:2px solid rgba(255,255,255,.45);
+  background:linear-gradient(135deg,rgba(124,111,255,.85),rgba(78,205,196,.85));color:#fff;font-size:24px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 22px rgba(124,111,255,.55);transition:all .2s}
+#game-pause-btn:hover{transform:scale(1.08)}
+#game-pause-btn.paused{background:linear-gradient(135deg,#10b981,#059669);box-shadow:0 4px 22px rgba(16,185,129,.6)}
+#pause-overlay{position:fixed;inset:0;z-index:8400;display:none;align-items:center;justify-content:center;
+  background:rgba(20,8,40,.72);backdrop-filter:blur(6px);cursor:pointer}
+#pause-overlay.show{display:flex}
+#pause-overlay .pause-card{text-align:center;color:#fff;font-family:'Fredoka',cursive}
+#pause-overlay .pause-big{font-size:64px;margin-bottom:6px}
+#pause-overlay .pause-title{font:700 30px 'Fredoka',cursive;color:#ffd84d}
+#pause-overlay .pause-sub{font:500 16px 'Fredoka',cursive;opacity:.85;margin-top:6px}
+#pause-count{display:none;font:800 140px 'Fredoka',cursive;color:#ffd84d;
+  text-shadow:0 0 40px rgba(255,216,77,.8);animation:pausePop .8s ease infinite}
+@keyframes pausePop{0%{transform:scale(.7);opacity:.4}30%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
+#pause-overlay.counting .pause-card{display:none}
+#pause-overlay.counting #pause-count{display:block}
   display:flex;align-items:center;justify-content:space-between;
   padding:10px 20px;background:rgba(0,0,0,0.55);backdrop-filter:blur(12px);
   border-bottom:1px solid rgba(255,111,216,0.15)}
@@ -1001,9 +1021,22 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
     <div id="game-streak">🔥 x2</div>
     <div id="game-progress-wrap"><div id="game-progress"></div></div>
     <div id="game-score">0</div>
-    <!-- v105: pause + exit (Lexi pattern 4) -->
-    <button id="game-pause-btn" class="game-ctrl-btn" onclick="togglePauseGame()" title="Pause">⏸</button>
+    <!-- v105: exit stays up top; pause moved to the footer (2026-07-06 UX) -->
     <button id="game-exit-btn" class="game-ctrl-btn" onclick="exitGame()" title="Exit">✕</button>
+  </div>
+  <!-- GAME FOOTER (2026-07-06): the one control a dancing kid needs — big friendly pause.
+       Pause freezes EVERYTHING (music, clip, cues, Nova's score clock via frozen ticks);
+       the same button resumes with a 3-2-1 so they can get back in position. -->
+  <div id="game-footer">
+    <button id="game-pause-btn" onclick="togglePauseGame()" title="Pause">⏸</button>
+  </div>
+  <div id="pause-overlay" onclick="togglePauseGame()">
+    <div class="pause-card">
+      <div class="pause-big">⏸</div>
+      <div class="pause-title">taking a breath!</div>
+      <div class="pause-sub">tap anywhere when you're ready</div>
+    </div>
+    <div id="pause-count">3</div>
   </div>
   <div id="game-split">
     <div id="nova-side">
@@ -1227,8 +1260,10 @@ function startCountdown(){
   };
   tick();
 }
-function sendChat(){window._sendChat&&window._sendChat();}
-function toggleMic(){window._toggleMic&&window._toggleMic();}
+// MODULE-SCOPE FIX (2026-07-06): these shims were module-locals — the HTML
+// onclick/onkeydown handlers look up window.* → the chat input was DEAD.
+window.sendChat = function(){ window._sendChat && window._sendChat(); };
+window.toggleMic = function(){ window._toggleMic && window._toggleMic(); };
 </script>
 
 <script type="module">
@@ -4328,19 +4363,44 @@ function setEnergyLevel(level) {
 // v105 — Pause + Exit during game (Lexi pattern 4)
 let __gamePaused = false;
 function togglePauseGame() {
+  // PAUSE v2 (2026-07-06): pause freezes EVERYTHING — music, the dance clip, cues
+  // (they key off the frozen music clock), and Nova's talk-score clock (the 1s ticks
+  // repeat the same second). The SAME button resumes via a 3-2-1 countdown so the kid
+  // can get back in position. Tap-anywhere on the overlay also resumes.
   const audio = window.__songAudio;
+  const vid = document.getElementById('nova-video');
   const btn = document.getElementById('game-pause-btn');
+  const ov = document.getElementById('pause-overlay');
   if (!audio) return;
   if (__gamePaused) {
-    audio.play().catch(()=>{});
-    if (btn) { btn.textContent = '⏸'; btn.classList.remove('paused'); btn.title = 'Pause'; }
-    __gamePaused = false;
-    LOG('GAME', 'resumed');
+    if (window.__resumeCounting) return;          // countdown already running
+    window.__resumeCounting = true;
+    if (ov) { ov.classList.add('counting'); const n = document.getElementById('pause-count'); if (n) n.textContent = '3'; }
+    try { if (window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'resume_countdown' } }); } catch(_){}
+    LOG('GAME', 'resume countdown 3-2-1');
+    let c = 3;
+    const iv = setInterval(() => {
+      c--;
+      const n = document.getElementById('pause-count');
+      if (c > 0) { if (n) n.textContent = String(c); return; }
+      clearInterval(iv);
+      window.__resumeCounting = false;
+      if (ov) ov.classList.remove('show', 'counting');
+      audio.play().catch(()=>{});
+      if (vid && vid !== audio) { try { vid.play().catch(()=>{}); } catch(_){} }
+      if (btn) { btn.textContent = '⏸'; btn.classList.remove('paused'); btn.title = 'Pause'; }
+      __gamePaused = false;
+      try { if (window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'resume' } }); } catch(_){}
+      LOG('GAME', 'resumed after 3-2-1');
+    }, 800);
   } else {
     audio.pause();
+    if (vid && vid !== audio) { try { vid.pause(); } catch(_){} }   // dual-source: freeze her clip too
+    if (ov) { ov.classList.add('show'); ov.classList.remove('counting'); }
     if (btn) { btn.textContent = '▶'; btn.classList.add('paused'); btn.title = 'Resume'; }
     __gamePaused = true;
-    LOG('GAME', 'paused');
+    try { if (window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'pause' } }); } catch(_){}
+    LOG('GAME', 'paused (everything frozen)');
   }
 }
 function exitGame() {
