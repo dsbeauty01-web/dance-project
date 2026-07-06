@@ -1212,6 +1212,23 @@ function playAgainNow(){
   setTimeout(() => { try { pickGame(g); } catch(e){ location.reload(); } }, 600);
 }
 
+// ── CLIP VOICE player (2026-07-06 root fix): pre-rendered Kora lines, ~0ms latency.
+// One at a time (her one mouth); sets __novaClipPlaying so the music ducks and the
+// reveal/handoff treat it as her real voice.
+window.__clipAudio = null;
+window.playClip = function(id){
+  try {
+    if (window.__clipAudio) { try { window.__clipAudio.pause(); } catch(_){} }
+    const a = new Audio('audio/clips/' + id + '.mp3');
+    window.__clipAudio = a;
+    a.volume = 1.0;
+    window.__novaClipPlaying = true;
+    const off = () => { if (window.__clipAudio === a) window.__novaClipPlaying = false; };
+    a.onended = off; a.onerror = () => { LOG('CLIP', id + ' failed to load'); off(); };
+    a.play().then(() => LOG('CLIP', '▶ ' + id)).catch(e => { LOG('CLIP', id + ' autoplay blocked: ' + e.name); off(); });
+  } catch(e){ window.__novaClipPlaying = false; }
+};
+
 // v103 — Save kid data to localStorage so Nova remembers next session
 function saveNova(){
   try {
@@ -2024,7 +2041,7 @@ function handoffFromIntro() {
       // the sparkle+humming overlay carries the wait, worker retries the greeting behind it.
       const revealSentAt = Date.now();
       const fadePoll = setInterval(() => {
-        const speaking = !!window.__novaSpeakingNow;
+        const speaking = !!window.__novaSpeakingNow || !!window.__novaClipPlaying;   // clip = her voice too
         const capped = Date.now() - revealSentAt > 30000;
         if (!speaking && !capped) return;
         clearInterval(fadePoll);
@@ -2514,6 +2531,12 @@ function setupNovaRoomEvents(room) {
     if (msg.kind === 'nova-ready') {
       window.__novaPipelineReady = true;
       LOG('INTRO', 'nova-ready received — she can actually respond now');
+      return;
+    }
+    // CLIP VOICE (2026-07-06 root fix): the worker chose a pre-rendered Kora line —
+    // play it INSTANTLY. This is her mouth for every fixed line now.
+    if (msg.kind === 'play-clip') {
+      try { window.playClip(msg.id); } catch(e){ LOG('CLIP', 'play failed: ' + e.message); }
       return;
     }
     // THE ENDING: her last goodbye word finished → NOW the stars/feedback may appear
@@ -4766,7 +4789,7 @@ function startGame() {
       (function go(){
         // WALL-CLOCK gate (not tick-counting): the heavy poseLoop starves timers, so a 100ms
         // tick-counter under-counts badly. performance.now() elapsed is correct under load AND on a real machine.
-        if (window.__novaSpeakingNow || performance.now() - t0 >= 1200) {
+        if (window.__novaSpeakingNow || window.__novaClipPlaying || performance.now() - t0 >= 1200) {
           window.__beatPlayed = true;
           window.__mp4PlayAt = performance.now();   // PHASE 2 ready-gate check: MP4 starts only after handoff
           vid.play()
@@ -4918,7 +4941,7 @@ function gameTick() {
   try {
     const a = window._audio;
     if (a) {
-      const base = 0.85, target = window.__novaSpeakingNow ? base * 0.65 : base;
+      const base = 0.85, target = (window.__novaSpeakingNow || window.__novaClipPlaying) ? base * 0.65 : base;
       a.volume = a.volume + (target - a.volume) * 0.35;   // smooth ~4-frame glide
     }
   } catch(_){}
