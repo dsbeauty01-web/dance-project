@@ -2685,6 +2685,9 @@ window._sendChat = async function() {
   schedulePresenceFiller(1500);
   // Show in our chat bubble immediately so kid sees their input
   handleKidInput(text);
+  // perceived-latency fix (2026-07-06): her voice takes seconds — an instant
+  // "she saw it" heart so typing never feels ignored
+  try { addBubble('💜', 'nova'); } catch(_){}
   // VOICE-LOSS FIX (2026-07-02): the old speakTextIntoMic path fetched a TTS endpoint that
   // no longer exists (404) — handleKidInput already sends 'user-said' to the worker, which
   // IS the proven reply path. The dead call added noise + risk, so it's gone.
