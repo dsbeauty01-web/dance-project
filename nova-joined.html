@@ -5117,7 +5117,7 @@ function endGame() {
       `${hits} of ${attempts} moves · best streak: ${maxCombo}`;
     LOG('ENDING', 'end screen + stars revealed (after her goodbye)');
   };
-  setTimeout(() => { if (!window.__endScreenShown) { LOG('ENDING', '14s fallback → end screen (no goodbye-done heard)'); window.__showEndScreen(); } }, 14000);
+  setTimeout(() => { if (!window.__endScreenShown) { LOG('ENDING', '30s fallback → end screen (no goodbye-done heard)'); window.__showEndScreen(); } }, 30000);   // measured: full 4-beat goodbye takes 16-26s through EVI
   // no Nova connected (nonova/standalone) → show it right away
   if (!window.__novaRoom) window.__showEndScreen();
 
