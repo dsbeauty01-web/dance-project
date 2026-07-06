@@ -4746,7 +4746,19 @@ function startGame() {
     window._audio = vid;         // gameTick clock + mid-dance ducking read this
     window.__songAudio = vid;    // pause / exit controls
     vid.onerror = () => console.error(selectedSong.videoFile + ' error:', vid.error);
-    vid.onended = () => setTimeout(endGame, 1200);
+    vid.onended = () => {
+      // PHANTOM-END GUARD (2026-07-06 live: wave "opened and closed" ~10s in): an
+      // 'ended' that fires before 80% of the clip really played is NOT a finish —
+      // it's a decode/reload artifact. Log it, restart playback, keep the game.
+      const played = vid.currentTime || 0, dur = vid.duration || 30;
+      if (played < dur * 0.8) {
+        LOG('AV-SYNC', `spurious video 'ended' at ${played.toFixed(1)}s of ${dur.toFixed(1)}s — IGNORED, resuming`);
+        try { vid.play().catch(()=>{}); } catch(_){}
+        return;
+      }
+      LOG('GAME', `video really finished (${played.toFixed(1)}s) → ending`);
+      setTimeout(endGame, 1200);
+    };
     // PHASE 2 HANDOFF BEAT: let Nova's live "here we go" (worker speaks on the phase:dance sent above)
     // land first — start the MP4 the moment she's actually speaking, or after a 1.2s HARD CAP so the
     // game never hangs on the handoff. Smooth, not a hard cut.
@@ -4761,7 +4773,15 @@ function startGame() {
             .then(() => LOG('AV-SYNC', `${selectedSong.videoFile} playing (single-source, clock=video)`))
             .catch(err => {
               console.error(selectedSong.videoFile + ' play failed:', err.name, err.message);
-              setTimeout(() => vid.play().catch(e => console.error('retry failed:', e.message)), 200);
+              setTimeout(() => vid.play().catch(() => {
+                // autoplay-with-sound blocked (user gesture expired during the bridge) —
+                // start MUTED so the game RUNS, first tap anywhere restores sound
+                LOG('AV-SYNC', 'sound autoplay blocked → muted start (first tap unmutes)');
+                vid.muted = true;
+                vid.play().catch(e2 => console.error('muted retry failed:', e2.message));
+                const un = () => { vid.muted = false; document.removeEventListener('pointerdown', un); LOG('AV-SYNC', 'sound restored by tap'); };
+                document.addEventListener('pointerdown', un);
+              }), 200);
             });
           songTimer = setInterval(gameTick, 80);
         } else { setTimeout(go, 100); }
@@ -4858,7 +4878,16 @@ function startGame() {
     }
   }
   startSongAfterMP4Ready();
-  audio.onended = () => setTimeout(endGame, 1200);
+  audio.onended = () => {
+    const played = audio.currentTime || 0, dur = audio.duration || 60;
+    if (played < dur * 0.8) {
+      LOG('AV-SYNC', `spurious audio 'ended' at ${played.toFixed(1)}s of ${dur.toFixed(1)}s — IGNORED, resuming`);
+      try { audio.play().catch(()=>{}); } catch(_){}
+      return;
+    }
+    LOG('GAME', `song really finished (${played.toFixed(1)}s) → ending`);
+    setTimeout(endGame, 1200);
+  };
   
   // No "initial hype" speech — the song's own intro ("hello hello, are you ready,
   // let's move 1,2,3") IS the intro. Nova talking over it is just noise.
@@ -5105,6 +5134,7 @@ function handleMiss(actionEvent) {
 }
 
 function endGame() {
+  try { const a=window._audio; LOG('GAME', `endGame() called — clock=${a?(a.currentTime||0).toFixed(1):'?'}s of ${a&&a.duration?a.duration.toFixed(1):'?'}s`); } catch(_){}
   clearInterval(songTimer);
   try { clearInterval(window.__avLock); } catch(_){}
   setGreenFlash(false);
