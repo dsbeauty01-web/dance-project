@@ -1193,6 +1193,21 @@ function goToPicker(){
 }
 function pickGame(songId){
   if(typeof markUserInteraction === 'function') markUserInteraction();
+  // PHASE-GRACE (2026-07-06): kid pushed the button mid-line — let the current line
+  // END NICELY (cap 2.5s), kill everything queued behind it, then transition.
+  try { window.flushClips && window.flushClips('game picked'); } catch(_){}
+  if ((window.__novaClipPlaying || window.__novaSpeakingNow) && !window.__pickWaiting) {
+    window.__pickWaiting = true;
+    const _t0 = Date.now();
+    const _w = setInterval(() => {
+      if ((!window.__novaClipPlaying && !window.__novaSpeakingNow) || Date.now() - _t0 > 2500) {
+        clearInterval(_w); window.__pickWaiting = false;
+        if (typeof LOG === 'function') LOG('TRANS', 'her line ended nicely → transitioning');
+        pickGame(songId);
+      }
+    }, 150);
+    return;
+  }
   if (typeof setSelectedSong === 'function') setSelectedSong(songId);
   if (typeof LOG === 'function') LOG('GAME', `kid picked song: ${songId}`);
   // PHASE 2: the live bridge covers the load (hype → tip → step-back → go). Falls back
@@ -1234,6 +1249,12 @@ function _drainClips(){
   a.onerror = () => { LOG('CLIP', item.id + ' failed to load'); done(); };
   a.play().then(() => LOG('CLIP', '▶ ' + item.id)).catch(e => { LOG('CLIP', item.id + ' blocked: ' + e.name); done(); });
 }
+// PHASE-GRACE (2026-07-06): on any phase change the CURRENT line finishes nicely,
+// everything still queued from the old phase dies — no late lines leaking forward.
+window.flushClips = function(reason){
+  const n = window.__clipQueue.length;
+  if (n) { window.__clipQueue.length = 0; LOG('CLIP', 'queue flushed (' + n + ' stale) — ' + (reason||'phase change')); }
+};
 window.playClip = function(id){
   window.__clipQueue.push({ id, at: Date.now() });
   if (window.__clipQueue.length > 6) { const d = window.__clipQueue.shift(); LOG('CLIP', d.id + ' dropped (queue full)'); }
@@ -4881,9 +4902,9 @@ function startGame() {
               const want = audio.currentTime % vid.duration;
               const drift = Math.abs(vid.currentTime - want);
               const d = Math.min(drift, Math.abs(drift - vid.duration));
-              if (d > 0.35) { vid.currentTime = want; LOG('AV-SYNC', `phase-lock corrected video (drift ${d.toFixed(2)}s)`); }
+              if (d > 0.2) { vid.currentTime = want; LOG('AV-SYNC', `phase-lock corrected video (drift ${d.toFixed(2)}s)`); }
             } catch(_){}
-          }, 4000);
+          }, 2000);
         }).catch(err => {
           console.error(SONG_FILE+' play() rejected:', err.name, err.message);
           setTimeout(() => audio.play().catch(e => console.error(SONG_FILE+' retry failed:', e.name, e.message)), 200);
@@ -5168,6 +5189,7 @@ function handleMiss(actionEvent) {
 }
 
 function endGame() {
+  try { window.flushClips && window.flushClips('song ended'); } catch(_){}
   try { const a=window._audio; LOG('GAME', `endGame() called — clock=${a?(a.currentTime||0).toFixed(1):'?'}s of ${a&&a.duration?a.duration.toFixed(1):'?'}s`); } catch(_){}
   clearInterval(songTimer);
   try { clearInterval(window.__avLock); } catch(_){}
