@@ -1212,21 +1212,32 @@ function playAgainNow(){
   setTimeout(() => { try { pickGame(g); } catch(e){ location.reload(); } }, 600);
 }
 
-// ── CLIP VOICE player (2026-07-06 root fix): pre-rendered Kora lines, ~0ms latency.
-// One at a time (her one mouth); sets __novaClipPlaying so the music ducks and the
-// reveal/handoff treat it as her real voice.
-window.__clipAudio = null;
+// ── CLIP VOICE player + THE MOUTH RULE (2026-07-06 root fix): pre-rendered Kora
+// lines at ~0ms latency, played through ONE queue — one line at a time, never over
+// her live EVI voice (this is the Voice Conductor's mouth end: clips and live speech
+// can never collide). Stale queue items (>8s old) are dropped, not spoken late.
+window.__clipQueue = [];
+window.__clipBusy = false;
+function _drainClips(){
+  if (window.__clipBusy) return;
+  const q = window.__clipQueue;
+  while (q.length && Date.now() - q[0].at > 8000) { LOG('CLIP', q[0].id + ' expired in queue — dropped'); q.shift(); }
+  if (!q.length) return;
+  if (window.__novaSpeakingNow) { setTimeout(_drainClips, 200); return; }   // her live voice first
+  const item = q.shift();
+  window.__clipBusy = true;
+  window.__novaClipPlaying = true;
+  const a = new Audio('audio/clips/' + item.id + '.mp3');
+  a.volume = 1.0;
+  const done = () => { window.__clipBusy = false; window.__novaClipPlaying = false; setTimeout(_drainClips, 350); };
+  a.onended = done;
+  a.onerror = () => { LOG('CLIP', item.id + ' failed to load'); done(); };
+  a.play().then(() => LOG('CLIP', '▶ ' + item.id)).catch(e => { LOG('CLIP', item.id + ' blocked: ' + e.name); done(); });
+}
 window.playClip = function(id){
-  try {
-    if (window.__clipAudio) { try { window.__clipAudio.pause(); } catch(_){} }
-    const a = new Audio('audio/clips/' + id + '.mp3');
-    window.__clipAudio = a;
-    a.volume = 1.0;
-    window.__novaClipPlaying = true;
-    const off = () => { if (window.__clipAudio === a) window.__novaClipPlaying = false; };
-    a.onended = off; a.onerror = () => { LOG('CLIP', id + ' failed to load'); off(); };
-    a.play().then(() => LOG('CLIP', '▶ ' + id)).catch(e => { LOG('CLIP', id + ' autoplay blocked: ' + e.name); off(); });
-  } catch(e){ window.__novaClipPlaying = false; }
+  window.__clipQueue.push({ id, at: Date.now() });
+  if (window.__clipQueue.length > 6) { const d = window.__clipQueue.shift(); LOG('CLIP', d.id + ' dropped (queue full)'); }
+  _drainClips();
 };
 
 // v103 — Save kid data to localStorage so Nova remembers next session
