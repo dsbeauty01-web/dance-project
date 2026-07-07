@@ -2605,6 +2605,11 @@ function setupNovaRoomEvents(room) {
       try { window.playClip(msg.id, msg.beat || 0); } catch(e){ LOG('CLIP', 'play failed: ' + e.message); }
       return;
     }
+    if (msg.kind === 'v2v') {
+      window.__V2V = !!msg.on;
+      LOG('V2V', 'worker announced V2V=' + window.__V2V + ' — browser-STT conversation path ' + (window.__V2V ? 'GATED OFF (EVI is the one ear)' : 'active'));
+      return;
+    }
     if (msg.kind === 'cancel-beat') {
       try { window.cancelBeats(msg.beat || 0, 'worker cancel'); } catch(_){}
       return;
@@ -3342,6 +3347,9 @@ async function handleKidInput(text) {
   
   // TURN-OWNER (2026-07-07): client-side intent handling DELETED — the worker owns the
   // conversation state machine. The client only reports inputs and plays what it's told.
+  // V2V STAGE 1 (gate, not delete — rollback law): when EVI is the one ear,
+  // the browser-STT conversation path is dead. Typed chat unaffected.
+  if (window.__V2V) { LOG('STT', 'V2V: browser-STT gated — EVI hears directly'); return; }
   // v113-fix (#5): SEND the clean browser-STT text to the worker so the LLM
   // actually replies. Before, this relied only on the worker's own mic STT, which
   // garbled/ignored speech ("0 real replies"). user-said is the proven path.
