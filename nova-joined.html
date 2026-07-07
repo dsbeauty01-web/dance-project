@@ -1271,6 +1271,8 @@ function _drainClips(){
   window.__clipCurrent = { id: item.id, beat: item.beat, audio: a };
   a.volume = 1.0;
   const done = (ev) => {
+    if (a.__clipDone) return;   // ended/duet-tick race: a clip may only finish ONCE
+    a.__clipDone = true;
     if (window.__clipCurrent && window.__clipCurrent.audio === a) window.__clipCurrent = null;
     window.__clipBusy = false; window.__novaClipPlaying = false; window.__novaClipAudible = false;
     if (ev) _clipAck(item.id, item.beat, ev);
@@ -1284,10 +1286,14 @@ function _drainClips(){
   a.onerror = () => { LOG('CLIP', item.id + ' failed to load'); done('error'); };
   // ONE MOUTH, both directions (2026-07-07: "I heard 2-3 voices"): if her LIVE voice
   // starts while a clip is playing, PAUSE the clip and resume after she finishes.
+  // GREET-TWICE ROOT FIX (2026-07-07 hara.txt 23.3s→28.4s→33.5s): when a clip ENDS,
+  // paused=true a few ms BEFORE the 'ended' event runs — this tick used to land in
+  // that gap and a.play() an ENDED element, which restarts it from 0 = the whole
+  // greeting a second time. An ended clip is DEAD: never resume it.
   const duet = setInterval(() => {
-    if (window.__clipCurrent && window.__clipCurrent.audio === a) {
+    if (window.__clipCurrent && window.__clipCurrent.audio === a && !a.ended && !a.__clipDone) {
       if (window.__novaSpeakingNow && !a.paused) { a.pause(); LOG('CLIP', item.id + ' paused — her live voice is talking'); _clipAck(item.id, item.beat, 'duet-pause'); }
-      else if (!window.__novaSpeakingNow && a.paused && window.__clipCurrent) { a.play().catch(()=>{}); LOG('CLIP', item.id + ' resumed'); }
+      else if (!window.__novaSpeakingNow && a.paused && !a.ended) { a.play().catch(()=>{}); LOG('CLIP', item.id + ' resumed'); }
     } else clearInterval(duet);
   }, 150);
   a.play().then(() => { LOG('CLIP', '▶ ' + item.id + ' (beat ' + item.beat + ')'); _clipAck(item.id, item.beat, 'start'); })
@@ -1545,7 +1551,7 @@ function setAvatarCloseup(on) {
 }
 window.__setAvatarCloseup = setAvatarCloseup;
 
-LOG('BOOT', 'v113 MIC INJECTION TEST module script started');
+LOG('BOOT', 'v114 GREET-ONCE (ended-clip resume race fixed) module script started');
 
 // ═══════════════════════════════════════════════════════════════
 // CONFIG — v113-live: Nova brain swapped to the novapython LiveKit worker.
