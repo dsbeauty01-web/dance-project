@@ -1272,17 +1272,21 @@ function _drainClips(){
   a.volume = 1.0;
   const done = (ev) => {
     if (window.__clipCurrent && window.__clipCurrent.audio === a) window.__clipCurrent = null;
-    window.__clipBusy = false; window.__novaClipPlaying = false;
+    window.__clipBusy = false; window.__novaClipPlaying = false; window.__novaClipAudible = false;
     if (ev) _clipAck(item.id, item.beat, ev);
     setTimeout(_drainClips, 350);
   };
+  // FIX 2 (2026-07-07): 'playing' = the first REAL audio out of the speakers.
+  // __novaClipPlaying is set at queue-drain, seconds before the mp3 finishes
+  // buffering — the reveal fade keyed on it and showed her 9s before any sound.
+  a.onplaying = () => { window.__novaClipAudible = true; window.__clipAudibleAt = Date.now(); };
   a.onended = () => done('end');
   a.onerror = () => { LOG('CLIP', item.id + ' failed to load'); done('error'); };
   // ONE MOUTH, both directions (2026-07-07: "I heard 2-3 voices"): if her LIVE voice
   // starts while a clip is playing, PAUSE the clip and resume after she finishes.
   const duet = setInterval(() => {
     if (window.__clipCurrent && window.__clipCurrent.audio === a) {
-      if (window.__novaSpeakingNow && !a.paused) { a.pause(); LOG('CLIP', item.id + ' paused — her live voice is talking'); }
+      if (window.__novaSpeakingNow && !a.paused) { a.pause(); LOG('CLIP', item.id + ' paused — her live voice is talking'); _clipAck(item.id, item.beat, 'duet-pause'); }
       else if (!window.__novaSpeakingNow && a.paused && window.__clipCurrent) { a.play().catch(()=>{}); LOG('CLIP', item.id + ' resumed'); }
     } else clearInterval(duet);
   }, 150);
@@ -2107,11 +2111,15 @@ function handoffFromIntro() {
       // the sparkle+humming overlay carries the wait, worker retries the greeting behind it.
       const revealSentAt = Date.now();
       const fadePoll = setInterval(() => {
-        const speaking = !!window.__novaSpeakingNow || !!window.__novaClipPlaying;   // clip = her voice too
+        // FIX 2 (2026-07-07): gate on ACTUAL audio energy (__novaClipAudible = the
+        // clip element's 'playing' event) — the clip ORDER fires seconds before
+        // sound on a slow fetch and the kid saw her 9.2s before her first word.
+        const speaking = !!window.__novaSpeakingNow || !!window.__novaClipAudible;
         const capped = Date.now() - revealSentAt > 30000;
         if (!speaking && !capped) return;
         clearInterval(fadePoll);
         window.__revealAt = Date.now();                 // the moment = fade start = her first word
+        if (window.__clipAudibleAt) LOG('INTRO', 'fade ' + (window.__revealAt - window.__clipAudibleAt) + 'ms after first real audio');
         if (window.__firstWordAt && window.__revealToWordMs == null)
           window.__revealToWordMs = window.__firstWordAt - window.__revealAt;
         ov.style.transition = 'opacity 1.5s ease';      // calm melt, not a pop
