@@ -1773,7 +1773,12 @@ function initEars() {
     if(!last || !last.isFinal) return;
     const text = last[0].transcript.trim();
     if(!text) return;
-    if(novaIsSpeaking) return; // ignore mic input while Nova is talking
+    // FIX-ONE-VOICE self-hearing gate: while ANY of her audio plays (clip or live
+    // line) the mic must not transcribe — she was answering her own voice.
+    if(novaIsSpeaking || window.__novaClipPlaying || window.__novaSpeakingNow) {
+      LOG('STT', 'ignored while her audio is playing: "' + text.slice(0, 40) + '"');
+      return;
+    }
 
     // v108: GUARDS — prevent runaway chat from ambient noise / abandoned tab
     // 1. Allow STT in recognition AND end phase. Block in song/game phases.
