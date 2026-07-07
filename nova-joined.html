@@ -3303,8 +3303,10 @@ async function handleKidInput(text) {
   }
   
   // v110 KIDS: Auto-advance to dance when kid says "ready" / "let's dance" / "let's go"
-  // Only triggers in recognition phase after Nova has been ready for a few seconds
-  if (memory.phase === 'recognition' && !window.__autoDanceTriggered) {
+  // DISABLED (2026-07-07): this legacy shortcut jumped over the challenge + picker the
+  // moment the kid typed "im ready" (the "fast and weird transition"). The WORKER owns
+  // the ready-flow now (challenge-first, she leads, go-picker). Kill-switch kept for ref.
+  if (false && memory.phase === 'recognition' && !window.__autoDanceTriggered) {
     const READY_PATTERNS = /\b(let'?s\s+(dance|go|play|start))|((i'?m|im|i am)\s+ready)|(ready\s+(to|now|let'?s))|^ready$|^let'?s\s+go$|^start$|^go$/i;
     if (READY_PATTERNS.test(text)) {
       window.__autoDanceTriggered = true;
