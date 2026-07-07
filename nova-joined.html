@@ -1227,12 +1227,37 @@ function playAgainNow(){
   setTimeout(() => { try { pickGame(g); } catch(e){ location.reload(); } }, 600);
 }
 
-// ── CLIP VOICE player + THE MOUTH RULE (2026-07-06 root fix): pre-rendered Kora
-// lines at ~0ms latency, played through ONE queue — one line at a time, never over
-// her live EVI voice (this is the Voice Conductor's mouth end: clips and live speech
-// can never collide). Stale queue items (>8s old) are dropped, not spoken late.
+// ── CLIP VOICE player + MOUTH RULE + BEAT EXPIRY (TURN-OWNER 2026-07-07):
+// pre-rendered Kora lines at ~0ms latency through ONE queue — one line at a time,
+// never over her live EVI voice. Every order carries the worker's beat_id: a new
+// beat (or cancel-beat) STOPS anything playing/queued from an older beat — no clip
+// from a dead beat may reach the speaker. Start/end acks flow back to the worker.
 window.__clipQueue = [];
 window.__clipBusy = false;
+window.__clipCurrent = null;   // { id, beat, audio }
+function _clipAck(id, beat, ev){ try { if (window.__novaSend) window.__novaSend({ kind:'clip-ack', id, beat, ev }); } catch(_){} }
+window.cancelBeats = function(uptoBeat, reason){
+  const q = window.__clipQueue;
+  const before = q.length;
+  window.__clipQueue = q.filter(it => (it.beat || 0) > uptoBeat);
+  const cur = window.__clipCurrent;
+  if (cur && (cur.beat || 0) <= uptoBeat) {
+    try { cur.audio.pause(); } catch(_){}
+    LOG('CLIP', cur.id + ' STOPPED (beat ' + cur.beat + ' cancelled — ' + (reason||'state advanced') + ')');
+    _clipAck(cur.id, cur.beat, 'cancelled');
+    window.__clipCurrent = null; window.__clipBusy = false; window.__novaClipPlaying = false;
+  }
+  if (before !== window.__clipQueue.length) LOG('CLIP', (before - window.__clipQueue.length) + ' stale queued clip(s) dropped (beat<=' + uptoBeat + ')');
+  setTimeout(_drainClips, 50);
+};
+window.flushClips = function(reason){ window.cancelBeats(Number.MAX_SAFE_INTEGER, reason); };
+window.playClip = function(id, beat){
+  beat = beat || 0;
+  if (beat > 0) window.cancelBeats(beat - 1, 'newer beat ' + beat + ' arrived');
+  window.__clipQueue.push({ id, beat, at: Date.now() });
+  if (window.__clipQueue.length > 6) { const d = window.__clipQueue.shift(); LOG('CLIP', d.id + ' dropped (queue full)'); }
+  _drainClips();
+};
 function _drainClips(){
   if (window.__clipBusy) return;
   const q = window.__clipQueue;
@@ -1243,23 +1268,19 @@ function _drainClips(){
   window.__clipBusy = true;
   window.__novaClipPlaying = true;
   const a = new Audio('audio/clips/' + item.id + '.mp3');
+  window.__clipCurrent = { id: item.id, beat: item.beat, audio: a };
   a.volume = 1.0;
-  const done = () => { window.__clipBusy = false; window.__novaClipPlaying = false; setTimeout(_drainClips, 350); };
-  a.onended = done;
-  a.onerror = () => { LOG('CLIP', item.id + ' failed to load'); done(); };
-  a.play().then(() => LOG('CLIP', '▶ ' + item.id)).catch(e => { LOG('CLIP', item.id + ' blocked: ' + e.name); done(); });
+  const done = (ev) => {
+    if (window.__clipCurrent && window.__clipCurrent.audio === a) window.__clipCurrent = null;
+    window.__clipBusy = false; window.__novaClipPlaying = false;
+    if (ev) _clipAck(item.id, item.beat, ev);
+    setTimeout(_drainClips, 350);
+  };
+  a.onended = () => done('end');
+  a.onerror = () => { LOG('CLIP', item.id + ' failed to load'); done('error'); };
+  a.play().then(() => { LOG('CLIP', '▶ ' + item.id + ' (beat ' + item.beat + ')'); _clipAck(item.id, item.beat, 'start'); })
+    .catch(e => { LOG('CLIP', item.id + ' blocked: ' + e.name); done('error'); });
 }
-// PHASE-GRACE (2026-07-06): on any phase change the CURRENT line finishes nicely,
-// everything still queued from the old phase dies — no late lines leaking forward.
-window.flushClips = function(reason){
-  const n = window.__clipQueue.length;
-  if (n) { window.__clipQueue.length = 0; LOG('CLIP', 'queue flushed (' + n + ' stale) — ' + (reason||'phase change')); }
-};
-window.playClip = function(id){
-  window.__clipQueue.push({ id, at: Date.now() });
-  if (window.__clipQueue.length > 6) { const d = window.__clipQueue.shift(); LOG('CLIP', d.id + ' dropped (queue full)'); }
-  _drainClips();
-};
 
 // v103 — Save kid data to localStorage so Nova remembers next session
 function saveNova(){
@@ -2568,7 +2589,11 @@ function setupNovaRoomEvents(room) {
     // CLIP VOICE (2026-07-06 root fix): the worker chose a pre-rendered Kora line —
     // play it INSTANTLY. This is her mouth for every fixed line now.
     if (msg.kind === 'play-clip') {
-      try { window.playClip(msg.id); } catch(e){ LOG('CLIP', 'play failed: ' + e.message); }
+      try { window.playClip(msg.id, msg.beat || 0); } catch(e){ LOG('CLIP', 'play failed: ' + e.message); }
+      return;
+    }
+    if (msg.kind === 'cancel-beat') {
+      try { window.cancelBeats(msg.beat || 0, 'worker cancel'); } catch(_){}
       return;
     }
     // THE ENDING: her last goodbye word finished → NOW the stars/feedback may appear
@@ -3302,27 +3327,8 @@ async function handleKidInput(text) {
     }
   }
   
-  // v110 KIDS: Auto-advance to dance when kid says "ready" / "let's dance" / "let's go"
-  // DISABLED (2026-07-07): this legacy shortcut jumped over the challenge + picker the
-  // moment the kid typed "im ready" (the "fast and weird transition"). The WORKER owns
-  // the ready-flow now (challenge-first, she leads, go-picker). Kill-switch kept for ref.
-  if (false && memory.phase === 'recognition' && !window.__autoDanceTriggered) {
-    const READY_PATTERNS = /\b(let'?s\s+(dance|go|play|start))|((i'?m|im|i am)\s+ready)|(ready\s+(to|now|let'?s))|^ready$|^let'?s\s+go$|^start$|^go$/i;
-    if (READY_PATTERNS.test(text)) {
-      window.__autoDanceTriggered = true;
-      LOG('GAME', `kid said "ready" → auto-advancing to dance`);
-      // Find the game picker default — Hello Hello — and trigger countdown
-      setTimeout(() => {
-        if (typeof selectSong === 'function') {
-          selectSong('hello-hello');
-        } else {
-          // Fallback: click the first game card
-          const helloCard = document.querySelector('[data-song="hello-hello"], #pick-hello, .game-pick-card');
-          if (helloCard) helloCard.click();
-        }
-      }, 500);
-    }
-  }
+  // TURN-OWNER (2026-07-07): client-side intent handling DELETED — the worker owns the
+  // conversation state machine. The client only reports inputs and plays what it's told.
   // v113-fix (#5): SEND the clean browser-STT text to the worker so the LLM
   // actually replies. Before, this relied only on the worker's own mic STT, which
   // garbled/ignored speech ("0 real replies"). user-said is the proven path.
