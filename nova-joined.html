@@ -1278,6 +1278,14 @@ function _drainClips(){
   };
   a.onended = () => done('end');
   a.onerror = () => { LOG('CLIP', item.id + ' failed to load'); done('error'); };
+  // ONE MOUTH, both directions (2026-07-07: "I heard 2-3 voices"): if her LIVE voice
+  // starts while a clip is playing, PAUSE the clip and resume after she finishes.
+  const duet = setInterval(() => {
+    if (window.__clipCurrent && window.__clipCurrent.audio === a) {
+      if (window.__novaSpeakingNow && !a.paused) { a.pause(); LOG('CLIP', item.id + ' paused — her live voice is talking'); }
+      else if (!window.__novaSpeakingNow && a.paused && window.__clipCurrent) { a.play().catch(()=>{}); LOG('CLIP', item.id + ' resumed'); }
+    } else clearInterval(duet);
+  }, 150);
   a.play().then(() => { LOG('CLIP', '▶ ' + item.id + ' (beat ' + item.beat + ')'); _clipAck(item.id, item.beat, 'start'); })
     .catch(e => { LOG('CLIP', item.id + ' blocked: ' + e.name); done('error'); });
 }
