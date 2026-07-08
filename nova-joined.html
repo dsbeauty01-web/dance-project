@@ -1551,7 +1551,7 @@ function setAvatarCloseup(on) {
 }
 window.__setAvatarCloseup = setAvatarCloseup;
 
-LOG('BOOT', 'v114 GREET-ONCE (ended-clip resume race fixed) module script started');
+LOG('BOOT', 'v115 TYPED-CHAT (typed text reaches EVI under V2V; V2V gate is voice-only) module script started');
 
 // ═══════════════════════════════════════════════════════════════
 // CONFIG — v113-live: Nova brain swapped to the novapython LiveKit worker.
@@ -2621,6 +2621,12 @@ function setupNovaRoomEvents(room) {
     if (msg.kind === 'v2v') {
       window.__V2V = !!msg.on;
       LOG('V2V', 'worker announced V2V=' + window.__V2V + ' — browser-STT conversation path ' + (window.__V2V ? 'GATED OFF (EVI is the one ear)' : 'active'));
+      // v115: worker is alive and listening — flush any typed messages queued pre-connect
+      if (window.__pendingTyped && window.__pendingTyped.length) {
+        for (const p of window.__pendingTyped) window.__novaSend(p);
+        LOG('TYPE', 'flushed ' + window.__pendingTyped.length + ' queued typed message(s) to worker');
+        window.__pendingTyped = [];
+      }
       return;
     }
     if (msg.kind === 'cancel-beat') {
@@ -2795,7 +2801,7 @@ window._sendChat = async function() {
   // since typed text needs ~1-2s before Runway hears it, delay the filler a bit
   schedulePresenceFiller(1500);
   // Show in our chat bubble immediately so kid sees their input
-  handleKidInput(text);
+  handleKidInput(text, 'typed');
   // perceived-latency fix (2026-07-06): her voice takes seconds — an instant
   // "she saw it" heart so typing never feels ignored
   try { addBubble('💜', 'nova'); } catch(_){}
@@ -3279,9 +3285,9 @@ async function sendEndMessage() {
 }
 window.sendEndMessage = sendEndMessage;
 
-async function handleKidInput(text) {
+async function handleKidInput(text, source = 'stt') {
   addBubble(text, 'kid');
-  LOG('STT', `kid input: "${text}"`);
+  LOG('STT', `kid input (${source}): "${text}"`);
   // v106: bulletproof name parser
   // Blocks: greetings, common verbs after "I'm", verbs ending in -ing, states (ready/tired/etc)
   const GREETING_WORDS = new Set(['hi','hey','hello','yes','no','ok','okay','sure','what','huh','yeah','nope','um','uh','dance','play','go','wait','stop','sup','nova','well','fine','great','good','bad']);
@@ -3360,13 +3366,21 @@ async function handleKidInput(text) {
   
   // TURN-OWNER (2026-07-07): client-side intent handling DELETED — the worker owns the
   // conversation state machine. The client only reports inputs and plays what it's told.
-  // V2V STAGE 1 (gate, not delete — rollback law): when EVI is the one ear,
-  // the browser-STT conversation path is dead. Typed chat unaffected.
-  if (window.__V2V) { LOG('STT', 'V2V: browser-STT gated — EVI hears directly'); return; }
-  // v113-fix (#5): SEND the clean browser-STT text to the worker so the LLM
-  // actually replies. Before, this relied only on the worker's own mic STT, which
-  // garbled/ignored speech ("0 real replies"). user-said is the proven path.
-  if (window.__novaSend) window.__novaSend({ kind: 'user-said', text });
+  // V2V gate is for VOICE only: EVI already hears the mic directly, so resending
+  // browser-STT text would make her hear the kid twice. TYPED text is the opposite —
+  // EVI can't see the keyboard, so it MUST be sent (v115 fix: the old gate sat above
+  // the send and silently ate every typed message — "I wrote many times, no response").
+  if (window.__V2V && source !== 'typed') { LOG('STT', 'V2V: browser-STT gated — EVI hears directly'); return; }
+  const pkt = { kind: 'user-said', text, source };
+  if (window.__novaRoom) {
+    window.__novaSend(pkt);
+    if (source === 'typed') LOG('TYPE', `sent to worker → EVI user_input: "${text}"`);
+  } else {
+    // typed before the room is up: hold it and flush when the worker announces
+    // itself (v2v packet) — never silently drop a kid's message
+    (window.__pendingTyped = window.__pendingTyped || []).push(pkt);
+    LOG('TYPE', `queued (room not connected yet): "${text}"`);
+  }
   document.getElementById('rec-dance-btn').classList.add('ready');
 }
 
