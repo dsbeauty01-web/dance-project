@@ -125,6 +125,25 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   filter:drop-shadow(0 0 10px rgba(255,200,90,.85))}
 #rec-cam-glow.hit{width:180px;height:180px;margin:-90px 0 0 -90px;
   background:radial-gradient(circle,rgba(255,255,255,1) 0%,rgba(191,255,200,.85) 38%,rgba(120,255,150,0) 72%)}
+/* COMMERCIAL-INTRO C.4a: big pulse RING when a cue lands — the light must be unmissable */
+#rec-cam-glow.pulse::after{content:'';position:absolute;inset:-18px;border-radius:50%;
+  border:4px solid rgba(255,220,130,.95);animation:cuePulse 0.9s ease-out infinite;pointer-events:none}
+@keyframes cuePulse{0%{transform:scale(.55);opacity:1}100%{transform:scale(1.5);opacity:0}}
+/* COMMERCIAL-INTRO D.5: state badge — silence always reads as intentional */
+#nova-state-badge{position:fixed;top:10px;right:12px;z-index:9000;display:none;align-items:center;gap:7px;
+  padding:5px 13px;border-radius:999px;background:rgba(20,16,40,.72);backdrop-filter:blur(6px);
+  color:#fff;font:600 13px 'Fredoka',cursive;letter-spacing:.4px;pointer-events:none;
+  box-shadow:0 2px 10px rgba(0,0,0,.35)}
+#nova-state-badge .dot{width:9px;height:9px;border-radius:50%;background:#8be28b}
+#nova-state-badge.talking .dot{background:#ffd166;animation:badgeBlink .5s ease-in-out infinite alternate}
+#nova-state-badge.thinking .dot{background:#9db7ff;animation:badgeBlink .9s ease-in-out infinite alternate}
+#nova-state-badge.watching .dot{background:#c9c9d9}
+@keyframes badgeBlink{from{opacity:.35}to{opacity:1}}
+/* COMMERCIAL-INTRO C.2: STT echo — "Nova heard: …" (truncations become visible) */
+#stt-echo{position:fixed;left:50%;transform:translateX(-50%);bottom:86px;z-index:9000;display:none;
+  padding:4px 14px;border-radius:999px;background:rgba(20,16,40,.62);color:rgba(255,255,255,.85);
+  font:500 13px 'Fredoka',cursive;pointer-events:none;max-width:70vw;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
 #rec-cam-hint{position:absolute;left:0;right:0;bottom:14px;text-align:center;color:#fff;
   font:600 15px 'Fredoka',cursive;text-shadow:0 2px 8px rgba(0,0,0,.7);pointer-events:none}
 @media (max-aspect-ratio:1/1){
@@ -1276,12 +1295,14 @@ function _drainClips(){
     if (window.__clipCurrent && window.__clipCurrent.audio === a) window.__clipCurrent = null;
     window.__clipBusy = false; window.__novaClipPlaying = false; window.__novaClipAudible = false;
     if (ev) _clipAck(item.id, item.beat, ev);
+    try { if (window.__novaBadgeState === 'talking') setStateBadge('listening'); } catch(_){}
     setTimeout(_drainClips, 350);
   };
   // FIX 2 (2026-07-07): 'playing' = the first REAL audio out of the speakers.
   // __novaClipPlaying is set at queue-drain, seconds before the mp3 finishes
   // buffering — the reveal fade keyed on it and showed her 9s before any sound.
-  a.onplaying = () => { window.__novaClipAudible = true; window.__clipAudibleAt = Date.now(); };
+  a.onplaying = () => { window.__novaClipAudible = true; window.__clipAudibleAt = Date.now();
+    try { setStateBadge('talking'); } catch(_){} };
   a.onended = () => done('end');
   a.onerror = () => { LOG('CLIP', item.id + ' failed to load'); done('error'); };
   // ONE MOUTH, both directions (2026-07-07: "I heard 2-3 voices"): if her LIVE voice
@@ -1551,7 +1572,7 @@ function setAvatarCloseup(on) {
 }
 window.__setAvatarCloseup = setAvatarCloseup;
 
-LOG('BOOT', 'v115 TYPED-CHAT (typed text reaches EVI under V2V; V2V gate is voice-only) module script started');
+LOG('BOOT', 'v116 COMMERCIAL-INTRO (whisperer producer · V2V beats · 2-cue challenge · badges/echo/pulse) module script started');
 
 // ═══════════════════════════════════════════════════════════════
 // CONFIG — v113-live: Nova brain swapped to the novapython LiveKit worker.
@@ -2134,6 +2155,7 @@ function handoffFromIntro() {
         if (hum) { try { hum.pause(); } catch (_) {} }
         setTimeout(() => ov.classList.remove('show'), 1550);
         LOG('INTRO', 'CALM REVEAL — fade started ON her first word' + (capped && !speaking ? ' (30s cap, no voice yet!)' : ''));
+        try { setStateBadge('talking'); } catch(_){}   // COMMERCIAL-INTRO D.5: badge live from reveal
         // UI unlocks belong to the reveal (moved from the deleted novaArrivalGreet)
         try { document.getElementById('rec-dance-btn').classList.add('ready'); } catch(_){}
         try { showNameCaptureButtons(); } catch(_){}
@@ -2644,7 +2666,20 @@ function setupNovaRoomEvents(room) {
       window.__introCuePart = msg.part || 'hands';
       window.__introCueJoint = msg.joint || null;   // scripted challenge: EXACT joint lock (e.g. right_shoulder)
       window.__introCuePartAt = Date.now();
-      LOG('INTRO', 'Nova named "' + window.__introCuePart + '"' + (msg.joint ? ' (joint-locked: ' + msg.joint + ')' : '') + ' → glow moves there');
+      window.__cuePulseUntil = Date.now() + 2600;   // COMMERCIAL-INTRO C.4a: big pulse ring — make the light CLEAR
+      LOG('INTRO', 'Nova named "' + window.__introCuePart + '"' + (msg.joint ? ' (joint-locked: ' + msg.joint + ')' : '') + ' → glow moves there (pulse ring on)');
+      return;
+    }
+    // COMMERCIAL-INTRO C.2 (STT echo, Lexi steal): show exactly what she heard —
+    // truncations become visible instead of silently rolled past.
+    if (msg.kind === 'stt-echo') {
+      try { showSttEcho(msg.text || ''); } catch(_){}
+      return;
+    }
+    // COMMERCIAL-INTRO D.5 (state badge): Watching / Listening / Talking / Thinking —
+    // silence must always read as INTENTIONAL on screen.
+    if (msg.kind === 'badge') {
+      try { setStateBadge(msg.s || 'listening'); } catch(_){}
       return;
     }
     if (msg.kind !== 'request-vision') return;
@@ -2713,6 +2748,31 @@ function memCtxObj() {
     favoriteMove: memory.favoriteMove || null,
     moments: memory.moments || [],
   };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// COMMERCIAL-INTRO UI: state badge (D.5) + STT echo (C.2)
+// ═══════════════════════════════════════════════════════════════
+function _ensureEl(id, parent) {
+  let el = document.getElementById(id);
+  if (!el) { el = document.createElement('div'); el.id = id; (parent || document.body).appendChild(el); }
+  return el;
+}
+function setStateBadge(s) {
+  const el = _ensureEl('nova-state-badge');
+  const label = { watching:'Watching', listening:'Listening', talking:'Talking', thinking:'Thinking' }[s] || 'Listening';
+  el.className = s;
+  el.innerHTML = '<span class="dot"></span>' + label;
+  el.style.display = 'flex';
+  window.__novaBadgeState = s;
+}
+function showSttEcho(text) {
+  if (!text) return;
+  const el = _ensureEl('stt-echo');
+  el.textContent = 'Nova heard: ' + text;
+  el.style.display = 'block';
+  clearTimeout(window.__sttEchoT);
+  window.__sttEchoT = setTimeout(() => { el.style.display = 'none'; }, 4000);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -4663,11 +4723,14 @@ function waitForNovaLineDone(){
   return new Promise(resolve => {
     if (window.__transTest.forceNoVoice){ _transTimer(resolve, 700); return; }
     const start = performance.now(); let sawSpeak = false;
+    // COMMERCIAL-INTRO D: bridge lines are pre-rendered CLIPS now — track the clip
+    // channel as her voice too, or every beat would fall through to the 2.6s cap.
+    const talking = () => !!(window.__novaSpeakingNow || window.__novaClipAudible || window.__novaClipPlaying);
     const iv = _transTimer(() => {
       if (window.__transEnded){ clearInterval(iv); return resolve(); }
-      if (window.__novaSpeakingNow) sawSpeak = true;
-      const finished = sawSpeak && !window.__novaSpeakingNow && (performance.now() - start > 350);
-      const capped = performance.now() - start > 2600;
+      if (talking()) sawSpeak = true;
+      const finished = sawSpeak && !talking() && (performance.now() - start > 350);
+      const capped = performance.now() - start > (sawSpeak ? 6000 : 2600);
       if (finished || capped){ clearInterval(iv); resolve(); }
     }, 120, true);
   });
@@ -4880,6 +4943,9 @@ function startGame() {
         if (window.__novaSpeakingNow || window.__novaClipPlaying || performance.now() - t0 >= 1200) {
           window.__beatPlayed = true;
           window.__mp4PlayAt = performance.now();   // PHASE 2 ready-gate check: MP4 starts only after handoff
+          // COMMERCIAL-INTRO Part E: ready+framed → game start budget 1.5s
+          try { const _d = Math.round(performance.now() - (window.__readyAllAt || performance.now()));
+            LOG(_d <= 1500 ? 'LAT' : 'ERROR', `transition: ready+framed → game start ${_d}ms (budget 1500ms)`); } catch(_){}
           vid.play()
             .then(() => LOG('AV-SYNC', `${selectedSong.videoFile} playing (single-source, clock=video)`))
             .catch(err => {
@@ -5702,8 +5768,43 @@ window.__initRunwayNova = initDID;
       const hot = now < flashUntil;
       glow.style.opacity = hot ? '1' : '0.95';   // cue is fresh here — full-strength, she just asked
       glow.classList.toggle('hit', hot);
+      // COMMERCIAL-INTRO C.4a: big pulse ring while the cue is fresh — unmissable
+      glow.classList.toggle('pulse', Date.now() < (window.__cuePulseUntil || 0) && !hot);
     }
     requestAnimationFrame(loop);
+
+    // ── COMMERCIAL-INTRO C.3 (the air rule): presence reporter. The worker gets
+    // TRANSITIONS only: gone (6s of no body), partial signs while gone, and return.
+    // It decides the one soft call + quiet waiting; we just tell the truth.
+    let presState = 'present', absentSince = 0, partialSent = false;
+    setInterval(() => {
+      try {
+        const kps = window.__lastPoseKeypoints;
+        const joints = kps ? kps.filter(k => k && k.score > 0.25).length : 0;
+        const now = Date.now();
+        if (presState === 'present') {
+          if (joints >= 5) { absentSince = 0; return; }
+          if (!absentSince) { absentSince = now; return; }
+          if (now - absentSince > 6000) {
+            presState = 'absent'; partialSent = false;
+            if (window.__novaSend) window.__novaSend({ kind:'presence', present:false, partial:false });
+            LOG('AIR', 'nobody in frame 6s → worker told (quiet waiting)');
+            if (window.__novaBadgeState !== 'talking') setStateBadge('watching');
+          }
+        } else {
+          if (joints >= 5) {
+            presState = 'present'; absentSince = 0; partialSent = false;
+            if (window.__novaSend) window.__novaSend({ kind:'presence', present:true, partial:false });
+            LOG('AIR', 'person back in frame → worker told (warm resume)');
+            setStateBadge('listening');
+          } else if (joints >= 1 && !partialSent) {
+            partialSent = true;
+            if (window.__novaSend) window.__novaSend({ kind:'presence', present:false, partial:true });
+            LOG('AIR', 'partial signs of someone → worker told');
+          }
+        }
+      } catch(_){}
+    }, 2000);
     // self-test hook: force a glow at a screen point (used by qa harness)
     window.__introGlowAt = (x,y,hit)=>{ glow.style.left=x+'px'; glow.style.top=y+'px'; glow.style.opacity='1'; glow.classList.toggle('hit',!!hit); };
   }
