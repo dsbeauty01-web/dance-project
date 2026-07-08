@@ -1572,7 +1572,7 @@ function setAvatarCloseup(on) {
 }
 window.__setAvatarCloseup = setAvatarCloseup;
 
-LOG('BOOT', 'v116 COMMERCIAL-INTRO (whisperer producer · V2V beats · 2-cue challenge · badges/echo/pulse) module script started');
+LOG('BOOT', 'v117 TYPED-RESILIENT (zombie-PC detector → forced reconnect · typed msgs queue, never lost) module script started');
 
 // ═══════════════════════════════════════════════════════════════
 // CONFIG — v113-live: Nova brain swapped to the novapython LiveKit worker.
@@ -4230,11 +4230,38 @@ function playFiller(type) {
 async function novaSend(payload) {
   try {
     const room = window.__novaRoom;
-    if (!room || !room.localParticipant) { LOG('PACKET', 'novaSend skipped (no room)'); return; }
+    if (!room || !room.localParticipant) {
+      if (payload.kind === 'user-said') {
+        (window.__pendingTyped = window.__pendingTyped || []).push(payload);
+        LOG('TYPE', 'no room → queued: "' + (payload.text || '') + '"');
+      } else LOG('PACKET', 'novaSend skipped (no room)');
+      return;
+    }
     const bytes = new TextEncoder().encode(JSON.stringify(payload));
     await room.localParticipant.publishData(bytes, { reliable: true });
+    window.__sendFails = 0;
     LOG('PACKET', 'sent ' + (payload.kind || '?'), payload.event || {});
-  } catch (e) { LOG('ERROR', 'novaSend failed: ' + e.message); }
+  } catch (e) {
+    LOG('ERROR', 'novaSend failed: ' + e.message);
+    window.__sendFails = (window.__sendFails || 0) + 1;
+    // a kid's typed message must NEVER die silently — hold it for the reconnect
+    if (payload.kind === 'user-said') {
+      (window.__pendingTyped = window.__pendingTyped || []).push(payload);
+      LOG('TYPE', 'send failed → queued for reconnect: "' + (payload.text || '') + '"');
+    }
+    // ZOMBIE ROOM (2026-07-08 live repro): the publisher PC can die while the room
+    // object still reads "connected" — every send throws "PC manager is closed"
+    // forever and typed chat looks random. 3 straight failures = force a REAL
+    // disconnect; the existing auto-reconnect rebuilds the room and the worker's
+    // v2v announcement flushes the queued typed messages.
+    if (window.__sendFails >= 3 && !window.__forceReconnecting) {
+      window.__forceReconnecting = true;
+      window.__reconnectAttempts = 0;   // give the auto-reconnect its full budget
+      LOG('ROOM', 'data channel DEAD (' + window.__sendFails + ' send failures) → forcing reconnect');
+      try { window.__novaRoom.disconnect(); } catch (_) {}
+      setTimeout(() => { window.__forceReconnecting = false; }, 8000);
+    }
+  }
 }
 window.__novaSend = novaSend;
 
