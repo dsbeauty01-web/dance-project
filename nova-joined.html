@@ -2405,13 +2405,12 @@ async function initDID() {
     }
     window.__novaRoom = room;
 
-    // Phase-1 STT swap (Jun 17 2026): PUBLISH the mic to the worker. STT is now
-    // Deepgram Nova-3 server-side (replaces browser SpeechRecognition). The worker
-    // transcribes this published audio → auto-reply. The old garble was OpenAI
-    // Whisper, not Deepgram — Deepgram nova-3 handles kid speech cleanly.
+    // PUBLISH the mic to the worker. Hume EVI hears this audio directly
+    // (speech-to-speech) — there is NO separate STT anymore (Deepgram deleted
+    // 2026-07-08). Browser SpeechRecognition stays disabled.
     try {
-      await room.localParticipant.setMicrophoneEnabled(true);  // Deepgram server-side STT needs the audio
-      LOG('AUDIO', 'mic PUBLISHED — worker Deepgram nova-3 STT is the input');
+      await room.localParticipant.setMicrophoneEnabled(true);  // EVI hears through the published mic
+      LOG('AUDIO', 'mic PUBLISHED — Hume EVI is the ear (no separate STT)');
       // v104: keep reference to mic track so we can replace it when typing text
       const micPub = room.localParticipant.getTrackPublication(LivekitClient.Track.Source.Microphone);
       if (micPub?.track) {
@@ -5429,10 +5428,9 @@ document.addEventListener('arrival-done', async () => {
     window.__initRunwayNova();
   }
 
-  // Phase-1 STT swap (Jun 17 2026): browser SpeechRecognition DISABLED. The
-  // worker now hears the kid via the published mic + Deepgram nova-3 server-side
-  // STT. Typed text still flows through handleKidInput → user-said. (Re-enable
-  // startAlwaysOnMic() only if reverting STT back to the browser.)
+  // Browser SpeechRecognition DISABLED. The worker hears the kid via the
+  // published mic → Hume EVI directly (Deepgram deleted 2026-07-08). Typed text
+  // still flows through handleKidInput → user-said.
   // startAlwaysOnMic();
 
   // v112: 30s safety (was 20s) — Render cold starts take 22-26s, race fired too early
