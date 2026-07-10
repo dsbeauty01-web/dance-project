@@ -2719,6 +2719,22 @@ function setupNovaRoomEvents(room) {
       try { showSttEcho(msg.text || ''); } catch(_){}
       return;
     }
+    // TRACE-GAP FIX (2026-07-10): the worker's generation lifecycle + env used
+    // to be visible only to probes — now every live session records them.
+    if (msg.kind === 'gemini-diag') {
+      LOG('VOICE-DIAG', (msg.ev || '') + ' "' + String(msg.text || '').slice(0, 60) + '"'
+        + (msg.elapsed !== undefined ? ' ' + msg.elapsed + 's' : '')
+        + (msg.err ? ' ERR: ' + String(msg.err).slice(0, 100) : ''));
+      return;
+    }
+    if (msg.kind === 'err-diag' || msg.kind === 'close-diag') {
+      LOG('VOICE-DIAG', msg.kind + ': ' + String(msg.err || msg.reason || '').slice(0, 160));
+      return;
+    }
+    if (msg.kind === 'env-diag') {
+      LOG('VOICE-DIAG', 'env: ' + JSON.stringify(msg).slice(0, 220));
+      return;
+    }
     // FRIEND MODE (v118): instant WOW = SFX + light (non-verbal, nothing to
     // lipsync) — her spoken celebration follows a beat later, lips moving.
     if (msg.kind === 'sfx') {
@@ -2728,6 +2744,7 @@ function setupNovaRoomEvents(room) {
     // COMMERCIAL-INTRO D.5 (state badge): Watching / Listening / Talking / Thinking —
     // silence must always read as INTENTIONAL on screen.
     if (msg.kind === 'badge') {
+      LOG('BADGE', msg.s || 'listening');   // her talk/listen turns, timestamped
       try { setStateBadge(msg.s || 'listening'); } catch(_){}
       return;
     }
