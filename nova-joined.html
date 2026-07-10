@@ -1405,10 +1405,32 @@ window.toggleMic = function(){ window._toggleMic && window._toggleMic(); };
 const LOG_BUFFER = [];
 const T0 = performance.now();
 
+// LIVE-LOG (localhost only): stream LOG lines to logserver.js → sessions.jsonl
+// so the CLI can watch a session while it runs. Dead code on github.io.
+const LIVE_LOG = (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+let _liveQ = [], _liveTimer = null;
+function liveLogFlush(useBeacon) {
+  if (!_liveQ.length) return;
+  const body = JSON.stringify({ kind: 'live', sid: window.__novaSessionId || 'pre',
+    ts: Date.now(), lines: _liveQ });
+  _liveQ = [];
+  try {
+    if (useBeacon && navigator.sendBeacon) navigator.sendBeacon('/log', body);
+    else fetch('/log', { method: 'POST', body, keepalive: true }).catch(() => {});
+  } catch (_) {}
+}
+function liveLogPush(line) {
+  if (!LIVE_LOG) return;
+  _liveQ.push(line);
+  if (!_liveTimer) _liveTimer = setInterval(() => liveLogFlush(false), 1500);
+}
+if (LIVE_LOG) window.addEventListener('beforeunload', () => liveLogFlush(true));
+
 function LOG(tag, msg, data) {
   const t = ((performance.now() - T0) / 1000).toFixed(3);
   const line = { t, tag, msg, data: data || null };
   LOG_BUFFER.push(line);
+  liveLogPush(line);
   // also stream to console
   const fmt = `[${t}s] [${tag}] ${msg}` + (data ? ' ' + JSON.stringify(data) : '');
   console.log(fmt);
@@ -2693,6 +2715,7 @@ function setupNovaRoomEvents(room) {
     // COMMERCIAL-INTRO C.2 (STT echo, Lexi steal): show exactly what she heard —
     // truncations become visible instead of silently rolled past.
     if (msg.kind === 'stt-echo') {
+      LOG('HEARD', 'Nova heard: "' + (msg.text || '') + '"');
       try { showSttEcho(msg.text || ''); } catch(_){}
       return;
     }
@@ -5770,9 +5793,20 @@ window.__initRunwayNova = initDID;
     };
     // detection for the named part: hands=clap, head=head move, shoulder=shrug pulse,
     // left/right = that hand raised (scripted challenge move #2)
-    const partHit = () => {
+    const partHit = (m) => {
       const part = window.__introCuePart || 'hands';
       try {
+        // TOUCH-REAL (2026-07-10 shocko session): a light on a locked JOINT is
+        // caught by TOUCHING it — a wrist near the lit joint. shrug/shoulderroll
+        // used to count as "touched" while the kid stood still → she celebrated
+        // a catch that never happened.
+        const j = window.__introCueJoint;
+        if (part === 'shoulder' && j && m && m[j] && m[j].score > 0.2) {
+          const t = m[j];
+          const R = (((cam && cam.videoWidth) || 640)) * 0.13;
+          const near = w => w && w.score > 0.25 && Math.hypot(w.x - t.x, w.y - t.y) < R;
+          return !!(near(m.left_wrist) || near(m.right_wrist));
+        }
         if (part === 'head')     return !!(window.moves && (window.moves.head || window.moves.headbob));
         if (part === 'shoulder') return !!(window.moves && (window.moves.shrug || window.moves.shoulderroll));
         if (part === 'left')     return !!(window.moves && (window.moves.left || window.moves.both));
@@ -5805,7 +5839,7 @@ window.__initRunwayNova = initDID;
       glow.style.left = gx+'px'; glow.style.top = gy+'px';
 
       const now = performance.now();
-      const hitNow = partHit();
+      const hitNow = partHit(m);
       if(!hitNow) armDown = true;   // flag seen down since the cue → the next rise is a REAL fresh move
       // a hit counts only if: flag rose AFTER the cue (not leftover motion) + a short settle window
       if(hitNow && armDown && Date.now() - cueStamp > 400){
