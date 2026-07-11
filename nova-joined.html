@@ -5822,12 +5822,13 @@ window.__initRunwayNova = initDID;
     const partHit = (m) => {
       const part = window.__introCuePart || 'hands';
       try {
-        // TOUCH-REAL (2026-07-10 shocko session): a light on a locked JOINT is
-        // caught by TOUCHING it — a wrist near the lit joint. shrug/shoulderroll
-        // used to count as "touched" while the kid stood still → she celebrated
-        // a catch that never happened.
+        // ISOLATION (2026-07-11, builder's spec): the shoulder light teaches a
+        // SHRUG — "that move is called an isolation". The shrug/roll IS the
+        // catch; a hand-touch still counts too. (The 07-10 false-positive is
+        // handled by the rising-edge arm + cue gating, not by banning the move.)
         const j = window.__introCueJoint;
         if (part === 'shoulder' && j && m && m[j] && m[j].score > 0.2) {
+          if (window.moves && (window.moves.shrug || window.moves.shoulderroll)) return true;
           const t = m[j];
           const R = (((cam && cam.videoWidth) || 640)) * 0.13;
           const near = w => w && w.score > 0.25 && Math.hypot(w.x - t.x, w.y - t.y) < R;
