@@ -2728,6 +2728,12 @@ function setupNovaRoomEvents(room) {
       LOG('STAGE', (msg.decision || '') + ' — ' + (msg.reason || ''));
       return;
     }
+    // FULL-BODY NOVA (2026-07-11): worker fires a real body move on the floor widget
+    if (msg.kind === 'gesture') {
+      LOG('BODY', 'worker gesture: ' + (msg.name || ''));
+      try { if (window.novaGesture) window.novaGesture(msg.name); } catch(_){}
+      return;
+    }
     // TRACE-GAP FIX (2026-07-10): the worker's generation lifecycle + env used
     // to be visible only to probes — now every live session records them.
     if (msg.kind === 'gemini-diag') {
@@ -5923,6 +5929,82 @@ window.__initRunwayNova = initDID;
     window.__introGlowAt = (x,y,hit)=>{ glow.style.left=x+'px'; glow.style.top=y+'px'; glow.style.opacity='1'; glow.classList.toggle('hit',!!hit); };
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
+})();
+</script>
+<!-- ═══ FULL-BODY NOVA — THE FLOOR WIDGET (2026-07-11) ═══
+     Self-hosted animated Nova (LiveTalking on the RunPod engine) standing on a
+     glowing stage in the corner. Her VOICE stays LiveKit (instant); the BODY
+     does real move clips fired by the worker ({kind:'gesture'} packets) and
+     forwarded over the bridge WS ({"gesture":name} — control-only, it can NEVER
+     wake the pod's own brain: auto-greet needs lt_sessionid which we never
+     send). Pod down / stream error / old browser → the widget removes itself.
+     Kill: ?novabody=0 · overrides: ?flv= ?bridge= -->
+<style>
+#nova-stage{position:fixed;left:14px;bottom:12px;width:min(22vw,200px);aspect-ratio:9/16;
+  z-index:60;border-radius:18px;overflow:hidden;display:none;background:#150a24;
+  border:2px solid rgba(255,255,255,.22);box-shadow:0 12px 40px rgba(160,80,255,.45);
+  transition:opacity .6s ease}
+#nova-stage video{width:100%;height:100%;object-fit:cover}
+#nova-stage .floor{position:absolute;left:8%;right:8%;bottom:3px;height:18px;border-radius:50%;
+  background:radial-gradient(ellipse at center,rgba(255,120,255,.6),rgba(120,60,255,.25) 60%,transparent 75%);
+  filter:blur(4px);pointer-events:none;animation:novaFloorPulse 3s ease-in-out infinite}
+@keyframes novaFloorPulse{0%,100%{opacity:.65}50%{opacity:1}}
+#nova-stage.gesturing{box-shadow:0 12px 60px rgba(255,150,255,.85);border-color:rgba(255,200,255,.6)}
+</style>
+<script>
+(function(){
+  const q = new URLSearchParams(location.search);
+  if (q.get('novabody') === '0') return;
+  const FLV    = q.get('flv')    || 'https://u6m9xwo9s3l2iz-8080.proxy.runpod.net/live/dance_k.flv';
+  const BRIDGE = q.get('bridge') || 'wss://u6m9xwo9s3l2iz-8765.proxy.runpod.net';
+  const stage = document.createElement('div');
+  stage.id = 'nova-stage';
+  stage.innerHTML = '<video id="nova-body" muted playsinline></video><div class="floor"></div>';
+  document.body.appendChild(stage);
+  let ws = null, ok = false, dead = false;
+  function kill(reason){
+    if (dead) return; dead = true;
+    try { stage.remove(); } catch(_){}
+    try { if (ws) ws.close(); } catch(_){}
+    try { LOG('BODY', 'floor widget OFF: ' + reason); } catch(_){}
+  }
+  const s = document.createElement('script');
+  s.src = 'mpegts.min.js';
+  s.onload = () => { try {
+    if (!window.mpegts || !mpegts.getFeatureList().mseLivePlayback) return kill('no MSE live support');
+    const v = document.getElementById('nova-body');
+    const p = mpegts.createPlayer({type:'flv', isLive:true, url:FLV},
+      {enableWorker:true, liveBufferLatencyChasing:true, autoCleanupSourceBuffer:true});
+    p.attachMediaElement(v); p.load();
+    p.on(mpegts.Events.ERROR, () => kill('stream error (pod down?)'));
+    v.onplaying = () => { if (dead) return; stage.style.display='block'; ok = true;
+      try { LOG('BODY', 'full-body Nova LIVE on her floor'); } catch(_){} };
+    p.play().catch(()=>{});
+    try {
+      ws = new WebSocket(BRIDGE + '/ws?persona=dance');
+      ws.onopen  = () => { try { LOG('BODY','gesture channel open'); } catch(_){} };
+      ws.onerror = () => { ws = null; };
+    } catch(_) { ws = null; }
+  } catch(e) { kill('init: ' + e.message); } };
+  s.onerror = () => kill('mpegts.min.js missing');
+  document.head.appendChild(s);
+  window.novaGesture = function(name){
+    if (!ok || dead) return;
+    try {
+      if (ws && ws.readyState === 1) {
+        ws.send(JSON.stringify({gesture: String(name)}));
+        try { LOG('BODY', 'gesture → ' + name); } catch(_){}
+        stage.classList.add('gesturing');
+        setTimeout(() => stage.classList.remove('gesturing'), 2200);
+      }
+    } catch(_){}
+  };
+  // she steps aside during the game itself (game path stays byte-identical)
+  setInterval(() => { try {
+    const ph = (typeof memory !== 'undefined' && memory) ? memory.phase : '';
+    stage.style.opacity = (ph === 'dance') ? '0' : '1';
+    stage.style.pointerEvents = 'none';
+  } catch(_){} }, 1200);
 })();
 </script>
 </body>
