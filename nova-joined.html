@@ -2112,6 +2112,13 @@ function handoffFromIntro() {
     let waited = 0, clientReadySent = false, poseLiveSince = 0;
     const poll = setInterval(() => {
       waited += 250;
+      // POD AVATAR (2026-07-11 ORDER-LIPSYNC): the floor widget's stream is her
+      // mouth AND voice — no room audio/video tracks will ever arrive. The
+      // widget being live satisfies the avatar gate; her voice comes with it.
+      if (window.__avatarMode === 'pod') {
+        document.querySelectorAll('#rec-avatar-video,#nova-face-video').forEach(v=>{ v.style.display='none'; });
+        _gateStamp('avatar');
+      }
       // VOICE-ONLY FALLBACK: audio present but no avatar video for 8s → static face mode.
       if (window.__novaAudioArrived && !window.__novaVideoArrived && !window.__audioOnlySince) window.__audioOnlySince = Date.now();
       const audioOnlyReady = window.__audioOnlySince && (Date.now() - window.__audioOnlySince) > 8000;
@@ -2738,6 +2745,19 @@ function setupNovaRoomEvents(room) {
     if (msg.kind === 'gesture') {
       LOG('BODY', 'worker gesture: ' + (msg.name || ''));
       try { if (window.novaGesture) window.novaGesture(msg.name); } catch(_){}
+      return;
+    }
+    // ORDER-LIPSYNC (2026-07-11): pod mode — the widget IS her mouth and voice.
+    // Unmute it; no room audio track will come (double voice is forbidden).
+    if (msg.kind === 'avatar-mode') {
+      window.__avatarMode = msg.mode || '';
+      LOG('BODY', 'avatar-mode: ' + window.__avatarMode);
+      if (msg.mode === 'pod') {
+        try {
+          const v = document.getElementById('nova-body');
+          if (v) { v.muted = false; v.volume = 1.0; }
+        } catch(_){}
+      }
       return;
     }
     // TRACE-GAP FIX (2026-07-10): the worker's generation lifecycle + env used
@@ -5980,7 +6000,8 @@ window.__initRunwayNova = initDID;
     if (!window.mpegts || !mpegts.getFeatureList().mseLivePlayback) return kill('no MSE live support');
     const v = document.getElementById('nova-body');
     const p = mpegts.createPlayer({type:'flv', isLive:true, url:FLV},
-      {enableWorker:true, liveBufferLatencyChasing:true, autoCleanupSourceBuffer:true});
+      {enableWorker:true, liveBufferLatencyChasing:true, autoCleanupSourceBuffer:true,
+       liveBufferLatencyMaxLatency:0.9, liveBufferLatencyMinRemain:0.2});   // ORDER-LIPSYNC step 2
     p.attachMediaElement(v); p.load();
     p.on(mpegts.Events.ERROR, () => kill('stream error (pod down?)'));
     v.onplaying = () => { if (dead) return; stage.style.display='block'; ok = true;
