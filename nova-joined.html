@@ -1212,6 +1212,12 @@ function goToPicker(){
 }
 function pickGame(songId){
   if(typeof markUserInteraction === 'function') markUserInteraction();
+  // PRE-GAME DEMO (2026-07-11): the kid picked → full-body Nova demos the game's
+  // move on the floor widget while it loads (pre_upgroove / pre_wave in the bank).
+  try {
+    const pre = { joined: 'pre_upgroove', wave: 'pre_wave' }[songId];
+    if (pre && window.novaGesture) window.novaGesture(pre);
+  } catch(_){}
   // PHASE-GRACE (2026-07-06): kid pushed the button mid-line — let the current line
   // END NICELY (cap 2.5s), kill everything queued behind it, then transition.
   try { window.flushClips && window.flushClips('game picked'); } catch(_){}
