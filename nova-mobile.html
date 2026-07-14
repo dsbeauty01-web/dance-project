@@ -145,6 +145,111 @@
   #type-btn{flex:1;min-height:70px;border-radius:35px;border:1.5px solid rgba(255,255,255,.28);background:rgba(255,255,255,.09);
     color:#e7dcff;font-weight:700;font-size:17px;backdrop-filter:blur(6px)}
 </style>
+<style>
+/* ═══ V3 G1 — STATIC PREVIEW (?preview=1) · design system per NOVA-MOBILE-V3-PLAN Parts 1-2 ═══ */
+/* tokens: bg #0D0725→#3B1D6E radial · gold #FFD76E · pink #FF6FD8 · violet #B06FFF · mint #8DFFD9 · ink #33124A
+   4pt grid · radius 16/24/32 · Baloo 2 display 28-44 · Quicksand body 16-19 (≥15) */
+body.v3on>:not(#v3){display:none!important}
+#v3{position:fixed;inset:0;background:radial-gradient(130% 100% at 50% 0%,#3B1D6E 0%,#0D0725 74%);font-family:'Quicksand',system-ui,sans-serif}
+#v3[hidden]{display:none}
+#v3 .v3s{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity .28s ease;overflow:hidden}
+#v3 .v3s.on{opacity:1;pointer-events:auto}
+/* preview chrome */
+#v3-dots{position:absolute;top:max(12px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:90;display:flex;gap:8px}
+#v3-dots i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.28);transition:all .2s}
+#v3-dots i.on{background:var(--gold);transform:scale(1.3)}
+.v3-tag{position:absolute;z-index:90;font-size:11px;letter-spacing:.4px;
+  color:rgba(255,255,255,.55);background:rgba(10,6,24,.55);backdrop-filter:blur(6px);padding:4px 10px;border-radius:10px;pointer-events:none}
+#v3-name{top:calc(max(12px,env(safe-area-inset-top)) + 22px);left:50%;transform:translateX(-50%);white-space:nowrap}
+/* ── components ── */
+.v3-badge{position:absolute;display:inline-flex;align-items:center;gap:7px;padding:6px 13px;border-radius:16px;z-index:8;
+  background:rgba(10,6,24,.58);backdrop-filter:blur(8px);font-weight:700;font-size:14px;color:#eae2ff;letter-spacing:.3px}
+.v3-badge b{width:9px;height:9px;border-radius:50%;background:var(--mint);box-shadow:0 0 10px var(--mint);animation:v3pulse 1.5s ease-in-out infinite}
+@keyframes v3pulse{0%,100%{transform:scale(.8);opacity:.7}50%{transform:scale(1.15);opacity:1}}
+.v3-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:16px;background:rgba(10,6,24,.58);
+  backdrop-filter:blur(8px);font-family:'Baloo 2',cursive;font-weight:800;font-size:15px;color:var(--gold)}
+.v3-pause{position:absolute;top:max(12px,env(safe-area-inset-top));right:12px;z-index:12;width:44px;height:44px;border-radius:50%;
+  background:rgba(10,6,24,.55);backdrop-filter:blur(8px);border:1.5px solid rgba(255,255,255,.22);
+  display:flex;align-items:center;justify-content:center;font-size:17px;color:#eae2ff}
+.v3-bub{position:absolute;z-index:9;background:#fff;color:#33124A;border-radius:24px;padding:13px 20px;max-width:78vw;
+  font-family:'Baloo 2',cursive;font-weight:700;font-size:clamp(17px,4.8vw,21px);line-height:1.3;box-shadow:0 12px 36px rgba(0,0,0,.35)}
+.v3-bub:after{content:'';position:absolute;width:0;height:0;border:11px solid transparent}
+.v3-bub.tl:after{top:-18px;left:34px;border-bottom-color:#fff;border-top-width:0}
+.v3-bub.bl:after{bottom:-18px;left:34px;border-top-color:#fff;border-bottom-width:0}
+.v3-bub.ctr:after{left:50%;margin-left:-11px}
+.v3-bub.lft:after{left:-18px;top:50%;margin-top:-11px;border-right-color:#fff;border-left-width:0;border-top-color:transparent;border-bottom-color:transparent}
+.v3-big{position:absolute;bottom:max(28px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);min-width:76vw;min-height:70px;
+  border:none;border-radius:36px;color:#2a0f34;font-family:'Baloo 2',cursive;font-weight:800;font-size:clamp(20px,6vw,27px);
+  background:linear-gradient(93deg,#ffb46e,#FF6FD8 60%,#B06FFF);box-shadow:0 14px 40px rgba(255,111,216,.45);z-index:10}
+.v3-mini{position:absolute;bottom:max(8px,env(safe-area-inset-bottom));width:100%;text-align:center;font-size:15px;color:#9d8bd0;z-index:10}
+/* energy meter — thin gold arc (Lexi P5: no per-move stars) */
+.v3-energy{position:absolute;top:max(12px,env(safe-area-inset-top));left:12px;z-index:12;width:52px;height:52px}
+.v3-energy svg{width:100%;height:100%;transform:rotate(-90deg)}
+.v3-energy .bgc{fill:rgba(10,6,24,.55);stroke:rgba(255,255,255,.14);stroke-width:3}
+.v3-energy .arc{fill:none;stroke:var(--gold);stroke-width:3.5;stroke-linecap:round;filter:drop-shadow(0 0 4px rgba(255,215,110,.8))}
+.v3-energy span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:19px}
+/* nova closeup (full-bleed, scrim) */
+.v3-nc{position:absolute;inset:0;background:center 6%/cover url('nova-alive.png'),radial-gradient(130% 100% at 50% 0%,#3B1D6E,#0D0725);animation:v3breathe 4s ease-in-out infinite}
+@keyframes v3breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.015)}}
+.v3-nc-scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(13,7,37,.25) 0%,transparent 22%,transparent 46%,rgba(13,7,37,.94) 82%)}
+/* camera treatment (always): purple scrim 12% + vignette + 2px soft inner border + top r24 */
+.v3-cam{position:absolute;inset:0;background:linear-gradient(175deg,#1b1332 0%,#251a40 55%,#170f2c 100%)}
+.v3-cam:before{content:'';position:absolute;inset:0;background:rgba(122,74,226,.12);z-index:2}
+.v3-cam:after{content:'';position:absolute;inset:0;z-index:3;border-radius:inherit;
+  background:radial-gradient(115% 100% at 50% 42%,transparent 58%,rgba(13,7,37,.55) 100%);
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.13)}
+.v3-kid{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);width:min(74%,340px);aspect-ratio:.84;
+  background:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 120'%3E%3Cg fill='%23705a9e'%3E%3Ccircle cx='50' cy='20' r='9.5'/%3E%3Cpath d='M39 32 Q50 27 61 32 L64 60 Q63 74 57 78 L43 78 Q37 74 36 60 Z'/%3E%3Cpath d='M40 33 Q33 26 29 17 Q28 14 31 13 Q34 12 35 15 Q38 23 44 29 Z'/%3E%3Cpath d='M60 33 Q67 26 71 17 Q72 14 69 13 Q66 12 65 15 Q62 23 56 29 Z'/%3E%3Ccircle cx='29.5' cy='15' r='4.2'/%3E%3Ccircle cx='70.5' cy='15' r='4.2'/%3E%3Cpath d='M43 78 L41 108 Q41 111 44 111 L47 111 Q49 110 49 107 L50 84 L51 107 Q51 110 53 111 L56 111 Q59 111 59 108 L57 78 Z'/%3E%3C/g%3E%3C/svg%3E")}
+.v3-dot{position:absolute;width:15px;height:15px;margin:-7.5px;border-radius:50%;z-index:4;
+  background:radial-gradient(circle,#ffe9ae 0%,rgba(255,201,77,.85) 45%,rgba(255,201,77,0) 72%);
+  box-shadow:0 0 12px rgba(255,201,77,.75);animation:v3pulse 1.8s ease-in-out infinite}
+.v3-floor{position:absolute;left:50%;bottom:5%;transform:translateX(-50%);width:84%;height:17%;z-index:1;
+  background:radial-gradient(50% 58% at 50% 50%,rgba(176,111,255,.30),rgba(255,215,110,.08) 55%,transparent 72%)}
+/* the STAGE seam — her light SPILLS onto the camera (one world, not two panels) */
+.v3-seam{position:absolute;left:0;right:0;height:120px;z-index:7;pointer-events:none;
+  background:radial-gradient(64% 100% at 50% 0%,rgba(255,215,110,.5) 0%,rgba(176,111,255,.28) 46%,transparent 80%)}
+.v3-halo{position:absolute;left:50%;transform:translate(-50%,-50%);width:300px;height:300px;z-index:7;pointer-events:none;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,215,110,.55) 0%,rgba(255,111,216,.22) 46%,transparent 70%);filter:blur(14px);animation:halo 3.4s ease-in-out infinite}
+/* nova zone (conversation/split) — fills edge-to-edge */
+.v3-nz{position:absolute;left:0;right:0;top:0;overflow:hidden;background:radial-gradient(130% 120% at 50% 10%,#3B1D6E,#150a33 78%)}
+.v3-nz .fig{position:absolute;inset:0;background:center 4%/cover url('nova-alive.png');animation:v3breathe 4s ease-in-out infinite}
+.v3-nz:after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 62%,rgba(13,7,37,.55) 100%)}
+.v3-cz{position:absolute;left:0;right:0;top:auto!important;bottom:0;border-radius:24px 24px 0 0;overflow:hidden}
+/* cue on the seam */
+.v3-cue{position:absolute;left:50%;transform:translate(-50%,-50%);z-index:14;width:96px;height:96px;border-radius:50%;
+  background:rgba(20,10,45,.78);backdrop-filter:blur(8px);border:3px solid rgba(255,215,110,.9);
+  display:flex;align-items:center;justify-content:center;font-size:50px;box-shadow:0 10px 40px rgba(255,190,80,.45)}
+/* nova corner bubble (lesson mode) + pop reaction */
+.v3-nbub{position:absolute;left:14px;bottom:calc(96px + env(safe-area-inset-bottom));z-index:14;width:108px;height:108px;border-radius:50%;
+  overflow:hidden;border:3px solid #ff9ee4;box-shadow:0 0 0 5px rgba(255,111,216,.25),0 14px 40px rgba(255,111,216,.5);
+  background:center 6%/220% url('nova-alive.png')}
+.v3-pop{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);z-index:16;width:min(64vw,300px);aspect-ratio:1;border-radius:50%;
+  overflow:hidden;border:5px solid var(--mint);box-shadow:0 0 0 10px rgba(141,255,217,.2),0 0 90px 20px rgba(141,255,217,.45);
+  background:center 6%/175% url('nova-alive.png');animation:v3popin .5s cubic-bezier(.2,1.6,.4,1)}
+@keyframes v3popin{0%{transform:translate(-50%,-50%) scale(.3)}100%{transform:translate(-50%,-50%) scale(1)}}
+/* golden aperture (capture) */
+.v3-iris{position:absolute;top:44%;left:50%;transform:translate(-50%,-50%);width:min(82vw,370px);aspect-ratio:1;border-radius:50%;z-index:5;
+  border:2.5px dashed rgba(255,215,110,.85);box-shadow:inset 0 0 60px rgba(255,200,80,.15),0 0 40px rgba(255,200,80,.2);animation:spin 9s linear infinite}
+/* confetti (ending) */
+.v3-conf i{position:absolute;font-size:22px;animation:v3fall 3.2s linear infinite;z-index:5}
+@keyframes v3fall{0%{transform:translateY(-8vh) rotate(0)}100%{transform:translateY(108vh) rotate(340deg)}}
+/* typography */
+.v3-hook{position:absolute;left:0;right:0;z-index:9;text-align:center;font-family:'Baloo 2',cursive;font-weight:800;color:#fff;
+  font-size:clamp(30px,9.4vw,44px);text-shadow:0 0 26px rgba(255,150,220,.55),0 2px 14px rgba(0,0,0,.5)}
+.v3-sub{position:absolute;left:50%;transform:translateX(-50%);width:86%;z-index:9;text-align:center;font-size:clamp(16px,4.6vw,19px);
+  line-height:1.45;color:#e6dbff;text-shadow:0 1px 8px rgba(0,0,0,.55)}
+.v3-sub b{color:var(--gold)}
+/* name bar */
+.v3-namebar{position:absolute;left:14px;right:14px;bottom:max(16px,env(safe-area-inset-bottom));z-index:14;display:flex;gap:12px}
+.v3-talk{flex:1.7;min-height:68px;border:none;border-radius:34px;color:#3a1030;font-family:'Baloo 2',cursive;font-weight:800;font-size:20px;
+  background:linear-gradient(93deg,#ff9ec0,#FF6FD8 70%,#e35cff);box-shadow:0 14px 40px rgba(255,111,216,.45),inset 0 2px 8px rgba(255,255,255,.45)}
+.v3-type{flex:1;min-height:68px;border-radius:34px;border:1.5px solid rgba(255,255,255,.28);background:rgba(255,255,255,.09);
+  color:#e7dcff;font-weight:700;font-size:17px;backdrop-filter:blur(6px)}
+/* ending feedback */
+.v3-fb{position:absolute;left:0;right:0;display:flex;gap:18px;justify-content:center;z-index:9}
+.v3-fb b{width:62px;height:62px;border-radius:50%;border:2px solid rgba(255,255,255,.28);background:rgba(255,255,255,.08);
+  font-size:32px;display:flex;align-items:center;justify-content:center}
+</style>
 </head>
 <body>
 <div id="tunnel"></div>
@@ -205,6 +310,123 @@
 </div>
 
 <div id="warn"></div>
+
+<!-- ═══ V3 G1 STATIC PREVIEW (?preview=1) — tap right = next · tap left = back ═══ -->
+<div id="v3" hidden>
+
+  <!-- 1 · ARRIVAL — CLOSEUP Nova, full-bleed, no card-in-void -->
+  <section class="v3s" data-name="ARRIVAL · closeup">
+    <div class="v3-nc"></div><div class="v3-nc-scrim"></div>
+    <div class="v3-hook" style="bottom:31svh">Hi, I'm Nova! 👋</div>
+    <div class="v3-sub" style="bottom:23svh">I teach <b>real dance moves</b> — and I can <b>see you</b> do them.</div>
+    <button class="v3-big">▶ Play with Nova</button>
+    <div class="v3-mini">made for little dancers 💜</div>
+  </section>
+
+  <!-- 2 · PERMISSION — she asks first, in character -->
+  <section class="v3s" data-name="PERMISSION · closeup">
+    <div class="v3-nc"></div><div class="v3-nc-scrim"></div>
+    <div class="v3-bub tl ctr" style="left:50%;transform:translateX(-50%);bottom:34svh;text-align:center">
+      Can I see you? Your camera stays on <b style="color:#B06FFF">YOUR</b> phone — promise 💜</div>
+    <button class="v3-big">📷 Let Nova see you</button>
+    <div class="v3-mini">nothing is uploaded — ever</div>
+  </section>
+
+  <!-- 3 · CAPTURE — CLOSEUP KID, beautified camera, golden aperture, Nova reacting small -->
+  <section class="v3s" data-name="CAPTURE · closeup kid">
+    <div class="v3-cam" style="border-radius:0">
+      <div class="v3-floor"></div>
+      <div class="v3-kid">
+        <div class="v3-dot" style="left:50%;top:17%"></div>
+        <div class="v3-dot" style="left:40%;top:28%"></div><div class="v3-dot" style="left:60%;top:28%"></div>
+        <div class="v3-dot" style="left:29.5%;top:12.5%"></div><div class="v3-dot" style="left:70.5%;top:12.5%"></div>
+        <div class="v3-dot" style="left:44%;top:64%"></div><div class="v3-dot" style="left:56%;top:64%"></div>
+      </div>
+    </div>
+    <div class="v3-iris"></div>
+    <div class="v3-badge" style="top:max(14px,env(safe-area-inset-top));left:14px"><b></b>Watching</div>
+    <div class="v3-hook" style="bottom:20svh;font-size:clamp(26px,8vw,38px)">She can SEE you! ⭐</div>
+    <div class="v3-nbub" style="bottom:calc(30px + env(safe-area-inset-bottom))"></div>
+    <div class="v3-bub lft" style="left:140px;bottom:calc(58px + env(safe-area-inset-bottom));font-size:16.5px;padding:10px 16px">WOW — there you are!! 😍</div>
+  </section>
+
+  <!-- 4 · MEET/NAME — CONVERSATION 60/40, designed seam, her glow spills -->
+  <section class="v3s" data-name="MEET · conversation 60/40">
+    <div class="v3-nz" style="height:60svh"><div class="fig"></div></div>
+    <div class="v3-badge" style="top:max(14px,env(safe-area-inset-top));left:14px"><b></b>Listening</div>
+    <div class="v3-pause">⏸</div>
+    <div class="v3-bub tl ctr" style="left:50%;transform:translateX(-50%);bottom:49svh;text-align:center">I'm Nova! What's <b style="color:#FF6FD8">YOUR</b> name? ✨</div>
+    <div class="v3-cz v3-cam" style="height:40svh">
+      <div class="v3-floor"></div>
+      <div class="v3-kid" style="width:min(58%,270px);top:58%"></div>
+      <div class="v3-chip" style="position:absolute;top:12px;right:12px;z-index:5;color:var(--mint);font-size:13.5px">you ⭐</div>
+    </div>
+    <div class="v3-seam" style="bottom:calc(40svh - 55px)"></div>
+    <div class="v3-halo" style="bottom:calc(40svh - 125px)"></div>
+    <div class="v3-namebar"><button class="v3-talk">🎤 Hold to talk</button><button class="v3-type">⌨️ Type</button></div>
+  </section>
+
+  <!-- 5 · GAME OPTION A — SPLIT 45/55, cue on the seam -->
+  <section class="v3s" data-name="GAME · OPTION A — split 45/55">
+    <div class="v3-nz" style="height:45svh"><div class="fig" style="background-size:cover;background-position:center 0%"></div></div>
+    <div class="v3-badge" style="top:max(14px,env(safe-area-inset-top));left:14px"><b style="background:var(--gold);box-shadow:0 0 10px var(--gold)"></b>Watching</div>
+    <div class="v3-pause">⏸</div>
+    <div class="v3-cz v3-cam" style="height:55svh">
+      <div class="v3-floor"></div>
+      <div class="v3-kid" style="top:54%">
+        <div class="v3-dot" style="left:40%;top:28%"></div><div class="v3-dot" style="left:60%;top:28%"></div>
+      </div>
+      <div class="v3-chip" style="position:absolute;top:12px;right:12px;z-index:5">⭐ 480</div>
+    </div>
+    <div class="v3-seam" style="bottom:calc(55svh - 55px)"></div>
+    <div class="v3-cue" style="top:45svh">🤷</div>
+    <div class="v3-energy" style="top:auto;bottom:calc(55svh + 10px);left:12px"><svg viewBox="0 0 40 40"><circle class="bgc" cx="20" cy="20" r="16"/><circle class="arc" cx="20" cy="20" r="16" stroke-dasharray="60 100.5"/></svg><span>⚡</span></div>
+    <div class="v3-tag" style="left:12px;bottom:max(10px,env(safe-area-inset-bottom))">OPTION A — SPLIT 45/55</div>
+  </section>
+
+  <!-- 6 · GAME OPTION B — LESSON: kid 80%, Nova corner bubble -->
+  <section class="v3s" data-name="GAME · OPTION B — lesson (kid 80%)">
+    <div class="v3-cam" style="border-radius:0">
+      <div class="v3-floor"></div>
+      <div class="v3-kid" style="width:min(80%,380px);top:50%">
+        <div class="v3-dot" style="left:40%;top:28%"></div><div class="v3-dot" style="left:60%;top:28%"></div>
+      </div>
+    </div>
+    <div class="v3-badge" style="top:max(14px,env(safe-area-inset-top));left:14px"><b style="background:var(--gold);box-shadow:0 0 10px var(--gold)"></b>Watching</div>
+    <div class="v3-pause">⏸</div>
+    <div class="v3-cue" style="top:max(128px,calc(env(safe-area-inset-top) + 116px));width:84px;height:84px;font-size:44px">🤷</div>
+    <div class="v3-energy" style="top:max(106px,calc(env(safe-area-inset-top) + 94px))"><svg viewBox="0 0 40 40"><circle class="bgc" cx="20" cy="20" r="16"/><circle class="arc" cx="20" cy="20" r="16" stroke-dasharray="60 100.5"/></svg><span>⚡</span></div>
+    <div class="v3-chip" style="position:absolute;top:max(112px,calc(env(safe-area-inset-top) + 100px));right:12px;z-index:12">⭐ 480</div>
+    <div class="v3-nbub"></div>
+    <div class="v3-bub lft" style="left:140px;bottom:calc(128px + env(safe-area-inset-bottom));font-size:16px;padding:9px 15px">lift that shoulder! 🤷</div>
+    <div class="v3-tag" style="left:12px;bottom:max(10px,env(safe-area-inset-bottom))">OPTION B — LESSON · kid 80%</div>
+  </section>
+
+  <!-- 7 · REACTION — Nova pops BIG on a streak, then shrinks back -->
+  <section class="v3s" data-name="REACTION · pop-closeup">
+    <div class="v3-cam" style="border-radius:0;filter:brightness(.55)">
+      <div class="v3-kid" style="width:min(80%,380px);top:50%"></div>
+    </div>
+    <div class="v3-pop"></div>
+    <div class="v3-bub tl ctr" style="left:50%;transform:translateX(-50%);bottom:24svh;text-align:center">5 in a row?! YOU'RE ON FIRE 🔥</div>
+    <div class="v3-conf"><i style="left:8%;animation-delay:0s">✨</i><i style="left:26%;animation-delay:.9s">⭐</i><i style="left:52%;animation-delay:.4s">💜</i><i style="left:74%;animation-delay:1.3s">✨</i><i style="left:90%;animation-delay:.6s">🌟</i></div>
+  </section>
+
+  <!-- 8 · ENDING — closeup + confetti, specific praise, energy result, deposit line -->
+  <section class="v3s" data-name="ENDING · closeup + confetti">
+    <div class="v3-nc"></div><div class="v3-nc-scrim" style="background:linear-gradient(180deg,rgba(13,7,37,.3) 0%,transparent 20%,transparent 34%,rgba(13,7,37,.96) 72%)"></div>
+    <div class="v3-conf"><i style="left:6%;animation-delay:0s">🎉</i><i style="left:22%;animation-delay:1.1s">✨</i><i style="left:38%;animation-delay:.5s">⭐</i><i style="left:58%;animation-delay:1.6s">💜</i><i style="left:76%;animation-delay:.2s">🎉</i><i style="left:92%;animation-delay:.8s">🌟</i></div>
+    <div class="v3-hook" style="bottom:41svh;font-size:clamp(26px,8vw,38px)">Maya — your shoulders were SO clean! ✨</div>
+    <div class="v3-energy" style="position:absolute;top:auto;bottom:32svh;left:50%;transform:translateX(-50%);width:64px;height:64px"><svg viewBox="0 0 40 40"><circle class="bgc" cx="20" cy="20" r="16"/><circle class="arc" cx="20" cy="20" r="16" stroke-dasharray="88 100.5"/></svg><span>⚡</span></div>
+    <div class="v3-sub" style="bottom:26.5svh;color:var(--gold);font-weight:700">today's dance energy</div>
+    <div class="v3-sub" style="bottom:20svh">tomorrow I'll teach you the <b>SPIN!</b> 🌀</div>
+    <div class="v3-fb" style="bottom:13svh"><b>😀</b><b>😐</b><b>😞</b></div>
+    <button class="v3-big">🔄 Dance again</button>
+  </section>
+
+  <div id="v3-dots"></div>
+  <div class="v3-tag" id="v3-name"></div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
@@ -494,6 +716,31 @@ function resetGame(){ game.combo=0; presenceSeen=false; (async()=>{ setMode('ful
 document.addEventListener('visibilitychange',()=>{ if(document.hidden){ try{speechSynthesis.cancel();}catch(e){} } });
 // self-test hooks
 window.__nova={ det, game, setCue, get cuePart(){return _cuePart;}, novaState, frameGuide, presenceTest, playGame };
+</script>
+<script>
+// ═══ V3 G1 preview controller — active ONLY with ?preview=1; v2 flow untouched otherwise ═══
+"use strict";
+(function(){
+  if(!/[?&]preview=1/.test(location.search)) return;
+  document.body.classList.add('v3on');
+  const v3=document.getElementById('v3'); v3.hidden=false;
+  const screens=[...v3.querySelectorAll('.v3s')], dots=document.getElementById('v3-dots'), nameEl=document.getElementById('v3-name');
+  screens.forEach((s,i)=>{ const d=document.createElement('i'); d.addEventListener('click',e=>{e.stopPropagation();go(i);}); dots.appendChild(d); });
+  let cur=-1;
+  function go(i){
+    cur=Math.max(0,Math.min(screens.length-1,i));
+    screens.forEach((s,j)=>s.classList.toggle('on',j===cur));
+    [...dots.children].forEach((d,j)=>d.classList.toggle('on',j===cur));
+    nameEl.textContent=(cur+1)+'/'+screens.length+' · '+screens[cur].dataset.name;
+    try{ history.replaceState(null,'','#'+(cur+1)); }catch(e){}
+  }
+  v3.addEventListener('click',e=>{
+    const x=e.clientX/innerWidth;
+    if(x<0.28) go(cur-1); else go(cur+1);
+  });
+  addEventListener('keydown',e=>{ if(e.key==='ArrowRight')go(cur+1); if(e.key==='ArrowLeft')go(cur-1); });
+  go((parseInt(location.hash.slice(1),10)||1)-1);
+})();
 </script>
 </body>
 </html>
