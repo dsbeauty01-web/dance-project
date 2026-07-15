@@ -141,13 +141,7 @@
   #s-name{position:fixed;left:0;right:0;bottom:0;z-index:22;padding:14px 18px calc(16px + env(safe-area-inset-bottom));
     display:flex;gap:12px;transform:translateY(110%);transition:transform .4s cubic-bezier(.4,0,.2,1)}
   #s-name.show{transform:translateY(0)}
-  #talk-btn{flex:1.7;min-height:70px;border:none;border-radius:35px;cursor:pointer;color:#3a1030;
-    font-family:'Baloo 2',cursive;font-weight:800;font-size:20px;
-    background:linear-gradient(93deg,#ff9ec0,#ff6fd8 70%,#e35cff);
-    box-shadow:0 14px 40px rgba(255,111,216,.45), inset 0 2px 8px rgba(255,255,255,.45)}
-  #talk-btn:active{transform:scale(.98)}
-  #talk-btn.rec{background:linear-gradient(93deg,#8dffd9,#4dd8a8);box-shadow:0 0 34px rgba(141,255,217,.6)}
-  #type-btn{flex:1;min-height:70px;border-radius:35px;border:1.5px solid rgba(255,255,255,.28);background:rgba(255,255,255,.09);
+  #type-btn{flex:1;min-height:64px;border-radius:32px;border:1.5px solid rgba(255,255,255,.28);background:rgba(255,255,255,.09);
     color:#e7dcff;font-weight:700;font-size:17px;backdrop-filter:blur(6px)}
 </style>
 <style>
@@ -284,6 +278,13 @@ body.v3on>:not(#v3){display:none!important}
 #dbg{position:fixed;left:6px;bottom:6px;z-index:99;max-height:32vh;overflow:auto;font:10px/1.35 monospace;color:#8dffd9;
   background:rgba(0,0,0,.55);padding:6px 8px;border-radius:8px;display:none;max-width:70vw}
 body.dbg #dbg{display:block}
+/* FREE TALK mic chip: listening (mint pulse) / muted while she talks / type mode */
+#mic-chip{position:fixed;left:12px;bottom:max(12px,env(safe-area-inset-bottom));z-index:26;display:none;
+  align-items:center;gap:6px;padding:6px 13px;border-radius:16px;font-weight:700;font-size:13.5px;
+  background:rgba(10,6,24,.6);backdrop-filter:blur(8px);color:#eae2ff;pointer-events:none}
+#mic-chip.mic-listening{color:var(--mint);animation:v3pulse 1.6s ease-in-out infinite}
+#mic-chip.mic-muted{color:#9d8bd0}
+#mic-chip.mic-off{color:#ffd76e}
 </style>
 </head>
 <body>
@@ -335,11 +336,11 @@ body.dbg #dbg{display:block}
   <div id="cap-line">She can SEE you! ⭐</div>
 </div>
 
-<!-- name thumb bar -->
+<!-- FREE TALK (2026-07-15): open mic — no hold-to-talk; Type stays as the fallback -->
 <div id="s-name">
-  <button id="talk-btn">🎤 Hold to talk</button>
-  <button id="type-btn">⌨️ Type</button>
+  <button id="type-btn">⌨️ Type my name</button>
 </div>
+<div id="mic-chip"></div>
 
 <!-- 4 · Ending -->
 <div class="screen hidden" id="s-end">
@@ -490,6 +491,7 @@ body.dbg #dbg{display:block}
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<script src="mobile-voice/manifest.js"></script>
 <script src="nova-light.js"></script>
 <script src="nova-report.js"></script>
 <script src="nova-tracker.js"></script>
@@ -555,11 +557,54 @@ function pickVoice(){ try{ const vs=speechSynthesis.getVoices(); if(!vs.length) 
   Voice.ready=!!Voice.v; dbg('voice: '+(Voice.v?Voice.v.name+' ['+Voice.v.lang+']':'NONE')); }catch(e){} }
 try{ pickVoice(); speechSynthesis.addEventListener('voiceschanged',pickVoice);
   setTimeout(()=>{ if(!Voice.ready) dbg('voice: none after 2s → chime+caption mode'); },2000); }catch(e){}
+// ═══ HER REAL VOICE (2026-07-15): pre-rendered OpenAI mp3s (same voice identity as
+// the laptop Realtime) play first; the ONE dynamic name line renders once per
+// session via /v2/tts and is cached; speechSynthesis is the LAST resort; and the
+// chime+caption floor means she never dies mute. window.__herAudioUntil drives
+// the free-talk anti-echo mute.
+const TTS_URL='https://novapython.onrender.com/v2/tts';
+const NovaVoice={
+  el:null, cache:new Map(), speaking:false,
+  strip(t){ return String(t).replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{2B50}]/gu,'').replace(/\s+/g,' ').trim(); },
+  norm(t){ return this.strip(t).toLowerCase(); },
+  _mark(on,durMs){ this.speaking=on; window.__herAudioUntil = on ? (Date.now()+ (durMs||4000) + 500) : (Date.now()+500);
+    try{ if(on) FreeTalk.hush(); else FreeTalk.unhush(); }catch(e){} },
+  _play(src,label){ try{
+    if(!this.el){ this.el=new Audio(); this.el.preload='auto';
+      this.el.addEventListener('ended',()=>this._mark(false));
+      this.el.addEventListener('error',()=>{ this._mark(false); SFX.chime(); }); }
+    this.el.src=src; this._mark(true, 6000);
+    this.el.play().then(()=>{ const d=(this.el.duration||4)*1000;
+      window.__herAudioUntil=Date.now()+d+500; }).catch(()=>{ this._mark(false); SFX.chime(); });
+    dbg('voice: mp3 '+label);
+    return true; }catch(e){ this._mark(false); return false; } },
+  async playTTS(text){ const key=this.norm(text);
+    if(this.cache.has(key)) return this._play(this.cache.get(key),'tts-cached');
+    try{ const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),5000);
+      const r=await fetch(TTS_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({text:this.strip(text)}),signal:ctl.signal});
+      clearTimeout(to);
+      if(!r.ok) throw new Error('tts '+r.status);
+      const url=URL.createObjectURL(await r.blob());
+      this.cache.set(key,url);
+      return this._play(url,'tts-live');
+    }catch(e){ dbg('tts failed: '+e); return false; } }
+};
 function speak(t){ if(/[?&](novoice|nonova)/.test(location.search)) return;
-  const clean=t.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{2B50}]/gu,'').trim();
-  if(!Voice.ready){ SFX.chime(); return; }   // her line stays visible in the bubble — never dies mute
-  try{ const u=new SpeechSynthesisUtterance(clean); u.voice=Voice.v; u.rate=1.05; u.pitch=1.25;
-    speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(e){} }
+  const clean=NovaVoice.strip(t);
+  // 1. pre-rendered line in HER voice
+  const man=window.NOVA_VOICE_MANIFEST||{};
+  const f=man[NovaVoice.norm(t)];
+  if(f && NovaVoice._play('mobile-voice/'+f,'bank')) return;
+  // 2. dynamic name line → one session render, cached
+  if(kidName && clean.includes(kidName)){ NovaVoice.playTTS(clean).then(ok=>{ if(!ok){ ttsFallback(clean); } }); return; }
+  ttsFallback(clean); }
+function ttsFallback(clean){
+  // 3. last resort: device speechSynthesis; 4. floor: chime + the caption
+  if(Voice.ready){ try{ const u=new SpeechSynthesisUtterance(clean); u.voice=Voice.v; u.rate=1.05; u.pitch=1.25;
+      u.onstart=()=>NovaVoice._mark(true,6000); u.onend=()=>NovaVoice._mark(false);
+      speechSynthesis.cancel(); speechSynthesis.speak(u); return; }catch(e){} }
+  SFX.chime(); }
 // state badge (Lexi P2 — silence must never read as broken): Watching/Listening/Talking/Thinking
 function setBadge(s){ const b=$('badge'); if(!b) return; setBadge.cur=s; if(!s){ b.classList.remove('show'); return; }
   b.querySelector('span').textContent=s[0].toUpperCase()+s.slice(1); b.className='v3-badge show b-'+s; }
@@ -567,10 +612,56 @@ function setBadge(s){ const b=$('badge'); if(!b) return; setBadge.cur=s; if(!s){
 let paused=false;
 function doPause(){ if(paused||!document.body.classList.contains('live')) return; paused=true;
   try{ speechSynthesis.cancel(); }catch(e){} try{ NovaAudio.ctx&&NovaAudio.ctx.suspend(); }catch(e){}
+  try{ NovaVoice.el&&NovaVoice.el.pause(); }catch(e){} try{ FreeTalk.hush(); }catch(e){}
   $('pause-ov').classList.add('show'); dbg('paused'); }
 function doResume(){ if(!paused) return; paused=false; try{ NovaAudio.ctx&&NovaAudio.ctx.resume(); }catch(e){}
+  try{ FreeTalk.unhush(); }catch(e){}
   $('pause-ov').classList.remove('show'); SFX.chime(); buzz(20); novaSay("I'm here — let's keep going! 💜",'excited'); dbg('resumed'); }
 function showSeam(on){ $('liveseam').style.display=on?'block':'none'; }
+
+// ═══ FREE TALK (2026-07-15): the mic is OPEN — no hold-to-talk. Continuous
+// SpeechRecognition (he-IL/en by ?lang), hard-muted while ANY of her audio plays
+// +0.5s tail (anti-echo law). Mic chip shows listening/muted. Denied → type mode.
+function setChip(state){ const c=$('mic-chip'); if(!c) return;
+  if(!state){ c.style.display='none'; return; }
+  c.style.display='flex';
+  c.textContent = state==='listening' ? '🎤 listening' : state==='muted' ? '🔇' : '⌨️ type mode';
+  c.className = 'mic-'+state; }
+const FreeTalk={
+  rec:null, on:false, denied:false, hushed:false, awaitName:null, restartT:0, started:false,
+  lang: /[?&]lang=he/.test(location.search) ? 'he-IL' : 'en-US',
+  async ask(){
+    novaSay('And can I hear you too? 🎤','talking'); await sleep(1400);
+    try{
+      const st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+      st.getTracks().forEach(t=>t.stop());   // permission + processing hints secured; SR opens its own capture
+      this.started=true; this.start();
+      novaSay('I hear you! 💜','excited'); await sleep(1200); return true;
+    }catch(e){ this.denied=true; setChip('off');
+      novaSay("that's okay — you can type to me! ⌨️",'talking'); await sleep(1400); return false; } },
+  start(){
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){ this.denied=true; setChip('off'); return; }
+    if(this.denied||this.hushed||paused) return;
+    try{ this.rec&&this.rec.abort(); }catch(e){}
+    const r=new SR(); this.rec=r; r.lang=this.lang; r.continuous=true; r.interimResults=false;
+    r.onresult=ev=>{ try{ const res=ev.results[ev.results.length-1];
+      if(res.isFinal){ const t=(res[0].transcript||'').trim(); if(t) this.route(t); } }catch(e){} };
+    r.onend=()=>{ this.on=false; if(!this.hushed) setChip(this.denied?'off':'muted');
+      if(!this.hushed && !this.denied && !paused && this.started){
+        clearTimeout(this.restartT); this.restartT=setTimeout(()=>this.start(),400); } };
+    r.onerror=e=>{ if(e.error==='not-allowed'||e.error==='service-not-allowed'){ this.denied=true; setChip('off'); } };
+    try{ r.start(); this.on=true; setChip('listening'); }catch(e){}
+  },
+  hush(){ if(!this.started||this.denied) return; this.hushed=true; setChip('muted');
+    clearTimeout(this.restartT); try{ this.rec&&this.rec.abort(); }catch(e){} },
+  unhush(){ if(!this.started||!this.hushed) return; this.hushed=false;
+    const wait=Math.max(400,(window.__herAudioUntil||0)-Date.now());
+    clearTimeout(this.restartT); this.restartT=setTimeout(()=>{ if(!this.denied&&!paused) this.start(); },wait); },
+  route(t){ dbg('heard: '+t); window.__kidSaid={t:t,at:Date.now()};
+    if(this.awaitName){ const f=this.awaitName; this.awaitName=null; f(t); return; }
+    if(/\b(did it|i did|done|i'?m doing)\b/i.test(t) || /עשיתי/.test(t)) window.__saidDone=Date.now(); }
+};
 
 // ── camera + model (in-context permission) ──
 async function ensureCamera(){
@@ -690,18 +781,10 @@ function saveName(n){ kidName=n; try{ localStorage.setItem('nova-kid-name',n); }
 async function nameMoment(){
   if(kidName){ novaSay(kidName+'!! You came BACK! 💜','excited'); await sleep(2100); return; }
   novaSay("What's your name? ✨",'talking'); $('s-name').classList.add('show'); setBadge('listening');
+  // FREE TALK (2026-07-15): no hold-to-talk — the open mic catches the name; Type stays as fallback
   const got = await new Promise(res=>{
-    let done=false; const finish=v=>{ if(done) return; done=true; res(v||''); };
-    const SR=window.SpeechRecognition||window.webkitSpeechRecognition; let rec=null;
-    const tb=$('talk-btn');
-    const start=e=>{ e.preventDefault(); if(!SR){ finish(prompt('Tell Nova your name! 💜')||''); return; }
-      try{ rec=new SR(); rec.lang='en-US'; rec.interimResults=false;
-        rec.onresult=ev=>{ finish(ev.results[0][0].transcript); }; rec.onerror=()=>finish(''); rec.start();
-        tb.classList.add('rec'); tb.textContent='🎤 listening…'; }catch(err){ finish(''); } };
-    const stop=e=>{ e.preventDefault(); tb.classList.remove('rec'); tb.textContent='🎤 Hold to talk';
-      setTimeout(()=>{ try{ rec&&rec.stop(); }catch(err){} },350); };
-    tb.addEventListener('touchstart',start); tb.addEventListener('touchend',stop);
-    tb.addEventListener('mousedown',start); tb.addEventListener('mouseup',stop);
+    let done=false; const finish=v=>{ if(done) return; done=true; FreeTalk.awaitName=null; res(v||''); };
+    FreeTalk.awaitName = t=>finish(t);
     $('type-btn').addEventListener('click',()=>finish(prompt('Tell Nova your name! 💜')||''));
     setTimeout(()=>finish(''), 25000);
   });
@@ -731,6 +814,7 @@ async function startExperience(){
     return; }
   $('r-perm').classList.add('hidden');
   document.body.classList.add('live'); $('pause-btn').classList.add('show');
+  await FreeTalk.ask();          // in-character mic ask right after the camera (free talk)
   setMode('cap100'); setBadge('watching'); SFX.whoosh();
   await Promise.race([ ensureModel().catch(()=>{}), sleep(12000) ]);
   loop();
@@ -768,8 +852,11 @@ let presenceSeen=false;
 async function presenceTest(){
   const side=Math.random()<.5?'left':'right';
   setCue('shoulder-'+side,'armed'); novaSay('Lift your '+side.toUpperCase()+' shoulder! 🤚','talking');
-  const dl=performance.now()+8000;
-  while(performance.now()<dl){ if(det.present && Math.abs(det.shTilt)>0.05){ presenceSeen=true; break; } await sleep(110); }
+  const dl=performance.now()+8000; const askedAt=Date.now();
+  while(performance.now()<dl){
+    if(det.present && Math.abs(det.shTilt)>0.05){ presenceSeen=true; break; }
+    if(window.__saidDone && window.__saidDone>askedAt){ presenceSeen=true; break; }   // VOICE FIRST: believe him
+    await sleep(110); }
   if(presenceSeen){ _cueState='streak'; _cueQual=.95; novaSay('WHOA — I SAW that! ✨','excited'); }
   else { novaSay('there you are — I see you! 💜','excited'); }
   await sleep(1500); setCue(null);
