@@ -5881,6 +5881,19 @@ window.__initRunwayNova = initDID;
       return clapNow();
     };
 
+    // TRUTH GATE (2026-07-15, builder: "You did it" fired with nobody moving):
+    // a hit only counts when a REAL skeleton is on camera — both shoulders
+    // confident + enough joints. Hallucinated low-score keypoints flickering
+    // the move flags were producing false try_move hits (false celebrations).
+    const personReal = (m) => {
+      try {
+        const ls = m.left_shoulder, rs = m.right_shoulder;
+        if (!ls || !rs || ls.score < 0.35 || rs.score < 0.35) return false;
+        let n = 0; for (const k in m) { if (m[k] && m[k].score > 0.3) n++; }
+        return n >= 6;
+      } catch(_) { return false; }
+    };
+
     let armDown = false;   // rising-edge arm: the move flag must go DOWN after the cue before a hit counts
     function loop(){
       requestAnimationFrame(loop);
@@ -5905,7 +5918,7 @@ window.__initRunwayNova = initDID;
       glow.style.left = gx+'px'; glow.style.top = gy+'px';
 
       const now = performance.now();
-      const hitNow = partHit(m);
+      const hitNow = personReal(m) && partHit(m);
       if(!hitNow) armDown = true;   // flag seen down since the cue → the next rise is a REAL fresh move
       // a hit counts only if: flag rose AFTER the cue (not leftover motion) + a short settle window
       if(hitNow && armDown && Date.now() - cueStamp > 400){
