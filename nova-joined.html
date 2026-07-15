@@ -4,6 +4,220 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nova Joins! · 4-Point Isolation Game</title>
+<script>
+/* ═══ HEBREW LAYER (2026-07-15) — ?lang=he · persisted to localStorage nova-lang ═══
+   English is the default and renders EXACTLY as before (en pack = the page's original
+   strings; the DOM applier only runs for he). All UI text lives here — L[key].{en,he}. */
+(function(){
+  const q = new URLSearchParams(location.search);
+  let lang = q.get('lang');
+  if (lang) { try { localStorage.setItem('nova-lang', lang); } catch(_){} }
+  else { try { lang = localStorage.getItem('nova-lang'); } catch(_){} }
+  window.NOVA_LANG = (lang === 'he') ? 'he' : 'en';
+  window.NOVA_HE = (window.NOVA_LANG === 'he');
+  if (window.NOVA_HE) {
+    document.documentElement.setAttribute('dir', 'rtl');
+    document.documentElement.setAttribute('lang', 'he');
+    // Hebrew glyph fonts: Baloo 2 (display, latin) → Varela Round (hebrew, round, kid) + Rubik (body)
+    const l = document.createElement('link'); l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700&family=Varela+Round&family=Rubik:wght@400;500;600;700&display=swap';
+    document.head.appendChild(l);
+  }
+})();
+window.NOVA_L = {
+en: {
+  docTitle: 'Nova Joins! · 4-Point Isolation Game',
+  novaName: 'Nova',
+  arrivalTagline: 'Hey friend... ready to dance?',
+  arrivalCta: "🌟 Let's dance",
+  skip: 'Skip ▶︎',
+  introFinding: 'finding you…',
+  introPreparing: 'preparing Nova…',
+  introConnecting: 'connecting…',
+  introHereSheComes: 'here she comes…',
+  camHint: 'I can see you! 🌟',
+  seesYou: '✓ Nova sees you',
+  badgeWatching: 'Watching',
+  badgeListening: 'Listening',
+  badgeTalking: 'Talking',
+  badgeThinking: 'Thinking...',
+  typePlaceholder: 'type or tap mic...',
+  send: 'Send',
+  micHintIdle: 'tap mic and say hi to Nova',
+  micHintListening: 'listening... just talk to Nova!',
+  micHintPaused: 'paused...',
+  micHintTap: 'tap mic to start',
+  danceBtn: "💃 Let's Dance!",
+  sayIt: '🎤 Say it',
+  typeIt: '⌨️ Type it',
+  surpriseMe: '✨ Surprise me',
+  randomNames: ['Star Friend', 'Sparkle Pal', 'Dance Buddy', 'Cool Kid', 'Rainbow'],
+  nameCallMe: '(call me {picked})',
+  nameRandomSay: 'Oh {picked}! What a magic name! Ready to dance?',
+  nameType: 'Go ahead — type your name!',
+  nameVoice: "I'm listening... what's your name?",
+  sttEchoPrefix: 'Nova heard: ',
+  pickerTitle: 'What do you wanna do?',
+  pickerPickYoung: 'Nova picks: Hello Hello! ⚡',
+  pickerPickOld: "Nova's pick: Up Groove! 🕺",
+  songHello: 'Hello Hello!', songJoined: 'Up Groove!', songWave: 'Wave!',
+  tagHello: 'fast + jumpy', tagJoined: 'copy her body', tagWave: 'river of light',
+  descHello: 'hands up · clap<br>Nova says',
+  descJoined: 'head · shoulders<br>ribs · hips',
+  descWave: 'shoulders · elbows<br>wrists · flow',
+  pickerBack: '← back',
+  transGettingReady: 'getting ready…',
+  transSub: "Nova's setting up the magic ✨",
+  cdLabel: 'get ready...',
+  gameLogo: '🌟 Nova',
+  pauseTitle: 'taking a breath!',
+  pauseSub: "tap anywhere when you're ready",
+  freezeLabel: '🛑 FREEZE!',
+  titlePause: 'Pause', titleResume: 'Resume', titleExit: 'Exit',
+  exitConfirm: 'Stop dancing and say goodbye to Nova?',
+  pillLeft: '👈 L', pillRight: '👉 R',
+  reactionDefault: '🌟 Amazing!',
+  endTitles: ['So proud of you!', 'Good effort!', 'Great work!', 'Amazing dancer!', 'PERFECT! 🔥'],
+  pts: ' pts',
+  endDetail: '{hits} of {attempts} moves · best streak: {streak}',
+  hooks: ["{who}tomorrow I'll teach you the SPIN 🌀", '{who}next time we add the ROBOT ARMS 🤖',
+          "come back tomorrow — we'll do the WAVE 🌊", '{who}next time: the SUPER JUMP! 🚀'],
+  endMsgLoading: "Loading Nova's message...",
+  endPlaceholder: 'Tell Nova one thing...',
+  danceAgain: '🔁 Dance again!',
+  saveNovaBtn: '💖 Save my Nova',
+  playAgain: '🔄 Play Again',
+  savedBtn: '✓ Saved!',
+  savedMsg: '🌟 Nova will remember you next time!',
+  goodbyeFallbackMoment: '{name}, I loved that {moment}! Did you have fun?',
+  goodbyeFallback: '{who}I had SO much fun! What was your favorite move?',
+  retryTitle: "Nova didn't connect",
+  retryBody: "Her audio/video didn't arrive. This usually means Runway's busy.",
+  retryBtn: '🔄 Try again',
+  reloadBtn: '↻ Reload page',
+  audioUnlock: '🔊 Tap to hear Nova',
+  speechLang: 'en-US',
+  genderBoy: 'Boy 💙', genderGirl: 'Girl 💜', genderSkip: 'skip ✨',
+},
+he: {
+  docTitle: 'נובה דאנס',
+  novaName: 'נובה',
+  arrivalTagline: 'היי, אני נובה! 👋',
+  arrivalCta: '▶ לשחק עם נובה',
+  skip: 'לדלג ▶︎',
+  introFinding: 'מחפשת אתכם… ✨',
+  introPreparing: 'נובה מתכוננת…',
+  introConnecting: 'רגע, הקסם מתחבר… ✨',
+  introHereSheComes: 'הנה היא באה…',
+  camHint: 'אני רואה אותך! 🌟',
+  seesYou: '✓ נובה רואה אותך',
+  badgeWatching: 'מסתכלת…',
+  badgeListening: 'מקשיבה…',
+  badgeTalking: 'מדברת…',
+  badgeThinking: 'חושבת…',
+  typePlaceholder: 'להקליד או להקיש על המיקרופון…',
+  send: 'שליחה',
+  micHintIdle: 'מקישים על המיקרופון ואומרים היי לנובה',
+  micHintListening: 'מקשיבה… פשוט דברו עם נובה!',
+  micHintPaused: 'הפסקה…',
+  micHintTap: 'מקישים על המיקרופון כדי להתחיל',
+  danceBtn: '💃 יאללה לרקוד!',
+  sayIt: '🎤 להגיד',
+  typeIt: '⌨️ להקליד',
+  surpriseMe: '✨ תפתיעו אותי',
+  randomNames: ['כוכב קטן', 'נצנץ', 'חבר של נובה', 'אלוף הריקוד', 'קשת בענן'],
+  nameCallMe: '(תקראי לי {picked})',
+  nameRandomSay: 'אוה {picked}! איזה שם קסום! מוכנים לרקוד?',
+  nameType: 'קדימה — תקלידו את השם שלכם!',
+  nameVoice: 'אני מקשיבה… איך קוראים לכם?',
+  sttEchoPrefix: 'נובה שמעה: ',
+  pickerTitle: 'איזה משחק בא לך?',
+  pickerPickYoung: 'נובה בוחרת: הלו הלו! ⚡',
+  pickerPickOld: 'הבחירה של נובה: אפ גרוב! 🕺',
+  songHello: 'הלו הלו!', songJoined: 'אפ גרוב!', songWave: 'הגל!',
+  tagHello: 'מהיר וקופצני', tagJoined: 'מחקים את נובה', tagWave: 'נהר של אור',
+  descHello: 'ידיים למעלה · מחיאות כף<br>נובה אומרת',
+  descJoined: 'ראש · כתפיים<br>צלעות · ירכיים',
+  descWave: 'כתפיים · מרפקים<br>כפות ידיים · זרימה',
+  pickerBack: '→ חזרה',
+  transGettingReady: 'מכינה את המוזיקה… ✨',
+  transSub: 'נובה מכינה את הקסם ✨',
+  cdLabel: 'מוכנים…',
+  gameLogo: '🌟 נובה',
+  pauseTitle: 'הפסקה!',
+  pauseSub: 'מקישים בכל מקום כשאתם מוכנים',
+  freezeLabel: '🛑 קפאו!',
+  titlePause: 'הפסקה', titleResume: 'להמשיך', titleExit: 'יציאה',
+  exitConfirm: 'לעצור את הריקוד ולהגיד ביי לנובה?',
+  pillLeft: '👈 שמאל', pillRight: '👉 ימין',
+  reactionDefault: '🌟 וואו!',
+  endTitles: ['אני גאה בכם!', 'איזה ניסיון יפה!', 'עבודה מהממת!', 'איזה כוכב יש לי פה!', 'מושלם! 🔥'],
+  pts: ' נק׳',
+  endDetail: '{hits} מתוך {attempts} תנועות · רצף שיא: {streak}',
+  hooks: ['{who}מחר אני מלמדת אותך את הסיבוב הסודי… תבואו? 💜', '{who}בפעם הבאה נוסיף ידיים של רובוט 🤖',
+          'תחזרו מחר — נעשה את הגל 🌊', '{who}בפעם הבאה: קפיצת העל! 🚀'],
+  endMsgLoading: 'נובה חושבת מה להגיד…',
+  endPlaceholder: 'ספרו לנובה משהו אחד…',
+  danceAgain: '🔁 לרקוד עוד פעם!',
+  saveNovaBtn: '💖 לשמור את נובה שלי',
+  playAgain: '🔄 לשחק שוב',
+  savedBtn: '✓ נשמר!',
+  savedMsg: '🌟 נובה תזכור אתכם בפעם הבאה!',
+  goodbyeFallbackMoment: '{name}, היה לי כל כך כיף איתך! נהניתם?',
+  goodbyeFallback: '{who}היה לי כל כך כיף! איזו תנועה הכי אהבתם?',
+  retryTitle: 'נובה לא הצליחה להתחבר',
+  retryBody: 'הקול והווידאו שלה לא הגיעו. כנראה שהקסם עמוס כרגע.',
+  retryBtn: '🔄 לנסות שוב',
+  reloadBtn: '↻ לרענן את הדף',
+  audioUnlock: '🔊 מקישים כדי לשמוע את נובה',
+  speechLang: 'he-IL',
+  genderBoy: 'ילד 💙', genderGirl: 'ילדה 💜', genderSkip: 'לא משנה ✨',
+},
+};
+// T('key', {vars}) → string in the active language (en fallback). TA('key') → array.
+window.T = function(key, vars){
+  const pack = window.NOVA_L[window.NOVA_LANG] || window.NOVA_L.en;
+  let s = (pack[key] !== undefined) ? pack[key] : window.NOVA_L.en[key];
+  if (s === undefined) return key;
+  if (vars) for (const k in vars) s = s.split('{' + k + '}').join(vars[k]);
+  return s;
+};
+window.TA = function(key){
+  const pack = window.NOVA_L[window.NOVA_LANG] || window.NOVA_L.en;
+  return pack[key] || window.NOVA_L.en[key] || [];
+};
+// DOM applier — he only; English DOM stays byte-identical to the original markup.
+window.__applyLang = function(){
+  if (!window.NOVA_HE) return;
+  document.title = window.T('docTitle');
+  document.querySelectorAll('[data-l]').forEach(el => { el.textContent = window.T(el.getAttribute('data-l')); });
+  document.querySelectorAll('[data-l-html]').forEach(el => { el.innerHTML = window.T(el.getAttribute('data-l-html')); });
+  document.querySelectorAll('[data-l-placeholder]').forEach(el => { el.placeholder = window.T(el.getAttribute('data-l-placeholder')); });
+  document.querySelectorAll('[data-l-title]').forEach(el => { el.title = window.T(el.getAttribute('data-l-title')); });
+};
+document.addEventListener('DOMContentLoaded', window.__applyLang);
+</script>
+<style>
+/* ═══ HEBREW MODE ONLY — fonts + RTL survival (inert when lang=en) ═══ */
+html[lang="he"] *{font-family:'Baloo 2','Varela Round','Rubik',sans-serif!important}
+html[lang="he"] body,html[lang="he"] #rec-input,html[lang="he"] .picker-desc,
+html[lang="he"] .bubble-nova,html[lang="he"] .bubble-kid{font-family:'Rubik','Varela Round',sans-serif!important}
+html[lang="he"] #debug-panel,html[lang="he"] #debug-panel *{font-family:'SF Mono',Consolas,monospace!important;direction:ltr}
+html[lang="he"] #vbanner,html[lang="he"] #avatar-status{direction:ltr}
+/* numbers/score/timer stay LTR inside RTL */
+html[dir="rtl"] #game-score,html[dir="rtl"] #game-streak,html[dir="rtl"] #end-pts,
+html[dir="rtl"] #cd-num,html[dir="rtl"] #freeze-countdown,html[dir="rtl"] #pause-count,
+html[dir="rtl"] #end-stars{direction:ltr;unicode-bidi:isolate}
+/* chat column + bubbles mirror */
+html[dir="rtl"] #rec-chat-col{border-left:none;border-right:1px solid rgba(255,111,216,0.12)}
+html[dir="rtl"] .bubble-nova{border-radius:18px 18px 4px 18px}
+html[dir="rtl"] .bubble-kid{border-radius:18px 18px 18px 4px}
+html[dir="rtl"] #arrival-skip-btn{right:auto;left:24px}
+html[dir="rtl"] #nova-state-badge{right:auto;left:12px}
+html[dir="rtl"] #debug-panel,html[dir="rtl"] #debug-toggle{right:auto;left:8px}
+html[dir="rtl"] #log-actions{right:auto;left:8px}
+html[dir="rtl"] #sees-you-tick{left:auto;right:14px}
+</style>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -868,7 +1082,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 </head>
 <body>
 
-<div id="sees-you-tick">✓ Nova sees you</div>
+<div id="sees-you-tick" data-l="seesYou">✓ Nova sees you</div>
 
 <div id="vbanner" style="position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:99999;font:600 12px monospace;color:#0a0015;background:#a855f7;padding:3px 10px;border-radius:7px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.4)">BUILD: brain-led r5 · warm-brain · fast first reply</div>
 <div id="debug-panel"></div>
@@ -888,13 +1102,13 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   <div id="living-room-content">
     <div id="arrival-nova-frame" onclick="onArrivalTap()">
       <div id="arrival-nova-emoji">🌟</div>
-      <div id="arrival-nova-name">Nova</div>
+      <div id="arrival-nova-name" data-l="novaName">Nova</div>
     </div>
-    <div id="arrival-tagline">Hey friend... ready to dance?</div>
+    <div id="arrival-tagline" data-l="arrivalTagline">Hey friend... ready to dance?</div>
     <button id="arrival-start-btn" onclick="onArrivalTap()">
-      <span>🌟 Let's dance</span>
+      <span data-l="arrivalCta">🌟 Let's dance</span>
     </button>
-    <button id="arrival-skip-btn" onclick="onArrivalSkip()">Skip ▶︎</button>
+    <button id="arrival-skip-btn" onclick="onArrivalSkip()" data-l="skip">Skip ▶︎</button>
   </div>
 </div>
 
@@ -939,7 +1153,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </video>
   <div id="intro-sparkle">
     <div class="intro-orb">🌟</div>
-    <div class="intro-caption">finding you…</div>
+    <div class="intro-caption" data-l="introFinding">finding you…</div>
   </div>
   <video id="intro-pip" autoplay playsinline muted></video>
   <audio id="intro-humming" src="audio/intro/nova-humming.mp3" preload="auto"></audio>
@@ -952,18 +1166,18 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
     <div id="rec-cam-wrap">
       <video id="rec-webcam" autoplay playsinline muted></video>
       <div id="rec-cam-glow"></div>
-      <div id="rec-cam-hint">I can see you! 🌟</div>
+      <div id="rec-cam-hint" data-l="camHint">I can see you! 🌟</div>
     </div>
   </div>
   <div id="rec-avatar-col">
-    <div id="rec-avatar-name">Nova</div>
+    <div id="rec-avatar-name" data-l="novaName">Nova</div>
     <div id="rec-avatar-frame">
       <video id="rec-avatar-video" autoplay playsinline></video>
       <div id="rec-avatar-placeholder">
         <div id="rec-placeholder-emoji">🌟</div>
         <div id="rec-loading-dots"><span></span><span></span><span></span></div>
       </div>
-      <div class="nova-state-badge" id="rec-state-badge" data-state="watching">Watching</div>
+      <div class="nova-state-badge" id="rec-state-badge" data-state="watching" data-l="badgeWatching">Watching</div>
       <!-- v95: intro MP4 overlay removed — Nova appears as soon as Runway connects -->
     </div>
   </div>
@@ -972,12 +1186,12 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
     <div id="rec-input-zone">
       <div id="rec-input-row">
         <button id="rec-mic" onclick="toggleMic()">🎤</button>
-        <input id="rec-input" type="text" placeholder="type or tap mic..." 
+        <input id="rec-input" type="text" placeholder="type or tap mic..." data-l-placeholder="typePlaceholder"
           onkeydown="if(event.key==='Enter')sendChat()">
-        <button id="rec-send" onclick="sendChat()">Send</button>
+        <button id="rec-send" onclick="sendChat()" data-l="send">Send</button>
       </div>
-      <div id="rec-mic-hint">tap mic and say hi to Nova</div>
-      <button id="rec-dance-btn" onclick="goToPicker()">💃 Let's Dance!</button>
+      <div id="rec-mic-hint" data-l="micHintIdle">tap mic and say hi to Nova</div>
+      <button id="rec-dance-btn" onclick="goToPicker()" data-l="danceBtn">💃 Let's Dance!</button>
     </div>
   </div>
 </div>
@@ -986,29 +1200,29 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 <div class="phase" id="phase-picker">
   <div id="picker-bg"></div>
   <div id="picker-content">
-    <div id="picker-title">What do you wanna do?</div>
+    <div id="picker-title" data-l="pickerTitle">What do you wanna do?</div>
     <div id="picker-subtitle"></div>
     <div id="picker-cards">
       <button class="picker-card hello-card" onclick="pickGame('hello')">
         <div class="picker-emoji">⚡</div>
-        <div class="picker-name">Hello Hello!</div>
-        <div class="picker-tag">fast + jumpy</div>
-        <div class="picker-desc">hands up · clap<br>Nova says</div>
+        <div class="picker-name" data-l="songHello">Hello Hello!</div>
+        <div class="picker-tag" data-l="tagHello">fast + jumpy</div>
+        <div class="picker-desc" data-l-html="descHello">hands up · clap<br>Nova says</div>
       </button>
       <button class="picker-card joined-card" onclick="pickGame('joined')">
         <div class="picker-emoji">🕺</div>
-        <div class="picker-name">Up Groove!</div>
-        <div class="picker-tag">copy her body</div>
-        <div class="picker-desc">head · shoulders<br>ribs · hips</div>
+        <div class="picker-name" data-l="songJoined">Up Groove!</div>
+        <div class="picker-tag" data-l="tagJoined">copy her body</div>
+        <div class="picker-desc" data-l-html="descJoined">head · shoulders<br>ribs · hips</div>
       </button>
       <button class="picker-card wave-card" onclick="pickGame('wave')">
         <div class="picker-emoji">🌊</div>
-        <div class="picker-name">Wave!</div>
-        <div class="picker-tag">river of light</div>
-        <div class="picker-desc">shoulders · elbows<br>wrists · flow</div>
+        <div class="picker-name" data-l="songWave">Wave!</div>
+        <div class="picker-tag" data-l="tagWave">river of light</div>
+        <div class="picker-desc" data-l-html="descWave">shoulders · elbows<br>wrists · flow</div>
       </button>
     </div>
-    <button id="picker-back" onclick="pickerBack()">← back</button>
+    <button id="picker-back" onclick="pickerBack()" data-l="pickerBack">← back</button>
   </div>
 </div>
 
@@ -1021,39 +1235,39 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   <div id="trans-scrim"></div>
   <div id="trans-glow"></div>
   <div id="trans-frameguide"></div>
-  <div id="trans-cap">getting ready…</div>
-  <div id="trans-sub">Nova's setting up the magic ✨</div>
+  <div id="trans-cap" data-l="transGettingReady">getting ready…</div>
+  <div id="trans-sub" data-l="transSub">Nova's setting up the magic ✨</div>
 </div>
 
 <!-- ═══ PHASE 3: COUNTDOWN (legacy — kept for the skip path; the transition bridge
      replaces it on the normal pick flow) ═══ -->
 <div class="phase" id="phase-countdown">
   <div id="cd-num">3</div>
-  <div id="cd-label">get ready...</div>
+  <div id="cd-label" data-l="cdLabel">get ready...</div>
 </div>
 
 <!-- ═══ PHASE 4: GAME ═══ -->
 <div class="phase" id="phase-game">
   <div id="game-bg"></div>
   <div id="game-topbar">
-    <div id="game-logo">🌟 Nova</div>
+    <div id="game-logo" data-l="gameLogo">🌟 Nova</div>
     <div id="game-streak">🔥 x2</div>
     <div id="game-progress-wrap"><div id="game-progress"></div></div>
     <div id="game-score">0</div>
     <!-- v105: exit stays up top; pause moved to the footer (2026-07-06 UX) -->
-    <button id="game-exit-btn" class="game-ctrl-btn" onclick="exitGame()" title="Exit">✕</button>
+    <button id="game-exit-btn" class="game-ctrl-btn" onclick="exitGame()" title="Exit" data-l-title="titleExit">✕</button>
   </div>
   <!-- GAME FOOTER (2026-07-06): the one control a dancing kid needs — big friendly pause.
        Pause freezes EVERYTHING (music, clip, cues, Nova's score clock via frozen ticks);
        the same button resumes with a 3-2-1 so they can get back in position. -->
   <div id="game-footer">
-    <button id="game-pause-btn" onclick="togglePauseGame()" title="Pause">⏸</button>
+    <button id="game-pause-btn" onclick="togglePauseGame()" title="Pause" data-l-title="titlePause">⏸</button>
   </div>
   <div id="pause-overlay" onclick="togglePauseGame()">
     <div class="pause-card">
       <div class="pause-big">⏸</div>
-      <div class="pause-title">taking a breath!</div>
-      <div class="pause-sub">tap anywhere when you're ready</div>
+      <div class="pause-title" data-l="pauseTitle">taking a breath!</div>
+      <div class="pause-sub" data-l="pauseSub">tap anywhere when you're ready</div>
     </div>
     <div id="pause-count">3</div>
   </div>
@@ -1069,9 +1283,9 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
         <div id="nova-face-placeholder">🌟</div>
         <div id="nova-idle-overlay"></div>
         <div id="nova-idle-smile"></div>
-        <div class="nova-state-badge" id="game-state-badge" data-state="watching">Watching</div>
+        <div class="nova-state-badge" id="game-state-badge" data-state="watching" data-l="badgeWatching">Watching</div>
       </div>
-      <div id="reaction-bubble">🌟 Amazing!</div>
+      <div id="reaction-bubble" data-l="reactionDefault">🌟 Amazing!</div>
       <div id="score-pop">+200</div>
     </div>
     <div id="cam-side">
@@ -1084,8 +1298,8 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
         <div id="cue-bar-wrap"><div id="cue-bar"></div></div>
       </div>
       <div id="cam-pills">
-        <div class="pill" id="p-left">👈 L</div>
-        <div class="pill" id="p-right">👉 R</div>
+        <div class="pill" id="p-left" data-l="pillLeft">👈 L</div>
+        <div class="pill" id="p-right" data-l="pillRight">👉 R</div>
         <div class="pill" id="p-both">🙌</div>
         <div class="pill" id="p-clap">👏</div>
         <div class="pill" id="p-head">🙆</div>
@@ -1097,7 +1311,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 
 <!-- v103 Freeze overlay (shown during freeze cue) -->
 <div id="freeze-overlay">
-  <div id="freeze-label">🛑 FREEZE!</div>
+  <div id="freeze-label" data-l="freezeLabel">🛑 FREEZE!</div>
   <div id="freeze-countdown"></div>
 </div>
 
@@ -1109,7 +1323,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
       <!-- v108: state badge -->
       <div id="end-state-badge" class="end-state">
         <span class="end-state-dot"></span>
-        <span class="end-state-label">Talking</span>
+        <span class="end-state-label" data-l="badgeTalking">Talking</span>
       </div>
     </div>
   </div>
@@ -1121,7 +1335,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
     <!-- nova-joined: persistent "come back tomorrow" hook (independent of the brain) -->
     <div id="end-hook" style="margin:10px 0 2px;font:600 15px 'Fredoka',cursive;color:#fbbf24;text-shadow:0 2px 8px rgba(0,0,0,0.4)"></div>
     <!-- v108: Nova's spoken goodbye, larger + auto-updates -->
-    <div id="end-msg">Loading Nova's message...</div>
+    <div id="end-msg" data-l="endMsgLoading">Loading Nova's message...</div>
     <!-- v109: Audio volume meter — proves Nova is actually speaking -->
     <div id="end-audio-meter" style="display:none;align-items:flex-end;gap:3px;height:40px;margin:8px 0;justify-content:center">
       <div class="audio-meter-bar" style="width:5px;background:linear-gradient(180deg,#10b981,#34d399);border-radius:2px;height:4px;transition:height 50ms"></div>
@@ -1137,16 +1351,16 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
     <div id="end-convo" style="margin-top:14px;width:100%;max-width:520px;display:flex;flex-direction:column;gap:8px"></div>
     <!-- v108: Kid input — voice OR type -->
     <div id="end-input-row" style="display:flex;gap:8px;margin-top:10px;width:100%;max-width:520px">
-      <input id="end-input" type="text" placeholder="Tell Nova one thing..." 
+      <input id="end-input" type="text" placeholder="Tell Nova one thing..." data-l-placeholder="endPlaceholder"
         style="flex:1;padding:12px 16px;border-radius:24px;border:1.5px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.4);color:#fff;font:500 14px 'Fredoka',cursive;outline:none"
         onkeydown="if(event.key==='Enter')sendEndMessage()">
       <button id="end-send" onclick="sendEndMessage()" 
-        style="padding:12px 20px;border-radius:24px;border:none;background:linear-gradient(135deg,#ec4899,#9f1239);color:#fff;font:600 14px 'Fredoka',cursive;cursor:pointer">Send</button>
+        style="padding:12px 20px;border-radius:24px;border:none;background:linear-gradient(135deg,#ec4899,#9f1239);color:#fff;font:600 14px 'Fredoka',cursive;cursor:pointer" data-l="send">Send</button>
     </div>
     <div id="end-actions" style="display:flex;gap:12px;margin-top:14px;flex-wrap:wrap">
-      <button id="end-again" onclick="playAgainNow()" style="background:linear-gradient(135deg,#7c6fff,#4ecdc4);border:none;color:#fff;font:700 17px 'Fredoka',cursive;padding:12px 26px;border-radius:999px;cursor:pointer;margin-right:8px">🔁 Dance again!</button>
-      <button id="end-save" onclick="saveNova()">💖 Save my Nova</button>
-      <button id="end-replay" onclick="location.reload()">🔄 Play Again</button>
+      <button id="end-again" onclick="playAgainNow()" style="background:linear-gradient(135deg,#7c6fff,#4ecdc4);border:none;color:#fff;font:700 17px 'Fredoka',cursive;padding:12px 26px;border-radius:999px;cursor:pointer;margin-right:8px" data-l="danceAgain">🔁 Dance again!</button>
+      <button id="end-save" onclick="saveNova()" data-l="saveNovaBtn">💖 Save my Nova</button>
+      <button id="end-replay" onclick="location.reload()" data-l="playAgain">🔄 Play Again</button>
     </div>
     <div id="end-save-msg" style="font:500 13px 'Fredoka',cursive;color:#fff;opacity:0;transition:opacity 0.4s;margin-top:8px;text-align:center"></div>
   </div>
@@ -1208,7 +1422,7 @@ function goToPicker(){
   const recCard = document.querySelector(rec);
   if (recCard) recCard.classList.add('recommended');
   if (subtitle) subtitle.textContent = (age && age <= 6)
-    ? "Nova picks: Hello Hello! ⚡" : "Nova's pick: Up Groove! 🕺";
+    ? T('pickerPickYoung') : T('pickerPickOld');
 }
 function pickGame(songId){
   if(typeof markUserInteraction === 'function') markUserInteraction();
@@ -1362,11 +1576,11 @@ function saveNova(){
     const btn = document.getElementById('end-save');
     if (btn) {
       btn.classList.add('saved');
-      btn.innerHTML = '✓ Saved!';
+      btn.innerHTML = T('savedBtn');
     }
     const msg = document.getElementById('end-save-msg');
     if (msg) {
-      msg.textContent = '🌟 Nova will remember you next time!';
+      msg.textContent = T('savedMsg');
       msg.style.opacity = '1';
     }
   } catch(e) {
@@ -1547,12 +1761,12 @@ window.__stopTranscriptPoll = stopTranscriptPoll;
 // Updates both recognition + game avatars in sync
 function setNovaState(state, label) {
   const labels = {
-    watching: 'Watching',
-    listening: 'Listening',
-    talking: 'Talking',
-    thinking: 'Thinking...',
+    watching: T('badgeWatching'),
+    listening: T('badgeListening'),
+    talking: T('badgeTalking'),
+    thinking: T('badgeThinking'),
   };
-  const text = label || labels[state] || 'Watching';
+  const text = label || labels[state] || T('badgeWatching');
   ['rec-state-badge', 'game-state-badge'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
@@ -1805,12 +2019,12 @@ function browserTTS(text) {
   try {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'en-US';
+    u.lang = T('speechLang');
     u.rate = 0.95;
     u.pitch = 1.35;
     u.volume = 1.0;
-    const voices = speechSynthesis.getVoices().filter(v => v.lang.startsWith('en'));
-    const pref = voices.find(v => /Samantha|Karen|Google.*Female|Zira/i.test(v.name)) || voices[0];
+    const voices = speechSynthesis.getVoices().filter(v => v.lang.startsWith(window.NOVA_HE ? 'he' : 'en'));
+    const pref = voices.find(v => /Samantha|Karen|Google.*Female|Zira|Carmit/i.test(v.name)) || voices[0];
     if(pref) u.voice = pref;
     micPause();
     u.onend = () => micResume();
@@ -1843,7 +2057,7 @@ function initEars() {
     return;
   }
   recognition = new SR();
-  recognition.lang = 'en-US';
+  recognition.lang = T('speechLang');
   recognition.continuous = true;     // ALWAYS-ON: keep listening across utterances
   recognition.interimResults = false;
   recognition.onresult = async (e) => {
@@ -1976,7 +2190,7 @@ function setMicState(on) {
     btn.classList.toggle('recording', on);
   }
   const hint = document.getElementById('rec-mic-hint');
-  if(hint) hint.textContent = on ? 'listening... just talk to Nova!' : (micEnabled ? 'paused...' : 'tap mic to start');
+  if(hint) hint.textContent = on ? T('micHintListening') : (micEnabled ? T('micHintPaused') : T('micHintTap'));
   // v110 KIDS — state badge reflects mic state (only if Nova isn't currently talking)
   if (on && !window.__novaIsTalking) setNovaState('listening');
   else if (!on && !window.__novaIsTalking) setNovaState('watching');
@@ -2107,7 +2321,7 @@ function handoffFromIntro() {
     const ov = document.getElementById('intro-overlay');
     if (!ov || !ov.classList.contains('show')) return;
     const capEl = ov.querySelector('.intro-caption');
-    if (capEl) capEl.textContent = 'preparing Nova…';
+    if (capEl) capEl.textContent = T('introPreparing');
     preRevealVision();
     let waited = 0, clientReadySent = false, poseLiveSince = 0;
     const poll = setInterval(() => {
@@ -2144,7 +2358,7 @@ function handoffFromIntro() {
       const tracksIn = (window.__novaVideoArrived && window.__novaAudioArrived) || audioOnlyReady;
       if (tracksIn && !window.__tracksInAt) window.__tracksInAt = Date.now();
       const forced = window.__tracksInAt && (Date.now() - window.__tracksInAt > 15000);
-      if (capEl && waited === 15000) capEl.textContent = 'connecting…';
+      if (capEl && waited === 15000) capEl.textContent = T('introConnecting');
       // FIX 5: avatar must show or SAY WHY — after 20s without the avatar gate, a small
       // builder-facing status line appears with the best-known reason; fallback announced.
       if (!g.avatar && waited >= 20000 && !window.__avStatusShown) {
@@ -2173,7 +2387,7 @@ function handoffFromIntro() {
       clearInterval(poll);
       window.__gateDoneAt = Date.now();
       LOG('GATE', 'ALL READY' + (forced ? ' (forced after 15s)' : '') + ' → ' + JSON.stringify(Object.keys(g).reduce((o,k)=>{o[k]=g[k]-(window.__gate.evi||g[k]);return o;},{})));
-      if (capEl) capEl.textContent = 'here she comes…';
+      if (capEl) capEl.textContent = T('introHereSheComes');
       // reveal-now with resend-until-ack (resilient against data-channel death)
       let acked = false;
       try { window.__novaRoom && window.__novaRoom.on(LivekitClient.RoomEvent.DataReceived, p => {
@@ -2395,7 +2609,7 @@ async function initDID() {
         // in parallel with room.connect. She joins a room the kid is entering.
         fetch(CFG.RENDER_URL + '/v2/dispatch', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ roomName: creds.roomName, kidId: window.__kidId }),
+          body: JSON.stringify({ roomName: creds.roomName, kidId: window.__kidId, lang: window.NOVA_LANG }),
         }).then(r => LOG('ROOM', `Nova dispatched at tap (${r.status})`))
           .catch(e => LOG('ERROR', 'tap dispatch failed: ' + e.message));
       }
@@ -2569,18 +2783,18 @@ function showNovaRetryUI() {
     font-family:'Fredoka',sans-serif;`;
   div.innerHTML = `
     <div style="font-size:48px;margin-bottom:8px;">😔</div>
-    <div style="font-size:18px;font-weight:600;margin-bottom:8px;">Nova didn't connect</div>
+    <div style="font-size:18px;font-weight:600;margin-bottom:8px;">${T('retryTitle')}</div>
     <div style="font-size:13px;opacity:0.8;margin-bottom:16px;line-height:1.4;">
-      Her audio/video didn't arrive. This usually means Runway's busy.
+      ${T('retryBody')}
     </div>
     <button onclick="window.__retryNova()" style="
       padding:10px 24px;border:none;border-radius:20px;
       background:#84cc16;color:#0a0;font:600 14px 'Fredoka',sans-serif;
-      cursor:pointer;margin-right:8px;">🔄 Try again</button>
+      cursor:pointer;margin-right:8px;">${T('retryBtn')}</button>
     <button onclick="location.reload()" style="
       padding:10px 24px;border:none;border-radius:20px;
       background:rgba(255,255,255,0.1);color:#fff;font:600 14px 'Fredoka',sans-serif;
-      cursor:pointer;">↻ Reload page</button>
+      cursor:pointer;">${T('reloadBtn')}</button>
   `;
   document.body.appendChild(div);
 }
@@ -2732,6 +2946,13 @@ function setupNovaRoomEvents(room) {
       LOG('INTRO', 'Nova named "' + window.__introCuePart + '"' + (msg.joint ? ' (joint-locked: ' + msg.joint + ')' : '') + ' → glow moves there (pulse ring on)');
       return;
     }
+    // HEBREW GENDER CHIP (Part 4, he-only): worker asks "ילד או ילדה?" with her
+    // voice — two big chips appear; the answer goes back as {kind:'gender'} and
+    // is whispered into her context (Hebrew is gendered; neutral-plural until known).
+    if (msg.kind === 'gender-chip') {
+      try { showGenderChips(); } catch(_){}
+      return;
+    }
     // COMMERCIAL-INTRO C.2 (STT echo, Lexi steal): show exactly what she heard —
     // truncations become visible instead of silently rolled past.
     if (msg.kind === 'stt-echo') {
@@ -2874,7 +3095,7 @@ function _ensureEl(id, parent) {
 }
 function setStateBadge(s) {
   const el = _ensureEl('nova-state-badge');
-  const label = { watching:'Watching', listening:'Listening', talking:'Talking', thinking:'Thinking' }[s] || 'Listening';
+  const label = { watching:T('badgeWatching'), listening:T('badgeListening'), talking:T('badgeTalking'), thinking:T('badgeThinking') }[s] || T('badgeListening');
   el.className = s;
   el.innerHTML = '<span class="dot"></span>' + label;
   el.style.display = 'flex';
@@ -2883,7 +3104,7 @@ function setStateBadge(s) {
 function showSttEcho(text) {
   if (!text) return;
   const el = _ensureEl('stt-echo');
-  el.textContent = 'Nova heard: ' + text;
+  el.textContent = T('sttEchoPrefix') + text;
   el.style.display = 'block';
   clearTimeout(window.__sttEchoT);
   window.__sttEchoT = setTimeout(() => { el.style.display = 'none'; }, 4000);
@@ -2936,9 +3157,9 @@ function showNameCaptureButtons() {
   const wrap = document.createElement('div');
   wrap.id = 'name-path-btns';
   wrap.innerHTML = `
-    <button class="np-btn" onclick="window.__pickPath('voice')">🎤 Say it</button>
-    <button class="np-btn" onclick="window.__pickPath('type')">⌨️ Type it</button>
-    <button class="np-btn" onclick="window.__pickPath('random')">✨ Surprise me</button>
+    <button class="np-btn" onclick="window.__pickPath('voice')">${T('sayIt')}</button>
+    <button class="np-btn" onclick="window.__pickPath('type')">${T('typeIt')}</button>
+    <button class="np-btn" onclick="window.__pickPath('random')">${T('surpriseMe')}</button>
   `;
   recPhase.appendChild(wrap);
   LOG('UI', '3-path name buttons shown');
@@ -2947,23 +3168,57 @@ function showNameCaptureButtons() {
 window.__pickPath = function(path) {
   LOG('UI', `kid chose path: ${path}`);
   if (path === 'random') {
-    const names = ['Star Friend', 'Sparkle Pal', 'Dance Buddy', 'Cool Kid', 'Rainbow'];
+    const names = TA('randomNames');
     const picked = names[Math.floor(Math.random() * names.length)];
     memory.name = picked;
-    addBubble(`(call me ${picked})`, 'kid');
-    novaSay(`Oh ${picked}! What a magic name! Ready to dance?`);
+    addBubble(T('nameCallMe', { picked }), 'kid');
+    novaSay(T('nameRandomSay', { picked }));
   } else if (path === 'type') {
     const inp = document.getElementById('rec-input');
     if (inp) inp.focus();
-    novaSay("Go ahead — type your name!");
+    novaSay(T('nameType'));
   } else if (path === 'voice') {
-    novaSay("I'm listening... what's your name?");
+    novaSay(T('nameVoice'));
   }
   // hide buttons after pick
   const btns = document.getElementById('name-path-btns');
   if (btns) btns.style.opacity = '0.3';
 };
 window.showNameCaptureButtons = showNameCaptureButtons;   // mic-denied fallback + phase1-loop harness
+
+// HEBREW GENDER CHIP (Part 4, he-only): two big chips + tap-skip. Answer → worker
+// {kind:'gender'} → stored with the name, whispered to her context every session.
+function showGenderChips() {
+  if (!window.NOVA_HE) return;                             // Hebrew-only flow
+  if (document.getElementById('gender-chips')) return;
+  const recPhase = document.getElementById('phase-recognition');
+  if (!recPhase) return;
+  const wrap = document.createElement('div');
+  wrap.id = 'gender-chips';
+  wrap.style.cssText = 'position:absolute;bottom:150px;left:50%;transform:translateX(-50%);display:flex;gap:14px;z-index:101;animation:fadeUp 0.5s ease-out';
+  const mk = (val, key, grad) => {
+    const b = document.createElement('button');
+    b.textContent = T(key);
+    b.style.cssText = 'padding:16px 30px;border:none;border-radius:28px;cursor:pointer;color:#fff;' +
+      "font:700 20px 'Baloo 2','Varela Round',sans-serif;background:" + grad + ';box-shadow:0 6px 24px rgba(0,0,0,.35)';
+    b.onclick = () => {
+      try { if (window.__novaSend) window.__novaSend({ kind: 'gender', value: val }); } catch(_){}
+      try { const d = JSON.parse(localStorage.getItem('nova_kid_data') || '{}'); d.gender = val; localStorage.setItem('nova_kid_data', JSON.stringify(d)); } catch(_){}
+      wrap.remove();
+      LOG('UI', 'gender chip → ' + val);
+    };
+    return b;
+  };
+  wrap.appendChild(mk('boy', 'genderBoy', 'linear-gradient(135deg,#3b82f6,#1d4ed8)'));
+  wrap.appendChild(mk('girl', 'genderGirl', 'linear-gradient(135deg,#ec4899,#a21caf)'));
+  const skip = mk('skip', 'genderSkip', 'rgba(255,255,255,0.14)');
+  skip.style.fontSize = '15px'; skip.style.padding = '12px 18px';
+  wrap.appendChild(skip);
+  recPhase.appendChild(wrap);
+  setTimeout(() => { try { wrap.remove(); } catch(_){} }, 30000);   // never stuck on screen
+  LOG('UI', 'gender chips shown (he)');
+}
+window.showGenderChips = showGenderChips;
 
 window._sendChat = async function() {
   const inp = document.getElementById('rec-input');
@@ -3209,7 +3464,9 @@ function setEndState(state) {
   if (!dot || !lbl) return;
   dot.classList.remove('talking', 'listening', 'thinking');
   dot.classList.add(state);
-  lbl.textContent = state.charAt(0).toUpperCase() + state.slice(1);
+  lbl.textContent = window.NOVA_HE
+    ? ({ talking: T('badgeTalking'), listening: T('badgeListening'), thinking: T('badgeThinking') }[state] || state)
+    : state.charAt(0).toUpperCase() + state.slice(1);
 }
 window.setEndState = setEndState;
 
@@ -4309,7 +4566,14 @@ let lastReactionTime = 0;
 //   Stage 1 (instant): "Whoa!" — kid gets feedback NOW
 //   Stage 2 (~800ms):  "Your RIGHT hand was SO high!" — specific, lip-synced
 // ═══════════════════════════════════════════════════════════════
-const FILLERS = {
+const FILLERS = window.NOVA_HE ? {
+  hit_fast:   ['וואו!', 'בום!', 'יש!', 'פאו!', 'כןןן!'],
+  hit_normal: ['יש!', 'קלטתי!', 'יופי!', 'הנה!', 'אווו!'],
+  hit_streak: ['וואו וואו!', 'אש עליכם!', 'תראו אתכם!'],
+  miss:       ['כמעט!', 'אווו קרוב!', 'עוד רגע!', 'שימו לב…'],
+  freeze:     ['קפאו!', 'להחזיק!', 'פסל!'],
+  cue_demo:   ['תסתכלו!', 'ככה!', 'הנה זה בא!', 'מוכנים?'],
+} : {
   hit_fast:   ['Whoa!', 'Boom!', 'Yes!', 'Pop!', 'Snap!', 'Yeahhh!'],
   hit_normal: ['Yes!', 'Got it!', 'Yay!', 'Nice!', 'There!', 'Ooh!'],
   hit_streak: ['Whoa whoa!', 'Yeahhh!', "You're on fire!", 'Look at you!'],
@@ -4555,13 +4819,24 @@ function novaAnticipate(action, dir) {
   lastAnticipationTime = now;
 
   // nova-joined isolations: Nova calls the part + the side ("head, left!")
-  const PART = { headbob:'head', shrug:'shoulder', ribslide:'ribs', hipbounce:'hips' };
+  const PART = window.NOVA_HE
+    ? { headbob:'ראש', shrug:'כתף', ribslide:'צלעות', hipbounce:'ירכיים' }
+    : { headbob:'head', shrug:'shoulder', ribslide:'ribs', hipbounce:'hips' };
   let phrase;
   if (PART[action]) {
-    const side = dir === 'L' ? 'left' : dir === 'R' ? 'right' : '';
+    const side = window.NOVA_HE ? (dir === 'L' ? 'שמאל' : dir === 'R' ? 'ימין' : '')
+                                : (dir === 'L' ? 'left' : dir === 'R' ? 'right' : '');
     phrase = side ? `${PART[action]}, ${side}!` : `${PART[action]}!`;
   } else {
-    const phrases = {
+    const phrases = window.NOVA_HE ? {
+      'right':  ['יד ימין מוכנה!', 'הנה זה בא!', 'יד ימין!'],
+      'left':   ['יד שמאל מוכנה!', 'עכשיו שמאל!', 'תור שמאל!'],
+      'clap':   ['מתכוננים למחוא כף!', 'ידיים מוכנות!', 'מחיאה מגיעה!'],
+      'both':   ['שתי ידיים למעלה!', 'מוכנים, גדול!', 'שתי הזרועות!'],
+      'head':   ['ידיים על הראש!', 'תור הראש!', 'למעלה!'],
+      'freeze': ['קפאו עוד רגע!', 'מתכוננים… פסל!', 'להחזיק חזק!'],
+      'combo':  ['להזיז הכול!', 'כל הגוף!', 'הכול עכשיו!'],
+    } : {
       'right':  ['Right hand ready!', 'Here it comes!', 'Get that right hand!'],
       'left':   ['Left hand ready!', 'Now the left!', 'Lefty time!'],
       'clap':   ['Get ready to clap!', 'Hands ready!', 'Clap coming!'],
@@ -4570,14 +4845,14 @@ function novaAnticipate(action, dir) {
       'freeze': ['FREEZE coming!', 'Get ready... STATUE!', 'Hold tight!'],
       'combo':  ['Move it ALL!', 'Whole body!', 'Everything now!'],
     };
-    const arr = phrases[action] || ['Here it comes!'];
+    const arr = phrases[action] || (window.NOVA_HE ? ['הנה זה בא!'] : ['Here it comes!']);
     phrase = arr[Math.floor(Math.random()*arr.length)];
   }
   // Use browser TTS for the anticipation — fast, no D-ID warm-up needed
   if(typeof speechSynthesis !== 'undefined') {
     try {
       const u = new SpeechSynthesisUtterance(phrase);
-      u.lang = 'en-US'; u.rate = 1.0; u.pitch = 1.35; u.volume = 0.85;
+      u.lang = T('speechLang'); u.rate = 1.0; u.pitch = 1.35; u.volume = 0.85;
       speechSynthesis.speak(u);
     } catch(e){}
   }
@@ -4703,7 +4978,7 @@ function togglePauseGame() {
       if (ov) ov.classList.remove('show', 'counting');
       audio.play().catch(()=>{});
       if (vid && vid !== audio) { try { vid.play().catch(()=>{}); } catch(_){} }
-      if (btn) { btn.textContent = '⏸'; btn.classList.remove('paused'); btn.title = 'Pause'; }
+      if (btn) { btn.textContent = '⏸'; btn.classList.remove('paused'); btn.title = T('titlePause'); }
       __gamePaused = false;
       try { if (window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'resume' } }); } catch(_){}
       LOG('GAME', 'resumed after 3-2-1');
@@ -4712,14 +4987,14 @@ function togglePauseGame() {
     audio.pause();
     if (vid && vid !== audio) { try { vid.pause(); } catch(_){} }   // dual-source: freeze her clip too
     if (ov) { ov.classList.add('show'); ov.classList.remove('counting'); }
-    if (btn) { btn.textContent = '▶'; btn.classList.add('paused'); btn.title = 'Resume'; }
+    if (btn) { btn.textContent = '▶'; btn.classList.add('paused'); btn.title = T('titleResume'); }
     __gamePaused = true;
     try { if (window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'pause' } }); } catch(_){}
     LOG('GAME', 'paused (everything frozen)');
   }
 }
 function exitGame() {
-  if (!confirm('Stop dancing and say goodbye to Nova?')) return;
+  if (!confirm(T('exitConfirm'))) return;
   LOG('GAME', 'kid exited mid-game');
   const audio = window.__songAudio;
   if (audio) { try { audio.pause(); } catch(_) {} }
@@ -4739,7 +5014,16 @@ window.__startGame = startGame; window.__endGame = endGame;   // (self-test hook
 //     mp4 (canplaythrough) · cues (timeline armed) · framed (body in frame) · bridge (her line finished).
 // The browser owns budget + timing; the worker just speaks each beat it asks for.
 // All state is on window.* so phase2-loop.js can machine-check it.
-const TRANS_CAPTIONS = {
+const TRANS_CAPTIONS = window.NOVA_HE ? {
+  hype:   s => ({hello:"אוה — הלו הלו! אני מתה על השיר הזה! ⚡", joined:"יששש — אפ גרוב! השיר שלי! 🕺", wave:"אוה — הגל! כזה זורם! 🌊"}[s]||"אוה — בחירה מעולה!"),
+  tip:    s => ({hello:"כשהאור נדלק על היד שלכם — זאת אני!", joined:"מחקים את הגוף שלי — ראש, כתפיים, צלעות, ירכיים!", wave:"תנו לאור לזרום במעלה היד! 🌊"}[s]||"תסתכלו על האורות — זאת אני!"),
+  framing:()=> "תתרחקו צעד קטן כדי שאראה את כולכם ✨",
+  framed: ()=> "מושלם — בדיוק שם! 🌟",
+  slow:   ()=> "עוד רגע — תנערו את הידיים! ✨",
+  switch: ()=> "אוה — עוד יותר טוב! 🌟",
+  fail:   ()=> "הממ — השיר הזה מתבייש! תבחרו אחר! 🌟",
+  dancealong:()=>"יש לך אנרגיה של כוכב — בואו פשוט נרקוד! 🌊",
+} : {
   hype:   s => ({hello:"ohh — Hello Hello! I LOVE this one! ⚡", joined:"YESSS — Up Groove! my song! 🕺", wave:"ohh — the Wave! so smooth! 🌊"}[s]||"ohh — great pick!"),
   tip:    s => ({hello:"when the light glows on your hand — that's me!", joined:"copy my body — head, shoulders, ribs, hips!", wave:"let the light ride up your arm! 🌊"}[s]||"watch the lights — that's me!"),
   framing:()=> "step back so I can see ALL of you! ✨",
@@ -5514,8 +5798,7 @@ function endGame() {
     if (window.__endScreenShown) return;
     window.__endScreenShown = true;
     showPhase('phase-end');
-    document.getElementById('end-title').textContent =
-      ['So proud of you!','Good effort!','Great work!','Amazing dancer!','PERFECT! 🔥'][stars-1];
+    document.getElementById('end-title').textContent = TA('endTitles')[stars-1];
     const starEl = document.getElementById('end-stars');
     starEl.textContent = '';
     let s = 0;
@@ -5524,9 +5807,9 @@ function endGame() {
       else if(s < 5) { starEl.textContent += '☆'; s++; }
       else clearInterval(starIv);
     }, 250);
-    document.getElementById('end-pts').textContent = score + ' pts';
+    document.getElementById('end-pts').textContent = score + T('pts');
     document.getElementById('end-detail').textContent =
-      `${hits} of ${attempts} moves · best streak: ${maxCombo}`;
+      T('endDetail', { hits, attempts, streak: maxCombo });
     LOG('ENDING', 'end screen + stars revealed (after her goodbye)');
   };
   setTimeout(() => { if (!window.__endScreenShown) { LOG('ENDING', '30s fallback → end screen (no goodbye-done heard)'); window.__showEndScreen(); } }, 30000);   // measured: full 4-beat goodbye takes 16-26s through EVI
@@ -5556,12 +5839,7 @@ function endGame() {
   const hookEl = document.getElementById('end-hook');
   if (hookEl) {
     const who = memory.name ? memory.name + ', ' : '';
-    const HOOKS = [
-      `${who}tomorrow I'll teach you the SPIN 🌀`,
-      `${who}next time we add the ROBOT ARMS 🤖`,
-      `come back tomorrow — we'll do the WAVE 🌊`,
-      `${who}next time: the SUPER JUMP! 🚀`,
-    ];
+    const HOOKS = TA('hooks').map(h => h.split('{who}').join(who));
     hookEl.textContent = HOOKS[Math.floor(maxCombo + hits) % HOOKS.length];
   }
 
@@ -5604,9 +5882,9 @@ function endGame() {
       if (inp) inp.focus();
     } catch (e) {
       LOG('ERROR', 'goodbye fetch failed', { msg: e.message });
-      const fallback = earliestMoment 
-        ? `${memory.name||'You'}, I loved that ${earliestMoment}! Did you have fun?`
-        : `${memory.name ? memory.name+', ' : ''}I had SO much fun! What was your favorite move?`;
+      const fallback = earliestMoment
+        ? T('goodbyeFallbackMoment', { name: memory.name || (window.NOVA_HE ? 'חבר שלי' : 'You'), moment: earliestMoment })
+        : T('goodbyeFallback', { who: memory.name ? memory.name + ', ' : '' });
       document.getElementById('end-msg').textContent = fallback;
       setEndState('listening');
     }
@@ -5710,7 +5988,7 @@ window.__sessionPrefetchTs = performance.now();
 // dispatching her into an empty room at page load left her tracks unpublished (verified).
 window.__sessionPrefetch = fetch(CFG.RENDER_URL + '/v2/create-session', {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ kidId: window.__kidId, dispatch: false, voiceOnly: /[?&]voiceonly/.test(location.search),
+  body: JSON.stringify({ kidId: window.__kidId, dispatch: false, lang: window.NOVA_LANG, voiceOnly: /[?&]voiceonly/.test(location.search),
     directGame: (!/[?&]nonova/.test(location.search) && (location.search.match(/[?&]game=(\w+)/) || [])[1]) || null }),
 }).then(r => { LOG('BOOT', `session PREFETCH done (${r.status}) — creds ready before tap`); return r; })
   .catch(e => { LOG('BOOT', `session prefetch failed: ${e.message}`); return null; });
@@ -6064,7 +6342,7 @@ window.__initRunwayNova = initDID;
 (function(){
   const btn = document.createElement('button');
   btn.id = 'audio-unlock-btn';
-  btn.textContent = '🔊 Tap to hear Nova';
+  btn.textContent = (window.T ? T('audioUnlock') : '🔊 Tap to hear Nova');
   btn.style.cssText = 'display:none;position:fixed;left:50%;bottom:18vh;transform:translateX(-50%);z-index:99999;' +
     'padding:16px 28px;border:none;border-radius:999px;cursor:pointer;color:#2a0f34;' +
     "font:800 20px 'Fredoka','Baloo 2',cursive;background:linear-gradient(93deg,#ffd76e,#ff6fd8);" +
