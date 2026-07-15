@@ -3004,6 +3004,13 @@ function setupNovaRoomEvents(room) {
       LOG('VOICE-DIAG', 'env: ' + JSON.stringify(msg).slice(0, 220));
       return;
     }
+    // MAGIC REVEAL SYNC (2026-07-15): pod voice is invisible to the room-audio poll —
+    // the worker announces real pod audio so the reveal fade fires on her TRUE first word.
+    if (msg.kind === 'pod-audible') {
+      if (!window.__novaClipAudible) { window.__clipAudibleAt = Date.now(); LOG('BODY', 'pod audio flowing → reveal may fire'); }
+      window.__novaClipAudible = true;
+      return;
+    }
     // FRIEND MODE (v118): instant WOW = SFX + light (non-verbal, nothing to
     // lipsync) — her spoken celebration follows a beat later, lips moving.
     if (msg.kind === 'sfx') {
@@ -6274,6 +6281,14 @@ window.__initRunwayNova = initDID;
   filter:blur(4px);pointer-events:none;animation:novaFloorPulse 3s ease-in-out infinite}
 @keyframes novaFloorPulse{0%,100%{opacity:.65}50%{opacity:1}}
 #nova-stage.gesturing{box-shadow:0 12px 60px rgba(255,150,255,.85);border-color:rgba(255,200,255,.6)}
+/* MAGIC REVEAL (2026-07-15): the avatar lives where Runway used to — inside the
+   Nova frame — and materializes together with her first word. */
+#nova-stage.in-frame{position:absolute;inset:0;left:auto;bottom:auto;width:100%;height:100%;
+  border-radius:inherit;border:none;box-shadow:none;z-index:5}
+#rec-avatar-frame.pod-live > :not(#nova-stage){visibility:hidden}
+#rec-avatar-frame.pod-live{position:relative}
+#nova-stage.magic-in{animation:novaMagicIn .9s cubic-bezier(.2,1.5,.4,1)}
+@keyframes novaMagicIn{0%{opacity:0;transform:scale(.55)}60%{opacity:1}100%{opacity:1;transform:scale(1)}}
 </style>
 <script>
 (function(){
@@ -6302,8 +6317,32 @@ window.__initRunwayNova = initDID;
        liveBufferLatencyMaxLatency:0.9, liveBufferLatencyMinRemain:0.2});   // ORDER-LIPSYNC step 2
     p.attachMediaElement(v); p.load();
     p.on(mpegts.Events.ERROR, () => kill('stream error (pod down?)'));
-    v.onplaying = () => { if (dead) return; stage.style.display='block'; ok = true;
-      try { LOG('BODY', 'full-body Nova LIVE on her floor'); } catch(_){} };
+    // MAGIC REVEAL (2026-07-15, builder's rules): the avatar does NOT appear on
+    // stream-connect anymore. It waits hidden until the page's reveal moment
+    // (window.__revealAt — the fade that fires on her first word), then
+    // materializes INSIDE the Nova frame (where Runway used to live), so face,
+    // body and voice land as ONE magic beat.
+    let placed = false;
+    function magicPlace(){
+      if (placed || dead) return; placed = true;
+      const frame = document.getElementById('rec-avatar-frame');
+      if (frame) {
+        frame.classList.add('pod-live');
+        frame.appendChild(stage);
+        stage.classList.add('in-frame');
+      }
+      stage.style.display = 'block';
+      stage.classList.add('magic-in');
+      setTimeout(() => stage.classList.remove('magic-in'), 1200);
+      try { LOG('BODY', 'MAGIC REVEAL — avatar materialized in the Nova frame' + (frame ? '' : ' (frame missing → floor spot)')); } catch(_){}
+    }
+    const revealPoll = setInterval(() => {
+      if (dead) { clearInterval(revealPoll); return; }
+      if (ok && window.__revealAt) { clearInterval(revealPoll); magicPlace(); }
+    }, 150);
+    v.onplaying = () => { if (dead) return; ok = true;
+      if (window.__revealAt) magicPlace();   // stream came up after the reveal → place now
+      try { LOG('BODY', 'full-body stream ready' + (placed ? '' : ' — holding for the magic reveal')); } catch(_){} };
     p.play().catch(()=>{});
     try {
       ws = new WebSocket(BRIDGE + '/ws?persona=dance');
