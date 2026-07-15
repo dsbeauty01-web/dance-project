@@ -2481,6 +2481,13 @@ async function initDID() {
       return;
     }
     window.__novaRoom = room;
+    // AUDIO-UNLOCK (2026-07-15): real browsers block LiveKit playback when her audio
+    // track arrives after the tap's transient user-activation expires (~5s). Headless
+    // QA force-allows autoplay, so only real sessions go silent. Hook the status event.
+    try {
+      room.on(LivekitClient.RoomEvent.AudioPlaybackStatusChanged, () => { try { window.__audioUnlockCheck && window.__audioUnlockCheck(); } catch(_){} });
+      setTimeout(() => { try { window.__audioUnlockCheck && window.__audioUnlockCheck(); } catch(_){} }, 1500);
+    } catch(_){}
 
     // PUBLISH the mic to the worker. Hume EVI hears this audio directly
     // (speech-to-speech) — there is NO separate STT anymore (Deepgram deleted
@@ -6032,6 +6039,44 @@ window.__initRunwayNova = initDID;
     stage.style.opacity = (ph === 'dance') ? '0' : '1';
     stage.style.pointerEvents = 'none';
   } catch(_){} }, 1200);
+})();
+</script>
+<script>
+// ═══ AUDIO UNLOCK (2026-07-15) — "she is silent on real browsers" fix ═══════════
+// Chrome blocks audio playback for tracks that attach after user-activation expires.
+// This module: (1) shows a big 🔊 button whenever the room says playback is blocked,
+// (2) any tap anywhere retries room.startAudio(), (3) the button also plays a WebAudio
+// chime through the same output — if the kid taps and hears NO chime, the problem is
+// the device volume/output, not Nova.
+(function(){
+  const btn = document.createElement('button');
+  btn.id = 'audio-unlock-btn';
+  btn.textContent = '🔊 Tap to hear Nova';
+  btn.style.cssText = 'display:none;position:fixed;left:50%;bottom:18vh;transform:translateX(-50%);z-index:99999;' +
+    'padding:16px 28px;border:none;border-radius:999px;cursor:pointer;color:#2a0f34;' +
+    "font:800 20px 'Fredoka','Baloo 2',cursive;background:linear-gradient(93deg,#ffd76e,#ff6fd8);" +
+    'box-shadow:0 14px 40px rgba(255,111,216,.55);align-items:center;gap:8px';
+  document.body.appendChild(btn);
+  function chime(){ try{ const c=new (window.AudioContext||window.webkitAudioContext)();
+    const o=c.createOscillator(), g=c.createGain(); o.type='sine'; o.frequency.value=880;
+    g.gain.setValueAtTime(.0001,c.currentTime); g.gain.exponentialRampToValueAtTime(.2,c.currentTime+.02);
+    g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+.35);
+    o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime+.4); c.resume(); }catch(_){} }
+  window.__audioUnlockCheck = function(){
+    const room = window.__novaRoom;
+    const blocked = !!(room && room.canPlaybackAudio === false);
+    btn.style.display = blocked ? 'flex' : 'none';
+    if (typeof LOG === 'function') LOG('AUDIO', 'playback ' + (blocked ? 'BLOCKED → unlock button shown' : 'allowed'));
+  };
+  async function unlock(){
+    const room = window.__novaRoom;
+    try { if (room) { await room.startAudio(); if (typeof LOG === 'function') LOG('AUDIO', 'startAudio() OK — she is audible'); } }
+    catch(e){ if (typeof LOG === 'function') LOG('AUDIO', 'startAudio failed: ' + (e && e.message)); }
+    window.__audioUnlockCheck();
+  }
+  btn.addEventListener('click', () => { chime(); unlock(); });
+  // any tap anywhere quietly re-arms audio (idempotent, no chime)
+  document.addEventListener('pointerdown', (e) => { if (e.target !== btn) unlock(); }, { passive: true });
 })();
 </script>
 </body>
