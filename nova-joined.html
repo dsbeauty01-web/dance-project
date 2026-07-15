@@ -6001,8 +6001,8 @@ window.__initRunwayNova = initDID;
 (function(){
   const q = new URLSearchParams(location.search);
   if (q.get('novabody') === '0') return;
-  const FLV    = q.get('flv')    || 'https://u6m9xwo9s3l2iz-8080.proxy.runpod.net/live/dance_k.flv';
-  const BRIDGE = q.get('bridge') || 'wss://u6m9xwo9s3l2iz-8765.proxy.runpod.net';
+  const FLV    = q.get('flv')    || 'https://2yjr769ejqp17v-8080.proxy.runpod.net/live/dance_k.flv';   // nova-v9 (2026-07-15)
+  const BRIDGE = q.get('bridge') || 'wss://2yjr769ejqp17v-8765.proxy.runpod.net';
   const stage = document.createElement('div');
   stage.id = 'nova-stage';
   stage.innerHTML = '<video id="nova-body" muted playsinline></video><div class="floor"></div>';
