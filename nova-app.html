@@ -1122,6 +1122,12 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
       <span data-l="arrivalCta">🌟 Let's dance</span>
     </button>
     <button id="arrival-skip-btn" onclick="onArrivalSkip()" data-l="skip">Skip ▶︎</button>
+    <div id="legal-foot">
+      <span id="ai-note"></span><br>
+      <a href="#" onclick="showLegal('privacy');return false" id="lf-privacy"></a> ·
+      <a href="#" onclick="showLegal('terms');return false" id="lf-terms"></a> ·
+      <a href="#" onclick="showLegal('parents');return false" id="lf-parents"></a>
+    </div>
   </div>
 </div>
 
@@ -6519,5 +6525,11 @@ window.__initRunwayNova = initDID;
   window.hideLegal = function(){ document.getElementById('legal-ov').classList.remove('show'); };
 })();
 </script>
+<div id="legal-ov" onclick="if(event.target===this)hideLegal()">
+  <div id="legal-card">
+    <button id="legal-x" onclick="hideLegal()">✕</button>
+    <div id="legal-body"></div>
+  </div>
+</div>
 </body>
 </html>
