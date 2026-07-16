@@ -1658,7 +1658,8 @@ function autoLogFlush(useBeacon) {
   const body = JSON.stringify({ room: _autoRoom, lines: _autoQ.splice(0, 400) });
   try {
     const url = 'https://novapython.onrender.com/v2/log';
-    if (useBeacon && navigator.sendBeacon) navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
+    // text/plain: sendBeacon with application/json is blocked cross-origin (no preflight); FastAPI parses the body regardless
+    if (useBeacon && navigator.sendBeacon) navigator.sendBeacon(url, new Blob([body], { type: 'text/plain' }));
     else fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
   } catch (_) {}
 }
