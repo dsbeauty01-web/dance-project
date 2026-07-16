@@ -1646,11 +1646,37 @@ function liveLogPush(line) {
 }
 if (LIVE_LOG) window.addEventListener('beforeunload', () => liveLogFlush(true));
 
+// AUTO SESSION LOG (2026-07-16, builder: "each session should have auto log"):
+// every session ships its LOG lines to the server — readable at /v2/log/recent
+// without the manual ≡→save dance. ?autolog=0 disables.
+const AUTO_LOG = !/[?&]autolog=0/.test(location.search);
+let _autoQ = [], _autoTimer = null, _autoRoom = null;
+function autoLogFlush(useBeacon) {
+  if (!_autoQ.length) return;
+  _autoRoom = _autoRoom || window.__novaRoomName || (window.__novaRoom && window.__novaRoom.name) || null;
+  if (!_autoRoom) return;                      // pre-room lines flush once the room exists
+  const body = JSON.stringify({ room: _autoRoom, lines: _autoQ.splice(0, 400) });
+  try {
+    const url = 'https://novapython.onrender.com/v2/log';
+    if (useBeacon && navigator.sendBeacon) navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
+    else fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
+  } catch (_) {}
+}
+function autoLogPush(line) {
+  if (!AUTO_LOG) return;
+  _autoQ.push('[' + line.t + 's] [' + line.tag + '] ' + line.msg + (line.data ? ' ' + JSON.stringify(line.data) : ''));
+  if (_autoQ.length > 3000) _autoQ = _autoQ.slice(-3000);
+  if (!_autoTimer) _autoTimer = setInterval(() => autoLogFlush(false), 8000);
+}
+if (AUTO_LOG) window.addEventListener('beforeunload', () => autoLogFlush(true));
+if (AUTO_LOG) document.addEventListener('visibilitychange', () => { if (document.hidden) autoLogFlush(true); });
+
 function LOG(tag, msg, data) {
   const t = ((performance.now() - T0) / 1000).toFixed(3);
   const line = { t, tag, msg, data: data || null };
   LOG_BUFFER.push(line);
   liveLogPush(line);
+  try { autoLogPush(line); } catch (_) {}
   // also stream to console
   const fmt = `[${t}s] [${tag}] ${msg}` + (data ? ' ' + JSON.stringify(data) : '');
   console.log(fmt);
