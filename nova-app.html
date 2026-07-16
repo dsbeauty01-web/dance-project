@@ -3003,6 +3003,7 @@ function setupNovaRoomEvents(room) {
     // truncations become visible instead of silently rolled past.
     if (msg.kind === 'stt-echo') {
       LOG('HEARD', 'Nova heard: "' + (msg.text || '') + '"');
+      window.__lastHeardAt = Date.now();   // SPEECH-GRACE: kid-talking clock
       try { showSttEcho(msg.text || ''); } catch(_){}
       return;
     }
