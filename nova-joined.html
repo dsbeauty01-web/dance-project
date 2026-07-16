@@ -621,6 +621,16 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
 #trans-sub{position:absolute;left:50%;bottom:10%;transform:translateX(-50%);
   font-family:'Fredoka',cursive;font-weight:500;font-size:clamp(13px,2.2vmin,17px);
   color:rgba(255,255,255,.6);text-shadow:0 1px 10px rgba(0,0,0,.6)}
+/* PRE-GAME DEMO VIDEO (FINISH-THE-GAME 2026-07-16): a real session recording of the
+   picked game rides the load as a portrait PiP — the kid SEES the game they're about
+   to play. Muted (the live bridge voice owns the room); sits under the caption/guide
+   in DOM order so the step-back prompts always paint on top. */
+#pre-demo{position:absolute;right:2.5vw;bottom:2.5vh;height:52vh;aspect-ratio:9/16;
+  border-radius:18px;border:2px solid rgba(167,139,250,.5);object-fit:cover;
+  box-shadow:0 12px 44px rgba(0,0,0,.55),0 0 30px rgba(167,139,250,.25);
+  opacity:0;transform:translateY(14px) scale(.97);pointer-events:none;
+  transition:opacity .5s ease,transform .5s ease}
+#pre-demo.showing{opacity:1;transform:none}
 
 /* ═══════════════════════════════════════════
    PHASE 4: GAME — the song
@@ -1234,6 +1244,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   <video id="trans-cam" autoplay playsinline muted></video>
   <div id="trans-scrim"></div>
   <div id="trans-glow"></div>
+  <video id="pre-demo" muted playsinline preload="none"></video>
   <div id="trans-frameguide"></div>
   <div id="trans-cap" data-l="transGettingReady">getting ready…</div>
   <div id="trans-sub" data-l="transSub">Nova's setting up the magic ✨</div>
@@ -1384,8 +1395,34 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 function showPhase(id){
   document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  // the pre-game demo video lives only on the transition screen — any other phase kills it
+  if (id !== 'phase-transition') { try { hidePreDemo(); } catch(_){} }
   // TASK 4: phase transitions with timestamps → session log (the loop's eyes, forever)
   (window.__phaseLog = window.__phaseLog || []).push({ phase: id, at: Math.round(performance.now()) });
+}
+
+// PRE-GAME DEMO VIDEO (FINISH-THE-GAME 2026-07-16): the committed session recordings
+// (pre-upgroove.mp4 / pre-wave.mp4, portrait 720x1280) ride the load as a muted PiP
+// on the transition screen. pickGame() calls this before startTransition, so it also
+// covers change-mind re-picks; showPhase() kills it on any exit from the transition.
+const PRE_DEMO_SRC = { joined: 'pre-upgroove.mp4', wave: 'pre-wave.mp4' };
+function showPreDemo(songId){
+  const v = document.getElementById('pre-demo');
+  if (!v) return;
+  const src = PRE_DEMO_SRC[songId];
+  if (!src) { hidePreDemo(); return; }   // hello has no session recording yet
+  if (!(v.getAttribute('src') || '').endsWith(src)) { v.src = src; v.load(); }
+  v.muted = true;                        // her live voice owns the room
+  try { v.currentTime = 0; } catch(_){}
+  v.classList.add('showing');
+  v.play().catch(()=>{});
+  if (typeof LOG === 'function') LOG('TRANS', `pre-game demo video → ${src}`);
+}
+function hidePreDemo(){
+  const v = document.getElementById('pre-demo');
+  if (!v || !v.classList.contains('showing')) return;
+  v.classList.remove('showing');
+  try { v.pause(); } catch(_){}
 }
 function onArrivalTap(){
   // v103: log first so we know click registered
@@ -1444,6 +1481,11 @@ function goToPicker(){
 }
 function pickGame(songId){
   if(typeof markUserInteraction === 'function') markUserInteraction();
+  // FINISH-THE-GAME (2026-07-16): the worker learns about the pick INSTANTLY —
+  // her loading-hype line rides while the game boots.
+  try { if(window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'picked', song: songId } }); } catch(_){}
+  // PRE-GAME DEMO VIDEO: the real session recording plays while the game loads
+  try { if (typeof showPreDemo === 'function') showPreDemo(songId); } catch(_){}
   // PRE-GAME DEMO (2026-07-11): the kid picked → full-body Nova demos the game's
   // move on the floor widget while it loads (pre_upgroove / pre_wave in the bank).
   try {
