@@ -1429,8 +1429,24 @@ function onArrivalSkip(){
   }, 700);
 }
 // v103 — Game picker between recognition and countdown
+function speechQuiet(){
+  const kidQuiet = !window.__lastHeardAt || (Date.now() - window.__lastHeardAt > 1500);
+  return !window.__novaClipPlaying && !window.__novaSpeakingNow && kidQuiet;
+}
 function goToPicker(){
   if(typeof markUserInteraction === 'function') markUserInteraction();
+  if (!speechQuiet() && !window.__pickerWaiting) {
+    window.__pickerWaiting = true;
+    if (typeof LOG === 'function') LOG('TRANS', 'button mid-speech → picker waits for the line to end');
+    const _t0 = Date.now();
+    const _w = setInterval(() => {
+      if (speechQuiet() || Date.now() - _t0 > 15000) {
+        clearInterval(_w); window.__pickerWaiting = false;
+        goToPicker();
+      }
+    }, 150);
+    return;
+  }
   showPhase('phase-picker');
   // Update picker recommendation based on age from memory
   const age = (window.__novaMemory && window.__novaMemory.age) || null;
@@ -1454,13 +1470,14 @@ function pickGame(songId){
   // PHASE-GRACE (2026-07-06): kid pushed the button mid-line — let the current line
   // END NICELY (cap 2.5s), kill everything queued behind it, then transition.
   try { window.flushClips && window.flushClips('game picked'); } catch(_){}
-  if ((window.__novaClipPlaying || window.__novaSpeakingNow) && !window.__pickWaiting) {
+  if (!speechQuiet() && !window.__pickWaiting) {
     window.__pickWaiting = true;
     const _t0 = Date.now();
     const _w = setInterval(() => {
-      if ((!window.__novaClipPlaying && !window.__novaSpeakingNow) || Date.now() - _t0 > 2500) {
+      // SPEECH-GRACE: wait for BOTH voices to finish (15s safety cap, was 2.5s)
+      if (speechQuiet() || Date.now() - _t0 > 15000) {
         clearInterval(_w); window.__pickWaiting = false;
-        if (typeof LOG === 'function') LOG('TRANS', 'her line ended nicely → transitioning');
+        if (typeof LOG === 'function') LOG('TRANS', 'the talking ended → transitioning');
         pickGame(songId);
       }
     }, 150);
