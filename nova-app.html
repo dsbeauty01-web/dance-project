@@ -1435,6 +1435,11 @@ html:not(.debug-on) #debug-toggle, html:not(.debug-on) #version-tag { display: n
       <button id="end-replay" onclick="location.reload()" data-l="playAgain">🔄 Play Again</button>
     </div>
     <div id="end-save-msg" style="font:500 13px 'Fredoka',cursive;color:#fff;opacity:0;transition:opacity 0.4s;margin-top:8px;text-align:center"></div>
+    <div id="end-legal" style="margin-top:10px;font-size:11px;color:rgba(255,255,255,.45);text-align:center;line-height:1.8">
+      <a href="#" onclick="showLegal('privacy');return false" data-legal="privacy" style="color:rgba(255,255,255,.65)"></a> ·
+      <a href="#" onclick="showLegal('terms');return false" data-legal="terms" style="color:rgba(255,255,255,.65)"></a> ·
+      <a href="#" onclick="showLegal('parents');return false" data-legal="parents" style="color:rgba(255,255,255,.65)"></a>
+    </div>
   </div>
 </div>
 
@@ -6637,6 +6642,8 @@ window.__initRunwayNova = initDID;
     document.getElementById('lf-privacy').textContent = L.privacy;
     document.getElementById('lf-terms').textContent = L.terms;
     document.getElementById('lf-parents').textContent = L.parents;
+    // any extra legal link rows (end screen etc.) label themselves via data-legal
+    document.querySelectorAll('[data-legal]').forEach(a => { a.textContent = L[a.dataset.legal] || ''; });
   } catch(e){}
   window.showLegal = function(which){
     const b = document.getElementById('legal-body');

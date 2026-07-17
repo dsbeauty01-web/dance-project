@@ -1124,6 +1124,19 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   transition:opacity .4s ease, transform .4s ease; backdrop-filter:blur(6px); }
 #sees-you-tick.show{ opacity:1; transform:translateY(0); }
 </style>
+<style>
+/* LEGAL (ported from nova-app 2026-07-17 — this page's link is also handed out) */
+#legal-foot{margin-top:14px;font-size:11.5px;color:rgba(255,255,255,.55);text-align:center;line-height:1.9}
+#legal-foot a{color:rgba(255,255,255,.75);text-decoration:underline}
+#ai-note{font-size:11px;color:rgba(255,255,255,.5)}
+#legal-ov{position:fixed;inset:0;z-index:99990;background:rgba(8,4,20,.82);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:18px}
+#legal-ov.show{display:flex}
+#legal-card{position:relative;max-width:640px;width:100%;max-height:80vh;overflow:auto;background:#160b2e;border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:26px 24px;color:#e9e0ff;font-size:14.5px;line-height:1.65}
+#legal-card h2{font-size:19px;margin:0 0 10px;color:#fff}
+#legal-card h3{font-size:15px;margin:14px 0 4px;color:#ffd76e}
+#legal-x{position:absolute;top:10px;right:12px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.12);color:#fff;font-size:15px;cursor:pointer}
+#legal-card[dir="rtl"]{text-align:right}
+</style>
 </head>
 <body>
 
@@ -1154,6 +1167,12 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
       <span data-l="arrivalCta">🌟 Let's dance</span>
     </button>
     <button id="arrival-skip-btn" onclick="onArrivalSkip()" data-l="skip">Skip ▶︎</button>
+    <div id="legal-foot">
+      <span id="ai-note"></span><br>
+      <a href="#" onclick="showLegal('privacy');return false" data-legal="privacy"></a> ·
+      <a href="#" onclick="showLegal('terms');return false" data-legal="terms"></a> ·
+      <a href="#" onclick="showLegal('parents');return false" data-legal="parents"></a>
+    </div>
   </div>
 </div>
 
@@ -1409,6 +1428,11 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
       <button id="end-replay" onclick="location.reload()" data-l="playAgain">🔄 Play Again</button>
     </div>
     <div id="end-save-msg" style="font:500 13px 'Fredoka',cursive;color:#fff;opacity:0;transition:opacity 0.4s;margin-top:8px;text-align:center"></div>
+    <div id="end-legal" style="margin-top:10px;font-size:11px;color:rgba(255,255,255,.45);text-align:center;line-height:1.8">
+      <a href="#" onclick="showLegal('privacy');return false" data-legal="privacy" style="color:rgba(255,255,255,.65)"></a> ·
+      <a href="#" onclick="showLegal('terms');return false" data-legal="terms" style="color:rgba(255,255,255,.65)"></a> ·
+      <a href="#" onclick="showLegal('parents');return false" data-legal="parents" style="color:rgba(255,255,255,.65)"></a>
+    </div>
   </div>
 </div>
 
@@ -6553,5 +6577,79 @@ window.__initRunwayNova = initDID;
   document.addEventListener('pointerdown', (e) => { if (e.target !== btn) unlock(); }, { passive: true });
 })();
 </script>
+<script>
+// LEGAL (ported from nova-app 2026-07-17): footer labels + privacy/terms/parents modals, EN+HE.
+(function(){
+  const HE = /[?&]lang=he/.test(location.search);
+  const T = {
+    en: {
+      ai: "Nova is an AI character. A grown-up should read the policies and press start.",
+      privacy: "Privacy", terms: "Terms", parents: "For Parents",
+      privacyBody: `<h2>Privacy Policy</h2>
+<p><b>What Nova sees.</b> The camera image is processed <b>on your device only</b> to detect dance moves (body key-points). Video is <b>never recorded, stored, or uploaded</b>.</p>
+<p><b>What Nova hears.</b> When the microphone is on, audio is sent securely to our AI voice providers so Nova can hear and answer. Voice audio is used to run the conversation and is not used to build advertising profiles.</p>
+<h3>What we store</h3>
+<p>A random player ID, the first name you tell Nova, game progress, and short session logs (what Nova said and heard, for quality and safety). The first name also stays on this device. No ads, no selling of data, ever.</p>
+<h3>Your choices</h3>
+<p>You can play without a microphone (typing) and without a name. To erase everything: clear this site's data in your browser and email us to remove server records.</p>
+<p>Contact: <b>dsbeauty01@gmail.com</b></p>`,
+      termsBody: `<h2>Terms of Use</h2>
+<p>Nova is an entertainment and movement game for children, supervised by a parent or guardian. By starting a session you confirm a grown-up approved it.</p>
+<p>Nova is an <b>AI character</b> — she can make mistakes; her words are generated automatically and are not professional advice of any kind.</p>
+<p>Play safely: clear space around you, stop if anything hurts. The service is provided "as is"; we may update or pause it at any time.</p>
+<p>Contact: <b>dsbeauty01@gmail.com</b></p>`,
+      parentsBody: `<h2>For Parents</h2>
+<p>Hi! Nova is an AI dance friend. Here is exactly what happens in a session:</p>
+<p>1. <b>Camera</b> — analyzed on the device to see dance moves. Nothing is recorded or uploaded.<br>
+2. <b>Microphone</b> — your child's voice goes to AI providers only so Nova can respond in real time.<br>
+3. <b>Stored</b> — first name, a random ID, progress, and session transcripts for quality.<br>
+4. <b>Never</b> — ads, selling data, contact with strangers, external links inside the game.</p>
+<p>We recommend you watch the first session together. Questions or deletion requests: <b>dsbeauty01@gmail.com</b></p>`
+    },
+    he: {
+      ai: "נובה היא דמות בינה מלאכותית. מבוגר צריך לקרוא את המדיניות וללחוץ התחלה.",
+      privacy: "פרטיות", terms: "תנאי שימוש", parents: "להורים",
+      privacyBody: `<h2>מדיניות פרטיות</h2>
+<p><b>מה נובה רואה.</b> תמונת המצלמה מעובדת <b>במכשיר שלכם בלבד</b> כדי לזהות תנועות ריקוד. הווידאו <b>לעולם לא מוקלט, לא נשמר ולא נשלח</b>.</p>
+<p><b>מה נובה שומעת.</b> כשהמיקרופון פועל, הקול נשלח באופן מאובטח לספקי הקול של הבינה המלאכותית כדי שנובה תוכל לשמוע ולענות. הקול משמש לשיחה בלבד.</p>
+<h3>מה נשמר</h3>
+<p>מזהה שחקן אקראי, השם הפרטי שנאמר לנובה, התקדמות במשחק ותמלולי שיחה קצרים (לבקרת איכות ובטיחות). אין פרסומות ואין מכירת מידע — לעולם.</p>
+<h3>הבחירות שלכם</h3>
+<p>אפשר לשחק בלי מיקרופון (בהקלדה) ובלי שם. למחיקה מלאה: נקו את נתוני האתר בדפדפן וכתבו לנו למחיקת רישומי שרת.</p>
+<p>יצירת קשר: <b>dsbeauty01@gmail.com</b></p>`,
+      termsBody: `<h2>תנאי שימוש</h2>
+<p>נובה היא משחק תנועה ובידור לילדים, בהשגחת הורה או אפוטרופוס. התחלת סשן מאשרת שמבוגר אישר את המשחק.</p>
+<p>נובה היא <b>דמות בינה מלאכותית</b> — היא עלולה לטעות; דבריה נוצרים אוטומטית ואינם ייעוץ מקצועי מכל סוג.</p>
+<p>שחקו בבטחה: פנו מרחב מסביב, עצרו אם משהו כואב. השירות ניתן כמות שהוא ואנחנו רשאים לעדכן או להשהות אותו בכל עת.</p>
+<p>יצירת קשר: <b>dsbeauty01@gmail.com</b></p>`,
+      parentsBody: `<h2>להורים</h2>
+<p>שלום! נובה היא חברת ריקוד מבוססת בינה מלאכותית. הנה בדיוק מה שקורה בסשן:</p>
+<p>1. <b>מצלמה</b> — מנותחת במכשיר בלבד כדי לראות תנועות ריקוד. שום דבר לא מוקלט ולא נשלח.<br>
+2. <b>מיקרופון</b> — קול הילד/ה נשלח לספקי הבינה המלאכותית רק כדי שנובה תגיב בזמן אמת.<br>
+3. <b>נשמר</b> — שם פרטי, מזהה אקראי, התקדמות ותמלולים לבקרת איכות.<br>
+4. <b>לעולם לא</b> — פרסומות, מכירת מידע, קשר עם זרים או קישורים חיצוניים בתוך המשחק.</p>
+<p>מומלץ לצפות יחד בסשן הראשון. שאלות ובקשות מחיקה: <b>dsbeauty01@gmail.com</b></p>`
+    }
+  };
+  const L = HE ? T.he : T.en;
+  try {
+    const n = document.getElementById('ai-note'); if (n) n.textContent = L.ai;
+    document.querySelectorAll('[data-legal]').forEach(a => { a.textContent = L[a.dataset.legal] || ''; });
+  } catch(e){}
+  window.showLegal = function(which){
+    const b = document.getElementById('legal-body');
+    b.innerHTML = which==='privacy' ? L.privacyBody : which==='terms' ? L.termsBody : L.parentsBody;
+    document.getElementById('legal-card').setAttribute('dir', HE ? 'rtl' : 'ltr');
+    document.getElementById('legal-ov').classList.add('show');
+  };
+  window.hideLegal = function(){ document.getElementById('legal-ov').classList.remove('show'); };
+})();
+</script>
+<div id="legal-ov" onclick="if(event.target===this)hideLegal()">
+  <div id="legal-card">
+    <button id="legal-x" onclick="hideLegal()">✕</button>
+    <div id="legal-body"></div>
+  </div>
+</div>
 </body>
 </html>
