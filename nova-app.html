@@ -651,6 +651,11 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   opacity:0;transform:translateY(14px) scale(.97);pointer-events:none;
   transition:opacity .5s ease,transform .5s ease}
 #pre-demo.showing{opacity:1;transform:none}
+/* portrait phones: keep the PiP small — the kid must still SEE THEMSELVES to
+   step back into frame; half-screen video defeated the framing gate. */
+@media (max-aspect-ratio:1/1){
+  #pre-demo{height:30vh;right:3vw;bottom:12vh}
+}
 
 /* ═══════════════════════════════════════════
    PHASE 4: GAME — the song
@@ -951,6 +956,17 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   padding:18px 26px;font-family:'Fredoka',cursive;font-weight:500;
   font-size:clamp(17px,2.2vw,22px);color:#fff;
   max-width:520px;line-height:1.5}
+/* MOBILE END SCREEN (2026-07-17): the side-by-side goodbye clipped every button
+   off the right edge on phones. Portrait → stack, shrink her frame, scroll if tall. */
+@media (max-aspect-ratio:1/1){
+  #phase-end{flex-direction:column;overflow-y:auto;justify-content:flex-start}
+  #end-avatar-col{flex:0 0 auto;padding:18px 16px 4px}
+  #end-avatar-frame{width:min(200px,52vw)}
+  #end-content-col{flex:0 0 auto;padding:6px 16px 26px;gap:12px;width:100%}
+  #end-title{font-size:clamp(26px,8vw,34px)}
+  #end-stars{font-size:38px;min-height:44px}
+  #end-msg{font-size:16px;padding:14px 18px;max-width:100%}
+}
 
 /* v108: end-phase state badge on avatar */
 #end-avatar-frame { position: relative; }
