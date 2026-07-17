@@ -2604,7 +2604,7 @@ function handoffFromIntro() {
 // worker brain as context (it speaks the observation). Circuit-breaks after 2
 // consecutive failures so it never spams while Gemini quota is exhausted (429).
 // PHASE 1 — the stage map she lives on (mirrored in her EVI prompt; exposed for self-tests)
-window.__UI_MAP = 'Nova appears in the LEFT panel. The dancer sees THEMSELVES in the RIGHT panel (their camera — the magic lights land on their body there). The big DANCE button is below; pressing it (or saying "let\'s start") opens the game picker: Hello Hello, Up Groove, Wave. During a game Nova is voice-only and returns at the end.';
+window.__UI_MAP = 'Nova appears in the LEFT panel. The dancer sees THEMSELVES in the RIGHT panel (their camera — the magic lights land on their body there). The big DANCE button is below; pressing it (or saying "let\'s start") opens the game picker: Hello Hello, Up Groove, Wave, Wave Magic, Bounce Groove. During a game Nova is voice-only and returns at the end.';
 
 // PHASE 1 — WALK-AWAY WATCHER (intro only): no pose for ~12s while she isn't talking →
 // ONE 'away' event (worker sends ONE warm nudge, then waits quietly). Kid reappears →
@@ -5302,8 +5302,8 @@ window.__startGame = startGame; window.__endGame = endGame;   // (self-test hook
 // The browser owns budget + timing; the worker just speaks each beat it asks for.
 // All state is on window.* so phase2-loop.js can machine-check it.
 const TRANS_CAPTIONS = window.NOVA_HE ? {
-  hype:   s => ({hello:"אוה — הלו הלו! אני מתה על השיר הזה! ⚡", joined:"יששש — אפ גרוב! השיר שלי! 🕺", wave:"אוה — הגל! כזה זורם! 🌊"}[s]||"אוה — בחירה מעולה!"),
-  tip:    s => ({hello:"כשהאור נדלק על היד שלכם — זאת אני!", joined:"מחקים את הגוף שלי — ראש, כתפיים, צלעות, ירכיים!", wave:"תנו לאור לזרום במעלה היד! 🌊"}[s]||"תסתכלו על האורות — זאת אני!"),
+  hype:   s => ({hello:"אוה — הלו הלו! אני מתה על השיר הזה! ⚡", joined:"יששש — אפ גרוב! השיר שלי! 🕺", wave:"אוה — הגל! כזה זורם! 🌊", wavemagic:"גל הקסם! הקסם מטפס לכם ביד! 🌊", bounce:"באונס גרוב! מעירים את כל הגוף עם הבאונס! 🕺"}[s]||"אוה — בחירה מעולה!"),
+  tip:    s => ({hello:"כשהאור נדלק על היד שלכם — זאת אני!", joined:"מחקים את הגוף שלי — ראש, כתפיים, צלעות, ירכיים!", wave:"תנו לאור לזרום במעלה היד! 🌊", wavemagic:"קודם מסתכלים עליי — ואז תורכם!", bounce:"תסתכלו על הבאונס — ואז מחקים!"}[s]||"תסתכלו על האורות — זאת אני!"),
   framing:()=> "תתרחקו צעד קטן כדי שאראה את כולכם ✨",
   framed: ()=> "מושלם — בדיוק שם! 🌟",
   slow:   ()=> "עוד רגע — תנערו את הידיים! ✨",
@@ -5311,8 +5311,8 @@ const TRANS_CAPTIONS = window.NOVA_HE ? {
   fail:   ()=> "הממ — השיר הזה מתבייש! תבחרו אחר! 🌟",
   dancealong:()=>"יש לך אנרגיה של כוכב — בואו פשוט נרקוד! 🌊",
 } : {
-  hype:   s => ({hello:"ohh — Hello Hello! I LOVE this one! ⚡", joined:"YESSS — Up Groove! my song! 🕺", wave:"ohh — the Wave! so smooth! 🌊"}[s]||"ohh — great pick!"),
-  tip:    s => ({hello:"when the light glows on your hand — that's me!", joined:"copy my body — head, shoulders, ribs, hips!", wave:"let the light ride up your arm! 🌊"}[s]||"watch the lights — that's me!"),
+  hype:   s => ({hello:"ohh — Hello Hello! I LOVE this one! ⚡", joined:"YESSS — Up Groove! my song! 🕺", wave:"ohh — the Wave! so smooth! 🌊", wavemagic:"Wave Magic! the magic rolls up your arm! 🌊", bounce:"Bounce Groove! we wake your WHOLE body with the bounce! 🕺"}[s]||"ohh — great pick!"),
+  tip:    s => ({hello:"when the light glows on your hand — that's me!", joined:"copy my body — head, shoulders, ribs, hips!", wave:"let the light ride up your arm! 🌊", wavemagic:"watch me first — then it's YOUR turn!", bounce:"watch the bounce — then copy it!"}[s]||"watch the lights — that's me!"),
   framing:()=> "step back so I can see ALL of you! ✨",
   framed: ()=> "perfect — right there! 🌟",
   slow:   ()=> "almost ready — shake those hands out! ✨",
