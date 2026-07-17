@@ -216,7 +216,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         window.__startTransition('wave');
         window.__readyGate.mp4 = true;                                       // force load ready so only framing blocks
       });
-      await page.waitForFunction(() => !!window.__danceAlong, undefined, { timeout: 15000 }).catch(() => {});
+      await page.waitForFunction(() => !!window.__danceAlong, undefined, { timeout: 30000 }).catch(() => {});   // 2026-07-17: narration got longer (mouth rule delays prompt #2 to ~15s; dance-along ~19s)
       await sleep(400);
       const s = await page.evaluate(() => ({
         danceAlong: window.__danceAlong, scoring: window.__scoringEnabled,
