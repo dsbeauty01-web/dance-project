@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova · Session Doctor</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0015;--card:#160b2e;--line:rgba(255,255,255,.12);--txt:#e9e0ff;--dim:rgba(255,255,255,.55);
+  --pink:#ff6fd8;--gold:#ffd76e;--green:#34d399;--red:#f87171;--yellow:#fbbf24}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(ellipse at 50% 0%,#2d0750,var(--bg) 60%);color:var(--txt);
+  font-family:'Fredoka',sans-serif;min-height:100vh;padding:18px 14px 60px}
+h1{font-size:22px;display:flex;align-items:center;gap:10px;margin-bottom:2px}
+.sub{color:var(--dim);font-size:13px;margin-bottom:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px}
+.sess{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;
+  border:1px solid var(--line);border-radius:14px;margin-bottom:8px;cursor:pointer;transition:.15s}
+.sess:hover{border-color:var(--pink);background:rgba(255,111,216,.06)}
+.sess.active{border-color:var(--pink);background:rgba(255,111,216,.1)}
+.sess .room{font-size:13px;color:var(--txt)}
+.sess .meta{font-size:11.5px;color:var(--dim)}
+.grade{font-size:22px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
+.chip{display:flex;align-items:center;gap:7px;padding:8px 12px;border-radius:999px;font-size:12.5px;
+  border:1px solid var(--line);background:rgba(255,255,255,.04)}
+.chip b{font-weight:600}
+.dot{width:9px;height:9px;border-radius:50%}
+.g .dot{background:var(--green)} .g{border-color:rgba(52,211,153,.4)}
+.y .dot{background:var(--yellow)} .y{border-color:rgba(251,191,36,.4)}
+.r .dot{background:var(--red)} .r{border-color:rgba(248,113,113,.45)}
+h2{font-size:15px;color:var(--gold);margin:16px 0 8px}
+.tl{border-left:2px solid var(--line);padding-left:14px;margin-left:6px}
+.ev{position:relative;padding:5px 0;font-size:13px}
+.ev::before{content:'';position:absolute;left:-19.5px;top:12px;width:9px;height:9px;border-radius:50%;background:#7c6fff}
+.ev .t{color:var(--dim);font-size:11px;margin-right:8px}
+.ev.nova::before{background:var(--pink)} .ev.kid::before{background:var(--green)}
+.ev.bad::before{background:var(--red)}
+.ev.nova .who{color:var(--pink);font-weight:600} .ev.kid .who{color:var(--green);font-weight:600}
+.ev.bad{color:#ffb4b4}
+.small{font-size:11.5px;color:var(--dim)}
+.refresh{position:fixed;right:14px;bottom:14px;background:linear-gradient(93deg,#ffd76e,#ff6fd8);
+  color:#2a0f34;font:700 14px 'Fredoka';border:none;border-radius:999px;padding:12px 18px;cursor:pointer;
+  box-shadow:0 10px 30px rgba(255,111,216,.4)}
+.empty{color:var(--dim);font-size:13px;padding:8px 2px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:12.5px;margin-top:6px}
+.kv .k{color:var(--dim)}
+a{color:var(--pink)}
+</style>
+</head>
+<body>
+<h1>🩺 Nova Session Doctor</h1>
+<div class="sub">live health of the last sessions — straight from the worker's auto-logs (in-memory: Render restarts wipe them)</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Recent sessions</h2>
+  <div id="list"><div class="empty">loading…</div></div>
+</div>
+
+<div id="detail"></div>
+<button class="refresh" onclick="boot(true)">↻ Refresh</button>
+
+<script>
+const SERVER = 'https://novapython.onrender.com';
+const $ = id => document.getElementById(id);
+let CURRENT = new URLSearchParams(location.search).get('room') || null;
+
+const fmtAge = s => s < 90 ? Math.round(s) + 's ago' : s < 5400 ? Math.round(s/60) + 'm ago' : Math.round(s/3600) + 'h ago';
+const esc = t => String(t).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+function parse(lines){
+  const L = lines.map(String);
+  const time = l => { const m = /^\[\s*([\d.]+)s\]/.exec(l); return m ? +m[1] : null; };
+  const find = re => L.find(l => re.test(l));
+  const all  = re => L.filter(l => re.test(l));
+  const m = {};
+  const fw = find(/Nova FIRST WORD/);
+  m.firstWordMs   = fw ? +(/\+(\d+)ms after tap/.exec(fw)||[])[1] || null : null;
+  m.revealGapMs   = fw ? +(/,\s*(\d+)ms after reveal/.exec(fw)||[])[1] || null : null;
+  const at = find(/Nova audio track \(/);
+  m.audioTrackMs  = at ? +(/\+(\d+)ms/.exec(at)||[])[1] || null : null;
+  m.blockedEvents = all(/BLOCKED/).length;
+  m.rescueShown   = !!find(/rescue button|unlock button shown/);
+  const unlockLine = find(/startAudio\(\) OK|element PLAYING/);
+  m.audioOkAt     = unlockLine ? time(unlockLine) : null;
+  m.podDown       = !!find(/floor widget OFF|POD UNREACHABLE/);
+  m.voiceOnly     = !!find(/VOICE-ONLY reveal/);
+  m.avatarVideo   = !!find(/video track attached|AVATAR — lipsync/);
+  const fpsLines = all(/loop@(\d+)fps/);
+  m.fps = fpsLines.length ? Math.round(fpsLines.slice(-5).reduce((a,l)=>a + (+(/loop@(\d+)fps/.exec(l)||[])[1]||0),0) / Math.min(5,fpsLines.length)) : null;
+  m.errors = all(/\[ERROR\]/);
+  m.gamePicked = (/kid picked song: (\w+)/.exec(find(/kid picked song/)||'')||[])[1] || null;
+  m.songStart  = !!find(/song_start sent/);
+  m.lastT = L.length ? Math.max(...L.map(time).filter(t=>t!=null)) : 0;
+  // dialogue + key events, in time order
+  m.feed = [];
+  for (const l of L){
+    const t = time(l);
+    let x;
+    if ((x = /\[NOVA-SAID\] "(.*)"/.exec(l)))            m.feed.push({t, who:'Nova', cls:'nova', txt:x[1]});
+    else if ((x = /Nova heard: "(.*)"/.exec(l)))          m.feed.push({t, who:'Kid', cls:'kid', txt:x[1]});
+    else if (/\[ERROR\]/.test(l))                         m.feed.push({t, cls:'bad', txt:l.replace(/^\[[\d.\s]+s\]\s*/,'')});
+    else if (/BLOCKED|rescue button/.test(l))             m.feed.push({t, cls:'bad', txt:'🔇 ' + l.replace(/^\[[\d.\s]+s\]\s*/,'')});
+    else if (/kid picked song|song_start sent|DANCE-ALONG|GO-PICKER|go-picker|play-again/.test(l))
+                                                          m.feed.push({t, cls:'', txt:'🎮 ' + l.replace(/^\[[\d.\s]+s\]\s*/,'')});
+  }
+  return m;
+}
+
+function chip(label, val, cls){ return `<div class="chip ${cls}"><span class="dot"></span>${label}: <b>${val}</b></div>`; }
+
+function grade(m){
+  let g = '🟢';
+  const fwS = m.firstWordMs != null ? m.firstWordMs/1000 : null;
+  if (m.errors.length || (fwS != null && fwS > 25) || (m.blockedEvents && !m.audioOkAt)) g = '🔴';
+  else if ((fwS != null && fwS > 10) || m.podDown || m.blockedEvents) g = '🟡';
+  if (fwS == null && !m.feed.length) g = '⚪';
+  return g;
+}
+
+function render(room, at, m){
+  const fwS = m.firstWordMs != null ? (m.firstWordMs/1000).toFixed(1) : null;
+  const chips = [
+    chip('first word', fwS ? fwS+'s after tap' : 'never', fwS == null ? 'r' : fwS <= 8 ? 'g' : fwS <= 15 ? 'y' : 'r'),
+    m.revealGapMs != null ? chip('reveal→word', (m.revealGapMs/1000).toFixed(1)+'s', m.revealGapMs <= 4000 ? 'g' : m.revealGapMs <= 10000 ? 'y' : 'r') : '',
+    chip('audio', m.blockedEvents ? (m.audioOkAt ? 'blocked → rescued @'+m.audioOkAt.toFixed(0)+'s' : 'BLOCKED, never rescued') : 'clean',
+      m.blockedEvents ? (m.audioOkAt ? 'y' : 'r') : 'g'),
+    chip('avatar', m.avatarVideo ? 'video live' : m.voiceOnly ? 'voice-only (static face)' : m.podDown ? 'pod DOWN' : '—',
+      m.avatarVideo ? 'g' : (m.voiceOnly || m.podDown) ? 'y' : 'g'),
+    m.fps != null ? chip('pose', m.fps+' fps', m.fps >= 15 ? 'g' : m.fps >= 8 ? 'y' : 'r') : '',
+    chip('errors', m.errors.length, m.errors.length ? 'r' : 'g'),
+    m.gamePicked ? chip('game', m.gamePicked + (m.songStart ? ' · started' : ' · never started'), m.songStart ? 'g' : 'y') : chip('game', 'never picked', 'y'),
+  ].join('');
+  const feed = m.feed.length ? m.feed.map(e =>
+    `<div class="ev ${e.cls}"><span class="t">${e.t != null ? e.t.toFixed(1)+'s' : ''}</span>` +
+    (e.who ? `<span class="who">${e.who}: </span>` : '') + esc(e.txt) + '</div>').join('')
+    : '<div class="empty">no dialogue captured</div>';
+  $('detail').innerHTML = `
+  <div class="card">
+    <h2 style="margin-top:0">${grade(parse.lastM = m)} ${esc(room)}</h2>
+    <div class="kv">
+      <span class="k">when</span><span>${new Date(at*1000).toLocaleString()} · session span ${m.lastT.toFixed(0)}s</span>
+      <span class="k">audio track</span><span>${m.audioTrackMs != null ? (m.audioTrackMs/1000).toFixed(1)+'s after tap' : '—'}</span>
+    </div>
+    <div class="chips">${chips}</div>
+    <h2>What happened</h2>
+    <div class="tl">${feed}</div>
+  </div>`;
+}
+
+async function open(room, at, el){
+  CURRENT = room;
+  document.querySelectorAll('.sess').forEach(s => s.classList.remove('active'));
+  if (el) el.classList.add('active');
+  history.replaceState(null, '', '?room=' + encodeURIComponent(room));
+  $('detail').innerHTML = '<div class="card"><div class="empty">reading session…</div></div>';
+  try {
+    const r = await fetch(SERVER + '/v2/log/' + encodeURIComponent(room));
+    const d = await r.json();
+    render(room, d.at, parse(d.lines));
+  } catch(e) { $('detail').innerHTML = '<div class="card"><div class="empty">failed: ' + esc(e.message) + '</div></div>'; }
+}
+
+async function boot(manual){
+  try {
+    const r = await fetch(SERVER + '/v2/log/recent');
+    const d = await r.json();
+    if (!d.sessions.length) { $('list').innerHTML = '<div class="empty">no sessions since the last worker restart — play one and refresh</div>'; return; }
+    const now = Date.now()/1000;
+    $('list').innerHTML = d.sessions.map(s =>
+      `<div class="sess" data-room="${esc(s.room)}" data-at="${s.at}">
+        <div><div class="room">${esc(s.room)}</div>
+        <div class="meta">${fmtAge(now - s.at)} · ${s.lines} lines</div></div>
+        <div class="grade">›</div>
+      </div>`).join('');
+    document.querySelectorAll('.sess').forEach(el =>
+      el.addEventListener('click', () => open(el.dataset.room, +el.dataset.at, el)));
+    const first = d.sessions.find(s => s.room === CURRENT) || d.sessions[0];
+    if (!manual || !CURRENT) open(first.room, first.at, document.querySelector(`[data-room="${first.room}"]`));
+  } catch(e) { $('list').innerHTML = '<div class="empty">worker unreachable: ' + esc(e.message) + '</div>'; }
+}
+boot(false);
+setInterval(() => boot(true), 30000);
+</script>
+</body>
+</html>
