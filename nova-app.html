@@ -1567,9 +1567,6 @@ function goToPicker(){
 }
 function pickGame(songId){
   if(typeof markUserInteraction === 'function') markUserInteraction();
-  // FINISH-THE-GAME (2026-07-16): the worker learns about the pick INSTANTLY —
-  // her loading-hype line rides while the game boots.
-  try { if(window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'picked', song: songId } }); } catch(_){}
   // PRE-GAME DEMO VIDEO: the real session recording plays while the game loads
   try { if (typeof showPreDemo === 'function') showPreDemo(songId); } catch(_){}
   // PRE-GAME DEMO (2026-07-11): the kid picked → full-body Nova demos the game's
@@ -1595,6 +1592,10 @@ function pickGame(songId){
     return;
   }
   if (typeof setSelectedSong === 'function') setSelectedSong(songId);
+  // FINISH-THE-GAME (moved past the speech-grace wait, Phase-3 2026-07-17: the
+  // re-entry was sending 'picked' TWICE → she hyped the pick twice): the worker
+  // learns about the pick the moment the transition actually starts.
+  try { if(window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'picked', song: songId } }); } catch(_){}
   if (typeof LOG === 'function') LOG('GAME', `kid picked song: ${songId}`);
   // PHASE 2: the live bridge covers the load (hype → tip → step-back → go). Falls back
   // to the legacy 3-2-1 countdown only if the transition engine somehow isn't present.
@@ -3107,6 +3108,10 @@ function setupNovaRoomEvents(room) {
     // THE ENDING: her last goodbye word finished → NOW the stars/feedback may appear
     if (msg.kind === 'goodbye-done') {
       LOG('ENDING', 'goodbye-done from worker → revealing end screen');
+      // Phase-3: the end message is her REAL last goodbye words (the old /end-goodbye
+      // HTTP path is dead — worker owns the ending).
+      try { const em = document.getElementById('end-msg');
+        if (em && window.__lastNovaSaid) em.textContent = window.__lastNovaSaid; } catch(_){}
       try { if (window.__showEndScreen) window.__showEndScreen(); } catch(_){}
       return;
     }
@@ -3137,6 +3142,7 @@ function setupNovaRoomEvents(room) {
     // SMART-INTRO Part 7: full both-sides dialogue + producer decisions in every log
     if (msg.kind === 'nova-said') {
       LOG('NOVA-SAID', '"' + (msg.text || '') + '"');
+      window.__lastNovaSaid = msg.text || '';   // Phase-3: end screen shows her real last words
       return;
     }
     if (msg.kind === 'stage-diag') {
@@ -6110,7 +6116,10 @@ function endGame() {
   // no Nova connected (nonova/standalone) → show it right away
   if (!window.__novaRoom) window.__showEndScreen();
 
-  // AUTO-SAVE full session to Downloads (frontend record; backend logged on the worker).
+  // AUTO-SAVE full session to Downloads — DEBUG ONLY (Phase-3 2026-07-17: this was
+  // dropping a JSON file into every kid's Downloads after every game on the
+  // commercial page; ?debug=1 keeps it for the loop's eyes).
+  if (document.documentElement.classList.contains('debug-on'))
   try{ const _v=document.getElementById('nova-video'), _cam=document.getElementById('cam-side'), _nv=document.getElementById('nova-side');
     const summary={ date:new Date().toISOString(),
       game: window.__selectedSongId || (selectedSong&&selectedSong.id) || '?',   // was hardcoded 'hello-hello'
@@ -6151,38 +6160,17 @@ function endGame() {
   const inputRow = document.getElementById('end-input-row');
   if (inputRow) inputRow.style.display = 'flex';
 
-  // v108: FORCE NOVA TO SPEAK — fetch warm goodbye from server + play locally
-  // This bypasses Runway brain (which was going silent in v107)
-  (async () => {
-    try {
-      LOG('END', 'requesting warm goodbye from server...');
-      const resp = await fetch(CFG.RENDER_URL + '/end-goodbye', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          memory: { ...memory, moments: memory.moments },
-          score: { hits, attempts, maxStreak: maxCombo, songName: selectedSong?.name || 'Hello Hello' },
-        }),
-      });
-      if (!resp.ok) throw new Error('end-goodbye failed: ' + resp.status);
-      const data = await resp.json();
-      LOG('END', `Nova goodbye: "${data.text}" (${data.latencyMs}ms)`);
-      // Show in end-msg AND speak it locally
-      document.getElementById('end-msg').textContent = data.text;
-      await playNovaLocalAudio(data.text);
-      setEndState('listening');
-      // Focus input so kid can type
-      const inp = document.getElementById('end-input');
-      if (inp) inp.focus();
-    } catch (e) {
-      LOG('ERROR', 'goodbye fetch failed', { msg: e.message });
-      const fallback = earliestMoment
-        ? T('goodbyeFallbackMoment', { name: memory.name || (window.NOVA_HE ? 'חבר שלי' : 'You'), moment: earliestMoment })
-        : T('goodbyeFallback', { who: memory.name ? memory.name + ', ' : '' });
-      document.getElementById('end-msg').textContent = fallback;
-      setEndState('listening');
-    }
-  })();
+  // Phase-3 (2026-07-17): the legacy v108 /end-goodbye HTTP path is DEAD (endpoint
+  // 404s since forever — its error fallback was writing canned text over her real
+  // goodbye). The WORKER owns the ending: phase:goodbye → her spoken close →
+  // goodbye-done sets end-msg to her actual last words. Warm placeholder meanwhile.
+  {
+    const fallback = earliestMoment
+      ? T('goodbyeFallbackMoment', { name: memory.name || (window.NOVA_HE ? 'חבר שלי' : 'You'), moment: earliestMoment })
+      : T('goodbyeFallback', { who: memory.name ? memory.name + ', ' : '' });
+    document.getElementById('end-msg').textContent = fallback;
+    setEndState('listening');
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
