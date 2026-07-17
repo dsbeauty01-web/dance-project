@@ -2972,7 +2972,18 @@ function setupNovaRoomEvents(room) {
           LOG('WAKE', `Nova FIRST WORD (+${window.__firstWordMs}ms after tap${gap!==null?(', '+gap+'ms after reveal'):''})`);
         } }, 100);
     } catch (e) { LOG('AUDIO', 'sound-detector unavailable: ' + e.message); }
-    a.play().catch(()=>{});
+    // AUDIO-RESCUE (2026-07-17, live session: her voice streamed 43s into a MUTED
+    // page): the play() rejection was swallowed here and LiveKit's blocked-event
+    // never fired — so the 🔊 button never showed. Now WE are the signal: a real
+    // rejection flips __audioBlocked and summons the rescue button instantly.
+    a.play().then(() => {
+      window.__audioBlocked = false;
+      LOG('AUDIO', 'her audio element PLAYING');
+    }).catch((e) => {
+      window.__audioBlocked = true;
+      LOG('AUDIO', 'her audio BLOCKED by autoplay (' + ((e && e.name) || '?') + ') → rescue button');
+      try { window.__audioUnlockCheck && window.__audioUnlockCheck(); } catch(_){}
+    });
     LOG('AUDIO', 'Nova audio attached from participant "' + pid + '"' + (pid === window.__avatarPid ? ' (AVATAR — lipsync path ✓)' : ' (no avatar yet)'));
   }
   function preferAvatarAudio() {
@@ -6526,7 +6537,9 @@ window.__initRunwayNova = initDID;
     o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime+.4); c.resume(); }catch(_){} }
   window.__audioUnlockCheck = function(){
     const room = window.__novaRoom;
-    const blocked = !!(room && room.canPlaybackAudio === false);
+    // AUDIO-RESCUE (2026-07-17): trust OUR element-level signal too — LiveKit's
+    // canPlaybackAudio stayed true through a real 43s-mute session (the diag lied).
+    const blocked = !!(room && room.canPlaybackAudio === false) || !!window.__audioBlocked;
     btn.style.display = blocked ? 'flex' : 'none';
     if (typeof LOG === 'function') LOG('AUDIO', 'playback ' + (blocked ? 'BLOCKED → unlock button shown' : 'allowed'));
   };
@@ -6534,6 +6547,13 @@ window.__initRunwayNova = initDID;
     const room = window.__novaRoom;
     try { if (room) { await room.startAudio(); if (typeof LOG === 'function') LOG('AUDIO', 'startAudio() OK — she is audible'); } }
     catch(e){ if (typeof LOG === 'function') LOG('AUDIO', 'startAudio failed: ' + (e && e.message)); }
+    // retry HER element directly — startAudio alone left it paused in the live session
+    const a = document.getElementById('nova-audio');
+    if (a) {
+      try { await a.play(); window.__audioBlocked = false;
+        if (typeof LOG === 'function') LOG('AUDIO', 'her audio element PLAYING (unlock)'); }
+      catch(e){ if (typeof LOG === 'function') LOG('AUDIO', 'element play still blocked: ' + (e && e.name)); }
+    }
     window.__audioUnlockCheck();
   }
   btn.addEventListener('click', () => { chime(); unlock(); });
