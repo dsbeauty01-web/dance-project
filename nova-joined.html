@@ -62,9 +62,13 @@ en: {
   pickerPickOld: "Nova's pick: Up Groove! 🕺",
   songHello: 'Hello Hello!', songJoined: 'Up Groove!', songWave: 'Wave!',
   tagHello: 'fast + jumpy', tagJoined: 'copy her body', tagWave: 'river of light',
+  songWavemagic: 'Wave Magic!', songBounce: 'Bounce Groove!',
+  tagWavemagic: 'the magic arm', tagBounce: 'whole-body bounce',
   descHello: 'hands up · clap<br>Nova says',
   descJoined: 'head · shoulders<br>ribs · hips',
   descWave: 'shoulders · elbows<br>wrists · flow',
+  descWavemagic: 'watch her wave<br>then YOUR turn',
+  descBounce: 'nod · roll<br>bounce it all',
   pickerBack: '← back',
   transGettingReady: 'getting ready…',
   transSub: "Nova's setting up the magic ✨",
@@ -136,9 +140,13 @@ he: {
   pickerPickOld: 'הבחירה של נובה: אפ גרוב! 🕺',
   songHello: 'הלו הלו!', songJoined: 'אפ גרוב!', songWave: 'הגל!',
   tagHello: 'מהיר וקופצני', tagJoined: 'מחקים את נובה', tagWave: 'נהר של אור',
+  songWavemagic: 'גל הקסם!', songBounce: 'באונס גרוב!',
+  tagWavemagic: 'היד הקסומה', tagBounce: 'באונס בכל הגוף',
   descHello: 'ידיים למעלה · מחיאות כף<br>נובה אומרת',
   descJoined: 'ראש · כתפיים<br>צלעות · ירכיים',
   descWave: 'כתפיים · מרפקים<br>כפות ידיים · זרימה',
+  descWavemagic: 'רואים אותה מנופפת<br>ואז תורכם',
+  descBounce: 'ראש · גלגול<br>באונס בכל הגוף',
   pickerBack: '→ חזרה',
   transGettingReady: 'מכינה את המוזיקה… ✨',
   transSub: 'נובה מכינה את הקסם ✨',
@@ -1284,6 +1292,20 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
         <div class="picker-name" data-l="songWave">Wave!</div>
         <div class="picker-tag" data-l="tagWave">river of light</div>
         <div class="picker-desc" data-l-html="descWave">shoulders · elbows<br>wrists · flow</div>
+      </button>
+      <!-- PREGAMES-V1 (2026-07-17): video-led session games — the committed session
+           recordings ARE the game (video = clock, cues ride video.currentTime). -->
+      <button class="picker-card wavemagic-card" onclick="pickGame('wavemagic')">
+        <div class="picker-emoji">🌊</div>
+        <div class="picker-name" data-l="songWavemagic">Wave Magic!</div>
+        <div class="picker-tag" data-l="tagWavemagic">the magic arm</div>
+        <div class="picker-desc" data-l-html="descWavemagic">watch her wave<br>then YOUR turn</div>
+      </button>
+      <button class="picker-card bounce-card" onclick="pickGame('bounce')">
+        <div class="picker-emoji">🕺</div>
+        <div class="picker-name" data-l="songBounce">Bounce Groove!</div>
+        <div class="picker-tag" data-l="tagBounce">whole-body bounce</div>
+        <div class="picker-desc" data-l-html="descBounce">nod · roll<br>bounce it all</div>
       </button>
     </div>
     <button id="picker-back" onclick="pickerBack()" data-l="pickerBack">← back</button>
@@ -2528,49 +2550,37 @@ function handoffFromIntro() {
         return;
       }
       if (!(allReady || forced)) return;
-      // ── INTRO-4FIXES #2: gates → reveal-now → HER FIRST AUDIO FRAME → fade ──
-      // The fade begins the instant her voice actually starts, so face and first word
-      // land together BY CONSTRUCTION (was: fade at gate-ready, word 3.3s later).
+      // ── SMOOTH INTRO (2026-07-17, builder: "she only speaks when ALL is set —
+      // reveal first, THEN 'Hi! I'm Nova…'"): gates → calm fade → fade COMPLETES →
+      // reveal-now → her scripted greet. The old order held the overlay until her
+      // first audio frame — she talked from behind the melting curtain ("too early").
       clearInterval(poll);
       window.__gateDoneAt = Date.now();
       LOG('GATE', 'ALL READY' + (forced ? ' (forced after 15s)' : '') + ' → ' + JSON.stringify(Object.keys(g).reduce((o,k)=>{o[k]=g[k]-(window.__gate.evi||g[k]);return o;},{})));
       if (capEl) capEl.textContent = T('introHereSheComes');
-      // reveal-now with resend-until-ack (resilient against data-channel death)
+      // 1) she APPEARS — calm melt, badge quietly listening
+      window.__revealAt = Date.now();
+      ov.style.transition = 'opacity 1.5s ease';        // calm melt, not a pop
+      ov.classList.add('fade');
+      { const hum = document.getElementById('intro-humming');
+        if (hum) { try { hum.pause(); } catch (_) {} } }
+      setTimeout(() => ov.classList.remove('show'), 1550);
+      LOG('INTRO', 'CALM REVEAL — she appears first; speaks only when fully on screen');
+      try { setStateBadge('listening'); } catch(_){}
+      // 2) fade COMPLETE → reveal-now (resend-until-ack) → worker fires the greet
       let acked = false;
       try { window.__novaRoom && window.__novaRoom.on(LivekitClient.RoomEvent.DataReceived, p => {
         try { const m = JSON.parse(new TextDecoder().decode(p)); if (m && m.kind === 'reveal-ack') { acked = true; LOG('INTRO', 'reveal-ack received'); } } catch(_){}
       }); } catch(_){}
-      let tries = 0;
-      const sendReveal = setInterval(() => {
-        if (acked || window.__novaSpeakingNow || ++tries > 20) { clearInterval(sendReveal); return; }
-        if (window.__novaSend) window.__novaSend({ kind: 'reveal-now' });
-        if (window.__novaSend) window.__novaSend({ kind: 'client-ready' });   // legacy ack (stops nova-ready announcer)
-        if (tries === 1) LOG('INTRO', 'reveal-now sent — overlay holds until her first audio frame');
-      }, 1000);
-      setTimeout(() => { if (window.__novaSend) { window.__novaSend({ kind: 'reveal-now' }); window.__novaSend({ kind: 'client-ready' }); } }, 10);
-      // FADE-ON-FIRST-WORD: poll for her audio energy; 30s cap so a mute failure never
-      // strands the kid behind the overlay. Cap was 12s but Hume's cold first-gen hit
-      // 28s live (2026-07-04) — she appeared MUTE. She must appear only when she can talk;
-      // the sparkle+humming overlay carries the wait, worker retries the greeting behind it.
-      const revealSentAt = Date.now();
-      const fadePoll = setInterval(() => {
-        // FIX 2 (2026-07-07): gate on ACTUAL audio energy (__novaClipAudible = the
-        // clip element's 'playing' event) — the clip ORDER fires seconds before
-        // sound on a slow fetch and the kid saw her 9.2s before her first word.
-        const speaking = !!window.__novaSpeakingNow || !!window.__novaClipAudible;
-        const capped = Date.now() - revealSentAt > 30000;
-        if (!speaking && !capped) return;
-        clearInterval(fadePoll);
-        window.__revealAt = Date.now();                 // the moment = fade start = her first word
-        if (window.__clipAudibleAt) LOG('INTRO', 'fade ' + (window.__revealAt - window.__clipAudibleAt) + 'ms after first real audio');
-        if (window.__firstWordAt && window.__revealToWordMs == null)
-          window.__revealToWordMs = window.__firstWordAt - window.__revealAt;
-        ov.style.transition = 'opacity 1.5s ease';      // calm melt, not a pop
-        ov.classList.add('fade');
-        const hum = document.getElementById('intro-humming');
-        if (hum) { try { hum.pause(); } catch (_) {} }
-        setTimeout(() => ov.classList.remove('show'), 1550);
-        LOG('INTRO', 'CALM REVEAL — fade started ON her first word' + (capped && !speaking ? ' (30s cap, no voice yet!)' : ''));
+      setTimeout(() => {
+        let tries = 0;
+        const sendReveal = setInterval(() => {
+          if (acked || window.__novaSpeakingNow || ++tries > 20) { clearInterval(sendReveal); return; }
+          if (window.__novaSend) window.__novaSend({ kind: 'reveal-now' });
+          if (window.__novaSend) window.__novaSend({ kind: 'client-ready' });   // legacy ack (stops nova-ready announcer)
+          if (tries === 1) LOG('INTRO', 'reveal-now sent — she is fully on screen, greet may fire');
+        }, 1000);
+        if (window.__novaSend) { window.__novaSend({ kind: 'reveal-now' }); window.__novaSend({ kind: 'client-ready' }); }
         try { setStateBadge('talking'); } catch(_){}   // COMMERCIAL-INTRO D.5: badge live from reveal
         // UI unlocks belong to the reveal (moved from the deleted novaArrivalGreet)
         try { document.getElementById('rec-dance-btn').classList.add('ready'); } catch(_){}
@@ -2580,7 +2590,7 @@ function handoffFromIntro() {
         if (window.__DIRECTGAME) setTimeout(() => {
           try { LOG('GAME', 'DIRECT-GAME → ' + window.__DIRECTGAME); pickGame(window.__DIRECTGAME); } catch(e){ LOG('ERROR', 'direct-game failed: ' + e.message); }
         }, 1500);
-      }, 60);
+      }, 1600);
     }, 250);
   } catch (e) { LOG('ERROR', 'handoffFromIntro: ' + e.message); }
 }
@@ -2589,7 +2599,7 @@ function handoffFromIntro() {
 // worker brain as context (it speaks the observation). Circuit-breaks after 2
 // consecutive failures so it never spams while Gemini quota is exhausted (429).
 // PHASE 1 — the stage map she lives on (mirrored in her EVI prompt; exposed for self-tests)
-window.__UI_MAP = 'Nova appears in the LEFT panel. The dancer sees THEMSELVES in the RIGHT panel (their camera — the magic lights land on their body there). The big DANCE button is below; pressing it (or saying "let\'s start") opens the game picker: Hello Hello, Up Groove, Wave. During a game Nova is voice-only and returns at the end.';
+window.__UI_MAP = 'Nova appears in the LEFT panel. The dancer sees THEMSELVES in the RIGHT panel (their camera — the magic lights land on their body there). The big DANCE button is below; pressing it (or saying "let\'s start") opens the game picker: Hello Hello, Up Groove, Wave, Wave Magic, Bounce Groove. During a game Nova is voice-only and returns at the end.';
 
 // PHASE 1 — WALK-AWAY WATCHER (intro only): no pose for ~12s while she isn't talking →
 // ONE 'away' event (worker sends ONE warm nudge, then waits quietly). Kid reappears →
@@ -4391,7 +4401,9 @@ function analyzePose(kps) {
 }
 
 function checkAction(action) {
-  return moves[action] || false;
+  // __testMoves: harness hook (same family as __transTest) — a robot kid can land
+  // a specific move deterministically; real detection always wins when present.
+  return moves[action] || !!(window.__testMoves && window.__testMoves[action]) || false;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -4656,6 +4668,90 @@ const TIMELINE_WAVE_RAW = [
   { t: 28200, type: 'close', action: 'wavefree' },
 ];
 
+// ═══ PREGAMES-V1 (2026-07-17): VIDEOMAPS — the session recordings as games ═══
+// All timestamps MEASURED from the files (motion-phrase + traveling/bounce analysis).
+// MIRROR_MAP (E1, verified on the 34s/36s frames of pre-wave.mp4): the traveling wave
+// rides the PIXEL-RIGHT arm. The game video renders UNMIRRORED while the kid's
+// self-view is mirrored (scaleX(-1)) — so the kid's matching arm appears on the SAME
+// screen side. Law: cues point with screen-side arrows (label →/←) and NEVER speak
+// "left/right" (dir stays null); detection is side-agnostic by design (see isoPulse).
+// Law: every open here carries soft:true — a no-catch closes NEUTRALLY (no red, no
+// "almost", streak untouched). The video keeps flowing; misses simply don't exist.
+const MIRROR_MAP = { videoPixelRight: 'screen-right', spokenSides: false };
+
+// ── WAVE MAGIC (pre-wave.mp4 · 80.9s · 720x1280@30) ──
+// 0-8.5 her T1 talk (quiet gap 4.5-8.5) · 8.5-19 watch · 19.3 tease · 32.5-38.2 the
+// TRAVELING WAVE demo (pixel-RIGHT) · kid turn 1 · 46.5-58 follow-along · kid turn 2
+// (~60, pixel-LEFT) · 70-80.7 finale.
+const TIMELINE_WAVEMAGIC_RAW = [
+  { t: 100,   type: 'beat', name: 'intro' },
+  // — WATCH: she demos, the kid just watches (badge cue, no detection) —
+  { t: 8500,  type: 'beat', name: 'easy-wins' },
+  { t: 8600,  type: 'demo', emoji: '👀', label: 'WATCH!', instr: 'watch her!' },
+  { t: 19300, type: 'demo', emoji: '👀', label: 'SEE THAT ARM?!', instr: 'the magic is coming…' },
+  { t: 26800, type: 'demo', emoji: '👀', label: 'WATCH!', instr: 'both sides now!' },
+  // — DEMO ANCHOR: the traveling wave (32.5-38.2, pixel-RIGHT upper, travel=25.4) —
+  { t: 32500, type: 'beat', name: 'challenge' },
+  { t: 32500, type: 'demo', emoji: '🌊', label: 'THE MAGIC WAVE!', instr: 'watch it roll!' },
+  // — KID TURN 1 (window 8s, sparkle lives in the 38.7-42 quiet gap) —
+  { t: 38400, type: 'open',  action: 'wristwave', emoji: '👋', label: 'YOUR TURN → WAVE!', instr: 'wave that arm!', pts: 150, soft: true },
+  { t: 46400, type: 'close', action: 'wristwave' },
+  // — FOLLOW-ALONG 1 (sustained full-body sequence → energy follow) —
+  { t: 46500, type: 'beat', name: 'flow' },
+  { t: 46500, type: 'open',  action: 'wavefree', emoji: '🌊', label: 'DANCE ALONG!', instr: 'wave it all!', pts: 200, soft: true },
+  { t: 52000, type: 'close', action: 'wavefree' },
+  { t: 52200, type: 'open',  action: 'wavefree', emoji: '🌊', label: 'KEEP FLOWING!', instr: 'don\'t stop!', pts: 200, soft: true },
+  { t: 57800, type: 'close', action: 'wavefree' },
+  // — KID TURN 2 (58-70 section is pixel-LEFT upper → other arm, screen-left arrow) —
+  { t: 59800, type: 'open',  action: 'wristwave', emoji: '👋', label: '← OTHER ARM!', instr: 'now the other one!', pts: 150, soft: true },
+  { t: 67800, type: 'close', action: 'wristwave' },
+  // — FINALE (strong finale phrase, big sparkle ≈79s = the last hit's confetti) —
+  { t: 70000, type: 'beat', name: 'celebration' },
+  { t: 70000, type: 'open',  action: 'wavefree', emoji: '✨', label: 'EVERYTHING!', instr: 'wave it ALL!', pts: 250, soft: true },
+  { t: 75000, type: 'close', action: 'wavefree' },
+  { t: 75200, type: 'open',  action: 'combo', emoji: '🔥', label: 'BIG FINISH!', instr: 'all of it!', pts: 300, soft: true },
+  { t: 79800, type: 'close', action: 'combo' },
+];
+
+// ── BOUNCE GROOVE (pre-upgroove.mp4 · 73.6s) ──
+// 0-4.2 T1 over the opening burst · 5.8-22.3 teaching (nod invite at 14) · 27.3-33.2
+// body-roll demo (travel=24.2) · kid turn 1 · follow-along · 46-49 the ONLY quiet gap
+// (her T2) · 49-55 kid turn 2 · finale bursts (big sparkle ≈72s).
+const TIMELINE_BOUNCE_RAW = [
+  { t: 100,   type: 'beat', name: 'intro' },
+  // — WATCH: the teaching sequence —
+  { t: 5900,  type: 'beat', name: 'easy-wins' },
+  { t: 5900,  type: 'demo', emoji: '👀', label: 'WATCH!', instr: 'feel the bounce!' },
+  // — soft nod invite (spec: continuous headbob bonus — two generous soft windows) —
+  { t: 14000, type: 'open',  action: 'headbob', emoji: '🙂', label: 'NOD ALONG!', instr: 'bounce your head!', pts: 100, soft: true },
+  { t: 18000, type: 'close', action: 'headbob' },
+  { t: 18200, type: 'open',  action: 'headbob', emoji: '🙂', label: 'KEEP NODDING!', instr: 'with the beat!', pts: 100, soft: true },
+  { t: 22200, type: 'close', action: 'headbob' },
+  { t: 22700, type: 'demo', emoji: '👀', label: 'WATCH!', instr: 'the whole body!' },
+  // — DEMO ANCHOR: the body-roll (27.3-33.2, travel=24.2) —
+  { t: 27300, type: 'beat', name: 'challenge' },
+  { t: 27300, type: 'demo', emoji: '🌀', label: 'THE BODY ROLL!', instr: 'watch it roll!' },
+  // — KID TURN 1 (window 8s) —
+  { t: 33400, type: 'open',  action: 'shoulderroll', emoji: '🌀', label: 'ROLL IT!', instr: 'roll it like that!', pts: 150, soft: true },
+  { t: 41400, type: 'close', action: 'shoulderroll' },
+  // — FOLLOW-ALONG (main practice, hips + head energy) —
+  { t: 41500, type: 'beat', name: 'flow' },
+  { t: 41500, type: 'open',  action: 'hipbounce', emoji: '🍑', label: 'BOUNCE!', instr: 'hips with her!', pts: 150, soft: true },
+  { t: 45300, type: 'close', action: 'hipbounce' },
+  // — 46-49: the only quiet gap — HER T2 (worker talk-score), no cues on screen —
+  // — KID TURN 2 (49-55, low-motion video = the kid's solo, window 6s) —
+  { t: 49000, type: 'open',  action: 'hipbounce', emoji: '🕺', label: 'YOU ALONE — BOUNCE!', instr: 'bounce those hips!', pts: 200, soft: true },
+  { t: 55000, type: 'close', action: 'hipbounce' },
+  // — FREESTYLE bridge + FINALE (bursts 54-55.8 · 65.7-73.5; big sparkle ≈72s) —
+  { t: 55800, type: 'beat', name: 'celebration' },
+  { t: 56000, type: 'open',  action: 'combo', emoji: '🕺', label: 'FREESTYLE!', instr: 'your style!', pts: 200, soft: true },
+  { t: 64000, type: 'close', action: 'combo' },
+  { t: 65700, type: 'open',  action: 'combo', emoji: '✨', label: 'EVERYTHING!', instr: 'bounce it ALL!', pts: 250, soft: true },
+  { t: 71500, type: 'close', action: 'combo' },
+  { t: 71700, type: 'open',  action: 'combo', emoji: '🔥', label: 'BIG FINISH!', instr: 'all of it!', pts: 300, soft: true },
+  { t: 73300, type: 'close', action: 'combo' },
+];
+
 const SONGS = {
   joined: {
     id: 'joined',
@@ -4688,6 +4784,26 @@ const SONGS = {
     durationMs: 28500,
     timeline: TIMELINE_WAVE_RAW,
     offset: 0,
+  },
+  // PREGAMES-V1: the session recordings as video-led games (video = the clock; it
+  // carries its own audio → duck 0.60 under her live voice per the build spec).
+  wavemagic: {
+    id: 'wavemagic',
+    name: 'Wave Magic!',
+    videoFile: 'pre-wave.mp4',
+    durationMs: 80900,
+    timeline: TIMELINE_WAVEMAGIC_RAW,
+    offset: 0,
+    duck: 0.60,
+  },
+  bounce: {
+    id: 'bounce',
+    name: 'Bounce Groove!',
+    videoFile: 'pre-upgroove.mp4',
+    durationMs: 73600,
+    timeline: TIMELINE_BOUNCE_RAW,
+    offset: 0,
+    duck: 0.60,
   },
 };
 
@@ -5181,8 +5297,8 @@ window.__startGame = startGame; window.__endGame = endGame;   // (self-test hook
 // The browser owns budget + timing; the worker just speaks each beat it asks for.
 // All state is on window.* so phase2-loop.js can machine-check it.
 const TRANS_CAPTIONS = window.NOVA_HE ? {
-  hype:   s => ({hello:"אוה — הלו הלו! אני מתה על השיר הזה! ⚡", joined:"יששש — אפ גרוב! השיר שלי! 🕺", wave:"אוה — הגל! כזה זורם! 🌊"}[s]||"אוה — בחירה מעולה!"),
-  tip:    s => ({hello:"כשהאור נדלק על היד שלכם — זאת אני!", joined:"מחקים את הגוף שלי — ראש, כתפיים, צלעות, ירכיים!", wave:"תנו לאור לזרום במעלה היד! 🌊"}[s]||"תסתכלו על האורות — זאת אני!"),
+  hype:   s => ({hello:"אוה — הלו הלו! אני מתה על השיר הזה! ⚡", joined:"יששש — אפ גרוב! השיר שלי! 🕺", wave:"אוה — הגל! כזה זורם! 🌊", wavemagic:"גל הקסם! הקסם מטפס לכם ביד! 🌊", bounce:"באונס גרוב! מעירים את כל הגוף עם הבאונס! 🕺"}[s]||"אוה — בחירה מעולה!"),
+  tip:    s => ({hello:"כשהאור נדלק על היד שלכם — זאת אני!", joined:"מחקים את הגוף שלי — ראש, כתפיים, צלעות, ירכיים!", wave:"תנו לאור לזרום במעלה היד! 🌊", wavemagic:"קודם מסתכלים עליי — ואז תורכם!", bounce:"תסתכלו על הבאונס — ואז מחקים!"}[s]||"תסתכלו על האורות — זאת אני!"),
   framing:()=> "תתרחקו צעד קטן כדי שאראה את כולכם ✨",
   framed: ()=> "מושלם — בדיוק שם! 🌟",
   slow:   ()=> "עוד רגע — תנערו את הידיים! ✨",
@@ -5190,8 +5306,8 @@ const TRANS_CAPTIONS = window.NOVA_HE ? {
   fail:   ()=> "הממ — השיר הזה מתבייש! תבחרו אחר! 🌟",
   dancealong:()=>"יש לך אנרגיה של כוכב — בואו פשוט נרקוד! 🌊",
 } : {
-  hype:   s => ({hello:"ohh — Hello Hello! I LOVE this one! ⚡", joined:"YESSS — Up Groove! my song! 🕺", wave:"ohh — the Wave! so smooth! 🌊"}[s]||"ohh — great pick!"),
-  tip:    s => ({hello:"when the light glows on your hand — that's me!", joined:"copy my body — head, shoulders, ribs, hips!", wave:"let the light ride up your arm! 🌊"}[s]||"watch the lights — that's me!"),
+  hype:   s => ({hello:"ohh — Hello Hello! I LOVE this one! ⚡", joined:"YESSS — Up Groove! my song! 🕺", wave:"ohh — the Wave! so smooth! 🌊", wavemagic:"Wave Magic! the magic rolls up your arm! 🌊", bounce:"Bounce Groove! we wake your WHOLE body with the bounce! 🕺"}[s]||"ohh — great pick!"),
+  tip:    s => ({hello:"when the light glows on your hand — that's me!", joined:"copy my body — head, shoulders, ribs, hips!", wave:"let the light ride up your arm! 🌊", wavemagic:"watch me first — then it's YOUR turn!", bounce:"watch the bounce — then copy it!"}[s]||"watch the lights — that's me!"),
   framing:()=> "step back so I can see ALL of you! ✨",
   framed: ()=> "perfect — right there! 🌟",
   slow:   ()=> "almost ready — shake those hands out! ✨",
@@ -5686,7 +5802,7 @@ function gameTick() {
   try {
     const a = window._audio;
     if (a) {
-      const base = 0.85, target = (window.__novaSpeakingNow || window.__novaClipPlaying) ? base * 0.65 : base;
+      const base = 0.85, target = (window.__novaSpeakingNow || window.__novaClipPlaying) ? base * ((selectedSong && selectedSong.duck) || 0.65) : base;
       a.volume = a.volume + (target - a.volume) * 0.35;   // smooth ~4-frame glide
     }
   } catch(_){}
@@ -5838,7 +5954,14 @@ function gameTick() {
       const overlay = document.getElementById('freeze-overlay');
       if (overlay) overlay.classList.remove('active');
       if(!actionDetected && actionWindow) {
-        handleMiss(currentAction);
+        // PREGAMES-V1 soft law: a soft cue's no-catch closes NEUTRALLY — no red, no
+        // "almost", streak untouched. The video keeps flowing; misses don't exist here.
+        if (currentAction && currentAction.soft) {
+          LOG('GAME-MISS', `${currentAction.action} no-catch (soft — video flows on)`);
+          window.__cueState = 'armed';
+        } else {
+          handleMiss(currentAction);
+        }
       }
       actionWindow = false;
     }
