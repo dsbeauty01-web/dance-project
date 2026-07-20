@@ -322,21 +322,39 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
    PHASE 2: RECOGNITION — Nova sees the kid
    Conversational intro
    ═══════════════════════════════════════════ */
+/* ═══ v114 CLOSEUP INTRO ═══
+   Was: flex row, camera dominant (flex 2.2), Nova a small poster beside it,
+   dead chat column on the right, 6 interactive elements.
+   Now: column stack — header / two panels / one button row. Nova leads at 63%.
+   Layout arc: INTRO Nova big → GAME Nova corner (witness mode) → END Nova big. */
 #phase-recognition{background:radial-gradient(ellipse at 30% 40%,#2d0750,#0a0015);
-  flex-direction:row}
+  flex-direction:column;justify-content:center;gap:14px;padding:22px 26px}
 
-/* Avatar side */
-#rec-avatar-col{flex:1;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;gap:20px;padding:32px;position:relative}
-/* POINT 3 (2026-07-01): BIG self-view during the intro. The recognition phase had
-   NO kid camera, so the child couldn't see himself or the try-move light when Nova
-   said "show me a clap." The camera is now the dominant panel; Nova sits smaller
-   beside it. On a portrait phone the columns stack (camera on top). */
-#rec-cam-col{flex:2.2;position:relative;display:flex;align-items:center;
-  justify-content:center;padding:18px;min-width:0;min-height:0}
-#rec-cam-wrap{position:relative;width:100%;height:100%;max-height:80vh;
-  border-radius:24px;overflow:hidden;background:#000;
-  border:4px solid rgba(124,111,255,.55);box-shadow:0 0 50px rgba(124,111,255,.35)}
+#rec-header{display:flex;align-items:center;justify-content:space-between;
+  width:100%;flex-shrink:0}
+#rec-exit-btn{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);
+  color:rgba(255,255,255,.75);border-radius:50%;width:34px;height:34px;
+  font-size:15px;line-height:1;cursor:pointer;flex-shrink:0;transition:all .2s}
+#rec-exit-btn:hover{background:rgba(255,255,255,.16);color:#fff}
+
+/* 1.7fr / 1fr ≈ 63/37. Height capped at 60vh so the CTA can never scroll off. */
+#rec-stage{display:grid;grid-template-columns:1.7fr 1fr;gap:14px;
+  width:100%;height:60vh;max-height:60vh;flex-shrink:0}
+#rec-nova-panel,#rec-cam-panel{border-radius:14px;overflow:hidden;
+  position:relative;min-width:0;min-height:0}
+#rec-nova-panel{border:2px solid #ED93B1;background:#0a0015}
+#rec-cam-panel{border:2px solid #AFA9EC;background:#000}
+
+/* The Nova frame now fills its panel instead of being a floating rounded card.
+   Content is the live pod FLV stream, so the chest-up "crop" is object-position,
+   not an edited asset. */
+#rec-nova-panel #rec-avatar-frame{width:100%;height:100%;aspect-ratio:auto;
+  border-radius:0;border:none;box-shadow:none;transition:none}
+#rec-nova-panel #rec-avatar-video,
+#rec-nova-panel #nova-stage video{object-fit:cover;object-position:50% 15%}
+
+#rec-cam-wrap{position:relative;width:100%;height:100%;
+  overflow:hidden;background:#000}
 #rec-webcam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
   transform:scaleX(-1);background:#000;display:block}
 /* keypoint-anchored try-move glow — moved onto the kid's wrists by JS */
@@ -368,12 +386,12 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   overflow:hidden;text-overflow:ellipsis}
 #rec-cam-hint{position:absolute;left:0;right:0;bottom:14px;text-align:center;color:#fff;
   font:600 15px 'Fredoka',cursive;text-shadow:0 2px 8px rgba(0,0,0,.7);pointer-events:none}
-@media (max-aspect-ratio:1/1){
-  #phase-recognition{flex-direction:column}
-  #rec-cam-col{flex:1.7;width:100%;padding:10px}
-  #rec-avatar-col{flex:.7;flex-direction:row;padding:10px;gap:12px}
-  #rec-chat-col{flex:.9;width:100%;border-left:none;
-    border-top:1px solid rgba(255,111,216,0.12)}
+/* v114: the old portrait rule targeted #rec-cam-col / #rec-avatar-col, which this
+   redesign replaced — it would now be dead CSS. Spec guardrail says do NOT redesign
+   mobile in this task, so the panels simply stack. */
+@media (max-width:900px),(max-aspect-ratio:1/1){
+  #rec-stage{grid-template-columns:1fr;grid-template-rows:1.5fr 1fr;height:auto;max-height:64vh}
+  #phase-recognition{padding:14px}
 }
 /* v113 Nova frame: rounded-rectangle "square" like v222 (was a circle).
    aspect-ratio 0.8 = portrait, border-radius 28px = v222's rounded-[28px]. */
@@ -406,10 +424,21 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
 #rec-loading-dots span:nth-child(3){animation-delay:.4s}
 @keyframes loadDot{
   0%,80%,100%{transform:scale(.6);opacity:.4}
+  40%{transform:scale(1);opacity:1}
+}
 
-/* v110 KIDS — state badges (Lexi Pattern 2) */
-.nova-state-badge{
-  position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);
+/* v110 KIDS — state badges (Lexi Pattern 2)
+   v114 FIX: everything from here to the .closeup rule used to sit INSIDE the
+   unterminated @keyframes loadDot above, so the browser discarded all of it —
+   the intro badge rendered as bare unstyled text and setAvatarCloseup() was a
+   visual no-op. Keyframes now closed properly.
+   The badge rules stay SCOPED to #phase-recognition on purpose: #game-state-badge
+   shares this class, and reviving it globally would change the game phase, which
+   is out of scope for the intro redesign. */
+#phase-recognition .nova-state-badge{
+  /* v114: bottom-LEFT inside the Nova panel. Was bottom:-6px centred, which hung
+     outside the old floating card — it would be clipped now the frame fills the panel. */
+  position:absolute;bottom:12px;left:12px;
   padding:5px 14px;border-radius:14px;
   font:600 11px/1 'Fredoka',sans-serif;letter-spacing:.04em;
   text-transform:uppercase;
@@ -420,17 +449,17 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   z-index:10;
   white-space:nowrap;
 }
-.nova-state-badge::before{
+#phase-recognition .nova-state-badge::before{
   content:'';width:6px;height:6px;border-radius:50%;
   background:#aaa;transition:all 0.3s;
 }
-.nova-state-badge[data-state="watching"]::before{background:#94a3b8}
-.nova-state-badge[data-state="listening"]{background:rgba(20,40,80,0.85);color:#fff}
-.nova-state-badge[data-state="listening"]::before{background:#3b82f6;box-shadow:0 0 8px #3b82f6;animation:pulseBadge 1.2s ease-in-out infinite}
-.nova-state-badge[data-state="talking"]{background:rgba(20,80,40,0.85);color:#dcfce7}
-.nova-state-badge[data-state="talking"]::before{background:#10b981;box-shadow:0 0 10px #10b981;animation:pulseBadge 0.8s ease-in-out infinite}
-.nova-state-badge[data-state="thinking"]{background:rgba(60,40,80,0.85);color:#e9d5ff}
-.nova-state-badge[data-state="thinking"]::before{background:#a855f7;animation:pulseBadge 1.5s ease-in-out infinite}
+#phase-recognition .nova-state-badge[data-state="watching"]::before{background:#94a3b8}
+#phase-recognition .nova-state-badge[data-state="listening"]{background:rgba(20,40,80,0.85);color:#fff}
+#phase-recognition .nova-state-badge[data-state="listening"]::before{background:#3b82f6;box-shadow:0 0 8px #3b82f6;animation:pulseBadge 1.2s ease-in-out infinite}
+#phase-recognition .nova-state-badge[data-state="talking"]{background:rgba(20,80,40,0.85);color:#dcfce7}
+#phase-recognition .nova-state-badge[data-state="talking"]::before{background:#10b981;box-shadow:0 0 10px #10b981;animation:pulseBadge 0.8s ease-in-out infinite}
+#phase-recognition .nova-state-badge[data-state="thinking"]{background:rgba(60,40,80,0.85);color:#e9d5ff}
+#phase-recognition .nova-state-badge[data-state="thinking"]::before{background:#a855f7;animation:pulseBadge 1.5s ease-in-out infinite}
 @keyframes pulseBadge{
   0%,100%{transform:scale(1);opacity:1}
   50%{transform:scale(1.4);opacity:0.6}
@@ -442,18 +471,23 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   border-color:rgba(255,200,255,0.95)!important;
   box-shadow:0 0 100px rgba(255,150,230,0.6),0 0 200px rgba(124,111,255,0.5)!important;
 }
-  40%{transform:scale(1);opacity:1}
-}
 /* v95: intro overlay/video removed entirely */
-#rec-avatar-name{font-family:'Fredoka',cursive;font-weight:600;font-size:32px;
+/* v114: name moved into the header, small — it no longer sits above the avatar box */
+#rec-avatar-name{font-family:'Fredoka',cursive;font-weight:600;font-size:17px;
   background:linear-gradient(135deg,#ff6fd8,#a78bfa);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
   letter-spacing:.02em}
 
-/* Chat side */
+/* Chat side — v114: this is now a PARENT TOOL, hidden from the kid's intro.
+   The nodes stay in the DOM because setMicState() writes #rec-mic-hint, bubbles
+   append to #rec-chat-log, and __pickPath()/_sendChat() read #rec-input.
+   Add .parent-open to reveal it from the exit/gear affordance. */
+#rec-chat-col.parent-tool{display:none}
+#rec-chat-col.parent-tool.parent-open{display:flex;position:absolute;
+  right:26px;bottom:96px;width:min(360px,42vw);max-height:44vh;z-index:60}
 #rec-chat-col{flex:1;display:flex;flex-direction:column;
   background:rgba(0,0,0,0.45);backdrop-filter:blur(12px);
-  border-left:1px solid rgba(255,111,216,0.12);padding:24px}
+  border-left:1px solid rgba(255,111,216,0.12);padding:24px;border-radius:14px}
 #rec-chat-log{flex:1;overflow-y:auto;display:flex;flex-direction:column;
   gap:10px;padding:8px 4px;scrollbar-width:thin;
   scrollbar-color:rgba(255,111,216,0.3) transparent}
@@ -473,8 +507,11 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   outline:none;transition:border .2s}
 #rec-input:focus{border-color:rgba(255,111,216,0.5)}
 #rec-input::placeholder{color:rgba(255,255,255,0.3)}
-#rec-mic{width:48px;height:48px;background:rgba(255,111,216,0.25);
-  border:1px solid rgba(255,111,216,0.4);border-radius:14px;font-size:22px;
+/* v114: mic is now a 46px circle sitting left of the single CTA.
+   Always-on mic logic is unchanged — this is only the visible affordance. */
+#rec-controls{display:flex;align-items:center;gap:12px;width:100%;flex-shrink:0}
+#rec-mic{width:46px;height:46px;background:rgba(255,111,216,0.25);
+  border:1px solid rgba(255,111,216,0.4);border-radius:50%;font-size:22px;
   cursor:pointer;flex-shrink:0;transition:all .2s;
   display:flex;align-items:center;justify-content:center}
 #rec-mic:hover{background:rgba(255,111,216,0.4)}
@@ -488,14 +525,17 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   border-radius:14px;padding:12px 18px;color:#fff;font-family:'Fredoka',cursive;
   font-weight:500;font-size:14px;cursor:pointer;white-space:nowrap;transition:all .2s}
 #rec-send:hover{background:rgba(124,111,255,0.6)}
-#rec-dance-btn{background:linear-gradient(135deg,#00ff99,#00c2d4);border:none;
-  border-radius:50px;padding:16px;font-family:'Fredoka',cursive;font-weight:600;
-  font-size:18px;color:#000;cursor:pointer;
-  box-shadow:0 4px 28px rgba(0,255,150,0.45);transition:all .2s;
+/* v114: the ONE big button. Solid green, no gradient, fills the row beside the mic.
+   .ready gating is the existing reveal logic (novaArrivalGreet + 3.5s fallback) — untouched. */
+#rec-dance-btn{flex:1;background:#1D9E75;border:none;
+  border-radius:26px;height:54px;padding:0 16px;font-family:'Fredoka',cursive;
+  font-weight:600;font-size:19px;color:#fff;cursor:pointer;
+  box-shadow:0 4px 22px rgba(29,158,117,0.38);transition:transform .18s,box-shadow .18s;
   display:none}
 #rec-dance-btn.ready{display:block;animation:danceBtnIn .5s cubic-bezier(.34,1.56,.64,1)}
 @keyframes danceBtnIn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
-#rec-dance-btn:hover{transform:scale(1.03);box-shadow:0 6px 36px rgba(0,255,150,0.65)}
+#rec-dance-btn:hover{transform:scale(1.02);box-shadow:0 6px 30px rgba(29,158,117,0.55)}
+#rec-dance-btn:active{transform:scale(.99)}
 #rec-mic-hint{font-size:11px;color:rgba(255,255,255,0.35);text-align:center}
 
 /* ═══════════════════════════════════════════
@@ -1043,8 +1083,9 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 #version-tag{position:fixed;top:0;left:0;right:0;
   z-index:9999;
   text-align:center;padding:8px 12px;
-  background:linear-gradient(90deg,#6366f1 0%,#818cf8 50%,#6366f1 100%);
-  color:#0a0a3d;font-family:'Fredoka',cursive;font-weight:700;
+  /* v114 CLOSEUP INTRO — rose. v113 was indigo #6366f1; new version, new colour. */
+  background:linear-gradient(90deg,#9d174d 0%,#ED93B1 50%,#9d174d 100%);
+  color:#2b0011;font-family:'Fredoka',cursive;font-weight:700;
   font-size:18px;letter-spacing:0.08em;
   box-shadow:0 2px 12px rgba(99,102,241,0.6);
   text-transform:uppercase;
@@ -1150,7 +1191,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 
 <div id="sees-you-tick" data-l="seesYou">✓ Nova sees you</div>
 
-<div id="vbanner" style="position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:99999;font:600 12px monospace;color:#0a0015;background:#a855f7;padding:3px 10px;border-radius:7px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.4)">BUILD: brain-led r5 · warm-brain · fast first reply</div>
+<div id="vbanner" style="position:fixed;top:44px;left:50%;transform:translateX(-50%);z-index:99999;font:600 12px monospace;color:#0a0015;background:#a855f7;padding:3px 10px;border-radius:7px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.4)">BUILD: brain-led r5 · warm-brain · fast first reply</div>
 <div id="debug-panel"></div>
 <button id="debug-toggle" onclick="document.getElementById('debug-panel').style.display='block';this.style.display='none'">≡</button>
 <div id="log-actions">
@@ -1233,37 +1274,57 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 
 <!-- ═══ PHASE 2: RECOGNITION ═══ -->
 <div class="phase" id="phase-recognition">
-  <!-- POINT 3+4: big self-view + keypoint-anchored try-move light (JS below) -->
-  <div id="rec-cam-col">
-    <div id="rec-cam-wrap">
-      <video id="rec-webcam" autoplay playsinline muted></video>
-      <div id="rec-cam-glow"></div>
-      <div id="rec-cam-hint" data-l="camHint">I can see you! 🌟</div>
-    </div>
-  </div>
-  <div id="rec-avatar-col">
+  <!-- v114 CLOSEUP INTRO — Nova BIG (63%), kid camera companion-size (37%), ONE button.
+       Layout arc: INTRO Nova big → GAME Nova corner (witness mode, untouched) → END Nova big.
+       Only 3 clickable things live here: mic, Let's Dance, exit. -->
+  <div id="rec-header">
     <div id="rec-avatar-name" data-l="novaName">Nova</div>
-    <div id="rec-avatar-frame">
-      <video id="rec-avatar-video" autoplay playsinline></video>
-      <div id="rec-avatar-placeholder">
-        <div id="rec-placeholder-emoji">🌟</div>
-        <div id="rec-loading-dots"><span></span><span></span><span></span></div>
+    <button id="rec-exit-btn" onclick="exitGame()" title="exit" aria-label="exit">✕</button>
+  </div>
+
+  <div id="rec-stage">
+    <!-- Nova panel — chest-up closeup. Content is the live pod FLV stream that
+         magicPlace() moves into #rec-avatar-frame, NOT a static asset. -->
+    <div id="rec-nova-panel">
+      <div id="rec-avatar-frame">
+        <video id="rec-avatar-video" autoplay playsinline></video>
+        <div id="rec-avatar-placeholder">
+          <div id="rec-placeholder-emoji">🌟</div>
+          <div id="rec-loading-dots"><span></span><span></span><span></span></div>
+        </div>
+        <div class="nova-state-badge" id="rec-state-badge" data-state="watching" data-l="badgeWatching">Watching</div>
+        <!-- v95: intro MP4 overlay removed — Nova appears as soon as the stream connects -->
       </div>
-      <div class="nova-state-badge" id="rec-state-badge" data-state="watching" data-l="badgeWatching">Watching</div>
-      <!-- v95: intro MP4 overlay removed — Nova appears as soon as Runway connects -->
+    </div>
+
+    <!-- Kid camera — companion size, still mirrored, no skeleton overlay in intro -->
+    <div id="rec-cam-panel">
+      <div id="rec-cam-wrap">
+        <video id="rec-webcam" autoplay playsinline muted></video>
+        <div id="rec-cam-glow"></div>
+        <div id="rec-cam-hint" data-l="camHint">I can see you! 🌟</div>
+      </div>
     </div>
   </div>
-  <div id="rec-chat-col">
+
+  <div id="rec-controls">
+    <button id="rec-mic" onclick="toggleMic()">🎤</button>
+    <button id="rec-dance-btn" onclick="goToPicker()" data-l="danceBtn">💃 Let's Dance!</button>
+  </div>
+
+  <!-- PARENT TOOL — type-to-chat. Hidden from the kid's intro, NOT deleted:
+       setMicState() writes #rec-mic-hint, bubbles append to #rec-chat-log, and
+       __pickPath()/_sendChat() read #rec-input. Removing these nodes would null-crash
+       those paths. Reveal via #rec-chat-col.parent-open (exit/gear affordance). -->
+  <div id="rec-chat-col" class="parent-tool">
     <div id="rec-chat-log"></div>
     <div id="rec-input-zone">
       <div id="rec-input-row">
-        <button id="rec-mic" onclick="toggleMic()">🎤</button>
         <input id="rec-input" type="text" placeholder="type or tap mic..." data-l-placeholder="typePlaceholder"
           onkeydown="if(event.key==='Enter')sendChat()">
         <button id="rec-send" onclick="sendChat()" data-l="send">Send</button>
       </div>
       <div id="rec-mic-hint" data-l="micHintIdle">tap mic and say hi to Nova</div>
-      <button id="rec-dance-btn" onclick="goToPicker()" data-l="danceBtn">💃 Let's Dance!</button>
     </div>
   </div>
 </div>
@@ -1458,7 +1519,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">💚 V113 — MIC INJECTION · REAL FACE TEST</div>
+<div id="version-tag">🩷 V114 — CLOSEUP INTRO · NOVA BIG</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
@@ -3329,6 +3390,12 @@ function waitForRunwayAudio(timeoutMs = 15000) {
 
 // v94: 3-path name capture — voice / type / random
 function showNameCaptureButtons() {
+  // v114 CLOSEUP INTRO: "Say it / Type it / Surprise me" are runtime-injected, so
+  // removing them from the HTML would not have worked — they regenerate here.
+  // Neutered rather than deleted: three call sites (2646, 2863, 2873) plus the
+  // phase1-loop harness still call this, and __pickPath below stays reachable.
+  // Set window.__NOVA_NAME_PATHS = 1 to bring them back.
+  if (!window.__NOVA_NAME_PATHS) return;
   if (document.getElementById('name-path-btns')) return;  // already shown
   const recPhase = document.getElementById('phase-recognition');
   if (!recPhase) return;
@@ -6547,7 +6614,10 @@ window.__initRunwayNova = initDID;
    Nova frame — and materializes together with her first word. */
 #nova-stage.in-frame{position:absolute;inset:0;left:auto;bottom:auto;width:100%;height:100%;
   border-radius:inherit;border:none;box-shadow:none;z-index:5}
-#rec-avatar-frame.pod-live > :not(#nova-stage){visibility:hidden}
+/* v114: the state badge must survive pod-live. Without the .nova-state-badge
+   exception the Talking/Listening pill vanishes the moment the pod stream
+   attaches — i.e. in the normal case — even though it is correctly styled. */
+#rec-avatar-frame.pod-live > :not(#nova-stage):not(.nova-state-badge){visibility:hidden}
 #rec-avatar-frame.pod-live{position:relative}
 #nova-stage.magic-in{animation:novaMagicIn .9s cubic-bezier(.2,1.5,.4,1)}
 @keyframes novaMagicIn{0%{opacity:0;transform:scale(.55)}60%{opacity:1}100%{opacity:1;transform:scale(1)}}
