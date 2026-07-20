@@ -70,6 +70,16 @@ async function openIntro(ctx, port, query = '') {
              pct: +(p.height / window.innerHeight * 100).toFixed(1),
              widthShare: +(p.width / document.getElementById('rec-stage').getBoundingClientRect().width * 100).toFixed(1) };
   });
+  // the frame must FILL the panel — .closeup's width:min(420px,..)!important
+  // otherwise leaves dead space beside the avatar
+  const c2b = await pg.evaluate(() => {
+    const p = document.getElementById('rec-nova-panel').getBoundingClientRect();
+    const f = document.getElementById('rec-avatar-frame').getBoundingClientRect();
+    return { panelW: Math.round(p.width), frameW: Math.round(f.width), fills: f.width >= p.width - 8 };
+  });
+  rec('2b · avatar frame fills the Nova panel', c2b.fills,
+    `frame ${c2b.frameW}px in panel ${c2b.panelW}px`);
+
   rec('2 · Nova panel >=25% viewport height', c2.pct >= 25,
     `panel ${c2.w}x${c2.h} at ${c2.vw}x${c2.vh} = ${c2.pct}% vh, ${c2.widthShare}% of stage width (target ~63%)`);
 
@@ -109,6 +119,22 @@ async function openIntro(ctx, port, query = '') {
     return v;
   });
   rec('3b · badge survives pod-live', c3b === 'visible', `visibility under .pod-live = ${c3b}`);
+
+  // ── 3c. ORPHANED .pod-live must not blank the panel. The floor widget removes
+  //        #nova-stage when the stream errors (pod down) and leaves the class
+  //        behind; keyed on the class alone that hid the placeholder and the
+  //        63%-wide Nova panel rendered as a big black box. Live-caught 2026-07-20.
+  const c3c = await pg.evaluate(() => {
+    const frame = document.getElementById('rec-avatar-frame');
+    const ph = document.getElementById('rec-avatar-placeholder');
+    document.getElementById('nova-stage')?.remove();     // simulate the pod-down teardown
+    frame.classList.add('pod-live');                     // …with the class left orphaned
+    const v = getComputedStyle(ph).visibility;
+    frame.classList.remove('pod-live');
+    return v;
+  });
+  rec('3c · orphaned pod-live does not blank the panel', c3c === 'visible',
+    `placeholder visibility with .pod-live but no #nova-stage = ${c3c}`);
 
   // ── 7b. the version banner must not be covered by #vbanner
   const c7b = await pg.evaluate(() => {

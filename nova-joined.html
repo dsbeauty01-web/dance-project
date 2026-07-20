@@ -352,8 +352,13 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
 /* The Nova frame now fills its panel instead of being a floating rounded card.
    Content is the live pod FLV stream, so the chest-up "crop" is object-position,
    not an edited asset. */
-#rec-nova-panel #rec-avatar-frame{width:100%;height:100%;aspect-ratio:auto;
-  border-radius:0;border:none;box-shadow:none;transition:none}
+/* .closeup carries width:min(420px,60vmin)!important and setAvatarCloseup(true)
+   fires on arrival — now that the dead-CSS fix revived that rule it actually
+   applies, and the frame stopped filling the panel (420px inside 819px, dead
+   space on the right). Both selectors + !important so the panel always wins. */
+#rec-nova-panel #rec-avatar-frame,
+#rec-nova-panel #rec-avatar-frame.closeup{width:100%!important;height:100%!important;
+  aspect-ratio:auto;border-radius:0;border:none;box-shadow:none;transition:none}
 #rec-nova-panel #rec-avatar-video,
 #rec-nova-panel #nova-stage video{object-fit:cover;object-position:50% 15%}
 
@@ -1066,7 +1071,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 #end-avatar-frame{border:2px solid #ED93B1;overflow:hidden}
 #end-avatar-frame #end-avatar-video,
 #end-avatar-frame #nova-stage video{object-fit:cover;object-position:50% 15%}
-#end-avatar-frame.pod-live > :not(#nova-stage):not(.end-state){visibility:hidden}
+#end-avatar-frame.pod-live:has(#nova-stage) > :not(#nova-stage):not(.end-state){visibility:hidden}
 .end-state {
   position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
   background: rgba(0,0,0,0.7); backdrop-filter: blur(10px);
@@ -1606,7 +1611,13 @@ function showPhase(id){
  *  widget deliberately sits in its fixed corner — witness mode is untouched. */
 function novaStageTo(frameId, phaseId){
   const stage = document.getElementById('nova-stage');
-  if (!stage) return;                                   // pod down → static face, nothing to move
+  if (!stage) {
+    // pod down → the widget removed its stage. Drop any orphaned .pod-live so the
+    // placeholder is not left hidden behind a class that no longer means anything.
+    document.querySelectorAll('#rec-avatar-frame.pod-live,#end-avatar-frame.pod-live')
+      .forEach(f => f.classList.remove('pod-live'));
+    return;
+  }
   if (phaseId !== 'phase-end' && phaseId !== 'phase-recognition') return;  // game/picker: leave it alone
   const frame = document.getElementById(frameId);
   if (!frame || stage.parentElement === frame) return;
@@ -6737,8 +6748,14 @@ window.__initRunwayNova = initDID;
   border-radius:inherit;border:none;box-shadow:none;z-index:5}
 /* v114: the state badge must survive pod-live. Without the .nova-state-badge
    exception the Talking/Listening pill vanishes the moment the pod stream
-   attaches — i.e. in the normal case — even though it is correctly styled. */
-#rec-avatar-frame.pod-live > :not(#nova-stage):not(.nova-state-badge){visibility:hidden}
+   attaches — i.e. in the normal case — even though it is correctly styled.
+
+   :has(#nova-stage) is load-bearing. The floor widget creates #nova-stage, then
+   REMOVES it if the stream errors (pod down) — leaving .pod-live orphaned on the
+   frame. Keyed on the class alone, that hid #rec-avatar-placeholder too, and the
+   now-63%-wide Nova panel rendered as a big black box. Hiding the siblings only
+   while a stage is genuinely present makes it self-correcting. */
+#rec-avatar-frame.pod-live:has(#nova-stage) > :not(#nova-stage):not(.nova-state-badge){visibility:hidden}
 #rec-avatar-frame.pod-live{position:relative}
 #nova-stage.magic-in{animation:novaMagicIn .9s cubic-bezier(.2,1.5,.4,1)}
 @keyframes novaMagicIn{0%{opacity:0;transform:scale(.55)}60%{opacity:1}100%{opacity:1;transform:scale(1)}}
