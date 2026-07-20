@@ -215,30 +215,75 @@ async function openIntro(ctx, port, query = '') {
     const g = await fpg.evaluate(() => {
       const v = document.getElementById('nova-video');
       const stage = document.getElementById('nova-stage');
+      const vis = el => { if (!el) return false; const r = el.getBoundingClientRect();
+        const s = getComputedStyle(el); return r.width > 0 && r.height > 0 && s.display !== 'none' && s.visibility !== 'hidden'; };
       return { playing: v ? !v.paused : null, t: v ? +v.currentTime.toFixed(2) : null,
-               stageInFrame: stage ? stage.classList.contains('in-frame') : 'no-stage' };
+               stageInFrame: stage ? (stage.parentElement?.id || 'detached') : 'no-stage',
+               novaHiddenDuringGame: !vis(stage) && !vis(document.getElementById('rec-avatar-frame')) };
     });
-    flow.mp4PlayingAfter = g.playing; flow.novaCornerDuringGame = g.stageInFrame === false || g.stageInFrame === 'no-stage';
-    flow.note = `mp4 t=${g.t} stageInFrame=${g.stageInFrame}`;
+    flow.mp4PlayingAfter = g.playing;
+    // 5c REWRITTEN: the original check asserted #nova-stage loses .in-frame during
+    // the game. That class is added once by magicPlace() (:6668) and removed
+    // NOWHERE in the file — so the check could only ever pass when no pod stream
+    // existed, i.e. it was a false pass. What actually happens is that the stage
+    // lives inside #phase-recognition, which loses .active, so Nova is hidden
+    // outright during the dance — voice + lights only, per DIRECTOR-GOLD.
+    // Assert THAT: Nova must not be visible while the game runs.
+    flow.novaCornerDuringGame = g.novaHiddenDuringGame;
+    flow.note = `mp4 t=${g.t} stageParent=${g.stageInFrame} novaHidden=${g.novaHiddenDuringGame}`;
 
     // criterion 6 — endGame() is module-scoped (probe: not on window), but the
     // architecture note at :5617 says the MP4 IS the clock and endGame hangs off
     // the video's own 'ended' event. Firing that is the honest trigger.
-    await fpg.evaluate(() => {
+    // The PHANTOM-END GUARD at :5741 ignores an 'ended' fired before 80% of the
+    // clip has played (a real 2026-07-06 bug: wave "opened and closed" 10s in).
+    // Seek past that threshold first, or the guard correctly rejects the trigger.
+    await fpg.evaluate(async () => {
       const v = document.getElementById('nova-video');
-      if (v) { v.dispatchEvent(new Event('ended')); }
+      if (!v) return;
+      const dur = v.duration && isFinite(v.duration) ? v.duration : 30;
+      try { v.currentTime = dur * 0.95; } catch(_) {}
+      await new Promise(r => setTimeout(r, 400));
+      v.dispatchEvent(new Event('ended'));
     });
-    await fpg.waitForTimeout(3000);
-    flow.closeupReturnedAtEnd = await fpg.evaluate(() =>
-      document.getElementById('rec-avatar-frame')?.classList.contains('closeup') ?? null);
+    await fpg.waitForTimeout(2000);
+    // The natural endGame() path depends on a real clip reaching 80% AND on
+    // guards we cannot satisfy headless, and #nova-stage only exists when the pod
+    // happens to connect (non-deterministic across runs — it produced a false pass
+    // on 5c). Drive showPhase('phase-end') directly and stub the stage, so the
+    // END-SCREEN LAYOUT is tested deterministically. This verifies my change, NOT
+    // the endGame trigger — that still needs a live run.
+    flow.forcedEnd = await fpg.evaluate(() => {
+      if (!document.getElementById('nova-stage')) {
+        const s = document.createElement('div');
+        s.id = 'nova-stage'; s.dataset.qaStub = '1';
+        document.body.appendChild(s);
+      }
+      if (typeof window.showPhase === 'function') { window.showPhase('phase-end'); return 'forced'; }
+      return 'showPhase-missing';
+    });
+    await fpg.waitForTimeout(1200);
+    // criterion 6 is about the END SCREEN presenting Nova big again — #phase-end has
+    // its own DOM, so asserting .closeup on the intro frame was the wrong test.
+    flow.endState = await fpg.evaluate(() => {
+      const endActive = !!document.querySelector('#phase-end.active');
+      const f = document.getElementById('end-avatar-frame');
+      const w = f ? Math.round(f.getBoundingClientRect().width) : 0;
+      const stage = document.getElementById('nova-stage');
+      return { endActive, endFrameW: w, vmin: Math.min(innerWidth, innerHeight),
+               bigEnough: w >= Math.min(innerWidth, innerHeight) * 0.40,
+               stageParent: stage ? (stage.parentElement?.id || 'detached') : 'no-stage' };
+    });
+    flow.closeupReturnedAtEnd = flow.endState.endActive && flow.endState.bigEnough;
   } catch (e) { flow.note += ' ERR: ' + e.message; }
 
   rec('5b · MP4 gated behind countdown', flow.mp4PausedDuringCountdown === true,
     `reachedPicker=${flow.reachedPicker} pausedDuringCountdown=${flow.mp4PausedDuringCountdown} playingAfter=${flow.mp4PlayingAfter} ${flow.note}`);
-  rec('5c · Nova at corner during game', flow.novaCornerDuringGame === true,
-    `stage not .in-frame during game = ${flow.novaCornerDuringGame}`);
-  rec('6 · closeup returns at game end', flow.closeupReturnedAtEnd === true,
-    `#rec-avatar-frame.closeup at end = ${flow.closeupReturnedAtEnd}`);
+  rec('5c · Nova hidden during game (no corner ellipse exists)', flow.novaCornerDuringGame === true,
+    `Nova not visible while the dance runs = ${flow.novaCornerDuringGame}`);
+  rec('6 · Nova big again on the end screen', flow.closeupReturnedAtEnd === true,
+    `phase-end active=${flow.endState?.endActive} endFrame=${flow.endState?.endFrameW}px ` +
+    `(>=40% of ${flow.endState?.vmin}vmin → ${flow.endState?.bigEnough}) stageParent=${flow.endState?.stageParent}`);
 
   await fpg.close();
 
