@@ -611,6 +611,14 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   0%,100%{transform:scale(1.15)}
   50%{transform:scale(1.19)}
 }
+/* v114: voice pick gets the same beat as a tap before the game starts */
+.picker-card.voice-picked{animation:cardTap .4s ease-out;
+  border-color:#ED93B1;box-shadow:0 0 0 6px rgba(237,147,177,.35)}
+@keyframes cardTap{
+  0%{transform:scale(1)}
+  45%{transform:scale(.93)}
+  100%{transform:scale(1.06)}
+}
 .picker-emoji{font-size:80px;line-height:1;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.15))}
 .picker-name{font-weight:700;font-size:clamp(22px,3.5vmin,28px);
   color:#5b2c6e;}
@@ -1678,6 +1686,7 @@ function goToPicker(){
     return;
   }
   showPhase('phase-picker');
+  pickerVoiceUsed = false;   // v114: re-arm voice choice on every picker entry
   // Update picker recommendation based on age from memory
   const age = (window.__novaMemory && window.__novaMemory.age) || null;
   const subtitle = document.getElementById('picker-subtitle');
@@ -1698,6 +1707,38 @@ function goToPicker(){
   // on-card badge. Keys pickerPickYoung/pickerPickOld stay in the packs unused.
   if (subtitle) subtitle.textContent = '';
 }
+/* ═══ v114 PICKER VOICE CHOICE ═══
+   A 4-7 year old who cannot read should be able to SAY the game. We piggyback on
+   the stt-echo packets the worker already sends (what the model heard) — no new
+   mic machinery, no browser SpeechRecognition (deleted 2026-07-08), and above all
+   nothing inserted into the V2V pipe. Read-only observation.
+
+   Longest/most specific patterns first: "bounce groove" must not match "groove",
+   and "wave magic" must not match "wave". */
+const PICKER_VOICE = [
+  { card: '.freeze-card',    id: 'freeze',    re: /\b(freeze|frozen|statue|ice)\b/i },
+  { card: '.wavemagic-card', id: 'wavemagic', re: /\b(wave\s*magic|magic\s*wave|magic)\b/i },
+  { card: '.bounce-card',    id: 'bounce',    re: /\b(bounce|bouncing|basketball)\b/i },
+  { card: '.hello-card',     id: 'hello',     re: /\b(hello|halo|hi\s*hi)\b/i },
+  { card: '.joined-card',    id: 'joined',    re: /\b(up\s*groove|groove|up)\b/i },
+  { card: '.wave-card',      id: 'wave',      re: /\b(wave|waving)\b/i },
+];
+let pickerVoiceUsed = false;
+function pickerHear(text){
+  if (!text || pickerVoiceUsed) return;
+  if (!document.querySelector('#phase-picker.active')) return;   // only while the picker is open
+  const hit = PICKER_VOICE.find(g => g.re.test(text));
+  if (!hit) return;
+  const card = document.querySelector(hit.card);
+  if (!card) return;
+  pickerVoiceUsed = true;
+  LOG('PICKER', `voice pick: "${text}" -> ${hit.id}`);
+  // same visual beat as a tap, then the identical handler
+  card.classList.add('voice-picked');
+  setTimeout(() => { card.classList.remove('voice-picked'); pickGame(hit.id); }, 420);
+}
+window.pickerHear = pickerHear;
+
 function pickGame(songId){
   if(typeof markUserInteraction === 'function') markUserInteraction();
   // PRE-GAME DEMO VIDEO: the real session recording plays while the game loads
@@ -3266,6 +3307,9 @@ function setupNovaRoomEvents(room) {
       LOG('HEARD', 'Nova heard: "' + (msg.text || '') + '"');
       window.__lastHeardAt = Date.now();   // SPEECH-GRACE: kid-talking clock
       try { showSttEcho(msg.text || ''); } catch(_){}
+      // v114 PICKER VOICE CHOICE: read-only. This is what the model ALREADY heard;
+      // nothing is injected into the kid<->model pipe (V2V stays untouched).
+      try { if (window.pickerHear) window.pickerHear(msg.text || ''); } catch(_){}
       return;
     }
     // SMART-INTRO Part 7: full both-sides dialogue + producer decisions in every log
