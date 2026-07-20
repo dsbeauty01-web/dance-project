@@ -64,6 +64,8 @@ en: {
   tagHello: 'fast + jumpy', tagJoined: 'copy her body', tagWave: 'river of light',
   songWavemagic: 'Wave Magic!', songBounce: 'Bounce Groove!',
   tagWavemagic: 'the magic arm', tagBounce: 'whole-body bounce',
+  songFreeze: 'Freeze Dance!',   // v114: SONGS.freeze finally has a picker card
+  novaPickLabel: "Nova's pick!",
   descHello: 'hands up · clap<br>Nova says',
   descJoined: 'head · shoulders<br>ribs · hips',
   descWave: 'shoulders · elbows<br>wrists · flow',
@@ -142,6 +144,8 @@ he: {
   tagHello: 'מהיר וקופצני', tagJoined: 'מחקים את נובה', tagWave: 'נהר של אור',
   songWavemagic: 'גל הקסם!', songBounce: 'באונס גרוב!',
   tagWavemagic: 'היד הקסומה', tagBounce: 'באונס בכל הגוף',
+  songFreeze: 'ריקוד הקפאה!',
+  novaPickLabel: 'הבחירה של נובה!',
   descHello: 'ידיים למעלה · מחיאות כף<br>נובה אומרת',
   descJoined: 'ראש · כתפיים<br>צלעות · ירכיים',
   descWave: 'כתפיים · מרפקים<br>כפות ידיים · זרימה',
@@ -322,21 +326,95 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
    PHASE 2: RECOGNITION — Nova sees the kid
    Conversational intro
    ═══════════════════════════════════════════ */
-#phase-recognition{background:radial-gradient(ellipse at 30% 40%,#2d0750,#0a0015);
-  flex-direction:row}
+/* ═══ v114 CLOSEUP INTRO ═══
+   Was: flex row, camera dominant (flex 2.2), Nova a small poster beside it,
+   dead chat column on the right, 6 interactive elements.
+   Now: column stack — header / two panels / one button row. Nova leads at 63%.
+   Layout arc: INTRO Nova big → GAME Nova corner (witness mode) → END Nova big. */
+/* v114b THE WINDOW AND THE MIRROR — the intro read as a video call: two flat
+   bordered rectangles side by side. Nova is now a LIT PORTAL and the kid is a
+   MIRROR. Same grid, same three brand colours; the difference is light.
+   One warm accent (--glow) against an all-cool app is the deliberate risk: it
+   makes her read as lit rather than displayed. */
+#phase-recognition{
+  --night:#12002B; --stage:#2A0A52;
+  --nova:#ED93B1; --mirror:#AFA9EC; --glow:#FFD9A8;
+  background:
+    radial-gradient(ellipse 90% 60% at 32% 8%, rgba(255,217,168,.10), transparent 62%),
+    radial-gradient(ellipse 70% 70% at 30% 45%, var(--stage), transparent 70%),
+    var(--night);
+  flex-direction:column;justify-content:center;gap:14px;padding:22px 26px}
 
-/* Avatar side */
-#rec-avatar-col{flex:1;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;gap:20px;padding:32px;position:relative}
-/* POINT 3 (2026-07-01): BIG self-view during the intro. The recognition phase had
-   NO kid camera, so the child couldn't see himself or the try-move light when Nova
-   said "show me a clap." The camera is now the dominant panel; Nova sits smaller
-   beside it. On a portrait phone the columns stack (camera on top). */
-#rec-cam-col{flex:2.2;position:relative;display:flex;align-items:center;
-  justify-content:center;padding:18px;min-width:0;min-height:0}
-#rec-cam-wrap{position:relative;width:100%;height:100%;max-height:80vh;
-  border-radius:24px;overflow:hidden;background:#000;
-  border:4px solid rgba(124,111,255,.55);box-shadow:0 0 50px rgba(124,111,255,.35)}
+#rec-header{display:flex;align-items:center;justify-content:space-between;
+  width:100%;flex-shrink:0}
+#rec-exit-btn{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);
+  color:rgba(255,255,255,.75);border-radius:50%;width:34px;height:34px;
+  font-size:15px;line-height:1;cursor:pointer;flex-shrink:0;transition:all .2s}
+#rec-exit-btn:hover{background:rgba(255,255,255,.16);color:#fff}
+
+/* 1.7fr / 1fr ≈ 63/37. Height capped at 60vh so the CTA can never scroll off. */
+#rec-stage{display:grid;grid-template-columns:1.7fr 1fr;gap:14px;
+  width:100%;height:60vh;max-height:60vh;flex-shrink:0}
+#rec-nova-panel,#rec-cam-panel{border-radius:14px;overflow:hidden;
+  position:relative;min-width:0;min-height:0}
+
+/* HER PORTAL — warm key light from above, soft vignette, pink rim that carries
+   the brand colour as EDGE light instead of a drawn border. */
+#rec-nova-panel{
+  border:2px solid var(--nova);
+  background:radial-gradient(ellipse 80% 55% at 50% 0%, #43106f, #170134 70%);
+  box-shadow:
+    0 0 0 1px rgba(255,217,168,.16),
+    0 18px 60px -18px rgba(237,147,177,.45),
+    inset 0 1px 0 rgba(255,217,168,.22);
+}
+/* the key light itself — sits above the stream, never intercepts a tap */
+#rec-nova-panel::after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 62% 42% at 50% -6%, rgba(255,217,168,.20), transparent 68%),
+    radial-gradient(ellipse 120% 80% at 50% 118%, rgba(18,0,43,.72), transparent 62%);
+  z-index:4}
+
+/* THEIR MIRROR — cool, quieter, deliberately the calmer of the two so she leads */
+#rec-cam-panel{
+  border:2px solid var(--mirror);
+  background:#05000f;
+  box-shadow:
+    0 0 0 1px rgba(175,169,236,.14),
+    0 18px 60px -22px rgba(175,169,236,.34);
+}
+#rec-cam-panel::after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 120% 90% at 50% 108%, rgba(18,0,43,.62), transparent 58%);
+  z-index:4}
+
+/* she breathes light when she talks — the panel edge, not a separate widget */
+#rec-nova-panel:has(#rec-avatar-frame.speaking),
+#rec-nova-panel:has(.nova-state-badge[data-state="talking"]){
+  animation:portalBreathe 2.4s ease-in-out infinite}
+@keyframes portalBreathe{
+  0%,100%{box-shadow:0 0 0 1px rgba(255,217,168,.16),0 18px 60px -18px rgba(237,147,177,.45),inset 0 1px 0 rgba(255,217,168,.22)}
+  50%    {box-shadow:0 0 0 1px rgba(255,217,168,.34),0 22px 76px -14px rgba(237,147,177,.72),inset 0 1px 0 rgba(255,217,168,.40)}
+}
+@media (prefers-reduced-motion:reduce){
+  #rec-nova-panel:has(#rec-avatar-frame.speaking),
+  #rec-nova-panel:has(.nova-state-badge[data-state="talking"]){animation:none}
+}
+
+/* The Nova frame now fills its panel instead of being a floating rounded card.
+   Content is the live pod FLV stream, so the chest-up "crop" is object-position,
+   not an edited asset. */
+/* .closeup carries width:min(420px,60vmin)!important and setAvatarCloseup(true)
+   fires on arrival — now that the dead-CSS fix revived that rule it actually
+   applies, and the frame stopped filling the panel (420px inside 819px, dead
+   space on the right). Both selectors + !important so the panel always wins. */
+#rec-nova-panel #rec-avatar-frame,
+#rec-nova-panel #rec-avatar-frame.closeup{width:100%!important;height:100%!important;
+  aspect-ratio:auto;border-radius:0;border:none;box-shadow:none;transition:none}
+#rec-nova-panel #rec-avatar-video,
+#rec-nova-panel #nova-stage video{object-fit:cover;object-position:50% 15%}
+
+#rec-cam-wrap{position:relative;width:100%;height:100%;
+  overflow:hidden;background:#000}
 #rec-webcam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
   transform:scaleX(-1);background:#000;display:block}
 /* keypoint-anchored try-move glow — moved onto the kid's wrists by JS */
@@ -366,14 +444,20 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   padding:4px 14px;border-radius:999px;background:rgba(20,16,40,.62);color:rgba(255,255,255,.85);
   font:500 13px 'Fredoka',cursive;pointer-events:none;max-width:70vw;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis}
-#rec-cam-hint{position:absolute;left:0;right:0;bottom:14px;text-align:center;color:#fff;
-  font:600 15px 'Fredoka',cursive;text-shadow:0 2px 8px rgba(0,0,0,.7);pointer-events:none}
-@media (max-aspect-ratio:1/1){
-  #phase-recognition{flex-direction:column}
-  #rec-cam-col{flex:1.7;width:100%;padding:10px}
-  #rec-avatar-col{flex:.7;flex-direction:row;padding:10px;gap:12px}
-  #rec-chat-col{flex:.9;width:100%;border-left:none;
-    border-top:1px solid rgba(255,111,216,0.12)}
+/* v114b: a pill, not floating text — it belongs to the mirror */
+#rec-cam-hint{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;
+  text-align:center;color:#F3F0FF;white-space:nowrap;z-index:5;
+  font:600 14px 'Fredoka',cursive;letter-spacing:.01em;
+  padding:6px 14px;border-radius:999px;
+  background:rgba(18,0,43,.55);backdrop-filter:blur(8px);
+  border:1px solid rgba(175,169,236,.42);
+  box-shadow:0 6px 18px -8px rgba(0,0,0,.7);pointer-events:none}
+/* v114: the old portrait rule targeted #rec-cam-col / #rec-avatar-col, which this
+   redesign replaced — it would now be dead CSS. Spec guardrail says do NOT redesign
+   mobile in this task, so the panels simply stack. */
+@media (max-width:900px),(max-aspect-ratio:1/1){
+  #rec-stage{grid-template-columns:1fr;grid-template-rows:1.5fr 1fr;height:auto;max-height:64vh}
+  #phase-recognition{padding:14px}
 }
 /* v113 Nova frame: rounded-rectangle "square" like v222 (was a circle).
    aspect-ratio 0.8 = portrait, border-radius 28px = v222's rounded-[28px]. */
@@ -391,46 +475,75 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   50%{transform:scale(1.02)}
 }
 #rec-avatar-video{width:100%;height:100%;object-fit:cover;display:none}
+/* v114b: the pod-down state is what most first loads actually show, so it has to
+   look intentional — "she's on her way", not a magenta error box. A warm light
+   gathering in the dark, matching the portal's key light. */
+/* v114b-2: first pass made this a near-black void with a small star — the
+   pod-down state is what most first loads show, so it has to feel like she is
+   ARRIVING, not like the screen is off. Lit violet with a warm heart, bright
+   enough to read as alive at a glance. */
 #rec-avatar-placeholder{position:absolute;inset:0;display:flex;align-items:center;
-  justify-content:center;flex-direction:column;gap:14px;
-  background:radial-gradient(ellipse at 40% 40%,#ff99dd,#aa0099 60%,#330033)}
-#rec-placeholder-emoji{font-size:80px;animation:placeholderFloat 2s ease-in-out infinite}
+  justify-content:center;flex-direction:column;gap:18px;
+  background:
+    /* NB: `circle <pct>` is INVALID css — a circle radius must be a length, and
+       one bad layer invalidates the WHOLE background declaration. That is why
+       two "brighter" passes rendered as a black void. Use ellipse w/ two %. */
+    radial-gradient(ellipse 34% 30% at 50% 42%, rgba(255,226,190,.55), transparent 66%),
+    radial-gradient(ellipse 78% 62% at 50% 40%, #8C3AB0 0%, #55177F 46%, #2A0A52 78%),
+    #1D0440}
+#rec-placeholder-emoji{font-size:76px;
+  filter:drop-shadow(0 0 34px rgba(255,226,190,.9)) drop-shadow(0 8px 22px rgba(0,0,0,.45));
+  animation:placeholderFloat 3.4s ease-in-out infinite}
 @keyframes placeholderFloat{
   0%,100%{transform:translateY(0)}
   50%{transform:translateY(-8px)}
 }
 #rec-loading-dots{display:flex;gap:6px}
-#rec-loading-dots span{width:9px;height:9px;border-radius:50%;
-  background:rgba(255,255,255,0.7);animation:loadDot 1.2s ease-in-out infinite}
+#rec-loading-dots span{width:7px;height:7px;border-radius:50%;
+  background:rgba(255,217,168,.85);box-shadow:0 0 10px rgba(255,217,168,.7);
+  animation:loadDot 1.2s ease-in-out infinite}
 #rec-loading-dots span:nth-child(2){animation-delay:.2s}
 #rec-loading-dots span:nth-child(3){animation-delay:.4s}
 @keyframes loadDot{
   0%,80%,100%{transform:scale(.6);opacity:.4}
+  40%{transform:scale(1);opacity:1}
+}
 
-/* v110 KIDS — state badges (Lexi Pattern 2) */
-.nova-state-badge{
-  position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);
+/* v110 KIDS — state badges (Lexi Pattern 2)
+   v114 FIX: everything from here to the .closeup rule used to sit INSIDE the
+   unterminated @keyframes loadDot above, so the browser discarded all of it —
+   the intro badge rendered as bare unstyled text and setAvatarCloseup() was a
+   visual no-op. Keyframes now closed properly.
+   The badge rules stay SCOPED to #phase-recognition on purpose: #game-state-badge
+   shares this class, and reviving it globally would change the game phase, which
+   is out of scope for the intro redesign. */
+#phase-recognition .nova-state-badge{
+  /* v114: bottom-LEFT inside the Nova panel. Was bottom:-6px centred, which hung
+     outside the old floating card — it would be clipped now the frame fills the panel. */
+  position:absolute;bottom:12px;left:12px;
   padding:5px 14px;border-radius:14px;
   font:600 11px/1 'Fredoka',sans-serif;letter-spacing:.04em;
   text-transform:uppercase;
-  background:rgba(0,0,0,0.75);color:rgba(255,255,255,0.85);
-  backdrop-filter:blur(8px);
-  display:flex;align-items:center;gap:6px;
+  background:rgba(18,0,43,.62);color:rgba(255,242,250,.92);
+  backdrop-filter:blur(10px);
+  border:1px solid rgba(255,217,168,.22);
+  box-shadow:0 6px 18px -8px rgba(0,0,0,.8);
+  display:flex;align-items:center;gap:7px;
   transition:all 0.3s;
   z-index:10;
   white-space:nowrap;
 }
-.nova-state-badge::before{
+#phase-recognition .nova-state-badge::before{
   content:'';width:6px;height:6px;border-radius:50%;
   background:#aaa;transition:all 0.3s;
 }
-.nova-state-badge[data-state="watching"]::before{background:#94a3b8}
-.nova-state-badge[data-state="listening"]{background:rgba(20,40,80,0.85);color:#fff}
-.nova-state-badge[data-state="listening"]::before{background:#3b82f6;box-shadow:0 0 8px #3b82f6;animation:pulseBadge 1.2s ease-in-out infinite}
-.nova-state-badge[data-state="talking"]{background:rgba(20,80,40,0.85);color:#dcfce7}
-.nova-state-badge[data-state="talking"]::before{background:#10b981;box-shadow:0 0 10px #10b981;animation:pulseBadge 0.8s ease-in-out infinite}
-.nova-state-badge[data-state="thinking"]{background:rgba(60,40,80,0.85);color:#e9d5ff}
-.nova-state-badge[data-state="thinking"]::before{background:#a855f7;animation:pulseBadge 1.5s ease-in-out infinite}
+#phase-recognition .nova-state-badge[data-state="watching"]::before{background:#94a3b8}
+#phase-recognition .nova-state-badge[data-state="listening"]{background:rgba(20,40,80,0.85);color:#fff}
+#phase-recognition .nova-state-badge[data-state="listening"]::before{background:#3b82f6;box-shadow:0 0 8px #3b82f6;animation:pulseBadge 1.2s ease-in-out infinite}
+#phase-recognition .nova-state-badge[data-state="talking"]{background:rgba(20,80,40,0.85);color:#dcfce7}
+#phase-recognition .nova-state-badge[data-state="talking"]::before{background:#10b981;box-shadow:0 0 10px #10b981;animation:pulseBadge 0.8s ease-in-out infinite}
+#phase-recognition .nova-state-badge[data-state="thinking"]{background:rgba(60,40,80,0.85);color:#e9d5ff}
+#phase-recognition .nova-state-badge[data-state="thinking"]::before{background:#a855f7;animation:pulseBadge 1.5s ease-in-out infinite}
 @keyframes pulseBadge{
   0%,100%{transform:scale(1);opacity:1}
   50%{transform:scale(1.4);opacity:0.6}
@@ -442,18 +555,23 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   border-color:rgba(255,200,255,0.95)!important;
   box-shadow:0 0 100px rgba(255,150,230,0.6),0 0 200px rgba(124,111,255,0.5)!important;
 }
-  40%{transform:scale(1);opacity:1}
-}
 /* v95: intro overlay/video removed entirely */
-#rec-avatar-name{font-family:'Fredoka',cursive;font-weight:600;font-size:32px;
+/* v114: name moved into the header, small — it no longer sits above the avatar box */
+#rec-avatar-name{font-family:'Fredoka',cursive;font-weight:600;font-size:17px;
   background:linear-gradient(135deg,#ff6fd8,#a78bfa);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
   letter-spacing:.02em}
 
-/* Chat side */
+/* Chat side — v114: this is now a PARENT TOOL, hidden from the kid's intro.
+   The nodes stay in the DOM because setMicState() writes #rec-mic-hint, bubbles
+   append to #rec-chat-log, and __pickPath()/_sendChat() read #rec-input.
+   Add .parent-open to reveal it from the exit/gear affordance. */
+#rec-chat-col.parent-tool{display:none}
+#rec-chat-col.parent-tool.parent-open{display:flex;position:absolute;
+  right:26px;bottom:96px;width:min(360px,42vw);max-height:44vh;z-index:60}
 #rec-chat-col{flex:1;display:flex;flex-direction:column;
   background:rgba(0,0,0,0.45);backdrop-filter:blur(12px);
-  border-left:1px solid rgba(255,111,216,0.12);padding:24px}
+  border-left:1px solid rgba(255,111,216,0.12);padding:24px;border-radius:14px}
 #rec-chat-log{flex:1;overflow-y:auto;display:flex;flex-direction:column;
   gap:10px;padding:8px 4px;scrollbar-width:thin;
   scrollbar-color:rgba(255,111,216,0.3) transparent}
@@ -473,8 +591,13 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   outline:none;transition:border .2s}
 #rec-input:focus{border-color:rgba(255,111,216,0.5)}
 #rec-input::placeholder{color:rgba(255,255,255,0.3)}
-#rec-mic{width:48px;height:48px;background:rgba(255,111,216,0.25);
-  border:1px solid rgba(255,111,216,0.4);border-radius:14px;font-size:22px;
+/* v114: mic is now a 46px circle sitting left of the single CTA.
+   Always-on mic logic is unchanged — this is only the visible affordance. */
+#rec-controls{display:flex;align-items:center;gap:12px;width:100%;flex-shrink:0}
+#rec-mic{width:46px;height:46px;
+  background:radial-gradient(circle at 50% 34%, rgba(237,147,177,.42), rgba(237,147,177,.16));
+  border:1px solid rgba(237,147,177,.55);border-radius:50%;font-size:21px;
+  box-shadow:0 6px 18px -6px rgba(237,147,177,.5), inset 0 1px 0 rgba(255,255,255,.2);
   cursor:pointer;flex-shrink:0;transition:all .2s;
   display:flex;align-items:center;justify-content:center}
 #rec-mic:hover{background:rgba(255,111,216,0.4)}
@@ -488,14 +611,23 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   border-radius:14px;padding:12px 18px;color:#fff;font-family:'Fredoka',cursive;
   font-weight:500;font-size:14px;cursor:pointer;white-space:nowrap;transition:all .2s}
 #rec-send:hover{background:rgba(124,111,255,0.6)}
-#rec-dance-btn{background:linear-gradient(135deg,#00ff99,#00c2d4);border:none;
-  border-radius:50px;padding:16px;font-family:'Fredoka',cursive;font-weight:600;
-  font-size:18px;color:#000;cursor:pointer;
-  box-shadow:0 4px 28px rgba(0,255,150,0.45);transition:all .2s;
+/* v114: the ONE big button. Solid green, no gradient, fills the row beside the mic.
+   .ready gating is the existing reveal logic (novaArrivalGreet + 3.5s fallback) — untouched. */
+/* the one bright thing below the stage — solid green as specced, but lit from
+   within and sitting on its own pool of light so it reads as the way forward */
+#rec-dance-btn{flex:1;background:#1D9E75;border:none;
+  border-radius:26px;height:54px;padding:0 16px;font-family:'Fredoka',cursive;
+  font-weight:600;font-size:19px;letter-spacing:.01em;color:#fff;cursor:pointer;
+  box-shadow:
+    0 10px 30px -8px rgba(29,158,117,.55),
+    inset 0 1px 0 rgba(255,255,255,.28),
+    inset 0 -2px 0 rgba(0,0,0,.18);
+  transition:transform .18s,box-shadow .18s,filter .18s;
   display:none}
 #rec-dance-btn.ready{display:block;animation:danceBtnIn .5s cubic-bezier(.34,1.56,.64,1)}
 @keyframes danceBtnIn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
-#rec-dance-btn:hover{transform:scale(1.03);box-shadow:0 6px 36px rgba(0,255,150,0.65)}
+#rec-dance-btn:hover{transform:scale(1.02);box-shadow:0 6px 30px rgba(29,158,117,0.55)}
+#rec-dance-btn:active{transform:scale(.99)}
 #rec-mic-hint{font-size:11px;color:rgba(255,255,255,0.35);text-align:center}
 
 /* ═══════════════════════════════════════════
@@ -503,43 +635,109 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
    ═══════════════════════════════════════════ */
 #phase-picker{
   align-items:center;justify-content:center;
-  background:linear-gradient(135deg,#fff5e1 0%,#ffe4f1 40%,#e8e0ff 75%,#dde7ff 100%);
+  /* v114b: was #fff5e1→#dde7ff, so pale the screen read as unfinished. Same
+     bright family, real saturation — sunrise peach into violet dusk. */
+  background:linear-gradient(158deg,#FFD9B0 0%,#FFB6D5 34%,#C9A8F5 68%,#9FB8F5 100%);
   background-size:200% 200%;
   animation:livingRoomDrift 24s ease-in-out infinite;
   overflow:hidden;
 }
+/* v114b: the wash was flat and daylit while the intro is a lit night stage —
+   the two screens read as different apps. Kept bright (dark was rejected before)
+   but LIT: a warm key from above centre, richer violet in the corners, and a
+   floor pool under the cards so they stand on something. Same --glow amber that
+   lights Nova's portal, so the two screens finally share a light source. */
 #picker-bg{position:absolute;inset:0;
-  background:
-    radial-gradient(ellipse at 30% 80%, rgba(255,200,150,0.45) 0%, transparent 50%),
-    radial-gradient(ellipse at 70% 20%, rgba(200,180,255,0.45) 0%, transparent 50%);
+  /* one warm key from above centre — narrow, so it lights the cards without
+     bleaching the whole field the way a wide wash did */
+  background:radial-gradient(ellipse 42% 30% at 50% -4%, rgba(255,246,232,.75) 0%, transparent 70%);
 }
+/* vignette carries the stage feeling: lit in the middle, deeper at the edges */
+#picker-bg::after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 74% 66% at 50% 44%, transparent 40%, rgba(74,30,96,.34) 100%)}
 #picker-content{position:relative;z-index:2;
   display:flex;flex-direction:column;align-items:center;gap:24px;
   padding:24px;max-width:96vw;}
-#picker-title{font:700 clamp(28px,5vmin,42px) 'Fredoka',cursive;
-  color:#5b2c6e;text-shadow:0 2px 16px rgba(255,255,255,0.8)}
+/* the question is the loudest thing on the screen before the cards — it earns
+   real size and a deeper ink so it holds against the lit ground */
+#picker-title{font:700 clamp(30px,5.4vmin,48px) 'Fredoka',cursive;
+  color:#3E1550;letter-spacing:-.015em;text-wrap:balance;text-align:center;
+  text-shadow:0 2px 20px rgba(255,255,255,.9), 0 1px 0 rgba(255,255,255,.7)}
 #picker-subtitle{font:500 clamp(15px,2.4vmin,19px) 'Fredoka',cursive;
   color:#834a9a;opacity:0.9;text-align:center;max-width:560px;
   min-height:24px}
-#picker-cards{display:flex;gap:24px;flex-wrap:wrap;justify-content:center;
-  margin-top:10px}
+/* v114 PICKER: fixed 3-per-row grid (was flex-wrap, which let a 5th/6th card
+   spill and clip). 6 games → 2 tidy rows, never a horizontal scroll. */
+#picker-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:20px;justify-items:center;margin-top:10px;
+  width:min(100%,860px);margin-left:auto;margin-right:auto}
 .picker-card{
-  width:min(260px,42vmin);min-height:280px;
-  background:rgba(255,255,255,0.85);backdrop-filter:blur(10px);
-  border:3px solid rgba(255,255,255,0.7);
+  width:100%;max-width:260px;min-height:190px;
+  /* v114b: flat white tiles on a pastel wash read as generic. These are lit
+     tiles — a soft top highlight, a warm floor pool under the emoji, and a
+     rim that catches the same light as Nova's portal. */
+  background:
+    radial-gradient(ellipse 70% 40% at 50% 0%, rgba(255,255,255,.95), rgba(255,255,255,.78) 60%),
+    rgba(255,255,255,.72);
+  backdrop-filter:blur(12px);
+  border:2px solid rgba(255,255,255,.9);
   border-radius:24px;padding:24px 18px;cursor:pointer;
-  display:flex;flex-direction:column;align-items:center;gap:8px;
-  box-shadow:0 12px 32px rgba(180,100,180,0.18);
-  transition:all 0.25s;font-family:'Fredoka',cursive;
+  position:relative;   /* v114: anchors the crown + "Nova's pick!" badge */
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  box-shadow:
+    0 14px 34px -12px rgba(120,60,140,.30),
+    inset 0 1px 0 rgba(255,255,255,1);
+  transition:transform .25s cubic-bezier(.34,1.4,.64,1), box-shadow .25s;
+  font-family:'Fredoka',cursive;
 }
-.picker-card:hover{transform:translateY(-6px) scale(1.03);
-  box-shadow:0 24px 60px rgba(180,100,180,0.35)}
+/* the pool of light the emoji stands on */
+.picker-card::before{content:'';position:absolute;left:50%;top:34%;
+  width:120px;height:120px;transform:translate(-50%,-50%);border-radius:50%;
+  background:radial-gradient(circle, rgba(255,217,168,.34), transparent 68%);
+  pointer-events:none}
+.picker-card:hover{transform:translateY(-8px) scale(1.04);
+  box-shadow:0 30px 64px -18px rgba(120,60,140,.46),inset 0 1px 0 rgba(255,255,255,1)}
+.picker-card:active{transform:translateY(-2px) scale(1.01)}
+/* v114 NOVA'S PICK — loud. Bigger, pink, badged, gently pulsing. The old rule
+   was a green border that read as just another card. Side cards step back. */
 .picker-card.recommended{
-  border-color:#10b981;box-shadow:0 12px 36px rgba(16,185,129,0.4);
-  animation:cardPulse 2s ease-in-out infinite;}
+  border:4px solid #ED93B1;
+  box-shadow:0 16px 44px rgba(237,147,177,0.45);
+  /* room for the badge so it never lands on the title */
+  padding-bottom:44px;
+  animation:cardPulse 2s ease-in-out infinite;
+  z-index:2}
+.picker-card.recommended .picker-emoji{font-size:96px}
+/* NOTE: this overrides .picker-card::before (the light pool). Every geometry
+   property it sets must be reset explicitly or the crown inherits a 120px
+   circle background from the base rule. */
+.picker-card.recommended::before{
+  content:'👑';position:absolute;top:-18px;left:50%;transform:translateX(-50%);
+  width:auto;height:auto;border-radius:0;background:none;
+  font-size:30px;filter:drop-shadow(0 4px 10px rgba(90,30,80,.45))}
+.picker-card.recommended::after{
+  content:attr(data-pick-label);position:absolute;bottom:10px;left:50%;
+  transform:translateX(-50%);white-space:nowrap;
+  font:700 12px 'Fredoka',cursive;letter-spacing:.03em;color:#fff;
+  background:#ED93B1;padding:4px 12px;border-radius:999px;
+  box-shadow:0 3px 10px rgba(237,147,177,.5)}
+/* side cards recede so the pick reads first */
+#picker-cards:has(.recommended) .picker-card:not(.recommended){
+  filter:saturate(.7);opacity:.9;transform:scale(.94)}
+/* the pick sits ~1.15x the side cards and breathes on top of that. The scale
+   lives in the keyframes because the animation would otherwise overwrite a
+   static transform on .recommended. */
 @keyframes cardPulse{
-  0%,100%{box-shadow:0 12px 36px rgba(16,185,129,0.4)}
-  50%{box-shadow:0 12px 48px rgba(16,185,129,0.65)}
+  0%,100%{transform:scale(1.15)}
+  50%{transform:scale(1.19)}
+}
+/* v114: voice pick gets the same beat as a tap before the game starts */
+.picker-card.voice-picked{animation:cardTap .4s ease-out;
+  border-color:#ED93B1;box-shadow:0 0 0 6px rgba(237,147,177,.35)}
+@keyframes cardTap{
+  0%{transform:scale(1)}
+  45%{transform:scale(.93)}
+  100%{transform:scale(1.06)}
 }
 .picker-emoji{font-size:80px;line-height:1;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.15))}
 .picker-name{font-weight:700;font-size:clamp(22px,3.5vmin,28px);
@@ -561,7 +759,12 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   #picker-content{width:100%;gap:14px;padding:18px 16px}
   #picker-title{font-size:clamp(24px,7vw,32px)}
   #picker-subtitle{font-size:15px}
-  #picker-cards{flex-direction:column;flex-wrap:nowrap;width:100%;gap:12px;margin-top:2px}
+  /* v114: #picker-cards is a grid now — one column on portrait phones. */
+  #picker-cards{grid-template-columns:1fr;width:100%;gap:12px;margin-top:2px}
+  .picker-card{max-width:none}
+  /* pick goes on TOP of the stack, and drops the scale-down that hides it */
+  .picker-card.recommended{order:-1}
+  #picker-cards:has(.recommended) .picker-card:not(.recommended){transform:none}
   .picker-card{width:100%;min-height:0;padding:14px 16px;border-radius:20px;
     display:grid;grid-template-columns:60px 1fr;grid-template-rows:auto auto auto;
     column-gap:16px;align-items:center;text-align:left}
@@ -942,7 +1145,9 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   background:radial-gradient(ellipse at 50% 30%,#2d0750,#0a0015)}
 #end-avatar-col{flex:1;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:18px;padding:32px}
-#end-avatar-frame{width:min(320px,46vmin);aspect-ratio:0.8;border-radius:28px;
+/* v114 CLOSEUP ARC: Nova is BIG again on the end screen, matching the intro
+   panel (pink #ED93B1, 14px radius, chest-up crop). Was min(320px,46vmin). */
+#end-avatar-frame{width:min(520px,60vmin);aspect-ratio:0.8;border-radius:14px;
   overflow:hidden;background:#0a0015;
   border:4px solid rgba(255,215,0,0.6);
   box-shadow:0 0 80px rgba(255,215,0,0.3),0 0 200px rgba(255,111,216,0.25)}
@@ -977,6 +1182,11 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 
 /* v108: end-phase state badge on avatar */
 #end-avatar-frame { position: relative; }
+/* v114: same chest-up framing and border as the intro Nova panel */
+#end-avatar-frame{border:2px solid #ED93B1;overflow:hidden}
+#end-avatar-frame #end-avatar-video,
+#end-avatar-frame #nova-stage video{object-fit:cover;object-position:50% 15%}
+#end-avatar-frame.pod-live:has(#nova-stage) > :not(#nova-stage):not(.end-state){visibility:hidden}
 .end-state {
   position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
   background: rgba(0,0,0,0.7); backdrop-filter: blur(10px);
@@ -1043,8 +1253,9 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 #version-tag{position:fixed;top:0;left:0;right:0;
   z-index:9999;
   text-align:center;padding:8px 12px;
-  background:linear-gradient(90deg,#6366f1 0%,#818cf8 50%,#6366f1 100%);
-  color:#0a0a3d;font-family:'Fredoka',cursive;font-weight:700;
+  /* v114 CLOSEUP INTRO — rose. v113 was indigo #6366f1; new version, new colour. */
+  background:linear-gradient(90deg,#9d174d 0%,#ED93B1 50%,#9d174d 100%);
+  color:#2b0011;font-family:'Fredoka',cursive;font-weight:700;
   font-size:18px;letter-spacing:0.08em;
   box-shadow:0 2px 12px rgba(99,102,241,0.6);
   text-transform:uppercase;
@@ -1150,7 +1361,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 
 <div id="sees-you-tick" data-l="seesYou">✓ Nova sees you</div>
 
-<div id="vbanner" style="position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:99999;font:600 12px monospace;color:#0a0015;background:#a855f7;padding:3px 10px;border-radius:7px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.4)">BUILD: brain-led r5 · warm-brain · fast first reply</div>
+<div id="vbanner" style="position:fixed;top:44px;left:50%;transform:translateX(-50%);z-index:99999;font:600 12px monospace;color:#0a0015;background:#a855f7;padding:3px 10px;border-radius:7px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.4)">BUILD: brain-led r5 · warm-brain · fast first reply</div>
 <div id="debug-panel"></div>
 <button id="debug-toggle" onclick="document.getElementById('debug-panel').style.display='block';this.style.display='none'">≡</button>
 <div id="log-actions">
@@ -1233,37 +1444,57 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 
 <!-- ═══ PHASE 2: RECOGNITION ═══ -->
 <div class="phase" id="phase-recognition">
-  <!-- POINT 3+4: big self-view + keypoint-anchored try-move light (JS below) -->
-  <div id="rec-cam-col">
-    <div id="rec-cam-wrap">
-      <video id="rec-webcam" autoplay playsinline muted></video>
-      <div id="rec-cam-glow"></div>
-      <div id="rec-cam-hint" data-l="camHint">I can see you! 🌟</div>
-    </div>
-  </div>
-  <div id="rec-avatar-col">
+  <!-- v114 CLOSEUP INTRO — Nova BIG (63%), kid camera companion-size (37%), ONE button.
+       Layout arc: INTRO Nova big → GAME Nova corner (witness mode, untouched) → END Nova big.
+       Only 3 clickable things live here: mic, Let's Dance, exit. -->
+  <div id="rec-header">
     <div id="rec-avatar-name" data-l="novaName">Nova</div>
-    <div id="rec-avatar-frame">
-      <video id="rec-avatar-video" autoplay playsinline></video>
-      <div id="rec-avatar-placeholder">
-        <div id="rec-placeholder-emoji">🌟</div>
-        <div id="rec-loading-dots"><span></span><span></span><span></span></div>
+    <button id="rec-exit-btn" onclick="exitGame()" title="exit" aria-label="exit">✕</button>
+  </div>
+
+  <div id="rec-stage">
+    <!-- Nova panel — chest-up closeup. Content is the live pod FLV stream that
+         magicPlace() moves into #rec-avatar-frame, NOT a static asset. -->
+    <div id="rec-nova-panel">
+      <div id="rec-avatar-frame">
+        <video id="rec-avatar-video" autoplay playsinline></video>
+        <div id="rec-avatar-placeholder">
+          <div id="rec-placeholder-emoji">🌟</div>
+          <div id="rec-loading-dots"><span></span><span></span><span></span></div>
+        </div>
+        <div class="nova-state-badge" id="rec-state-badge" data-state="watching" data-l="badgeWatching">Watching</div>
+        <!-- v95: intro MP4 overlay removed — Nova appears as soon as the stream connects -->
       </div>
-      <div class="nova-state-badge" id="rec-state-badge" data-state="watching" data-l="badgeWatching">Watching</div>
-      <!-- v95: intro MP4 overlay removed — Nova appears as soon as Runway connects -->
+    </div>
+
+    <!-- Kid camera — companion size, still mirrored, no skeleton overlay in intro -->
+    <div id="rec-cam-panel">
+      <div id="rec-cam-wrap">
+        <video id="rec-webcam" autoplay playsinline muted></video>
+        <div id="rec-cam-glow"></div>
+        <div id="rec-cam-hint" data-l="camHint">I can see you! 🌟</div>
+      </div>
     </div>
   </div>
-  <div id="rec-chat-col">
+
+  <div id="rec-controls">
+    <button id="rec-mic" onclick="toggleMic()">🎤</button>
+    <button id="rec-dance-btn" onclick="goToPicker()" data-l="danceBtn">💃 Let's Dance!</button>
+  </div>
+
+  <!-- PARENT TOOL — type-to-chat. Hidden from the kid's intro, NOT deleted:
+       setMicState() writes #rec-mic-hint, bubbles append to #rec-chat-log, and
+       __pickPath()/_sendChat() read #rec-input. Removing these nodes would null-crash
+       those paths. Reveal via #rec-chat-col.parent-open (exit/gear affordance). -->
+  <div id="rec-chat-col" class="parent-tool">
     <div id="rec-chat-log"></div>
     <div id="rec-input-zone">
       <div id="rec-input-row">
-        <button id="rec-mic" onclick="toggleMic()">🎤</button>
         <input id="rec-input" type="text" placeholder="type or tap mic..." data-l-placeholder="typePlaceholder"
           onkeydown="if(event.key==='Enter')sendChat()">
         <button id="rec-send" onclick="sendChat()" data-l="send">Send</button>
       </div>
       <div id="rec-mic-hint" data-l="micHintIdle">tap mic and say hi to Nova</div>
-      <button id="rec-dance-btn" onclick="goToPicker()" data-l="danceBtn">💃 Let's Dance!</button>
     </div>
   </div>
 </div>
@@ -1274,38 +1505,40 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   <div id="picker-content">
     <div id="picker-title" data-l="pickerTitle">What do you wanna do?</div>
     <div id="picker-subtitle"></div>
+    <!-- v114 PICKER CLEANUP — a 4-7 year old picks by PICTURE, not text.
+         Card = emoji + title only. The sub-pill and body-part strings are NOT
+         deleted: keys tagHello/descHello, tagJoined/descJoined, tagWave/descWave,
+         tagWavemagic/descWavemagic, tagBounce/descBounce all remain in the en/he
+         packs, ready for the parent view. Only the card DOM lost them.
+         Emojis are now unique per card — ⚡/🕺/🌊 previously repeated across cards. -->
     <div id="picker-cards">
       <button class="picker-card hello-card" onclick="pickGame('hello')">
-        <div class="picker-emoji">⚡</div>
+        <div class="picker-emoji">👋</div>
         <div class="picker-name" data-l="songHello">Hello Hello!</div>
-        <div class="picker-tag" data-l="tagHello">fast + jumpy</div>
-        <div class="picker-desc" data-l-html="descHello">hands up · clap<br>Nova says</div>
       </button>
       <button class="picker-card joined-card" onclick="pickGame('joined')">
         <div class="picker-emoji">🕺</div>
         <div class="picker-name" data-l="songJoined">Up Groove!</div>
-        <div class="picker-tag" data-l="tagJoined">copy her body</div>
-        <div class="picker-desc" data-l-html="descJoined">head · shoulders<br>ribs · hips</div>
+      </button>
+      <!-- FREEZE: SONGS.freeze has existed with freeze.mp3 + TIMELINE_FREEZE_RAW,
+           but never had a picker button — the game was unreachable until now. -->
+      <button class="picker-card freeze-card" onclick="pickGame('freeze')">
+        <div class="picker-emoji">🧊</div>
+        <div class="picker-name" data-l="songFreeze">Freeze Dance!</div>
       </button>
       <button class="picker-card wave-card" onclick="pickGame('wave')">
         <div class="picker-emoji">🌊</div>
         <div class="picker-name" data-l="songWave">Wave!</div>
-        <div class="picker-tag" data-l="tagWave">river of light</div>
-        <div class="picker-desc" data-l-html="descWave">shoulders · elbows<br>wrists · flow</div>
       </button>
       <!-- PREGAMES-V1 (2026-07-17): video-led session games — the committed session
            recordings ARE the game (video = clock, cues ride video.currentTime). -->
       <button class="picker-card wavemagic-card" onclick="pickGame('wavemagic')">
-        <div class="picker-emoji">🌊</div>
+        <div class="picker-emoji">✨</div>
         <div class="picker-name" data-l="songWavemagic">Wave Magic!</div>
-        <div class="picker-tag" data-l="tagWavemagic">the magic arm</div>
-        <div class="picker-desc" data-l-html="descWavemagic">watch her wave<br>then YOUR turn</div>
       </button>
       <button class="picker-card bounce-card" onclick="pickGame('bounce')">
-        <div class="picker-emoji">🕺</div>
+        <div class="picker-emoji">🏀</div>
         <div class="picker-name" data-l="songBounce">Bounce Groove!</div>
-        <div class="picker-tag" data-l="tagBounce">whole-body bounce</div>
-        <div class="picker-desc" data-l-html="descBounce">nod · roll<br>bounce it all</div>
       </button>
     </div>
     <button id="picker-back" onclick="pickerBack()" data-l="pickerBack">← back</button>
@@ -1458,7 +1691,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">💚 V113 — MIC INJECTION · REAL FACE TEST</div>
+<div id="version-tag">🩷 V114 — CLOSEUP INTRO · NOVA BIG</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
@@ -1478,9 +1711,39 @@ function showPhase(id){
   document.getElementById(id).classList.add('active');
   // the pre-game demo video lives only on the transition screen — any other phase kills it
   if (id !== 'phase-transition') { try { hidePreDemo(); } catch(_){} }
+  // v114 CLOSEUP ARC: INTRO Nova big → GAME Nova corner → END Nova big again.
+  // The end screen has its own DOM (#end-avatar-frame) and the pod stream is only
+  // ever placed into #rec-avatar-frame by magicPlace(), so without this the "big"
+  // end frame would just be an empty box. Move the live stage across, and hand it
+  // back to the intro frame on any return.
+  try { novaStageTo(id === 'phase-end' ? 'end-avatar-frame' : 'rec-avatar-frame', id); } catch(_){}
   // TASK 4: phase transitions with timestamps → session log (the loop's eyes, forever)
   (window.__phaseLog = window.__phaseLog || []).push({ phase: id, at: Math.round(performance.now()) });
 }
+
+/** Relocate the live pod widget (#nova-stage) between the intro and end frames.
+ *  No-op when the stage does not exist (pod down) or during the game, where the
+ *  widget deliberately sits in its fixed corner — witness mode is untouched. */
+function novaStageTo(frameId, phaseId){
+  const stage = document.getElementById('nova-stage');
+  if (!stage) {
+    // pod down → the widget removed its stage. Drop any orphaned .pod-live so the
+    // placeholder is not left hidden behind a class that no longer means anything.
+    document.querySelectorAll('#rec-avatar-frame.pod-live,#end-avatar-frame.pod-live')
+      .forEach(f => f.classList.remove('pod-live'));
+    return;
+  }
+  if (phaseId !== 'phase-end' && phaseId !== 'phase-recognition') return;  // game/picker: leave it alone
+  const frame = document.getElementById(frameId);
+  if (!frame || stage.parentElement === frame) return;
+  document.querySelectorAll('#rec-avatar-frame,#end-avatar-frame')
+    .forEach(f => { if (f !== frame) f.classList.remove('pod-live'); });
+  frame.classList.add('pod-live');
+  frame.appendChild(stage);
+  stage.classList.add('in-frame');
+  stage.style.display = 'block';
+}
+window.__novaStageTo = novaStageTo;
 
 // PRE-GAME DEMO VIDEO (FINISH-THE-GAME 2026-07-16): the committed session recordings
 // (pre-upgroove.mp4 / pre-wave.mp4, portrait 720x1280) ride the load as a muted PiP
@@ -1549,17 +1812,59 @@ function goToPicker(){
     return;
   }
   showPhase('phase-picker');
+  pickerVoiceUsed = false;   // v114: re-arm voice choice on every picker entry
   // Update picker recommendation based on age from memory
   const age = (window.__novaMemory && window.__novaMemory.age) || null;
   const subtitle = document.getElementById('picker-subtitle');
   // TASK 3 (fable5): the three games — Hello Hello · Up Groove · Wave
-  document.querySelectorAll('.picker-card').forEach(c => c.classList.remove('recommended'));
+  document.querySelectorAll('.picker-card').forEach(c => {
+    c.classList.remove('recommended');
+    c.removeAttribute('data-pick-label');
+  });
   const rec = (age && age <= 6) ? '.hello-card' : '.joined-card';   // younger kids → simpler arm moves
   const recCard = document.querySelector(rec);
-  if (recCard) recCard.classList.add('recommended');
-  if (subtitle) subtitle.textContent = (age && age <= 6)
-    ? T('pickerPickYoung') : T('pickerPickOld');
+  if (recCard) {
+    recCard.classList.add('recommended');
+    // v114: the "Nova's pick!" label now rides ON the card (::after reads this
+    // attribute) instead of floating above the grid where kids skipped it.
+    recCard.setAttribute('data-pick-label', T('novaPickLabel'));
+  }
+  // v114: floating "Nova's pick: Up Groove! 🕺" line removed — it duplicated the
+  // on-card badge. Keys pickerPickYoung/pickerPickOld stay in the packs unused.
+  if (subtitle) subtitle.textContent = '';
 }
+/* ═══ v114 PICKER VOICE CHOICE ═══
+   A 4-7 year old who cannot read should be able to SAY the game. We piggyback on
+   the stt-echo packets the worker already sends (what the model heard) — no new
+   mic machinery, no browser SpeechRecognition (deleted 2026-07-08), and above all
+   nothing inserted into the V2V pipe. Read-only observation.
+
+   Longest/most specific patterns first: "bounce groove" must not match "groove",
+   and "wave magic" must not match "wave". */
+const PICKER_VOICE = [
+  { card: '.freeze-card',    id: 'freeze',    re: /\b(freeze|frozen|statue|ice)\b/i },
+  { card: '.wavemagic-card', id: 'wavemagic', re: /\b(wave\s*magic|magic\s*wave|magic)\b/i },
+  { card: '.bounce-card',    id: 'bounce',    re: /\b(bounce|bouncing|basketball)\b/i },
+  { card: '.hello-card',     id: 'hello',     re: /\b(hello|halo|hi\s*hi)\b/i },
+  { card: '.joined-card',    id: 'joined',    re: /\b(up\s*groove|groove|up)\b/i },
+  { card: '.wave-card',      id: 'wave',      re: /\b(wave|waving)\b/i },
+];
+let pickerVoiceUsed = false;
+function pickerHear(text){
+  if (!text || pickerVoiceUsed) return;
+  if (!document.querySelector('#phase-picker.active')) return;   // only while the picker is open
+  const hit = PICKER_VOICE.find(g => g.re.test(text));
+  if (!hit) return;
+  const card = document.querySelector(hit.card);
+  if (!card) return;
+  pickerVoiceUsed = true;
+  LOG('PICKER', `voice pick: "${text}" -> ${hit.id}`);
+  // same visual beat as a tap, then the identical handler
+  card.classList.add('voice-picked');
+  setTimeout(() => { card.classList.remove('voice-picked'); pickGame(hit.id); }, 420);
+}
+window.pickerHear = pickerHear;
+
 function pickGame(songId){
   if(typeof markUserInteraction === 'function') markUserInteraction();
   // PRE-GAME DEMO VIDEO: the real session recording plays while the game loads
@@ -3128,6 +3433,9 @@ function setupNovaRoomEvents(room) {
       LOG('HEARD', 'Nova heard: "' + (msg.text || '') + '"');
       window.__lastHeardAt = Date.now();   // SPEECH-GRACE: kid-talking clock
       try { showSttEcho(msg.text || ''); } catch(_){}
+      // v114 PICKER VOICE CHOICE: read-only. This is what the model ALREADY heard;
+      // nothing is injected into the kid<->model pipe (V2V stays untouched).
+      try { if (window.pickerHear) window.pickerHear(msg.text || ''); } catch(_){}
       return;
     }
     // SMART-INTRO Part 7: full both-sides dialogue + producer decisions in every log
@@ -3329,6 +3637,12 @@ function waitForRunwayAudio(timeoutMs = 15000) {
 
 // v94: 3-path name capture — voice / type / random
 function showNameCaptureButtons() {
+  // v114 CLOSEUP INTRO: "Say it / Type it / Surprise me" are runtime-injected, so
+  // removing them from the HTML would not have worked — they regenerate here.
+  // Neutered rather than deleted: three call sites (2646, 2863, 2873) plus the
+  // phase1-loop harness still call this, and __pickPath below stays reachable.
+  // Set window.__NOVA_NAME_PATHS = 1 to bring them back.
+  if (!window.__NOVA_NAME_PATHS) return;
   if (document.getElementById('name-path-btns')) return;  // already shown
   const recPhase = document.getElementById('phase-recognition');
   if (!recPhase) return;
@@ -6547,7 +6861,16 @@ window.__initRunwayNova = initDID;
    Nova frame — and materializes together with her first word. */
 #nova-stage.in-frame{position:absolute;inset:0;left:auto;bottom:auto;width:100%;height:100%;
   border-radius:inherit;border:none;box-shadow:none;z-index:5}
-#rec-avatar-frame.pod-live > :not(#nova-stage){visibility:hidden}
+/* v114: the state badge must survive pod-live. Without the .nova-state-badge
+   exception the Talking/Listening pill vanishes the moment the pod stream
+   attaches — i.e. in the normal case — even though it is correctly styled.
+
+   :has(#nova-stage) is load-bearing. The floor widget creates #nova-stage, then
+   REMOVES it if the stream errors (pod down) — leaving .pod-live orphaned on the
+   frame. Keyed on the class alone, that hid #rec-avatar-placeholder too, and the
+   now-63%-wide Nova panel rendered as a big black box. Hiding the siblings only
+   while a stage is genuinely present makes it self-correcting. */
+#rec-avatar-frame.pod-live:has(#nova-stage) > :not(#nova-stage):not(.nova-state-badge){visibility:hidden}
 #rec-avatar-frame.pod-live{position:relative}
 #nova-stage.magic-in{animation:novaMagicIn .9s cubic-bezier(.2,1.5,.4,1)}
 @keyframes novaMagicIn{0%{opacity:0;transform:scale(.55)}60%{opacity:1}100%{opacity:1;transform:scale(1)}}
@@ -6556,11 +6879,11 @@ window.__initRunwayNova = initDID;
 (function(){
   const q = new URLSearchParams(location.search);
   if (q.get('novabody') === '0') return;
-  const FLV    = q.get('flv')    || 'https://a2ps2t38s89ptj-8080.proxy.runpod.net/live/dance_k.flv';   // MuseTalk pod nova-v22 (2026-07-19)
-  const BRIDGE = q.get('bridge') || 'wss://a2ps2t38s89ptj-8765.proxy.runpod.net';
+  const FLV    = q.get('flv')    || 'https://k9o3iexgqif9il-8080.proxy.runpod.net/live/dance_k.flv';   // MuseTalk pod nova-v22 (2026-07-19)
+  const BRIDGE = q.get('bridge') || 'wss://k9o3iexgqif9il-8765.proxy.runpod.net';
   // MUSETALK-DEPLOY: the pod runs engine-only (no bridge) —
   // gestures fall back to the engine HTTP API when the WS is absent.
-  const ENGINE = q.get('engine') || 'https://a2ps2t38s89ptj-8011.proxy.runpod.net';
+  const ENGINE = q.get('engine') || 'https://k9o3iexgqif9il-8011.proxy.runpod.net';
   const AUDIOTYPE = { right_hand_up:20, left_hand_up:21, both_hands_up:22, clap_clap:23, freeze:24, thank_you:25 };
   const stage = document.createElement('div');
   stage.id = 'nova-stage';
