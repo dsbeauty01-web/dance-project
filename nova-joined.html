@@ -331,7 +331,18 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
    dead chat column on the right, 6 interactive elements.
    Now: column stack — header / two panels / one button row. Nova leads at 63%.
    Layout arc: INTRO Nova big → GAME Nova corner (witness mode) → END Nova big. */
-#phase-recognition{background:radial-gradient(ellipse at 30% 40%,#2d0750,#0a0015);
+/* v114b THE WINDOW AND THE MIRROR — the intro read as a video call: two flat
+   bordered rectangles side by side. Nova is now a LIT PORTAL and the kid is a
+   MIRROR. Same grid, same three brand colours; the difference is light.
+   One warm accent (--glow) against an all-cool app is the deliberate risk: it
+   makes her read as lit rather than displayed. */
+#phase-recognition{
+  --night:#12002B; --stage:#2A0A52;
+  --nova:#ED93B1; --mirror:#AFA9EC; --glow:#FFD9A8;
+  background:
+    radial-gradient(ellipse 90% 60% at 32% 8%, rgba(255,217,168,.10), transparent 62%),
+    radial-gradient(ellipse 70% 70% at 30% 45%, var(--stage), transparent 70%),
+    var(--night);
   flex-direction:column;justify-content:center;gap:14px;padding:22px 26px}
 
 #rec-header{display:flex;align-items:center;justify-content:space-between;
@@ -346,8 +357,48 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   width:100%;height:60vh;max-height:60vh;flex-shrink:0}
 #rec-nova-panel,#rec-cam-panel{border-radius:14px;overflow:hidden;
   position:relative;min-width:0;min-height:0}
-#rec-nova-panel{border:2px solid #ED93B1;background:#0a0015}
-#rec-cam-panel{border:2px solid #AFA9EC;background:#000}
+
+/* HER PORTAL — warm key light from above, soft vignette, pink rim that carries
+   the brand colour as EDGE light instead of a drawn border. */
+#rec-nova-panel{
+  border:2px solid var(--nova);
+  background:radial-gradient(ellipse 80% 55% at 50% 0%, #43106f, #170134 70%);
+  box-shadow:
+    0 0 0 1px rgba(255,217,168,.16),
+    0 18px 60px -18px rgba(237,147,177,.45),
+    inset 0 1px 0 rgba(255,217,168,.22);
+}
+/* the key light itself — sits above the stream, never intercepts a tap */
+#rec-nova-panel::after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 62% 42% at 50% -6%, rgba(255,217,168,.20), transparent 68%),
+    radial-gradient(ellipse 120% 80% at 50% 118%, rgba(18,0,43,.72), transparent 62%);
+  z-index:4}
+
+/* THEIR MIRROR — cool, quieter, deliberately the calmer of the two so she leads */
+#rec-cam-panel{
+  border:2px solid var(--mirror);
+  background:#05000f;
+  box-shadow:
+    0 0 0 1px rgba(175,169,236,.14),
+    0 18px 60px -22px rgba(175,169,236,.34);
+}
+#rec-cam-panel::after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 120% 90% at 50% 108%, rgba(18,0,43,.62), transparent 58%);
+  z-index:4}
+
+/* she breathes light when she talks — the panel edge, not a separate widget */
+#rec-nova-panel:has(#rec-avatar-frame.speaking),
+#rec-nova-panel:has(.nova-state-badge[data-state="talking"]){
+  animation:portalBreathe 2.4s ease-in-out infinite}
+@keyframes portalBreathe{
+  0%,100%{box-shadow:0 0 0 1px rgba(255,217,168,.16),0 18px 60px -18px rgba(237,147,177,.45),inset 0 1px 0 rgba(255,217,168,.22)}
+  50%    {box-shadow:0 0 0 1px rgba(255,217,168,.34),0 22px 76px -14px rgba(237,147,177,.72),inset 0 1px 0 rgba(255,217,168,.40)}
+}
+@media (prefers-reduced-motion:reduce){
+  #rec-nova-panel:has(#rec-avatar-frame.speaking),
+  #rec-nova-panel:has(.nova-state-badge[data-state="talking"]){animation:none}
+}
 
 /* The Nova frame now fills its panel instead of being a floating rounded card.
    Content is the live pod FLV stream, so the chest-up "crop" is object-position,
@@ -393,8 +444,14 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   padding:4px 14px;border-radius:999px;background:rgba(20,16,40,.62);color:rgba(255,255,255,.85);
   font:500 13px 'Fredoka',cursive;pointer-events:none;max-width:70vw;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis}
-#rec-cam-hint{position:absolute;left:0;right:0;bottom:14px;text-align:center;color:#fff;
-  font:600 15px 'Fredoka',cursive;text-shadow:0 2px 8px rgba(0,0,0,.7);pointer-events:none}
+/* v114b: a pill, not floating text — it belongs to the mirror */
+#rec-cam-hint{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;
+  text-align:center;color:#F3F0FF;white-space:nowrap;z-index:5;
+  font:600 14px 'Fredoka',cursive;letter-spacing:.01em;
+  padding:6px 14px;border-radius:999px;
+  background:rgba(18,0,43,.55);backdrop-filter:blur(8px);
+  border:1px solid rgba(175,169,236,.42);
+  box-shadow:0 6px 18px -8px rgba(0,0,0,.7);pointer-events:none}
 /* v114: the old portrait rule targeted #rec-cam-col / #rec-avatar-col, which this
    redesign replaced — it would now be dead CSS. Spec guardrail says do NOT redesign
    mobile in this task, so the panels simply stack. */
@@ -418,17 +475,33 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   50%{transform:scale(1.02)}
 }
 #rec-avatar-video{width:100%;height:100%;object-fit:cover;display:none}
+/* v114b: the pod-down state is what most first loads actually show, so it has to
+   look intentional — "she's on her way", not a magenta error box. A warm light
+   gathering in the dark, matching the portal's key light. */
+/* v114b-2: first pass made this a near-black void with a small star — the
+   pod-down state is what most first loads show, so it has to feel like she is
+   ARRIVING, not like the screen is off. Lit violet with a warm heart, bright
+   enough to read as alive at a glance. */
 #rec-avatar-placeholder{position:absolute;inset:0;display:flex;align-items:center;
-  justify-content:center;flex-direction:column;gap:14px;
-  background:radial-gradient(ellipse at 40% 40%,#ff99dd,#aa0099 60%,#330033)}
-#rec-placeholder-emoji{font-size:80px;animation:placeholderFloat 2s ease-in-out infinite}
+  justify-content:center;flex-direction:column;gap:18px;
+  background:
+    /* NB: `circle <pct>` is INVALID css — a circle radius must be a length, and
+       one bad layer invalidates the WHOLE background declaration. That is why
+       two "brighter" passes rendered as a black void. Use ellipse w/ two %. */
+    radial-gradient(ellipse 34% 30% at 50% 42%, rgba(255,226,190,.55), transparent 66%),
+    radial-gradient(ellipse 78% 62% at 50% 40%, #8C3AB0 0%, #55177F 46%, #2A0A52 78%),
+    #1D0440}
+#rec-placeholder-emoji{font-size:76px;
+  filter:drop-shadow(0 0 34px rgba(255,226,190,.9)) drop-shadow(0 8px 22px rgba(0,0,0,.45));
+  animation:placeholderFloat 3.4s ease-in-out infinite}
 @keyframes placeholderFloat{
   0%,100%{transform:translateY(0)}
   50%{transform:translateY(-8px)}
 }
 #rec-loading-dots{display:flex;gap:6px}
-#rec-loading-dots span{width:9px;height:9px;border-radius:50%;
-  background:rgba(255,255,255,0.7);animation:loadDot 1.2s ease-in-out infinite}
+#rec-loading-dots span{width:7px;height:7px;border-radius:50%;
+  background:rgba(255,217,168,.85);box-shadow:0 0 10px rgba(255,217,168,.7);
+  animation:loadDot 1.2s ease-in-out infinite}
 #rec-loading-dots span:nth-child(2){animation-delay:.2s}
 #rec-loading-dots span:nth-child(3){animation-delay:.4s}
 @keyframes loadDot{
@@ -451,9 +524,11 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   padding:5px 14px;border-radius:14px;
   font:600 11px/1 'Fredoka',sans-serif;letter-spacing:.04em;
   text-transform:uppercase;
-  background:rgba(0,0,0,0.75);color:rgba(255,255,255,0.85);
-  backdrop-filter:blur(8px);
-  display:flex;align-items:center;gap:6px;
+  background:rgba(18,0,43,.62);color:rgba(255,242,250,.92);
+  backdrop-filter:blur(10px);
+  border:1px solid rgba(255,217,168,.22);
+  box-shadow:0 6px 18px -8px rgba(0,0,0,.8);
+  display:flex;align-items:center;gap:7px;
   transition:all 0.3s;
   z-index:10;
   white-space:nowrap;
@@ -519,8 +594,10 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
 /* v114: mic is now a 46px circle sitting left of the single CTA.
    Always-on mic logic is unchanged — this is only the visible affordance. */
 #rec-controls{display:flex;align-items:center;gap:12px;width:100%;flex-shrink:0}
-#rec-mic{width:46px;height:46px;background:rgba(255,111,216,0.25);
-  border:1px solid rgba(255,111,216,0.4);border-radius:50%;font-size:22px;
+#rec-mic{width:46px;height:46px;
+  background:radial-gradient(circle at 50% 34%, rgba(237,147,177,.42), rgba(237,147,177,.16));
+  border:1px solid rgba(237,147,177,.55);border-radius:50%;font-size:21px;
+  box-shadow:0 6px 18px -6px rgba(237,147,177,.5), inset 0 1px 0 rgba(255,255,255,.2);
   cursor:pointer;flex-shrink:0;transition:all .2s;
   display:flex;align-items:center;justify-content:center}
 #rec-mic:hover{background:rgba(255,111,216,0.4)}
@@ -536,10 +613,16 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
 #rec-send:hover{background:rgba(124,111,255,0.6)}
 /* v114: the ONE big button. Solid green, no gradient, fills the row beside the mic.
    .ready gating is the existing reveal logic (novaArrivalGreet + 3.5s fallback) — untouched. */
+/* the one bright thing below the stage — solid green as specced, but lit from
+   within and sitting on its own pool of light so it reads as the way forward */
 #rec-dance-btn{flex:1;background:#1D9E75;border:none;
   border-radius:26px;height:54px;padding:0 16px;font-family:'Fredoka',cursive;
-  font-weight:600;font-size:19px;color:#fff;cursor:pointer;
-  box-shadow:0 4px 22px rgba(29,158,117,0.38);transition:transform .18s,box-shadow .18s;
+  font-weight:600;font-size:19px;letter-spacing:.01em;color:#fff;cursor:pointer;
+  box-shadow:
+    0 10px 30px -8px rgba(29,158,117,.55),
+    inset 0 1px 0 rgba(255,255,255,.28),
+    inset 0 -2px 0 rgba(0,0,0,.18);
+  transition:transform .18s,box-shadow .18s,filter .18s;
   display:none}
 #rec-dance-btn.ready{display:block;animation:danceBtnIn .5s cubic-bezier(.34,1.56,.64,1)}
 @keyframes danceBtnIn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
@@ -552,21 +635,34 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
    ═══════════════════════════════════════════ */
 #phase-picker{
   align-items:center;justify-content:center;
-  background:linear-gradient(135deg,#fff5e1 0%,#ffe4f1 40%,#e8e0ff 75%,#dde7ff 100%);
+  /* v114b: was #fff5e1→#dde7ff, so pale the screen read as unfinished. Same
+     bright family, real saturation — sunrise peach into violet dusk. */
+  background:linear-gradient(158deg,#FFD9B0 0%,#FFB6D5 34%,#C9A8F5 68%,#9FB8F5 100%);
   background-size:200% 200%;
   animation:livingRoomDrift 24s ease-in-out infinite;
   overflow:hidden;
 }
+/* v114b: the wash was flat and daylit while the intro is a lit night stage —
+   the two screens read as different apps. Kept bright (dark was rejected before)
+   but LIT: a warm key from above centre, richer violet in the corners, and a
+   floor pool under the cards so they stand on something. Same --glow amber that
+   lights Nova's portal, so the two screens finally share a light source. */
 #picker-bg{position:absolute;inset:0;
-  background:
-    radial-gradient(ellipse at 30% 80%, rgba(255,200,150,0.45) 0%, transparent 50%),
-    radial-gradient(ellipse at 70% 20%, rgba(200,180,255,0.45) 0%, transparent 50%);
+  /* one warm key from above centre — narrow, so it lights the cards without
+     bleaching the whole field the way a wide wash did */
+  background:radial-gradient(ellipse 42% 30% at 50% -4%, rgba(255,246,232,.75) 0%, transparent 70%);
 }
+/* vignette carries the stage feeling: lit in the middle, deeper at the edges */
+#picker-bg::after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 74% 66% at 50% 44%, transparent 40%, rgba(74,30,96,.34) 100%)}
 #picker-content{position:relative;z-index:2;
   display:flex;flex-direction:column;align-items:center;gap:24px;
   padding:24px;max-width:96vw;}
-#picker-title{font:700 clamp(28px,5vmin,42px) 'Fredoka',cursive;
-  color:#5b2c6e;text-shadow:0 2px 16px rgba(255,255,255,0.8)}
+/* the question is the loudest thing on the screen before the cards — it earns
+   real size and a deeper ink so it holds against the lit ground */
+#picker-title{font:700 clamp(30px,5.4vmin,48px) 'Fredoka',cursive;
+  color:#3E1550;letter-spacing:-.015em;text-wrap:balance;text-align:center;
+  text-shadow:0 2px 20px rgba(255,255,255,.9), 0 1px 0 rgba(255,255,255,.7)}
 #picker-subtitle{font:500 clamp(15px,2.4vmin,19px) 'Fredoka',cursive;
   color:#834a9a;opacity:0.9;text-align:center;max-width:560px;
   min-height:24px}
@@ -577,16 +673,31 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   width:min(100%,860px);margin-left:auto;margin-right:auto}
 .picker-card{
   width:100%;max-width:260px;min-height:190px;
-  background:rgba(255,255,255,0.85);backdrop-filter:blur(10px);
-  border:3px solid rgba(255,255,255,0.7);
+  /* v114b: flat white tiles on a pastel wash read as generic. These are lit
+     tiles — a soft top highlight, a warm floor pool under the emoji, and a
+     rim that catches the same light as Nova's portal. */
+  background:
+    radial-gradient(ellipse 70% 40% at 50% 0%, rgba(255,255,255,.95), rgba(255,255,255,.78) 60%),
+    rgba(255,255,255,.72);
+  backdrop-filter:blur(12px);
+  border:2px solid rgba(255,255,255,.9);
   border-radius:24px;padding:24px 18px;cursor:pointer;
   position:relative;   /* v114: anchors the crown + "Nova's pick!" badge */
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
-  box-shadow:0 12px 32px rgba(180,100,180,0.18);
-  transition:all 0.25s;font-family:'Fredoka',cursive;
+  box-shadow:
+    0 14px 34px -12px rgba(120,60,140,.30),
+    inset 0 1px 0 rgba(255,255,255,1);
+  transition:transform .25s cubic-bezier(.34,1.4,.64,1), box-shadow .25s;
+  font-family:'Fredoka',cursive;
 }
-.picker-card:hover{transform:translateY(-6px) scale(1.03);
-  box-shadow:0 24px 60px rgba(180,100,180,0.35)}
+/* the pool of light the emoji stands on */
+.picker-card::before{content:'';position:absolute;left:50%;top:34%;
+  width:120px;height:120px;transform:translate(-50%,-50%);border-radius:50%;
+  background:radial-gradient(circle, rgba(255,217,168,.34), transparent 68%);
+  pointer-events:none}
+.picker-card:hover{transform:translateY(-8px) scale(1.04);
+  box-shadow:0 30px 64px -18px rgba(120,60,140,.46),inset 0 1px 0 rgba(255,255,255,1)}
+.picker-card:active{transform:translateY(-2px) scale(1.01)}
 /* v114 NOVA'S PICK — loud. Bigger, pink, badged, gently pulsing. The old rule
    was a green border that read as just another card. Side cards step back. */
 .picker-card.recommended{
@@ -597,9 +708,13 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   animation:cardPulse 2s ease-in-out infinite;
   z-index:2}
 .picker-card.recommended .picker-emoji{font-size:96px}
+/* NOTE: this overrides .picker-card::before (the light pool). Every geometry
+   property it sets must be reset explicitly or the crown inherits a 120px
+   circle background from the base rule. */
 .picker-card.recommended::before{
-  content:'👑';position:absolute;top:-16px;left:50%;transform:translateX(-50%);
-  font-size:28px;filter:drop-shadow(0 3px 8px rgba(0,0,0,.25))}
+  content:'👑';position:absolute;top:-18px;left:50%;transform:translateX(-50%);
+  width:auto;height:auto;border-radius:0;background:none;
+  font-size:30px;filter:drop-shadow(0 4px 10px rgba(90,30,80,.45))}
 .picker-card.recommended::after{
   content:attr(data-pick-label);position:absolute;bottom:10px;left:50%;
   transform:translateX(-50%);white-space:nowrap;
