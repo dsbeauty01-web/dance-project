@@ -6556,11 +6556,11 @@ window.__initRunwayNova = initDID;
 (function(){
   const q = new URLSearchParams(location.search);
   if (q.get('novabody') === '0') return;
-  const FLV    = q.get('flv')    || 'https://6rhav6543w1cv7-8080.proxy.runpod.net/live/dance_k.flv';   // MuseTalk pod nova-v22 (2026-07-19)
-  const BRIDGE = q.get('bridge') || 'wss://6rhav6543w1cv7-8765.proxy.runpod.net';
+  const FLV    = q.get('flv')    || 'https://a2ps2t38s89ptj-8080.proxy.runpod.net/live/dance_k.flv';   // MuseTalk pod nova-v22 (2026-07-19)
+  const BRIDGE = q.get('bridge') || 'wss://a2ps2t38s89ptj-8765.proxy.runpod.net';
   // MUSETALK-DEPLOY: the pod runs engine-only (no bridge) —
   // gestures fall back to the engine HTTP API when the WS is absent.
-  const ENGINE = q.get('engine') || 'https://6rhav6543w1cv7-8011.proxy.runpod.net';
+  const ENGINE = q.get('engine') || 'https://a2ps2t38s89ptj-8011.proxy.runpod.net';
   const AUDIOTYPE = { right_hand_up:20, left_hand_up:21, both_hands_up:22, clap_clap:23, freeze:24, thank_you:25 };
   const stage = document.createElement('div');
   stage.id = 'nova-stage';
