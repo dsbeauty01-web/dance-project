@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Nova Games</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  GAMES-ONLY PICKER (2026-07-21)
+  A standalone card menu that links straight into nova-joined.html?nonova&game=<id>.
+  No Nova, no voice, no intro, no worker, no pod — just camera + cues + lights.
+  Additive: nothing in nova-joined.html was touched. Card styling is lifted from
+  the v114b #phase-picker so the two screens share a light source.
+  ?lang=he flips to Hebrew + RTL.
+-->
+<style>
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  font-family:'Fredoka',cursive;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(158deg,#FFD9B0 0%,#FFB6D5 34%,#C9A8F5 68%,#9FB8F5 100%);
+  background-size:200% 200%;
+  animation:drift 24s ease-in-out infinite;
+  overflow-x:hidden;
+}
+@keyframes drift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+/* the lit stage: one warm key from above centre + a vignette that deepens the corners */
+#bg{position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 42% 30% at 50% -4%, rgba(255,246,232,.75) 0%, transparent 70%)}
+#bg::after{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 74% 66% at 50% 44%, transparent 40%, rgba(74,30,96,.34) 100%)}
+#content{position:relative;z-index:2;
+  display:flex;flex-direction:column;align-items:center;gap:24px;
+  padding:32px 24px;max-width:96vw}
+h1{margin:0;font:700 clamp(30px,5.4vmin,48px) 'Fredoka',cursive;
+  color:#3E1550;letter-spacing:-.015em;text-align:center;
+  text-shadow:0 2px 20px rgba(255,255,255,.9),0 1px 0 rgba(255,255,255,.7)}
+#sub{margin:0;font:500 clamp(15px,2.4vmin,19px) 'Fredoka',cursive;
+  color:#834a9a;opacity:.9;text-align:center;max-width:560px}
+#cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:20px;justify-items:center;margin-top:10px;width:min(100%,860px)}
+.card{
+  width:100%;max-width:260px;min-height:190px;
+  background:
+    radial-gradient(ellipse 70% 40% at 50% 0%, rgba(255,255,255,.95), rgba(255,255,255,.78) 60%),
+    rgba(255,255,255,.72);
+  backdrop-filter:blur(12px);
+  border:2px solid rgba(255,255,255,.9);
+  border-radius:24px;padding:24px 18px;cursor:pointer;
+  position:relative;text-decoration:none;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  box-shadow:0 14px 34px -12px rgba(120,60,140,.30),inset 0 1px 0 rgba(255,255,255,1);
+  transition:transform .25s cubic-bezier(.34,1.4,.64,1),box-shadow .25s;
+}
+/* the pool of light the emoji stands on */
+.card::before{content:'';position:absolute;left:50%;top:34%;
+  width:120px;height:120px;transform:translate(-50%,-50%);border-radius:50%;
+  background:radial-gradient(circle,rgba(255,217,168,.34),transparent 68%);
+  pointer-events:none}
+.card:hover{transform:translateY(-8px) scale(1.04);
+  box-shadow:0 30px 64px -18px rgba(120,60,140,.46),inset 0 1px 0 rgba(255,255,255,1)}
+.card:active{transform:translateY(-2px) scale(1.01)}
+.emoji{font-size:80px;line-height:1;filter:drop-shadow(0 4px 12px rgba(0,0,0,.15))}
+.name{font-weight:700;font-size:clamp(22px,3.5vmin,28px);color:#3E1550;text-align:center}
+#foot{font-size:13px;color:#6b4280;opacity:.8;text-align:center;margin-top:4px}
+#foot a{color:#6b4280}
+/* portrait phones: one column, compact rows (mirrors the v114 picker breakpoint) */
+@media (max-width:768px){
+  #content{width:100%;gap:14px;padding:18px 16px}
+  #cards{grid-template-columns:1fr;width:100%;gap:12px;margin-top:2px}
+  .card{max-width:none;flex-direction:row;justify-content:flex-start;
+    min-height:0;padding:14px 16px;border-radius:20px;gap:16px}
+  .card::before{display:none}
+  .emoji{font-size:44px}
+  .name{font-size:20px;text-align:left}
+}
+html[dir="rtl"] .name{text-align:right}
+</style>
+</head>
+<body>
+<div id="bg"></div>
+<div id="content">
+  <h1 id="title">Pick a game!</h1>
+  <p id="sub">No Nova — just you, the music and the lights.</p>
+  <div id="cards"></div>
+  <div id="foot"></div>
+</div>
+<script>
+// Card order matches the v114 picker. ids map 1:1 onto SONGS in nova-joined.html.
+var GAMES = [
+  { id:'hello',     emoji:'👋', en:'Hello Hello!',   he:'הלו הלו!' },
+  { id:'joined',    emoji:'🕺', en:'Up Groove!',     he:'אפ גרוב!' },
+  { id:'freeze',    emoji:'🧊', en:'Freeze Dance!',  he:'ריקוד הקפאה!' },
+  { id:'wave',      emoji:'🌊', en:'Wave!',          he:'גל!' },
+  { id:'wavemagic', emoji:'✨', en:'Wave Magic!',    he:'קסם הגל!' },
+  { id:'bounce',    emoji:'🏀', en:'Bounce Groove!', he:'באונס גרוב!' }
+];
+
+var HE = /[?&]lang=he/.test(location.search);
+if (HE){ document.documentElement.lang='he'; document.documentElement.dir='rtl';
+  document.getElementById('title').textContent = 'בחרו משחק!';
+  document.getElementById('sub').textContent = 'בלי נובה — רק אתם, המוזיקה והאורות.'; }
+
+// Every card is a real <a> so long-press / open-in-new-tab / back all behave.
+// ?nonova&game=<id> is the existing direct-game switch in nova-joined.html.
+var cards = document.getElementById('cards');
+GAMES.forEach(function(g){
+  var a = document.createElement('a');
+  a.className = 'card';
+  a.href = 'nova-joined.html?nonova&game=' + g.id + (HE ? '&lang=he' : '');
+  a.innerHTML = '<div class="emoji">' + g.emoji + '</div>' +
+                '<div class="name">' + (HE ? g.he : g.en) + '</div>';
+  cards.appendChild(a);
+});
+
+document.getElementById('foot').innerHTML = HE
+  ? 'רוצים את נובה? <a href="nova-joined.html?lang=he">התחילו כאן</a>'
+  : 'Want Nova? <a href="nova-joined.html">Start here</a>';
+</script>
+</body>
+</html>
