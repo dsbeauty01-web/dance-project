@@ -1308,12 +1308,11 @@ html:not(.debug-on) #debug-toggle, html:not(.debug-on) #version-tag { display: n
         <div class="picker-tag" data-l="tagWavemagic">the magic arm</div>
         <div class="picker-desc" data-l-html="descWavemagic">watch her wave<br>then YOUR turn</div>
       </button>
-      <button class="picker-card bounce-card" onclick="pickGame('bounce')">
-        <div class="picker-emoji">🕺</div>
-        <div class="picker-name" data-l="songBounce">Bounce Groove!</div>
-        <div class="picker-tag" data-l="tagBounce">whole-body bounce</div>
-        <div class="picker-desc" data-l-html="descBounce">nod · roll<br>bounce it all</div>
-      </button>
+      <!-- 2026-07-21: Bounce Groove PULLED from the commercial picker (quality).
+           SONGS.bounce, TIMELINE_BOUNCE_RAW and the hype/tip lines all remain —
+           only the card is gone, so ?game=bounce still runs it for testing and
+           putting the card back is a one-block restore. Still shipped on
+           nova-joined.html and games.html. -->
     </div>
     <button id="picker-back" onclick="pickerBack()" data-l="pickerBack">← back</button>
   </div>
