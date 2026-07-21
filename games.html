@@ -38,8 +38,15 @@ h1{margin:0;font:700 clamp(30px,5.4vmin,48px) 'Fredoka',cursive;
   text-shadow:0 2px 20px rgba(255,255,255,.9),0 1px 0 rgba(255,255,255,.7)}
 #sub{margin:0;font:500 clamp(15px,2.4vmin,19px) 'Fredoka',cursive;
   color:#834a9a;opacity:.9;text-align:center;max-width:560px}
-#cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+/* 6 tracks, each card spanning 2 → 3 per row, and a short last row can be
+   centred rather than hanging left (5 games = 3+2). */
+#cards{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));
   gap:20px;justify-items:center;margin-top:10px;width:min(100%,860px)}
+/* NOTE: must be the full `N / span 2` shorthand — `grid-column-start` alone
+   replaces the span and collapses the card to a single 127px track. */
+.card{grid-column:span 2}
+.card:nth-child(3n+1):nth-last-child(2){grid-column:2 / span 2}
+.card:nth-child(3n+1):nth-last-child(1){grid-column:3 / span 2}
 .card{
   width:100%;max-width:260px;min-height:190px;
   background:
@@ -68,7 +75,9 @@ h1{margin:0;font:700 clamp(30px,5.4vmin,48px) 'Fredoka',cursive;
 /* portrait phones: one column, compact rows (mirrors the v114 picker breakpoint) */
 @media (max-width:768px){
   #content{width:100%;gap:14px;padding:18px 16px}
+  /* undo the 6-track span + last-row nudge, or the single column breaks */
   #cards{grid-template-columns:1fr;width:100%;gap:12px;margin-top:2px}
+  .card{grid-column:1/-1 !important}
   .card{max-width:none;flex-direction:row;justify-content:flex-start;
     min-height:0;padding:14px 16px;border-radius:20px;gap:16px}
   .card::before{display:none}
@@ -93,8 +102,9 @@ var GAMES = [
   { id:'joined',    emoji:'🕺', en:'Up Groove!',     he:'אפ גרוב!' },
   { id:'freeze',    emoji:'🧊', en:'Freeze Dance!',  he:'ריקוד הקפאה!' },
   { id:'wave',      emoji:'🌊', en:'Wave!',          he:'גל!' },
-  { id:'wavemagic', emoji:'✨', en:'Wave Magic!',    he:'קסם הגל!' },
-  { id:'bounce',    emoji:'🏀', en:'Bounce Groove!', he:'באונס גרוב!' }
+  { id:'wavemagic', emoji:'✨', en:'Wave Magic!',    he:'קסם הגל!' }
+  // 2026-07-21: Bounce Groove pulled (quality) — same call as the commercial
+  // picker. The game still exists; ?nonova&game=bounce runs it.
 ];
 
 var HE = /[?&]lang=he/.test(location.search);

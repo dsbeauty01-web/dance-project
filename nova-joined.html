@@ -667,10 +667,20 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   color:#834a9a;opacity:0.9;text-align:center;max-width:560px;
   min-height:24px}
 /* v114 PICKER: fixed 3-per-row grid (was flex-wrap, which let a 5th/6th card
-   spill and clip). 6 games → 2 tidy rows, never a horizontal scroll. */
-#picker-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+   spill and clip). 6 games → 2 tidy rows, never a horizontal scroll.
+   2026-07-21: 6 columns, each card spanning 2, so a SHORT last row can be
+   centred instead of hanging left — Bounce was pulled and 5 cards left a
+   lopsided 3+2. Still 3 cards per row; the extra tracks are only a ruler. */
+#picker-cards{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));
   gap:20px;justify-items:center;margin-top:10px;
   width:min(100%,860px);margin-left:auto;margin-right:auto}
+/* NOTE: the short rows must use the full `N / span 2` shorthand — a bare
+   `grid-column-start` replaces the span and collapses the card to one track. */
+.picker-card{grid-column:span 2}
+/* last row holds 2 → shift it one track in (cols 2-3, 4-5) */
+.picker-card:nth-child(3n+1):nth-last-child(2){grid-column:2 / span 2}
+/* last row holds 1 → shift it two tracks in (cols 3-4) */
+.picker-card:nth-child(3n+1):nth-last-child(1){grid-column:3 / span 2}
 .picker-card{
   width:100%;max-width:260px;min-height:190px;
   /* v114b: flat white tiles on a pastel wash read as generic. These are lit
@@ -759,9 +769,11 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
   #picker-content{width:100%;gap:14px;padding:18px 16px}
   #picker-title{font-size:clamp(24px,7vw,32px)}
   #picker-subtitle{font-size:15px}
-  /* v114: #picker-cards is a grid now — one column on portrait phones. */
+  /* v114: #picker-cards is a grid now — one column on portrait phones.
+     The desktop rules span each card across 2 of 6 tracks and nudge a short
+     last row inward; both must be undone here or the single column breaks. */
   #picker-cards{grid-template-columns:1fr;width:100%;gap:12px;margin-top:2px}
-  .picker-card{max-width:none}
+  .picker-card{max-width:none;grid-column:1/-1 !important}
   /* pick goes on TOP of the stack, and drops the scale-down that hides it */
   .picker-card.recommended{order:-1}
   #picker-cards:has(.recommended) .picker-card:not(.recommended){transform:none}
@@ -1536,10 +1548,9 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
         <div class="picker-emoji">✨</div>
         <div class="picker-name" data-l="songWavemagic">Wave Magic!</div>
       </button>
-      <button class="picker-card bounce-card" onclick="pickGame('bounce')">
-        <div class="picker-emoji">🏀</div>
-        <div class="picker-name" data-l="songBounce">Bounce Groove!</div>
-      </button>
+      <!-- 2026-07-21: Bounce Groove PULLED from the picker (quality). SONGS.bounce,
+           TIMELINE_BOUNCE_RAW and the hype/tip lines all remain — only the card is
+           gone, so ?game=bounce still runs it and restoring is a one-block paste. -->
     </div>
     <button id="picker-back" onclick="pickerBack()" data-l="pickerBack">← back</button>
   </div>
