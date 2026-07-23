@@ -5982,8 +5982,8 @@ function startGame() {
     }
     vid.loop = false;            // play once; outro should not loop back to the start
     vid.muted = false;
-    vid.volume = 0.85;
-    Duck.reset(); Duck.base = 0.85; Duck.depth = (selectedSong && selectedSong.duck) || 0.65;   // ZONE 2: one duck engine, per-song depth
+    vid.volume = 0.595;   // songs -30% softer (was 0.85)
+    Duck.reset(); Duck.base = 0.595; Duck.depth = (selectedSong && selectedSong.duck) || 0.65;   // ZONE 2: one duck engine, per-song depth (base -30% softer)
     SpeechArbiter.reset(); SpeechArbiter.setBaked((selectedSong && selectedSong.bakedSpeech) || []);   // ZONE 3: baked-speech windows
     window._audio = vid;         // gameTick clock + mid-dance ducking read this
     window.__songAudio = vid;    // pause / exit controls
@@ -6056,7 +6056,7 @@ function startGame() {
   const SONG_FILE = selectedSong?.audioFile || 'shit.mp3';
   const SONG_URL = encodeURI(SONG_FILE);
   const audio = new Audio(SONG_URL);
-  audio.volume = 0.85;
+  audio.volume = 0.595;   // songs -30% softer (was 0.85)
   window.__songAudio = audio; // v105: pause/exit access
   audio.onerror = () => {
     const codes = {
@@ -6072,7 +6072,7 @@ function startGame() {
   fetch(SONG_URL, { method: 'HEAD' })
     .then(r => console.log(SONG_FILE+' HEAD:', r.status, r.headers.get('content-type'), 'bytes:', r.headers.get('content-length')))
     .catch(e => console.error(SONG_FILE+' HEAD fetch failed:', e.message));
-  Duck.reset(); Duck.base = 0.85; Duck.depth = (selectedSong && selectedSong.duck) || 0.65;   // ZONE 2: init the one duck engine for the dual-source path too
+  Duck.reset(); Duck.base = 0.595; Duck.depth = (selectedSong && selectedSong.duck) || 0.65;   // ZONE 2: init the one duck engine for the dual-source path too (base -30% softer)
   SpeechArbiter.reset(); SpeechArbiter.setBaked((selectedSong && selectedSong.bakedSpeech) || []);   // ZONE 3: baked-speech windows
   window._audio = audio;
   
@@ -6232,7 +6232,7 @@ window.__startPosStream = startPosStream; window.__stopPosStream = stopPosStream
 // LEVEL sources (amplitude flags that self-clear), counted implicitly.
 const Duck = {
   _src: new Map(),          // explicit sources: id -> guard timer
-  base: 0.85,               // un-ducked music level
+  base: 0.595,              // un-ducked music level (songs -30% softer; was 0.85)
   depth: 0.65,              // ducked multiplier (per-song; set in startGame — Freeze = 0.18)
   _implicit() {             // live voice + clip: self-clearing level sources
     return (window.__novaSpeakingNow ? 1 : 0) + (window.__novaClipPlaying ? 1 : 0);
