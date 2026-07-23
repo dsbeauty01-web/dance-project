@@ -5324,8 +5324,8 @@ async function smartReact(action, isHit, isFast) {
 }
 
 // v110 KIDS: Force Nova to speak via local audio during dance.
-// Ducks the song volume, plays Nova line, restores song.
-// This is the proven path — Runway brain is unreliable.
+// Acquires a Duck source for the duration (Zone 2) — gameTick's single writer
+// dips/restores the music off the refcount. This is the proven path — Runway brain is unreliable.
 async function forceNovaMidDanceVoice(action, streak, isFast) {
   if (window.__midDanceVoiceActive) return; // don't overlap
   window.__midDanceVoiceActive = true;
@@ -5363,12 +5363,13 @@ async function forceNovaMidDanceVoice(action, streak, isFast) {
   
   try {
     LOG('NOVA-LIVE', `forcing mid-dance voice: "${text}"`);
-    
-    // Duck the song
-    const song = window._audio;
-    const originalVolume = song?.volume ?? 1.0;
-    if (song) song.volume = originalVolume * 0.35;
-    
+
+    // ZONE 2: acquire a duck instead of writing music volume directly. gameTick's
+    // glide (the sole writer) handles the dip/restore off the refcount, so this can
+    // overlap her live voice / clips without a pump or a stuck-down music bed.
+    // 6s guard covers the TTS fetch + playback; released in finally no matter what.
+    if (window.__duck) window.__duck.acquire('midvoice', 6000);
+
     // Fetch TTS
     const resp = await fetch(CFG.RENDER_URL + '/tts-for-mic', {
       method: 'POST',
@@ -5398,14 +5399,11 @@ async function forceNovaMidDanceVoice(action, streak, isFast) {
       setTimeout(resolve, audioBuffer.duration * 1000 + 300);
     });
     
-    // Restore song volume
-    if (song) song.volume = originalVolume;
     LOG('NOVA-LIVE', `spoken (${Math.round(audioBuffer.duration * 1000)}ms)`);
   } catch (e) {
     LOG('ERROR', 'forceNovaMidDanceVoice: ' + e.message);
-    // restore song just in case
-    if (window._audio) window._audio.volume = 1.0;
   } finally {
+    if (window.__duck) window.__duck.release('midvoice');   // guaranteed decrement
     window.__midDanceVoiceActive = false;
   }
 }
@@ -5951,6 +5949,7 @@ function startGame() {
     vid.loop = false;            // play once; outro should not loop back to the start
     vid.muted = false;
     vid.volume = 0.85;
+    Duck.reset(); Duck.base = 0.85; Duck.depth = (selectedSong && selectedSong.duck) || 0.65;   // ZONE 2: one duck engine, per-song depth
     window._audio = vid;         // gameTick clock + mid-dance ducking read this
     window.__songAudio = vid;    // pause / exit controls
     vid.onerror = () => console.error(selectedSong.videoFile + ' error:', vid.error);
@@ -6038,6 +6037,7 @@ function startGame() {
   fetch(SONG_URL, { method: 'HEAD' })
     .then(r => console.log(SONG_FILE+' HEAD:', r.status, r.headers.get('content-type'), 'bytes:', r.headers.get('content-length')))
     .catch(e => console.error(SONG_FILE+' HEAD fetch failed:', e.message));
+  Duck.reset(); Duck.base = 0.85; Duck.depth = (selectedSong && selectedSong.duck) || 0.65;   // ZONE 2: init the one duck engine for the dual-source path too
   window._audio = audio;
   
   // v107 AV-SYNC: wait for MP4 to be actually playing AND visible, then add buffer delay,
@@ -6183,6 +6183,43 @@ function stopPosStream() {
 }
 window.__startPosStream = startPosStream; window.__stopPosStream = stopPosStream;
 
+// ── ZONE 2: DUCKING IS A REFCOUNT, NOT A BOOLEAN (delicate-zones) ─────────────
+// Any speech source (baked line, live reaction, mid-dance voice, pod) ACQUIRES a
+// duck while it talks and RELEASES when it ends. The music restores to base ONLY
+// when the count hits zero — so a source ending while another is still speaking
+// can never un-duck the music (the boolean bug), and two overlapping sources
+// can't leave it stuck down. This is the ONE ducking engine; gameTick is the ONE
+// place that writes the music volume (glides toward Duck.target() — the Freeze
+// ramp), so there is never a second writer fighting it (no pump). Every acquire
+// carries a guaranteed release: a watchdog auto-releases after the source's max
+// expected duration + 1s if it dies silently. Her live voice + clip playback are
+// LEVEL sources (amplitude flags that self-clear), counted implicitly.
+const Duck = {
+  _src: new Map(),          // explicit sources: id -> guard timer
+  base: 0.85,               // un-ducked music level
+  depth: 0.65,              // ducked multiplier (per-song; set in startGame — Freeze = 0.18)
+  _implicit() {             // live voice + clip: self-clearing level sources
+    return (window.__novaSpeakingNow ? 1 : 0) + (window.__novaClipPlaying ? 1 : 0);
+  },
+  count() { return this._src.size + this._implicit(); },
+  active() { return this.count() > 0; },
+  acquire(id, maxMs) {      // maxMs = source's max expected duration (guaranteed-release guard)
+    if (this._src.has(id)) clearTimeout(this._src.get(id));
+    this._src.set(id, setTimeout(() => {
+      LOG('DUCK', `guard released stuck source '${id}' after ${((maxMs||6000)+1000)}ms`);
+      this.release(id);
+    }, (maxMs || 6000) + 1000));
+    LOG('DUCK', `+${id} (n=${this.count()})`);
+  },
+  release(id) {
+    const t = this._src.get(id);
+    if (t !== undefined) { clearTimeout(t); this._src.delete(id); LOG('DUCK', `-${id} (n=${this.count()})`); }
+  },
+  target() { return this.active() ? this.base * this.depth : this.base; },
+  reset() { for (const t of this._src.values()) clearTimeout(t); this._src.clear(); }
+};
+window.__duck = Duck;
+
 function gameTick() {
   const elapsed = gamePos() * 1000;
   const pct = Math.min(100, (elapsed / CFG.SONG_DURATION) * 100);
@@ -6199,12 +6236,14 @@ function gameTick() {
     window.__lastTickSent = elapsed;
     try { if (window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'music_tick', sec: elapsed/1000 } }); } catch(_){}
   }
-  // ── DUCKING: song sits ~65% under her voice while she speaks, eases back after ──
+  // ── DUCKING (Zone 2): the ONE music-volume writer. Glides toward Duck.target(),
+  // which is base until the refcount of active speech sources hits zero. No source
+  // writes music volume directly → no two-writer pump. ──
   try {
     const a = window._audio;
     if (a) {
-      const base = 0.85, target = (window.__novaSpeakingNow || window.__novaClipPlaying) ? base * ((selectedSong && selectedSong.duck) || 0.65) : base;
-      a.volume = a.volume + (target - a.volume) * 0.35;   // smooth ~4-frame glide
+      const target = Duck.target();
+      a.volume = a.volume + (target - a.volume) * 0.35;   // smooth ~4-frame glide (the Freeze ramp)
     }
   } catch(_){}
   
@@ -6430,6 +6469,7 @@ function endGame() {
   try { const a=window._audio; LOG('GAME', `endGame() called — clock=${a?(a.currentTime||0).toFixed(1):'?'}s of ${a&&a.duration?a.duration.toFixed(1):'?'}s`); } catch(_){}
   clearInterval(songTimer);
   try { stopPosStream(); } catch(_){}   // ZONE 1: end the position stream with the game
+  try { Duck.reset(); } catch(_){}      // ZONE 2: clear any active duck sources/guards
   try { clearInterval(window.__avLock); } catch(_){}
   setGreenFlash(false);
   hideCue();
