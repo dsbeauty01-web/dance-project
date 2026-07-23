@@ -2535,6 +2535,9 @@ let micEnabled = false;          // user has granted permission and we're in a p
 let novaIsSpeaking = false;      // pause mic while Nova talks so it doesn't hear itself
 
 function initEars() {
+  // ONE-MIC LAW: in MUSETALK mode the SARAY iframe owns the mic + anti-echo gate.
+  // This page must never start its own SpeechRecognition (it would grab the mic too).
+  if (window.__MUSETALK) { try{ LOG('CFG','initEars skipped — SARAY iframe owns the mic (one-mic law)'); }catch(_){} return; }
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SR) {
     console.log('SpeechRecognition not supported in this browser');
@@ -2995,7 +2998,14 @@ function showIdleEverywhere() {
 window.__novaSessionId = null;
 
 // ── STANDALONE MODE (?nonova): camera + MoveNet + cues + light, ZERO Nova/LiveKit. ──
-const NONOVA = /[?&]nonova/.test(location.search);
+// ── MUSETALK MODE (?musetalk | ?saray): SAME camera-only game engine (no Runway, and
+//    NO mic capture on THIS page), but the live SARAY MuseTalk avatar rides along as an
+//    iframe widget that OWNS the mic / voice / lips (see the floor-widget block far
+//    below). One-mic law: the game page must never open the mic in this mode. ──
+const MUSETALK = /[?&](musetalk|saray)\b/.test(location.search);
+window.__MUSETALK = MUSETALK;
+const NONOVA = /[?&]nonova/.test(location.search) || MUSETALK;
+if (MUSETALK) LOG('CFG', 'MUSETALK mode — camera-only game + live SARAY avatar iframe (iframe owns the mic)');
 // ── VOICE-ONLY (?voiceonly): full Nova (voice, brain, lights) but NO Runway avatar —
 //    flag rides create-session → room metadata → worker skips the avatar. ──
 // ── DIRECT GAME (?game=hello|joined|wave|freeze WITHOUT nonova): skip the intro chat —
@@ -7081,9 +7091,87 @@ window.__initRunwayNova = initDID;
 @keyframes novaMagicIn{0%{opacity:0;transform:scale(.55)}60%{opacity:1}100%{opacity:1;transform:scale(1)}}
 </style>
 <script>
+// ═══ SARAY / MUSETALK LIVE AVATAR (2026-07-23) ═══════════════════════════════════════
+// The proven two-pod LiveKit publisher (engine a9142up9655w44 + clean CPU bridge) is
+// served as a page that OWNS the mic, the voice-to-voice brain, and the lip-synced
+// avatar. We embed THAT page as an <iframe> inside the existing #nova-stage widget, so
+// all the placement machinery (fixed witness corner, magic-in reveal) is reused and the
+// game page stays camera-only. Override the pod: ?saray=https://<pod>-8765.proxy.runpod.net/
+function initSarayWidget(q){
+  const SARAY = q.get('saray') || 'https://bruzxs6odozem8-8765.proxy.runpod.net/';   // live engine pod nova-lk-4 (2026-07-23); override with ?saray=
+
+  // integrated-build banner colour — next in rotation after cyan → warm AMBER
+  try{
+    const vt=document.getElementById('version-tag');
+    if(vt){ vt.style.background='linear-gradient(90deg,#b45309 0%,#f59e0b 50%,#b45309 100%)';
+            vt.style.color='#2a1400'; vt.style.borderBottom='3px solid #d97706';
+            vt.textContent='🟡 COMMERCIAL v1 — MUSETALK LIVE'; }
+    const vb=document.getElementById('vbanner');
+    if(vb){ vb.style.background='#f59e0b'; vb.style.color='#2a1400';
+            vb.textContent='BUILD: COMMERCIAL v1 · MUSETALK avatar (SARAY iframe) · one-mic'; }
+  }catch(_){}
+
+  // the witness widget — sized so the kid can actually see + tap her (the SARAY page is
+  // still its dev-layout; the fullscreen avatar-only view is a later build). 9/16 portrait.
+  const stage=document.createElement('div');
+  stage.id='nova-stage';
+  stage.style.width='auto'; stage.style.height='min(52vh,460px)';
+  stage.style.left='12px'; stage.style.bottom='12px';
+  const wait=document.createElement('div');
+  wait.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;'+
+    'background:radial-gradient(ellipse 60% 50% at 50% 40%,#43106f,#170134 70%);font-size:46px;'+
+    'filter:drop-shadow(0 0 24px rgba(255,226,190,.85))';
+  wait.textContent='🌟';
+  stage.appendChild(wait);
+  document.body.appendChild(stage);
+
+  let dead=false, placed=false, mounted=false;
+  function kill(reason){
+    if(dead) return; dead=true;
+    try{ stage.remove(); }catch(_){}
+    // FAILURE LADDER: drop any orphaned pod-live so the static Nova placeholder shows,
+    // and the game keeps running voice-less. No visible error, ever.
+    document.querySelectorAll('#rec-avatar-frame.pod-live,#end-avatar-frame.pod-live')
+      .forEach(f=>f.classList.remove('pod-live'));
+    try{ LOG('SARAY','avatar OFF → static Nova, game runs voice-less: '+reason); }catch(_){}
+  }
+  function place(){
+    if(placed||dead) return; placed=true;
+    // v1: musetalk is built on the camera-only path which jumps straight to the game, so
+    // she lives in the fixed witness corner throughout (voice continues). The "big intro
+    // closeup" needs the brain-coupled intro flow and is the next refinement.
+    stage.style.display='block';
+    stage.classList.add('magic-in');
+    setTimeout(()=>stage.classList.remove('magic-in'),1200);
+    try{ LOG('SARAY','avatar live in the witness corner'); }catch(_){}
+  }
+  function mount(){
+    if(mounted||dead) return; mounted=true;
+    const f=document.createElement('iframe');
+    f.id='saray-frame';
+    f.src=SARAY;
+    f.allow='microphone; camera; autoplay; fullscreen';   // iframe owns the mic (delegated)
+    f.setAttribute('allowfullscreen','');
+    f.style.cssText='width:100%;height:100%;border:0;display:block;background:#150a24';
+    stage.insertBefore(f,wait);
+    setTimeout(()=>{ try{ wait.remove(); }catch(_){} },1600);
+    try{ LOG('SARAY','iframe mounted → '+SARAY); }catch(_){}
+    place();
+  }
+  // FAILURE LADDER (deploy Step 4): probe the pod first; if it does not answer within 4s
+  // we never mount the iframe → static Nova stays, game runs voice-less.
+  const ctl=('AbortController'in window)?new AbortController():null;
+  const to=setTimeout(()=>{ try{ctl&&ctl.abort();}catch(_){}; kill('pod not reachable in 4s'); },4000);
+  fetch(SARAY,{mode:'no-cors',cache:'no-store',signal:ctl?ctl.signal:undefined})
+    .then(()=>{ if(dead)return; clearTimeout(to); mount(); })
+    .catch(()=>{ clearTimeout(to); kill('pod probe failed (down?)'); });
+  // her lips are driven by the live voice inside the iframe — game gesture calls are a no-op
+  window.novaGesture=function(){};
+}
 (function(){
   const q = new URLSearchParams(location.search);
   if (q.get('novabody') === '0') return;
+  if (window.__MUSETALK) { initSarayWidget(q); return; }   // live LiveKit avatar (iframe) — see initSarayWidget above
   const FLV    = q.get('flv')    || 'https://k9o3iexgqif9il-8080.proxy.runpod.net/live/dance_k.flv';   // MuseTalk pod nova-v22 (2026-07-19)
   const BRIDGE = q.get('bridge') || 'wss://k9o3iexgqif9il-8765.proxy.runpod.net';
   // MUSETALK-DEPLOY: the pod runs engine-only (no bridge) —
