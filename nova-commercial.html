@@ -5122,6 +5122,12 @@ const SONGS = {
     timeline: TIMELINE_WAVEMAGIC_RAW,
     offset: 0,
     duck: 0.60,
+    // ZONE 3: baked-speech windows (SECONDS of video) — the mouth is "taken" here,
+    // so live reactions must not overlap. SINGLE SOURCE OF TRUTH: filled at bake time
+    // from the exact voice-line placements (Zone 6 mix). Seeded with the one window we
+    // already know — T1 talk 0–8.5s (NOVA-BAKE-TEST-INSTRUCTIONS.md); teaser windows
+    // (~19.3s, ~26.8s, ~32.5s per the timeline demos) are appended when those lines bake.
+    bakedSpeech: [ { start: 0, end: 8.5 } ],
   },
   bounce: {
     id: 'bounce',
@@ -5360,52 +5366,67 @@ async function forceNovaMidDanceVoice(action, streak, isFast) {
   let key = action === 'freeze' ? 'freeze' : (streak >= 3 ? 'streak' : (isFast ? 'fast' : 'first_hit'));
   const phrases = BANK[key] || BANK.first_hit;
   const text = phrases[Math.floor(Math.random() * phrases.length)];
-  
-  try {
-    LOG('NOVA-LIVE', `forcing mid-dance voice: "${text}"`);
 
-    // ZONE 2: acquire a duck instead of writing music volume directly. gameTick's
-    // glide (the sole writer) handles the dip/restore off the refcount, so this can
-    // overlap her live voice / clips without a pump or a stuck-down music bed.
-    // 6s guard covers the TTS fetch + playback; released in finally no matter what.
-    if (window.__duck) window.__duck.acquire('midvoice', 6000);
-
-    // Fetch TTS
-    const resp = await fetch(CFG.RENDER_URL + '/tts-for-mic', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, sessionId: window.__novaSessionId }),
-    });
-    if (!resp.ok) throw new Error('TTS failed: ' + resp.status);
-    const mp3Buffer = await resp.arrayBuffer();
-    
-    // Play via Web Audio
-    if (!window.__audioCtx) {
-      window.__audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  // ZONE 3: this local reaction goes through the speech arbiter — it plays only when
+  // the mouth is free (no baked line at the current video position), is QUEUED (newest
+  // wins) if a baked line owns it, and FADES OUT in 150ms if a baked window starts
+  // mid-line (baked wins). Its own Duck source (Zone 2) dips the music; gameTick is the
+  // only volume writer. start()/stop()/_finish() are the arbiter's reaction contract.
+  const reaction = {
+    label: 'midvoice:' + key,
+    _src: null, _gain: null, _ctx: null, _done: false,
+    start() {
+      window.__midDanceVoiceActive = true;
+      if (window.__duck) window.__duck.acquire('midvoice', 6000);   // Zone 2: duck via refcount
+      (async () => {
+        try {
+          LOG('NOVA-LIVE', `forcing mid-dance voice: "${text}"`);
+          const resp = await fetch(CFG.RENDER_URL + '/tts-for-mic', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, sessionId: window.__novaSessionId }),
+          });
+          if (!resp.ok) throw new Error('TTS failed: ' + resp.status);
+          const mp3Buffer = await resp.arrayBuffer();
+          if (!window.__audioCtx) window.__audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const ctx = window.__audioCtx;
+          if (ctx.state === 'suspended') await ctx.resume();
+          const audioBuffer = await ctx.decodeAudioData(mp3Buffer.slice(0));
+          if (this._done) return;                       // faded/stopped before playback began
+          const source = ctx.createBufferSource(); source.buffer = audioBuffer;
+          const gain = ctx.createGain(); gain.gain.value = 1.6;   // boost above ducked song
+          source.connect(gain); gain.connect(ctx.destination);
+          this._ctx = ctx; this._src = source; this._gain = gain;
+          source.onended = () => this._finish();
+          source.start(0);
+          setTimeout(() => this._finish(), audioBuffer.duration * 1000 + 400);   // safety net
+          LOG('NOVA-LIVE', `spoken "${text}" (${Math.round(audioBuffer.duration * 1000)}ms)`);
+        } catch (e) {
+          LOG('ERROR', 'forceNovaMidDanceVoice: ' + e.message);
+          this._finish();
+        }
+      })();
+    },
+    stop(fadeMs) {          // baked line arrived → fade fast, baked wins
+      try {
+        const ms = fadeMs || 150;
+        if (this._gain && this._ctx) {
+          const now = this._ctx.currentTime;
+          this._gain.gain.cancelScheduledValues(now);
+          this._gain.gain.setValueAtTime(this._gain.gain.value, now);
+          this._gain.gain.linearRampToValueAtTime(0.0001, now + ms / 1000);
+        }
+        setTimeout(() => { try { this._src && this._src.stop(); } catch (_) {} this._finish(); }, ms + 20);
+      } catch (_) { this._finish(); }
+    },
+    _finish() {
+      if (this._done) return; this._done = true;
+      if (window.__duck) window.__duck.release('midvoice');   // guaranteed decrement
+      window.__midDanceVoiceActive = false;
+      if (window.__speech) window.__speech.done(this);
     }
-    const ctx = window.__audioCtx;
-    if (ctx.state === 'suspended') await ctx.resume();
-    const audioBuffer = await ctx.decodeAudioData(mp3Buffer.slice(0));
-    const source = ctx.createBufferSource();
-    source.buffer = audioBuffer;
-    const gain = ctx.createGain();
-    gain.gain.value = 1.6; // boost above ducked song
-    source.connect(gain);
-    gain.connect(ctx.destination);
-    source.start(0);
-    
-    await new Promise(resolve => {
-      source.onended = resolve;
-      setTimeout(resolve, audioBuffer.duration * 1000 + 300);
-    });
-    
-    LOG('NOVA-LIVE', `spoken (${Math.round(audioBuffer.duration * 1000)}ms)`);
-  } catch (e) {
-    LOG('ERROR', 'forceNovaMidDanceVoice: ' + e.message);
-  } finally {
-    if (window.__duck) window.__duck.release('midvoice');   // guaranteed decrement
-    window.__midDanceVoiceActive = false;
-  }
+  };
+
+  if (window.__speech) window.__speech.request(reaction); else reaction.start();
 }
 window.forceNovaMidDanceVoice = forceNovaMidDanceVoice;
 
@@ -5950,6 +5971,7 @@ function startGame() {
     vid.muted = false;
     vid.volume = 0.85;
     Duck.reset(); Duck.base = 0.85; Duck.depth = (selectedSong && selectedSong.duck) || 0.65;   // ZONE 2: one duck engine, per-song depth
+    SpeechArbiter.reset(); SpeechArbiter.setBaked((selectedSong && selectedSong.bakedSpeech) || []);   // ZONE 3: baked-speech windows
     window._audio = vid;         // gameTick clock + mid-dance ducking read this
     window.__songAudio = vid;    // pause / exit controls
     vid.onerror = () => console.error(selectedSong.videoFile + ' error:', vid.error);
@@ -6038,6 +6060,7 @@ function startGame() {
     .then(r => console.log(SONG_FILE+' HEAD:', r.status, r.headers.get('content-type'), 'bytes:', r.headers.get('content-length')))
     .catch(e => console.error(SONG_FILE+' HEAD fetch failed:', e.message));
   Duck.reset(); Duck.base = 0.85; Duck.depth = (selectedSong && selectedSong.duck) || 0.65;   // ZONE 2: init the one duck engine for the dual-source path too
+  SpeechArbiter.reset(); SpeechArbiter.setBaked((selectedSong && selectedSong.bakedSpeech) || []);   // ZONE 3: baked-speech windows
   window._audio = audio;
   
   // v107 AV-SYNC: wait for MP4 to be actually playing AND visible, then add buffer delay,
@@ -6220,8 +6243,63 @@ const Duck = {
 };
 window.__duck = Duck;
 
+// ── ZONE 3: SPEECH COLLISION — one mouth, a queue, a drop rule (delicate-zones) ──
+// The MP4's baked lines own the mouth on their windows (`bakedSpeech` from the game
+// config = single source of truth, no hand-copied timestamp lists). Any LOCAL live
+// reaction checks the video position against those windows (±300ms both sides)
+// before it plays; if a baked line owns the mouth the reaction is QUEUED — at most
+// ONE pending, newest wins (a 6s-late "nice wave!" is worse than silence), the older
+// is dropped with a log. If a baked window STARTS while a reaction is playing, that
+// reaction fades out in 150ms — baked is the show, live is the garnish.
+//
+// SACRED-V2V (deliberate deviation from the literal spec, with reason): this governs
+// LOCAL reaction players only. It does NOT mute/fade the live LiveKit voice element
+// (#nova-audio) — interrupting the v2v pipe is a hard-forbidden project rule (every
+// guard tried broke her: deaf/silent/dead, gated behind v2v-probe which can't run
+// here). The live voice is kept off the baked windows by the WORKER, which gates
+// response.create using this SAME bakedActiveAt() oracle (companion novapython task).
+// bakedActiveAt() is the shared truth; the client just refuses to STACK local audio.
+const SpeechArbiter = {
+  baked: [], margin: 0.3,      // seconds
+  _pending: null, _playing: null,
+  setBaked(list) { this.baked = (list || []).map(w => ({ start: +w.start, end: +w.end })).sort((a, b) => a.start - b.start); },
+  bakedActiveAt(pos) {          // is a baked line playing (±margin) at this video pos? → the shared oracle
+    for (const w of this.baked) { if (pos >= w.start - this.margin && pos <= w.end + this.margin) return w; }
+    return null;
+  },
+  // reaction = { label, start(), stop(fadeMs) }; start() plays and MUST call
+  // SpeechArbiter.done(reaction) when it finishes on its own.
+  request(r) {
+    const pos = window.__gamePos ? window.__gamePos() : 0;
+    if (this.bakedActiveAt(pos) || this._playing) {     // mouth busy (baked line OR another reaction)
+      if (this._pending) LOG('SPEECH', `drop stale '${this._pending.label}' — newest wins`);
+      this._pending = r;
+      LOG('SPEECH', `'${r.label}' queued (mouth busy at ${pos.toFixed(2)}s)`);
+      return false;
+    }
+    this._start(r); return true;
+  },
+  _start(r) { this._playing = r; try { r.start(); } catch (_) { this._playing = null; } },
+  done(r) { if (this._playing === r) this._playing = null; this._drain(); },
+  _drain() {
+    if (!this._pending || this._playing) return;
+    const pos = window.__gamePos ? window.__gamePos() : 0;
+    if (this.bakedActiveAt(pos)) return;                 // still baked-busy → wait for the window to pass
+    const p = this._pending; this._pending = null; this._start(p);
+  },
+  onTick(pos) {                 // called every gameTick with the video position
+    if (this._playing && this.bakedActiveAt(pos)) {      // baked window collided with a playing reaction
+      LOG('SPEECH', `baked line at ${pos.toFixed(2)}s → fade live '${this._playing.label}' 150ms (baked wins)`);
+      const r = this._playing; this._playing = null; try { r.stop(150); } catch (_) {}
+    } else { this._drain(); }
+  },
+  reset() { this._pending = null; this._playing = null; }
+};
+window.__speech = SpeechArbiter;
+
 function gameTick() {
   const elapsed = gamePos() * 1000;
+  try { SpeechArbiter.onTick(elapsed / 1000); } catch(_){}   // ZONE 3: drain queue / fade on baked collision
   const pct = Math.min(100, (elapsed / CFG.SONG_DURATION) * 100);
   document.getElementById('game-progress').style.width = pct + '%';
 
@@ -6470,6 +6548,7 @@ function endGame() {
   clearInterval(songTimer);
   try { stopPosStream(); } catch(_){}   // ZONE 1: end the position stream with the game
   try { Duck.reset(); } catch(_){}      // ZONE 2: clear any active duck sources/guards
+  try { SpeechArbiter.reset(); } catch(_){}   // ZONE 3: clear pending/playing reaction
   try { clearInterval(window.__avLock); } catch(_){}
   setGreenFlash(false);
   hideCue();
