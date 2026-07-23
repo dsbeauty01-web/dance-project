@@ -3043,6 +3043,9 @@ async function startCamNonova(){
 
 window.__NONOVA = NONOVA; window.__startCamNonova = startCamNonova;   // expose to the init() IIFE (separate scope)
 async function initDID() {
+  // MUSETALK end-to-end: don't jump straight to the game. Show the BIG intro (SARAY
+  // avatar centered) first; the "Let's dance" button starts the game (see initSarayWidget).
+  if (MUSETALK) return;
   if (NONOVA) return startCamNonova();                    // standalone: no Render session, no LiveKit, no Nova
   // v91: this function name is kept for back-compat. It now initializes Runway.
   if (window.__novaRoom) {
@@ -7111,12 +7114,19 @@ function initSarayWidget(q){
             vb.textContent='BUILD: COMMERCIAL v1 · MUSETALK avatar (SARAY iframe) · one-mic'; }
   }catch(_){}
 
-  // the witness widget — sized so the kid can actually see + tap her (the SARAY page is
-  // still its dev-layout; the fullscreen avatar-only view is a later build). 9/16 portrait.
+  // END-TO-END FLOW (2026-07-23): she loads BIG + centered = the intro (her own brain
+  // greets the kid). The "Let's dance" button slides her to the corner and starts the
+  // game; her lips keep syncing there through the whole game. Portrait 9/16.
+  const BIG_CSS   = 'left:50%;top:44%;bottom:auto;transform:translate(-50%,-50%);'+
+    'width:min(92vw,430px);height:min(72vh,760px);border-radius:26px;'+
+    'border:3px solid rgba(255,255,255,.30);box-shadow:0 22px 90px rgba(160,80,255,.60);';
+  const CORNER_CSS= 'left:12px;bottom:12px;top:auto;transform:none;'+
+    'width:min(34vw,240px);height:min(46vh,420px);border-radius:18px;'+
+    'border:2px solid rgba(255,255,255,.22);box-shadow:0 12px 40px rgba(160,80,255,.45);';
   const stage=document.createElement('div');
   stage.id='nova-stage';
-  stage.style.width='auto'; stage.style.height='min(52vh,460px)';
-  stage.style.left='12px'; stage.style.bottom='12px';
+  stage.style.cssText='position:fixed;z-index:70;overflow:hidden;background:#150a24;'+
+    'display:none;transition:all .7s cubic-bezier(.22,1,.36,1);'+BIG_CSS;
   const wait=document.createElement('div');
   wait.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;'+
     'background:radial-gradient(ellipse 60% 50% at 50% 40%,#43106f,#170134 70%);font-size:46px;'+
@@ -7125,25 +7135,56 @@ function initSarayWidget(q){
   stage.appendChild(wait);
   document.body.appendChild(stage);
 
-  let dead=false, placed=false, mounted=false;
+  // Intro backdrop + "Let's dance" button (sits BEHIND the big avatar, z<stage).
+  const GAME_LABEL={wavemagic:'Wave Magic',joined:'Up Groove',bounce:'Bounce Groove',
+    wave:'The Wave',freeze:'Freeze',hello:'Hello Hello'};
+  const gid=(location.search.match(/[?&]game=(\w+)/)||[])[1]||'joined';
+  const intro=document.createElement('div');
+  intro.id='ms-intro';
+  intro.style.cssText='position:fixed;inset:0;z-index:65;display:flex;flex-direction:column;'+
+    'align-items:center;justify-content:space-between;padding:6vh 4vw 6vh;'+
+    'background:radial-gradient(ellipse 95% 70% at 50% 28%,#2a0f52,#0a0015 76%);'+
+    'font-family:-apple-system,Segoe UI,Roboto,sans-serif;text-align:center';
+  intro.innerHTML=
+    '<div><div style="font-size:clamp(30px,7vw,52px);font-weight:800;letter-spacing:.5px;'+
+      'background:linear-gradient(90deg,#ffd8f4,#b98cff);-webkit-background-clip:text;'+
+      'background-clip:text;color:transparent">Nova Dance</div>'+
+      '<div style="margin-top:6px;color:#cdbbe8;font-size:clamp(14px,3.4vw,19px)">'+
+      'say hi to Nova! 👋</div></div>'+
+    '<button id="ms-go" style="pointer-events:auto;border:0;cursor:pointer;'+
+      'padding:18px 40px;border-radius:999px;font-size:clamp(18px,4.6vw,24px);font-weight:800;'+
+      'color:#2a0033;background:linear-gradient(90deg,#ffd36b,#ff8fd0);'+
+      'box-shadow:0 12px 40px rgba(255,140,210,.55)">▶ Let’s dance · '+
+      (GAME_LABEL[gid]||gid)+'</button>';
+  document.body.appendChild(intro);
+  intro.querySelector('#ms-go').addEventListener('click',()=>{ startMusetalkGame(); });
+
+  let dead=false, placed=false, mounted=false, inGame=false;
+  function startMusetalkGame(){
+    if(inGame) return; inGame=true; window.__msGameStarted=true;
+    try{ const i=document.getElementById('ms-intro'); if(i){ i.style.transition='opacity .5s'; i.style.opacity='0'; setTimeout(()=>{try{i.remove();}catch(_){}} ,520); } }catch(_){}
+    stage.style.cssText='position:fixed;z-index:70;overflow:hidden;background:#150a24;'+
+      'display:block;transition:all .7s cubic-bezier(.22,1,.36,1);'+CORNER_CSS;   // slide to corner
+    try{ LOG('SARAY','intro → game: avatar slid to corner, starting game'); }catch(_){}
+    try{ if(typeof window.__startCamNonova==='function') window.__startCamNonova(); }catch(e){ try{LOG('ERROR','musetalk game start failed',{msg:e.message});}catch(_){} }
+  }
+  window.__startMusetalkGame=startMusetalkGame;
+
   function kill(reason){
     if(dead) return; dead=true;
     try{ stage.remove(); }catch(_){}
-    // FAILURE LADDER: drop any orphaned pod-live so the static Nova placeholder shows,
-    // and the game keeps running voice-less. No visible error, ever.
+    // FAILURE LADDER: pod down → drop the avatar, but STILL run the full flow voice-less
+    // (intro button starts the game as usual). No visible error, ever.
     document.querySelectorAll('#rec-avatar-frame.pod-live,#end-avatar-frame.pod-live')
       .forEach(f=>f.classList.remove('pod-live'));
     try{ LOG('SARAY','avatar OFF → static Nova, game runs voice-less: '+reason); }catch(_){}
   }
   function place(){
     if(placed||dead) return; placed=true;
-    // v1: musetalk is built on the camera-only path which jumps straight to the game, so
-    // she lives in the fixed witness corner throughout (voice continues). The "big intro
-    // closeup" needs the brain-coupled intro flow and is the next refinement.
     stage.style.display='block';
     stage.classList.add('magic-in');
     setTimeout(()=>stage.classList.remove('magic-in'),1200);
-    try{ LOG('SARAY','avatar live in the witness corner'); }catch(_){}
+    try{ LOG('SARAY','avatar live — BIG intro (say hi, then tap Let’s dance)'); }catch(_){}
   }
   function mount(){
     if(mounted||dead) return; mounted=true;
@@ -7171,7 +7212,12 @@ function initSarayWidget(q){
 (function(){
   const q = new URLSearchParams(location.search);
   if (q.get('novabody') === '0') return;
-  if (window.__MUSETALK) { initSarayWidget(q); return; }   // live LiveKit avatar (iframe) — see initSarayWidget above
+  // NOTE: this is a CLASSIC script — it runs at parse time, BEFORE the deferred
+  // <script type="module"> sets window.__MUSETALK. So decide from the URL directly
+  // (the old `if (window.__MUSETALK)` was always false here → fell through to the dead
+  // FLV pod, which is why the SARAY avatar never mounted / "she didn't reply").
+  const MUSETALK_URL = /[?&](musetalk|saray)\b/.test(location.search);
+  if (MUSETALK_URL) { window.__MUSETALK = true; initSarayWidget(q); return; }   // live LiveKit avatar (iframe) — see initSarayWidget above
   const FLV    = q.get('flv')    || 'https://k9o3iexgqif9il-8080.proxy.runpod.net/live/dance_k.flv';   // MuseTalk pod nova-v22 (2026-07-19)
   const BRIDGE = q.get('bridge') || 'wss://k9o3iexgqif9il-8765.proxy.runpod.net';
   // MUSETALK-DEPLOY: the pod runs engine-only (no bridge) —
