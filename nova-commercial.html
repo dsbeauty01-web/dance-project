@@ -1744,11 +1744,24 @@ function novaStageTo(frameId, phaseId){
       .forEach(f => f.classList.remove('pod-live'));
     return;
   }
-  if (phaseId !== 'phase-end' && phaseId !== 'phase-recognition') return;  // game/picker: leave it alone
+  if (phaseId !== 'phase-end' && phaseId !== 'phase-recognition') {
+    // MUSETALK: keep her VISIBLE in a fixed body-level corner during picker/countdown/game
+    // (the official machinery would otherwise strand her inside the now-hidden recognition frame).
+    if (window.__MUSETALK) {
+      document.querySelectorAll('#rec-avatar-frame.pod-live,#end-avatar-frame.pod-live')
+        .forEach(f => f.classList.remove('pod-live'));
+      stage.classList.remove('in-frame');
+      if (stage.parentElement !== document.body) document.body.appendChild(stage);
+      stage.classList.add('ms-corner');
+      stage.style.display = 'block';
+    }
+    return;  // game/picker: leave it alone (pod flow)
+  }
   const frame = document.getElementById(frameId);
   if (!frame || stage.parentElement === frame) return;
   document.querySelectorAll('#rec-avatar-frame,#end-avatar-frame')
     .forEach(f => { if (f !== frame) f.classList.remove('pod-live'); });
+  stage.classList.remove('ms-corner');   // MUSETALK: leaving the corner for a closeup/end frame
   frame.classList.add('pod-live');
   frame.appendChild(stage);
   stage.classList.add('in-frame');
@@ -2813,6 +2826,13 @@ function handoffFromIntro() {
     let waited = 0, clientReadySent = false, poseLiveSince = 0;
     const poll = setInterval(() => {
       waited += 250;
+      // MUSETALK: the avatar iframe is her face/voice/lips — no room tracks and no worker
+      // will EVER arrive, so satisfy every reveal gate immediately and hide the empty Runway
+      // <video>s. The reveal then proceeds normally (calm melt → dance button unlocks).
+      if (window.__MUSETALK) {
+        document.querySelectorAll('#rec-avatar-video,#nova-face-video').forEach(v=>{ v.style.display='none'; });
+        ['avatar','evi','vision','cam','calib'].forEach(k => _gateStamp(k));
+      }
       // POD AVATAR (2026-07-11 ORDER-LIPSYNC): the floor widget's stream is her
       // mouth AND voice — no room audio/video tracks will ever arrive. The
       // widget being live satisfies the avatar gate; her voice comes with it.
@@ -5898,6 +5918,10 @@ function startTransition(songId){
   pollReadyGate();               // → handoff when all four gates true
 }
 window.__startTransition = startTransition;
+// MUSETALK: startTransition's ready-gate has a worker-fed 'bridge' sub-gate that never
+// flips without the worker, so it would hang. Null it → pickGame() falls back to the
+// fully self-contained startCountdown() (3-2-1 → startGame), exactly as designed.
+if (window.__MUSETALK) window.__startTransition = null;
 
 // ASPECT-FIT LAYOUT (2026-07-03): panel widths = panel-height × each video's real aspect.
 // Nova's clip is portrait → she gets exactly her width (full figure, no bars, no crop);
@@ -6721,6 +6745,22 @@ document.addEventListener('arrival-done', async () => {
   // Start the Kling intro overlay covering Nova circle until Runway is ready
   startIntroOverlay();
 
+  // MUSETALK: there is no worker/Runway to gate the reveal, so melt the intro overlay on
+  // our own (handoffFromIntro's poll stamps every gate immediately in musetalk). Mirror the
+  // early camera into the recognition kid-panel, and hide the on-page mic — her mic lives
+  // inside the avatar iframe (one-mic law; the kid taps the iframe's own "tap to talk" gate).
+  if (window.__MUSETALK) {
+    try {
+      const s = window.__kidStream || window.__earlyCamStream;
+      const rc = document.getElementById('rec-webcam');
+      if (s && rc && !rc.srcObject) { rc.srcObject = s; rc.muted = true; rc.playsInline = true; rc.play().catch(()=>{}); }
+    } catch(_){}
+    try { const rm = document.getElementById('rec-mic'); if (rm) rm.style.display = 'none'; } catch(_){}
+    setTimeout(() => {
+      if (!window._greeted) { window._greeted = true; handoffFromIntro(); LOG('GAME', 'MUSETALK fast reveal — intro melts, avatar iframe takes the closeup'); }
+    }, 3500);
+  }
+
   // v91: Now is the right moment to start Runway (user has tapped, has gesture)
   // This requests camera+mic and connects LiveKit room.
   if (window.__initRunwayNova) {
@@ -6891,7 +6931,7 @@ window.__initRunwayNova = initDID;
       eng.render({ anchors, center, k, W:cw, H:ch, quality, velocity:0, dir, active:!!(e&&anchors.length), now });
     }
     requestAnimationFrame(loop);
-    if (window.__NONOVA) window.__startCamNonova();   // standalone: bring the camera up on load (no Nova trigger needed)
+    if (window.__NONOVA && !window.__MUSETALK) window.__startCamNonova();   // standalone: bring the camera up on load (MUSETALK runs the official flow instead)
   }
   window.__joinedPick=pick; window.__joinedANCH=ANCH;   // (self-test hooks)
   window.__poseCount=()=>(window.__poseFrames||0);      // (self-test: frames detected)
@@ -7079,6 +7119,13 @@ window.__initRunwayNova = initDID;
    Nova frame — and materializes together with her first word. */
 #nova-stage.in-frame{position:absolute;inset:0;left:auto;bottom:auto;width:100%;height:100%;
   border-radius:inherit;border:none;box-shadow:none;z-index:5}
+/* MUSETALK: her fixed witness corner during picker/countdown/game (novaStageTo moves her
+   here since the official machinery leaves non-recognition/non-end phases alone). */
+#nova-stage.ms-corner{position:fixed;left:12px;bottom:12px;top:auto;right:auto;
+  width:min(32vw,230px);height:min(46vh,410px);aspect-ratio:auto;transform:none;
+  overflow:hidden;background:#150a24;border-radius:16px;border:2px solid rgba(255,255,255,.22);
+  box-shadow:0 12px 40px rgba(160,80,255,.45);z-index:70;display:block}
+#nova-stage.ms-corner iframe{width:100%;height:100%;border:0;display:block}
 /* v114: the state badge must survive pod-live. Without the .nova-state-badge
    exception the Talking/Listening pill vanishes the moment the pod stream
    attaches — i.e. in the normal case — even though it is correctly styled.
@@ -7114,19 +7161,17 @@ function initSarayWidget(q){
             vb.textContent='BUILD: COMMERCIAL v1 · MUSETALK avatar (SARAY iframe) · one-mic'; }
   }catch(_){}
 
-  // END-TO-END FLOW (2026-07-23): she loads BIG + centered = the intro (her own brain
-  // greets the kid). The "Let's dance" button slides her to the corner and starts the
-  // game; her lips keep syncing there through the whole game. Portrait 9/16.
-  const BIG_CSS   = 'left:50%;top:44%;bottom:auto;transform:translate(-50%,-50%);'+
-    'width:min(92vw,430px);height:min(72vh,760px);border-radius:26px;'+
-    'border:3px solid rgba(255,255,255,.30);box-shadow:0 22px 90px rgba(160,80,255,.60);';
-  const CORNER_CSS= 'left:12px;bottom:12px;top:auto;transform:none;'+
-    'width:min(34vw,240px);height:min(46vh,420px);border-radius:18px;'+
-    'border:2px solid rgba(255,255,255,.22);box-shadow:0 12px 40px rgba(160,80,255,.45);';
+  // OFFICIAL-FLOW INTEGRATION (2026-07-23): her face is an <iframe> living inside the
+  // standard #nova-stage widget. The OFFICIAL flow drives everything — arrival orb →
+  // intro overlay → closeup recognition → picker → countdown → game → end — and the
+  // existing novaStageTo() machinery moves #nova-stage into the closeup frame at reveal,
+  // a fixed corner during picker/game, and the end frame at the end. No bolt-on intro, no
+  // worker, no Runway; the iframe owns her voice/mic/lips (one-mic law). The MUSETALK shims
+  // that make the worker-driven flow run worker-free live in the module (fast reveal, gate
+  // stamps, startTransition skip, corner relocation in novaStageTo, aura auto-start gate).
   const stage=document.createElement('div');
   stage.id='nova-stage';
-  stage.style.cssText='position:fixed;z-index:70;overflow:hidden;background:#150a24;'+
-    'display:none;transition:all .7s cubic-bezier(.22,1,.36,1);'+BIG_CSS;
+  stage.style.display='none';                 // shown by novaStageTo at reveal
   const wait=document.createElement('div');
   wait.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;'+
     'background:radial-gradient(ellipse 60% 50% at 50% 40%,#43106f,#170134 70%);font-size:46px;'+
@@ -7135,56 +7180,15 @@ function initSarayWidget(q){
   stage.appendChild(wait);
   document.body.appendChild(stage);
 
-  // Intro backdrop + "Let's dance" button (sits BEHIND the big avatar, z<stage).
-  const GAME_LABEL={wavemagic:'Wave Magic',joined:'Up Groove',bounce:'Bounce Groove',
-    wave:'The Wave',freeze:'Freeze',hello:'Hello Hello'};
-  const gid=(location.search.match(/[?&]game=(\w+)/)||[])[1]||'joined';
-  const intro=document.createElement('div');
-  intro.id='ms-intro';
-  intro.style.cssText='position:fixed;inset:0;z-index:65;display:flex;flex-direction:column;'+
-    'align-items:center;justify-content:space-between;padding:6vh 4vw 6vh;'+
-    'background:radial-gradient(ellipse 95% 70% at 50% 28%,#2a0f52,#0a0015 76%);'+
-    'font-family:-apple-system,Segoe UI,Roboto,sans-serif;text-align:center';
-  intro.innerHTML=
-    '<div><div style="font-size:clamp(30px,7vw,52px);font-weight:800;letter-spacing:.5px;'+
-      'background:linear-gradient(90deg,#ffd8f4,#b98cff);-webkit-background-clip:text;'+
-      'background-clip:text;color:transparent">Nova Dance</div>'+
-      '<div style="margin-top:6px;color:#cdbbe8;font-size:clamp(14px,3.4vw,19px)">'+
-      'say hi to Nova! 👋</div></div>'+
-    '<button id="ms-go" style="pointer-events:auto;border:0;cursor:pointer;'+
-      'padding:18px 40px;border-radius:999px;font-size:clamp(18px,4.6vw,24px);font-weight:800;'+
-      'color:#2a0033;background:linear-gradient(90deg,#ffd36b,#ff8fd0);'+
-      'box-shadow:0 12px 40px rgba(255,140,210,.55)">▶ Let’s dance · '+
-      (GAME_LABEL[gid]||gid)+'</button>';
-  document.body.appendChild(intro);
-  intro.querySelector('#ms-go').addEventListener('click',()=>{ startMusetalkGame(); });
-
-  let dead=false, placed=false, mounted=false, inGame=false;
-  function startMusetalkGame(){
-    if(inGame) return; inGame=true; window.__msGameStarted=true;
-    try{ const i=document.getElementById('ms-intro'); if(i){ i.style.transition='opacity .5s'; i.style.opacity='0'; setTimeout(()=>{try{i.remove();}catch(_){}} ,520); } }catch(_){}
-    stage.style.cssText='position:fixed;z-index:70;overflow:hidden;background:#150a24;'+
-      'display:block;transition:all .7s cubic-bezier(.22,1,.36,1);'+CORNER_CSS;   // slide to corner
-    try{ LOG('SARAY','intro → game: avatar slid to corner, starting game'); }catch(_){}
-    try{ if(typeof window.__startCamNonova==='function') window.__startCamNonova(); }catch(e){ try{LOG('ERROR','musetalk game start failed',{msg:e.message});}catch(_){} }
-  }
-  window.__startMusetalkGame=startMusetalkGame;
-
+  let dead=false, mounted=false;
   function kill(reason){
     if(dead) return; dead=true;
     try{ stage.remove(); }catch(_){}
-    // FAILURE LADDER: pod down → drop the avatar, but STILL run the full flow voice-less
-    // (intro button starts the game as usual). No visible error, ever.
+    // FAILURE LADDER: pod down → drop the avatar, but the OFFICIAL flow still runs
+    // (intro → picker → game) voice-less. No visible error, ever.
     document.querySelectorAll('#rec-avatar-frame.pod-live,#end-avatar-frame.pod-live')
       .forEach(f=>f.classList.remove('pod-live'));
-    try{ LOG('SARAY','avatar OFF → static Nova, game runs voice-less: '+reason); }catch(_){}
-  }
-  function place(){
-    if(placed||dead) return; placed=true;
-    stage.style.display='block';
-    stage.classList.add('magic-in');
-    setTimeout(()=>stage.classList.remove('magic-in'),1200);
-    try{ LOG('SARAY','avatar live — BIG intro (say hi, then tap Let’s dance)'); }catch(_){}
+    try{ LOG('SARAY','avatar OFF → static Nova, official flow runs voice-less: '+reason); }catch(_){}
   }
   function mount(){
     if(mounted||dead) return; mounted=true;
@@ -7197,7 +7201,6 @@ function initSarayWidget(q){
     stage.insertBefore(f,wait);
     setTimeout(()=>{ try{ wait.remove(); }catch(_){} },1600);
     try{ LOG('SARAY','iframe mounted → '+SARAY); }catch(_){}
-    place();
   }
   // FAILURE LADDER (deploy Step 4): probe the pod first; if it does not answer within 4s
   // we never mount the iframe → static Nova stays, game runs voice-less.
