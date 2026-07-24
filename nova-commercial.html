@@ -6085,7 +6085,7 @@ function startGame() {
     vid.muted = false;
     vid.volume = 0.595;   // songs -30% softer (was 0.85)
     Duck.reset(); Duck.base = 0.595; Duck.depth = (selectedSong && selectedSong.duck) || 0.65;   // ZONE 2: one duck engine, per-song depth (base -30% softer)
-    SpeechArbiter.reset(); SpeechArbiter.setBaked((selectedSong && selectedSong.bakedSpeech) || []);   // ZONE 3: baked-speech windows
+    SpeechArbiter.reset(); SpeechArbiter.setBaked(initScriptedLines(selectedSong));   // ZONE 3 windows + CONTENT PACK scripted lines armed
     window._audio = vid;         // gameTick clock + mid-dance ducking read this
     window.__songAudio = vid;    // pause / exit controls
     vid.onerror = () => console.error(selectedSong.videoFile + ' error:', vid.error);
@@ -6174,7 +6174,7 @@ function startGame() {
     .then(r => console.log(SONG_FILE+' HEAD:', r.status, r.headers.get('content-type'), 'bytes:', r.headers.get('content-length')))
     .catch(e => console.error(SONG_FILE+' HEAD fetch failed:', e.message));
   Duck.reset(); Duck.base = 0.595; Duck.depth = (selectedSong && selectedSong.duck) || 0.65;   // ZONE 2: init the one duck engine for the dual-source path too (base -30% softer)
-  SpeechArbiter.reset(); SpeechArbiter.setBaked((selectedSong && selectedSong.bakedSpeech) || []);   // ZONE 3: baked-speech windows
+  SpeechArbiter.reset(); SpeechArbiter.setBaked(initScriptedLines(selectedSong));   // ZONE 3 windows + CONTENT PACK scripted lines armed
   window._audio = audio;
   
   // v107 AV-SYNC: wait for MP4 to be actually playing AND visible, then add buffer delay,
@@ -6411,9 +6411,51 @@ const SpeechArbiter = {
 };
 window.__speech = SpeechArbiter;
 
+// ══ SCRIPTED LINES (content pack B3) — cached marin WAVs on the video clock ═══════════
+// Section calls are the lesson: scheduled precisely off gamePos, ducking the music, and
+// registered as baked windows so LIVE reactions never collide (±1s, Zone 3). Local Audio
+// playback = cheap, instant, reliable. Dosage (B8) decides which lines survive.
+function _scriptedDoseKey(song){ return ((song && song.dosage && song.dosage.default) || 'normal'); }
+function _scriptedAllowed(line, song){
+  const d = (song && song.dosage) || {}; const key = _scriptedDoseKey(song); const dose = d[key] || {};
+  if (key === 'chatty') return true;
+  if (key === 'quiet')  return /-pre$/.test(line.id) || line.id.endsWith('-open');  // section presentations only
+  if (Array.isArray(dose.scriptedDrop) && dose.scriptedDrop.includes(line.id)) return false;  // normal
+  return true;
+}
+// Reset the scheduler for a song and return the baked windows (explicit + scripted-derived).
+function initScriptedLines(song){
+  window.__scriptedFired = new Set();
+  window.__scriptedActive = ((song && song.scripted) || []).filter(l => _scriptedAllowed(l, song));
+  const derived = window.__scriptedActive.map(l => ({ start: l.t/1000 - 0.8, end: l.t/1000 + 3.2 }));
+  LOG('SCRIPTED', `${window.__scriptedActive.length} lines armed (dose=${_scriptedDoseKey(song)})`);
+  return ((song && song.bakedSpeech) || []).concat(derived);
+}
+function playScriptedLine(line){
+  if (window.__duck) window.__duck.acquire('scripted', 5000);             // Zone 2: dip the music FIRST
+  const rel = () => { try { if (window.__duck) window.__duck.release('scripted'); } catch(_){} };
+  try {
+    const a = new Audio(line.file); a.volume = 1.0; window.__scriptedAudio = a;
+    a.onended = rel; a.onerror = rel; a.play().catch(rel);               // release on natural end / failure
+    LOG('SCRIPTED', `▶ ${line.id} "${line.line}"`);
+  } catch(e){ rel(); LOG('ERROR', 'scripted ' + line.id + ': ' + e.message); }
+}
+// Called every gameTick with the video position (ms). Fires a due line once; if we seeked
+// PAST a line (stall/scrub) it is marked fired without playing (no late blurts).
+function tickScriptedLines(posMs){
+  const list = window.__scriptedActive; if (!list || !window.__scriptedFired) return;
+  for (const l of list){
+    if (window.__scriptedFired.has(l.id)) continue;
+    if (posMs >= l.t && posMs < l.t + 1500){ window.__scriptedFired.add(l.id); playScriptedLine(l); }
+    else if (posMs >= l.t + 1500){ window.__scriptedFired.add(l.id); }   // missed the window → skip
+  }
+}
+window.__initScriptedLines = initScriptedLines; window.__tickScriptedLines = tickScriptedLines;
+
 function gameTick() {
   const elapsed = gamePos() * 1000;
   try { SpeechArbiter.onTick(elapsed / 1000); } catch(_){}   // ZONE 3: drain queue / fade on baked collision
+  try { tickScriptedLines(elapsed); } catch(_){}             // CONTENT PACK: fire scripted marin lines on the clock
   const pct = Math.min(100, (elapsed / CFG.SONG_DURATION) * 100);
   document.getElementById('game-progress').style.width = pct + '%';
 
