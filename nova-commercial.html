@@ -1286,6 +1286,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   border-bottom: 1px solid rgba(167, 243, 208, 0.6);
 }
 #debug-panel {
+  display: none;   /* dev UI — only with ?debug (see html.debug-on below) */
   position: fixed; top: 30px; right: 8px; z-index: 9999;
   width: 340px; max-height: 60vh; overflow-y: auto;
   background: rgba(0,0,0,0.85); color: #0f0;
@@ -1310,9 +1311,13 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 #debug-panel .tag-game { color: #e0e0e0; }
 #debug-panel .tag-pose { color: #818cf8; }
 #log-actions {
+  display: none;   /* dev UI — only with ?debug */
   position: fixed; bottom: 8px; right: 8px; z-index: 10001;
-  display: flex; gap: 6px;
+  gap: 6px;
 }
+/* ?debug reveals the dev panel + log buttons; normal links stay clean */
+html.debug-on #debug-panel { display: block; }
+html.debug-on #log-actions { display: flex; }
 #log-actions button {
   padding: 6px 10px; border: none; border-radius: 6px;
   background: #1f2937; color: #00ff88;
@@ -1381,6 +1386,8 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   <button onclick="window.__copyLog()">📋 Copy</button>
   <button onclick="document.getElementById('debug-panel').style.display='none';document.getElementById('debug-toggle').style.display='block'">✕ Hide panel</button>
 </div>
+<script>/* dev panel only when explicitly asked — keeps ?musetalk / ?nonova links clean */
+if (/[?&]debug\b/.test(location.search)) document.documentElement.classList.add('debug-on');</script>
 
 <div id="green-flash"></div>
 
