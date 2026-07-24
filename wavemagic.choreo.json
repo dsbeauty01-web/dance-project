@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "id": "wavemagic",
+  "title": "Wave Magic!",
+  "media": { "video": "pre-wave.mp4", "durationMs": 80900, "audio": null },
+  "bakedSpeech": [ { "start": 0, "end": 8500 } ],
+  "beats": [
+    { "t": 100,   "name": "intro" },
+    { "t": 8500,  "name": "easy-wins" },
+    { "t": 32500, "name": "challenge" },
+    { "t": 43200, "name": "flow" },
+    { "t": 70000, "name": "celebration" }
+  ],
+  "demos": [
+    { "t": 8600,  "emoji": "👀", "label": "WATCH!",          "instr": "watch her!" },
+    { "t": 19300, "emoji": "👀", "label": "SEE THAT ARM?!",  "instr": "the magic is coming…" },
+    { "t": 26800, "emoji": "👀", "label": "WATCH!",          "instr": "both sides now!" },
+    { "t": 32500, "emoji": "🌊", "label": "THE MAGIC WAVE!", "instr": "watch it roll!" }
+  ],
+  "windows": [
+    { "start": 37800, "end": 43000, "move": "wristwave", "pts": 150, "soft": true, "cueStyle": "travel-arm",  "emoji": "👋", "label": "YOUR TURN → WAVE!", "instr": "wave that arm!" },
+    { "start": 43200, "end": 50000, "move": "wavefree",  "pts": 200, "soft": true, "cueStyle": "glow-joints", "emoji": "🌊", "label": "DANCE ALONG!",      "instr": "wave it all!" },
+    { "start": 50200, "end": 57800, "move": "wavefree",  "pts": 200, "soft": true, "cueStyle": "glow-joints", "emoji": "🌊", "label": "KEEP FLOWING!",     "instr": "don't stop!" },
+    { "start": 59800, "end": 67800, "move": "wristwave", "pts": 150, "soft": true, "cueStyle": "travel-arm",  "emoji": "👋", "label": "← OTHER ARM!",      "instr": "wave along with her!" },
+    { "start": 70000, "end": 75000, "move": "wavefree",  "pts": 250, "soft": true, "cueStyle": "glow-joints", "emoji": "✨", "label": "EVERYTHING!",       "instr": "wave it ALL!" },
+    { "start": 75200, "end": 79800, "move": "combo",     "pts": 300, "soft": true, "cueStyle": "glow-joints", "emoji": "🔥", "label": "BIG FINISH!",       "instr": "all of it!" }
+  ]
+}

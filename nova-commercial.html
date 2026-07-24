@@ -1373,7 +1373,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 
 <div id="sees-you-tick" data-l="seesYou">✓ Nova sees you</div>
 
-<div id="vbanner" style="position:fixed;top:44px;left:50%;transform:translateX(-50%);z-index:99999;font:600 12px monospace;color:#0a0015;background:#a855f7;padding:3px 10px;border-radius:7px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.4)">BUILD: COMMERCIAL v1 · zone1 video-clock · pos-stream</div>
+<div id="vbanner" style="position:fixed;top:44px;left:50%;transform:translateX(-50%);z-index:99999;font:600 12px monospace;color:#04120c;background:#10b981;padding:3px 10px;border-radius:7px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.4)">BUILD: ENGINE v1 · choreo-JSON · wavemagic=data</div>
 <div id="debug-panel"></div>
 <button id="debug-toggle" onclick="document.getElementById('debug-panel').style.display='block';this.style.display='none'">≡</button>
 <div id="log-actions">
@@ -1702,7 +1702,7 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
   </div>
 </div>
 
-<div id="version-tag">🔵 COMMERCIAL v1 — ZONE 1: VIDEO CLOCK</div>
+<div id="version-tag" style="background:linear-gradient(135deg,#059669,#10b981)">🟢 ENGINE v1 — CHOREO JSON (wavemagic = data)</div>
 
 <!-- Pose Detection -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
@@ -5253,11 +5253,114 @@ function applyTimelineOffset(raw, offset) {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════
+// CHOREO ENGINE v1 (2026-07-24) — a game is DATA, not code.
+// A game = one choreo JSON (schema below). The engine loads it, validates it, and
+// adapts beats/demos/windows into the EXACT timeline-event shape gameTick already
+// consumes — so the proven one-clock scheduler (Zone 1), duck engine (Zone 2) and
+// speech arbiter (Zone 3) are untouched. Adding a game = adding a JSON; deleting a
+// game = deleting its JSON + embed entry. No game-specific JS anywhere below.
+//
+// RUNTIME SOURCE = the inline CHOREO_EMBED object (works under file:// — the founder
+// opens the page locally, where fetch() of a sibling .json is CORS-blocked). The
+// identical external {id}.choreo.json is the CANONICAL committed copy: the worker
+// reads bakedSpeech/scripted from it, git tracks it, http can fetch it. The test
+// tools/qa-choreo-engine.js asserts embed ≡ file and that the adapter reproduces the
+// legacy corrected timeline byte-for-byte (behavior-preserving proof).
+// ═══════════════════════════════════════════════════════════════
+const CHOREO_REGISTRY = ['wristwave','wavefree','freeze','clap','headbob','shrug','ribslide',
+  'hipbounce','shoulderroll','elbowpump','combo','travelingwave','left','right','both','head'];
+const CHOREO_CUESTYLES = ['badge','glow-joints','travel-arm'];
+const CHOREO_FIELDS = ['schema','id','title','media','bakedSpeech','beats','demos','windows',
+  'knowledge','scripted','styleExamples','stopResume','summaryTemplate','dosage','tiers','noSpeak'];
+
+// The embedded choreo (runtime source). Keep byte-identical to {id}.choreo.json.
+const CHOREO_EMBED = {
+  wavemagic: {
+    schema: 1, id: 'wavemagic', title: 'Wave Magic!',
+    media: { video: 'pre-wave.mp4', durationMs: 80900, audio: null },
+    bakedSpeech: [ { start: 0, end: 8500 } ],
+    beats: [
+      { t: 100,   name: 'intro' },
+      { t: 8500,  name: 'easy-wins' },
+      { t: 32500, name: 'challenge' },
+      { t: 43200, name: 'flow' },
+      { t: 70000, name: 'celebration' },
+    ],
+    demos: [
+      { t: 8600,  emoji: '👀', label: 'WATCH!',          instr: 'watch her!' },
+      { t: 19300, emoji: '👀', label: 'SEE THAT ARM?!',  instr: 'the magic is coming…' },
+      { t: 26800, emoji: '👀', label: 'WATCH!',          instr: 'both sides now!' },
+      { t: 32500, emoji: '🌊', label: 'THE MAGIC WAVE!', instr: 'watch it roll!' },
+    ],
+    windows: [
+      { start: 37800, end: 43000, move: 'wristwave', pts: 150, soft: true, cueStyle: 'travel-arm',  emoji: '👋', label: 'YOUR TURN → WAVE!', instr: 'wave that arm!' },
+      { start: 43200, end: 50000, move: 'wavefree',  pts: 200, soft: true, cueStyle: 'glow-joints', emoji: '🌊', label: 'DANCE ALONG!',      instr: 'wave it all!' },
+      { start: 50200, end: 57800, move: 'wavefree',  pts: 200, soft: true, cueStyle: 'glow-joints', emoji: '🌊', label: 'KEEP FLOWING!',     instr: "don't stop!" },
+      { start: 59800, end: 67800, move: 'wristwave', pts: 150, soft: true, cueStyle: 'travel-arm',  emoji: '👋', label: '← OTHER ARM!',      instr: 'wave along with her!' },
+      { start: 70000, end: 75000, move: 'wavefree',  pts: 250, soft: true, cueStyle: 'glow-joints', emoji: '✨', label: 'EVERYTHING!',       instr: 'wave it ALL!' },
+      { start: 75200, end: 79800, move: 'combo',     pts: 300, soft: true, cueStyle: 'glow-joints', emoji: '🔥', label: 'BIG FINISH!',       instr: 'all of it!' },
+    ],
+  },
+};
+
+// Validate a choreo object. Loud dev-console error on any unknown field/move/cueStyle
+// (per engine spec — a malformed game must refuse to start, not fail silently).
+function validateChoreo(c) {
+  const errs = [];
+  if (!c || typeof c !== 'object') return { ok: false, errors: ['choreo is not an object'] };
+  if (c.schema !== 1) errs.push('schema must be 1');
+  if (!c.id) errs.push('missing id');
+  if (!c.media || typeof c.media.durationMs !== 'number') errs.push('missing media.durationMs');
+  Object.keys(c).forEach(k => { if (!CHOREO_FIELDS.includes(k)) errs.push(`unknown top-level field "${k}"`); });
+  (c.windows || []).forEach((w, i) => {
+    if (typeof w.start !== 'number' || typeof w.end !== 'number') errs.push(`window[${i}] bad start/end`);
+    else if (w.end <= w.start) errs.push(`window[${i}] end<=start`);
+    if (!CHOREO_REGISTRY.includes(w.move)) errs.push(`window[${i}] unknown move "${w.move}" (not in move registry)`);
+    if (w.cueStyle && !CHOREO_CUESTYLES.includes(w.cueStyle)) errs.push(`window[${i}] unknown cueStyle "${w.cueStyle}"`);
+  });
+  if (errs.length) console.error('[CHOREO] validation FAILED for "' + (c && c.id) + '":', errs);
+  return { ok: errs.length === 0, errors: errs };
+}
+
+// Adapt a choreo object into the flat, time-sorted event array gameTick consumes.
+// windows → open(start)+close(end) pairs; demos → demo; beats → beat. On equal t the
+// order is beat < demo < open < close (matches the hand-authored legacy timelines).
+function choreoToTimeline(c) {
+  const out = [];
+  (c.beats || []).forEach(b => out.push({ t: b.t, type: 'beat', name: b.name }));
+  (c.demos || []).forEach(d => out.push({ t: d.t, type: 'demo', emoji: d.emoji || '👀', label: d.label, instr: d.instr }));
+  (c.windows || []).forEach(w => {
+    const open = { t: w.start, type: 'open', action: w.move, emoji: w.emoji || '✨', label: w.label,
+      instr: w.instr, pts: w.pts, soft: w.soft !== false, cueStyle: w.cueStyle || 'badge' };
+    if (w.dir) open.dir = w.dir;
+    if (w.holdMs) open.holdMs = w.holdMs;
+    out.push(open);
+    out.push({ t: w.end, type: 'close', action: w.move });
+  });
+  const rank = e => (e.type === 'beat' ? 0 : e.type === 'demo' ? 1 : e.type === 'open' ? 2 : 3);
+  out.sort((a, b) => (a.t - b.t) || (rank(a) - rank(b)));
+  return out;
+}
+window.__validateChoreo = validateChoreo;
+window.__choreoToTimeline = choreoToTimeline;
+window.__CHOREO_EMBED = CHOREO_EMBED;
+
 function setSelectedSong(songId) {
   selectedSong = SONGS[songId] || SONGS.joined;
   TIMELINE_OFFSET = selectedSong.offset;
-  TIMELINE = applyTimelineOffset(selectedSong.timeline, selectedSong.offset);
-  CFG.SONG_DURATION = selectedSong.durationMs; // keep progress bar / auto-end correct
+  // Engine path: if this game has a valid choreo, DATA drives it. Else legacy inline array.
+  const choreo = CHOREO_EMBED[selectedSong.id];
+  if (choreo && validateChoreo(choreo).ok) {
+    TIMELINE = applyTimelineOffset(choreoToTimeline(choreo), selectedSong.offset);
+    CFG.SONG_DURATION = choreo.media.durationMs;
+    window.__choreoActive = selectedSong.id;
+    LOG('CHOREO', `${selectedSong.id} driven by choreo JSON — ${choreo.windows.length} windows, ${choreo.demos.length} demos`);
+  } else {
+    TIMELINE = applyTimelineOffset(selectedSong.timeline, selectedSong.offset);
+    CFG.SONG_DURATION = selectedSong.durationMs; // keep progress bar / auto-end correct
+    window.__choreoActive = null;
+  }
   LOG('GAME', `selected song: ${selectedSong.name}`);
   window.__selectedSongId = selectedSong.id;   // observable for logs/self-tests
 }
@@ -5619,6 +5722,7 @@ function showCue(emoji, label, instr, isLive, ms) {
 function hideCue() {
   document.getElementById('action-cue').classList.remove('show', 'live');
   window.__cueAction = null;   // clear the on-body aura when the cue closes
+  window.__cueStyle = null;    // CHOREO ENGINE: drop the cue renderer preset
 }
 
 function setGreenFlash(on) {
@@ -6472,6 +6576,7 @@ function gameTick() {
     else if(e.type === 'open') {
       currentAction = e;
       window.__cueAction = e;   // expose active cue to the aura overlay module
+      window.__cueStyle = e.cueStyle || 'badge';   // CHOREO ENGINE: cue renderer preset (badge|glow-joints|travel-arm)
       window.__cueState = 'armed';   // light starts warm gold; recolors on hit/miss
       window.__cuesFired = (window.__cuesFired||0) + 1;   // TASK 3/4: machine-checkable cue counter
       (window.__cueLog = window.__cueLog||[]).push({ t: Math.round(gamePos()*1000), action: e.action });
@@ -6994,6 +7099,20 @@ window.__initRunwayNova = initDID;
       if(e){ const act=e.action, a=pick(act,m); if(a) anchors=[{x:X(a),y:Y(a)}];
         if(act==='headbob') dir = e.dir==='L'?'left':e.dir==='R'?'right':'up';
         else if(act!=='combo'&&act!=='freeze') dir='up'; }
+      // CHOREO ENGINE — 'travel-arm' cue renderer: a bright bead rides wrist→elbow→shoulder
+      // along the cued arm on the choreo pace (Wave Magic's "light travels up the arm"). Only
+      // overrides the anchor for this style; 'glow-joints'/'badge' keep the proven path above.
+      if(e && window.__cueStyle==='travel-arm'){
+        const w=m.right_wrist||m.left_wrist, el=m.right_elbow||m.left_elbow, sh=m.right_shoulder||m.left_shoulder;
+        if(w&&el&&sh&&w.score>0.2&&el.score>0.2&&sh.score>0.2){
+          const seg=[[X(w),Y(w)],[X(el),Y(el)],[X(sh),Y(sh)]];
+          const ph=(now/900)%1, f=ph*2, i=Math.min(1,Math.floor(f)), tt=f-i;   // ~0.9s wrist→shoulder sweep
+          const px=lerp(seg[i][0],seg[i+1][0],tt), py=lerp(seg[i][1],seg[i+1][1],tt);
+          anchors=[{x:px,y:py}]; dir='up';
+          orb(ctx,px,py,22*k,ML.gold,0.35); orb(ctx,px,py,11*k,ML.core,0.9);   // travelling bead
+          window.__travelArmT = +ph.toFixed(2);   // QA hook: bead phase observable
+        }
+      }
       if(e && anchors.length) window.__lightsDrawn = (window.__lightsDrawn||0) + 1;   // TASK 3/4: light actually on a joint
       eng.render({ anchors, center, k, W:cw, H:ch, quality, velocity:0, dir, active:!!(e&&anchors.length), now });
     }
