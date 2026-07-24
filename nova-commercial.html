@@ -3067,7 +3067,10 @@ async function startCamNonova(){
         // ?game=hello|joined|wave|freeze → standalone-test that game (default: joined)
         const g = (location.search.match(/[?&]game=(\w+)/)||[])[1];
         if (g && typeof window.setSelectedSong === 'function') window.setSelectedSong(g);
-        if (typeof startGame === 'function') startGame();
+        // LAW: countdown gates play — NEVER autoplay the dance. Standalone runs the same
+        // 3-2-1 (countdown-done → startGame) as the real flow, so the mp3 never auto-starts.
+        if (typeof startCountdown === 'function') startCountdown();
+        else if (typeof startGame === 'function') startGame();
       }
       catch(err){ LOG('ERROR','nonova startGame failed', { msg: err.message }); }
     }, 700);
@@ -5704,6 +5707,50 @@ function showReactionBubble(text, huge) {
     b.classList.remove('show', 'huge');
   }, huge ? 4500 : 2800);
 }
+
+// ═══ POP — the "she SAW that" celebration zoom (spec: NOVA-FULL-GAME §1.2) ═══
+// A glowing orb + the reaction word blooms center-top for ~1.5s on the BIGGEST moments
+// (streaks, freeze holds, finale-tier windows), then shrinks back. Capped 3 per song and
+// spaced ≥4s so only the peaks pop. Self-contained: injects its own element + styles on
+// first use (like the aura module) so it can never destabilise the game engine.
+let __popCount = 0, __lastPopAt = 0;
+function resetPops() { __popCount = 0; __lastPopAt = 0; }
+window.__popCount = () => __popCount;
+function novaPop(text) {
+  try {
+    const now = Date.now();
+    if (__popCount >= 3 || (now - __lastPopAt) < 4000) return false;
+    let el = document.getElementById('nova-pop');
+    if (!el) {
+      const st = document.createElement('style');
+      st.textContent =
+        '#nova-pop{position:fixed;left:50%;top:24%;transform:translate(-50%,-50%) scale(.3);z-index:9500;' +
+        'pointer-events:none;opacity:0;display:flex;flex-direction:column;align-items:center;gap:8px;' +
+        'font:800 clamp(18px,4.5vw,40px)/1 system-ui,sans-serif;text-align:center;' +
+        'transition:transform .35s cubic-bezier(.34,1.56,.64,1),opacity .3s ease}' +
+        '#nova-pop .orb{width:clamp(84px,20vmin,200px);height:clamp(84px,20vmin,200px);border-radius:50%;' +
+        'display:flex;align-items:center;justify-content:center;font-size:clamp(38px,9vmin,90px);' +
+        'background:radial-gradient(circle at 40% 34%,#fff,#ffe08a 42%,#ff9f1c 76%,#f2730c);' +
+        'box-shadow:0 0 44px 12px rgba(255,180,60,.6)}' +
+        '#nova-pop .txt{background:#10b981;color:#04120c;padding:4px 16px;border-radius:999px;' +
+        'box-shadow:0 4px 18px rgba(0,0,0,.35)}' +
+        '#nova-pop.show{opacity:1;transform:translate(-50%,-50%) scale(1)}';
+      document.head.appendChild(st);
+      el = document.createElement('div'); el.id = 'nova-pop';
+      el.innerHTML = '<div class="orb">✨</div><div class="txt"></div>';
+      (document.body || document.documentElement).appendChild(el);
+    }
+    el.querySelector('.txt').textContent = text || '';
+    void el.offsetWidth;                 // reflow so the scale-in animates
+    el.classList.add('show');
+    __popCount++; __lastPopAt = now;
+    window.__lastPop = { t: now, text: text || '', n: __popCount };   // QA hook
+    clearTimeout(window.__popTimer);
+    window.__popTimer = setTimeout(() => { el.classList.remove('show'); }, 1500);
+    return true;
+  } catch (_) { return false; }
+}
+window.__novaPop = novaPop;
 
 function showCue(emoji, label, instr, isLive, ms) {
   const c = document.getElementById('action-cue');
