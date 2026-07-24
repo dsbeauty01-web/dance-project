@@ -145,5 +145,81 @@
       "label": "FREESTYLE",
       "instr": "wave it ALL!"
     }
-  ]
+  ],
+  "knowledge": "You are Nova teaching WAVE — the quick one, the river of light. Three stations to warm the arm (shoulders, elbows, wrists), then the chain: the light runs down the arm and back, six counts, on the beat. Then five seconds of everything. This game is SHORT and fast — you speak little and precisely. The chain is the moment: if their light travels even a bit, that's the win of the day. Arrows show the side; you name the body part, never left/right.",
+  "styleExamples": {
+    "practice": [
+      "shoulders alive!",
+      "elbows next!"
+    ],
+    "chain": [
+      "The light TRAVELED!"
+    ],
+    "freestyle": [
+      "River of LIGHT!"
+    ]
+  },
+  "scripted": [
+    {
+      "t": 1000,
+      "id": "wv-open",
+      "file": "wv-open.wav",
+      "delivery": "warm up"
+    },
+    {
+      "t": 12200,
+      "id": "wv-wrist",
+      "file": "wv-wrist.wav",
+      "delivery": "wrists"
+    },
+    {
+      "t": 17600,
+      "id": "wv-chain",
+      "file": "wv-chain.wav",
+      "delivery": "the chain"
+    },
+    {
+      "t": 23000,
+      "id": "wv-free",
+      "file": "wv-free.wav",
+      "delivery": "freestyle"
+    },
+    {
+      "t": 27800,
+      "id": "wv-land",
+      "file": "wv-land.wav",
+      "delivery": "landing"
+    }
+  ],
+  "stopResume": {
+    "stop": [
+      "Taking a breath! Smart.",
+      "Pause! I'll wait right here.",
+      "Freeze the groove! Tell me when."
+    ],
+    "resume": "Ready?... THREE. TWO. ONE!"
+  },
+  "summaryTemplate": {
+    "best": "NAME — the CHAIN — the light traveled down your whole arm!",
+    "growth": "That was the small river. Wave MAGIC is the ocean — tomorrow?",
+    "hook": "That was the small river. Wave MAGIC is the ocean — tomorrow?",
+    "thinMoments": "You warmed up every part of that arm — the chain is next."
+  },
+  "dosage": {
+    "chatty": {
+      "scripted": "all",
+      "liveMax60": 5,
+      "pops": 1
+    },
+    "normal": {
+      "scripted": "all",
+      "liveMax60": 3,
+      "pops": 1
+    },
+    "quiet": {
+      "scripted": "wv-chain, wv-land only",
+      "liveMax60": 2,
+      "pops": 1
+    }
+  }
 }

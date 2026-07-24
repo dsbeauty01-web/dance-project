@@ -65,31 +65,39 @@ const canon = v => JSON.stringify(v, function s(k, val) {
 
 const SONGS = extractSongs();
 const choreoToTimeline = extractAdapter();
-// wavemagic is hand-authored (carries cueStyle) — leave its file alone; still verify it.
-const HAND = new Set(['wavemagic']);
+const packs = require('./choreo-packs');
+
+// Merge a game's content pack (the "brain") + cueStyle presets onto the generated choreo.
+// Pack fields never touch beats/demos/windows timing, so the round-trip proof is unaffected.
+const PACK_FIELDS = ['knowledge', 'styleExamples', 'scripted', 'stopResume', 'summaryTemplate', 'dosage', 'noSpeak', 'blocked'];
+function applyPack(choreo, pack) {
+  if (!pack) return;
+  if (pack.cueStyles) choreo.windows.forEach(w => { if (pack.cueStyles[w.move]) w.cueStyle = pack.cueStyles[w.move]; });
+  PACK_FIELDS.forEach(f => { if (pack[f] !== undefined) choreo[f] = pack[f]; });
+}
 
 let pass = 0, fail = 0, wrote = 0;
-const inlineBlocks = [];   // {id, json} for every DATA-driven game (all but the hand literal)
+const inlineBlocks = [];   // {id, json} for every DATA-driven game (all 6)
 for (const id of Object.keys(SONGS)) {
   const game = SONGS[id];
   const choreo = rawToChoreo(game);
+  applyPack(choreo, packs[id]);   // brain + cueStyle presets
 
   // verify: adapter(choreo) reproduces the legacy timeline (minus additive cueStyle)
   const built = choreoToTimeline(choreo).map(ev => { const { cueStyle, ...r } = ev; return r; });
   const raw = game.timeline;
   const equiv = built.length === raw.length && built.every((e, i) => canon(e) === canon(raw[i]));
-  if (equiv) { pass++; console.log(`PASS  ${id.padEnd(9)} round-trips (${built.length} events)`); }
+  const hasBrain = !!(packs[id] && packs[id].knowledge);
+  if (equiv) { pass++; console.log(`PASS  ${id.padEnd(9)} round-trips (${built.length} events)${hasBrain ? ' +brain' : ''}`); }
   else {
     fail++; console.log(`FAIL  ${id.padEnd(9)} adapter != legacy timeline`);
     for (let i = 0; i < Math.max(built.length, raw.length); i++) if (canon(built[i]) !== canon(raw[i])) { console.log(`        first diff @${i}:\n          built: ${canon(built[i])}\n          raw  : ${canon(raw[i])}`); break; }
   }
 
-  if (!HAND.has(id)) {
-    inlineBlocks.push({ id, json: JSON.stringify(choreo) });   // compact — the runtime source
-    if (!CHECK_ONLY) {
-      fs.writeFileSync(path.join(ROOT, `${id}.choreo.json`), JSON.stringify(choreo, null, 2) + '\n');
-      wrote++; console.log(`      wrote ${id}.choreo.json`);
-    }
+  inlineBlocks.push({ id, json: JSON.stringify(choreo) });   // compact — the runtime source
+  if (!CHECK_ONLY) {
+    fs.writeFileSync(path.join(ROOT, `${id}.choreo.json`), JSON.stringify(choreo, null, 2) + '\n');
+    wrote++; console.log(`      wrote ${id}.choreo.json`);
   }
 }
 

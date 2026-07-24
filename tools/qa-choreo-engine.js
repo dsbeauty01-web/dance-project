@@ -55,8 +55,15 @@ catch (e) { bad('engine block extract', e.message); }
 try { RAW = extractRaw(); ok('legacy TIMELINE_WAVEMAGIC_RAW extracted'); }
 catch (e) { bad('raw extract', e.message); }
 
+// read a game's choreo from its inline data-choreo block (the runtime source)
+function blockChoreo(id) {
+  const m = HTML.match(new RegExp('<script[^>]*\\bdata-choreo\\b[^>]*id="choreo-' + id + '"[^>]*>([\\s\\S]*?)<\\/script>', 'i'));
+  return m ? JSON.parse(m[1]) : null;
+}
+
 if (ENG && RAW) {
-  const embed = ENG.CHOREO_EMBED.wavemagic;
+  const embed = blockChoreo('wavemagic');
+  if (!embed) bad('wavemagic inline block present');
   // Objects from vm.runInNewContext live in a separate realm (different Object.prototype),
   // which trips deepStrictEqual's prototype check even when values are identical. Compare
   // by a CANONICAL serialization instead: recursively key-sorted JSON — realm-agnostic and

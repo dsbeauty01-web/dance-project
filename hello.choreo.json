@@ -237,5 +237,101 @@
       "label": "FREEZE!",
       "instr": "DON'T MOVE!"
     }
+  ],
+  "knowledge": "You are Nova hosting HELLO HELLO — the welcome dance where the SONG gives the orders and you two follow it together. Hands up, claps, hands on head — it repeats and gets faster, that's the joke and kids love it. Verse five is NOVA SAYS — your name is in the song, own it, you're Simon. Verse six is FAST — everything flies, ends in a surprise FREEZE. React to hands and claps by name: \"that hand FLEW up!\" \"double clap!\". IMPORTANT: the SONG says the sides (\"raise your right hand\") — that's the song's content and it stays; YOU never add side words. Your lines use \"that hand / other hand / the song said so!\". During intro and outro the song breathes — that's your talking room. During fast-fire: almost silent, save yourself for the freeze.",
+  "styleExamples": {
+    "hands": [
+      "That hand FLEW!",
+      "Clap thunder!",
+      "Hat of hands!"
+    ],
+    "simon": [
+      "you ONLY move when Nova says — genius!"
+    ],
+    "fastfire": [],
+    "freeze": [
+      "you held it — FROZEN superstar!"
+    ]
+  },
+  "scripted": [
+    {
+      "t": 2000,
+      "id": "hh-open",
+      "file": "hh-open.wav",
+      "delivery": "intro room"
+    },
+    {
+      "t": 13500,
+      "id": "hh-ready",
+      "file": "hh-ready.wav",
+      "delivery": "here come the moves"
+    },
+    {
+      "t": 43500,
+      "id": "hh-head-pre",
+      "file": "hh-head-pre.wav",
+      "delivery": "chatty only"
+    },
+    {
+      "t": 58800,
+      "id": "hh-simon",
+      "file": "hh-simon.wav",
+      "delivery": "own your name"
+    },
+    {
+      "t": 77500,
+      "id": "hh-fast",
+      "file": "hh-fast.wav",
+      "delivery": "brace"
+    },
+    {
+      "t": 89200,
+      "id": "hh-freeze",
+      "file": "hh-freeze.wav",
+      "delivery": "the surprise"
+    },
+    {
+      "t": 93500,
+      "id": "hh-out",
+      "file": "hh-out.wav",
+      "delivery": "outro room"
+    }
+  ],
+  "stopResume": {
+    "stop": [
+      "Taking a breath! Smart.",
+      "Pause! I'll wait right here.",
+      "Freeze the groove! Tell me when."
+    ],
+    "resume": "Ready?... THREE. TWO. ONE!"
+  },
+  "summaryTemplate": {
+    "best": "NAME — the NOVA SAYS round — you only moved when I said. Genius!",
+    "growth": "Tomorrow the song goes even FASTER. Can you?",
+    "hook": "Tomorrow the song goes even FASTER. Can you?",
+    "thinMoments": "You sang hello with me the whole way — that's how we start every day."
+  },
+  "dosage": {
+    "chatty": {
+      "scripted": "all",
+      "liveMax60": 6,
+      "pops": 1
+    },
+    "normal": {
+      "scripted": "all minus (hh-head-pre)",
+      "liveMax60": 4,
+      "pops": 1
+    },
+    "quiet": {
+      "scripted": "hh-open, hh-simon, hh-freeze only",
+      "liveMax60": 3,
+      "pops": 1
+    }
+  },
+  "noSpeak": [
+    {
+      "start": 16000,
+      "end": 58400
+    }
   ]
 }
