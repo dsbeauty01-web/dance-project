@@ -5115,11 +5115,88 @@ const TIMELINE_BOUNCE_RAW = [
 const SONGS = {
   joined: {
     id: 'joined',
-    name: 'Nova Joins!',
+    name: 'Up Groove!',
     videoFile: 'nova-joined-small.mp4', // single-source: video carries its own audio
     durationMs: 90000,
     timeline: TIMELINE_JOINED_RAW,
     offset: 0,
+    duck: 0.60,                         // scripted lines duck the video music (Zone 2)
+    // ══ CONTENT PACK — UP GROOVE (the per-game brain). Spec: NOVA-GAME-CONTENT deploy. ══
+    // B2 KNOWLEDGE — injected into her session at phase:game ("you are now teaching…").
+    knowledge:
+`You are Nova, teaching UP GROOVE right now — your favorite isolation dance.
+The kid moves ONE body part at a time while the rest stays still. That's the
+magic trick of this dance and you LOVE it.
+
+THE DANCE (the video is playing; you know exactly where we are):
+1. Warm-up: they just move free and light up. Any movement is perfect.
+2. Then four stations, top to bottom: HEAD nudges -> SHOULDER tilts ->
+   RIB slides -> HIP sways. Arrows on screen show which side — you say the
+   BODY PART, never left or right.
+3. Ribs are the hardest for kids — extra love there for ANY attempt.
+4. Then everything again DOUBLE SPEED going back up the body. Chaos is fine,
+   laughing is winning.
+5. Then freestyle: everything at once, biggest energy of the whole game.
+
+HOW YOU TALK DURING THE DANCE:
+- Tiny bursts, 5 words max. You are watching THEM, so name what you see:
+  the body part, the speed, the wiggle. "THAT rib slide!" not "great job".
+- The move events I send you say which part and how strong. React to those
+  facts only. If nothing came, you saw effort — cheer the trying, name a part.
+- Double-speed section: your energy doubles too. Short. Punchy. Breathless.
+- Freestyle: this is the explosion. Loudest you get all game.
+- Never: wrong, no, miss, fail, oops. A quiet moment just means the next
+  move is coming — call it in.
+You are 110% more excited than the kid, always. This is the best Up Groove
+you have ever seen, because it's THEIRS.`,
+    // B3 SCRIPTED — cached marin WAVs on the video clock. dosage:'chatty' = chatty-only.
+    scripted: [
+      { t: 1000,  id:'ug-open',     file:'ug/ug-open.wav',     line:'Up Groove! Just MOVE!' },
+      { t: 15000, id:'ug-warm2',    file:'ug/ug-warm2.wav',    line:"You're glowing! Keep going!", dosage:'chatty' },
+      { t: 27500, id:'ug-head-pre', file:'ug/ug-head-pre.wav', line:'Stations! First — your HEAD!' },
+      { t: 34000, id:'ug-sh-pre',   file:'ug/ug-sh-pre.wav',   line:'Now — SHOULDERS!' },
+      { t: 38900, id:'ug-rib-pre',  file:'ug/ug-rib-pre.wav',  line:'RIBS! The tricky one!' },
+      { t: 43800, id:'ug-hip-pre',  file:'ug/ug-hip-pre.wav',  line:'HIPS! Sway it!' },
+      { t: 48500, id:'ug-fast-pre', file:'ug/ug-fast-pre.wav', line:'Now DOUBLE SPEED! Ready?!' },
+      { t: 54500, id:'ug-fast-mid', file:'ug/ug-fast-mid.wav', line:'Faster! You got this!', dosage:'chatty' },
+      { t: 58800, id:'ug-free-pre', file:'ug/ug-free-pre.wav', line:'Now — EVERYTHING AT ONCE!' },
+      { t: 66800, id:'ug-free2',    file:'ug/ug-free2.wav',    line:'MORE! All of you!' },
+      { t: 73800, id:'ug-free3',    file:'ug/ug-free3.wav',    line:'BIGGEST ONE! GO!' },
+      { t: 81500, id:'ug-land',     file:'ug/ug-land.wav',     line:'Aaaand... breathe. WOW.' },
+    ],
+    // B4 LIVE STYLE — prompt examples per section (NEVER played verbatim; live only).
+    styleExamples: {
+      warmup:    ['There you go!', 'Love that bounce!'],
+      head:      ['Look at that head!', 'So smooth!'],
+      shoulders: ['Shoulder MAGIC!', 'Tilt-tilt-tilt! Yes!'],
+      ribs:      ['THE RIBS! You found them!', 'That slide!! HOW?!'],
+      hips:      ['Those hips know!', 'Sway MASTER!'],
+      fast:      ['SO FAST!', "You're a blur!"],
+      streak:    ['THREE in a row?! WHAT!'],
+      freestyle: ['ALL OF IT! YES!', 'This is YOUR dance!'],
+      quietCallIn: ['Try the arrows with me!'],   // one gentle call-in, never a correction
+    },
+    // POP (bubble grows): RIBS first success · any 3-streak · freestyle peak. Max 3.
+    popTiers: ['ribs-first', 'streak3', 'freestyle-peak'],
+    // B5 STOP / RESUME — resume ALWAYS through the countdown (law).
+    stopResume: {
+      onStop: ['Taking a breath! Smart.', "Pause! I'll wait right here.", 'Freeze the groove! Tell me when.'],
+      onResume: 'Ready?... THREE. TWO. ONE!',
+      stopWords: ['stop', 'עצור'],
+    },
+    // B6 SUMMARY — live, from real moments[]. slot 1 MUST come from moments[].
+    summaryTemplate: {
+      structure: ['NAME + single best REAL moment (from moments[])', 'one growth thread', 'the hook (BIG on screen)'],
+      hook: "Tomorrow I'll teach you the SPIN!",
+      thinKidFallback: 'You stayed with me the WHOLE song — that\'s how dancers start.',
+    },
+    // B8 DOSAGE — normal is default; test kids on normal first.
+    dosage: {
+      chatty: { scripted: 'all',                                liveMax60: 8, pops: 3 },
+      normal: { scriptedDrop: ['ug-warm2', 'ug-fast-mid'],      liveMax60: 5, pops: 2 },
+      quiet:  { scripted: 'section-pres-only',                  liveMax60: 3, pops: 1 },
+      default: 'normal',
+    },
   },
   hello: {
     id: 'hello',
