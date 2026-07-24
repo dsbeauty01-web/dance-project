@@ -109,6 +109,29 @@ if (ENG && RAW) {
      lastClose < embed.media.durationMs ? '' : 'OVERRUN!');
   const allInReg = opens.every(o => ENG.CHOREO_REGISTRY.includes(o.action));
   allInReg ? ok('every window move ∈ registry') : bad('a window move is not in the registry');
+
+  // ── 5. inline data-choreo blocks: present, parse, validate, ≡ canonical .json ──
+  const blockRe = /<script[^>]*\bdata-choreo\b[^>]*id="choreo-([a-z0-9_]+)"[^>]*>([\s\S]*?)<\/script>/gi;
+  let bm, blocks = 0;
+  const seen = new Set();
+  while ((bm = blockRe.exec(HTML))) {
+    blocks++;
+    const id = bm[1];
+    seen.add(id);
+    let parsed;
+    try { parsed = JSON.parse(bm[2]); } catch (e) { bad('inline block choreo-' + id + ' parses', e.message); continue; }
+    // block ≡ canonical file
+    const file = path.join(ROOT, id + '.choreo.json');
+    if (!fs.existsSync(file)) { bad('inline block choreo-' + id + ' has a .json file'); continue; }
+    const fileJson = JSON.parse(fs.readFileSync(file, 'utf8'));
+    eq(parsed, fileJson) ? ok('inline choreo-' + id + ' ≡ ' + id + '.choreo.json')
+                         : bad('inline choreo-' + id + ' ≠ its .json file', 're-run tools/build-choreo.js');
+    // validates + resolves as data-driven
+    ENG.validateChoreo(parsed).ok ? ok('choreo-' + id + ' validates')
+                                  : bad('choreo-' + id + ' fails validation');
+  }
+  blocks >= 5 ? ok('inline choreo blocks present', blocks + ' games wired as data')
+              : bad('too few inline choreo blocks', 'found ' + blocks + ', expected ≥5 — run tools/build-choreo.js');
 }
 
 console.log('\nCHOREO ENGINE QA: ' + pass + ' pass / ' + fail + ' fail');
