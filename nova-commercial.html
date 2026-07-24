@@ -6522,6 +6522,19 @@ function gameTick() {
     window.__songStartSent = true;
     try { if (window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'song_start', song: (selectedSong&&selectedSong.id)||'joined', sec: elapsed/1000 } }); } catch(_){}
     LOG('TALK', 'song_start sent (' + ((selectedSong&&selectedSong.id)||'?') + ')');
+    // CHOREO ENGINE: hand Nova her per-game brain ONCE at game start (worker injects it into
+    // her live session — teaching prompt + reaction style + dosage + summary skeleton). Additive
+    // game-event; the worker ignores it if not yet wired. Client half of the speaking scheme.
+    try {
+      const cj = (typeof CHOREO_EMBED !== 'undefined') && CHOREO_EMBED[(selectedSong && selectedSong.id)];
+      if (window.__novaSend && cj && cj.knowledge) {
+        window.__novaSend({ kind:'game-event', event:{ event:'game_brain', song: cj.id,
+          knowledge: cj.knowledge, styleExamples: cj.styleExamples || null,
+          dosage: cj.dosage || null, summaryTemplate: cj.summaryTemplate || null } });
+        window.__brainSent = cj.id;   // QA hook
+        LOG('CHOREO', 'game_brain sent (' + cj.id + ')');
+      }
+    } catch(_){}
   }
   if (!window.__lastTickSent || elapsed - window.__lastTickSent > 1000) {
     window.__lastTickSent = elapsed;
