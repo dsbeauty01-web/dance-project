@@ -1,0 +1,256 @@
+{
+  "schema": 1,
+  "id": "freeze",
+  "title": "Freeze Dance!",
+  "media": {
+    "video": null,
+    "audio": "freeze.mp3",
+    "durationMs": 60000
+  },
+  "beats": [
+    {
+      "t": 0,
+      "name": "intro"
+    },
+    {
+      "t": 17000,
+      "name": "robot"
+    },
+    {
+      "t": 45500,
+      "name": "big_freeze"
+    },
+    {
+      "t": 58000,
+      "name": "outro"
+    }
+  ],
+  "demos": [],
+  "windows": [
+    {
+      "start": 4000,
+      "end": 8000,
+      "move": "both",
+      "pts": 100,
+      "emoji": "✨",
+      "label": "DANCE!",
+      "instr": "move freely!"
+    },
+    {
+      "start": 8200,
+      "end": 12500,
+      "move": "freeze",
+      "pts": 300,
+      "emoji": "🛑",
+      "label": "FREEZE!",
+      "instr": "DON'T MOVE!",
+      "holdMs": 4000
+    },
+    {
+      "start": 13000,
+      "end": 16500,
+      "move": "both",
+      "pts": 100,
+      "emoji": "🙌",
+      "label": "GO!",
+      "instr": "arms up!"
+    },
+    {
+      "start": 17500,
+      "end": 21500,
+      "move": "right",
+      "pts": 100,
+      "emoji": "🤖",
+      "label": "ROBOT!",
+      "instr": "step right!"
+    },
+    {
+      "start": 21700,
+      "end": 25500,
+      "move": "left",
+      "pts": 100,
+      "emoji": "🤖",
+      "label": "ROBOT!",
+      "instr": "step left!"
+    },
+    {
+      "start": 26000,
+      "end": 30500,
+      "move": "freeze",
+      "pts": 300,
+      "emoji": "🛑",
+      "label": "FREEZE!",
+      "instr": "still as stone!",
+      "holdMs": 4000
+    },
+    {
+      "start": 31000,
+      "end": 35500,
+      "move": "both",
+      "pts": 150,
+      "emoji": "⭐",
+      "label": "REACH!",
+      "instr": "sky high!"
+    },
+    {
+      "start": 36000,
+      "end": 40500,
+      "move": "freeze",
+      "pts": 300,
+      "emoji": "🛑",
+      "label": "FREEZE!",
+      "instr": "pose like a statue!",
+      "holdMs": 4000
+    },
+    {
+      "start": 41000,
+      "end": 45000,
+      "move": "clap",
+      "pts": 100,
+      "emoji": "👏",
+      "label": "CLAP!",
+      "instr": "count with me!"
+    },
+    {
+      "start": 46000,
+      "end": 51500,
+      "move": "freeze",
+      "pts": 500,
+      "emoji": "🛑",
+      "label": "BIG FREEZE!",
+      "instr": "HOLD IT!",
+      "holdMs": 5000
+    },
+    {
+      "start": 52000,
+      "end": 57000,
+      "move": "both",
+      "pts": 150,
+      "emoji": "👋",
+      "label": "WAVE!",
+      "instr": "wave goodbye!"
+    }
+  ],
+  "knowledge": "You are Nova playing FREEZE DANCE — you are the TENSION MASTER. This game is a rollercoaster you drive with your voice: loose and silly while they dance, a drop to a WHISPER right before every freeze, then stillness, then an EXPLOSION of joy when they hold it. The freezes are the whole game — a held freeze is the biggest achievement here, react like they did something impossible. Wobbles are adorable, never failures: \"sooo close to stone!\" then hype the next one. The BIG freeze at the end is the boss level — build it like a storm coming. Statues, ice, stone, superheroes mid-air — that's your imagery.",
+  "styleExamples": {
+    "hold": [
+      "FOUR seconds of STONE!",
+      "You're MADE of stone!"
+    ],
+    "wobble": [
+      "so close to statue!"
+    ],
+    "between": [
+      "Robot walk! Beep boop!",
+      "Reach for the STARS!"
+    ],
+    "big": [
+      "FIVE SECONDS!! LEGEND!!"
+    ]
+  },
+  "scripted": [
+    {
+      "t": 4300,
+      "id": "fz-dance",
+      "file": "fz-dance.wav",
+      "delivery": "loose, bouncy"
+    },
+    {
+      "t": 7300,
+      "id": "fz-pre1",
+      "file": "fz-pre1.wav",
+      "delivery": "WHISPER"
+    },
+    {
+      "t": 12600,
+      "id": "fz-melt1",
+      "file": "fz-melt1.wav",
+      "delivery": "explosion"
+    },
+    {
+      "t": 17700,
+      "id": "fz-robot",
+      "file": "fz-robot.wav",
+      "delivery": "robotic-silly"
+    },
+    {
+      "t": 25200,
+      "id": "fz-pre2",
+      "file": "fz-pre2.wav",
+      "delivery": "WHISPER"
+    },
+    {
+      "t": 30600,
+      "id": "fz-melt2",
+      "file": "fz-melt2.wav",
+      "delivery": "explosion"
+    },
+    {
+      "t": 35200,
+      "id": "fz-pre3",
+      "file": "fz-pre3.wav",
+      "delivery": "WHISPER"
+    },
+    {
+      "t": 40600,
+      "id": "fz-melt3",
+      "file": "fz-melt3.wav",
+      "delivery": "explosion"
+    },
+    {
+      "t": 41400,
+      "id": "fz-clap",
+      "file": "fz-clap.wav",
+      "delivery": "building"
+    },
+    {
+      "t": 45200,
+      "id": "fz-bigpre",
+      "file": "fz-bigpre.wav",
+      "delivery": "slowest whisper"
+    },
+    {
+      "t": 51600,
+      "id": "fz-bigmelt",
+      "file": "fz-bigmelt.wav",
+      "delivery": "biggest of the game"
+    },
+    {
+      "t": 52400,
+      "id": "fz-bye",
+      "file": "fz-bye.wav",
+      "delivery": "warm"
+    }
+  ],
+  "stopResume": {
+    "stop": [
+      "Taking a breath! Smart.",
+      "Pause! I'll wait right here.",
+      "Freeze the groove! Tell me when."
+    ],
+    "resume": "Ready?... THREE. TWO. ONE!"
+  },
+  "summaryTemplate": {
+    "best": "NAME — you held the BIG freeze — FIVE whole seconds!",
+    "growth": "Tomorrow, freeze on ONE LEG. Impossible? We'll see!",
+    "hook": "Tomorrow, freeze on ONE LEG. Impossible? We'll see!",
+    "thinMoments": "Every time the music stopped, you tried to stone — that's the whole game."
+  },
+  "dosage": {
+    "chatty": {
+      "scripted": "all",
+      "liveMax60": 6,
+      "pops": 3
+    },
+    "normal": {
+      "scripted": "all",
+      "liveMax60": 4,
+      "pops": 2
+    },
+    "quiet": {
+      "scripted": "whispers + melts only (drop fz-dance, fz-robot, fz-clap)",
+      "liveMax60": 2,
+      "pops": 1
+    }
+  }
+}

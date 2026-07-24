@@ -1,0 +1,225 @@
+{
+  "schema": 1,
+  "id": "wave",
+  "title": "Wave!",
+  "media": {
+    "video": "handywave.mp4",
+    "audio": null,
+    "durationMs": 28500
+  },
+  "beats": [
+    {
+      "t": 100,
+      "name": "intro"
+    },
+    {
+      "t": 18000,
+      "name": "chain"
+    }
+  ],
+  "demos": [],
+  "windows": [
+    {
+      "start": 4500,
+      "end": 6100,
+      "move": "shoulderroll",
+      "pts": 100,
+      "emoji": "🤷",
+      "label": "SHOULDERS UP",
+      "instr": "roll those shoulders!"
+    },
+    {
+      "start": 6500,
+      "end": 8000,
+      "move": "shoulderroll",
+      "pts": 100,
+      "emoji": "🤷",
+      "label": "SHOULDERS UP",
+      "instr": "again!"
+    },
+    {
+      "start": 8500,
+      "end": 10100,
+      "move": "elbowpump",
+      "pts": 100,
+      "emoji": "💪",
+      "label": "ELBOWS OUT",
+      "instr": "pump those elbows!"
+    },
+    {
+      "start": 10500,
+      "end": 12000,
+      "move": "elbowpump",
+      "pts": 100,
+      "emoji": "💪",
+      "label": "ELBOWS OUT",
+      "instr": "pump pump!"
+    },
+    {
+      "start": 12500,
+      "end": 14100,
+      "move": "wristwave",
+      "pts": 100,
+      "emoji": "👋",
+      "label": "WAVE!",
+      "instr": "wave that hand!"
+    },
+    {
+      "start": 14500,
+      "end": 16100,
+      "move": "wristwave",
+      "pts": 100,
+      "emoji": "👋",
+      "label": "WAVE!",
+      "instr": "higher!"
+    },
+    {
+      "start": 16500,
+      "end": 17800,
+      "move": "wristwave",
+      "pts": 100,
+      "emoji": "👋",
+      "label": "WAVE!",
+      "instr": "one more!"
+    },
+    {
+      "start": 18000,
+      "end": 18760,
+      "move": "wristwave",
+      "pts": 150,
+      "emoji": "👋",
+      "label": "WRIST",
+      "instr": "wave!"
+    },
+    {
+      "start": 18830,
+      "end": 19590,
+      "move": "elbowpump",
+      "pts": 150,
+      "emoji": "💪",
+      "label": "ELBOW",
+      "instr": "elbow!"
+    },
+    {
+      "start": 19660,
+      "end": 20420,
+      "move": "shoulderroll",
+      "pts": 150,
+      "emoji": "🤷",
+      "label": "SHOULDER",
+      "instr": "shoulder!"
+    },
+    {
+      "start": 20490,
+      "end": 21250,
+      "move": "shoulderroll",
+      "pts": 150,
+      "emoji": "🤷",
+      "label": "SHOULDER",
+      "instr": "shoulder!"
+    },
+    {
+      "start": 21320,
+      "end": 22080,
+      "move": "elbowpump",
+      "pts": 150,
+      "emoji": "💪",
+      "label": "ELBOW",
+      "instr": "elbow!"
+    },
+    {
+      "start": 22150,
+      "end": 22910,
+      "move": "wristwave",
+      "pts": 150,
+      "emoji": "👋",
+      "label": "WRIST",
+      "instr": "wave!"
+    },
+    {
+      "start": 23200,
+      "end": 28200,
+      "move": "wavefree",
+      "pts": 200,
+      "emoji": "🌊",
+      "label": "FREESTYLE",
+      "instr": "wave it ALL!"
+    }
+  ],
+  "knowledge": "You are Nova teaching WAVE — the quick one, the river of light. Three stations to warm the arm (shoulders, elbows, wrists), then the chain: the light runs down the arm and back, six counts, on the beat. Then five seconds of everything. This game is SHORT and fast — you speak little and precisely. The chain is the moment: if their light travels even a bit, that's the win of the day. Arrows show the side; you name the body part, never left/right.",
+  "styleExamples": {
+    "practice": [
+      "shoulders alive!",
+      "elbows next!"
+    ],
+    "chain": [
+      "The light TRAVELED!"
+    ],
+    "freestyle": [
+      "River of LIGHT!"
+    ]
+  },
+  "scripted": [
+    {
+      "t": 1000,
+      "id": "wv-open",
+      "file": "wv-open.wav",
+      "delivery": "warm up"
+    },
+    {
+      "t": 12200,
+      "id": "wv-wrist",
+      "file": "wv-wrist.wav",
+      "delivery": "wrists"
+    },
+    {
+      "t": 17600,
+      "id": "wv-chain",
+      "file": "wv-chain.wav",
+      "delivery": "the chain"
+    },
+    {
+      "t": 23000,
+      "id": "wv-free",
+      "file": "wv-free.wav",
+      "delivery": "freestyle"
+    },
+    {
+      "t": 27800,
+      "id": "wv-land",
+      "file": "wv-land.wav",
+      "delivery": "landing"
+    }
+  ],
+  "stopResume": {
+    "stop": [
+      "Taking a breath! Smart.",
+      "Pause! I'll wait right here.",
+      "Freeze the groove! Tell me when."
+    ],
+    "resume": "Ready?... THREE. TWO. ONE!"
+  },
+  "summaryTemplate": {
+    "best": "NAME — the CHAIN — the light traveled down your whole arm!",
+    "growth": "That was the small river. Wave MAGIC is the ocean — tomorrow?",
+    "hook": "That was the small river. Wave MAGIC is the ocean — tomorrow?",
+    "thinMoments": "You warmed up every part of that arm — the chain is next."
+  },
+  "dosage": {
+    "chatty": {
+      "scripted": "all",
+      "liveMax60": 5,
+      "pops": 1
+    },
+    "normal": {
+      "scripted": "all",
+      "liveMax60": 3,
+      "pops": 1
+    },
+    "quiet": {
+      "scripted": "wv-chain, wv-land only",
+      "liveMax60": 2,
+      "pops": 1
+    }
+  }
+}

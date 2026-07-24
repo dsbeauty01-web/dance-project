@@ -4723,43 +4723,40 @@ const TIMELINE_WAVEMAGIC_RAW = [
   { t: 79800, type: 'close', action: 'combo' },
 ];
 
-// ── BOUNCE GROOVE (pre-upgroove.mp4 · 73.6s) ──
-// 0-4.2 T1 over the opening burst · 5.8-22.3 teaching (nod invite at 14) · 27.3-33.2
-// body-roll demo (travel=24.2) · kid turn 1 · follow-along · 46-49 the ONLY quiet gap
-// (her T2) · 49-55 kid turn 2 · finale bursts (big sparkle ≈72s).
+// ── BOUNCE GROOVE (pre-upgroove.mp4 · 23.8s, the "groovy" cut) ──
+// Cues sit on the music, not on round numbers: the clip runs 99.4 BPM, so a bar
+// is 2.416s and the bars fall at 0.46 / 2.88 / 5.29 / 7.71 / 10.12 / 12.54 /
+// 14.95 / 17.37 / 19.78 / 22.20s. Every window below opens on a bar AND on what
+// she is actually doing on screen: hands settle on her hips ~9-12s, the one big
+// arm raise lands ~14-15s, hips widen ~17s, and she finishes ~22-23s.
 const TIMELINE_BOUNCE_RAW = [
   { t: 100,   type: 'beat', name: 'intro' },
-  // — WATCH: the teaching sequence —
-  { t: 5900,  type: 'beat', name: 'easy-wins' },
-  { t: 5900,  type: 'demo', emoji: '👀', label: 'WATCH!', instr: 'feel the bounce!' },
-  // — soft nod invite (spec: continuous headbob bonus — two generous soft windows) —
-  { t: 14000, type: 'open',  action: 'headbob', emoji: '🙂', label: 'NOD ALONG!', instr: 'bounce your head!', pts: 100, soft: true },
-  { t: 18000, type: 'close', action: 'headbob' },
-  { t: 18200, type: 'open',  action: 'headbob', emoji: '🙂', label: 'KEEP NODDING!', instr: 'with the beat!', pts: 100, soft: true },
-  { t: 22200, type: 'close', action: 'headbob' },
-  { t: 22700, type: 'demo', emoji: '👀', label: 'WATCH!', instr: 'the whole body!' },
-  // — DEMO ANCHOR: the body-roll (27.3-33.2, travel=24.2) —
-  { t: 27300, type: 'beat', name: 'challenge' },
-  { t: 27300, type: 'demo', emoji: '🌀', label: 'THE BODY ROLL!', instr: 'watch it roll!' },
-  // — KID TURN 1 (window 8s) —
-  { t: 33400, type: 'open',  action: 'shoulderroll', emoji: '🌀', label: 'ROLL IT!', instr: 'roll it like that!', pts: 150, soft: true },
-  { t: 41400, type: 'close', action: 'shoulderroll' },
-  // — FOLLOW-ALONG (main practice, hips + head energy) —
-  { t: 41500, type: 'beat', name: 'flow' },
-  { t: 41500, type: 'open',  action: 'hipbounce', emoji: '🍑', label: 'BOUNCE!', instr: 'hips with her!', pts: 150, soft: true },
-  { t: 45300, type: 'close', action: 'hipbounce' },
-  // — 46-49: the only quiet gap — HER T2 (worker talk-score), no cues on screen —
-  // — KID TURN 2 (49-55, low-motion video = the kid's solo, window 6s) —
-  { t: 49000, type: 'open',  action: 'hipbounce', emoji: '🕺', label: 'YOU ALONE — BOUNCE!', instr: 'bounce those hips!', pts: 200, soft: true },
-  { t: 55000, type: 'close', action: 'hipbounce' },
-  // — FREESTYLE bridge + FINALE (bursts 54-55.8 · 65.7-73.5; big sparkle ≈72s) —
-  { t: 55800, type: 'beat', name: 'celebration' },
-  { t: 56000, type: 'open',  action: 'combo', emoji: '🕺', label: 'FREESTYLE!', instr: 'your style!', pts: 200, soft: true },
-  { t: 64000, type: 'close', action: 'combo' },
-  { t: 65700, type: 'open',  action: 'combo', emoji: '✨', label: 'EVERYTHING!', instr: 'bounce it ALL!', pts: 250, soft: true },
-  { t: 71500, type: 'close', action: 'combo' },
-  { t: 71700, type: 'open',  action: 'combo', emoji: '🔥', label: 'BIG FINISH!', instr: 'all of it!', pts: 300, soft: true },
-  { t: 73300, type: 'close', action: 'combo' },
+  // — WATCH: she starts moving on bar 2 —
+  { t: 2880,  type: 'beat', name: 'easy-wins' },
+  { t: 2880,  type: 'demo', emoji: '👀', label: 'WATCH!', instr: 'feel the bounce!' },
+  // — soft nod invite (one bar in, gentlest action first) —
+  { t: 5290,  type: 'open',  action: 'headbob', emoji: '🙂', label: 'NOD ALONG!', instr: 'bounce your head!', pts: 100, soft: true },
+  { t: 7710,  type: 'close', action: 'headbob' },
+  { t: 7710,  type: 'demo', emoji: '👀', label: 'WATCH HER HIPS!', instr: 'hands on hips!' },
+  // — her hands are on her hips 9-12s: the kid's hip turn —
+  { t: 10120, type: 'open',  action: 'hipbounce', emoji: '🍑', label: 'BOUNCE!', instr: 'hips with her!', pts: 150, soft: true },
+  { t: 12540, type: 'close', action: 'hipbounce' },
+  { t: 12540, type: 'demo', emoji: '🙌', label: 'WATCH!', instr: 'arms coming up!' },
+  // — DEMO ANCHOR: her one big arm raise, 14-15s —
+  { t: 14950, type: 'beat', name: 'challenge' },
+  { t: 14950, type: 'open',  action: 'both', emoji: '🙌', label: 'HANDS UP!', instr: 'both arms high!', pts: 150, soft: true },
+  { t: 17370, type: 'close', action: 'both' },
+  // — hips widen ~17s: roll it out —
+  { t: 17370, type: 'beat', name: 'flow' },
+  { t: 17370, type: 'open',  action: 'shoulderroll', emoji: '🌀', label: 'ROLL IT!', instr: 'roll those shoulders!', pts: 150, soft: true },
+  { t: 19780, type: 'close', action: 'shoulderroll' },
+  // — last full bar before she wraps —
+  { t: 19780, type: 'open',  action: 'hipbounce', emoji: '🕺', label: 'KEEP THE GROOVE!', instr: 'keep bouncing!', pts: 200, soft: true },
+  { t: 22200, type: 'close', action: 'hipbounce' },
+  // — FINALE on the last bar (clip ends 23.79s) —
+  { t: 22200, type: 'beat', name: 'celebration' },
+  { t: 22200, type: 'open',  action: 'combo', emoji: '🔥', label: 'BIG FINISH!', instr: 'all of it!', pts: 300, soft: true },
+  { t: 23600, type: 'close', action: 'combo' },
 ];
 
 const SONGS = {
@@ -4810,7 +4807,7 @@ const SONGS = {
     id: 'bounce',
     name: 'Bounce Groove!',
     videoFile: 'pre-upgroove.mp4',
-    durationMs: 73600,
+    durationMs: 23800,
     timeline: TIMELINE_BOUNCE_RAW,
     offset: 0,
     duck: 0.60,
