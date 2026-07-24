@@ -72,6 +72,16 @@ const ok = (n, c, d = '') => { c ? pass++ : fail++; console.log(`${c ? 'PASS' : 
   const afterSeek = await snap();
   ok('cues fire on the video clock (seek→37s)', afterSeek.cues > 0, 'cuesFired=' + afterSeek.cues);
 
+  // ── PHASE C: POP renders when triggered ──
+  await page.evaluate(() => window.__novaPop && window.__novaPop('THREE IN A ROW!'));
+  await page.waitForTimeout(450);
+  const popShown = await page.evaluate(() => {
+    const el = document.getElementById('nova-pop');
+    return !!(el && el.classList.contains('show') && el.querySelector('.txt') && el.querySelector('.txt').textContent);
+  });
+  ok('POP renders when triggered', popShown);
+  try { await page.screenshot({ path: path.join(ROOT, 'tools', 'qa-runtime-' + GAME + '.png') }); console.log('   screenshot: tools/qa-runtime-' + GAME + '.png'); } catch (_) {}
+
   // ── errors ──
   const real = errors.filter(e => !/favicon|net::ERR|Failed to load resource|Loading CSS chunk/i.test(e));
   ok('no uncaught page errors', real.length === 0, real.slice(0, 3).join(' | '));
