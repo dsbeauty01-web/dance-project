@@ -7000,8 +7000,26 @@ document.addEventListener('arrival-done', async () => {
       if (s && rc && !rc.srcObject) { rc.srcObject = s; rc.muted = true; rc.playsInline = true; rc.play().catch(()=>{}); }
     } catch(_){}
     try { const rm = document.getElementById('rec-mic'); if (rm) rm.style.display = 'none'; } catch(_){}
+    // MUSETALK CLASSIC INTRO (2026-07-25): restore the v114 brain-intro BEATS without a worker.
+    // handoffFromIntro reveals Nova (her face = the SARAY iframe closeup) + the recognition UI;
+    // then the name-capture + shoulder light-cue isolation challenge run LOCALLY — the same beats
+    // the worker used to drive (name capture buttons + the #rec-cam-glow at the shoulder joint).
     setTimeout(() => {
-      if (!window._greeted) { window._greeted = true; handoffFromIntro(); LOG('GAME', 'MUSETALK fast reveal — intro melts, avatar iframe takes the closeup'); }
+      window._greeted = true;
+      handoffFromIntro();                        // melt overlay -> Nova closeup + kid camera + dance button
+      if (window.__musetalkBeatsArmed) return;   // (handoffFromIntro is internally guarded; arm beats once)
+      window.__musetalkBeatsArmed = true;
+      window.__NOVA_NAME_PATHS = 1;              // re-enable the 3-path name capture (no worker voice-ask here)
+      setTimeout(() => { try { showNameCaptureButtons(); } catch(_){} }, 1400);
+      // the shoulder light-cue isolation challenge (worker-free) — same globals the glow module reads
+      setTimeout(() => {
+        window.__introCuePart   = 'shoulder';
+        window.__introCueJoint  = 'right_shoulder';   // exact joint lock (single shoulder, not chest-avg)
+        window.__introCuePartAt = Date.now();
+        window.__cuePulseUntil  = Date.now() + 6000;  // big pulse ring so the light is CLEAR
+        LOG('INTRO', 'MUSETALK classic intro — shoulder light-cue isolation challenge armed (worker-free)');
+      }, 4200);
+      LOG('GAME', 'MUSETALK classic intro — Nova BIG + name capture + shoulder glow restored');
     }, 3500);
   }
 
