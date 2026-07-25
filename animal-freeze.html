@@ -88,18 +88,44 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
 #pausebtn{position:fixed;top:34px;right:12px;z-index:90;width:42px;height:42px;border-radius:50%;
   border:none;background:rgba(255,255,255,.12);color:#fff;font-size:18px;cursor:pointer}
 #status{position:fixed;bottom:8px;left:10px;z-index:90;font-size:11px;color:rgba(255,255,255,.35)}
+
+/* ── LIVE Nova (V2V SARAY iframe) fills the Nova panel; her mouth is the live voice ── */
+#nova-panel iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:#150a24;z-index:3}
+/* clip-bank fallback videos (only used if the pod is down) */
+#nova-panel video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  opacity:0;transition:opacity .15s linear;z-index:2}
+#nova-panel video.on{opacity:1}
+#nova-static{position:absolute;inset:0;z-index:1;display:flex;align-items:center;justify-content:center;
+  font-size:clamp(46px,9vw,90px);background:radial-gradient(ellipse 60% 50% at 50% 40%,#43106f,#170134 70%);
+  filter:drop-shadow(0 0 24px rgba(255,226,190,.85))}
+#nova-panel.icy{filter:saturate(.6) brightness(1.04) hue-rotate(-10deg)}
+
+/* animal pose medallion — pops center-screen during a freeze */
+#posecard{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);z-index:55;
+  width:min(38vh,300px);aspect-ratio:3/4;border-radius:22px;overflow:hidden;pointer-events:none;
+  border:4px solid rgba(125,240,255,.7);box-shadow:0 0 60px rgba(125,240,255,.55);
+  background:#0a1830;transition:transform .35s cubic-bezier(.34,1.7,.6,1);opacity:.98}
+#posecard.show{transform:translate(-50%,-50%) scale(1)}
+#posecard video{width:100%;height:100%;object-fit:cover;display:block}
 </style>
 </head>
 <body>
-<div id="banner">❄ ANIMAL FREEZE v1 · ICE · clip-bank Nova · song=clock ❄</div>
+<div id="banner">❄ ANIMAL FREEZE v2 · LIVE Nova (V2V) · one-mic · song=clock ❄</div>
 
 <div id="stage">
-  <div class="panel" id="nova-panel"><div id="nova-tag">🌟 Nova</div></div>
+  <div class="panel" id="nova-panel">
+    <div id="nova-static">🌟</div>
+    <div id="nova-tag">🌟 Nova</div>
+  </div>
   <div class="panel" id="cam-panel">
     <video id="cam" autoplay playsinline muted></video>
     <div id="ring"></div>
   </div>
 </div>
+
+<!-- animal "pose medallion": the live talking-head can't BE a flamingo, so the
+     animal appears here as a lazy-loaded pose clip during each freeze. -->
+<div id="posecard"><video id="pose-vid" muted playsinline></video></div>
 
 <div id="hud"><div id="score">0</div><div id="stamps"></div></div>
 <button id="pausebtn" title="pause">⏸</button>
@@ -110,7 +136,7 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
 
 <div class="screen" id="start-screen">
   <h1>❄ Animal Freeze! ❄</h1>
-  <p>Dance when the music plays… and when Nova freezes into an animal — <b>FREEZE with her!</b> Hold as still as a statue. Collect all 5 animal stamps!</p>
+  <p>Say hi — Nova can <b>hear you and talk back!</b> Dance when the music plays, and when an animal appears — <b>FREEZE!</b> Hold as still as a statue. Collect all 5 animal stamps!</p>
   <button class="bigbtn" id="start-btn">▶ Let's Play!</button>
 </div>
 
@@ -134,11 +160,15 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
 <script>
 'use strict';
 /* ═══════════════════════════════════════════════════════════════════
-   ANIMAL FREEZE — the first gesture-bank game. No MP4 dance video.
-   Nova = idle clips + freeze-pose clips. The SONG is the only clock.
+   ANIMAL FREEZE v2 — LIVE Nova. She is the SARAY V2V avatar (iframe):
+   listens + responds the whole game (owns the mic — ONE-MIC LAW, this
+   page never opens the mic). The SONG is the only clock. Animal poses
+   pop as a lazy medallion during freezes (a talking-head can't BE a
+   flamingo). Pod down → clip-bank Nova idles, voice-less (failure ladder).
    Laws honored: audio time only (no wall-clock cues) · countdown gates
    play AND resume · soft law (misses don't exist, wobble never punished,
-   detection failure = full credit) · no kid-visible errors.
+   detection failure = full credit) · no kid-visible errors · V2V is sacred
+   (the iframe pipe is never touched).
    ═══════════════════════════════════════════════════════════════════ */
 
 const ASSETS = {
@@ -179,10 +209,20 @@ const novaPanel=$('nova-panel'), camEl=$('cam'), ring=$('ring'), frost=$('frost'
       badge=$('badge'), cue=$('cue'), scoreEl=$('score'), stampsEl=$('stamps'),
       statusEl=$('status'), countEl=$('count');
 
-/* ═══ Nova clip player — two-pool bank, boundary swaps, invisible seams ═══ */
-const Nova = {
-  vids:{}, current:null, idleKeys:['idle1','idle2'], idleIdx:0, mode:'idle',
+/* ═══ Config: live V2V avatar pod (SARAY iframe owns mic/voice/lips) ═══
+   Override the pod with ?saray=https://<pod>-8765.proxy.runpod.net/
+   Force the offline clip-bank fallback with ?nolive=1 */
+const Q = new URLSearchParams(location.search);
+const SARAY = Q.get('saray') || 'https://cxq7wch91b8hwn-8765.proxy.runpod.net/';
+const LIVE_OFF = Q.get('nolive') === '1';
+
+/* ═══ Clip-bank Nova — FALLBACK ONLY, built lazily when the pod is down ═══
+   (When the live pod answers, these clips are never loaded → fast load, the
+   "stuck & slow" 40MB preload is gone.) */
+const Clips = {
+  vids:{}, current:null, idleKeys:['idle1','idle2'], idleIdx:0, mode:'idle', built:false,
   init(){
+    if(this.built) return; this.built=true;
     for(const [k,c] of Object.entries(ASSETS.clips)){
       const v=document.createElement('video');
       v.src=c.file; v.preload='auto'; v.muted=true; v.playsInline=true;
@@ -195,16 +235,18 @@ const Nova = {
     this.current=k; this.vids[k].classList.add('on');
   },
   playIdle(){
+    if(!this.built) return;
     this.mode='idle';
     const k=this.idleKeys[this.idleIdx%this.idleKeys.length]; this.idleIdx++;
     const v=this.vids[k]; v.currentTime=0; this._show(k);
     v.play().catch(()=>{});
   },
   _onEnd(k){
-    if(this.mode==='idle' && k===this.current) this.playIdle();     // rotate idles forever
-    if(this.mode==='melt' && k===this.current) this.playIdle();     // pose returned → idle
+    if(this.mode==='idle' && k===this.current) this.playIdle();
+    if(this.mode==='melt' && k===this.current) this.playIdle();
   },
-  freeze(clipKey){                       // snap into pose, PAUSE frozen at the hold frame
+  freeze(clipKey){
+    if(!this.built) return;
     this.mode='freeze';
     const v=this.vids[clipKey], c=ASSETS.clips[clipKey];
     v.currentTime=0; this._show(clipKey); v.play().catch(()=>{});
@@ -212,11 +254,75 @@ const Nova = {
                     else if(this.mode==='freeze') requestAnimationFrame(chk); };
     requestAnimationFrame(chk);
   },
-  melt(){                                // resume the clip: she un-freezes back to neutral
+  melt(){
     if(this.mode!=='freeze') return;
     this.mode='melt';
     const v=this.vids[this.current]; v.play().catch(()=>{});
   },
+};
+
+/* ═══ LIVE Nova — the SARAY V2V avatar iframe (listens + responds all game) ═══
+   ONE-MIC LAW: this page never opens the mic; the iframe owns it. FAILURE
+   LADDER: probe the pod 4s; if it's down we quietly fall back to the clip
+   idle loop, voice-less — never a kid-visible error. */
+const Live = {
+  frame:null, on:false, dead:false,
+  init(){
+    if(LIVE_OFF){ this.fail('forced offline (?nolive=1)'); return; }
+    const ctl = ('AbortController' in window) ? new AbortController() : null;
+    const to = setTimeout(()=>{ try{ ctl&&ctl.abort(); }catch(_){}; this.fail('pod not reachable in 4s'); }, 4000);
+    fetch(SARAY,{mode:'no-cors',cache:'no-store',signal:ctl?ctl.signal:undefined})
+      .then(()=>{ if(this.dead) return; clearTimeout(to); this.mount(); })
+      .catch(()=>{ clearTimeout(to); this.fail('pod probe failed (down?)'); });
+  },
+  mount(){
+    if(this.on||this.dead) return; this.on=true;
+    const f=document.createElement('iframe');
+    f.id='saray-frame'; f.src=SARAY;
+    f.allow='microphone; camera; autoplay; fullscreen';   // iframe owns the mic (delegated)
+    f.setAttribute('allowfullscreen','');
+    novaPanel.appendChild(f); this.frame=f;
+    $('nova-static').style.display='none';
+    $('nova-tag').textContent='🌟 Nova · live';
+    statusEl.textContent='✓ live Nova — talk to her!';
+    try{ console.log('[LIVE] SARAY avatar mounted →', SARAY); }catch(_){}
+  },
+  fail(reason){
+    if(this.dead) return; this.dead=true; this.on=false;
+    Clips.init(); Clips.playIdle();                       // voice-less fallback, no error shown
+    $('nova-static').style.display='none';
+    $('nova-tag').textContent='🌟 Nova';
+    statusEl.textContent='playing with Nova';
+    try{ console.log('[LIVE] off → clip-bank fallback:', reason); }catch(_){}
+  },
+};
+
+/* ═══ Animal pose medallion — the live face can't BE a flamingo, so the animal
+   pops center-screen as a lazy pose clip during each freeze ═══ */
+const PoseCard = {
+  el:$('posecard'), vid:$('pose-vid'), key:null,
+  warm(clipKey){                          // called ~1.5s early (whisper) so it's ready
+    if(this.key===clipKey) return;
+    this.key=clipKey; this.vid.src=ASSETS.clips[clipKey].file; this.vid.load();
+  },
+  show(clipKey){
+    this.warm(clipKey);
+    const pauseAt=ASSETS.clips[clipKey].pauseAt||2.5;
+    try{ this.vid.currentTime=0; }catch(_){}
+    this.vid.play().catch(()=>{});
+    const chk=()=>{ if(!this.el.classList.contains('show')) return;
+                    if(this.vid.currentTime>=pauseAt) this.vid.pause(); else requestAnimationFrame(chk); };
+    requestAnimationFrame(chk);
+    this.el.classList.add('show');
+  },
+  hide(){ this.el.classList.remove('show'); try{ this.vid.pause(); }catch(_){} },
+};
+
+/* ═══ Nova facade — the game calls these; they route live-avatar vs clip-bank ═══ */
+const Nova = {
+  warm(clipKey){ if(Live.on) PoseCard.warm(clipKey); },
+  freeze(clipKey){ if(Live.on) PoseCard.show(clipKey); else Clips.freeze(clipKey); },
+  melt(){ if(Live.on) PoseCard.hide(); else Clips.melt(); },
 };
 
 /* ═══ Audio: the clock + the duck engine (WebAudio gain) ═══ */
@@ -270,9 +376,9 @@ const Pose = {
 /* ═══ FX: frost, snow, shatter, badge, fly-ups ═══ */
 const FX = {
   snowTimer:null,
-  frostOn(){ frost.classList.add('on'); $('cam-panel').classList.add('icy');
+  frostOn(){ frost.classList.add('on'); $('cam-panel').classList.add('icy'); $('nova-panel').classList.add('icy');
     this.snowTimer=setInterval(()=>this.flake(),160); },
-  frostOff(){ frost.classList.remove('on'); $('cam-panel').classList.remove('icy');
+  frostOff(){ frost.classList.remove('on'); $('cam-panel').classList.remove('icy'); $('nova-panel').classList.remove('icy');
     clearInterval(this.snowTimer); },
   flake(){ const f=document.createElement('div'); f.className='flake'; f.textContent='❄';
     f.style.left=(Math.random()*100)+'vw'; f.style.animationDuration=(2+Math.random()*2)+'s';
@@ -314,7 +420,7 @@ function tick(){
   if(!G.freeze){
     DANCE_CUES.forEach((c,i)=>{ if(t>=c.at && !G.fired.c.has(i)){ G.fired.c.add(i); FX.cue(c.text); }});
     FREEZES.forEach((f,i)=>{
-      if(t>=f.at-1.5 && !G.fired.w.has(i)){ G.fired.w.add(i);
+      if(t>=f.at-1.5 && !G.fired.w.has(i)){ G.fired.w.add(i); Nova.warm(f.clip);   // preload the pose clip
         FX.cue(f.final?'shhh… the BIG one is coming…':'shhh… statue time…',true,1600); }
       if(t>=f.at && !G.fired.f.has(i)){ G.fired.f.add(i); startFreeze(f,i); }
     });
@@ -372,11 +478,11 @@ $('start-btn').addEventListener('click', async ()=>{
     const stream=await navigator.mediaDevices.getUserMedia({video:{width:960,height:720},audio:false});
     camEl.srcObject=stream;
   }catch(e){ statusEl.textContent='no camera — playing anyway'; }   // soft: never block the fun
-  Music.init(); Nova.init(); Pose.init();
+  Music.init(); Pose.init();
+  Live.init();                                                       // probe pod → mount V2V iframe (owns mic) or clip fallback
   statusEl.textContent='warming up…';
-  await new Promise(r=>setTimeout(r,900));                          // let clips buffer a beat
+  await new Promise(r=>setTimeout(r,900));                          // let the avatar/clips buffer a beat
   $('start-screen').style.display='none';
-  Nova.playIdle();
   await countdown();                                                 // countdown GATES play — the law
   try{ await Music.ctx.resume(); }catch(e){}
   Music.el.play().catch(()=>{});
