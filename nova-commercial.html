@@ -1668,7 +1668,7 @@ if (/[?&]debug\b/.test(location.search)) document.documentElement.classList.add(
   <div id="end-content-col">
     <div id="end-title">Amazing!</div>
     <div id="end-stars"></div>
-    <div id="end-pts">0</div>
+    <div id="end-pts"></div>
     <div id="end-detail"></div>
     <!-- nova-joined: persistent "come back tomorrow" hook (independent of the brain) -->
     <div id="end-hook" style="margin:10px 0 2px;font:600 15px 'Fredoka',cursive;color:#fbbf24;text-shadow:0 2px 8px rgba(0,0,0,0.4)"></div>
@@ -6898,9 +6898,13 @@ function endGame() {
       else if(s < 5) { starEl.textContent += '☆'; s++; }
       else clearInterval(starIv);
     }, 250);
-    document.getElementById('end-pts').textContent = score + T('pts');
-    document.getElementById('end-detail').textContent =
-      T('endDetail', { hits, attempts, streak: maxCombo });
+    // NO RAW ZERO (end-screen law — no kid-visible failure): floor the shown score to a warm
+    // participation minimum, and never show "0 of N moves".
+    const shownScore = Math.max(score, 100);
+    document.getElementById('end-pts').textContent = shownScore + T('pts');
+    document.getElementById('end-detail').textContent = (hits > 0)
+      ? T('endDetail', { hits, attempts, streak: maxCombo })
+      : (window.NOVA_HE ? 'רקדת איתי את כל השיר! ⭐' : 'You danced the whole song with me! ⭐');
     LOG('ENDING', 'end screen + stars revealed (after her goodbye)');
   };
   setTimeout(() => { if (!window.__endScreenShown) { LOG('ENDING', '30s fallback → end screen (no goodbye-done heard)'); window.__showEndScreen(); } }, 30000);   // measured: full 4-beat goodbye takes 16-26s through EVI
