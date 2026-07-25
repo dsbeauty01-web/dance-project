@@ -89,7 +89,7 @@ const check = (name, pass, detail) => { results.push({ name, pass: !!pass, detai
       const wait = ms => new Promise(r => setTimeout(r, ms));
 
       D.acquire('baked', 8000);           // baked line starts
-      await wait(900);                     // glide settles to ducked
+      await wait(1800);                    // glide settles to ducked (headless gameTick throttles, so allow the full down-glide)
       const settledIdx = samples.length;   // mark: from here music is held down
       D.acquire('live', 8000);             // live reaction fires 200ms before baked ends
       await wait(200);
@@ -97,7 +97,7 @@ const check = (name, pass, detail) => { results.push({ name, pass: !!pass, detai
       const releaseAIdx = samples.length;
       await wait(400);                     // <-- if boolean-buggy, music would pump UP here
       D.release('live');                   // now everything done
-      await wait(900);                     // glide restores to base
+      await wait(2500);                    // glide restores to base (headless gameTick can throttle, so allow more)
       running = false; clearInterval(iv);
 
       // held window = from settled(after baked dip) until live released
