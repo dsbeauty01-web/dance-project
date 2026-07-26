@@ -1450,9 +1450,9 @@ if (/[?&]debug\b/.test(location.search)) document.documentElement.classList.add(
   box-shadow:0 6px 22px rgba(0,0,0,.55);background:#000;z-index:2}
 </style>
 <div id="intro-overlay">
-  <video id="intro-mp4" muted playsinline preload="auto">
-    <source src="audio/intro/nova-arrival.mp4" type="video/mp4">
-  </video>
+  <!-- intro Kling MP4 is optional; add a <source src="audio/intro/nova-arrival.mp4"> to enable it.
+       Absent by default so no 404 fires — the CSS sparkle placeholder is the intro. -->
+  <video id="intro-mp4" muted playsinline preload="none"></video>
   <div id="intro-sparkle">
     <div class="intro-orb">🌟</div>
     <div class="intro-caption" data-l="introFinding">finding you…</div>
@@ -2776,7 +2776,9 @@ function startIntroOverlay() {
         LOG('INTRO', 'Kling MP4 playing');
       }, { once: true });
       mp4.addEventListener('error', () => LOG('INTRO', 'no MP4 yet — sparkle placeholder'), { once: true });
-      try { mp4.load(); } catch (_) {}
+      // only load if a <source> is actually present, else the sparkle placeholder stays (no 404)
+      if (mp4.querySelector('source[src]')) { try { mp4.load(); } catch (_) {} }
+      else LOG('INTRO', 'no intro MP4 source — sparkle placeholder');
     }
 
     // soft humming
