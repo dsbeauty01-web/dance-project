@@ -361,6 +361,7 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
 /* HER PORTAL — warm key light from above, soft vignette, pink rim that carries
    the brand colour as EDGE light instead of a drawn border. */
 #rec-nova-panel{
+  display:flex;align-items:center;justify-content:center;   /* #2/#5: center the 9:16 frame in the panel */
   border:2px solid var(--nova);
   background:radial-gradient(ellipse 80% 55% at 50% 0%, #43106f, #170134 70%);
   box-shadow:
@@ -461,7 +462,9 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
 }
 /* v113 Nova frame: rounded-rectangle "square" like v222 (was a circle).
    aspect-ratio 0.8 = portrait, border-radius 28px = v222's rounded-[28px]. */
-#rec-avatar-frame{width:min(420px,56vmin);aspect-ratio:0.8;border-radius:28px;
+/* #2 FIX: frame is 9:16 (matches the avatar video) and fills the panel height,
+   so her 9:16 stream fills it edge-to-edge — no black letterbox bars. */
+#rec-avatar-frame{height:min(100%,74vh);aspect-ratio:9/16;width:auto;max-width:98%;border-radius:24px;
   overflow:hidden;background:#0a0015;
   border:4px solid rgba(255,111,216,0.7);
   box-shadow:0 0 60px rgba(255,111,216,0.4),0 0 140px rgba(124,111,255,0.25);
@@ -1541,7 +1544,7 @@ if (/[?&]debug\b/.test(location.search)) document.documentElement.classList.add(
       </button>
       <!-- FREEZE: SONGS.freeze has existed with freeze.mp3 + TIMELINE_FREEZE_RAW,
            but never had a picker button — the game was unreachable until now. -->
-      <button class="picker-card freeze-card" onclick="pickGame('freeze')">
+      <button class="picker-card freeze-card" onclick="window.location.href='animal-freeze.html'+location.search">
         <div class="picker-emoji">🧊</div>
         <div class="picker-name" data-l="songFreeze">Freeze Dance!</div>
       </button>
@@ -3749,6 +3752,55 @@ window.__pickPath = function(path) {
   if (btns) btns.style.opacity = '0.3';
 };
 window.showNameCaptureButtons = showNameCaptureButtons;   // mic-denied fallback + phase1-loop harness
+
+// ── #3 PORT (classic shoulder challenge from nova-joined): light her shoulder AFTER she
+// explains it, run a REAL MoveNet loop on the kid's camera, and react the moment they shrug. ──
+async function introShoulderChallenge() {
+  if (window.__introShoulderDone || window.__introShoulderRunning) return;
+  window.__introShoulderRunning = true;
+  const glow = document.getElementById('rec-cam-glow');
+  const cam  = document.getElementById('rec-webcam');
+  // light her shoulder joint (the glow module reads these globals to position + pulse the light)
+  window.__introCuePart = 'shoulder'; window.__introCueJoint = 'right_shoulder';
+  window.__introCuePartAt = Date.now(); window.__cuePulseUntil = Date.now() + 30000;
+  LOG('INTRO', 'shoulder challenge ARMED (after explanation) — MoveNet watching for a real shrug');
+  const MINK = 0.3; let hits = 0; const t0 = Date.now();
+  const success = () => {
+    if (window.__introShoulderDone) return;
+    window.__introShoulderDone = true; window.__introShoulderRunning = false;
+    try { glow && glow.classList.add('hit'); } catch(_){}
+    window.__cuePulseUntil = Date.now() + 1400;
+    try { const f = document.getElementById('saray-frame');
+      f && f.contentWindow && f.contentWindow.postMessage({ type:'nova-say', text:'Shoulder MAGIC! You FOUND it!' }, '*'); } catch(_){}
+    LOG('INTRO', 'SHRUG detected → challenge PASSED → Nova reacts');
+    setTimeout(() => { try { glow && glow.classList.remove('hit'); } catch(_){} }, 1600);
+  };
+  window.__testShrug = success;   // test hook: synthetic shrug success (available immediately)
+  try { if (!detector) await initDetector(); } catch(_){}
+  const loop = async () => {
+    if (window.__introShoulderDone) return;
+    if (Date.now() - t0 > 22000) { LOG('INTRO', 'shoulder challenge timeout → passing (never stall)'); return success(); }
+    try {
+      if (detector && cam && cam.readyState >= 2) {
+        const poses = await detector.estimatePoses(cam, { flipHorizontal:false });
+        const kp = poses && poses[0] && poses[0].keypoints;
+        if (kp) {
+          const by = {}; kp.forEach(k => by[k.name] = k);
+          const ls = by['left_shoulder'], rs = by['right_shoulder'];
+          if (ls && rs && ls.score > MINK && rs.score > MINK) {
+            const sw = Math.abs(ls.x - rs.x) || 100;
+            const sig = isoPulse('introShrug', ls.y - rs.y, performance.now(), sw);
+            if (sig > ISO.thr.shrug) { if (++hits >= 2) return success(); }
+            else hits = Math.max(0, hits - 1);
+          }
+        }
+      }
+    } catch(_){}
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+}
+window.introShoulderChallenge = introShoulderChallenge;
 
 // HEBREW GENDER CHIP (Part 4, he-only): two big chips + tap-skip. Answer → worker
 // {kind:'gender'} → stored with the name, whispered to her context every session.
@@ -7121,13 +7173,20 @@ document.addEventListener('arrival-done', async () => {
       window.__NOVA_NAME_PATHS = 1;              // re-enable the 3-path name capture (no worker voice-ask here)
       setTimeout(() => { try { showNameCaptureButtons(); } catch(_){} }, 1400);
       // the shoulder light-cue isolation challenge (worker-free) — same globals the glow module reads
-      setTimeout(() => {
-        window.__introCuePart   = 'shoulder';
-        window.__introCueJoint  = 'right_shoulder';   // exact joint lock (single shoulder, not chest-avg)
-        window.__introCuePartAt = Date.now();
-        window.__cuePulseUntil  = Date.now() + 6000;  // big pulse ring so the light is CLEAR
-        LOG('INTRO', 'MUSETALK classic intro — shoulder light-cue isolation challenge armed (worker-free)');
-      }, 4200);
+      // #3 PORT: fire the shoulder challenge AFTER Nova explains it — gate on her transcript
+      // (the iframe posts {nova-said,text}) mentioning shoulder/light, with a 14s fallback so
+      // it never stalls. introShoulderChallenge() lights her shoulder + runs REAL shrug detection.
+      window.addEventListener('message', (e) => {
+        try { const d = e.data;
+          if (d && d.type === 'nova-said' && /shoulder|light|shrug/i.test(d.text || '')
+              && !window.__introShoulderDone && !window.__introShoulderRunning) {
+            LOG('INTRO', 'Nova explained the shoulder light → firing the challenge');
+            introShoulderChallenge();
+          }
+        } catch(_){}
+      });
+      setTimeout(() => { if (!window.__introShoulderRunning && !window.__introShoulderDone) {
+        LOG('INTRO', 'shoulder challenge fallback (14s) — firing'); introShoulderChallenge(); } }, 14000);
       LOG('GAME', 'MUSETALK classic intro — Nova BIG + name capture + shoulder glow restored');
     }, 3500);
   }
