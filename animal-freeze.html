@@ -347,7 +347,7 @@ const Live = {
   setAvatar(id){
     if(!this.on) return;
     try{ fetch(SARAY+'set_avatar?id='+encodeURIComponent(id),{mode:'no-cors',cache:'no-store'}).catch(()=>{}); }catch(_){}
-    this.post({type:'set_avatar', id});
+    this.post({type:'set-avatar', id});   // pod page listens for 'set-avatar' (hyphen) → /set_avatar → engine
   },
   // Drive a spoken line through the same say-this-line channel the commercial uses
   say(text){ this.post({type:'nova-say', text}); },
