@@ -89,6 +89,15 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
   font-family:'Fredoka';font-weight:700;font-size:16px;cursor:pointer;display:flex;align-items:center;gap:7px}
 #pausebtn:active{transform:scale(.95)}
 #status{position:fixed;bottom:8px;left:10px;z-index:90;font-size:11px;color:rgba(255,255,255,.35)}
+/* PRE-GAME ready bar — sits low so Nova stays visible while she asks "ready?" */
+#ready-bar{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:95;display:none;
+  flex-direction:column;align-items:center;gap:10px;padding:14px 24px;border-radius:22px;
+  background:rgba(6,16,34,.86);backdrop-filter:blur(9px);border:1px solid rgba(125,216,255,.32);
+  box-shadow:0 10px 34px rgba(0,0,0,.5);text-align:center;max-width:92vw;animation:rbpop .3s ease}
+#ready-bar.show{display:flex}
+#ready-bar .rt{font-family:'Fredoka';font-weight:700;font-size:clamp(16px,3vw,22px);color:#bfefff}
+#ready-bar .rs{font-size:13px;color:rgba(255,255,255,.72)}
+@keyframes rbpop{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
 
 /* ── LIVE Nova: a LOCKED 9:16 stage, centered in the panel, FULL FIGURE (head→shoes, never cropped) ── */
 #nova-panel{display:flex;align-items:center;justify-content:center;background:#0a0518}
@@ -165,6 +174,11 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
 </div>
 
 <div id="count"></div>
+<div id="ready-bar">
+  <div class="rt">❄ Ready to freeze? ❄</div>
+  <div class="rs">Nova's asking — say <b>“YES!”</b> out loud, or tap 👇</div>
+  <button class="bigbtn" id="ready-btn" style="padding:12px 34px;font-size:18px">✋ I'm ready!</button>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
@@ -227,12 +241,14 @@ const SONG_END = 131.5;
 
 /* TENSION MASTER — her brain for this game, injected once at start. */
 const TENSION_MASTER =
- "You are Nova hosting a kids' Animal Freeze dance game. Be a TENSION MASTER: "+
- "build suspense with a short breathy WHISPER just before each freeze (like 'shhh… flamingo time…'), "+
- "then go COMPLETELY SILENT while the child holds the freeze — do not speak during a hold. "+
- "The instant the freeze ends, EXPLODE with delight in five words or fewer about what they did "+
- "('YES! Frozen solid!'). Never say no, wrong, missed, or bad — every child always wins. "+
- "Keep every line tiny and warm. Speak only English.";
+ "You are Nova hosting a kids' Animal Freeze dance game. Be a TENSION MASTER and ADAPT — never a fixed script. "+
+ "Build suspense with a short breathy WHISPER just before each freeze, then go COMPLETELY SILENT while the child "+
+ "holds — do not speak during a hold. The instant it ends, EXPLODE with delight in five words or fewer about what "+
+ "they did. Sometimes I'll ask you to fake them out ('ready to freeze… JUST KIDDING, MOVE!') — sell it. "+
+ "ADAPT to the child: if they nailed it, get more excited and raise the stakes; if they struggled, be gentler and "+
+ "extra encouraging. NEVER repeat a line you've already said this game. Remember their earlier freezes and compare "+
+ "('even longer than your BEAR freeze!'). If you learned their name, use it 2-3 times across the game, not every line. "+
+ "React to what they SAY to you. Never say no, wrong, missed, or bad — every child always wins. Tiny warm lines. English only.";
 
 /* ── elements ── */
 const $ = id => document.getElementById(id);
@@ -351,11 +367,14 @@ const Live = {
   },
   // Drive a spoken line through the same say-this-line channel the commercial uses
   say(text){ this.post({type:'nova-say', text}); },
+  // SMART LAYER: send INTENT + CONTEXT — her live session writes the actual words (never scripted)
+  cue(intent, ctx){ this.post({type:'nova-cue', intent, ctx:ctx||''}); },
 };
 
 /* ═══ Nova facade — the game calls these; they route live-avatar vs clip-bank ═══ */
 const Nova = {
-  say(text){ NovaSay.log(text); if(Live.on) Live.say(text); },      // clips mode: text only (voice-less)
+  say(text){ NovaSay.log(text); if(Live.on) Live.say(text); },      // exact line (rarely needed now)
+  cue(intent, ctx, pool){ if(Live.on) Live.cue(intent, ctx); else NovaSay.log(Fallback.pick(pool)); }, // live=she writes it; clips=varied local text
   freeze(clipKey){ if(Live.on) Live.setAvatar('gest_'+clipKey); else Clips.freeze(clipKey); },
   melt(){ if(Live.on) Live.setAvatar('nova_idle'); else Clips.melt(); },
 };
@@ -367,9 +386,11 @@ window.addEventListener('message', (e)=>{
   const type = (d.type || d.event || '').toString().toLowerCase();
   const text = (d.text || d.message || d.transcript || '').toString().trim();
   if(!text) return;
+  if(Ready.active) cueReady();                                 // any word from the iframe = she's live → have her ask "ready?"
   if(/kid|user|you|human|child|final/.test(type)){
     KidBubble.show(text);
     if(/\bstop\b|\bpause\b/i.test(text)) voiceStop();          // say "stop" → pause
+    if(Ready.active && /\b(yes+|yeah|yep|ya|ready|ok|okay|okey|sure|go|start|now|i'?m ready|let'?s go)\b/i.test(text)) Ready.hit();  // "yes" → start the music
   } else if(/nova|assistant|bot|agent|say|reply/.test(type)){
     NovaSay.log(text);
   }
@@ -455,16 +476,35 @@ const FX = {
 /* ═══ Game state ═══ */
 const G = {
   score:0, stamps:[], running:false, paused:false,
-  fired:{c:new Set(), f:new Set(), w:new Set()},
-  freeze:null,   // active: {def, idx, heldMs, lastT}
+  fired:{c:new Set(), f:new Set(), w:new Set(), k:new Set()},
+  freeze:null,   // active: {def, idx, hold, heldMs, lastT}
+  rounds:[], best:null, diff:'normal', fakes:0,       // smart-layer memory + adaptation
   addScore(n){ this.score+=n; scoreEl.textContent=this.score; },
 };
 FREEZES.forEach((f,i)=>{ const s=document.createElement('div'); s.className='stamp';
   s.id='stamp'+i; s.textContent=ASSETS.clips[f.clip].emo; stampsEl.appendChild(s); });
 
-/* melt EXPLOSIONS — ≤5 words, always positive (never no/wrong/miss) */
-const BOOMS = ['YES! Frozen solid!','WOW! Perfect statue!','Amazing! You froze!',
-               'Incredible ice power!','You did it! Boom!','Frozen like a legend!'];
+/* SMART LAYER — game sends INTENT+CONTEXT to her live brain; her session writes the words.
+   Difficulty adapts per round; fake-outs on rounds 3+ (max 2, never final); melts use REAL hold
+   data + memory; goodbye names the best animal. Pod-down: varied local pools (no repeats). */
+const Fallback = {
+  used:new Set(),
+  pools:{
+    warn:['shhh… get ready…','statue time soon…','freeze coming…','hold still soon…'],
+    warnHard:['quick — freeze incoming!','snap-freeze soon!','fast statue coming!'],
+    boom:['YES! Frozen solid!','WOW! Perfect statue!','Amazing freeze!','Ice legend!','You froze it!','Incredible!'],
+    fake:['JUST KIDDING — MOVE!','tricked you — DANCE!','gotcha — keep moving!'],
+    ready:['Ready? Here we go!','Get set to freeze!','Ready for magic?'],
+    bye:['Amazing dancing today!','You were incredible!','See you next time!'],
+  },
+  pick(key){ const pool=this.pools[key]||this.pools.boom;
+    const fresh=pool.filter(l=>!this.used.has(l)); const arr=fresh.length?fresh:pool;
+    const line=arr[Math.floor(Math.random()*arr.length)]; this.used.add(line); return line; },
+};
+function warnLead(){ return G.diff==='hard'?0.9 : G.diff==='easy'?2.2 : 1.5; }   // harder = shorter warning
+function effHold(def){ return G.diff==='hard'? def.hold+0.7 : G.diff==='easy'? Math.max(2.5,def.hold-0.6) : def.hold; }
+/* fake-out beats a few seconds before rounds 3 & 4 (indices 2,3) — NEVER the final (index 4) */
+const FAKES = [ {at:FREEZES[2].at-7}, {at:FREEZES[3].at-7} ];
 
 /* ═══ The scheduler — SONG TIME ONLY, no wall clock ═══ */
 function tick(){
@@ -473,10 +513,21 @@ function tick(){
 
   if(!G.freeze){
     DANCE_CUES.forEach((c,i)=>{ if(t>=c.at && !G.fired.c.has(i)){ G.fired.c.add(i); FX.cue(c.text); }});
+    // READY? beat — she asks and reacts to the kid's real answer (her live session hears them)
+    if(t>=20 && !G.fired.k.has('ready')){ G.fired.k.add('ready');
+      Nova.cue('Playfully ask the child if they are READY to freeze. If they answer, react to their exact energy; if quiet, stay warm and carry on.',
+               'The freeze rounds are about to begin.', 'ready'); }
+    // FAKE-OUTS — rounds 3+ only, max 2, never the final round
+    FAKES.forEach((fk,i)=>{ if(t>=fk.at && !G.fired.k.has('fake'+i) && G.fakes<2){ G.fired.k.add('fake'+i); G.fakes++;
+      Nova.cue('Do a playful FAKE-OUT: build suspense like a freeze is coming, then suddenly burst out to keep DANCING — no freeze this time.',
+               'This is a trick — there is no real freeze right now.', 'fake');
+      FX.cue('DANCE! 💃 no freeze!',false,1500); }});
     FREEZES.forEach((f,i)=>{
-      if(t>=f.at-1.5 && !G.fired.w.has(i)){ G.fired.w.add(i);              // WHISPER (brain), silent after
+      if(t>=f.at-warnLead() && !G.fired.w.has(i)){ G.fired.w.add(i);        // WHISPER via brain (difficulty-aware wording)
         const nm=ASSETS.clips[f.clip].name;
-        Nova.say(f.final ? 'shhh… the BIG one…' : 'shhh… '+nm+' time…');
+        Nova.cue('Whisper a short suspenseful warning that a '+nm+' freeze is coming. '+
+                 (G.diff==='hard'?'Make it fast and snappy.':G.diff==='easy'?'Give a gentle, clear heads-up.':''),
+                 'Difficulty '+G.diff+', round '+(i+1)+' of 5.', G.diff==='hard'?'warnHard':'warn');
         FX.cue(f.final?'shhh… the BIG one!':'shhh… '+nm+' time…',true,1600); }
       if(t>=f.at && !G.fired.f.has(i)){ G.fired.f.add(i); startFreeze(f,i); }
     });
@@ -487,9 +538,9 @@ function tick(){
       f.heldMs += (now-f.lastT)*1000;
     }
     f.lastT=now;
-    const p=Math.min(100, f.heldMs/(f.def.hold*1000)*100);
+    const p=Math.min(100, f.heldMs/(f.hold*1000)*100);
     ring.style.setProperty('--p',p);
-    if(now >= f.def.at + f.def.hold) endFreeze();     // SILENT during the whole hold
+    if(now >= f.def.at + f.hold) endFreeze();          // SILENT during the whole hold (effHold = adaptive)
   }
 
   if(t>=SONG_END) return endGame();
@@ -498,22 +549,32 @@ function tick(){
 
 function startFreeze(def,idx){
   const c=ASSETS.clips[def.clip];
-  G.freeze={def, idx, heldMs:0, lastT:Music.t()};
+  const hold=effHold(def);                            // adaptive: harder = longer hold
+  G.freeze={def, idx, hold, heldMs:0, lastT:Music.t()};
   Music.duck(0.08,300);
   Nova.freeze(def.clip);                              // she BECOMES the animal (live) / clip (fallback)
   FX.frostOn(); FX.badge(c.emo, def.final?('BIG '+c.name+'!'):(c.name+'!'));
-  FX.cue('FREEZE! 🧊',false,def.hold*1000);
+  FX.cue('FREEZE! 🧊',false,hold*1000);
   ring.classList.add('show'); ring.style.setProperty('--p',0);
 }
 
 function endFreeze(){
   const f=G.freeze; G.freeze=null;
-  const ratio=Math.min(1, f.heldMs/(f.def.hold*1000));
+  const ratio=Math.min(1, f.heldMs/(f.hold*1000));
   const credit=Math.max(0.4, ratio);                  // soft floor: showing up counts
   const pts=Math.round(f.def.pts*credit);
+  const name=ASSETS.clips[f.def.clip].name, secs=(f.heldMs/1000).toFixed(1);
   Music.duck(1.0,450);
   Nova.melt();                                        // back to nova_idle (live) / melt clip (fallback)
-  Nova.say(BOOMS[Math.floor(Math.random()*BOOMS.length)]);   // EXPLOSION, ≤5 words
+  // MELT EXPLOSION — brain writes fresh words from REAL hold data + memory of their best
+  const beatBest = G.best && f.heldMs > G.best.heldMs + 1;
+  const ctx = 'They held the '+name+' freeze for '+secs+'s ('+Math.round(ratio*100)+'% of target).'
+    + (G.best ? ' Their best before was '+G.best.name+' at '+(G.best.heldMs/1000).toFixed(1)+'s.' : '')
+    + (beatBest ? ' NEW BEST — say it beat their '+G.best.name+' freeze, with extra excitement.' : '');
+  Nova.cue('Explode with delight in five words or fewer about this freeze, naming what they did. Never say no/wrong/missed.', ctx, 'boom');
+  G.rounds.push({name, ratio, heldMs:f.heldMs});
+  if(!G.best || f.heldMs>G.best.heldMs) G.best={name, heldMs:f.heldMs};   // in-session memory
+  G.diff = ratio>0.85 ? 'hard' : ratio<0.5 ? 'easy' : 'normal';           // ADAPT the next round
   FX.frostOff(); FX.badgeOff(); FX.shatter(); ring.classList.remove('show');
   G.addScore(pts); FX.fly('+'+pts);
   $('stamp'+f.idx).classList.add('got'); G.stamps.push(f.idx);
@@ -529,6 +590,30 @@ async function countdown(){
   for(const n of ['3','2','1','GO!']){ countEl.textContent=n; await new Promise(r=>setTimeout(r,700)); }
   countEl.style.display='none';
 }
+/* ═══ PRE-GAME READY GATE — Nova loads + greets, asks "ready?", and the MUSIC only
+   starts once the kid says "yes" out loud (heard via her live session → kid-said) or
+   taps. Never hangs: a tap button + a 25s soft timeout always let the fun begin. ═══ */
+const Ready = { active:false, _res:null,
+  arm(){ this.active=true; return new Promise(r=>{ this._res=r; }); },
+  hit(){ if(this.active){ this.active=false; const r=this._res; this._res=null; if(r) r(); } },
+};
+let _cueN=0;
+function cueReady(){ if(!Ready.active || _cueN>=2) return; _cueN++;   // ask at most twice (overlap-gated pod-side)
+  if(Live.cue) Live.cue('Greet the child warmly and ask if they are READY to start the animal freeze dance game — one short, excited question.','Music starts only after they say yes.');
+  else if(Live.on) Live.say('Ready to freeze and dance? Say YES!');
+}
+async function runReadyGate(){
+  if(!Live.on) return;                                                // pod down / clip fallback: no voice gate, go straight to countdown
+  _cueN=0;
+  const p=Ready.arm();
+  $('ready-bar').classList.add('show');
+  statusEl.textContent='say “yes” when you’re ready!';
+  setTimeout(cueReady,4000);                                          // make sure she asks even if no iframe message arrives first
+  await Promise.race([ p, new Promise(r=>setTimeout(r,25000)) ]);     // yes / tap / 25s safety
+  Ready.active=false;
+  $('ready-bar').classList.remove('show');
+}
+$('ready-btn').addEventListener('click', ()=>Ready.hit());
 $('start-btn').addEventListener('click', async ()=>{
   $('start-btn').disabled=true; statusEl.textContent='getting camera…';
   try{
@@ -540,6 +625,7 @@ $('start-btn').addEventListener('click', async ()=>{
   statusEl.textContent='warming up…';
   await new Promise(r=>setTimeout(r,900));                          // let the avatar/clips buffer a beat
   $('start-screen').style.display='none';
+  await runReadyGate();                                              // PRE-GAME: Nova asks "ready?"; music waits for the kid's spoken "yes" (or a tap)
   await countdown();                                                 // countdown GATES play — the law
   try{ await Music.ctx.resume(); }catch(e){}
   Music.el.play().catch(()=>{});
@@ -569,6 +655,9 @@ function endGame(){
   $('end-line').textContent  = n>=5?'You collected the whole zoo — '+G.score+' points of pure ice!'
                                    :'You froze '+n+' animals and scored '+G.score+'! The rest are waiting next time…';
   $('end-screen').style.display='flex';
+  // GOODBYE — brain names their BEST animal (real in-session memory) + invites a replay
+  const byCtx = (G.best?'Their best freeze was the '+G.best.name+' at '+(G.best.heldMs/1000).toFixed(1)+'s. ':'')+'Final score '+G.score+'.';
+  Nova.cue('Say a warm goodbye, celebrate their best freeze by name, and invite them to play again. Keep it short.', byCtx, 'bye');
 }
 </script>
 </body>
