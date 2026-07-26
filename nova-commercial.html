@@ -2001,6 +2001,9 @@ window.cancelBeats = function(uptoBeat, reason){
 };
 window.flushClips = function(reason){ window.cancelBeats(Number.MAX_SAFE_INTEGER, reason); };
 window.playClip = function(id, beat){
+  // MUSETALK (2026-07-26): live Nova owns every word in-game via the pitch-plan scheduler
+  // (__pitchStart). Pre-recorded clips are silenced so they never override her live voice.
+  if (window.__MUSETALK) { try { LOG('CLIP', id + ' suppressed — live pitch-plan owns the game'); } catch(_){} return; }
   beat = beat || 0;
   if (beat > 0) window.cancelBeats(beat - 1, 'newer beat ' + beat + ' arrived');
   window.__clipQueue.push({ id, beat, at: Date.now() });
@@ -5383,6 +5386,106 @@ function setSelectedSong(songId) {
 // guards with `typeof setSelectedSong === 'function'`, which was ALWAYS false here, so the
 // picker silently NEVER switched songs (every choice played the default). Expose it.
 window.setSelectedSong = setSelectedSong;
+
+// ===== LIVE IN-GAME PITCH PLANS (?musetalk) — Nova narrates each game on the song clock =====
+// Refael 2026-07-26: in ?musetalk she must TALK THROUGH each game with timing context + a
+// per-game pitch plan (not canned clips, not random chatter). Each beat = a moment on the
+// game clock; when the clock passes it we tell the LIVE brain (SARAY iframe) to SAY the line
+// in her own voice, game-synced. Music ducks under her line. One-mouth: never over herself.
+// Lines are DRAFTS pending Refael's edits (Desktop/nova-pitch-plans-DRAFT.md).
+(function(){
+  const PITCH_PLANS = {
+    joined: [
+      { t: 2,  say: "Let's light you up — move free!" },
+      { t: 15, say: "Just your head — nod, nod, nod!" },
+      { t: 28, say: "Now your shoulders — tilt, yes!" },
+      { t: 42, say: "The ribs! Slide them — how?!" },
+      { t: 55, say: "Hips sway — you've got it!" },
+      { t: 68, say: "Faster now! Head, shoulder, rib — go!" },
+      { t: 80, say: "Everything at once — this is your dance!" },
+    ],
+    hello: [
+      { t: 3,   say: "Hello hello! I'm so happy you're here!" },
+      { t: 22,  say: "Wave with me — hi, hi, hi!" },
+      { t: 45,  say: "Wake up those arms — stretch tall!" },
+      { t: 68,  say: "Clap, clap, clap — I hear you!" },
+      { t: 90,  say: "Spin around — wheee!" },
+      { t: 104, say: "Slow it down… big breath." },
+    ],
+    freeze: [
+      { t: 2,  say: "Dance big until I say freeze!" },
+      { t: 12, say: "Shake it — wiggle everything!" },
+      { t: 22, say: "Freeze! Hold it… statue!" },
+      { t: 31, say: "And… dance again!" },
+      { t: 42, say: "Freeze! Don't move — I see you!" },
+      { t: 53, say: "Biggest freeze… hold it!" },
+    ],
+    wave: [
+      { t: 2,  say: "Show me your wave — hand up high!" },
+      { t: 9,  say: "This hand — wave, wave, wave!" },
+      { t: 16, say: "Now the other — hi up there!" },
+      { t: 23, say: "Both hands — you're a star!" },
+    ],
+    wavemagic: [
+      // first ~8.5s is the baked video intro — she stays quiet, then takes over
+      { t: 19, say: "Your turn — wave and light it up!" },
+      { t: 33, say: "Keep it glowing — yes!" },
+      { t: 59, say: "Now the other arm — magic!" },
+      { t: 71, say: "Both arms — you're glowing!" },
+    ],
+  };
+  window.__PITCH_PLANS = PITCH_PLANS;
+  window.__pitchLog = [];   // QA hook
+
+  let fired = new Set(), ticker = null, activeGame = null;
+
+  function sayLive(text){
+    // duck the game music while she speaks (estimated line length), then release
+    const dur = Math.min(6000, 1200 + text.split(' ').length * 350);
+    try { if (window.__duck) { window.__duck.acquire('pitch', dur + 500); setTimeout(()=>{ try{ window.__duck.release('pitch'); }catch(_){} }, dur); } } catch(_){}
+    // tell the LIVE brain (iframe) to speak this exact line now
+    const f = document.getElementById('saray-frame');
+    if (f && f.contentWindow) { try { f.contentWindow.postMessage({ type:'nova-say', text }, '*'); } catch(_){} }
+    window.__pitchLog.push({ t: Date.now(), text });
+    try { LOG('PITCH', '▶ ' + text); } catch(_){}
+  }
+
+  function tick(){
+    const plan = PITCH_PLANS[activeGame]; if (!plan) return;
+    const pos = (window.__gamePos ? window.__gamePos() : 0);
+    for (const b of plan) {
+      if (fired.has(b.t) || pos < b.t) continue;
+      fired.add(b.t);
+      if (!window.__novaSpeakingNow) sayLive(b.say);                       // one-mouth: only if free
+      else setTimeout(() => { if (!window.__novaSpeakingNow) sayLive(b.say); }, 1500);  // else hold briefly
+    }
+  }
+
+  function start(gameId){
+    if (!window.__MUSETALK) return;
+    activeGame = gameId; fired = new Set();
+    if (ticker) clearInterval(ticker);
+    ticker = setInterval(tick, 400);
+    try { LOG('PITCH', 'plan armed for ' + gameId + ' (' + (PITCH_PLANS[gameId]||[]).length + ' beats)'); } catch(_){}
+  }
+  function stop(){ if (ticker) { clearInterval(ticker); ticker = null; } activeGame = null; }
+  window.__pitchStart = start;
+  window.__pitchStop  = stop;
+
+  // Auto-arm when the game phase opens under musetalk; disarm when it leaves.
+  let lastPhase = null;
+  setInterval(() => {
+    if (!window.__MUSETALK) return;
+    const active = document.querySelector('.phase.active');
+    const pid = active ? active.id : null;
+    if (pid === lastPhase) return;
+    lastPhase = pid;
+    if (pid === 'phase-game') {
+      const gid = window.__selectedSongId || (typeof selectedSong !== 'undefined' && selectedSong && selectedSong.id) || null;
+      if (gid && PITCH_PLANS[gid]) start(gid); else try { LOG('PITCH', 'no plan for game ' + gid); } catch(_){}
+    } else stop();
+  }, 500);
+})();
 
 let score = 0, hits = 0, attempts = 0, combo = 0, maxCombo = 0;
 let timelineIdx = 0, songTimer = null;
