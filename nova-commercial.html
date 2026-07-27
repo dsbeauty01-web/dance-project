@@ -1816,6 +1816,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const f = document.getElementById('saray-frame');
   if (f) f.addEventListener('load', () => {
     setTimeout(() => window.__sarayFrameMode(window.__sarayMode || 'closeup'), 800);
+    // INTRO LEADER (2026-07-27): she runs a TIGHT intro — greet, name, shoulder light,
+    // then the game question. Never open-ended chatting.
+    setTimeout(() => { try {
+      const persona = 'INTRO FLOW — you lead, fast and warm, kid aged 4-7: '+
+        '1) Greet in one short line and ask their NAME. 2) React to the name with joy, once. '+
+        '3) Tell them: watch for the little LIGHT on your shoulder — lift that shoulder! (the game lights it). '+
+        '4) When they get it, celebrate in 5 words. 5) Then ask ONE question: ready to dance? '+
+        'We have Animal Freeze, Up Groove, or Wave Magic — which one? Then STOP and listen. '+
+        'Never chat beyond this arc. Every line under 2 sentences. Never ask open questions like '+
+        '"what do you want to talk about". You are the leader taking them to the dance.';
+      f.contentWindow.postMessage({ type:'nova-persona', text: persona }, '*');
+      f.contentWindow.postMessage({ type:'set_persona',  text: persona }, '*');
+    } catch(_){} }, 1200);
   });
 });
 
@@ -2056,9 +2069,9 @@ window.cancelBeats = function(uptoBeat, reason){
 };
 window.flushClips = function(reason){ window.cancelBeats(Number.MAX_SAFE_INTEGER, reason); };
 window.playClip = function(id, beat){
-  // MUSETALK (2026-07-26): live Nova owns every word in-game via the pitch-plan scheduler
-  // (__pitchStart). Pre-recorded clips are silenced so they never override her live voice.
-  if (window.__MUSETALK) { try { LOG('CLIP', id + ' suppressed — live pitch-plan owns the game'); } catch(_){} return; }
+  // MUSETALK: live Nova owns the words — EXCEPT MP4-led games (2026-07-27): in those the
+  // VIDEO is the teacher, its cached/baked audio talks, and live-Nova stays silent on top.
+  if (window.__MUSETALK && !window.__mp4Leads) { try { LOG('CLIP', id + ' suppressed — live pitch-plan owns the game'); } catch(_){} return; }
   beat = beat || 0;
   if (beat > 0) window.cancelBeats(beat - 1, 'newer beat ' + beat + ' arrived');
   window.__clipQueue.push({ id, beat, at: Date.now() });
@@ -3840,6 +3853,11 @@ async function introShoulderChallenge() {
       f && f.contentWindow && f.contentWindow.postMessage({ type:'nova-say', text:'Shoulder MAGIC! You FOUND it!' }, '*'); } catch(_){}
     LOG('INTRO', 'SHRUG detected → challenge PASSED → Nova reacts');
     setTimeout(() => { try { glow && glow.classList.remove('hit'); } catch(_){} }, 1600);
+    // FAST LEADER (2026-07-27): straight to the game question — she drives, no drifting chat
+    setTimeout(() => { try { const f2 = document.getElementById('saray-frame');
+      f2 && f2.contentWindow && f2.contentWindow.postMessage({ type:'nova-cue',
+        intent:'Ask ONE short excited question: ready to dance? We have Animal Freeze, Up Groove, or Wave Magic — which one do you like? Then stop and listen.',
+        ctx:'Do not chat about anything else. One question, then wait for their answer.' }, '*'); } catch(_){} }, 3200);
   };
   window.__testShrug = success;   // test hook: synthetic shrug success (available immediately)
   try { if (!detector) await initDetector(); } catch(_){}
@@ -5581,14 +5599,28 @@ window.setSelectedSong = setSelectedSong;
     }
   }
 
+  const MP4_LEADS = { wave: 1 };            // MP4-led games: the video talks, she doesn't (2026-07-27)
   function start(gameId){
     if (!window.__MUSETALK) return;
+    window.__mp4Leads = !!MP4_LEADS[gameId];
+    const cornerStage = document.getElementById('nova-stage') || document.querySelector('.ms-corner');
+    if (window.__mp4Leads) {
+      try { LOG('PITCH', gameId + ' is MP4-led — live voice OFF, video audio ON, corner Nova hidden'); } catch(_){}
+      if (cornerStage) cornerStage.style.visibility = 'hidden';   // no double-Nova over the teaching video
+      activeGame = null; if (ticker) clearInterval(ticker); ticker = null;
+      return;                                                      // no live lines in this game
+    }
+    if (cornerStage) cornerStage.style.visibility = '';
     activeGame = gameId; fired = new Set();
     if (ticker) clearInterval(ticker);
     ticker = setInterval(tick, 400);
     try { LOG('PITCH', 'plan armed for ' + gameId + ' (' + (PITCH_PLANS[gameId]||[]).length + ' beats)'); } catch(_){}
   }
-  function stop(){ if (ticker) { clearInterval(ticker); ticker = null; } activeGame = null; }
+  function stop(){ if (ticker) { clearInterval(ticker); ticker = null; } activeGame = null;
+    window.__mp4Leads = false;
+    const cs = document.getElementById('nova-stage') || document.querySelector('.ms-corner');
+    if (cs) cs.style.visibility = '';   // she returns after an MP4-led game
+  }
   window.__pitchStart = start;
   window.__pitchStop  = stop;
 
