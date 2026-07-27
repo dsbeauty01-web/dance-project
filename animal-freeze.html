@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Animal Freeze! · Nova</title>
+<!-- SESSION RECORDING + SMART ENDING (2026-07-27) — fire-and-forget; a dead
+     worker changes nothing for the kid. Loads before the main script below. -->
+<script src="nova-session-rec.js"></script>
+<script src="nova-ending.js"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9D%84%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9D%84%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <style>
@@ -184,6 +188,17 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 <script>
 'use strict';
+// SESSION RECORDING (2026-07-27): start the visit's record. Fire-and-forget.
+try {
+  if (window.NovaRec) {
+    NovaRec.start({
+      lang: 'en',
+      device: /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
+      appVersion: 'animal-freeze-v3',
+      game: 'freeze',
+    });
+  }
+} catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════
    ANIMAL FREEZE v3 — LIVE Nova. She is the SARAY V2V avatar (iframe):
    listens + responds the whole game (owns the mic — ONE-MIC LAW, this
@@ -389,10 +404,12 @@ window.addEventListener('message', (e)=>{
   if(Ready.active) cueReady();                                 // any word from the iframe = she's live → have her ask "ready?"
   if(/kid|user|you|human|child|final/.test(type)){
     KidBubble.show(text);
+    try { if(window.NovaRec) NovaRec.transcript('kid', text); } catch(_){}
     if(/\bstop\b|\bpause\b/i.test(text)) voiceStop();          // say "stop" → pause
     if(Ready.active && /\b(yes+|yeah|yep|ya|ready|ok|okay|okey|sure|go|start|now|i'?m ready|let'?s go)\b/i.test(text)) Ready.hit();  // "yes" → start the music
   } else if(/nova|assistant|bot|agent|say|reply/.test(type)){
     NovaSay.log(text);
+    try { if(window.NovaRec) NovaRec.transcript('nova', text); } catch(_){}
   }
 });
 
@@ -573,6 +590,7 @@ function endFreeze(){
     + (beatBest ? ' NEW BEST — say it beat their '+G.best.name+' freeze, with extra excitement.' : '');
   Nova.cue('Explode with delight in five words or fewer about this freeze, naming what they did. Never say no/wrong/missed.', ctx, 'boom');
   G.rounds.push({name, ratio, heldMs:f.heldMs});
+  try { if(window.NovaRec) NovaRec.event('freeze', {name, ratio, heldMs:f.heldMs, secs:+secs}); } catch(_){}
   if(!G.best || f.heldMs>G.best.heldMs) G.best={name, heldMs:f.heldMs};   // in-session memory
   G.diff = ratio>0.85 ? 'hard' : ratio<0.5 ? 'easy' : 'normal';           // ADAPT the next round
   FX.frostOff(); FX.badgeOff(); FX.shatter(); ring.classList.remove('show');
@@ -649,14 +667,40 @@ $('resume-btn').addEventListener('click', async ()=>{
 
 function endGame(){
   G.running=false; Music.duck(0.0,1500);
+  // SMART ENDING (2026-07-27): the one shared arc — her moment (built from THIS
+  // session's real freeze data, by animal name) → feedback faces 😍🙂😕 → hook.
+  // NO score/points on the kid's screen; raw numbers go to the session record only.
+  // Seconds-of-hold IS celebration data ("4 seconds of statue!"), so it may show.
+  const secs = G.best ? (G.best.heldMs/1000).toFixed(1) : null;
+  const best = G.best
+    ? 'that ' + G.best.name.toUpperCase() + ' freeze — ' + secs + ' seconds of pure STATUE!'
+    : null;
+  const statsRec = { score:G.score, rounds:G.rounds, best:G.best, stamps:G.stamps.length, diff:G.diff };
+  const speak = function(text){ try { Nova.say(text); } catch(e){} };   // live SARAY voice, or silent text
+  try {
+    if (window.NovaEnding) {
+      NovaEnding.show({
+        game: 'freeze',
+        name: null,
+        bestMoment: best,
+        lang: 'en',
+        mode: (window.Live && Live.on) ? 'live' : 'silent',
+        speak: speak,
+        stats: statsRec,
+        onAgain: function(){ location.reload(); },
+        onBye: function(){ location.href = 'nova-commercial.html' + location.search; },
+      });
+      return;
+    }
+  } catch(e){}
+  // FALLBACK end screen (component missing) — celebration only, never a raw zero.
   const n=G.stamps.length;
   $('end-stamps').textContent=FREEZES.map((f,i)=>G.stamps.includes(i)?ASSETS.clips[f.clip].emo:'▫️').join(' ');
   $('end-title').textContent = n>=5?'🏆 ALL ANIMALS FROZEN!':'🌟 Amazing freezing!';
-  $('end-line').textContent  = n>=5?'You collected the whole zoo — '+G.score+' points of pure ice!'
-                                   :'You froze '+n+' animals and scored '+G.score+'! The rest are waiting next time…';
+  $('end-line').textContent  = n>=5?'You collected the whole zoo!':'You froze '+n+' animals — the rest are waiting next time…';
   $('end-screen').style.display='flex';
-  // GOODBYE — brain names their BEST animal (real in-session memory) + invites a replay
-  const byCtx = (G.best?'Their best freeze was the '+G.best.name+' at '+(G.best.heldMs/1000).toFixed(1)+'s. ':'')+'Final score '+G.score+'.';
+  try { if(window.NovaRec) NovaRec.end(statsRec); } catch(_){}
+  const byCtx = (G.best?'Their best freeze was the '+G.best.name+' at '+secs+'s. ':'');
   Nova.cue('Say a warm goodbye, celebrate their best freeze by name, and invite them to play again. Keep it short.', byCtx, 'bye');
 }
 </script>

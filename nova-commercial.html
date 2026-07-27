@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nova Joins! · 4-Point Isolation Game</title>
+<!-- SESSION RECORDING + SMART ENDINGS (2026-07-27) — classic scripts load before
+     the deferred module below, so window.NovaRec / window.NovaEnding exist in time.
+     Both are 100% fire-and-forget: a dead worker changes nothing for the kid. -->
+<script src="nova-session-rec.js"></script>
+<script src="nova-ending.js"></script>
 <script>
 /* ═══ HEBREW LAYER (2026-07-15) — ?lang=he · persisted to localStorage nova-lang ═══
    English is the default and renders EXACTLY as before (en pack = the page's original
@@ -1939,6 +1944,7 @@ function pickGame(songId){
     return;
   }
   if (typeof setSelectedSong === 'function') setSelectedSong(songId);
+  try { if (window.NovaRec) NovaRec.setGame(songId); } catch(_){}
   // FINISH-THE-GAME (moved past the speech-grace wait, Phase-3: no double-picked)
   try { if(window.__novaSend) window.__novaSend({ kind:'game-event', event:{ event:'picked', song: songId } }); } catch(_){}
   if (typeof LOG === 'function') LOG('GAME', `kid picked song: ${songId}`);
@@ -1958,6 +1964,30 @@ function playAgainNow(){
   const g = window.__selectedSongId || (typeof selectedSong !== 'undefined' && selectedSong && selectedSong.id) || 'hello';
   setTimeout(() => { try { pickGame(g); } catch(e){ location.reload(); } }, 600);
 }
+
+// SMART-ENDING VOICE (2026-07-27): how the ending voices her lines.
+// SACRED-V2V + one-mouth law: while the LIVE worker owns her voice (__novaRoom),
+// the client NEVER speaks over her — her worker goodbye carries the sound and the
+// ending's data-driven lines show as text. Only in non-live modes do we voice the
+// exact lines via /v2/tts (her same OpenAI voice). One audio at a time.
+window.__endingAudio = null;
+window.__endingSpeak = function(text){
+  try {
+    if (window.__novaRoom) return;                 // live worker = her mouth; stay silent
+    const t = (text || '').toString().slice(0, 90);
+    if (!t) return;
+    fetch(CFG.RENDER_URL + '/v2/tts', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: t })
+    }).then(r => r.ok ? r.blob() : null).then(b => {
+      if (!b) return;
+      try { if (window.__endingAudio) { window.__endingAudio.pause(); } } catch(_){}
+      const a = new Audio(URL.createObjectURL(b));
+      window.__endingAudio = a;
+      a.play().catch(()=>{});
+    }).catch(()=>{});
+  } catch(e){}
+};
 
 // ── CLIP VOICE player + MOUTH RULE + BEAT EXPIRY (TURN-OWNER 2026-07-07):
 // pre-rendered Kora lines at ~0ms latency through ONE queue — one line at a time,
@@ -2218,6 +2248,20 @@ function copyLog() {
 window.__downloadLog = downloadLog;
 window.__copyLog = copyLog;
 window.__LOG_BUFFER = LOG_BUFFER;
+
+// SESSION RECORDING (2026-07-27): start the visit's record and tap the existing
+// LOG_BUFFER — events ship as-is, transcript is derived from HEARD (kid) and
+// NOVA-SAID (nova) tags. Entirely fire-and-forget.
+try {
+  if (window.NovaRec) {
+    NovaRec.start({
+      lang: (window.NOVA_LANG === 'he') ? 'he' : 'en',
+      device: /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
+      appVersion: 'commercial-v1',
+    });
+    NovaRec.tapLogBuffer(window.__LOG_BUFFER, { 'HEARD': 'kid', 'NOVA-SAID': 'nova' });
+  }
+} catch (e) {}
 
 // v102: poll server's session log every 3s so tool calls + Claude calls show in our log
 let __serverLogPollTimer = null;
@@ -7045,6 +7089,29 @@ function endGame() {
   window.__showEndScreen = function(){
     if (window.__endScreenShown) return;
     window.__endScreenShown = true;
+    // SMART ENDING (2026-07-27): the one shared arc — her moment (built from THIS
+    // session's real data) → feedback faces 😍🙂😕 → per-game hook. NO stars/points
+    // on the kid's screen; raw numbers go to the session record only. The overlay
+    // covers the stage, so #phase-end is never shown when this path runs.
+    try {
+      if (window.NovaEnding) {
+        const g = window.__selectedSongId || (typeof selectedSong!=='undefined' && selectedSong && selectedSong.id) || 'hello';
+        const best = (memory.moments && memory.moments.length) ? memory.moments[memory.moments.length - 1] : null;
+        NovaEnding.show({
+          game: g,
+          name: (memory && memory.name) || null,
+          bestMoment: best,
+          lang: (window.NOVA_LANG === 'he') ? 'he' : 'en',
+          mode: window.__novaRoom ? 'live' : (window.__voiceOnlyMode ? 'voice' : 'silent'),
+          speak: window.__endingSpeak,
+          stats: { score: score, hits: hits, attempts: attempts, maxCombo: maxCombo, streak: (memory && memory.maxStreak) || maxCombo, game: g },
+          onAgain: function(){ try { playAgainNow(); } catch(e){ location.reload(); } },
+          onBye: function(){ location.reload(); },
+        });
+        LOG('ENDING', 'smart ending shown (data moment + faces + hook)');
+        return;
+      }
+    } catch(e){ LOG('ERROR', 'smart ending failed → legacy end screen', { msg: e.message }); }
     showPhase('phase-end');
     document.getElementById('end-title').textContent = TA('endTitles')[stars-1];
     const starEl = document.getElementById('end-stars');
