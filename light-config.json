@@ -1,0 +1,36 @@
+{
+  "_meta": "Nova Magic-Light — LOCKED aesthetics. Single source of truth: every game reads these via nova-light.js (window.NovaLight.PRESETS). Builder picks 2026-07-27: 1=B-slow, 2=C, 3=A, 4=B. After LOCK a feel-change is a NEW variant round (re-render + re-pick), never a hand-edit here. Keys: single=single-limb cues, wave=wave/wavemagic, upgroove=up-groove, dance=dance moments; hellohello=calm game (unchanged, centralized here).",
+  "_gameMap": {
+    "joined": "upgroove",
+    "wave": "wave",
+    "wavemagic": "wave",
+    "bounce": "dance",
+    "hello": "hellohello"
+  },
+  "_defaultPreset": "single",
+  "single": {
+    "mode": "isolation", "chevron": false, "burstOnHit": true,
+    "coreR": 15, "headWidth": 16, "nodes": 8, "smooth": 0.22, "fade": 0.12,
+    "waveAmp": 14, "waveSpeed": 6, "sparkScale": 1.0, "sparkPerVel": 0.6, "intensity": 1.0
+  },
+  "wave": {
+    "mode": "travel", "chevron": false, "bloomOnVertex": true,
+    "coreR": 20, "headWidth": 22, "nodes": 28, "smooth": 0.40, "fade": 0.12,
+    "waveAmp": 18, "waveSpeed": 7, "sparkScale": 1.4, "intensity": 1.15
+  },
+  "upgroove": {
+    "mode": "isolation", "chevron": true, "burstOnHit": true,
+    "coreR": 12, "headWidth": 12, "nodes": 7, "fade": 0.20,
+    "waveAmp": 9, "sparkScale": 0.5, "intensity": 0.85
+  },
+  "dance": {
+    "mode": "travel", "chevron": false, "bloomOnVertex": true,
+    "coreR": 16, "headWidth": 16, "nodes": 20, "smooth": 0.40, "fade": 0.16,
+    "sparkScale": 1.0, "intensity": 1.0
+  },
+  "hellohello": {
+    "mode": "calm", "burstOnHit": true,
+    "coreR": 14, "headWidth": 12, "nodes": 12, "intensity": 0.62,
+    "waveAmp": 9, "sparkScale": 0.5, "sparkPerVel": 0.35
+  }
+}

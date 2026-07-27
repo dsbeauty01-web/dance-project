@@ -227,6 +227,8 @@ const ASSETS = {
   clips: {
     idle1:    { file:'freezegame/idle_sway.mp4' },
     idle2:    { file:'freezegame/idle-walkalong.mp4' },
+    dsub:     { file:'freezegame/dance-sub.mp4' },      /* ENERGY LADDER (2026-07-27) */
+    dactive:  { file:'freezegame/dance-active.mp4' },
     star:     { file:'freezegame/freeze-star.mp4',      pauseAt:3.0, emo:'⭐', name:'STAR' },
     frog:     { file:'freezegame/freezefrog.mp4',       pauseAt:2.4, emo:'🐸', name:'FROG' },
     bear:     { file:'freezegame/freezebear.mp4',       pauseAt:2.2, emo:'🐻', name:'BEAR' },
@@ -253,6 +255,13 @@ const DANCE_CUES = [
   { at:128.0, text:'YOU DID IT! 🎉' },
 ];
 const SONG_END = 131.5;
+
+/* ENERGY LADDER (2026-07-27) map: dance1=sub · dance2-3=active · dance4+=hype(→nova_active) */
+const TIER_AT = [ {t:0,tier:'sub'}, {t:36,tier:'active'}, {t:82,tier:'hype'} ];
+let _tierFired = new Set();
+function tickTier(pos){
+  for(const e of TIER_AT){ if(pos>=e.t && !_tierFired.has(e.t)){ _tierFired.add(e.t); Nova.setTier(e.tier); } }
+}
 
 /* TENSION MASTER — her brain for this game, injected once at start. */
 const TENSION_MASTER =
@@ -292,7 +301,11 @@ const NovaSay = {
 
 /* ═══ Clip-bank Nova — FALLBACK ONLY, built lazily when the pod is down ═══ */
 const Clips = {
-  vids:{}, current:null, idleKeys:['idle1','idle2'], idleIdx:0, mode:'idle', built:false,
+  vids:{}, current:null, idleIdx:0, mode:'idle', built:false,
+  tier:'calm',   // ENERGY LADDER (2026-07-27): calm→subtle→active→hype
+  pools:{ calm:['idle1','idle2'], sub:['dsub','idle1'], active:['dactive','dsub'], hype:['dactive','dsub'] },
+  get idleKeys(){ return this.pools[this.tier] || this.pools.calm; },
+  setTier(t2){ if(this.pools[t2] && this.tier!==t2){ this.tier=t2; if(this.mode==='idle') this.playIdle(); } },
   init(){
     if(this.built) return; this.built=true;
     for(const [k,c] of Object.entries(ASSETS.clips)){
@@ -404,12 +417,20 @@ const Live = {
   cue(intent, ctx){ this.post({type:'nova-cue', intent, ctx:ctx||''}); },
 };
 
+/* ENERGY LADDER (2026-07-27) avatar map: hype→nova_active (nova_sub+nova_active baked; hype clip dropped) */
+const TIER_AVATAR = { calm:'nova_idle', sub:'nova_sub', active:'nova_active', hype:'nova_active' };
+let CUR_TIER = 'calm';
+
 /* ═══ Nova facade — the game calls these; they route live-avatar vs clip-bank ═══ */
 const Nova = {
   say(text){ NovaSay.log(text); if(Live.on) Live.say(text); },      // exact line (rarely needed now)
   cue(intent, ctx, pool){ if(Live.on) Live.cue(intent, ctx); else NovaSay.log(Fallback.pick(pool)); }, // live=she writes it; clips=varied local text
+  setTier(t2){ if(!TIER_AVATAR[t2] || CUR_TIER===t2) return; CUR_TIER=t2;   // ENERGY LADDER
+    try{ console.log('[TIER] →', t2); }catch(_){}
+    if(Live.on){ if(!G.freeze) Live.setAvatar(TIER_AVATAR[t2]); }           // mid-hold: applies at melt
+    else Clips.setTier(t2); },
   freeze(clipKey){ if(Live.on) Live.setAvatar('gest_'+clipKey); else Clips.freeze(clipKey); },
-  melt(){ if(Live.on) Live.setAvatar('nova_idle'); else Clips.melt(); },
+  melt(){ if(Live.on) Live.setAvatar(TIER_AVATAR[CUR_TIER]||'nova_idle'); else Clips.melt(); },  // return to CURRENT tier, never calm
 };
 
 /* ═══ incoming from the avatar iframe: kid's words + Nova's words → speech log,
@@ -552,6 +573,7 @@ function tick(){
 
   if(!G.freeze){
     DANCE_CUES.forEach((c,i)=>{ if(t>=c.at && !G.fired.c.has(i)){ G.fired.c.add(i); FX.cue(c.text); }});
+    tickTier(t);                                   // ENERGY LADDER: she escalates with the game
     // READY? beat — she asks and reacts to the kid's real answer (her live session hears them)
     if(t>=20 && !G.fired.k.has('ready')){ G.fired.k.add('ready');
       Nova.cue('Playfully ask the child if they are READY to freeze. If they answer, react to their exact energy; if quiet, stay warm and carry on.',

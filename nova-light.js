@@ -249,13 +249,46 @@
     return { render: render, hit: hit, reset: reset, preGlow: preGlow, cfg: cfg };
   }
 
-  // per-game presets (same engine, different config)
-  var PRESETS = {
-    upgroove:   { mode: 'isolation', nodes: 8,  burstOnHit: true,  coreR: 15, intensity: 1.0 },
-    handwave:   { mode: 'travel',    nodes: 22, bloomOnVertex: true, coreR: 16, intensity: 1.0 },
-    hellohello: { mode: 'calm',      nodes: 12, burstOnHit: true,  coreR: 14, intensity: 0.62,
-                  waveAmp: 9, sparkScale: 0.5, headWidth: 12, sparkPerVel: 0.35 }
-  };
+  // per-game presets — LOCKED AESTHETICS LIVE IN light-config.json (single source of truth).
+  // Loaded once at script load, resolved relative to THIS file's URL. PRESETS is a stable object
+  // reference the games hold; it's filled before any game calls create() (create() is always lazy —
+  // the first render is seconds after load, well after this fetch resolves). If the fetch fails
+  // (file://, offline) create() falls back to the engine BASE defaults so light still renders
+  // (un-tuned, never broken). No tuned numbers are hard-coded here — change looks via the JSON.
+  var PRESETS = {};          // name -> full config
+  var gameMap = {};          // game id -> preset name
+  var defaultPreset = 'hellohello';
+  function applyConfig(cfg) {
+    if (!cfg || typeof cfg !== 'object') return PRESETS;
+    Object.keys(cfg).forEach(function (k) {
+      if (k === '_gameMap') { gameMap = cfg[k] || {}; }
+      else if (k === '_defaultPreset') { defaultPreset = cfg[k] || defaultPreset; }
+      else if (k[0] !== '_') { PRESETS[k] = cfg[k]; }
+    });
+    if (PRESETS.wave && !PRESETS.handwave) PRESETS.handwave = PRESETS.wave;   // back-compat alias
+    return PRESETS;
+  }
+  // preset for a game id (falls back to the default, then to any BASE via create())
+  function presetFor(gameId) {
+    var name = gameMap[gameId] || defaultPreset;
+    return PRESETS[name] || PRESETS[defaultPreset];
+  }
 
-  root.NovaLight = { create: create, PRESETS: PRESETS, COL: COL, _qcolor: qcolor };
+  var _cfgUrl = 'light-config.json';
+  try {
+    if (typeof document !== 'undefined' && document.currentScript && document.currentScript.src)
+      _cfgUrl = new URL('light-config.json', document.currentScript.src).href;
+  } catch (e) {}
+  var ready;
+  if (typeof fetch === 'function') {
+    ready = fetch(_cfgUrl).then(function (r) { return r.json(); }).then(applyConfig)
+      .catch(function () { return PRESETS; });
+  } else { ready = Promise.resolve(PRESETS); }
+
+  root.NovaLight = {
+    create: create, PRESETS: PRESETS, COL: COL, _qcolor: qcolor,
+    ready: ready, applyConfig: applyConfig, presetFor: presetFor,
+    get gameMap() { return gameMap; }, get defaultPreset() { return defaultPreset; },
+    _configUrl: _cfgUrl
+  };
 })(typeof window !== 'undefined' ? window : this);
