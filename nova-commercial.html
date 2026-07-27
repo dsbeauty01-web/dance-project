@@ -1332,6 +1332,10 @@ body.energy-max #game-bg{filter:saturate(1.6) brightness(1.1) hue-rotate(15deg)}
 /* ?debug reveals the dev panel + log buttons; normal links stay clean */
 html.debug-on #debug-panel { display: block; }
 html.debug-on #log-actions { display: flex; }
+/* RELEASE: dev build badges hidden from the public — only shown with ?debug */
+#vbanner, #version-tag { display: none; }
+html.debug-on #vbanner { display: block; }
+html.debug-on #version-tag { display: block; }
 #log-actions button {
   padding: 6px 10px; border: none; border-radius: 6px;
   background: #1f2937; color: #00ff88;
