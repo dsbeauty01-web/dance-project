@@ -234,6 +234,12 @@ html[dir="rtl"] #nova-state-badge{right:auto;left:12px}
 html[dir="rtl"] #debug-panel,html[dir="rtl"] #debug-toggle{right:auto;left:8px}
 html[dir="rtl"] #log-actions{right:auto;left:8px}
 html[dir="rtl"] #sees-you-tick{left:auto;right:14px}
+/* ROOM-FILL INSURANCE (2026-07-27): any gap around her video shows her room's pink,
+   never black — works even if the pod-side ambient patch lags. */
+#nova-stage, #rec-avatar-frame, #end-avatar-frame, .ms-corner, #saray-frame {
+  background:
+    radial-gradient(ellipse at 50% 18%, #fbeaf6 0%, #ecd6ee 34%, #d9bfe6 62%, #caa9d8 100%) !important;
+}
 </style>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
@@ -1824,6 +1830,11 @@ document.addEventListener('DOMContentLoaded', () => {
         '3) Tell them: watch for the little LIGHT on your shoulder — lift that shoulder! (the game lights it). '+
         '4) When they get it, celebrate in 5 words. 5) Then ask ONE question: ready to dance? '+
         'We have Animal Freeze, Up Groove, or Wave Magic — which one? Then STOP and listen. '+
+        '6) When they choose, give ONE quick warmup that MATCHES that game — Up Groove: '+
+        'reach UP as high as you can! · Wave or Wave Magic: wave just your WRIST, arm still! · '+
+        'Animal Freeze: freeze like a statue for two seconds! NEVER swap challenges between '+
+        'games — the warmup always belongs to the chosen game. 7) They did it? Five-word '+
+        'celebration, then: LET US DANCE! and we go. '+
         'Never chat beyond this arc. Every line under 2 sentences. Never ask open questions like '+
         '"what do you want to talk about". You are the leader taking them to the dance.';
       f.contentWindow.postMessage({ type:'nova-persona', text: persona }, '*');
@@ -1934,7 +1945,9 @@ const PICKER_VOICE = [
   { card: '.bounce-card',    id: 'bounce',    re: /\b(bounce|bouncing|basketball)\b/i },
   { card: '.hello-card',     id: 'hello',     re: /\b(hello|halo|hi\s*hi)\b/i },
   { card: '.joined-card',    id: 'joined',    re: /\b(up\s*groove|groove|up)\b/i },
+  { card: '.wavemagic-card', id: 'wavemagic', re: /\b(wave\s*magic|magic)\b/i },
   { card: '.wave-card',      id: 'wave',      re: /\b(wave|waving)\b/i },
+  { card: '.freeze-card',    id: 'freeze',    re: /\b(freeze|animal|קפא|פריז)\b/i },
 ];
 let pickerVoiceUsed = false;
 function pickerHear(text){
@@ -1951,9 +1964,41 @@ function pickerHear(text){
   setTimeout(() => { card.classList.remove('voice-picked'); pickGame(hit.id); }, 420);
 }
 window.pickerHear = pickerHear;
+// SHE CAN OPEN IT (2026-07-27): while the picker is open, if NOVA names a game with a
+// go-word (let's go / here we / starting / בוא), she launches it herself — kid never clicks.
+window.addEventListener('message', (e) => {
+  try { const d = e.data; if (!d || d.type !== 'nova-said' || !d.text) return;
+    if (!document.querySelector('#phase-picker.active') || pickerVoiceUsed) return;
+    const t2 = d.text;
+    if (!/let'?s go|here we|starting|start|off we go|בוא|יאללה/i.test(t2)) return;
+    const hit = PICKER_VOICE.find(g => g.re.test(t2));
+    if (!hit) return;
+    pickerVoiceUsed = true;
+    LOG('PICKER', 'NOVA opened the game herself: ' + hit.id);
+    const card = document.querySelector(hit.card);
+    if (card) { card.classList.add('voice-picked'); setTimeout(()=>card.classList.remove('voice-picked'), 420); }
+    setTimeout(() => pickGame(hit.id), 600);
+  } catch(_){}
+});
 
+const GAME_WARMUP = {   // each game's ONE mini-warmup — her cue matches the game (2026-07-27)
+  joined:    'Up Groove warmup: ask them to push ONE shoulder UP high — up up up! One short line.',
+  wave:      'Wave warmup: ask them to wave their WRIST hello — just the wrist! One short line.',
+  wavemagic: 'Wave Magic warmup: ask them to make one arm ripple like a wave. One short line.',
+  hello:     'Hello warmup: ask them to throw ONE hand up high and say hello! One short line.',
+  freeze:    'Freeze warmup: ask them to freeze like a statue for two seconds! One short line.',
+};
 function pickGame(songId){
   if(typeof markUserInteraction === 'function') markUserInteraction();
+  // GAME-MATCHED WARMUP (2026-07-27): her mini-challenge fits the picked game — never a
+  // freeze cue for Up Groove. One line, then the transition carries on.
+  try { if (window.__MUSETALK && GAME_WARMUP[songId] && !window.__warmupSent) {
+    window.__warmupSent = songId;
+    const f = document.getElementById('saray-frame');
+    f && f.contentWindow && f.contentWindow.postMessage({ type:'nova-cue',
+      intent: GAME_WARMUP[songId],
+      ctx: 'This is the 3-second warmup before the game starts. One line only, excited.' }, '*');
+  } } catch(_){}
   // PRE-GAME DEMO VIDEO: the real session recording plays while the game loads
   try { if (typeof showPreDemo === 'function') showPreDemo(songId); } catch(_){}
   // PRE-GAME DEMO (2026-07-11): the kid picked → full-body Nova demos the game's
@@ -3857,7 +3902,7 @@ async function introShoulderChallenge() {
     setTimeout(() => { try { const f2 = document.getElementById('saray-frame');
       f2 && f2.contentWindow && f2.contentWindow.postMessage({ type:'nova-cue',
         intent:'Ask ONE short excited question: ready to dance? We have Animal Freeze, Up Groove, or Wave Magic — which one do you like? Then stop and listen.',
-        ctx:'Do not chat about anything else. One question, then wait for their answer.' }, '*'); } catch(_){} }, 3200);
+        ctx:'After they answer: ONE warmup matching THEIR game only — Up Groove = reach UP high · Wave/Wave Magic = wave just the wrist · Animal Freeze = freeze 2 seconds. Never a freeze warmup for Up Groove. Then straight to the dance.' }, '*'); } catch(_){} }, 3200);
   };
   window.__testShrug = success;   // test hook: synthetic shrug success (available immediately)
   try { if (!detector) await initDetector(); } catch(_){}
