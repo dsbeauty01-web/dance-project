@@ -21,7 +21,7 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
   padding:4px;background:linear-gradient(90deg,#7dd8ff,#3aa0ff,#7dd8ff);color:#04203c;font-weight:700}
 
 /* ── stage ── */
-#stage{position:fixed;inset:26px 0 0 0;display:grid;grid-template-columns:1fr 1.2fr;gap:10px;padding:10px}
+#stage{position:fixed;inset:26px 0 0 0;display:grid;grid-template-columns:1.5fr 1fr;gap:10px;padding:10px}
 @media(max-width:820px){#stage{grid-template-columns:1fr;grid-template-rows:1fr 1fr}}
 .panel{position:relative;border-radius:16px;overflow:hidden;background:#000;border:3px solid rgba(125,216,255,.25)}
 #cam{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);transition:filter .3s}
@@ -363,10 +363,28 @@ const Live = {
     $('nova-static').style.display='none';
     $('nova-tag').textContent='🌟 Nova · live';
     statusEl.textContent='✓ live Nova — talk to her!';
+    // WAKE POINTER (2026-07-27): her page needs ONE tap to wake her mic. Point the kid
+    // at it, and hold the game until she actually speaks (first iframe message).
+    this.post({type:'auto-start'});                     // harmless if unsupported
+    if(!document.getElementById('wake-hint')){
+      const h=document.createElement('div'); h.id='wake-hint';
+      h.style.cssText='position:absolute;left:50%;bottom:14%;transform:translateX(-50%);z-index:9;'+
+        'font-family:Fredoka;font-weight:700;font-size:clamp(16px,2.6vw,24px);color:#fff;'+
+        'background:rgba(80,30,140,.85);padding:10px 22px;border-radius:26px;white-space:nowrap;'+
+        'animation:wakepulse 1.2s ease-in-out infinite';
+      h.textContent='👆 Tap Nova to wake her!';
+      const st=document.createElement('style'); st.textContent='@keyframes wakepulse{50%{transform:translateX(-50%) scale(1.07)}}';
+      document.head.appendChild(st); novaStage.appendChild(h);
+    }
+    this._aliveTimer = setTimeout(()=>{                 // never strand: no voice in 18s → clip fallback
+      if(!this.alive){ this.fail('no session after 18s (never tapped / pod mute)'); }
+    }, 18000);
     try{ console.log('[LIVE] SARAY avatar mounted →', SARAY); }catch(_){}
   },
   fail(reason){
     if(this.dead) return; this.dead=true; this.on=false;
+    try{ clearTimeout(this._aliveTimer); }catch(_){}
+    const h=document.getElementById('wake-hint'); if(h) h.remove();
     Clips.init(); Clips.playIdle();                       // voice-less fallback, no error shown
     $('nova-static').style.display='none';
     $('nova-tag').textContent='🌟 Nova';
@@ -401,6 +419,10 @@ window.addEventListener('message', (e)=>{
   const type = (d.type || d.event || '').toString().toLowerCase();
   const text = (d.text || d.message || d.transcript || '').toString().trim();
   if(!text) return;
+  if(typeof Live!=='undefined' && Live.on && !Live.alive){              // first word = she's awake
+    Live.alive=true; try{ clearTimeout(Live._aliveTimer); }catch(_){}
+    const h=document.getElementById('wake-hint'); if(h) h.remove();
+  }
   if(Ready.active) cueReady();                                 // any word from the iframe = she's live → have her ask "ready?"
   if(/kid|user|you|human|child|final/.test(type)){
     KidBubble.show(text);
@@ -568,11 +590,15 @@ function startFreeze(def,idx){
   const c=ASSETS.clips[def.clip];
   const hold=effHold(def);                            // adaptive: harder = longer hold
   G.freeze={def, idx, hold, heldMs:0, lastT:Music.t()};
-  Music.duck(0.08,300);
+  /* MUSIC LAW (2026-07-27): never duck at freezes — the mp3's own beat IS the freeze texture */
   Nova.freeze(def.clip);                              // she BECOMES the animal (live) / clip (fallback)
-  FX.frostOn(); FX.badge(c.emo, def.final?('BIG '+c.name+'!'):(c.name+'!'));
-  FX.cue('FREEZE! 🧊',false,hold*1000);
-  ring.classList.add('show'); ring.style.setProperty('--p',0);
+  // FX ride HER pose: live swap takes ~350ms to show — frost/badge fire WITH her, never before
+  const fxDelay = (typeof Live!=='undefined' && Live.on) ? 350 : 0;
+  setTimeout(()=>{ if(!G.freeze) return;
+    FX.frostOn(); FX.badge(c.emo, def.final?('BIG '+c.name+'!'):(c.name+'!'));
+    FX.cue('FREEZE! 🧊',false,hold*1000);
+    ring.classList.add('show'); ring.style.setProperty('--p',0);
+  }, fxDelay);
 }
 
 function endFreeze(){
@@ -581,7 +607,6 @@ function endFreeze(){
   const credit=Math.max(0.4, ratio);                  // soft floor: showing up counts
   const pts=Math.round(f.def.pts*credit);
   const name=ASSETS.clips[f.def.clip].name, secs=(f.heldMs/1000).toFixed(1);
-  Music.duck(1.0,450);
   Nova.melt();                                        // back to nova_idle (live) / melt clip (fallback)
   // MELT EXPLOSION — brain writes fresh words from REAL hold data + memory of their best
   const beatBest = G.best && f.heldMs > G.best.heldMs + 1;
@@ -622,6 +647,11 @@ function cueReady(){ if(!Ready.active || _cueN>=2) return; _cueN++;   // ask at 
 }
 async function runReadyGate(){
   if(!Live.on) return;                                                // pod down / clip fallback: no voice gate, go straight to countdown
+  // PRESENCE GATE (2026-07-27): wait until she's actually AWAKE (first word) before
+  // any "ready?" UI — the game never runs ahead of a dark panel. 20s cap → fallback path.
+  const t0=Date.now();
+  while(!Live.alive && !Live.dead && Date.now()-t0<20000){ await new Promise(r=>setTimeout(r,300)); }
+  if(!Live.on || Live.dead) return;                                   // she fell back to clips meanwhile
   _cueN=0;
   const p=Ready.arm();
   $('ready-bar').classList.add('show');
