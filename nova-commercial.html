@@ -1836,7 +1836,11 @@ document.addEventListener('DOMContentLoaded', () => {
         'games — the warmup always belongs to the chosen game. 7) They did it? Five-word '+
         'celebration, then: LET US DANCE! and we go. '+
         'Never chat beyond this arc. Every line under 2 sentences. Never ask open questions like '+
-        '"what do you want to talk about". You are the leader taking them to the dance.';
+        '"what do you want to talk about". You are the leader taking them to the dance. '+
+        'TRUTH LAW (outranks everything): you cannot see the kid unless a detection event is '+
+        'reported to you. NEVER say you saw them do something or praise a move nobody reported - '+
+        'that is a lie and kids feel it instantly. With no reported move: invite (show me!), talk '+
+        'about yourself (watch MY spin!), or stay quiet. Silence beats a lie, always.';
       f.contentWindow.postMessage({ type:'nova-persona', text: persona }, '*');
       f.contentWindow.postMessage({ type:'set_persona',  text: persona }, '*');
     } catch(_){} }, 1200);
@@ -5581,9 +5585,9 @@ window.setSelectedSong = setSelectedSong;
     joined: [
       { t: 2,  say: "Let's light you up — move free!" },
       { t: 15, say: "Just your head — nod, nod, nod!" },
-      { t: 28, say: "Now your shoulders — tilt, yes!" },
-      { t: 42, say: "The ribs! Slide them — how?!" },
-      { t: 55, say: "Hips sway — you've got it!" },
+      { t: 28, say: "Now your shoulders — tilt them!" },
+      { t: 42, say: "The ribs! Try sliding them!" },
+      { t: 55, say: "Hips — sway sway sway!" },
       { t: 68, say: "Faster now! Head, shoulder, rib — go!" },
       { t: 80, say: "Everything at once — this is your dance!" },
     ],
@@ -5591,7 +5595,7 @@ window.setSelectedSong = setSelectedSong;
       { t: 3,   say: "Hello hello! I'm so happy you're here!" },
       { t: 22,  say: "Wave with me — hi, hi, hi!" },
       { t: 45,  say: "Wake up those arms — stretch tall!" },
-      { t: 68,  say: "Clap, clap, clap — I hear you!" },
+      { t: 68,  say: "Clap, clap, clap — with me!" },
       { t: 90,  say: "Spin around — wheee!" },
       { t: 104, say: "Slow it down… big breath." },
     ],
@@ -5600,19 +5604,19 @@ window.setSelectedSong = setSelectedSong;
       { t: 12, say: "Shake it — wiggle everything!" },
       { t: 22, say: "Freeze! Hold it… statue!" },
       { t: 31, say: "And… dance again!" },
-      { t: 42, say: "Freeze! Don't move — I see you!" },
+      { t: 42, say: "Freeze! Hold like a statue!" },
       { t: 53, say: "Biggest freeze… hold it!" },
     ],
     wave: [
       { t: 2,  say: "Show me your wave — hand up high!" },
       { t: 9,  say: "This hand — wave, wave, wave!" },
       { t: 16, say: "Now the other — hi up there!" },
-      { t: 23, say: "Both hands — you're a star!" },
+      { t: 23, say: "Both hands up — try it!" },
     ],
     wavemagic: [
       // first ~8.5s is the baked video intro — she stays quiet, then takes over
       { t: 19, say: "Your turn — wave and light it up!" },
-      { t: 33, say: "Keep it glowing — yes!" },
+      { t: 33, say: "Keep that wave going!" },
       { t: 59, say: "Now the other arm — magic!" },
       { t: 71, say: "Both arms — you're glowing!" },
     ],

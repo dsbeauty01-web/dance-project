@@ -105,18 +105,14 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
 
 /* ── LIVE Nova: a LOCKED 9:16 stage, centered in the panel, FULL FIGURE (head→shoes, never cropped) ── */
 #nova-panel{display:flex;align-items:center;justify-content:center;background:#0a0518}
-#nova-stage{position:relative;width:100%;height:100%;margin:0 auto;
+#nova-stage{position:relative;height:100%;aspect-ratio:9/16;max-width:100%;margin:0 auto;
   overflow:hidden;border-radius:12px;background:#150a24}
 /* the live V2V avatar iframe fills the 9:16 stage edge-to-edge */
-#nova-stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:#150a24;z-index:3}
+#nova-stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:linear-gradient(180deg,#f2d7f2 0%,#e8c6ea 55%,#caa3d6 100%);z-index:3}
 /* clip-bank fallback videos (only if the pod is down) — contain = whole figure, no crop, no stretch */
 #nova-stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
-  opacity:0;transition:opacity .15s linear;z-index:2;background:transparent}
+  opacity:0;transition:opacity .15s linear;z-index:2;background:#150a24}
 #nova-stage video.on{opacity:1}
-/* AMBIENT ROOM FILL: a blurred cover-copy of the studio fills the panel behind her —
-   zero black margin, the room just looks bigger. Sharp full-figure Nova sits on top. */
-#nova-stage video.clipbg{inset:-6%;width:112%;height:112%;object-fit:cover;z-index:1;opacity:1;
-  filter:blur(28px) brightness(.9) saturate(1.12)}
 #nova-static{position:absolute;inset:0;z-index:1;display:flex;align-items:center;justify-content:center;
   font-size:clamp(46px,9vw,90px);background:radial-gradient(ellipse 60% 50% at 50% 40%,#43106f,#170134 70%);
   filter:drop-shadow(0 0 24px rgba(255,226,190,.85))}
@@ -231,9 +227,6 @@ const ASSETS = {
   clips: {
     idle1:    { file:'freezegame/idle_sway.mp4' },
     idle2:    { file:'freezegame/idle-walkalong.mp4' },
-    dsub:     { file:'freezegame/dance-sub.mp4' },      /* ENERGY LADDER (2026-07-27) */
-    dactive:  { file:'freezegame/dance-active.mp4' },
-    dhype:    { file:'freezegame/dance-hype.mp4' },
     star:     { file:'freezegame/freeze-star.mp4',      pauseAt:3.0, emo:'⭐', name:'STAR' },
     frog:     { file:'freezegame/freezefrog.mp4',       pauseAt:2.4, emo:'🐸', name:'FROG' },
     bear:     { file:'freezegame/freezebear.mp4',       pauseAt:2.2, emo:'🐻', name:'BEAR' },
@@ -299,19 +292,9 @@ const NovaSay = {
 
 /* ═══ Clip-bank Nova — FALLBACK ONLY, built lazily when the pod is down ═══ */
 const Clips = {
-  vids:{}, current:null, idleIdx:0, mode:'idle', built:false,
-  /* ENERGY LADDER (2026-07-27): calm → subtle → active → hype. Pool per tier. */
-  tier:'calm',
-  pools:{ calm:['idle1','idle2'], sub:['dsub','idle1'], active:['dactive','dsub'], hype:['dhype','dactive'] },
-  get idleKeys(){ return this.pools[this.tier] || this.pools.calm; },
-  setTier(t2){ if(this.pools[t2] && this.tier!==t2){ this.tier=t2;
-    if(this.mode==='idle') this.playIdle(); } },
+  vids:{}, current:null, idleKeys:['idle1','idle2'], idleIdx:0, mode:'idle', built:false,
   init(){
     if(this.built) return; this.built=true;
-    // blurred studio backdrop — fills the panel behind her so there's no black margin
-    const bg=document.createElement('video'); bg.className='clipbg';
-    bg.src=ASSETS.clips.idle1.file; bg.muted=true; bg.playsInline=true; bg.loop=true; bg.preload='auto';
-    novaStage.appendChild(bg); bg.play().catch(()=>{}); this.bg=bg;
     for(const [k,c] of Object.entries(ASSETS.clips)){
       const v=document.createElement('video');
       v.src=c.file; v.preload='auto'; v.muted=true; v.playsInline=true;
@@ -372,7 +355,6 @@ const Live = {
     f.allow='microphone; camera; autoplay; fullscreen';   // iframe owns the mic (delegated)
     f.setAttribute('allowfullscreen','');
     f.addEventListener('load',()=>{                       // hand her the TENSION-MASTER brain once
-      this.post({type:'frame', mode:'full'});             // FULL BODY — freeze game needs head→shoes (pod default is waist-up closeup)
       this.post({type:'nova-persona', text:TENSION_MASTER});
       this.post({type:'set_persona', text:TENSION_MASTER});   // belt + suspenders (naming may vary)
       this.setAvatar('nova_idle');
@@ -402,7 +384,6 @@ const Live = {
   fail(reason){
     if(this.dead) return; this.dead=true; this.on=false;
     try{ clearTimeout(this._aliveTimer); }catch(_){}
-    if(this.frame){ try{ this.frame.remove(); }catch(_){} this.frame=null; }   // drop the dark live iframe (z3) so the mp4 (z2) is actually visible
     const h=document.getElementById('wake-hint'); if(h) h.remove();
     Clips.init(); Clips.playIdle();                       // voice-less fallback, no error shown
     $('nova-static').style.display='none';
@@ -424,18 +405,11 @@ const Live = {
 };
 
 /* ═══ Nova facade — the game calls these; they route live-avatar vs clip-bank ═══ */
-const TIER_AVATAR = { calm:'nova_idle', sub:'nova_sub', active:'nova_active', hype:'nova_hype' };
-let CUR_TIER = 'calm';
 const Nova = {
   say(text){ NovaSay.log(text); if(Live.on) Live.say(text); },      // exact line (rarely needed now)
   cue(intent, ctx, pool){ if(Live.on) Live.cue(intent, ctx); else NovaSay.log(Fallback.pick(pool)); }, // live=she writes it; clips=varied local text
   freeze(clipKey){ if(Live.on) Live.setAvatar('gest_'+clipKey); else Clips.freeze(clipKey); },
-  // ENERGY LADDER: melt returns to the CURRENT tier's dance, never back to calm
-  melt(){ if(Live.on) Live.setAvatar(TIER_AVATAR[CUR_TIER]||'nova_idle'); else Clips.melt(); },
-  setTier(t2){ if(!TIER_AVATAR[t2] || CUR_TIER===t2) return; CUR_TIER=t2;
-    try{ console.log('[TIER] →', t2); }catch(_){}
-    if(Live.on){ if(!G.freeze) Live.setAvatar(TIER_AVATAR[t2]); }   // mid-hold: tier applies at melt
-    else Clips.setTier(t2); },
+  melt(){ if(Live.on) Live.setAvatar('nova_idle'); else Clips.melt(); },
 };
 
 /* ═══ incoming from the avatar iframe: kid's words + Nova's words → speech log,
@@ -575,7 +549,6 @@ const FAKES = [ {at:FREEZES[2].at-7}, {at:FREEZES[3].at-7} ];
 function tick(){
   if(!G.running){ requestAnimationFrame(tick); return; }
   const t=Music.t();
-  tickTier(t);                                   // ENERGY LADDER: she escalates with the game
 
   if(!G.freeze){
     DANCE_CUES.forEach((c,i)=>{ if(t>=c.at && !G.fired.c.has(i)){ G.fired.c.add(i); FX.cue(c.text); }});
@@ -613,12 +586,6 @@ function tick(){
   requestAnimationFrame(tick);
 }
 
-/* ENERGY LADDER map: dance1=sub · dance2-3=active · dance4+=hype */
-const TIER_AT = [ {t:0,tier:'sub'}, {t:36,tier:'active'}, {t:82,tier:'hype'} ];
-let _tierFired = new Set();
-function tickTier(pos){
-  for(const e of TIER_AT){ if(pos>=e.t && !_tierFired.has(e.t)){ _tierFired.add(e.t); Nova.setTier(e.tier); } }
-}
 function startFreeze(def,idx){
   const c=ASSETS.clips[def.clip];
   const hold=effHold(def);                            // adaptive: harder = longer hold
