@@ -1,0 +1,25 @@
+name: Nova Laws
+
+# The wall. Every push and PR runs the law-tests. If an ACTIVE law's marker has
+# vanished from the code, this job goes RED with the law's name — a registered
+# fix cannot silently disappear. Known-LOST laws (see LAWS.md red-list) report
+# loudly but do not fail the build until the founder restores + activates them.
+#
+# Do not "fix" a red build by deleting a test. Restore the law. See
+# START-HERE-CLI.md and LAWS.md (append-only).
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  laws:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run Nova law-tests (walls)
+        run: bash tools/laws/run-all.sh
