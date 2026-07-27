@@ -1782,6 +1782,7 @@ function novaStageTo(frameId, phaseId){
       if (stage.parentElement !== document.body) document.body.appendChild(stage);
       stage.classList.add('ms-corner');
       stage.style.display = 'block';
+      window.__sarayFrameMode && window.__sarayFrameMode('full');   // corner = FULL BODY, max coverage
     }
     return;  // game/picker: leave it alone (pod flow)
   }
@@ -1794,8 +1795,29 @@ function novaStageTo(frameId, phaseId){
   frame.appendChild(stage);
   stage.classList.add('in-frame');
   stage.style.display = 'block';
+  window.__sarayFrameMode && window.__sarayFrameMode('closeup');   // intro/end = WAIST-UP, no margins
 }
 window.__novaStageTo = novaStageTo;
+
+// FRAME-MODE BRIDGE (2026-07-27): tell the SARAY page how to frame her video.
+// 'closeup' = waist-up, object-fit cover, zero black margins (intro + end screens)
+// 'full'    = full body, maximum coverage (game corner)
+// The SARAY page handles {type:'frame', mode}; until the pod page ships its handler
+// this is a harmless no-op message. Re-sent on iframe load so refreshes stay correct.
+window.__sarayFrameMode = function(mode){
+  try {
+    window.__sarayMode = mode;
+    const f = document.getElementById('saray-frame');
+    if (f && f.contentWindow) f.contentWindow.postMessage({ type:'frame', mode: mode }, '*');
+    LOG('FRAME', 'SARAY frame mode → ' + mode);
+  } catch(_){}
+};
+document.addEventListener('DOMContentLoaded', () => {
+  const f = document.getElementById('saray-frame');
+  if (f) f.addEventListener('load', () => {
+    setTimeout(() => window.__sarayFrameMode(window.__sarayMode || 'closeup'), 800);
+  });
+});
 
 // PRE-GAME DEMO VIDEO (FINISH-THE-GAME 2026-07-16): the committed session recordings
 // (pre-upgroove.mp4 / pre-wave.mp4, portrait 720x1280) ride the load as a muted PiP
@@ -7240,20 +7262,30 @@ document.addEventListener('arrival-done', async () => {
       window.__NOVA_NAME_PATHS = 1;              // re-enable the 3-path name capture (no worker voice-ask here)
       setTimeout(() => { try { showNameCaptureButtons(); } catch(_){} }, 1400);
       // the shoulder light-cue isolation challenge (worker-free) — same globals the glow module reads
-      // #3 PORT: fire the shoulder challenge AFTER Nova explains it — gate on her transcript
-      // (the iframe posts {nova-said,text}) mentioning shoulder/light, with a 14s fallback so
-      // it never stalls. introShoulderChallenge() lights her shoulder + runs REAL shrug detection.
+      // #3 PORT (RE-TIMED 2026-07-27): the shoulder challenge NEVER fires before 25s of
+      // chit-chat, no matter what Nova says. Gate = (elapsed >= 25s) AND (she mentioned
+      // shoulder/light — remembered even if said earlier) OR the 35s hard fallback.
+      window.__introChatT0 = Date.now();
+      window.__novaMentionedShoulder = false;
+      const __tryFireShoulder = (why) => {
+        if (window.__introShoulderDone || window.__introShoulderRunning) return;
+        if (Date.now() - window.__introChatT0 < 25000) return;   // chit-chat first — the law
+        LOG('INTRO', 'shoulder challenge firing (' + why + ') at ' +
+            Math.round((Date.now() - window.__introChatT0)/1000) + 's');
+        introShoulderChallenge();
+      };
       window.addEventListener('message', (e) => {
         try { const d = e.data;
-          if (d && d.type === 'nova-said' && /shoulder|light|shrug/i.test(d.text || '')
-              && !window.__introShoulderDone && !window.__introShoulderRunning) {
-            LOG('INTRO', 'Nova explained the shoulder light → firing the challenge');
-            introShoulderChallenge();
+          if (d && d.type === 'nova-said' && /shoulder|light|shrug/i.test(d.text || '')) {
+            window.__novaMentionedShoulder = true;
+            __tryFireShoulder('Nova explained it');
           }
         } catch(_){}
       });
-      setTimeout(() => { if (!window.__introShoulderRunning && !window.__introShoulderDone) {
-        LOG('INTRO', 'shoulder challenge fallback (14s) — firing'); introShoulderChallenge(); } }, 14000);
+      // recheck at the 25s mark in case she explained it early (mention remembered)
+      setTimeout(() => { if (window.__novaMentionedShoulder) __tryFireShoulder('25s gate opened'); }, 25200);
+      // hard fallback: 35s — never stalls, still never early
+      setTimeout(() => { __tryFireShoulder('35s fallback'); }, 35000);
       LOG('GAME', 'MUSETALK classic intro — Nova BIG + name capture + shoulder glow restored');
     }, 3500);
   }
