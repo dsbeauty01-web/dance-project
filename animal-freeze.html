@@ -355,6 +355,7 @@ const Live = {
     f.allow='microphone; camera; autoplay; fullscreen';   // iframe owns the mic (delegated)
     f.setAttribute('allowfullscreen','');
     f.addEventListener('load',()=>{                       // hand her the TENSION-MASTER brain once
+      this.post({type:'frame', mode:'full'});             // FULL BODY — freeze game needs head→shoes (pod default is waist-up closeup)
       this.post({type:'nova-persona', text:TENSION_MASTER});
       this.post({type:'set_persona', text:TENSION_MASTER});   // belt + suspenders (naming may vary)
       this.setAvatar('nova_idle');
