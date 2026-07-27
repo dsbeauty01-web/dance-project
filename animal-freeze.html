@@ -231,6 +231,9 @@ const ASSETS = {
   clips: {
     idle1:    { file:'freezegame/idle_sway.mp4' },
     idle2:    { file:'freezegame/idle-walkalong.mp4' },
+    dsub:     { file:'freezegame/dance-sub.mp4' },      /* ENERGY LADDER (2026-07-27) */
+    dactive:  { file:'freezegame/dance-active.mp4' },
+    dhype:    { file:'freezegame/dance-hype.mp4' },
     star:     { file:'freezegame/freeze-star.mp4',      pauseAt:3.0, emo:'⭐', name:'STAR' },
     frog:     { file:'freezegame/freezefrog.mp4',       pauseAt:2.4, emo:'🐸', name:'FROG' },
     bear:     { file:'freezegame/freezebear.mp4',       pauseAt:2.2, emo:'🐻', name:'BEAR' },
@@ -296,7 +299,13 @@ const NovaSay = {
 
 /* ═══ Clip-bank Nova — FALLBACK ONLY, built lazily when the pod is down ═══ */
 const Clips = {
-  vids:{}, current:null, idleKeys:['idle1','idle2'], idleIdx:0, mode:'idle', built:false,
+  vids:{}, current:null, idleIdx:0, mode:'idle', built:false,
+  /* ENERGY LADDER (2026-07-27): calm → subtle → active → hype. Pool per tier. */
+  tier:'calm',
+  pools:{ calm:['idle1','idle2'], sub:['dsub','idle1'], active:['dactive','dsub'], hype:['dhype','dactive'] },
+  get idleKeys(){ return this.pools[this.tier] || this.pools.calm; },
+  setTier(t2){ if(this.pools[t2] && this.tier!==t2){ this.tier=t2;
+    if(this.mode==='idle') this.playIdle(); } },
   init(){
     if(this.built) return; this.built=true;
     // blurred studio backdrop — fills the panel behind her so there's no black margin
@@ -415,11 +424,18 @@ const Live = {
 };
 
 /* ═══ Nova facade — the game calls these; they route live-avatar vs clip-bank ═══ */
+const TIER_AVATAR = { calm:'nova_idle', sub:'nova_sub', active:'nova_active', hype:'nova_hype' };
+let CUR_TIER = 'calm';
 const Nova = {
   say(text){ NovaSay.log(text); if(Live.on) Live.say(text); },      // exact line (rarely needed now)
   cue(intent, ctx, pool){ if(Live.on) Live.cue(intent, ctx); else NovaSay.log(Fallback.pick(pool)); }, // live=she writes it; clips=varied local text
   freeze(clipKey){ if(Live.on) Live.setAvatar('gest_'+clipKey); else Clips.freeze(clipKey); },
-  melt(){ if(Live.on) Live.setAvatar('nova_idle'); else Clips.melt(); },
+  // ENERGY LADDER: melt returns to the CURRENT tier's dance, never back to calm
+  melt(){ if(Live.on) Live.setAvatar(TIER_AVATAR[CUR_TIER]||'nova_idle'); else Clips.melt(); },
+  setTier(t2){ if(!TIER_AVATAR[t2] || CUR_TIER===t2) return; CUR_TIER=t2;
+    try{ console.log('[TIER] →', t2); }catch(_){}
+    if(Live.on){ if(!G.freeze) Live.setAvatar(TIER_AVATAR[t2]); }   // mid-hold: tier applies at melt
+    else Clips.setTier(t2); },
 };
 
 /* ═══ incoming from the avatar iframe: kid's words + Nova's words → speech log,
@@ -559,6 +575,7 @@ const FAKES = [ {at:FREEZES[2].at-7}, {at:FREEZES[3].at-7} ];
 function tick(){
   if(!G.running){ requestAnimationFrame(tick); return; }
   const t=Music.t();
+  tickTier(t);                                   // ENERGY LADDER: she escalates with the game
 
   if(!G.freeze){
     DANCE_CUES.forEach((c,i)=>{ if(t>=c.at && !G.fired.c.has(i)){ G.fired.c.add(i); FX.cue(c.text); }});
@@ -596,6 +613,12 @@ function tick(){
   requestAnimationFrame(tick);
 }
 
+/* ENERGY LADDER map: dance1=sub · dance2-3=active · dance4+=hype */
+const TIER_AT = [ {t:0,tier:'sub'}, {t:36,tier:'active'}, {t:82,tier:'hype'} ];
+let _tierFired = new Set();
+function tickTier(pos){
+  for(const e of TIER_AT){ if(pos>=e.t && !_tierFired.has(e.t)){ _tierFired.add(e.t); Nova.setTier(e.tier); } }
+}
 function startFreeze(def,idx){
   const c=ASSETS.clips[def.clip];
   const hold=effHold(def);                            // adaptive: harder = longer hold
