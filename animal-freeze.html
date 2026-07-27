@@ -385,6 +385,7 @@ const Live = {
   fail(reason){
     if(this.dead) return; this.dead=true; this.on=false;
     try{ clearTimeout(this._aliveTimer); }catch(_){}
+    if(this.frame){ try{ this.frame.remove(); }catch(_){} this.frame=null; }   // drop the dark live iframe (z3) so the mp4 (z2) is actually visible
     const h=document.getElementById('wake-hint'); if(h) h.remove();
     Clips.init(); Clips.playIdle();                       // voice-less fallback, no error shown
     $('nova-static').style.display='none';
