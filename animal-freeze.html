@@ -36,6 +36,8 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
   background:conic-gradient(#7df0ff calc(var(--p)*1%), rgba(125,216,255,.15) 0);
   -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
   -webkit-mask-composite:xor;mask-composite:exclude}
+/* live: the hold-ring turns RED while the kid is MOVING during a freeze */
+#ring.moving::before{background:conic-gradient(#ff8a8a calc(var(--p)*1%), rgba(255,138,138,.18) 0)}
 
 /* frost + snow */
 #frost{position:fixed;inset:0;pointer-events:none;z-index:40;opacity:0;transition:opacity .35s;
@@ -561,6 +563,7 @@ const Fallback = {
     warnHard:['quick — freeze incoming!','snap-freeze soon!','fast statue coming!'],
     boom:['YES! Frozen solid!','WOW! Perfect statue!','Amazing freeze!','Ice legend!','You froze it!','Incredible!'],
     fake:['JUST KIDDING — MOVE!','tricked you — DANCE!','gotcha — keep moving!'],
+    moved:['You moved! Freeze next time ❄️','Almost — hold still next round! 💙','Freeze harder next time! 🧊'],
     ready:['Ready? Here we go!','Get set to freeze!','Ready for magic?'],
     bye:['Amazing dancing today!','You were incredible!','See you next time!'],
   },
@@ -570,6 +573,16 @@ const Fallback = {
 };
 function warnLead(){ return G.diff==='hard'?0.9 : G.diff==='easy'?2.2 : 1.5; }   // harder = shorter warning
 function effHold(def){ return G.diff==='hard'? def.hold+0.7 : G.diff==='easy'? Math.max(2.5,def.hold-0.6) : def.hold; }
+/* ═══ FREEZE SCORING (2026-07-28): MOVEMENT COSTS THE SCORE — but fair ═══
+   0.7s reaction grace after FREEZE!, then measure the fraction of the hold the kid held STILL
+   (Pose.still = shoulder-normalized motion < 0.045). still ≥ FULL_AT → full points ·
+   < MOVE_AT → they danced through it → 0 points + no stamp. Fraction-over-window = natural debounce. */
+const FREEZE_GRACE = 0.7, FULL_AT = 0.75, MOVE_AT = 0.40;
+function freezeCredit(frac){
+  if(frac >= FULL_AT) return 1;
+  if(frac <= MOVE_AT) return 0;
+  return 0.3 + (frac - MOVE_AT) * (0.7 / (FULL_AT - MOVE_AT));   // 0.40→0.3 … 0.75→1.0
+}
 /* fake-out beats a few seconds before rounds 3 & 4 (indices 2,3) — NEVER the final (index 4) */
 const FAKES = [ {at:FREEZES[2].at-7}, {at:FREEZES[3].at-7} ];
 
@@ -602,12 +615,14 @@ function tick(){
   } else {
     const f=G.freeze;
     const now=t;
-    if(Pose.ok ? Pose.still : true){                  // no tracking → always credited (soft)
-      f.heldMs += (now-f.lastT)*1000;
+    const dt=(now-f.lastT)*1000; f.lastT=now;
+    if((now - f.def.at) >= FREEZE_GRACE){              // past the reaction grace → the scoring window
+      f.winMs += dt;
+      const still = !Pose.ok || Pose.still;            // no tracking → full credit (soft)
+      if(still) f.stillMs += dt; else f.moved = true;
+      ring.classList.toggle('moving', Pose.ok && !still);   // live RED tint while moving
     }
-    f.lastT=now;
-    const p=Math.min(100, f.heldMs/(f.hold*1000)*100);
-    ring.style.setProperty('--p',p);
+    ring.style.setProperty('--p', Math.min(100, (now - f.def.at)/f.hold*100));   // ring = time held
     if(now >= f.def.at + f.hold) endFreeze();          // SILENT during the whole hold (effHold = adaptive)
   }
 
@@ -618,7 +633,7 @@ function tick(){
 function startFreeze(def,idx){
   const c=ASSETS.clips[def.clip];
   const hold=effHold(def);                            // adaptive: harder = longer hold
-  G.freeze={def, idx, hold, heldMs:0, lastT:Music.t()};
+  G.freeze={def, idx, hold, stillMs:0, winMs:0, moved:false, lastT:Music.t()};
   /* MUSIC LAW (2026-07-27): never duck at freezes — the mp3's own beat IS the freeze texture */
   Nova.freeze(def.clip);                              // she BECOMES the animal (live) / clip (fallback)
   // FX ride HER pose: live swap takes ~350ms to show — frost/badge fire WITH her, never before
@@ -631,28 +646,32 @@ function startFreeze(def,idx){
 }
 
 function endFreeze(){
-  const f=G.freeze; G.freeze=null;
-  const ratio=Math.min(1, f.heldMs/(f.hold*1000));
-  const credit=Math.max(0.4, ratio);                  // soft floor: showing up counts
+  const f=G.freeze; G.freeze=null; ring.classList.remove('moving');
+  const frac = f.winMs>0 ? f.stillMs/f.winMs : 1;      // fraction of the scoring window held STILL
+  const credit = freezeCredit(frac);
   const pts=Math.round(f.def.pts*credit);
-  const name=ASSETS.clips[f.def.clip].name, secs=(f.heldMs/1000).toFixed(1);
-  Nova.melt();                                        // back to nova_idle (live) / melt clip (fallback)
-  // MELT EXPLOSION — brain writes fresh words from REAL hold data + memory of their best
-  const beatBest = G.best && f.heldMs > G.best.heldMs + 1;
-  const ctx = 'They held the '+name+' freeze for '+secs+'s ('+Math.round(ratio*100)+'% of target).'
-    + (G.best ? ' Their best before was '+G.best.name+' at '+(G.best.heldMs/1000).toFixed(1)+'s.' : '')
-    + (beatBest ? ' NEW BEST — say it beat their '+G.best.name+' freeze, with extra excitement.' : '');
-  Nova.cue('Explode with delight in five words or fewer about this freeze, naming what they did. Never say no/wrong/missed.', ctx, 'boom');
-  G.rounds.push({name, ratio, heldMs:f.heldMs});
-  try { if(window.NovaRec) NovaRec.event('freeze', {name, ratio, heldMs:f.heldMs, secs:+secs}); } catch(_){}
-  if(!G.best || f.heldMs>G.best.heldMs) G.best={name, heldMs:f.heldMs};   // in-session memory
-  G.diff = ratio>0.85 ? 'hard' : ratio<0.5 ? 'easy' : 'normal';           // ADAPT the next round
-  FX.frostOff(); FX.badgeOff(); FX.shatter(); ring.classList.remove('show');
-  G.addScore(pts); FX.fly('+'+pts);
-  $('stamp'+f.idx).classList.add('got'); G.stamps.push(f.idx);
-  const lines= ratio>0.85 ? ['PERFECT STATUE! 🌟','FROZEN SOLID! ❄️','ICE LEGEND! 💎']
-             : ratio>0.5  ? ['So close to stone! ✨','Almost solid ice! 🧊']
-                          : ['You wobbled and SAVED it! 😄','Silly statue! Love it! 💙'];
+  const name=ASSETS.clips[f.def.clip].name, secs=(f.stillMs/1000).toFixed(1), pct=Math.round(frac*100);
+  const froze = frac>=FULL_AT, moved = frac<MOVE_AT;
+  Nova.melt();                                        // back to current-tier avatar (live) / melt clip (fallback)
+  // MELT REACTION — brain writes fresh words from REAL stillness data
+  const beatBest = G.best && froze && f.stillMs > G.best.heldMs + 1;
+  const ctx = 'They held the '+name+' freeze STILL for '+pct+'% of the window'
+    + (froze?' — a PERFECT freeze!':moved?' — they kept MOVING, not a real freeze.':' — wobbly, half-still.')
+    + (G.best ? ' Best still-freeze so far: '+G.best.name+'.' : '')
+    + (beatBest ? ' NEW BEST — say so with extra excitement.' : '');
+  Nova.cue(moved ? 'Playfully tell them to FREEZE and hold still next time — warm, never say wrong/bad. Five words max.'
+                 : 'Explode with delight in five words or fewer about their freeze. Never say no/wrong/missed.',
+           ctx, moved?'moved':'boom');
+  G.rounds.push({name, frac, pts});
+  try { if(window.NovaRec) NovaRec.event('freeze', {name, frac, pct, pts, still:froze}); } catch(_){}
+  if(!G.best || f.stillMs>G.best.heldMs) G.best={name, heldMs:f.stillMs, frac};   // best = stillest freeze
+  G.diff = frac>0.85 ? 'hard' : frac<0.5 ? 'easy' : 'normal';                     // ADAPT the next round
+  FX.frostOff(); FX.badgeOff(); ring.classList.remove('show');
+  if(pts>0){ FX.shatter(); G.addScore(pts); FX.fly('+'+pts); $('stamp'+f.idx).classList.add('got'); G.stamps.push(f.idx); }
+  else { FX.fly('MOVED!'); }                            // danced through it → no points, no stamp
+  const lines= froze ? ['PERFECT STATUE! 🌟','FROZEN SOLID! ❄️','ICE LEGEND! 💎']
+             : !moved ? ['Almost! Tiny wiggle ✨','So close to stone! 🧊']
+                      : ['You moved! Freeze next time ❄️','Keep dancing… then FREEZE! 💃'];
   FX.cue(lines[Math.floor(Math.random()*lines.length)]);
 }
 
