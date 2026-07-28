@@ -3054,7 +3054,12 @@ async function initDID() {
       sessionPromise = fetch(CFG.RENDER_URL + '/v2/create-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kidId: window.__kidId, voiceOnly: VOICEONLY, directGame: DIRECTGAME }),
+        // TWO-VOICE FIX (2026-07-28): match the prefetch body — dispatch:false so
+        // create-session does NOT auto-summon an English agent, and pass lang so the
+        // single explicit dispatch below summons ONE agent in the right language.
+        // Without these the fallback spawned an English Nova AND a Hebrew Nova → the
+        // "two voices fighting" (English greet, then Hebrew greet).
+        body: JSON.stringify({ kidId: window.__kidId, dispatch: false, lang: window.NOVA_LANG, voiceOnly: VOICEONLY, directGame: DIRECTGAME }),
       }).catch(e => {
         LOG('ERROR', '/create-session network failed', { msg: e.message });
         return null;
@@ -3076,9 +3081,11 @@ async function initDID() {
       if (!creds.serverUrl || !creds.token) throw new Error('/create-session missing creds');
       window.__novaSessionId = creds.sessionId || creds.id;
       LOG('RPC-IN', `/create-session READY (${(performance.now()-sessionStart).toFixed(0)}ms)`, { sid: window.__novaSessionId?.slice(0,8) });
-      if (usedPrefetch && creds.roomName) {
-        // prefetched session was created dispatch:false → summon Nova NOW (at tap),
-        // in parallel with room.connect. She joins a room the kid is entering.
+      if (creds.roomName) {
+        // BOTH paths now create the session dispatch:false → summon Nova ONCE here
+        // (at tap), in parallel with room.connect, in the right language. She joins
+        // a room the kid is entering. (Was gated to usedPrefetch, which left the
+        // fallback path to auto-dispatch a second, English agent.)
         fetch(CFG.RENDER_URL + '/v2/dispatch', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ roomName: creds.roomName, kidId: window.__kidId, lang: window.NOVA_LANG }),
