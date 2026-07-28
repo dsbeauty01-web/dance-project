@@ -2248,6 +2248,143 @@ window.toggleMic = function(){ window._toggleMic && window._toggleMic(); };
 const LOG_BUFFER = [];
 const T0 = performance.now();
 
+// ════════════════════════════════════════════════════════════════════════
+// NOVA PULSE (2026-07-28) — every session reports itself, even abandoned ones.
+// A single accumulator fed by TAPPING the existing LOG() event flow (see the
+// pulseTap() call inside LOG()). No existing logging is changed or removed.
+// One JSON per session ships to the worker /pulse on ending AND on pagehide,
+// so the drop-off point of abandoned sessions is captured too.
+// ════════════════════════════════════════════════════════════════════════
+const PULSE = { id: (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2)),
+  t0: Date.now(), lang: (new URLSearchParams(location.search).get('lang') || document.documentElement.lang || 'en'),
+  locale: navigator.language, ua: navigator.userAgent, dev: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
+  funnel: { reached_name: false, light_caught: false, game_picked: null, game_completed: false, reached_ending: false },
+  eng: { kid_turns: 0, moves: 0, game_score: 0, replays: 0 },
+  health: { errors: 0, mute_alarms: 0, disconnects: 0, video_attach_ms: null },
+  feedback: { emoji: null, text: null } };
+window.PULSE = PULSE;
+
+// NOVA-SCORE 0-100 (Part 2) — computed page-side.
+function pulseScore(P) {
+  const F = P.funnel, E = P.eng, H = P.health;
+  // Completion 40
+  let comp;
+  if (F.reached_ending) comp = 40;
+  else {
+    const stages = (F.reached_name ? 1 : 0) + (F.light_caught ? 1 : 0) +
+      (F.game_picked !== null ? 1 : 0) + (F.game_completed ? 1 : 0) + (F.reached_ending ? 1 : 0);
+    comp = 8 * stages;
+  }
+  // Engagement 30
+  const eng = Math.min(30, E.kid_turns * 3 + E.moves * 1.5);
+  // Game 15
+  const expected_max = 500;
+  const game = F.game_completed ? Math.min(15, Math.round(E.game_score / Math.max(1, expected_max) * 15)) : 0;
+  // Clean 15
+  let clean = 15 - 5 * H.mute_alarms - 3 * H.disconnects - 1 * H.errors;
+  if (clean < 0) clean = 0;
+  return Math.round(comp + eng + game + clean);
+}
+
+// Bulletproof send. text/plain (not application/json): cross-origin sendBeacon
+// with application/json is blocked (no preflight) — the same reason autoLog uses
+// text/plain below; FastAPI's await req.json() parses the body regardless.
+function pulseSend(final) {
+  try {
+    PULSE.t1 = Date.now();
+    PULSE.duration_s = Math.round((PULSE.t1 - PULSE.t0) / 1000);
+    PULSE.score = pulseScore(PULSE);
+    PULSE.final = !!final;
+    const tail = LOG_BUFFER.slice(-800).map(l =>
+      '[' + l.t + 's] [' + l.tag + '] ' + l.msg + (l.data ? ' ' + JSON.stringify(l.data) : ''));
+    const body = JSON.stringify({ pulse: PULSE, log: tail });
+    const url = 'https://novapython.onrender.com/pulse';
+    if (navigator.sendBeacon) navigator.sendBeacon(url, new Blob([body], { type: 'text/plain' }));
+    else fetch(url, { method: 'POST', body, keepalive: true, headers: { 'Content-Type': 'text/plain' } }).catch(() => {});
+    if (final) PULSE.__sent = true;
+  } catch (e) {}
+}
+window.pulseSend = pulseSend;
+
+// THE FEEDBACK BEAT (Part 3) — page-side overlay at the ending screen.
+// Her spoken "did you have fun?" line is ANOTHER agent's job (see HANDOFF.md).
+function showPulseFeedback() {
+  if (document.getElementById('pulse-feedback')) return;
+  const he = (PULSE.lang === 'he');
+  const wrap = document.createElement('div');
+  wrap.id = 'pulse-feedback';
+  wrap.setAttribute('dir', he ? 'rtl' : 'ltr');
+  wrap.style.cssText = 'position:fixed;left:50%;bottom:6%;transform:translateX(-50%);z-index:99999;' +
+    'background:rgba(20,8,40,0.92);border:2px solid #ff5db1;border-radius:22px;padding:16px 22px;' +
+    'text-align:center;font-family:inherit;color:#fff;box-shadow:0 8px 40px rgba(255,93,177,0.4);max-width:92vw;';
+  const q = document.createElement('div');
+  q.style.cssText = 'font-size:clamp(15px,4.5vw,21px);font-weight:800;margin-bottom:12px;';
+  q.textContent = he ? 'נהנית עם נובה? (אפשר גם פשוט לספר לה!)' : 'Did you have FUN with Nova? (you can also just TELL her!)';
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:18px;justify-content:center;';
+  [['😀', 'happy'], ['😐', 'meh'], ['😞', 'sad']].forEach(([emo, key]) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = emo;
+    b.style.cssText = 'font-size:clamp(34px,10vw,46px);background:none;border:none;cursor:pointer;' +
+      'line-height:1;padding:4px 8px;border-radius:14px;transition:transform .12s;';
+    b.onmouseenter = () => b.style.transform = 'scale(1.25)';
+    b.onmouseleave = () => b.style.transform = 'scale(1)';
+    b.onclick = () => {
+      PULSE.feedback.emoji = key;
+      try { LOG('PULSE', 'feedback emoji: ' + key); } catch (_) {}
+      pulseSend(true);
+      wrap.style.transition = 'opacity .4s';
+      wrap.style.opacity = '0';
+      setTimeout(() => wrap.remove(), 420);
+    };
+    row.appendChild(b);
+  });
+  wrap.appendChild(q);
+  wrap.appendChild(row);
+  document.body.appendChild(wrap);
+}
+window.showPulseFeedback = showPulseFeedback;
+
+// THE TAP (Part 1) — called once from inside LOG(); reads the event stream and
+// accumulates PULSE without touching any existing emit point.
+function pulseTap(tag, msg) {
+  msg = msg || '';
+  const F = PULSE.funnel, E = PULSE.eng, H = PULSE.health, FB = PULSE.feedback;
+  // kid speech turns: HEARD = live intro/game (worker), END 'kid said' = end-phase chat
+  if (tag === 'HEARD' || (tag === 'END' && /^kid said/.test(msg))) {
+    E.kid_turns++;
+    if (F.reached_ending) { const m = msg.match(/"([^"]*)"/); if (m && m[1]) FB.text = m[1]; }
+  }
+  // name captured (bare or full)
+  if (tag === 'GAME' && /^name captured/.test(msg)) F.reached_name = true;
+  // magic-light caught: intro shoulder shrug PASSED, or an in-game try-move light
+  if (tag === 'INTRO' && (/PASSED/.test(msg) || /try-move.*detected/.test(msg))) F.light_caught = true;
+  // picker choice (authoritative kid pick with song id)
+  if (tag === 'GAME' && /^kid picked song:/.test(msg)) F.game_picked = msg.replace(/^kid picked song:\s*/, '').trim();
+  // replay = an explicit play-again tap (unambiguous; avoids double-counting re-picks)
+  if (tag === 'ENDING' && /play-again/.test(msg)) E.replays++;
+  // detected dance moves
+  if (tag === 'GAME-HIT') E.moves++;
+  // ending reached → mark, ship a final report, surface the feedback beat once
+  if (tag === 'ENDING' && /(end screen|goodbye-done)/.test(msg)) {
+    if (!F.reached_ending) {
+      F.reached_ending = true;
+      try { showPulseFeedback(); } catch (_) {}
+      try { pulseSend(true); } catch (_) {}   // emoji tap will send an updated final later
+    }
+  }
+  // health
+  if (tag === 'ERROR') { if (/disconnect/i.test(msg)) H.disconnects++; else H.errors++; }
+  if ((tag === 'AV-SYNC' || tag === 'AUDIO') && /mute|autoplay blocked/i.test(msg)) H.mute_alarms++;
+}
+
+// abandoned sessions still report — the drop-off point is the gold
+window.addEventListener('pagehide', () => pulseSend(false));
+// uncaught JS errors that never reach a LOG('ERROR') still count
+window.addEventListener('error', () => { try { PULSE.health.errors++; } catch (_) {} });
+window.addEventListener('unhandledrejection', () => { try { PULSE.health.errors++; } catch (_) {} });
+
 // LIVE-LOG (localhost only): stream LOG lines to logserver.js → sessions.jsonl
 // so the CLI can watch a session while it runs. Dead code on github.io.
 const LIVE_LOG = (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
@@ -2299,6 +2436,7 @@ function LOG(tag, msg, data) {
   const t = ((performance.now() - T0) / 1000).toFixed(3);
   const line = { t, tag, msg, data: data || null };
   LOG_BUFFER.push(line);
+  try { pulseTap(tag, msg); } catch (_) {}   // NOVA PULSE tap — never breaks logging
   liveLogPush(line);
   try { autoLogPush(line); } catch (_) {}
   // also stream to console
@@ -3541,6 +3679,8 @@ function setupNovaRoomEvents(room) {
     LOG('ROOM', `track subscribed: ${track.kind} from "${pid}"`);
     if (track.kind === 'video') {
       window.__novaVideoArrived = true;
+      // NOVA PULSE: first avatar frame — time from orb tap to video attach
+      try { if (PULSE.health.video_attach_ms == null && window.__tapTs) PULSE.health.video_attach_ms = Math.round(performance.now() - window.__tapTs); } catch (_) {}
       window.__avatarPid = pid;   // the video publisher IS the avatar → its audio moves the lips
       // Attach Nova's video to all face elements
       [recAvatarVideo, novaFaceVideo, endAvatarVideo].forEach(v => {
@@ -7141,6 +7281,8 @@ function handleMiss(actionEvent) {
 }
 
 function endGame() {
+  // NOVA PULSE: capture final score + completion (score is in scope here)
+  try { if (typeof score === 'number') PULSE.eng.game_score = score; PULSE.funnel.game_completed = true; } catch(_){}
   try { window.flushClips && window.flushClips('song ended'); } catch(_){}
   try { const a=window._audio; LOG('GAME', `endGame() called — clock=${a?(a.currentTime||0).toFixed(1):'?'}s of ${a&&a.duration?a.duration.toFixed(1):'?'}s`); } catch(_){}
   clearInterval(songTimer);
