@@ -90,20 +90,24 @@ Every game ends through `nova-ending.js`, which never renders a bare zero /
 nova-commercial.html, animal-freeze.html, nova-ending.js · **Added:** 2026-07-27
 · **Why:** a child must always leave on celebration.
 
-### law-consent — parental consent / legal lock-line  ⚠ LOST
-Both live game files must carry the parental-consent / legal lock-line (EN+HE)
-before camera + mic run on a child. **Marker:** `consent` · **Files:**
-nova-commercial.html, animal-freeze.html · **Status:** `lost` · **Added:**
-2026-07-27 · **Why:** camera + mic on a child with no visible consent line is a
-compliance + trust failure. **Red-list:** absent from BOTH live game files as of
-the audit; once lived in nova-app.html, never propagated. See GUARDIAN-REPORT.md.
+### law-consent — parental consent / legal lock-line  ✅ ACTIVE
+The product must carry the parental-consent / legal lock-line (EN+HE) before
+camera + mic run on a child. **Marker:** `A grown-up should read`, `תנאי שימוש`
+· **Files:** nova-commercial.html · **Status:** `active` · **Added:** 2026-07-27
+· **Why:** camera + mic on a child with no visible consent line is a compliance
++ trust failure. **Correction (2026-07-28):** the audit first reported this LOST
+— that was a **truncated grep**. nova-commercial carries the full EN+HE legal
+block (ported from nova-app 2026-07-17): the "a grown-up should read the
+policies" line + Privacy/Terms/Parents modals in both languages. Now locked.
 
-### law-ambient — never-black avatar fallback  ⚠ LOST (pod-side)
-The SARAY page shows an ambient/idle frame so Nova's panel is never black, even
-if the pod-side patch lags. **Marker:** `nova-ambient` · **Files:** _(pod repo
-nova-avatar — not yet in git)_ · **Status:** `lost` · **Added:** 2026-07-27 ·
-**Why:** a black avatar panel reads as "broken". Guarded once Part 1 lands the
-pod files in nova-avatar `pod-live`.
+### law-ambient — never-black avatar fallback  ⚠ pod-side (deploys next boot)
+The SARAY page shows an ambient/idle frame so Nova's panel is never black.
+**Marker:** `nova-ambient` (pod-side) · **Files:** _(pod repo nova-avatar —
+rt_lk.py)_ · **Status:** `lost` (pod-side) · **Added:** 2026-07-27 · **Why:** a
+black avatar panel reads as "broken". **Update (2026-07-28):** the `#v`
+letterbox → ambient fix is authored in `rt_lk.py` by the intro-brain session
+and deploys at the next pod restart. The nova-commercial frontend is already
+zero-black in all states (room-fill insurance + static Nova — verified headless).
 
 ---
 
@@ -149,17 +153,56 @@ Community pods stuck on "not enough free GPUs", a launch had no suicide-timer,
 and `pkill` during the silent-import window hung the engine at 394 MB. These are
 now rules, walled by `law-pods.js` over `tools/pod/launch_pod.sh` + `tools/pod/boot.sh`.
 
-1. **Live/test pods = Secure Cloud (PRO) ONLY, from now on.** Never Community for
-   live/test. Community = bakes only.
+1. **Live/test pods = Secure Cloud only.** Community = bakes only.
 2. **Every launch arms the suicide-timer:** `nohup sleep 6h; runpodctl stop pod $RUNPOD_POD_ID &`.
-3. **Boot = once, detached, logged.** NO process kills for >=3 minutes after any
+3. **Boot = once, detached, logged.** NO process kills for ≥3 minutes after any
    launch (the silent-import window — a kill here is the engine-hang bug).
 4. **A stopped Community pod is presumed unrestartable** — launch fresh, never
    wait on "not enough free GPUs".
 5. **Cold-boot truth: full stack = 10-15 min.** Bring pods up 15 min before a human sits down.
 6. **Verify before handing out any link:** video attaches **and** one voice-probe line answered.
 
+### POD LAW additions (2026-07-28 — each cost real hours)
+
+7. **tmux boots.** Every pod boot launches **inside tmux** (or another
+   sshd-surviving session). Bare `setsid`/`disown`/`&` boots die when RunPod
+   tears down sshd on disconnect. **Marker:** `# LAW-PODS-7-TMUX` in the launch
+   script (`tmux new-session -d`).
+8. **No self-matching pkill.** Any `pkill`/`pgrep` pattern must use the bracket
+   trick so it cannot match its own command line — `pkill -f "[b]oot.sh"`, never
+   plain `pkill -f boot.sh`. A self-match killed 3 boots today. **Marker:**
+   `# LAW-PODS-8-BRACKET`; `law-pods.js` also asserts **no** plain
+   `pkill -f boot` / `pkill -f app.py` string exists in the scripts.
+9. **Cold-load patience.** The FIRST boot on a fresh container = **up to 25 min**
+   (torch/CUDA multi-GB stream off the network volume — silent, no logs, no GPU
+   activity). **No process intervention before minute 15.** Repeat boots on the
+   same pod are fast (local cache). **Marker (boot.sh):**
+   `# LAW-PODS-9-COLDLOAD: silence < 15min = loading, not dead`.
+10. **Verify progress, not vibes.** A boot is "progressing" only if `boot.log`
+    grows **or** `nvidia-smi` memory climbs — checked **read-only**. Absence of
+    output alone is never a death verdict inside the cold-load window.
+
+**Queued (doc-only, no test — next session, NOT today):** `POD-IMAGE.md` — bake a
+Docker image with torch + CUDA + MuseTalk deps preinstalled; pods launch from the
+image, only weights come from the volume. Cuts cold boot ~20 min → ~5 min.
+
 **Status:** `active` · **Why:** see the morning above — money burned + engine hung.
+
+---
+
+## Out-of-scope files (exempt from the file-law checks)
+
+**`nova-commercial.html` is THE product. All file-law checks target it only.**
+These files are deliberately NOT law-checked:
+
+| file | why exempt |
+|---|---|
+| `nova-joined.html` | **LEGACY** — superseded by nova-commercial.html. Kept fully playable for the founder's voice-only A/B test. Marked `DO NOT EDIT` at top of file. |
+| `nova-app.html` | **LEGACY** — same as above; the earlier commercial page, kept playable for A/B. Marked `DO NOT EDIT`. |
+| `animal-freeze.html` | Separate standalone game (not the commercial product). Not part of the commercial law-set; give it its own laws later if it needs guarding. |
+
+Editing a legacy file is allowed only to keep it *running* — never to add
+features. New work goes in nova-commercial.html.
 
 ---
 
@@ -170,20 +213,20 @@ Only `active` rows are gated. Markers are literal substrings (case-sensitive).
 ```laws
 law-clock      | active | nova-commercial.html                                    | ZONE 1 ;; startPosStream ;; __posLog
 law-duck       | active | nova-commercial.html                                    | window.__duck ;; .acquire( ;; .release(
-law-autoplay   | active | nova-commercial.html,animal-freeze.html                 | countdown
+law-autoplay   | active | nova-commercial.html                                    | countdown
 law-truth      | active | nova-commercial.html                                    | TRUTH GATE
 law-transcript | active | nova-commercial.html                                    | nova-said ;; HEARD ;; tapLogBuffer
 law-frames     | active | nova-commercial.html                                    | __sarayFrameMode ;; __sarayFrameMode('full ;; __sarayFrameMode('closeup
 law-shoulder   | active | nova-commercial.html                                    | __introChatT0 ;; 35s fallback
 law-mp4leads   | active | nova-commercial.html                                    | __mp4Leads ;; MP4_LEADS
-law-endings    | active | nova-commercial.html,animal-freeze.html,nova-ending.js  | nova-ending ;; NEVER a zero
+law-endings    | active | nova-commercial.html,nova-ending.js                     | nova-ending ;; NEVER a zero
 law-mirror     | active | nova-commercial.html                                    | MIRROR_MAP
 law-onevoice   | active | nova-commercial.html                                    | Arbiter ;; one-mic
 law-soft       | active | nova-commercial.html                                    | Never say wrong
 law-storage    | active | nova-commercial.html,nova-session-rec.js                | NovaRec
-law-consent    | lost   | nova-commercial.html,animal-freeze.html                 | consent
+law-consent    | active | nova-commercial.html                                    | A grown-up should read ;; תנאי שימוש
+law-pods       | active | tools/pod/launch_pod.sh,tools/pod/boot.sh               | "cloudType": "SECURE" ;; runpodctl stop pod ;; nohup sleep 6h ;; git -C /workspace/repo pull ;; NO-PKILL-WINDOW ;; LAW-PODS-7-TMUX ;; LAW-PODS-8-BRACKET ;; LAW-PODS-9-COLDLOAD
 law-ambient    | lost   | -                                                       | nova-ambient
-law-pods       | active | tools/pod/launch_pod.sh,tools/pod/boot.sh               | "cloudType": "SECURE" ;; runpodctl stop pod ;; nohup sleep 6h ;; git -C /workspace/repo pull ;; NO-PKILL-WINDOW
 law-v2v        | policy | -                                                       | -
 law-treaty     | policy | -                                                       | -
 ```

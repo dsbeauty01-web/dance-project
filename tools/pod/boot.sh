@@ -9,6 +9,12 @@
 #   - NO-PKILL-WINDOW: after this script launches a service, DO NOT pkill it for
 #     at least 3 minutes. Imports are silent for 20-40s; a kill during load is the
 #     "engine hangs at 394MB" bug. Wait, read the log, THEN act.
+#   - LAW-PODS-9-COLDLOAD: silence < 15min = loading, not dead. FIRST boot on a
+#     fresh container streams multi-GB torch/CUDA off the network volume — silent,
+#     no logs, no GPU activity, up to 25 min. No process intervention before min 15.
+#     Verify progress READ-ONLY: this boot.log grows OR nvidia-smi memory climbs.
+#   - LAW-PODS-8-BRACKET: never an un-bracketed pkill -f pattern (it self-matches and
+#     kills the boot). Use the bracket trick: pkill -f "[b]oot.sh" / "[a]pp.py". None here.
 LOG=/root/boot.log; exec >>"$LOG" 2>&1
 echo "===== BOOT $(date -u) ====="
 export DEBIAN_FRONTEND=noninteractive
