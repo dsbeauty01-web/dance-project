@@ -142,6 +142,27 @@ swept siblings' uncommitted work into the wrong commit.
 
 ---
 
+## POD LAW (2026-07-28) — how live/test pods are launched
+
+A morning was lost to pods: the working pod was reclaimed, replacements were
+Community pods stuck on "not enough free GPUs", a launch had no suicide-timer,
+and `pkill` during the silent-import window hung the engine at 394 MB. These are
+now rules, walled by `law-pods.js` over `tools/pod/launch_pod.sh` + `tools/pod/boot.sh`.
+
+1. **Live/test pods = Secure Cloud (PRO) ONLY, from now on.** Never Community for
+   live/test. Community = bakes only.
+2. **Every launch arms the suicide-timer:** `nohup sleep 6h; runpodctl stop pod $RUNPOD_POD_ID &`.
+3. **Boot = once, detached, logged.** NO process kills for >=3 minutes after any
+   launch (the silent-import window — a kill here is the engine-hang bug).
+4. **A stopped Community pod is presumed unrestartable** — launch fresh, never
+   wait on "not enough free GPUs".
+5. **Cold-boot truth: full stack = 10-15 min.** Bring pods up 15 min before a human sits down.
+6. **Verify before handing out any link:** video attaches **and** one voice-probe line answered.
+
+**Status:** `active` · **Why:** see the morning above — money burned + engine hung.
+
+---
+
 ## Machine block — CI reads this. Do not reformat.
 Format:  `law-id | status | file1,file2 | marker one ;; marker two`
 Only `active` rows are gated. Markers are literal substrings (case-sensitive).
@@ -162,6 +183,7 @@ law-soft       | active | nova-commercial.html                                  
 law-storage    | active | nova-commercial.html,nova-session-rec.js                | NovaRec
 law-consent    | lost   | nova-commercial.html,animal-freeze.html                 | consent
 law-ambient    | lost   | -                                                       | nova-ambient
+law-pods       | active | tools/pod/launch_pod.sh,tools/pod/boot.sh               | "cloudType": "SECURE" ;; runpodctl stop pod ;; nohup sleep 6h ;; git -C /workspace/repo pull ;; NO-PKILL-WINDOW
 law-v2v        | policy | -                                                       | -
 law-treaty     | policy | -                                                       | -
 ```
