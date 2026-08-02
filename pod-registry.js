@@ -26,10 +26,17 @@
   /* ── SET THIS ─────────────────────────────────────────────────────────────
      The pod id of the CURRENTLY RUNNING pod. null = no known-live pod, so
      call sites use their legacy fallback. */
-  var ACTIVE = null;
+  var ACTIVE = 'ubu8krpcf0k62v';
 
   /* ── Known pods (history, so a dead id is never silently reused) ───────── */
   var KNOWN = {
+    'ubu8krpcf0k62v': {
+      role: 'LIVE — saray/brain 8765, engine 8010, bridge -> LiveKit room nova-live',
+      note: 'SECURE RTX 4090, EU-RO-1, volume 1ditrne6cb. Booted 2026-08-02 11:18 UTC.',
+      lastSeenLive: '2026-08-02',
+      status: 'LIVE — verified: nova-video 1076x1924 unmuted in room nova-live, ' +
+              'voice probe answered (OAI session.created + nova_text), transcription language "en"'
+    },
     'b9b6v8cljo578h': {
       role: 'saray / musetalk live avatar (8765)',
       note: 'nova-engine-2, RTX PRO 4500 on volume 1ditrne6cb, nova_idle CALM intro + gesture bank',
@@ -62,7 +69,10 @@
 
     /* Each returns a URL for the live pod, or null so the caller falls back. */
     saray: function () { return API.isLive() ? 'https://' + host(ACTIVE, 8765) + '/' : null; },
-    engine: function () { return API.isLive() ? 'https://' + host(ACTIVE, 8011) : null; },
+    /* Engine port is 8010 on the current stack (boot.sh: app.py --listenport 8010,
+       ENGINE_URL=http://127.0.0.1:8010). The older k9o3iexgqif9il generation used
+       8011; on pod ubu8krpcf0k62v port 8011 answers 502. Verified 2026-08-02. */
+    engine: function () { return API.isLive() ? 'https://' + host(ACTIVE, 8010) : null; },
     bridge: function () { return API.isLive() ? 'wss://' + host(ACTIVE, 8765) : null; },
     flv: function () { return API.isLive() ? 'https://' + host(ACTIVE, 8080) + '/live/dance_k.flv' : null; }
   };
