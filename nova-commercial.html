@@ -7530,7 +7530,11 @@ window.__initRunwayNova = initDID;
       const cw=webcam.clientWidth||1, ch=webcam.clientHeight||1;
       if(cv.width!==cw||cv.height!==ch){ cv.width=cw; cv.height=ch; }
       if(!window.NovaLight) return;
-      if(!eng || eng._ctx!==ctx){ eng=window.NovaLight.create(ctx, window.NovaLight.PRESETS.hellohello); eng._ctx=ctx; }
+      // per-game light: preset chosen by the current game via light-config.json's _gameMap
+      // (joined→upgroove, wave/wavemagic→wave, bounce→dance, hello→hellohello, else→single).
+      const _gid=window.__selectedSongId||window.__choreoActive||null;
+      const _lp=(window.NovaLight.presetFor?window.NovaLight.presetFor(_gid):window.NovaLight.PRESETS.hellohello);
+      if(!eng || eng._ctx!==ctx || eng._lp!==_lp){ eng=window.NovaLight.create(ctx, _lp); eng._ctx=ctx; eng._lp=_lp; }
       const now=performance.now();
       const e=window.__cueAction, kps=window.__lastPoseKeypoints;
       if(!kps){ eng.render({ anchors:[], center:null, k:1, W:cw, H:ch, quality:0.6, velocity:0, dir:null, active:false, now }); return; }
@@ -7560,12 +7564,19 @@ window.__initRunwayNova = initDID;
           const ph=(now/900)%1, f=ph*2, i=Math.min(1,Math.floor(f)), tt=f-i;   // ~0.9s wrist→shoulder sweep
           const px=lerp(seg[i][0],seg[i+1][0],tt), py=lerp(seg[i][1],seg[i+1][1],tt);
           anchors=[{x:px,y:py}]; dir='up';
-          orb(ctx,px,py,22*k,ML.gold,0.35); orb(ctx,px,py,11*k,ML.core,0.9);   // travelling bead
+          // engine draws its own head orb in travel mode; only draw the manual bead for isolation presets
+          if(!(eng&&eng.cfg&&eng.cfg.mode==='travel')){ orb(ctx,px,py,22*k,ML.gold,0.35); orb(ctx,px,py,11*k,ML.core,0.9); }   // travelling bead
           window.__travelArmT = +ph.toFixed(2);   // QA hook: bead phase observable
         }
       }
       if(e && anchors.length) window.__lightsDrawn = (window.__lightsDrawn||0) + 1;   // TASK 3/4: light actually on a joint
-      eng.render({ anchors, center, k, W:cw, H:ch, quality, velocity:0, dir, active:!!(e&&anchors.length), now });
+      // route by preset mode: travel presets (wave/dance) flow a river along the cued point;
+      // isolation/calm presets (single/upgroove/hello) hug the anchor exactly as before.
+      if(eng.cfg && eng.cfg.mode==='travel'){
+        eng.render({ travelHead: anchors[0]||null, center, k, W:cw, H:ch, quality, velocity:0, dir, active:!!(e&&anchors.length), now });
+      } else {
+        eng.render({ anchors, center, k, W:cw, H:ch, quality, velocity:0, dir, active:!!(e&&anchors.length), now });
+      }
     }
     requestAnimationFrame(loop);
     if (window.__NONOVA && !window.__MUSETALK) window.__startCamNonova();   // standalone: bring the camera up on load (MUSETALK runs the official flow instead)

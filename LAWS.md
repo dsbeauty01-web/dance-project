@@ -213,13 +213,13 @@ Only `active` rows are gated. Markers are literal substrings (case-sensitive).
 ```laws
 law-clock      | active | nova-commercial.html                                    | ZONE 1 ;; startPosStream ;; __posLog
 law-duck       | active | nova-commercial.html                                    | window.__duck ;; .acquire( ;; .release(
-law-autoplay   | active | nova-commercial.html                                    | countdown
+law-autoplay   | active | nova-commercial.html,animal-freeze.html                 | countdown
 law-truth      | active | nova-commercial.html                                    | TRUTH GATE
 law-transcript | active | nova-commercial.html                                    | nova-said ;; HEARD ;; tapLogBuffer
 law-frames     | active | nova-commercial.html                                    | __sarayFrameMode ;; __sarayFrameMode('full ;; __sarayFrameMode('closeup
 law-shoulder   | active | nova-commercial.html                                    | __introChatT0 ;; 35s fallback
 law-mp4leads   | active | nova-commercial.html                                    | __mp4Leads ;; MP4_LEADS
-law-endings    | active | nova-commercial.html,nova-ending.js                     | nova-ending ;; NEVER a zero
+law-endings    | active | nova-commercial.html,animal-freeze.html,nova-ending.js  | nova-ending ;; NEVER a zero
 law-mirror     | active | nova-commercial.html                                    | MIRROR_MAP
 law-onevoice   | active | nova-commercial.html                                    | Arbiter ;; one-mic
 law-soft       | active | nova-commercial.html                                    | Never say wrong
