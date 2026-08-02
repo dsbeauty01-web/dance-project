@@ -8,6 +8,9 @@
      worker changes nothing for the kid. Loads before the main script below. -->
 <script src="nova-session-rec.js"></script>
 <script src="nova-ending.js"></script>
+<!-- POD REGISTRY (2026-08-02) — one source of truth for pod hostnames; must load
+     before the main script below, which resolves SARAY through it. -->
+<script src="pod-registry.js"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9D%84%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9D%84%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <style>
@@ -293,7 +296,11 @@ const novaPanel=$('nova-panel'), novaStage=$('nova-stage'), camEl=$('cam'),
    Override the pod with ?saray=https://<pod>-8765.proxy.runpod.net/
    Force the offline clip-bank fallback with ?nolive=1 */
 const Q = new URLSearchParams(location.search);
-const SARAY = Q.get('saray') || 'https://b9b6v8cljo578h-8765.proxy.runpod.net/';
+/* POD RESOLUTION: ?saray= override → pod-registry.js ACTIVE → legacy literal.
+   Set ACTIVE in pod-registry.js to point the whole app at a live pod. */
+const SARAY = Q.get('saray')
+           || (window.NOVA_PODS && window.NOVA_PODS.saray())
+           || 'https://b9b6v8cljo578h-8765.proxy.runpod.net/';
 const LIVE_OFF = Q.get('nolive') === '1';
 
 /* ═══ Speech log — kid bubble + Nova's line under her panel ═══ */

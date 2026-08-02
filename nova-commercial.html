@@ -7788,6 +7788,11 @@ window.__initRunwayNova = initDID;
 #nova-stage.magic-in{animation:novaMagicIn .9s cubic-bezier(.2,1.5,.4,1)}
 @keyframes novaMagicIn{0%{opacity:0;transform:scale(.55)}60%{opacity:1}100%{opacity:1;transform:scale(1)}}
 </style>
+<!-- POD REGISTRY (2026-08-02) — one source of truth for pod hostnames. Classic
+     script, loaded synchronously BEFORE the blocks below so window.NOVA_PODS
+     exists at parse time. If it fails to load, every call site below falls back
+     to its legacy literal, so the page behaves exactly as it did before. -->
+<script src="pod-registry.js"></script>
 <script>
 // ═══ SARAY / MUSETALK LIVE AVATAR (2026-07-23) ═══════════════════════════════════════
 // The proven two-pod LiveKit publisher (engine a9142up9655w44 + clean CPU bridge) is
@@ -7796,7 +7801,13 @@ window.__initRunwayNova = initDID;
 // all the placement machinery (fixed witness corner, magic-in reveal) is reused and the
 // game page stays camera-only. Override the pod: ?saray=https://<pod>-8765.proxy.runpod.net/
 function initSarayWidget(q){
-  const SARAY = q.get('saray') || 'https://b9b6v8cljo578h-8765.proxy.runpod.net/';   // live engine pod nova-engine-2 (2026-07-25, RTX PRO 4500 on vol 1ditrne6cb, nova_idle CALM intro + gesture bank); override with ?saray=
+  // POD RESOLUTION: ?saray= override → pod-registry.js ACTIVE → legacy literal.
+  // The literal is the 2026-07-25 nova-engine-2 pod (RTX PRO 4500 on vol 1ditrne6cb,
+  // nova_idle CALM intro + gesture bank) — UNVERIFIED since 2026-07-27. Set ACTIVE
+  // in pod-registry.js to point the whole app at a live pod.
+  const SARAY = q.get('saray')
+             || (window.NOVA_PODS && window.NOVA_PODS.saray())
+             || 'https://b9b6v8cljo578h-8765.proxy.runpod.net/';
 
   // integrated-build banner colour — next in rotation after cyan → warm AMBER
   try{
@@ -7869,11 +7880,14 @@ function initSarayWidget(q){
   // FLV pod, which is why the SARAY avatar never mounted / "she didn't reply").
   const MUSETALK_URL = /[?&](musetalk|saray)\b/.test(location.search);
   if (MUSETALK_URL) { window.__MUSETALK = true; initSarayWidget(q); return; }   // live LiveKit avatar (iframe) — see initSarayWidget above
-  const FLV    = q.get('flv')    || 'https://k9o3iexgqif9il-8080.proxy.runpod.net/live/dance_k.flv';   // MuseTalk pod nova-v22 (2026-07-19)
-  const BRIDGE = q.get('bridge') || 'wss://k9o3iexgqif9il-8765.proxy.runpod.net';
+  // POD RESOLUTION: ?param override → pod-registry.js ACTIVE → legacy literal.
+  // The k9o3iexgqif9il literals are the pod this very comment block calls "the dead
+  // FLV pod" (last live 2026-07-20) — kept only as an inert last-resort fallback.
+  const FLV    = q.get('flv')    || (window.NOVA_PODS && window.NOVA_PODS.flv())    || 'https://k9o3iexgqif9il-8080.proxy.runpod.net/live/dance_k.flv';
+  const BRIDGE = q.get('bridge') || (window.NOVA_PODS && window.NOVA_PODS.bridge()) || 'wss://k9o3iexgqif9il-8765.proxy.runpod.net';
   // MUSETALK-DEPLOY: the pod runs engine-only (no bridge) —
   // gestures fall back to the engine HTTP API when the WS is absent.
-  const ENGINE = q.get('engine') || 'https://k9o3iexgqif9il-8011.proxy.runpod.net';
+  const ENGINE = q.get('engine') || (window.NOVA_PODS && window.NOVA_PODS.engine()) || 'https://k9o3iexgqif9il-8011.proxy.runpod.net';
   const AUDIOTYPE = { right_hand_up:20, left_hand_up:21, both_hands_up:22, clap_clap:23, freeze:24, thank_you:25 };
   const stage = document.createElement('div');
   stage.id = 'nova-stage';
