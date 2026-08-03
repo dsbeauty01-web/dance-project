@@ -26,16 +26,26 @@
   /* ── SET THIS ─────────────────────────────────────────────────────────────
      The pod id of the CURRENTLY RUNNING pod. null = no known-live pod, so
      call sites use their legacy fallback. */
-  var ACTIVE = 'ubu8krpcf0k62v';
+  var ACTIVE = '7v5jwbbewo1gf5';
 
   /* ── Known pods (history, so a dead id is never silently reused) ───────── */
   var KNOWN = {
-    'ubu8krpcf0k62v': {
+    '7v5jwbbewo1gf5': {
       role: 'LIVE — saray/brain 8765, engine 8010, bridge -> LiveKit room nova-live',
-      note: 'SECURE RTX 4090, EU-RO-1, volume 1ditrne6cb. Booted 2026-08-02 11:18 UTC.',
+      note: 'SECURE RTX 4090, EU-RO-1, volume 1ditrne6cb, name nova-live-fixtest. ' +
+            'Created 2026-08-03 04:2x UTC to test the FREEZE FIX PACK. Booted from the ' +
+            'volume copy /workspace/boot.sh (which carries its own env exports).',
+      lastSeenLive: '2026-08-03',
+      status: 'BOOTING — created + boot.sh launched in tmux(novaboot); cold load per LAW-PODS-9'
+    },
+    'ubu8krpcf0k62v': {
+      role: 'saray/brain 8765, engine 8010, bridge -> LiveKit room nova-live',
+      note: 'SECURE RTX 4090, EU-RO-1, volume 1ditrne6cb. Booted 2026-08-02 11:18 UTC. ' +
+            'STOPPED by founder 2026-08-02 14:21 UTC; resume now fails — the host has no ' +
+            'free GPUs, so this id cannot be revived. Kept for history.',
       lastSeenLive: '2026-08-02',
-      status: 'LIVE — verified: nova-video 1076x1924 unmuted in room nova-live, ' +
-              'voice probe answered (OAI session.created + nova_text), transcription language "en"'
+      status: 'EXITED — was verified live (nova-video 1076x1924 in room nova-live, voice probe ' +
+              'answered OAI session.created + nova_text); cannot restart, host GPUs taken'
     },
     'b9b6v8cljo578h': {
       role: 'saray / musetalk live avatar (8765)',
