@@ -462,6 +462,9 @@ window.addEventListener('message', (e)=>{
   if(!text) return;
   if(typeof Live!=='undefined' && Live.on && !Live.alive){              // first word = she's awake
     Live.alive=true; try{ clearTimeout(Live._aliveTimer); }catch(_){}
+    Live.post({type:'nova-pick', game:'freeze'});   // FIX 2026-08-02: exit intro — the game IS picked (socket proven open: a message just arrived)
+    Live.post({type:'nova-persona', text:TENSION_MASTER});   // FIX 2026-08-02: re-send — the load-time post races a CONNECTING socket and dies silently
+    Live.post({type:'set_persona',  text:TENSION_MASTER});
     const h=document.getElementById('wake-hint'); if(h) h.remove();
   }
   if(Ready.active) cueReady();                                 // any word from the iframe = she's live → have her ask "ready?"
@@ -608,7 +611,7 @@ function tick(){
     // READY? beat — she asks and reacts to the kid's real answer (her live session hears them)
     if(t>=20 && !G.fired.k.has('ready')){ G.fired.k.add('ready');
       Nova.cue('Playfully ask the child if they are READY to freeze. If they answer, react to their exact energy; if quiet, stay warm and carry on.',
-               'The freeze rounds are about to begin.', 'ready'); }
+               'The freeze rounds are coming soon.', 'ready'); }
     // FAKE-OUTS — rounds 3+ only, max 2, never the final round
     FAKES.forEach((fk,i)=>{ if(t>=fk.at && !G.fired.k.has('fake'+i) && G.fakes<2){ G.fired.k.add('fake'+i); G.fakes++;
       Nova.cue('Do a playful FAKE-OUT: build suspense like a freeze is coming, then suddenly burst out to keep DANCING — no freeze this time.',
@@ -663,6 +666,7 @@ function endFreeze(){
   const pts=Math.round(f.def.pts*credit);
   const name=ASSETS.clips[f.def.clip].name, secs=(f.stillMs/1000).toFixed(1), pct=Math.round(frac*100);
   const froze = frac>=FULL_AT, moved = frac<MOVE_AT;
+  if(Live.on && froze) Live.post({type:'nova-fact', move:'freeze', name, pct});   // FIX 2026-08-02: TRUTH-GATE food — lets her praise the REAL freeze + releases the consent gate
   Nova.melt();                                        // back to current-tier avatar (live) / melt clip (fallback)
   // MELT REACTION — brain writes fresh words from REAL stillness data
   const beatBest = G.best && froze && f.stillMs > G.best.heldMs + 1;
@@ -701,7 +705,7 @@ const Ready = { active:false, _res:null,
 };
 let _cueN=0;
 function cueReady(){ if(!Ready.active || _cueN>=2) return; _cueN++;   // ask at most twice (overlap-gated pod-side)
-  if(Live.cue) Live.cue('Greet the child warmly and ask if they are READY to start the animal freeze dance game — one short, excited question.','Music starts only after they say yes.');
+  if(Live.cue) Live.cue('In two short, excited lines welcome the child to the ANIMAL FREEZE game and explain it: they groove while the music plays, and when an animal pops up they hold SUPER still like that animal — a total statue! Collect all five animal stamps to win. Then ask ONE short question inviting a big YES.','Music waits for their yes.');
   else if(Live.on) Live.say('Ready to freeze and dance? Say YES!');
 }
 async function runReadyGate(){
