@@ -90,6 +90,30 @@ CORE_LAWS = (
 # A page opts into replace-mode by prefixing its persona with this marker.
 GAME_MODE_MARK = "[GAME-MODE]"
 
+# ── GESTURE TAGS ──────────────────────────────────────────────────────────────
+# Allowed tags mirror maya-gestures.json. Kept as a literal here (not read from the
+# json) so the brain has no filesystem dependency on the web repo; the contract test
+# asserts the two lists agree, so they cannot silently drift.
+import re as _re            # module scope: rt_lk.py imported this INSIDE a function, which is
+                            # fine there but a NameError here, where _TAG_RE is built at import time
+GESTURE_TAGS = ("WAVE", "POINT", "REVEAL", "NUDGE", "BYE")
+_TAG_RE = _re.compile(r"\[(" + "|".join(GESTURE_TAGS) + r")\]", _re.I)
+
+def _gesture_tag(text):
+    """Return the LAST gesture tag in text, upper-case, or None.
+    Last-wins because the prompt asks her to end a line with the tag; if she emits
+    two (against instructions) the closing one is the one that matches the delivery."""
+    if not text:
+        return None
+    found = _TAG_RE.findall(text)
+    return found[-1].upper() if found else None
+
+def strip_tags(text):
+    """Remove gesture tags from anything shown to a human or logged as her line.
+    CORE_LAWS already forbids reading tags aloud, but the transcript must be clean
+    regardless of whether she obeyed."""
+    return _TAG_RE.sub("", text or "").replace("  ", " ").strip()
+
 def viewer_token():
     g = api.VideoGrants(room_join=True, room=LK_ROOM, can_publish=False, can_subscribe=True)
     ident = "viewer-" + str(int(time.time()))
@@ -176,7 +200,7 @@ async def relay(request):
     INVITE_RE = _re.compile(r"(can you|could you|show me|let'?s|try|give (me|it|that|your|a)|want to|wanna|how about|ready to|do a|go for|lift|shrug your|hold (it|still)|don'?t move|like a statue|show off|when you|check (this|it) out|check out|here'?s|discover|glow|magic light|see (the|that|it)|add a|next|other shoulder|come on|pick a game)", _re.I)
     # #6 NO-SELF-ANSWER: she cannot pick/confirm FOR the kid — blocked unless real kid input is recent.
     SELFANSWER_RE = _re.compile(r"(awesome choice|great choice|good (pick|choice)|nice pick|let'?s do (freeze|wave|up ?groove|animal)|you picked|you chose|i'?ll pick|we'?ll (do|play) (freeze|wave|up ?groove)|great, (freeze|wave)|perfect, let'?s)", _re.I)
-    resp = {"buf": "", "killed": False}          # per-response transcript accumulator
+    resp = {"buf": "", "killed": False, "gesture_sent": False}   # per-response transcript accumulator
     spoken = set()                                # #6 DE-CAN: lines already said this session
     consent = {"yes_ts": 0.0}                     # #5 CONSENT=REAL YES: last real yes/tap/move
     YES_RE = _re.compile(r"\b(yes|yeah|yep|yup|ready|ok|okay|sure|uh[- ]?huh|i did|let's go|go)\b", _re.I)
@@ -196,6 +220,8 @@ async def relay(request):
     # state machine for an engagement beat, but it starts LOCKED so it can never fire.
     light = {"state": "done", "ts": 0.0, "ever": True}
     game_mode = {"persona": ""}    # last [GAME-MODE] persona, so nova-pick can re-assert it
+    scene   = {"name": "open"}     # MAYA: current broadcast scene (open/product/offer/close)
+    product = {"notes": ""}        # MAYA: the ONLY product facts she may state (TRUTH LAW)
     hold = {"on": False}           # PAUSE: True = drop mic + cancel speech until released
     LIGHT_WAIT = 10.0
     LIGHT_INVITE_RE = _re.compile(r"(magic light|on your shoulder|little shrug|shoulder.*(shrug|wiggle|lift))", _re.I)
@@ -316,7 +342,8 @@ async def relay(request):
                     # every one of these paths calls response.create, so a typed message, a queued
                     # cue or a late freeze-fact still made her talk through a paused game. A pause
                     # must silence ALL speech-producing input, not just the microphone.
-                    if hold["on"] and t in ("text", "nova-say", "nova-cue", "nova-fact"):
+                    if hold["on"] and t in ("text", "nova-say", "nova-cue", "nova-fact",
+                                            "say", "cue", "chat"):   # MAYA paths gated too
                         print("[HOLD] dropped while paused:", t, flush=True)
                         continue
                     if t == "audio":
@@ -418,6 +445,75 @@ async def relay(request):
                                 print("[TRUTH-GATE] sanctioned praise for:", move, flush=True)
                             else:
                                 print("[TURN-GATE] praise held (busy) for:", move, flush=True)
+                    # ── MAYA CONTRACT inbound types (pod/MAYA-CONTRACT.md) ──────────────
+                    elif t == "say":
+                        # Operator line. Spoken VERBATIM — never re-worded.
+                        line = (m.get("text") or "").strip()
+                        if line and line.lower() in spoken:
+                            print("[DE-CAN] duplicate operator line dropped:", line[:40], flush=True)
+                        elif line and not speaking["resp_active"] and not speaking["v"]:
+                            spoken.add(line.lower())
+                            await oai.send_json({"type": "response.create", "response": {
+                                "instructions": "Say this ONE line out loud EXACTLY as written, once, "
+                                                "in your live-host voice, then stop. Add nothing. "
+                                                'Line: "' + line + '"'}})
+                            print("SAY:", line[:60], flush=True)
+                        else:
+                            print("SAY skip (busy):", line[:40], flush=True)
+                    elif t == "cue":
+                        intent = (m.get("intent") or "").strip()
+                        ctx = (m.get("ctx") or "").strip()
+                        if intent and not speaking["resp_active"] and not speaking["v"]:
+                            await oai.send_json({"type": "response.create", "response": {
+                                "instructions": "[DIRECTOR - improvise, never read this aloud] " + intent
+                                                + (" Facts you may use: " + ctx if ctx else "")
+                                                + " ONE short spoken line in your own fresh words, in "
+                                                  "character, never repeating a line you already said."}})
+                            print("CUE:", intent[:60], flush=True)
+                        else:
+                            print("CUE skip (busy):", intent[:40], flush=True)
+                    elif t == "chat":
+                        # A real viewer message. TRUTH LAW still applies: if they ask a product
+                        # fact that is not in notes, she must say she'll check — never invent.
+                        vname = (m.get("name") or "").strip()
+                        vtext = (m.get("text") or "").strip()
+                        if vtext and not speaking["resp_active"] and not speaking["v"]:
+                            await oai.send_json({"type": "response.create", "response": {
+                                "instructions": "A viewer named " + (vname or "someone")
+                                                + " just said in the live chat: \"" + vtext + "\". "
+                                                + "Answer THEM directly, BY NAME, in ONE short line, in "
+                                                  "their language. If they asked a product fact that is "
+                                                  "not in your PRODUCT NOTES, warmly say you'll check — "
+                                                  "never invent it."}})
+                            print("CHAT:", vname[:20], "|", vtext[:50], flush=True)
+                        else:
+                            print("CHAT skip (busy):", vname[:20], flush=True)
+                    elif t == "scene":
+                        # Scene switch. REPLACES instructions (never appends) so a previous
+                        # scene's urgency cannot bleed into the next one.
+                        sc = (m.get("scene") or "").strip().lower()
+                        notes = (m.get("product_notes") or "").strip()
+                        if notes:
+                            product["notes"] = notes
+                        scene["name"] = sc or scene["name"]
+                        base = CORE_LAWS + "\n\n" + (game_mode["persona"] or PROMPT)
+                        block = ("\n\n# CURRENT SCENE: " + scene["name"] +
+                                 "\n# PRODUCT NOTES (the ONLY product facts you may state):\n" +
+                                 (product["notes"] or "(none yet — you have NO product facts; "
+                                                     "say you'll check if asked)"))
+                        await oai.send_json({"type": "session.update", "session": {
+                            "type": "realtime", "instructions": base + block}})
+                        print("[SCENE]", scene["name"], "| notes:", (product["notes"] or "")[:40], flush=True)
+                        await ws_client.send_json({"type": "status", "state": "scene:" + scene["name"]})
+                    elif t == "product":
+                        product["notes"] = (m.get("notes") or "").strip()
+                        base = CORE_LAWS + "\n\n" + (game_mode["persona"] or PROMPT)
+                        block = ("\n\n# CURRENT SCENE: " + scene["name"] +
+                                 "\n# PRODUCT NOTES (the ONLY product facts you may state):\n" +
+                                 (product["notes"] or "(none)"))
+                        await oai.send_json({"type": "session.update", "session": {
+                            "type": "realtime", "instructions": base + block}})
+                        print("[PRODUCT] notes swapped:", product["notes"][:50], flush=True)
                     elif t == "hold":
                         # PAUSE (2026-08-04, ERROR 3). Pausing used to dim the screen and stop the
                         # music while Nova kept listening and talking — the page comment even said
@@ -510,6 +606,18 @@ async def relay(request):
                             if not speaking.get("spoke"):
                                 speaking["spoke"] = True
                                 await ws_client.send_json({"type": "status", "state": "talking"})
+                            # ── GESTURE AT SPEECH-START (MAYA-CONTRACT) ──────────────────────
+                            # This is the real speech-start: audio is buffered pre-synthesis and
+                            # only released to the engine HERE, once the truth gate clears it.
+                            # Emitting at text-generation would put the wave up to 3.8s before the
+                            # word (Nova measured 1.47-3.84s, median 1.95s). Emitting here means
+                            # the wave lands WITH the greeting. Freeze-game sync lesson, day one.
+                            if not resp["gesture_sent"]:
+                                _tag = _gesture_tag(resp["buf"])
+                                if _tag:
+                                    resp["gesture_sent"] = True
+                                    await ws_client.send_json({"type": "gesture", "tag": _tag})
+                                    print("[GESTURE]", _tag, "at speech-start", flush=True)
                             data = bytes(audio_buf); audio_buf.clear()
                             for i in range(0, len(data), FLUSH):
                                 speaking["last_chunk"] = time.time(); await engine_q.put(data[i:i+FLUSH])
@@ -551,6 +659,16 @@ async def relay(request):
                             if not speaking.get("spoke"):
                                 speaking["spoke"] = True
                                 await ws_client.send_json({"type": "status", "state": "talking"})
+                            # GESTURE AT SPEECH-START, path 2. This sentence-level release fires
+                            # BEFORE the full-line one, so it is usually the real moment audio
+                            # first reaches the engine. Guarded by gesture_sent so whichever path
+                            # wins emits exactly once per response.
+                            if not resp["gesture_sent"]:
+                                _tag = _gesture_tag(resp["buf"])
+                                if _tag:
+                                    resp["gesture_sent"] = True
+                                    await ws_client.send_json({"type": "gesture", "tag": _tag})
+                                    print("[GESTURE]", _tag, "at speech-start (sentence)", flush=True)
                             data = bytes(audio_buf); audio_buf.clear()
                             for i in range(0, len(data), FLUSH):
                                 speaking["last_chunk"] = time.time(); await engine_q.put(data[i:i+FLUSH])
