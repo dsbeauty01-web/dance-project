@@ -297,8 +297,16 @@ function tickTier(pos){
 }
 
 /* TENSION MASTER — her brain for this game, injected once at start. */
+/* [GAME-MODE] marker (2026-08-04): tells rt_lk.py to REPLACE the intro script with
+   CORE_LAWS + this persona, instead of appending underneath it. Appending never worked —
+   the ~6.8KB intro (incl. the magic shoulder light) outranked this, so she ran the intro
+   inside the game. The marker must stay the FIRST characters of the string. */
 const TENSION_MASTER =
- "You are Nova hosting a kids' Animal Freeze dance game. Be a TENSION MASTER and ADAPT — never a fixed script. "+
+ "[GAME-MODE] "+
+ "You are Nova hosting a kids' Animal Freeze dance game. THIS IS THE FREEZE GAME ONLY — there is no "+
+ "intro to run, no name to collect, no magic light on anyone's shoulder, and no other games to offer. "+
+ "Never mention a light, a shoulder glow, or a choice of games. "+
+ "Be a TENSION MASTER and ADAPT — never a fixed script. "+
  "Build suspense with a short breathy WHISPER just before each freeze, then go COMPLETELY SILENT while the child "+
  "holds — do not speak during a hold. The instant it ends, EXPLODE with delight in five words or fewer about what "+
  "they did. Sometimes I'll ask you to fake them out ('ready to freeze… JUST KIDDING, MOVE!') — sell it. "+
@@ -465,7 +473,12 @@ const Live = {
   // Drive a spoken line through the same say-this-line channel the commercial uses
   say(text){ this.post({type:'nova-say', text}); },
   // SMART LAYER: send INTENT + CONTEXT — her live session writes the actual words (never scripted)
-  cue(intent, ctx){ this.post({type:'nova-cue', intent, ctx:ctx||''}); },
+  cue(intent, ctx){
+    try{ if(window.__SYNCLOG) window.__SYNCLOG.push({ev:'cue-posted:'+String(intent).slice(0,8), songT:Music.t? Music.t():0, wall:performance.now()}); }catch(_){}
+    this.post({type:'nova-cue', intent, ctx:ctx||''});
+  },
+  // PAUSE (2026-08-04): pod-side silence. on=true drops mic frames + cancels speech in flight.
+  hold(on){ this.post({type:'hold', on:!!on}); },
 };
 
 /* ENERGY LADDER (2026-07-27) avatar map: hype→nova_active (nova_sub+nova_active baked; hype clip dropped) */
@@ -506,6 +519,7 @@ window.addEventListener('message', (e)=>{
     if(/\bstop\b|\bpause\b/i.test(text)) voiceStop();          // say "stop" → pause
     if(Ready.active && /\b(yes+|yeah|yep|ya|ready|ok|okay|okey|sure|go|start|now|i'?m ready|let'?s go)\b/i.test(text)) Ready.hit();  // "yes" → start the music
   } else if(/nova|assistant|bot|agent|say|reply/.test(type)){
+    try{ if(window.__SYNCLOG) window.__SYNCLOG.push({ev:'nova-said', songT:(typeof Music!=='undefined'&&Music.t)?Music.t():0, wall:performance.now(), text:text.slice(0,40)}); }catch(_){}
     NovaSay.log(text);
     try { if(window.NovaRec) NovaRec.transcript('nova', text); } catch(_){}
   }
@@ -618,6 +632,21 @@ const Fallback = {
     const line=arr[Math.floor(Math.random()*arr.length)]; this.used.add(line); return line; },
 };
 function warnLead(){ return G.diff==='hard'?0.9 : G.diff==='easy'?2.2 : 1.5; }   // harder = shorter warning
+/* VOICE_LEAD (2026-08-04, ERROR 4) — the whisper was landing AFTER "FREEZE!".
+   The game clock is exact (everything fires off Music.t()), but her VOICE is not on that clock:
+   cue -> postMessage -> ws -> OpenAI -> TTS -> MuseTalk -> LiveKit is a 1-3s variable pipeline.
+   warnLead() is only 0.9-2.2s, so the whisper routinely arrived after the freeze had already
+   started and the celebration landed mid-next-dance. To a child everything felt late.
+   Fix: pre-fire the whisper by the measured median pipeline latency. Measured live over the
+   brain's own websocket. Override with ?voicelead=<sec> to re-tune without a deploy.
+   MEASURED 2026-08-04 against the live pod, cue-posted -> nova_done, overlapping responses
+   discarded: 1.47 · 1.71 · 1.95 · 2.65 · 3.84 s -> median 1.95s. The spread is wide because the
+   pipeline genuinely varies, so the median is the honest number, not the best case.
+   Booms cannot pre-fire (they react to the hold result) — those already get an instant local
+   FX + duck at melt, so the kid gets something at the exact moment and her voice lands after
+   as the second beat. */
+const VOICE_LEAD = Math.max(0, Math.min(4, parseFloat(Q.get('voicelead')) || 1.95));
+try{ window.__SYNCLOG = window.__SYNCLOG || []; }catch(_){}
 function effHold(def){ return G.diff==='hard'? def.hold+0.7 : G.diff==='easy'? Math.max(2.5,def.hold-0.6) : def.hold; }
 /* ═══ FREEZE SCORING (2026-07-28): MOVEMENT COSTS THE SCORE — but fair ═══
    0.7s reaction grace after FREEZE!, then measure the fraction of the hold the kid held STILL
@@ -650,7 +679,7 @@ function tick(){
                'This is a trick — there is no real freeze right now.', 'fake');
       FX.cue('DANCE! 💃 no freeze!',false,1500); }});
     FREEZES.forEach((f,i)=>{
-      if(t>=f.at-warnLead() && !G.fired.w.has(i)){ G.fired.w.add(i);        // WHISPER via brain (difficulty-aware wording)
+      if(t>=f.at-warnLead()-VOICE_LEAD && !G.fired.w.has(i)){ G.fired.w.add(i);   // WHISPER — pre-fired by VOICE_LEAD so her voice LANDS at warnLead()
         const nm=ASSETS.clips[f.clip].name;
         Nova.cue('Whisper a short suspenseful warning that a '+nm+' freeze is coming. '+
                  (G.diff==='hard'?'Make it fast and snappy.':G.diff==='easy'?'Give a gentle, clear heads-up.':''),
@@ -775,17 +804,28 @@ $('start-btn').addEventListener('click', async ()=>{
   G.running=true; requestAnimationFrame(tick);
 });
 
-/* ONE pause path — used by the button AND by voice ("stop"). Nova stays live idling. */
+/* ONE pause path — used by the button AND by voice ("stop").
+   FIX 2026-08-04 (ERROR 3): pause used to stop the music and dim the screen while Nova kept
+   listening and talking — the old comment here literally said "iframe untouched -> Nova keeps
+   living". A paused game must actually go quiet. Two layers, because the page alone cannot
+   silence her: she says ONE calm line, and {type:'hold',on:true} tells the pod to drop mic
+   frames and cancel any speech already in flight. */
 function doPause(){
   if(!G.running||G.paused) return;
   G.paused=true; G.running=false; Music.el.pause();
   if(G.freeze){ Music.duck(1.0,200); Nova.melt(); FX.frostOff(); FX.badgeOff(); ring.classList.remove('show'); G.freeze=null; }
-  $('pause-screen').style.display='flex';                            // iframe untouched → Nova keeps living
+  if(Live.on){
+    Live.cue('The game is PAUSED. Say one tiny calm line like "taking a break!" then stay completely silent until the game resumes.','Paused by the child or parent.');
+    setTimeout(()=>{ if(G.paused) Live.hold(true); }, 2200);        // let her one line land, THEN mute her
+  }
+  $('pause-screen').style.display='flex';
 }
 function voiceStop(){ doPause(); }
 $('pausebtn').addEventListener('click', doPause);
 $('resume-btn').addEventListener('click', async ()=>{
   $('pause-screen').style.display='none';
+  if(Live.on){ Live.hold(false);                                     // ears back on BEFORE she welcomes them
+    Live.cue('The game is BACK ON — one short excited welcome-back line.','Resumed.'); }
   await countdown();                                                 // resume ALWAYS gates through 3-2-1
   Music.el.play().catch(()=>{}); G.paused=false; G.running=true; requestAnimationFrame(tick);
 });

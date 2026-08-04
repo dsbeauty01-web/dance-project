@@ -73,6 +73,49 @@ PROMPT = (
     "NEVER: monologues, lists, endless Q&A, repeating yourself, talking when no one said anything, "
     "responding to your own voice. You are a MOVEMENT GUIDE, not a chatbot.")
 
+# ── CORE_LAWS (2026-08-04) ────────────────────────────────────────────────────
+# The SAFETY half of PROMPT, with the INTRO FLOW removed.
+#
+# WHY: a game page sends its own persona, but the old `persona` handler APPENDED it
+# under the whole of PROMPT. PROMPT is ~6.8KB of ordered intro script (greet -> name ->
+# magic shoulder light -> offer the 3 games -> readiness) plus SIMPLE-FLOW LAW telling her
+# to follow exactly that order. A ~900-char game persona bolted on the end never outranks
+# it, so she kept doing the shoulder-light intro inside the freeze game.
+#
+# CORE_LAWS keeps every rule that protects the child — identity, English-only, tone,
+# NAME / MOVE-TRUTH / CONSENT / FRESH / DUAL-INPUT, no-monologues — and drops ONLY the
+# intro choreography (the numbered flow and SIMPLE-FLOW LAW). A game persona layered on
+# CORE_LAWS is therefore the authority on what to DO, while the laws still bind.
+CORE_LAWS = (
+    "You are Nova — a magic movement friend for kids, like a cool older sister (11-12 energy). "
+    "You live in the screen. You can SEE the kid and HEAR them.\n"
+    "ALWAYS speak English only, no matter what language you hear.\n"
+    "Style: warm, playful, SHORT (1-2 sentences per turn), 110% of the kid's energy, specific praise "
+    "(name the body part, what exactly was good). Never mock, never compare, never baby-voice, "
+    "never say wrong/mistake/failed. Never mention cameras, sensors, or systems — it's magic.\n"
+    "The kid's words always come first: if they ask anything, answer it before anything else. "
+    "Silence is okay — you never pressure.\n"
+    "NAME LAW: repeat the kid's name EXACTLY as you heard it, sound for sound — never 'correct' or "
+    "change it (if you heard 'Raki', say 'Raki', never 'Rafy'). If unsure, ask 'did I get that right?' "
+    "— never guess a different name.\n"
+    "MOVE-TRUTH LAW: never praise or name a move unless your notes JUST reported it happened. No report "
+    "= no praise and no move-name — give neutral hype instead ('Let's GO!'). Never praise on a timer, a "
+    "guess, or a garbled sound; wait for the REAL move.\n"
+    "CONSENT LAW: never start a countdown, game, or next round until the kid really says yes or does the "
+    "move. Silence, mumbles, or your own question do NOT count as yes.\n"
+    "FRESH LAW: never say the exact same sentence twice in one session — word every line, especially "
+    "deflections, freshly.\n"
+    "DUAL-INPUT LAW: the kid can answer you TWO ways — by talking OR by DOING the move (a magic sensor "
+    "sees their body, so a real shrug / freeze / hand-up counts as a 'yes' even with no words). Only "
+    "celebrate a move when your notes confirm it happened. If neither words nor a move come, stay warm "
+    "and move the game forward anyway — a kid NEVER fails here.\n"
+    "NEVER: monologues, lists, endless Q&A, repeating yourself, talking when no one said anything, "
+    "responding to your own voice. You are a MOVEMENT GUIDE, not a chatbot.")
+
+# A page opts into replace-mode by prefixing its persona with this marker.
+# Without it the old append behaviour is kept, so nothing that exists today changes.
+GAME_MODE_MARK = "[GAME-MODE]"
+
 def viewer_token():
     g = api.VideoGrants(room_join=True, room=LK_ROOM, can_publish=False, can_subscribe=True)
     ident = "viewer-" + str(int(time.time()))
@@ -174,6 +217,8 @@ async def relay(request):
     # #1 LIGHT BEAT = ONE ATTEMPT: idle -> invited -> reinvited -> done(fact|moved-on)
     # #4 LIGHT ONCE PER SESSION: 'ever' locks it — any second trigger is blocked.
     light = {"state": "idle", "ts": 0.0, "ever": False}
+    game_mode = {"persona": ""}    # last [GAME-MODE] persona, so nova-pick can re-assert it
+    hold = {"on": False}           # PAUSE: True = drop mic + cancel speech until released
     LIGHT_WAIT = 10.0
     LIGHT_INVITE_RE = _re.compile(r"(magic light|on your shoulder|little shrug|shoulder.*(shrug|wiggle|lift))", _re.I)
     # #5 STATUE SILENCE: from her freeze call-out until a hold-fact/move-on, her mouth is CLOSED
@@ -287,6 +332,13 @@ async def relay(request):
                 async for msg in ws_client:
                     if msg.type != aiohttp.WSMsgType.TEXT: continue
                     m = json.loads(msg.data); t = m.get("type")
+                    # PAUSE GATE (2026-08-04, ERROR 3 round 2). Gating only the mic was not enough:
+                    # every one of these paths calls response.create, so a typed message, a queued
+                    # cue or a late freeze-fact still made her talk through a paused game. A pause
+                    # must silence ALL speech-producing input, not just the microphone.
+                    if hold["on"] and t in ("text", "nova-say", "nova-cue", "nova-fact"):
+                        print("[HOLD] dropped while paused:", t, flush=True)
+                        continue
                     if t == "audio":
                         mic_stats["n"] += 1; mic_stats["bytes"] += len(m.get("data", ""))
                         if mic_stats["n"] % 50 == 0:
@@ -294,6 +346,8 @@ async def relay(request):
                         # ANTI-ECHO GATE: discard mic while Nova is speaking (server layer;
                         # client also mutes send). Reopens 2.0s after her last audio chunk.
                         if speaking["v"]:
+                            continue
+                        if hold["on"]:      # PAUSE (2026-08-04): game is paused — she must not hear
                             continue
                         await oai.send_json({"type": "input_audio_buffer.append", "audio": m["data"]})
                     elif t == "text":
@@ -344,9 +398,23 @@ async def relay(request):
                     elif t == "persona":
                         ptext = (m.get("text") or "").strip()
                         if ptext:
+                            # GAME-MODE (2026-08-04): a marked persona REPLACES the intro script
+                            # instead of being appended under it. Appending never worked — PROMPT is
+                            # ~6.8KB of ordered intro (incl. the magic shoulder light) and outranked
+                            # any short game persona, so she kept running the intro inside the game.
+                            # CORE_LAWS keeps every child-safety rule; only the intro flow is dropped.
+                            if ptext.startswith(GAME_MODE_MARK):
+                                game_mode["persona"] = ptext
+                                instr = CORE_LAWS + "\n\n" + ptext
+                                print("PERSONA REPLACE (game-mode):", ptext[:70], flush=True)
+                            else:
+                                instr = PROMPT + "\n\n[FREEZE GAME - TENSION MASTER]\n" + ptext
+                                print("PERSONA append (legacy):", ptext[:60], flush=True)
+                            # "type": "realtime" is REQUIRED on session.update in this API version.
+                            # Omitting it made the update fail silently (logged only as "OAI: error"),
+                            # so the persona never applied and she kept answering out of context.
                             await oai.send_json({"type": "session.update", "session": {
-                                "instructions": PROMPT + "\n\n[FREEZE GAME - TENSION MASTER]\n" + ptext}})
-                            print("PERSONA set:", ptext[:60], flush=True)
+                                "type": "realtime", "instructions": instr}})
                     elif t == "nova-fact":
                         # TRUTH-GATE: a REAL detected move arrived. Record it (opens the
                         # window in which move-praise is legitimate) and fire the ONE
@@ -370,11 +438,47 @@ async def relay(request):
                                 print("[TRUTH-GATE] sanctioned praise for:", move, flush=True)
                             else:
                                 print("[TURN-GATE] praise held (busy) for:", move, flush=True)
+                    elif t == "hold":
+                        # PAUSE (2026-08-04, ERROR 3). Pausing used to dim the screen and stop the
+                        # music while Nova kept listening and talking — the page comment even said
+                        # so ("iframe untouched -> Nova keeps living"). A paused game must actually
+                        # go quiet. on=True: drop mic frames (above) AND cancel anything in flight.
+                        on = bool(m.get("on"))
+                        hold["on"] = on
+                        if on:
+                            # only cancel if something is actually speaking, else the API logs
+                            # response_cancel_not_active noise on every pause
+                            if speaking["resp_active"] or speaking["v"]:
+                                try:
+                                    await oai.send_json({"type": "response.cancel"})
+                                except Exception:
+                                    pass
+                            try:    # drop whatever the mic already buffered so it can't fire on resume
+                                await oai.send_json({"type": "input_audio_buffer.clear"})
+                            except Exception:
+                                pass
+                            print("[HOLD] ON — mic dropped, speech cancelled", flush=True)
+                        else:
+                            turn["kid_ts"] = time.time(); turn["retried"] = False
+                            print("[HOLD] OFF — listening again", flush=True)
+                        await ws_client.send_json({"type": "status", "state": "paused" if on else "listening"})
                     elif t == "nova-pick":
                         # Readiness beat for the chosen game (a real tap = real kid input).
                         game = (m.get("game") or "").strip().lower().replace("-", " ")
                         turn["kid_ts"] = time.time(); turn["retried"] = False; kidinput["ts"] = time.time()
                         print("[PICK]", game, flush=True)
+                        # GAME-MODE (2026-08-04): a pick means the intro is OVER. If a game persona
+                        # was registered, re-assert it as the session instructions so the intro flow
+                        # cannot reassert itself later in the session. Belt and braces with the
+                        # `persona` handler: whichever arrives first, the intro stops being law.
+                        if game_mode["persona"]:
+                            try:
+                                await oai.send_json({"type": "session.update", "session": {
+                                    "type": "realtime",
+                                    "instructions": CORE_LAWS + "\n\n" + game_mode["persona"]}})
+                                print("[PICK] session switched to game-mode persona", flush=True)
+                            except Exception as _e:
+                                print("[PICK] session switch failed:", _e, flush=True)
                         if speaking["resp_active"] or speaking["v"]:
                             print("[TURN-GATE] readiness held (busy):", game, flush=True)
                         elif game == "freeze":
@@ -401,7 +505,18 @@ async def relay(request):
                     if msg.type != aiohttp.WSMsgType.TEXT: continue
                     e = json.loads(msg.data); et = e.get("type", "")
                     if "delta" not in et:
-                        print("OAI:", et, flush=True)
+                        # 2026-08-04: log the DETAIL on errors. A bare "OAI: error" hid a rejected
+                        # session.update for a whole debugging cycle — the persona silently never
+                        # applied and the only symptom was Nova sounding vague.
+                        if et == "error":
+                            try:
+                                _e = e.get("error") or {}
+                                print("OAI: error ->", _e.get("type"), "|", _e.get("code"), "|",
+                                      str(_e.get("message"))[:200], "| param:", _e.get("param"), flush=True)
+                            except Exception:
+                                print("OAI: error (undecodable)", flush=True)
+                        else:
+                            print("OAI:", et, flush=True)
                     if et in ("response.output_audio.delta", "response.audio.delta"):
                         # #1 PRE-SYNTHESIS GATE: buffer ALL audio here — nothing reaches the
                         # voice engine until this line's transcript clears the gate at done.
@@ -685,7 +800,7 @@ function connectWS(){
 document.getElementById('send').onclick=()=>{const t=document.getElementById('txt');const m=t.value.trim();if(m&&ws&&ws.readyState===1){t.value='';bubble('u',m);ws.send(JSON.stringify({type:'text',text:m}));}};
 document.getElementById('txt').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('send').click();});
 document.getElementById('ttog').onclick=()=>document.getElementById('textlane').classList.toggle('open');
-window.addEventListener('message',(e)=>{try{const d=e.data;if(d&&d.type==='nova-say'&&d.text&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-say',text:d.text}));}if(d&&d.type==='nova-cue'&&d.intent&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-cue',intent:d.intent,ctx:d.ctx||''}));}if(d&&d.type==='set-avatar'&&d.id){fetch('/set_avatar?id='+encodeURIComponent(d.id)).catch(()=>{});}if(d&&(d.type==='nova-persona'||d.type==='set_persona')&&d.text&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'persona',text:d.text}));}if(d&&d.type==='nova-fact'&&d.move&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-fact',move:d.move}));}if(d&&d.type==='nova-pick'&&d.game&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-pick',game:d.game}));}}catch(_){}}); /* pitch-plan + intro brain: parent tells live Nova a detected move (nova-fact) or the chosen game (nova-pick) */
+window.addEventListener('message',(e)=>{try{const d=e.data;if(d&&d.type==='nova-say'&&d.text&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-say',text:d.text}));}if(d&&d.type==='nova-cue'&&d.intent&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-cue',intent:d.intent,ctx:d.ctx||''}));}if(d&&d.type==='set-avatar'&&d.id){fetch('/set_avatar?id='+encodeURIComponent(d.id)).catch(()=>{});}if(d&&(d.type==='nova-persona'||d.type==='set_persona')&&d.text&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'persona',text:d.text}));}if(d&&d.type==='nova-fact'&&d.move&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-fact',move:d.move}));}if(d&&d.type==='nova-pick'&&d.game&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-pick',game:d.game}));}if(d&&d.type==='hold'&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'hold',on:!!d.on}));}}catch(_){}}); /* pitch-plan + intro brain: parent tells live Nova a detected move (nova-fact) or the chosen game (nova-pick) */
 /* ---- mic capture ---- */
 let ctx,micOn=false,micGated=false;
 async function startMic(){
