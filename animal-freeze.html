@@ -390,6 +390,7 @@ const Live = {
     f.addEventListener('load',()=>{                       // hand her the TENSION-MASTER brain once
       this.post({type:'nova-persona', text:TENSION_MASTER});
       this.post({type:'set_persona', text:TENSION_MASTER});   // belt + suspenders (naming may vary)
+      this.frame('full');                                     // FIX 2026-08-04: whole body, not the closeup default
       this.setAvatar('nova_idle');
     });
     novaStage.appendChild(f); this.frame=f;
@@ -431,6 +432,15 @@ const Live = {
     try{ fetch(SARAY+'set_avatar?id='+encodeURIComponent(id),{mode:'no-cors',cache:'no-store'}).catch(()=>{}); }catch(_){}
     this.post({type:'set-avatar', id});   // pod page listens for 'set-avatar' (hyphen) → /set_avatar → engine
   },
+  /* FRAME MODE (law-frames) — FIX 2026-08-04: the SARAY page defaults to MODE='closeup'
+     (waist-up, object-position 50% 8.6%) "until the app says otherwise", and this page never
+     said otherwise, so Nova was cropped to head+shoulders for the whole game. FREEZE IS A
+     WHOLE-BODY GAME: the kid copies a flamingo/bear/star pose and must see her legs. The pod
+     CSS already carries the rule — "LAW-FRAME-FULL freeze whole-body" — it was just never
+     triggered. Mirrors __sarayFrameMode in nova-commercial.html. No websocket dependency:
+     the pod's frame handler is pure CSS and re-applies via MutationObserver, so this is safe
+     to send at iframe load. */
+  frame(mode){ try{ window.__sarayMode = mode; }catch(_){}; this.post({type:'frame', mode}); },
   // Drive a spoken line through the same say-this-line channel the commercial uses
   say(text){ this.post({type:'nova-say', text}); },
   // SMART LAYER: send INTENT + CONTEXT — her live session writes the actual words (never scripted)
@@ -465,6 +475,7 @@ window.addEventListener('message', (e)=>{
     Live.post({type:'nova-pick', game:'freeze'});   // FIX 2026-08-02: exit intro — the game IS picked (socket proven open: a message just arrived)
     Live.post({type:'nova-persona', text:TENSION_MASTER});   // FIX 2026-08-02: re-send — the load-time post races a CONNECTING socket and dies silently
     Live.post({type:'set_persona',  text:TENSION_MASTER});
+    Live.frame('full');                                      // FIX 2026-08-04: re-assert whole-body (survives an iframe refresh)
     const h=document.getElementById('wake-hint'); if(h) h.remove();
   }
   if(Ready.active) cueReady();                                 // any word from the iframe = she's live → have her ask "ready?"
