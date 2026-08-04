@@ -30,6 +30,16 @@
 
   /* ── Known pods (history, so a dead id is never silently reused) ───────── */
   var KNOWN = {
+    '2bhlam3hm43qnz': {
+      role: 'BAKE POD (not a live target) — Maya gesture set, volume 1ditrne6cb',
+      note: 'SECURE 4090 EU-RO-1, name nova-bake-maya. Created 2026-08-04 to bake the 6 Maya ' +
+            'clips + repair the dead nova_hype. NOTE: POD LAW prefers a COMMUNITY pod for bakes, ' +
+            'but EU-RO-1 had zero Community capacity across 7 GPU types, and the volume is pinned ' +
+            'to that datacenter. A dedicated pod was used so the live pod was never touched. ' +
+            'Runs /workspace/bake-batch.sh in tmux(bake) and SELF-STOPS when done.',
+      lastSeenLive: '2026-08-04',
+      status: 'BAKING — never point the app here; results land on the shared volume'
+    },
     '7v5jwbbewo1gf5': {
       role: 'LIVE — saray/brain 8765, engine 8010, bridge -> LiveKit room nova-live',
       note: 'SECURE RTX 4090, EU-RO-1, volume 1ditrne6cb, name nova-live-fixtest. ' +
