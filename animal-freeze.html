@@ -110,12 +110,22 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
 
 /* ── LIVE Nova: a LOCKED 9:16 stage, centered in the panel, FULL FIGURE (head→shoes, never cropped) ── */
 #nova-panel{display:flex;align-items:center;justify-content:center;background:#0a0518}
-#nova-stage{position:relative;width:100%;height:100%;margin:0 auto;
+#nova-stage{position:relative;height:100%;aspect-ratio:1076/1924;max-width:100%;margin:0 auto;
   overflow:hidden;border-radius:12px;background:#150a24}
-/* LAW-FRAME-FULL 2026-07-28 — FREEZE = WHOLE BODY. The 9:16 stage already matches the source
-   ratio (1076/1924), so the live pod-page #v cover-crop (mode-full, object-position 50% 50%)
-   shows 100% of the frame: zero crop, zero bars. Live avatar is the iframe below; the
-   #nova-stage video contain rule is the pod-DOWN clip fallback only (whole figure by design). */
+/* LAW-FRAME-FULL — FREEZE = WHOLE BODY.
+   FIX 2026-08-04: the comment here used to assert "the 9:16 stage already matches the source
+   ratio" while the rule above it said width:100%;height:100% — i.e. the stage took the PANEL's
+   shape, not 9:16. On a landscape screen the panel is roughly square, so the pod page's #v
+   cover-crop had to cut something, and it cut her legs: waist-up Nova. The bakes were never the
+   problem (they are full-body 1076x1924); the crop was display-side.
+   aspect-ratio:1076/1924 makes the stage ACTUALLY match the source, so cover-crop crops nothing
+   -> head to shoes, zero bars. max-width:100% keeps it inside narrow panels; #nova-panel already
+   flex-centers it, so the side gutters are just the panel's dark background.
+   Belt and braces: this page also posts {type:'frame',mode:'full'} so the pod page uses
+   object-position 50% 50% instead of its 50% 8.6% closeup default. Either fix alone helps;
+   together the geometry is exact.
+   Live avatar is the iframe below; the #nova-stage video contain rule is the pod-DOWN clip
+   fallback only (whole figure by design). */
 /* the live V2V avatar iframe fills the 9:16 stage edge-to-edge */
 #nova-stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:linear-gradient(180deg,#f2d7f2 0%,#e8c6ea 55%,#caa3d6 100%);z-index:3}
 /* clip-bank fallback videos (only if the pod is down) — contain = whole figure, no crop, no stretch */
