@@ -1,0 +1,28 @@
+{
+  "_meta": {
+    "version": 1,
+    "updated": "2026-08-04",
+    "why": "Single source of truth for Maya's gestures. Director buttons, the brain's allowed [TAGS], and the page's auto-triggers are ALL generated from this file. Adding a future bake must cost ONE line here and zero code (03-GESTURE-ENGINE design rule).",
+    "resolution": "1080x1920 (Maya family). RESOLUTION LAW: never mix nova_* and maya_* in one stream session.",
+    "verified": "All six avatars baked COMPLETE on volume 1ditrne6cb 2026-08-04, latents.pt 2017677 bytes each, 121 frames. maya_idle + maya_goodbye additionally load-tested live via /set_avatar."
+  },
+
+  "idle":   { "avatar": "maya_idle",     "loop": true,  "label": "Idle" },
+  "wave":   { "avatar": "maya_leftwave", "secs": 5.0, "tags": ["WAVE"],   "auto": ["greeting"],       "label": "Wave" },
+  "point":  { "avatar": "maya_point",    "secs": 5.0, "tags": ["POINT"],  "auto": ["product-show"],   "label": "Point" },
+  "reveal": { "avatar": "maya_bothhand", "secs": 5.0, "tags": ["REVEAL"], "auto": ["price", "wow"],   "label": "Reveal" },
+  "nudge":  { "avatar": "maya_nudge",    "secs": 5.0, "tags": ["NUDGE"],  "auto": ["urgency", "tease"], "label": "Nudge" },
+  "bye":    { "avatar": "maya_goodbye",  "secs": 5.0, "tags": ["BYE"],    "auto": ["closing"],        "label": "Bye" },
+
+  "_runtime": {
+    "queue_depth": 1,
+    "queue_rule": "One gesture at a time. Fire -> /set_avatar -> timer secs -> back to idle. A new request during playback queues at depth 1, newest wins, older queued dropped.",
+    "manual_preempts": true,
+    "priority": ["director-button", "brain-tag", "scene-default"],
+    "scene_defaults": { "open": "wave", "close": "bye" },
+    "min_auto_gap_secs": 4.0,
+    "fire_on": "speech-start",
+    "fire_on_why": "Avatar swap is near-instant but the voice pipeline is 1-3s (measured on Nova: median 1.95s, range 1.47-3.84s). Firing at text-generation puts the wave seconds before the word. The brain emits `gesture` when TTS AUDIO STARTS so the wave lands with the greeting, not before it. This is the freeze-game sync lesson applied on day one.",
+    "on_set_avatar_failure": "stay idle, log once, never retry-loop mid-stream"
+  }
+}
