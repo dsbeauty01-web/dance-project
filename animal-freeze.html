@@ -109,9 +109,20 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
 @keyframes rbpop{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
 
 /* ── LIVE Nova: a LOCKED 9:16 stage, centered in the panel, FULL FIGURE (head→shoes, never cropped) ── */
-#nova-panel{display:flex;align-items:center;justify-content:center;background:#0a0518}
-#nova-stage{position:relative;height:100%;aspect-ratio:1076/1924;max-width:100%;margin:0 auto;
-  overflow:hidden;border-radius:12px;background:#150a24}
+/* PANEL FILL 2026-08-04 — the 9:16 stage leaves gutters on wide panels; fill them with her own
+   room so it reads as the studio continuing, not letterbox. Same trick the pod-DOWN clip mode
+   already ships (video.clipbg, "AMBIENT ROOM FILL"), rebuilt for LIVE mode with a static frame
+   pulled from freezegame/idle_sway.mp4 — identical pink room + wood floor as the live avatar, so
+   the fill and the stage are the same set. Stage size/ratio deliberately untouched.
+   Graceful: if backdrop-filter is unsupported the un-blurred studio still shows — never black. */
+#nova-panel{position:relative;display:flex;align-items:center;justify-content:center;
+  background:#0a0518 url('freezegame/studio-bg.jpg') center/cover no-repeat}
+#nova-panel::before{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;
+  backdrop-filter:blur(26px) brightness(.85) saturate(1.1);
+  -webkit-backdrop-filter:blur(26px) brightness(.85) saturate(1.1)}
+#nova-stage{position:relative;z-index:1;height:100%;aspect-ratio:1076/1924;max-width:100%;margin:0 auto;
+  overflow:hidden;border-radius:12px;background:#150a24;
+  box-shadow:0 0 40px 20px rgba(10,5,24,.35)}   /* soft edge so the stage melts into the fill, no hard seam */
 /* LAW-FRAME-FULL — FREEZE = WHOLE BODY.
    FIX 2026-08-04: the comment here used to assert "the 9:16 stage already matches the source
    ratio" while the rule above it said width:100%;height:100% — i.e. the stage took the PANEL's
