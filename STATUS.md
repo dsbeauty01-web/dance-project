@@ -25,7 +25,7 @@ and tested. Three bugs that would have ruined a client demo are fixed.
 | Web pages | your laptop, port 8088 | serving |
 | Tunnel laptop → pod backend | your laptop | running, reconnects itself |
 
-**The pod stops itself at 13:41 UTC** to protect your money ($0.74/hour). That is
+**The pod stops itself at 15:23 UTC** to protect your money ($0.74/hour). That is
 deliberate. Section 7 says how to bring it back.
 
 ### Your two links
@@ -111,12 +111,28 @@ console. Instructions in `n8n/README.md`.
 
 ---
 
+## 4b. ALSO BUILT (Phase 3 pieces that needed nothing from you)
+
+- **`STREAM-RUNBOOK.md`** — cold pod to live stream: seven pre-flight checks, the OBS
+  setup for both orientations, the going-live order, the M2 self-test procedure, and a
+  what-to-do-when-it-breaks table for mid-stream. Read this before the first client.
+- **Vertical layout for Instagram/TikTok** — add `&layout=vertical` to the stage URL and
+  set the OBS canvas to 1080×1920. She goes full-frame, the product becomes a
+  lower-third card, chat overlays above it. Same page, same everything else.
+- **Catalog sync from a Google Sheet** (`n8n/W5-catalog-sync.json`) — the client edits
+  their own sheet, her products update live, no restart. It **refuses** an empty or
+  broken sheet rather than accepting it: an emptied catalog would leave her with no
+  facts at all, answering "I'll check that" to every question for the rest of a stream.
+- **RTMP delay bridge lines** — the stream is 3–10 seconds behind the viewer on every
+  platform, so she now says "רגע, רואה את השאלה של דנה..." while picking up a question.
+  Eight seconds of silence reads as broken; a host acknowledging you reads as live.
+
 ## 5. THE TESTS
 
 Three harnesses, all passing, all runnable before a stream:
 
 ```
-node tools/qa-maya-backend.mjs http://localhost:8000     22 passed   (switchboard, no pod needed)
+node tools/qa-maya-backend.mjs http://localhost:8000     27 passed   (switchboard, no pod needed)
 node tools/qa-maya-brain.mjs   wss://<pod>-8765.../rt    11 passed   (real session, costs a few cents)
 python3 tools/qa-maya-gestures.py                        21 passed   (gestures + tag leak)
 bash tools/laws/run-all.sh                               GREEN       (all project laws)

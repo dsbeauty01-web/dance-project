@@ -135,7 +135,24 @@ const main = async () => {
   const st2 = await fetch(BASE + '/state').then(r => r.json());
   ok('lead counted for the director', st2.vitals.leads === 1);
 
-  // 12) session report is written with honest nulls, not invented numbers
+  // 12) catalog sync (W5) must refuse to empty her facts, and must restore cleanly.
+  // TRUTH LAW inverted: with no catalog she has no product facts at all and answers
+  // "I'll check" to everything for the rest of the stream. Loud failure only.
+  const original = await fetch(BASE + '/catalog').then(r => r.json());
+  const empty = await post('/catalog', { products: [] });
+  ok('catalog sync refuses an empty list', empty.status === 400, 'got ' + empty.status);
+  const malformed = await post('/catalog', { products: [{ name_he: 'no id here' }] });
+  ok('catalog sync refuses a row with no id', malformed.status === 400, 'got ' + malformed.status);
+  const good = await post('/catalog', { products: [{ id: 'qa-temp', name_he: 'בדיקה', price: '1 ILS' }] });
+  ok('catalog sync accepts a valid push', good.status === 200 && good.json.products === 1,
+     JSON.stringify(good.json));
+  ok('warns when the active product vanished',
+     !!(good.json && good.json.warning), JSON.stringify(good.json && good.json.warning));
+  const restored = await post('/catalog', { products: original.products, source: 'qa restore' });
+  ok('catalog restored after the test',
+     restored.status === 200 && restored.json.products === original.products.length);
+
+  // 13) session report is written with honest nulls, not invented numbers
   const end = await post('/session/end', {});
   const rep = end.json && end.json.report;
   ok('session report written', !!rep && rep.peak_viewers === null && rep.pod_cost_usd === null,

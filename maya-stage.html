@@ -87,6 +87,36 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
 #brb h1{font-size:clamp(30px,4vw,56px);margin:0}
 #brb p{color:var(--dim);margin:0;font-size:18px}
 #countdown{font-variant-numeric:tabular-nums;font-weight:800;color:var(--accent)}
+
+/* ── ?layout=vertical — Instagram / TikTok 9:16 (06: "IG live is 9:16") ──────
+   Same page, same sockets, same gesture engine: only the furniture moves. She
+   goes full-bleed and the product becomes a lower-third card, because a side
+   panel in a 9:16 frame would take half the picture off her.
+   The 1080/1920 ratio lock STAYS — in a 9:16 viewport it is what makes the
+   cover-crop remove nothing, exactly as in landscape. Never unlock it. */
+body.vertical #room{grid-template-columns:1fr}
+body.vertical #maya-panel{grid-column:1}
+body.vertical #product{
+  position:fixed;inset-inline:0;bottom:0;z-index:15;
+  flex-direction:row;align-items:center;gap:16px;padding:18px 22px 26px;
+  border-inline-end:0;border-top:1px solid var(--line);
+  background:linear-gradient(0deg,rgba(10,12,16,.97),rgba(10,12,16,.82));
+  transform:translateY(105%);transition:transform .5s cubic-bezier(.2,.8,.2,1),opacity .5s}
+body.vertical #product.show{transform:none}
+body.vertical #p-img{width:104px;height:104px;aspect-ratio:1/1;flex:0 0 auto}
+body.vertical #p-badge{position:absolute;top:-14px;inset-inline-start:22px;font-size:12px;padding:5px 12px}
+body.vertical #p-name{font-size:clamp(17px,4.6vw,24px);margin:0}
+body.vertical #p-price{font-size:clamp(26px,7vw,40px)}
+body.vertical #p-note{display:none}          /* no room, and the panel must stay readable at 1080 wide */
+body.vertical #p-prices{gap:10px}
+body.vertical #chat{
+  position:fixed;inset-inline-start:0;inset-inline-end:0;bottom:190px;z-index:14;
+  max-height:26vh;background:transparent;border:0;padding:0 20px;
+  justify-content:flex-end;pointer-events:none;
+  -webkit-mask-image:linear-gradient(0deg,#000 78%,transparent);
+  mask-image:linear-gradient(0deg,#000 78%,transparent)}
+body.vertical .msg{text-shadow:0 1px 6px rgba(0,0,0,.85)}
+body.vertical #lower{bottom:170px;background:none;font-size:clamp(15px,4vw,20px)}
 </style>
 </head>
 <body>
@@ -387,6 +417,8 @@ window.addEventListener('message',(e)=>{
   Backend.connect();
   Scenes.set(Q.get('scene')||'open');
   if(Q.get('lang')==='en'){ document.documentElement.lang='en'; document.documentElement.dir='ltr'; }
+  /* ?layout=vertical — IG/TikTok 9:16. Set the OBS canvas to 1080x1920 to match. */
+  if(Q.get('layout')==='vertical') document.body.classList.add('vertical');
 })();
 
 /* Director drives the stage in Phase 1 via postMessage from the parent/opener.

@@ -319,6 +319,38 @@ async def reload_catalog():
     return {"ok": True, "products": n}
 
 
+@app.post("/catalog")
+async def put_catalog(body: Dict[str, Any] = Body(...)):
+    """The client edits a Google Sheet, n8n pushes the rows here (Phase 3). Writes
+    catalog.json and reloads it live — no restart, mid-stream safe.
+
+    REFUSES a bad payload rather than accepting it. An empty or malformed products list
+    would leave Maya with NO facts at all, and under TRUTH LAW no facts means she answers
+    "I'll check that for you" to every question for the rest of the stream. A sync that
+    fails loudly is recoverable; one that silently empties her is not."""
+    products = body.get("products")
+    if not isinstance(products, list) or not products:
+        raise HTTPException(400, "products must be a non-empty list — refusing to empty the catalog")
+    bad = [p for p in products if not isinstance(p, dict) or not p.get("id")
+           or not (p.get("name_he") or p.get("name_en"))]
+    if bad:
+        raise HTTPException(400, f"{len(bad)} row(s) missing id or name — nothing was written")
+
+    payload = {"_meta": {"source": body.get("source", "n8n sheet sync"), "synced_at": time.time()},
+               "products": products}
+    CATALOG_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    n = CATALOG.load()
+
+    # If the active product vanished from the sheet, do NOT silently switch what she is
+    # selling on air — hold the old id, tell the operator, and let them choose.
+    warning = None
+    if STATE["active_product"] and not CATALOG.get(STATE["active_product"]):
+        warning = (f"active product '{STATE['active_product']}' is no longer in the catalog — "
+                   "pick another before the next scene change")
+    await push_director("catalog", warning=warning)
+    return {"ok": True, "products": n, "warning": warning}
+
+
 # ── DIRECTOR ACTIONS ──────────────────────────────────────────────────────────
 @app.post("/scene")
 async def set_scene(body: Dict[str, Any] = Body(...)):
