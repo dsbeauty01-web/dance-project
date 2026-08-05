@@ -268,8 +268,23 @@ async def relay(request):
             # GREET FIRST — but only on the FIRST connect, not on a seamless reconnect
             # (browser sends ?rc=1 when re-establishing after an OpenAI session drop / 55min cap).
             if not request.query.get("rc"):
+                # GAME-SPECIFIC INTRO (2026-08-05). The generic opener asks for the child's
+                # name and never mentions a game, which is wrong inside a game that has
+                # already been chosen: the kid clicked FREEZE, so asking "which game?" or
+                # "what's your name?" restarts onboarding they already finished.
+                # A page declares its game with ?intro=<game> on the iframe URL.
+                _intro = (request.query.get("intro") or "").strip().lower()
+                if _intro == "freeze":
+                    _greet = ("Greet the child in ONE short excited line and say exactly this "
+                              "spirit: Hi! I'm Nova - we're going to play the FREEZE game! "
+                              "Are you ready? Then STOP and wait for their answer. Do NOT ask "
+                              "their name. Do NOT offer any other game. Do NOT start counting "
+                              "down or start the music - the game begins only when they say yes.")
+                else:
+                    _greet = ("Greet the kid in ONE short excited line and say exactly: "
+                              "Hi! I'm Nova, your magical AI dance teacher! What's your name?")
                 await oai.send_json({"type": "response.create", "response": {
-                    "instructions": "Greet the kid in ONE short excited line and say exactly: Hi! I'm Nova, your magical AI dance teacher! What's your name?"}})
+                    "instructions": _greet}})
 
             async def silence_watch():
                 # TURN-GATE: after a stretch of kid silence, ONE gentle invite, then

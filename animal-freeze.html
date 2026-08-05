@@ -327,9 +327,15 @@ const novaPanel=$('nova-panel'), novaStage=$('nova-stage'), camEl=$('cam'),
 const Q = new URLSearchParams(location.search);
 /* POD RESOLUTION: ?saray= override → pod-registry.js ACTIVE → legacy literal.
    Set ACTIVE in pod-registry.js to point the whole app at a live pod. */
-const SARAY = Q.get('saray')
+const SARAY_BASE = Q.get('saray')
            || (window.NOVA_PODS && window.NOVA_PODS.saray())
            || 'https://b9b6v8cljo578h-8765.proxy.runpod.net/';
+/* FIX 2026-08-05: declare the game to the brain so her FIRST line is the freeze intro
+   ("Hi! I'm Nova - we're going to play the FREEZE game! Are you ready?") instead of the
+   generic onboarding opener that asks for a name and mentions no game. The kid already
+   chose freeze by opening this page; asking "what's your name / which game?" restarts an
+   onboarding they finished. nova-pick still fires later as the belt-and-braces switch. */
+const SARAY = SARAY_BASE + (SARAY_BASE.indexOf('?')>=0 ? '&' : '?') + 'intro=freeze';
 const LIVE_OFF = Q.get('nolive') === '1';
 
 /* ═══ Speech log — kid bubble + Nova's line under her panel ═══ */
@@ -458,7 +464,10 @@ const Live = {
   // She BECOMES the animal: switch the baked pose live (HTTP + postMessage, whichever the app honors)
   setAvatar(id){
     if(!this.on) return;
-    try{ fetch(SARAY+'set_avatar?id='+encodeURIComponent(id),{mode:'no-cors',cache:'no-store'}).catch(()=>{}); }catch(_){}
+    /* SARAY_BASE, not SARAY: SARAY now carries ?intro=freeze, and concatenating
+       'set_avatar?id=' onto a URL that already has a query string produces
+       ".../?intro=freezeset_avatar?id=..." — a silently dead request. */
+    try{ fetch(SARAY_BASE+'set_avatar?id='+encodeURIComponent(id),{mode:'no-cors',cache:'no-store'}).catch(()=>{}); }catch(_){}
     this.post({type:'set-avatar', id});   // pod page listens for 'set-avatar' (hyphen) → /set_avatar → engine
   },
   /* FRAME MODE (law-frames) — FIX 2026-08-04: the SARAY page defaults to MODE='closeup'
@@ -765,7 +774,10 @@ const Ready = { active:false, _res:null,
   hit(){ if(this.active){ this.active=false; const r=this._res; this._res=null; if(r) r(); } },
 };
 let _cueN=0;
-function cueReady(){ if(!Ready.active || _cueN>=2) return; _cueN++;   // ask at most twice (overlap-gated pod-side)
+/* FIX 2026-08-05: her FIRST line now IS the freeze intro + "are you ready?" (?intro=freeze).
+   Asking again here made her ask twice, so this is now a single BACKUP nudge, fired only if
+   she has been silent for a while — never a second greeting on top of the first. */
+function cueReady(){ if(!Ready.active || _cueN>=1) return; _cueN++;
   if(Live.cue) Live.cue('In two short, excited lines welcome the child to the ANIMAL FREEZE game and explain it: they groove while the music plays, and when an animal pops up they hold SUPER still like that animal — a total statue! Collect all five animal stamps to win. Then ask ONE short question inviting a big YES.','Music waits for their yes.');
   else if(Live.on) Live.say('Ready to freeze and dance? Say YES!');
 }
