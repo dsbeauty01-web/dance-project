@@ -782,10 +782,21 @@ function cueReady(){ if(!Ready.active || _cueN>=1) return; _cueN++;
   else if(Live.on) Live.say('Ready to freeze and dance? Say YES!');
 }
 async function runReadyGate(){
+  /* FIX 2026-08-05 — "she is not talking before the music".
+     This gate used to read Live.on immediately. But Live.init() resolves through a network
+     probe to the pod (seconds, and the pod is in Romania), while this runs only ~900ms after
+     init starts. So Live.on was still FALSE here, the gate returned at once, the countdown
+     fired, and the music started before she had said a single word — every time the probe was
+     slower than 900ms, which is almost always.
+     Now: wait for the probe to SETTLE (on OR dead) before deciding. Capped so a truly dead pod
+     still falls through to the clip bank instead of hanging the child on a black panel. */
+  const s0=Date.now();
+  while(!Live.on && !Live.dead && Date.now()-s0<9000){ await new Promise(r=>setTimeout(r,150)); }
   if(!Live.on) return;                                                // pod down / clip fallback: no voice gate, go straight to countdown
   // PRESENCE GATE (2026-07-27): wait until she's actually AWAKE (first word) before
   // any "ready?" UI — the game never runs ahead of a dark panel. 20s cap → fallback path.
   const t0=Date.now();
+  statusEl.textContent='waking Nova…';                                // never a silent black wait
   while(!Live.alive && !Live.dead && Date.now()-t0<20000){ await new Promise(r=>setTimeout(r,300)); }
   if(!Live.on || Live.dead) return;                                   // she fell back to clips meanwhile
   _cueN=0;
