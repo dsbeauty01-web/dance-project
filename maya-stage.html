@@ -124,6 +124,21 @@ const $ = id => document.getElementById(id);
 /* ── POD RESOLUTION: same registry as the Nova app; ?saray= always wins ── */
 const SARAY = Q.get('saray') || (window.NOVA_PODS && window.NOVA_PODS.saray && window.NOVA_PODS.saray()) || null;
 
+/* ── BACKEND (Phase 2, 05). ?api=http://host:8000 turns the switchboard on.
+      With no ?api= this page behaves EXACTLY as it did in Phase 1 — director drives it
+      by postMessage and the product is the hardcoded demo. That fallback is deliberate:
+      the demo that already works must not depend on a server being up. ── */
+const API = (Q.get('api') || '').replace(/\/+$/, '') || null;
+
+/* ── ?preview=1 — layout mirror, NO live pod. ────────────────────────────────
+   The director's preview is a full copy of this page. In backend mode the page
+   OBS captures and the page inside the director would BOTH mount a pod iframe,
+   and each pod iframe opens its own /rt — two OpenAI Realtime sessions, two
+   voices, on one live stream. The operator's monitor must never be a second
+   broadcaster: in preview mode the scenes, product panel and chat rail still
+   update from the backend, and only her video/voice is absent. ── */
+const PREVIEW = Q.get('preview') === '1';
+
 /* ── MAYA PERSONA. [GAME-MODE] marker makes the brain REPLACE instructions rather
       than append them under its base prompt. Nova proved appending never wins. ── */
 const MAYA_PERSONA =
@@ -142,6 +157,33 @@ const DEMO_PRODUCT = {
   /* NOTES = the ONLY facts she may state. TRUTH LAW. */
   notes:'Product: Concentrated Vitamin C Serum. Price: 149 ILS (was 249 ILS). Size: 30ml. '+
         '20% pure vitamin C. Free shipping over 200 ILS. In stock. Delivery 3-5 business days.'
+};
+
+/* ═══ PRODUCT — panel + the notes the brain is allowed to state ═══
+   Phase 1 hardcoded one product. Phase 2 lets the backend replace it from catalog.json.
+   The panel is Hebrew-facing (name_he/price_he); `notes` is the English fact block the
+   brain receives. They come from ONE catalog row, so the panel can never advertise a
+   price the brain is forbidden to say — the mismatch a client would notice first. */
+const Product = {
+  cur: DEMO_PRODUCT,
+  notes: DEMO_PRODUCT.notes,
+  apply(p, notes){
+    if(notes) this.notes = notes;
+    if(!p) return;
+    this.cur = {
+      name: p.name_he || p.name_en || '—',
+      price: p.price_he || p.price || '—',
+      old: p.old_price_he || p.old_price || '',
+      note: p.bullets_he || (p.bullets || []).join(' · '),
+      badge: p.badge_he || DEMO_PRODUCT.badge
+    };
+    $('p-name').textContent  = this.cur.name;
+    $('p-price').textContent = this.cur.price;
+    $('p-old').textContent   = this.cur.old;
+    $('p-note').textContent  = this.cur.note;
+    if(Scenes.cur !== 'offer') $('p-badge').textContent = this.cur.badge;
+    if(p.image_url) $('p-img').src = p.image_url;
+  }
 };
 
 /* ═══ GESTURE ENGINE (03) — registry-driven, queue depth 1, manual preempts ═══ */
@@ -237,14 +279,54 @@ const Scenes = {
     p.classList.toggle('show', name==='product'||name==='offer');
     l.classList.toggle('show', name==='offer'||name==='product');
     if(name==='offer'){ $('p-badge').textContent='⏳ מחיר לייב בלבד'; }
-    else { $('p-badge').textContent=DEMO_PRODUCT.badge; }
+    else { $('p-badge').textContent=Product.cur.badge; }
     $('brb').classList.remove('show');
-    Live.scene(name, DEMO_PRODUCT.notes);
+    Live.scene(name, Product.notes);
     /* scene-default gestures (03: open->wave, close->bye) */
     const d = Gestures.reg && Gestures.reg._runtime && Gestures.reg._runtime.scene_defaults;
     if(d && d[name]) setTimeout(()=>Gestures.fire(d[name], false), 400);
     console.log('[SCENE]', name);
   }
+};
+
+/* ═══ BACKEND SOCKET (Phase 2) ═══
+   The stage holds the ONE brain session (its pod iframe owns the mic and the LiveKit
+   subscription), so the switchboard cannot talk to the brain itself without creating a
+   second Realtime session — two brains, two voices, one stream. Everything the director
+   and n8n send therefore arrives here and is applied through the SAME handlers the
+   Phase-1 postMessage path uses. One code path, two transports. */
+const Backend = {
+  ws:null, tries:0,
+  connect(){
+    if(!API) return;
+    const url = API.replace(/^http/,'ws') + '/ws/stage';
+    let s; try{ s = new WebSocket(url); }catch(e){ console.warn('[API] bad url', url, e); return; }
+    this.ws = s;
+    s.onopen = ()=>{ this.tries=0; console.log('[API] stage socket open ->', url); };
+    s.onmessage = (ev)=>{ let m; try{ m=JSON.parse(ev.data); }catch(_){ return; } this.apply(m); };
+    /* Reconnect with backoff. A stream must survive a backend restart; the brain session
+       lives in the iframe and is NOT affected by this socket dropping. */
+    s.onclose = ()=>{ this.ws=null; const d=Math.min(30000, 1500*Math.pow(1.8,this.tries++));
+                      setTimeout(()=>this.connect(), d); };
+  },
+  apply(m){
+    switch(m.act){
+      case 'hello':   if(m.product||m.notes) Product.apply(m.product, m.notes);
+                      if(m.state && m.state.scene) Scenes.set(m.state.scene);
+                      break;
+      case 'say':     Live.say(m.text); break;
+      case 'cue':     Live.cue(m.intent, m.ctx); break;
+      case 'chat':    ChatRail.add(m.name, m.text); Live.chat(m.name, m.text); break;
+      case 'rail':    ChatRail.add(m.name, m.text); break;   /* shown, not answered */
+      case 'gesture': Gestures.fire(m.name, true); break;
+      case 'scene':   Product.apply(m.product, m.notes); Scenes.set(m.name); break;
+      case 'product': Product.apply(m.product, m.notes); Live.product(Product.notes); break;
+      case 'hold':    Live.hold(m.on); $('brb').classList.toggle('show', !!m.on); break;
+      case 'kill':    Live.hold(true); Gestures.toIdle(); $('brb').classList.add('show'); break;
+      default:        console.warn('[API] unknown act', m.act);   /* never silent */
+    }
+  },
+  up(msg){ try{ this.ws && this.ws.readyState===1 && this.ws.send(JSON.stringify(msg)); }catch(_){} }
 };
 
 /* ═══ CHAT RAIL ═══ */
@@ -270,16 +352,21 @@ window.addEventListener('message',(e)=>{
   if(Live.on && !Live.alive){
     Live.alive=true;
     Live.persona(MAYA_PERSONA);
-    Live.product(DEMO_PRODUCT.notes);
-    Live.scene(Scenes.cur || (Q.get('scene')||'open'), DEMO_PRODUCT.notes);
+    Live.product(Product.notes);
+    Live.scene(Scenes.cur || (Q.get('scene')||'open'), Product.notes);
     console.log('[LIVE] awake -> persona + product + scene sent');
   }
 
   if(type==='gesture' && d.tag){          /* brain emits at speech-START */
     const g=Gestures.byTag(d.tag); if(g) Gestures.fire(g,false);
+    Backend.up({ev:'gesture', tag:d.tag});
   }
   const text=(d.text||d.message||d.transcript||'').toString().trim();
   if(!text) return;
+  /* Her spoken line goes back up to the switchboard: it closes the chat-answer latency
+     loop (Gate 2 needs "<8s on-stream"), counts lines for the session report, and runs
+     the forbidden-claim post-check. */
+  if(type==='nova-said'||type==='maya-said') Backend.up({ev:'said', text});
   if(/kid|user|you|human|viewer/.test(type)) ChatRail.add('צופה', text);
 });
 
@@ -291,7 +378,9 @@ window.addEventListener('message',(e)=>{
   $('p-note').textContent=DEMO_PRODUCT.note;
   $('p-badge').textContent=DEMO_PRODUCT.badge;
   await Gestures.load();
-  Live.init();
+  if(PREVIEW){ const fb=$('maya-fallback'); if(fb) fb.lastChild.textContent='תצוגה מקדימה'; }
+  else Live.init();
+  Backend.connect();
   Scenes.set(Q.get('scene')||'open');
   if(Q.get('lang')==='en'){ document.documentElement.lang='en'; document.documentElement.dir='ltr'; }
 })();

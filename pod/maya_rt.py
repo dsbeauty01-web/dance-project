@@ -918,6 +918,11 @@ function connectWS(){
     else if(m.type==='you_text'){uEnd(m.text||'');try{parent.postMessage({type:'kid-said',text:m.text||''},'*');}catch(_){}}
     else if(m.type==='nova_text')nDelta(m.delta);
     else if(m.type==='nova_done'){nEnd();try{parent.postMessage({type:'nova-said',text:m.text||''},'*');}catch(_){}}
+    /* MAYA FORK FIX 2026-08-05 — the brain emits {type:'gesture',tag} at speech-START
+       (MAYA-CONTRACT outbound table) and this page dropped it: the [TAG] -> gesture path
+       existed on both ends with nothing joining them, so she never waved on her own words.
+       Forwarded to the parent, where maya-stage.html's gesture engine owns the queue. */
+    else if(m.type==='gesture'){try{parent.postMessage({type:'gesture',tag:m.tag||''},'*');}catch(_){}}
     else if(m.type==='status'){
       if(m.speaking===true){micGated=true;nEnd();}
       else if(m.speaking===false){micGated=false;}
@@ -930,6 +935,33 @@ document.getElementById('send').onclick=()=>{const t=document.getElementById('tx
 document.getElementById('txt').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('send').click();});
 document.getElementById('ttog').onclick=()=>document.getElementById('textlane').classList.toggle('open');
 window.addEventListener('message',(e)=>{try{const d=e.data;if(d&&d.type==='nova-say'&&d.text&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-say',text:d.text}));}if(d&&d.type==='nova-cue'&&d.intent&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-cue',intent:d.intent,ctx:d.ctx||''}));}if(d&&d.type==='set-avatar'&&d.id){fetch('/set_avatar?id='+encodeURIComponent(d.id)).catch(()=>{});}if(d&&(d.type==='nova-persona'||d.type==='set_persona')&&d.text&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'persona',text:d.text}));}if(d&&d.type==='nova-fact'&&d.move&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-fact',move:d.move}));}if(d&&d.type==='nova-pick'&&d.game&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-pick',game:d.game}));}if(d&&d.type==='hold'&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'hold',on:!!d.on}));}}catch(_){}}); /* pitch-plan + intro brain: parent tells live Nova a detected move (nova-fact) or the chosen game (nova-pick) */
+/* ═══ MAYA CONTRACT FORWARD-LIST (added 2026-08-05) ═══════════════════════════════════
+   MAYA-CONTRACT.md says it in bold: "Any type added here must also be added to the bridge
+   forward-list -- a missing bridge entry is silent, and cost a full debugging cycle on Nova."
+   It happened anyway. The brain implements say/cue/chat/scene/product/persona over its
+   websocket (all verified in GATE 1, which drove /rt DIRECTLY and so never crossed this
+   page), but the listener above only ever accepted Nova's legacy nova-* names. Every Maya
+   message the stage sent -- including the persona -- was dropped here without a log. The
+   director looked fully wired and drove nothing; she ran her base prompt and talked on her
+   own, because her own prompt was the only instruction that ever reached her.
+   A separate listener, so Nova's legacy line above stays byte-identical (law-treaty).
+   Disjoint by design: 'hold' and 'set-avatar' are handled ABOVE and are absent here. */
+window.addEventListener('message',(e)=>{
+  const d=e.data; if(!d||typeof d!=='object'||!d.type) return;
+  const F={
+    'say':     d=>({type:'say',     text:d.text||''}),
+    'cue':     d=>({type:'cue',     intent:d.intent||'', ctx:d.ctx||''}),
+    'chat':    d=>({type:'chat',    name:d.name||'', text:d.text||'', lang:d.lang||'', priority:d.priority||''}),
+    'scene':   d=>({type:'scene',   scene:d.scene||'', product_notes:d.product_notes||''}),
+    'product': d=>({type:'product', notes:d.notes||''}),
+    'persona': d=>({type:'persona', text:d.text||''})
+  };
+  const build=F[d.type]; if(!build) return;
+  /* NO SILENT DROPS: if the socket is not open the operator is told, in the page log and
+     in the console. A dropped persona used to look exactly like a working one. */
+  if(!(ws&&ws.readyState===1)){ log('DROPPED '+d.type+' — brain socket not open'); return; }
+  try{ ws.send(JSON.stringify(build(d))); }catch(err){ log('SEND FAIL '+d.type+' '+err.message); }
+});
 /* ---- mic capture ---- */
 let ctx,micOn=false,micGated=false;
 async function startMic(){
@@ -952,7 +984,11 @@ async function startMic(){
 }
 /* ---- start (greet-first) ---- */
 document.getElementById('gstart').onclick=async()=>{
-  try{fetch('/set_avatar?id=nova_idle').catch(()=>{});}catch(_){}/* item1: always start calm nova_idle (freeze game may have left a gesture) */
+  /* MAYA FORK FIX 2026-08-05: this line loaded nova_idle. On the Maya stack that is a
+     RESOLUTION LAW violation (nova_* is 1076x1924, maya_* is 1080x1920) AND it swaps the
+     face: the operator opens the stage, clicks start, and NOVA appears on Maya's stream.
+     The engine already boots on maya_idle; the reset must return to the SAME family. */
+  try{fetch('/set_avatar?id=maya_idle').catch(()=>{});}catch(_){}/* always start calm on the idle bake (a previous gesture may have been left up) */
   document.getElementById('gate').style.display='none';
   showUI();badge('listening');poster.classList.add('show');
   try{await joinRoom();}catch(e){log('room err '+e.message);}
