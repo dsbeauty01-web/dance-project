@@ -138,7 +138,26 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
    Live avatar is the iframe below; the #nova-stage video contain rule is the pod-DOWN clip
    fallback only (whole figure by design). */
 /* the live V2V avatar iframe fills the 9:16 stage edge-to-edge */
-#nova-stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:linear-gradient(180deg,#f2d7f2 0%,#e8c6ea 55%,#caa3d6 100%);z-index:3}
+/* REVEAL GATE 2026-08-05 — she is INVISIBLE until she is genuinely ready.
+   The old code hid the placeholder the moment the iframe mounted, so the child saw a
+   black, still-connecting iframe for however long LiveKit took to negotiate (the pod is
+   in Romania — this can be tens of seconds). A slow arrival is fine; a broken-looking one
+   is not. The iframe now fades in only when she has actually SPOKEN, which is the one
+   signal that proves engine + bridge + LiveKit + brain are all alive. */
+#nova-stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:linear-gradient(180deg,#f2d7f2 0%,#e8c6ea 55%,#caa3d6 100%);z-index:3;
+  opacity:0;transition:opacity .7s ease}
+#nova-stage iframe.ready{opacity:1}
+#nova-wait{position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:16px;text-align:center;padding:20px;
+  background:radial-gradient(ellipse 65% 55% at 50% 42%,#4a1276,#1a0139 72%)}
+#nova-wait.gone{display:none}
+#nova-wait .orb{width:66px;height:66px;border-radius:50%;
+  background:radial-gradient(circle at 35% 32%,#ffe6c4,#ff9ad5 55%,#a24ecf);
+  box-shadow:0 0 40px rgba(255,150,220,.65);animation:orbp 1.5s ease-in-out infinite}
+@keyframes orbp{0%,100%{transform:scale(1);opacity:.92}50%{transform:scale(1.13);opacity:1}}
+#nova-wait .t{font-family:Fredoka,system-ui,sans-serif;font-weight:700;color:#fff;
+  font-size:clamp(17px,2.4vw,23px);text-shadow:0 2px 12px rgba(0,0,0,.45)}
+#nova-wait .s{font-family:Fredoka,system-ui,sans-serif;color:rgba(255,255,255,.72);font-size:14px}
 /* clip-bank fallback videos (only if the pod is down) — contain = whole figure, no crop, no stretch */
 #nova-stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
   opacity:0;transition:opacity .15s linear;z-index:2;background:transparent}
@@ -173,6 +192,11 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
   <div class="panel" id="nova-panel">
     <div id="nova-stage">
       <div id="nova-static">🌟</div>
+      <div id="nova-wait">
+        <div class="orb"></div>
+        <div class="t" id="wait-title">Nova is waking up…</div>
+        <div class="s" id="wait-sub">getting her ready for you ✨</div>
+      </div>
     </div>
     <div id="nova-tag">🌟 Nova</div>
     <div id="nova-say"></div>
@@ -422,16 +446,23 @@ const Live = {
     f.id='saray-frame'; f.src=SARAY;
     f.allow='microphone; camera; autoplay; fullscreen';   // iframe owns the mic (delegated)
     f.setAttribute('allowfullscreen','');
-    f.addEventListener('load',()=>{                       // hand her the TENSION-MASTER brain once
-      this.post({type:'nova-persona', text:TENSION_MASTER});
-      this.post({type:'set_persona', text:TENSION_MASTER});   // belt + suspenders (naming may vary)
+    f.addEventListener('load',()=>{
+      /* NOTE: persona/pick are NOT sent here any more. At iframe-load the pod page's
+         websocket is still CONNECTING and its bridge silently drops anything forwarded —
+         no error, no ack, so the page believed it had succeeded. They are now sent from
+         armIntro(), which fires on the pod page's ws-open signal and retries until ACK.
+         frame + set_avatar stay: neither depends on the websocket. */
       this.frame('full');                                     // FIX 2026-08-04: whole body, not the closeup default
       this.setAvatar('nova_idle');
     });
     novaStage.appendChild(f); this.frame=f;
-    $('nova-static').style.display='none';
-    $('nova-tag').textContent='🌟 Nova · live';
-    statusEl.textContent='✓ live Nova — talk to her!';
+    /* REVEAL GATE: do NOT hide the placeholder here. The iframe is mounted but the
+       LiveKit stream has not negotiated yet, so revealing now shows a black rectangle
+       for as long as the network takes. reveal() is called when she actually speaks. */
+    $('nova-static').style.display='none';          // the static star goes; the wait card stays
+    $('nova-tag').textContent='🌟 Nova';
+    statusEl.textContent='waking Nova…';
+    this._waitStage(0);
     // WAKE POINTER (2026-07-27): her page needs ONE tap to wake her mic. Point the kid
     // at it, and hold the game until she actually speaks (first iframe message).
     this.post({type:'auto-start'});                     // harmless if unsupported
@@ -454,11 +485,47 @@ const Live = {
     if(this.dead) return; this.dead=true; this.on=false;
     try{ clearTimeout(this._aliveTimer); }catch(_){}
     const h=document.getElementById('wake-hint'); if(h) h.remove();
+    const w=document.getElementById('nova-wait'); if(w) w.classList.add('gone');   // stop waiting: show the clips
+    try{ if(window.Pose && !Pose._started){ Pose._started=true; Pose.init(); } }catch(_){}  // offline path still tracks
     Clips.init(); Clips.playIdle();                       // voice-less fallback, no error shown
     $('nova-static').style.display='none';
     $('nova-tag').textContent='🌟 Nova';
     statusEl.textContent='playing with Nova';
     try{ console.log('[LIVE] off → clip-bank fallback:', reason); }catch(_){}
+  },
+  /* ═══ REVEAL GATE (2026-08-05) ═══════════════════════════════════════════════
+     She stays hidden behind the wait card until she has actually SPOKEN. That single
+     event proves the whole chain — engine, bridge, LiveKit negotiation, brain — is
+     alive. Revealing at iframe-mount (what it used to do) shows a black rectangle for
+     however long the network takes, and the pod is in Romania.
+     Taking 40s to arrive is acceptable. Looking broken for 40s is not. */
+  _revealed:false, _waitT:null,
+  _waitStage(n){
+    const msgs=[
+      ['Nova is waking up…','getting her ready for you ✨'],
+      ['Almost there…','she is stretching her arms 🌟'],
+      ['Nearly ready…','worth the wait, promise 💫'],
+      ['Just a few more seconds…','she is nearly here 🎵']
+    ];
+    const m=msgs[Math.min(n,msgs.length-1)];
+    const t=document.getElementById('wait-title'), s=document.getElementById('wait-sub');
+    if(t) t.textContent=m[0];
+    if(s) s.textContent=m[1];
+    clearTimeout(this._waitT);
+    if(n < msgs.length-1) this._waitT=setTimeout(()=>this._waitStage(n+1), 9000);
+  },
+  reveal(why){
+    if(this._revealed) return; this._revealed=true;
+    clearTimeout(this._waitT);
+    console.log('[REVEAL] showing Nova —', why);
+    if(this.frame) this.frame.classList.add('ready');
+    const w=document.getElementById('nova-wait'); if(w) w.classList.add('gone');
+    $('nova-tag').textContent='🌟 Nova · live';
+    statusEl.textContent='✓ live Nova — talk to her!';
+    /* Pose detection starts only NOW. It downloads two TensorFlow bundles and then runs
+       inference every frame, competing with video decode for CPU. Starting it during
+       connect is what made her black and late while Maya (no camera, no TF) looked fine. */
+    try{ if(window.Pose && !Pose.ok && !Pose._started){ Pose._started=true; Pose.init(); } }catch(_){}
   },
   post(msg){ try{ this.frame && this.frame.contentWindow && this.frame.contentWindow.postMessage(msg,'*'); }catch(_){} },
   // She BECOMES the animal: switch the baked pose live (HTTP + postMessage, whichever the app honors)
@@ -488,6 +555,42 @@ const Live = {
   },
   // PAUSE (2026-08-04): pod-side silence. on=true drops mic frames + cancels speech in flight.
   hold(on){ this.post({type:'hold', on:!!on}); },
+
+  /* ═══ INTRO ARMING (2026-08-05) ═══════════════════════════════════════════════
+     THE BUG THIS FIXES: persona + nova-pick were posted at iframe-load. At that
+     instant the pod page's websocket is still CONNECTING, and its bridge forwards
+     only when readyState===1 — so both were dropped SILENTLY. No error, no ack, and
+     a preflight that opened its own socket with ?intro=freeze passed happily while a
+     real browser load produced no freeze intro at all.
+     NOW: fire only on the pod page's ws-open signal, and retry every 1s until the
+     brain ACKs, max 10 tries. Every try and every ack is logged to the console. */
+  _ackPersona:false, _ackPick:false, _introTries:0, _introTimer:null,
+  armIntro(){
+    if(this._introTimer) return;                       // already arming
+    const send = ()=>{
+      if(this._ackPersona && this._ackPick){
+        console.log('[INTRO] ACKed by brain after '+this._introTries+' try(s) — done');
+        clearInterval(this._introTimer); this._introTimer=null; return;
+      }
+      if(this._introTries >= 10){
+        console.warn('[INTRO] GAVE UP after 10 tries — persona ack='+this._ackPersona+' pick ack='+this._ackPick);
+        clearInterval(this._introTimer); this._introTimer=null; return;
+      }
+      this._introTries++;
+      console.log('[INTRO] try '+this._introTries+'/10 — sending persona + nova-pick');
+      if(!this._ackPersona){
+        this.post({type:'nova-persona', text:TENSION_MASTER});
+        this.post({type:'set_persona',  text:TENSION_MASTER});
+      }
+      if(!this._ackPick) this.post({type:'nova-pick', game:'freeze'});
+    };
+    send();                                            // immediate first try on ws-open
+    this._introTimer = setInterval(send, 1000);
+  },
+  onAck(of){
+    if(of==='persona')   { this._ackPersona=true; console.log('[INTRO] ACK persona'); }
+    if(of==='nova-pick') { this._ackPick=true;    console.log('[INTRO] ACK nova-pick'); }
+  },
 };
 
 /* ENERGY LADDER (2026-07-27) avatar map: hype→nova_active (nova_sub+nova_active baked; hype clip dropped) */
@@ -511,13 +614,20 @@ const Nova = {
 window.addEventListener('message', (e)=>{
   const d = e.data; if(!d || typeof d!=='object') return;
   const type = (d.type || d.event || '').toString().toLowerCase();
+
+  /* SOCKET-OPEN: the ONLY safe moment to send persona/pick. Anything sent before this
+     is dropped by the pod page's bridge without an error. */
+  if(type==='ws-open'){ console.log('[INTRO] pod socket OPEN -> arming'); Live.armIntro(); return; }
+  if(type==='nova-ack'){ Live.onAck(d.of); return; }
+
   const text = (d.text || d.message || d.transcript || '').toString().trim();
   if(!text) return;
   if(typeof Live!=='undefined' && Live.on && !Live.alive){              // first word = she's awake
     Live.alive=true; try{ clearTimeout(Live._aliveTimer); }catch(_){}
-    Live.post({type:'nova-pick', game:'freeze'});   // FIX 2026-08-02: exit intro — the game IS picked (socket proven open: a message just arrived)
-    Live.post({type:'nova-persona', text:TENSION_MASTER});   // FIX 2026-08-02: re-send — the load-time post races a CONNECTING socket and dies silently
-    Live.post({type:'set_persona',  text:TENSION_MASTER});
+    Live.reveal('she spoke — whole chain proven alive');   // REVEAL GATE: only now is she shown
+    /* persona/pick are NOT re-sent here. There is now exactly ONE trigger path —
+       armIntro(), fired by the pod page's ws-open signal and retried until ACK.
+       Two independent senders made it impossible to tell which one had worked. */
     Live.frame('full');                                      // FIX 2026-08-04: re-assert whole-body (survives an iframe refresh)
     const h=document.getElementById('wake-hint'); if(h) h.remove();
   }
@@ -815,7 +925,13 @@ $('start-btn').addEventListener('click', async ()=>{
     const stream=await navigator.mediaDevices.getUserMedia({video:{width:960,height:720},audio:false});
     camEl.srcObject=stream;
   }catch(e){ statusEl.textContent='no camera — playing anyway'; }   // soft: never block the fun
-  Music.init(); Pose.init();
+  /* Pose.init() is NOT called here any more. It downloads two TensorFlow bundles from a
+     third-party CDN and then runs inference every frame, competing with LiveKit video
+     decode for CPU in the same tab. Doing that DURING connect is why Nova arrived black
+     and late while Maya — same pod, same bridge, no camera, no TF — looked fine.
+     Live.reveal() starts it once she is actually on screen. If the pod is down, the
+     clip-fallback path starts it instead, so tracking still works offline. */
+  Music.init();
   Live.init();                                                       // probe pod → mount V2V iframe (owns mic) or clip fallback
   statusEl.textContent='warming up…';
   await new Promise(r=>setTimeout(r,900));                          // let the avatar/clips buffer a beat

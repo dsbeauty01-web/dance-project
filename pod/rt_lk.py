@@ -430,6 +430,9 @@ async def relay(request):
                             # so the persona never applied and she kept answering out of context.
                             await oai.send_json({"type": "session.update", "session": {
                                 "type": "realtime", "instructions": instr}})
+                            # ACK 2026-08-05 — the page retries until it hears this.
+                            try: await ws_client.send_json({"type": "ack", "of": "persona"})
+                            except Exception: pass
                     elif t == "nova-fact":
                         # TRUTH-GATE: a REAL detected move arrived. Record it (opens the
                         # window in which move-praise is legitimate) and fire the ONE
@@ -482,6 +485,10 @@ async def relay(request):
                         game = (m.get("game") or "").strip().lower().replace("-", " ")
                         turn["kid_ts"] = time.time(); turn["retried"] = False; kidinput["ts"] = time.time()
                         print("[PICK]", game, flush=True)
+                        # ACK 2026-08-05: the page retries until it hears this. Without an ack a
+                        # dropped message is indistinguishable from a delivered one.
+                        try: await ws_client.send_json({"type": "ack", "of": "nova-pick", "game": game})
+                        except Exception: pass
                         # GAME-MODE (2026-08-04): a pick means the intro is OVER. If a game persona
                         # was registered, re-assert it as the session instructions so the intro flow
                         # cannot reassert itself later in the session. Belt and braces with the
@@ -795,11 +802,26 @@ let _rcDelay=2000;function scheduleReconnect(){setTimeout(reconnect,_rcDelay);_r
 /* ---- brain WS ---- */
 let ws,wsConns=0,_wsDelay=1500;
 function connectWS(){
-  const url=location.origin.replace('http','ws')+'/rt'+(wsConns++?'?rc=1':'');  // seamless reconnect: no re-greet
-  ws=new WebSocket(url);ws.onopen=()=>{_wsDelay=1500;};
+  /* FIX 2026-08-05: forward THIS page's query string to /rt. It used to build the URL from
+     location.origin alone, so ?intro=freeze arrived at the iframe and died there -- the brain
+     never saw it and always used the generic greeting. A preflight that put ?intro=freeze in
+     the socket URL by hand passed while a real browser load produced no freeze intro. */
+  const _qs=new URLSearchParams(location.search);
+  if(wsConns++) _qs.set('rc','1');                                  // seamless reconnect: no re-greet
+  const _q=_qs.toString();
+  const url=location.origin.replace('http','ws')+'/rt'+(_q?'?'+_q:'');
+  /* SOCKET-OPEN SIGNAL 2026-08-05: tell the parent page the exact moment the socket is
+     OPEN. The parent used to send persona/pick at iframe-load, when this socket is still
+     CONNECTING and the bridge below silently drops anything it forwards. There is no error
+     and no ack, so the page believes it succeeded. Now the parent waits for this. */
+  ws=new WebSocket(url);
+  ws.onopen=()=>{ _wsDelay=1500;
+    try{ parent.postMessage({type:'ws-open'},'*'); }catch(_){}
+  };
   ws.onclose=()=>{_wsDelay=Math.min(30000,Math.round((_wsDelay||1500)*1.8));setTimeout(connectWS,_wsDelay);};
   ws.onmessage=(ev)=>{const m=JSON.parse(ev.data);
-    if(m.type==='log')log(m.msg);
+    if(m.type==='ack'){ try{ parent.postMessage({type:'nova-ack',of:m.of,game:m.game},'*'); }catch(_){} }
+    else if(m.type==='log')log(m.msg);
     else if(m.type==='you_delta')uDelta(m.delta||'');
     else if(m.type==='you_text'){uEnd(m.text||'');try{parent.postMessage({type:'kid-said',text:m.text||''},'*');}catch(_){}}
     else if(m.type==='nova_text')nDelta(m.delta);
