@@ -88,13 +88,41 @@ failures in GATE 1.
 
 Wiring order and the sheet's header row are in `n8n/README.md`.
 
+## 4b. T2, T3 and the auto-talk — closed, and what the live test found
+
+`node tools/qa-maya-brain.mjs wss://<pod>-8765…/rt` — **11 passed, 0 failed**. It opens a
+real Realtime session and judges what she actually says, which is the half no mock covers.
+
+**T2 — tag leak.** She was asked to end lines with `[WAVE]` and *instructed* not to read it
+aloud. An instruction is not a mechanism, and "bracket wave" on a client's stream cannot be
+taken back. She is no longer asked for tags at all: the gesture now comes from matching her
+own words as the transcript streams (`_auto_keywords` in `maya-gestures.json`, letter-bounded,
+Hebrew and English), still fired at speech-start. Explicit tags are still parsed so an older
+persona keeps working. 21 assertions in `tools/qa-maya-gestures.py`, and the page persona was
+fixed too — it REPLACES the brain's prompt, so leaving the tag request there would have
+re-opened the leak the brain just closed.
+
+**The auto-talk.** Nova nudged a quiet child after 13 s. On a broadcast with nobody speaking
+to her, that made Maya talk to herself every 13 seconds — and because the nudge was a *bare*
+inline instruction, it ran with no identity and no LANGUAGE LAW: the live test caught her
+saying *"Hola, ¿cómo estás? ¿Te gustaría contarme algo o moverte un poquito?"* — Spanish,
+kids' script, on the sales stack. Off by default now (`MAYA_IDLE_PROMPT_S=0`); if re-enabled
+it speaks in character through `ctx_prefix()`.
+
+**T3 — SAY verbatim.** It was not verbatim; it was *silent*. `say` arriving while she spoke
+printed `SAY skip (busy)` and threw the line away — the operator presses SAY and nothing
+happens, ever, with no error. The operator outranks anything she is improvising: the in-flight
+response is now cancelled and the line queued, and it goes out the moment the socket frees.
+The first fix for that had a second bug the test also caught — it treated the 1.4 s **mic**
+gate as "busy" and queued the line behind a `response.done` that was never coming. Gated on
+`resp_active` alone now, and a queued line is dropped on `hold` rather than fired at an
+operator who has paused her. Verified: the exact Hebrew sentence came back word for word.
+
 ## 5. Still open
 
 | item | note |
 |---|---|
-| **Conversation / auto-talk** | Not verified. Two of its likely causes are fixed (persona now arrives; every speech path is reachable), but `turn_detection.create_response:true` means she answers any audio the mic passes. Needs a live pass with the founder. |
-| **Tag leak** (T2) | `[WAVE]` can still reach the transcript. Real fix is keyword auto-triggers from `maya-gestures.json`, pre-synthesis — not a post-filter. |
-| **SAY verbatim** (T3) | Now actually testable: before this session the message never reached the brain from the page. |
+| **Live conversation by voice** | The mic path is untested by machine — the harness sends text, not audio. `turn_detection.create_response:true` still means she answers any audio the mic passes. This is the founder's 10-minute pass. |
 | **Backend reachability** | maya-server runs on the pod and is reached from the laptop through an SSH tunnel (`-L 8000:127.0.0.1:8000`). Cloud n8n cannot reach it until the pod is recreated with an `8000/http` port — RunPod fixes ports at creation. |
 | **GATE 0** | Still the three un-rotated keys, still plaintext in `/workspace/boot.sh`. |
 | **Push** | Nothing on GitHub; needs interactive credentials. |

@@ -60,9 +60,10 @@ PROMPT = (
     "Asked if you're AI → one honest charming line, move on. Never volunteer, never deny.\n\n"
 
     "# Gestures\n"
-    "End lines with at most ONE tag when it fits: [WAVE] [POINT] [REVEAL] [NUDGE] [BYE].\n"
-    "Greeting→WAVE · showing product→POINT · price/wow→REVEAL · urgency/tease→NUDGE · ending→BYE.\n"
-    "No tag = calm talk.\n\n"
+    "NEVER write brackets, tags, stage directions or emoji — say ONLY the words a viewer "
+    "should hear. Your body follows your words by itself: greet and you wave, show a product "
+    "and you point, name a price and you reveal, push urgency and you nudge, sign off and you "
+    "wave goodbye.\n\n"
 
     "# Segments\n"
     "You are told the current scene (open/product/offer/close) and the active product's notes. "
@@ -104,6 +105,90 @@ import re as _re            # module scope: rt_lk.py imported this INSIDE a func
                             # fine there but a NameError here, where _TAG_RE is built at import time
 GESTURE_TAGS = ("WAVE", "POINT", "REVEAL", "NUDGE", "BYE")
 _TAG_RE = _re.compile(r"\[(" + "|".join(GESTURE_TAGS) + r")\]", _re.I)
+
+# ── T2 — TAG LEAK, FIXED PRE-SYNTHESIS (2026-08-05) ───────────────────────────
+# The leak: she was asked to end lines with [WAVE] and merely INSTRUCTED not to say it.
+# An instruction is not a mechanism. A bracketed tag sitting in the text being synthesized
+# can be voiced, and "...only 149 shekels, bracket wave" on a client's live stream cannot
+# be taken back. STATUS.md rated instruction-alone "insufficient" and it was.
+#
+# The fix is to remove the tag from her mouth entirely: she is no longer asked to write
+# tags, and the gesture is derived from HER OWN WORDS as the transcript streams, fired at
+# speech-start exactly as before. A word she never writes can never be read aloud.
+# Tag parsing stays as a fallback so an older persona that still emits [WAVE] keeps working.
+#
+# Keywords load from maya-gestures.json when it is on the pod, so "new bake = one JSON line,
+# zero code" still holds — including its triggers. Absent file -> the literals below, because
+# the brain must boot on a bare pod with no web repo mounted.
+GESTURE_REGISTRY_PATH = os.environ.get("MAYA_GESTURES", "/workspace/maya-gestures.json")
+
+_FALLBACK_KEYWORDS = {
+    "WAVE":   ["שלום", "היי", "ברוכים הבאים", "hello", "hi", "welcome"],
+    "POINT":  ["תראו", "הנה", "שימו לב", "look at", "here it is", "take a look"],
+    "REVEAL": ["שקל", "שקלים", "₪", "מחיר", "וואו", "מדהים", "shekel", "price", "wow", "amazing"],
+    "NUDGE":  ["רק היום", "נגמר", "מהרו", "חכו", "hurry", "last chance", "only today"],
+    "BYE":    ["להתראות", "ביי", "נתראה", "goodbye", "bye", "see you"],
+}
+
+
+def _build_keyword_matchers(path):
+    """[(tag, compiled_regex)] — one regex per gesture tag, letter-bounded so 'עולה'
+    inside a longer word does not fire a REVEAL. Returns the registry-driven list when
+    the json is readable, else the literals."""
+    words_by_tag = dict(_FALLBACK_KEYWORDS)
+    source = "fallback literals"
+    try:
+        with open(path, encoding="utf-8") as fh:
+            reg = json.load(fh)
+        cats = reg.get("_auto_keywords", {})
+        built = {}
+        for key, g in reg.items():
+            if key.startswith("_") or not isinstance(g, dict):
+                continue
+            tags = [t.upper() for t in (g.get("tags") or [])]
+            if not tags:
+                continue
+            words = []
+            for cat in (g.get("auto") or []):
+                words += [w for w in (cats.get(cat) or []) if isinstance(w, str)]
+            if words:
+                built[tags[0]] = words
+        if built:
+            words_by_tag, source = built, path
+    except Exception as e:
+        print("[GESTURE] registry not loaded (" + str(e) + ") -> literal keywords", flush=True)
+
+    out = []
+    for tag, words in words_by_tag.items():
+        esc = sorted((_re.escape(w) for w in words if w), key=len, reverse=True)
+        if not esc:
+            continue
+        # Boundary that works for Hebrew and Latin alike: no letter either side.
+        out.append((tag, _re.compile(r"(?<![^\W\d_])(" + "|".join(esc) + r")(?![^\W\d_])", _re.I | _re.U)))
+    print("[GESTURE] keyword triggers from " + source + " — " +
+          ", ".join(t for t, _ in out), flush=True)
+    return out
+
+
+_KEYWORD_MATCHERS = _build_keyword_matchers(GESTURE_REGISTRY_PATH)
+
+
+def _gesture_for(text):
+    """The gesture to fire for a line she is about to speak, or None.
+    An explicit [TAG] wins (legacy personas); otherwise the EARLIEST keyword in the
+    sentence wins, because the gesture fires at speech-START and should match the
+    opening beat — a greeting that later mentions a price is still a wave."""
+    tag = _gesture_tag(text)
+    if tag:
+        return tag
+    if not text:
+        return None
+    best_at, best_tag = None, None
+    for t, rx in _KEYWORD_MATCHERS:
+        m = rx.search(text)
+        if m and (best_at is None or m.start() < best_at):
+            best_at, best_tag = m.start(), t
+    return best_tag
 
 def _gesture_tag(text):
     """Return the LAST gesture tag in text, upper-case, or None.
@@ -184,7 +269,13 @@ async def relay(request):
     # TURN-GATE: one response per kid turn (+ the existing single-active guard),
     # and at most ONE gentle silence-retry, then quiet until real kid input.
     turn = {"kid_ts": time.time(), "retried": False}
-    SILENCE_RETRY_S = 13.0
+    # AUTO-TALK, OFF BY DEFAULT (2026-08-05). Nova nudged a quiet child after 13s — right for
+    # a kids' game, wrong for a broadcast: with nobody speaking to her, Maya talked to herself
+    # every 13 seconds, which is what the founder saw ("she is on auto talk"). A live host is
+    # driven by the operator and the chat; silence is the operator's call, not hers.
+    # Set MAYA_IDLE_PROMPT_S to a number of seconds to re-enable it (it then speaks in Hebrew,
+    # in character, through ctx_prefix — it used to speak Spanish through a bare instruction).
+    SILENCE_RETRY_S = float(os.environ.get("MAYA_IDLE_PROMPT_S", "0") or 0)
     # Freeze demo: fire the baked freeze gesture on the engine if one exists on
     # the volume (env FREEZE_GESTURE_ID). Empty -> honest words-only fallback.
     gesture = {"freeze_id": os.environ.get("FREEZE_GESTURE_ID", "").strip(), "freeze_fired": False}
@@ -247,6 +338,19 @@ async def relay(request):
                                        "that you'll check)")
                 + "\nCurrent scene: " + scene["name"] + ".\n\n")
     hold = {"on": False}           # PAUSE: True = drop mic + cancel speech until released
+    pending = {"say": None}        # operator line waiting for the socket to free up (see `say`)
+
+    async def speak_operator_line(line):
+        """The ONE place an operator line is turned into speech, so the queued path and
+        the immediate path cannot drift apart. ctx_prefix() is mandatory: inline
+        instructions REPLACE the session prompt, and without it this line runs with no
+        identity, no language lock and no PRODUCT NOTES (the GATE 1 bug)."""
+        spoken.add(line.lower())
+        await oai.send_json({"type": "response.create", "response": {
+            "instructions": ctx_prefix() + "Say this ONE line out loud EXACTLY as written, once, "
+                            "in your live-host voice, then stop. Add nothing. "
+                            'Line: "' + line + '"'}})
+        print("SAY:", line[:60], flush=True)
     LIGHT_WAIT = 10.0
     LIGHT_INVITE_RE = _re.compile(r"(magic light|on your shoulder|little shrug|shoulder.*(shrug|wiggle|lift))", _re.I)
     # #5 STATUE SILENCE: from her freeze call-out until a hold-fact/move-on, her mouth is CLOSED
@@ -353,14 +457,19 @@ async def relay(request):
                         except Exception: pass
                         continue
                     quiet = time.time() - turn["kid_ts"]
-                    if quiet >= SILENCE_RETRY_S and not turn["retried"]:
+                    if SILENCE_RETRY_S > 0 and quiet >= SILENCE_RETRY_S and not turn["retried"]:
                         turn["retried"] = True
                         print("[TURN-GATE] silence %.0fs -> ONE gentle retry" % quiet, flush=True)
                         try:
+                            # ctx_prefix() is mandatory here for the same reason it is everywhere
+                            # else: this instruction REPLACES the session prompt. Without it this
+                            # exact call spoke a Spanish kids' line ("¿Te gustaría... moverte un
+                            # poquito?") on the Maya stack — no identity, no LANGUAGE LAW, no notes.
                             await oai.send_json({"type": "response.create", "response": {
-                                "instructions": ("The kid has been quiet for a bit. Give ONE gentle, warm, "
-                                                 "very short invite to move or chat, then stop. Do not repeat "
-                                                 "a line you already said.")}})
+                                "instructions": ctx_prefix() + "The stream has been quiet for a moment. "
+                                                "Give ONE short, warm line to the viewers that keeps the "
+                                                "energy up and invites them to write in the chat, then stop. "
+                                                "Never repeat a line you already said."}})
                         except Exception as e:
                             print("[TURN-GATE] retry err", e, flush=True)
             silwatch = asyncio.create_task(silence_watch())
@@ -482,15 +591,26 @@ async def relay(request):
                         line = (m.get("text") or "").strip()
                         if line and line.lower() in spoken:
                             print("[DE-CAN] duplicate operator line dropped:", line[:40], flush=True)
-                        elif line and not speaking["resp_active"] and not speaking["v"]:
-                            spoken.add(line.lower())
-                            await oai.send_json({"type": "response.create", "response": {
-                                "instructions": ctx_prefix() + "Say this ONE line out loud EXACTLY as written, once, "
-                                                "in your live-host voice, then stop. Add nothing. "
-                                                'Line: "' + line + '"'}})
-                            print("SAY:", line[:60], flush=True)
-                        else:
-                            print("SAY skip (busy):", line[:40], flush=True)
+                        elif line and not speaking["resp_active"]:
+                            # Gate on resp_active ONLY. speaking["v"] is the MIC gate — it stays
+                            # closed for 1.4s after her last audio chunk, and treating it as "busy"
+                            # queued the operator's line behind a response.done that was never
+                            # coming, so SAY sat silent until the NEXT response happened to end.
+                            await speak_operator_line(line)
+                        elif line:
+                            # OPERATOR SUPREMACY (2026-08-05). This used to print "SAY skip (busy)"
+                            # and throw the line away: the operator types, presses SAY, and nothing
+                            # ever happens — no speech, no error, on a live stream. The director
+                            # outranks anything she is improvising, so the in-flight response is
+                            # cancelled and the line is spoken the moment the socket is free.
+                            # Queued rather than fired immediately because the Realtime API rejects
+                            # a second response while one is still closing.
+                            pending["say"] = line
+                            print("[SAY] preempting in-flight response:", line[:50], flush=True)
+                            if speaking["resp_active"]:
+                                try: await oai.send_json({"type": "response.cancel"})
+                                except Exception: pass
+                            await ws_client.send_json({"type": "status", "state": "say-preempt"})
                     elif t == "cue":
                         intent = (m.get("intent") or "").strip()
                         ctx = (m.get("ctx") or "").strip()
@@ -555,11 +675,17 @@ async def relay(request):
                         if on:
                             # only cancel if something is actually speaking, else the API logs
                             # response_cancel_not_active noise on every pause
-                            if speaking["resp_active"] or speaking["v"]:
+                            if speaking["resp_active"]:
                                 try:
                                     await oai.send_json({"type": "response.cancel"})
                                 except Exception:
                                     pass
+                            # A queued operator line must NOT survive a pause: hold means silence,
+                            # and a line released the moment the operator un-pauses is a line she
+                            # says with no operator expecting it.
+                            if pending["say"]:
+                                print("[HOLD] queued operator line dropped:", pending["say"][:40], flush=True)
+                                pending["say"] = None
                             try:    # drop whatever the mic already buffered so it can't fire on resume
                                 await oai.send_json({"type": "input_audio_buffer.clear"})
                             except Exception:
@@ -644,7 +770,7 @@ async def relay(request):
                             # word (Nova measured 1.47-3.84s, median 1.95s). Emitting here means
                             # the wave lands WITH the greeting. Freeze-game sync lesson, day one.
                             if not resp["gesture_sent"]:
-                                _tag = _gesture_tag(resp["buf"])
+                                _tag = _gesture_for(resp["buf"])
                                 if _tag:
                                     resp["gesture_sent"] = True
                                     await ws_client.send_json({"type": "gesture", "tag": _tag})
@@ -695,7 +821,7 @@ async def relay(request):
                             # first reaches the engine. Guarded by gesture_sent so whichever path
                             # wins emits exactly once per response.
                             if not resp["gesture_sent"]:
-                                _tag = _gesture_tag(resp["buf"])
+                                _tag = _gesture_for(resp["buf"])
                                 if _tag:
                                     resp["gesture_sent"] = True
                                     await ws_client.send_json({"type": "gesture", "tag": _tag})
@@ -764,6 +890,11 @@ async def relay(request):
                             await ws_client.send_json({"type": "status", "speaking": True, "state": "thinking"})
                     elif et == "response.done":
                         speaking["resp_active"] = False
+                        # An operator line that arrived while she was speaking goes out NOW.
+                        if pending["say"] and not hold["on"]:
+                            _line = pending["say"]; pending["say"] = None
+                            try: await speak_operator_line(_line)
+                            except Exception as _e: print("[SAY] queued send failed:", _e, flush=True)
                         async def reopen():
                             # reopen only once the engine has had NO new audio for 2.0s
                             while time.time() - speaking["last_chunk"] < GATE_COOLDOWN:
