@@ -83,7 +83,13 @@ CORE_LAWS = (
     "a viewer who says no. No fake scarcity and no guilt.\n"
     "NAME LAW: repeat a viewer's name exactly as written, never 'correct' it.\n"
     "FRESH LAW: never say the exact same sentence twice in one stream.\n"
-    "LANGUAGE LAW: mirror the viewer's language, Hebrew or English. Never switch unasked.\n"
+    "LANGUAGE LAW: you speak ONLY Hebrew or English — no other language, ever, whatever you "
+    "think you heard. DEFAULT to Hebrew when nobody has spoken yet; mirror a viewer only if "
+    "they write in Hebrew or English. (Gate 1 caught her opening the stream in Spanish: the "
+    "old wording said 'mirror the viewer' and said nothing about having no viewer yet.)\n"
+    "NO-EYES LAW: you have NO camera. You cannot see the viewer, the room, or any object. "
+    "Never describe surroundings or claim to see anything — with instructions missing she "
+    "invented a desk, a plant and a shelf. Talk only about the products in your notes.\n"
     "NEVER: monologues, lists, reading tags or instructions aloud, talking when no one said "
     "anything, responding to your own voice.\n")
 
@@ -222,6 +228,24 @@ async def relay(request):
     game_mode = {"persona": ""}    # last [GAME-MODE] persona, so nova-pick can re-assert it
     scene   = {"name": "open"}     # MAYA: current broadcast scene (open/product/offer/close)
     product = {"notes": ""}        # MAYA: the ONLY product facts she may state (TRUTH LAW)
+
+    def ctx_prefix():
+        """GATE-1 FIX 2026-08-05. In the Realtime API, `instructions` on response.create
+        REPLACE the session instructions for that response -- they do not stack on top.
+        Nova never exposed this: her cues only needed tone, and her facts rode in the ctx
+        string. Maya's cue/chat/say carried no persona and no PRODUCT NOTES, so those turns
+        ran as a bare assistant: she answered in Spanish and invented a desk, a plant and a
+        shelf she could 'see'. Every inline instruction must re-state who she is and which
+        facts are legal, or TRUTH LAW is silently absent exactly when it matters."""
+        return ("You are MAYA, a live-shopping host on a real broadcast. "
+                "Speak ONLY Hebrew or English — default Hebrew; mirror the viewer if they "
+                "write in one of those two. Never any other language. "
+                "You have NO camera and cannot see anything: never describe surroundings, "
+                "objects, or the viewer. "
+                "PRODUCT NOTES (the ONLY product facts you may state):\n"
+                + (product["notes"] or "(none — you have NO product facts; if asked, say warmly "
+                                       "that you'll check)")
+                + "\nCurrent scene: " + scene["name"] + ".\n\n")
     hold = {"on": False}           # PAUSE: True = drop mic + cancel speech until released
     LIGHT_WAIT = 10.0
     LIGHT_INVITE_RE = _re.compile(r"(magic light|on your shoulder|little shrug|shoulder.*(shrug|wiggle|lift))", _re.I)
@@ -273,9 +297,16 @@ async def relay(request):
             # (browser sends ?rc=1 when re-establishing after an OpenAI session drop / 55min cap).
             if not request.query.get("rc"):
                 await oai.send_json({"type": "response.create", "response": {
-                    "instructions": "Open the stream in ONE short line: greet the viewers warmly "
-                                    "as MAYA, in the session language, with broadcast energy. "
-                                    "End the line with [WAVE]. Do not pitch anything yet."}})
+                    # GATE-1 FIX 2026-08-05: this instruction is INLINE, so it replaces the
+                    # session instructions for this one response — meaning CORE_LAWS, including
+                    # LANGUAGE LAW, is not in force here. "in the session language" was therefore
+                    # unanchored and she opened the stream in SPANISH, twice. The language lock
+                    # has to be restated in the instruction itself.
+                    "instructions": "Speak HEBREW. Only Hebrew or English exist for you; never any "
+                                    "other language. You have no camera and cannot see anything. "
+                                    "Open the stream in ONE short line: greet the viewers warmly as "
+                                    "MAYA, with broadcast energy. Do not pitch anything yet. "
+                                    "Do NOT write or say any bracketed tag."}})
 
             async def silence_watch():
                 # TURN-GATE: after a stretch of kid silence, ONE gentle invite, then
@@ -454,7 +485,7 @@ async def relay(request):
                         elif line and not speaking["resp_active"] and not speaking["v"]:
                             spoken.add(line.lower())
                             await oai.send_json({"type": "response.create", "response": {
-                                "instructions": "Say this ONE line out loud EXACTLY as written, once, "
+                                "instructions": ctx_prefix() + "Say this ONE line out loud EXACTLY as written, once, "
                                                 "in your live-host voice, then stop. Add nothing. "
                                                 'Line: "' + line + '"'}})
                             print("SAY:", line[:60], flush=True)
@@ -465,7 +496,7 @@ async def relay(request):
                         ctx = (m.get("ctx") or "").strip()
                         if intent and not speaking["resp_active"] and not speaking["v"]:
                             await oai.send_json({"type": "response.create", "response": {
-                                "instructions": "[DIRECTOR - improvise, never read this aloud] " + intent
+                                "instructions": ctx_prefix() + "[DIRECTOR - improvise, never read this aloud] " + intent
                                                 + (" Facts you may use: " + ctx if ctx else "")
                                                 + " ONE short spoken line in your own fresh words, in "
                                                   "character, never repeating a line you already said."}})
@@ -479,7 +510,7 @@ async def relay(request):
                         vtext = (m.get("text") or "").strip()
                         if vtext and not speaking["resp_active"] and not speaking["v"]:
                             await oai.send_json({"type": "response.create", "response": {
-                                "instructions": "A viewer named " + (vname or "someone")
+                                "instructions": ctx_prefix() + "A viewer named " + (vname or "someone")
                                                 + " just said in the live chat: \"" + vtext + "\". "
                                                 + "Answer THEM directly, BY NAME, in ONE short line, in "
                                                   "their language. If they asked a product fact that is "
