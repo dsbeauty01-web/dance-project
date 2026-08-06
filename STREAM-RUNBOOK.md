@@ -17,6 +17,20 @@ that has actually run on this stack.
 | 6 | Switchboard answering | `http://localhost:8000/health` | `{"ok": true …}` |
 | 7 | Contract test green | `node tools/qa-maya-backend.mjs http://localhost:8000` | `22 passed, 0 failed` |
 
+**Cold-start facts learned the hard way (2026-08-06, first fresh-pod boot):**
+- A fresh pod must be created with `env: {PUBLIC_KEY: "<ssh pubkey>"}` or SSH is impossible.
+- `/workspace/maya-boot.sh` now installs its own deps and boots ENGINE → BRIDGE → BRAIN →
+  SWITCHBOARD in tmux sessions (`mayaengine`/`mayabridge`/`mayabrain`/`mayaserver`).
+  It was rewritten after the old order (bridge first) crashed the bridge: it sat idle
+  through the engine's 25-minute cold load, its LiveKit connection died, and it fell over
+  the moment the engine connected. Old version kept at `maya-boot.sh.bak-2026-08-06`.
+- The money-guard watchdog has the pod id HARDCODED — rewrite `/root/maya-watchdog.sh`
+  for every new pod or it silently stops nothing.
+- Echo on the stream = Maya open in two tabs. Every open stage/pod page is a full session
+  with its own voice. Exactly ONE live tab, always.
+- After running the QA suite, `POST /session/start {"answer_mode":"approve"}` — the tests
+  leave the switchboard in auto mode with a test product active.
+
 **Kill-switch test before every stream.** Open the director, press KILL, confirm the BRB
 card appears and she goes silent, press it again to resume. An untested kill switch is
 not a kill switch — and it is the only thing standing between a bad moment and a client's
