@@ -24,9 +24,7 @@ PROMPT = (
     "ABSOLUTE BREVITY LAW - overrides every other rule: EVERY reply is ONE short sentence, "
     "maximum 10 words. Total intro under 10 seconds, then the game runs. In the FREEZE game: "
     "kid says yes -> start INSTANTLY: say Dance dance dance! ... then FREEZE! ... hold a beat, "
-    "praise in 3 words, next round. Never explain, never tell stories, never offer choices.
-
-"
+    "praise in 3 words, next round. Never explain, never tell stories, never offer choices.\n\n"
 
     # RESTORED from DIRECTOR-GOLD (novapython/nova_director.py, git-tagged golden) — the proven
     # kid intro: greet+name -> shoulder magic light -> isolation -> lead to dance. SHORT, not chat.
@@ -131,9 +129,17 @@ def viewer_token():
     return (api.AccessToken(LK_KEY, LK_SEC).with_identity(ident).with_name("You")
             .with_grants(g).to_jwt())
 
-def session_update():
+FREEZE_RULES = (
+    "\n\nFREEZE MODE - overrides the whole intro script above: you are ONLY the "
+    "freeze-game host. NEVER ask their name. NEVER mention other games, magic "
+    "lights, or shoulders. Flow: kid says yes -> say Dance dance dance! -> after a "
+    "few seconds say FREEZE! -> short hold -> praise in 3 words -> next round. "
+    "Every line under 8 words.")
+
+def session_update(freeze=False):
     return {"type": "session.update", "session": {
-        "type": "realtime", "output_modalities": ["audio"], "instructions": PROMPT,
+        "type": "realtime", "output_modalities": ["audio"],
+        "instructions": PROMPT + (FREEZE_RULES if freeze else ""),
         "audio": {
             "input": {"format": {"type": "audio/pcm", "rate": 24000},
                       "noise_reduction": {"type": "near_field"},
@@ -273,7 +279,8 @@ async def relay(request):
 
     try:
         async with http.ws_connect(RT_URL, headers={"Authorization": f"Bearer {KEY}"}, heartbeat=20) as oai:
-            await oai.send_json(session_update())
+            _intro = (request.query.get("intro") or "").strip().lower()
+            await oai.send_json(session_update(freeze=(_intro == "freeze")))
             await log("connected to " + MODEL + " (voice " + VOICE + ")")
             # GREET FIRST — but only on the FIRST connect, not on a seamless reconnect
             # (browser sends ?rc=1 when re-establishing after an OpenAI session drop / 55min cap).
@@ -285,8 +292,7 @@ async def relay(request):
                 # A page declares its game with ?intro=<game> on the iframe URL.
                 _intro = (request.query.get("intro") or "").strip().lower()
                 if _intro == "freeze":
-                    _greet = ("Greet the child in ONE short excited line and say exactly this "
-                              "spirit: Hi, I'm Nova! FREEZE game - ready? "
+                    _greet = ("Say EXACTLY these words and NOTHING more: Hi! I'm Nova! Freeze game - ready? "
                               "Then STOP and wait for their answer. Do NOT ask "
                               "their name. Do NOT offer any other game. Do NOT start counting "
                               "down or start the music - the game begins only when they say yes.")
@@ -1019,8 +1025,21 @@ async def set_avatar_proxy(request):
         return web.json_response({'ok': False, 'err': str(e)}, status=502, headers=hdr)
 
 
+async def freeze_page(request):
+    # ONE-ORIGIN (2026-08-06): serve the freeze GAME from this origin so the game talks
+    # to /token /rt /set_avatar first-party — no iframe, no permission delegation, no
+    # postMessage bridge. Deploy step copies the file from the repo (pod/pages/).
+    try:
+        with open("/workspace/pages/animal-freeze.html", encoding="utf-8") as f:
+            html = f.read()
+    except FileNotFoundError:
+        return web.Response(status=503, text="freeze page not deployed yet")
+    return web.Response(text=html, content_type="text/html",
+                        headers={"Cache-Control": "no-store"})
+
 app = web.Application()
 app.router.add_get("/", index)
+app.router.add_get("/freeze", freeze_page)
 app.router.add_get("/token", token)
 app.router.add_get("/health", health)
 app.router.add_get("/rt", relay)
