@@ -54,7 +54,8 @@ PROMPT = (
     "then wait quietly.\n"
     "NAME LAW: repeat the kid's name EXACTLY as you heard it, sound for sound — never 'correct' or "
     "change it (if you heard 'Raki', say 'Raki', never 'Rafy'). If unsure, ask 'did I get that right?' "
-    "— never guess a different name.\n"
+    "— never guess a different name. If NO name has been given this session, you have NO name: say "
+    "'you' or 'superstar' — NEVER invent a name out of nothing (no 'Emma', no example names, ever).\n"
     "MOVE-TRUTH LAW: never praise or name a move unless your notes JUST reported it happened. No report "
     "= no praise and no move-name — give neutral hype instead ('Let's GO!'). Never praise on a timer, a "
     "guess, or a garbled sound; wait for the REAL move.\n"
@@ -97,7 +98,8 @@ CORE_LAWS = (
     "Silence is okay — you never pressure.\n"
     "NAME LAW: repeat the kid's name EXACTLY as you heard it, sound for sound — never 'correct' or "
     "change it (if you heard 'Raki', say 'Raki', never 'Rafy'). If unsure, ask 'did I get that right?' "
-    "— never guess a different name.\n"
+    "— never guess a different name. If NO name has been given this session, you have NO name: say "
+    "'you' or 'superstar' — NEVER invent a name out of nothing (no 'Emma', no example names, ever).\n"
     "MOVE-TRUTH LAW: never praise or name a move unless your notes JUST reported it happened. No report "
     "= no praise and no move-name — give neutral hype instead ('Let's GO!'). Never praise on a timer, a "
     "guess, or a garbled sound; wait for the REAL move.\n"
@@ -218,6 +220,7 @@ async def relay(request):
     # #4 LIGHT ONCE PER SESSION: 'ever' locks it — any second trigger is blocked.
     light = {"state": "idle", "ts": 0.0, "ever": False}
     game_mode = {"persona": ""}    # last [GAME-MODE] persona, so nova-pick can re-assert it
+    picked    = {"game": ""}       # which game is already active (retries must be idempotent)
     hold = {"on": False}           # PAUSE: True = drop mic + cancel speech until released
     LIGHT_WAIT = 10.0
     LIGHT_INVITE_RE = _re.compile(r"(magic light|on your shoulder|little shrug|shoulder.*(shrug|wiggle|lift))", _re.I)
@@ -433,6 +436,12 @@ async def relay(request):
                             # ACK 2026-08-05 — the page retries until it hears this.
                             try: await ws_client.send_json({"type": "ack", "of": "persona"})
                             except Exception: pass
+                            # IDEMPOTENT: an identical persona arriving again (retry) is acked
+                            # above and then ignored, so it cannot churn session.update.
+                            if game_mode.get("applied") == ptext:
+                                print("PERSONA duplicate ignored", flush=True)
+                                continue
+                            game_mode["applied"] = ptext
                     elif t == "nova-fact":
                         # TRUTH-GATE: a REAL detected move arrived. Record it (opens the
                         # window in which move-praise is legitimate) and fire the ONE
@@ -489,6 +498,15 @@ async def relay(request):
                         # dropped message is indistinguishable from a delivered one.
                         try: await ws_client.send_json({"type": "ack", "of": "nova-pick", "game": game})
                         except Exception: pass
+                        # IDEMPOTENT 2026-08-05: the retry loop legitimately re-sends until it is
+                        # acked, so the SAME pick arrives several times. Firing a fresh
+                        # response.create each time collides -- "conversation_already_has_active
+                        # _response" -- and the collided responses cancel each other, which is
+                        # heard as her not speaking. A repeat pick re-acks and stops there.
+                        if picked.get("game") == game:
+                            print("[PICK] duplicate ignored (already picked)", flush=True)
+                            continue
+                        picked["game"] = game
                         # GAME-MODE (2026-08-04): a pick means the intro is OVER. If a game persona
                         # was registered, re-assert it as the session instructions so the intro flow
                         # cannot reassert itself later in the session. Belt and braces with the
@@ -791,7 +809,48 @@ async function joinRoom(){
   room.on(LK.RoomEvent.TrackSubscribed,(track,pub,p)=>{
     if(p.identity!=='nova-avatar')return;
     if(track.kind==='video'){track.attach(v);poster.classList.remove('show');}
-    if(track.kind==='audio'){const a=track.attach();a.autoplay=true;document.body.appendChild(a);}
+    /* AUDIO PLAYBACK (bobo.md §0, applied 2026-08-05). attach() creates the <audio>
+       element but nothing ever called play(), and autoplay was set AFTER attach — so when
+       Chrome blocked autoplay the element stayed paused forever, with no log line anywhere
+       saying so. She moved, the engine reported 911 audio stream puts, the bridge published
+       the track, and the room was silent. This iframe is CROSS-ORIGIN
+       (*.proxy.runpod.net inside a localhost page), so Chrome requires a gesture landing in
+       THIS frame — the child's tap on the parent page does not carry across origins, which
+       is why tapping "her" never helped. play() is now called, its rejection is LOGGED, and
+       every gesture that reaches this frame retries it. */
+    if(track.kind==='audio'){
+      const a=track.attach();
+      a.autoplay=true; a.muted=false; a.playsInline=true;
+      document.body.appendChild(a);
+      let _audioOK=false;                       // set true only once playback actually starts
+      const tryPlay=()=>a.play()
+        .then(()=>{ _audioOK=true; console.log('[AUDIO] playing'); log('[AUDIO] playing');
+                    var _b=document.getElementById('unmute-btn'); if(_b) _b.remove(); })
+        .catch(e=>{ console.warn('[AUDIO] blocked:',e.name,e.message); log('[AUDIO] blocked: '+e.name); });
+      tryPlay();
+      ['pointerdown','touchstart','keydown'].forEach(ev=>
+        document.addEventListener(ev,tryPlay,{once:false,passive:true}));
+
+      /* IN-FRAME UNBLOCK BUTTON 2026-08-05.
+         Chrome grants autoplay only to the frame that receives the gesture. A hint drawn
+         on the PARENT page cannot do that reliably, so previous attempts left a silent,
+         moving Nova with no way out. This button lives INSIDE this cross-origin frame, so
+         clicking it is unambiguously a gesture HERE. It is created only if playback is
+         actually blocked, and removes itself the moment audio starts. */
+      setTimeout(function(){
+        if(_audioOK) return;
+        if(document.getElementById('unmute-btn')) return;
+        var b=document.createElement('button'); b.id='unmute-btn';
+        b.textContent='🔊  TAP TO HEAR NOVA';
+        b.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:99999;'+
+          'font:700 22px system-ui,sans-serif;color:#1a1013;background:#ffd24a;border:0;'+
+          'padding:20px 34px;border-radius:999px;box-shadow:0 10px 40px rgba(0,0,0,.5);cursor:pointer';
+        b.onclick=function(){ a.muted=false; a.volume=1.0; tryPlay();
+          setTimeout(function(){ if(_audioOK && b.parentNode) b.remove(); }, 400); };
+        document.body.appendChild(b);
+        console.warn('[AUDIO] still blocked after 1.5s -> showing in-frame unmute button');
+      }, 1500);
+    }
   });
   room.on(LK.RoomEvent.Reconnecting,()=>poster.classList.add('show'));
   room.on(LK.RoomEvent.Reconnected,()=>{poster.classList.remove('show');_rcDelay=2000;});
@@ -831,6 +890,10 @@ function connectWS(){
       else if(m.speaking===false){micGated=false;}
       if(m.state)badge(m.state);
       if(m.hearing)badge('listening');
+      /* SPEECH-START 2026-08-05: state 'talking' is emitted at the audio RELEASE point --
+         the real moment her voice starts, not when text was generated. The page needs it to
+         measure LEAD_SPEECH and to schedule cues early enough to LAND on time. */
+      try{ parent.postMessage({type:'nova-status', state:m.state||'', speaking:m.speaking},'*'); }catch(_){}
     }
   };
 }
