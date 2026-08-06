@@ -55,7 +55,10 @@ button:active{transform:translateY(1px)}
 <div class="col">
   <div class="card" id="preview">
     <h3>Preview · what viewers see</h3>
-    <iframe id="stage"></iframe>
+    <!-- allow= must match the pod iframe inside the stage: permission delegation dies at
+         the FIRST frame that omits it, which is why the preview showed a black box and a
+         dead mic while the same stage worked standalone (found 2026-08-06). -->
+    <iframe id="stage" allow="microphone; camera; autoplay; fullscreen"></iframe>
   </div>
   <div class="card">
     <h3>Vitals</h3>
