@@ -15,6 +15,7 @@ on:
 
 jobs:
   laws:
+    name: Nova Laws        # must match the branch-protection required check EXACTLY
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
