@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MAYA · Director</title>
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     MAYA DIRECTOR — operator only. Never captured by OBS.
+     Phase 1: drives the stage directly via postMessage to the preview iframe.
+     Phase 2 rewires this through the backend, but the button contract stays.
+
+     OPERATOR SUPREMACY law: the kill switch outranks everything, instantly.
+     Gesture buttons are GENERATED from maya-gestures.json -- adding a future bake
+     costs one JSON line and zero code here (03 design rule).
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<style>
+:root{--accent:#e8b4b8;--bg:#0b0d11;--panel:#141821;--line:#242a36;--ink:#eef1f6;--dim:#8b95a6;--kill:#ff3b30;--ok:#33d17a}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:'Segoe UI',system-ui,-apple-system,sans-serif}
+body{display:grid;grid-template-columns:minmax(340px,32%) 1fr;gap:14px;padding:14px;height:100vh;overflow:hidden}
+.col{display:flex;flex-direction:column;gap:12px;min-height:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;min-height:0}
+.card h3{margin:0 0 10px;font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--dim);font-weight:700}
+#preview{flex:1;min-height:0;display:flex;flex-direction:column}
+#preview iframe{flex:1;width:100%;border:0;border-radius:9px;background:#000;min-height:220px}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:#1b212c;color:var(--ink);
+  border-radius:9px;padding:11px 14px;transition:.13s;font-weight:600}
+button:hover{background:#232b39;border-color:#37414f}
+button:active{transform:translateY(1px)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row button{flex:1;min-width:88px}
+#say{width:100%;background:#0e1218;border:1px solid var(--line);color:var(--ink);border-radius:9px;
+  padding:13px;font:inherit;resize:vertical;min-height:74px}
+#sayBtn{background:var(--accent);color:#1a1013;border-color:transparent;width:100%;margin-top:8px;font-weight:800;padding:13px}
+#hist{margin-top:10px;max-height:120px;overflow:auto;display:flex;flex-direction:column;gap:5px}
+#hist div{font-size:13px;color:var(--dim);padding:6px 9px;background:#0e1218;border-radius:6px;cursor:pointer;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#hist div:hover{color:var(--ink);background:#161c26}
+.scene-btn.on{background:var(--accent);color:#1a1013;border-color:transparent}
+#kill{background:var(--kill);color:#fff;border:0;width:100%;padding:18px;font-size:17px;font-weight:800;
+  border-radius:11px;letter-spacing:.05em}
+#kill.armed{background:#2a1416;color:var(--kill);border:1px solid var(--kill)}
+#vitals{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px}
+#vitals div{background:#0e1218;border-radius:7px;padding:9px 11px}
+#vitals b{display:block;color:var(--dim);font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px;font-weight:700}
+#log{flex:1;min-height:0;overflow:auto;font-family:ui-monospace,Consolas,monospace;font-size:11.5px;
+  color:var(--dim);background:#0a0d12;border-radius:8px;padding:10px;line-height:1.65}
+.pill{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--dim);margin-inline-end:7px}
+.pill.ok{background:var(--ok)} .pill.bad{background:var(--kill)}
+</style>
+</head>
+<body>
+
+<div class="col">
+  <div class="card" id="preview">
+    <h3>Preview · what viewers see</h3>
+    <iframe id="stage"></iframe>
+  </div>
+  <div class="card">
+    <h3>Vitals</h3>
+    <div id="vitals">
+      <div><b>Stage</b><span id="v-stage"><span class="pill"></span>loading</span></div>
+      <div><b>Scene</b><span id="v-scene">open</span></div>
+      <div><b>Last gesture</b><span id="v-gest">—</span></div>
+      <div><b>Lines sent</b><span id="v-lines">0</span></div>
+      <div><b>Queue</b><span id="v-queue">—</span></div>
+      <div><b>Answered</b><span id="v-answered">—</span></div>
+      <div><b>Median answer</b><span id="v-lat">—</span></div>
+      <div><b>Leads</b><span id="v-leads">—</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="col">
+  <div class="card">
+    <h3>Say · she speaks this verbatim</h3>
+    <textarea id="say" placeholder="שלום לכולם! ברוכים הבאים ללייב…"></textarea>
+    <button id="sayBtn">SAY IT →</button>
+    <div id="hist"></div>
+  </div>
+
+  <div class="card">
+    <h3>Gestures · generated from maya-gestures.json</h3>
+    <div class="row" id="gestures"></div>
+  </div>
+
+  <div class="card">
+    <h3>Scenes</h3>
+    <div class="row" id="scenes"></div>
+  </div>
+
+  <!-- CHAT MONITOR (01 panel 5) — the n8n-filtered queue. Hidden without ?api=,
+       because with no backend there is no chat intake to monitor. -->
+  <div class="card" id="chatCard" style="display:none">
+    <h3>Chat monitor · <span id="modeLabel">approve</span></h3>
+    <div class="row" id="modes"></div>
+    <div id="queue"></div>
+  </div>
+
+  <div class="card">
+    <h3>Kill switch · operator supremacy</h3>
+    <button id="kill">KILL — mic off, Maya idle, "be right back"</button>
+  </div>
+
+  <div class="card" style="flex:1;display:flex;flex-direction:column;min-height:0">
+    <h3>Log</h3>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const stage = () => $('stage').contentWindow;
+let lineCount = 0, killed = false;
+
+/* ── PREVIEW SRC — the director's own query string is forwarded to the stage.
+   The iframe src used to be the literal "maya-stage.html?scene=open", so ?saray=
+   (the ONLY way the stage resolves a pod — it does not load pod-registry.js) could
+   never reach it, and the preview was permanently offline no matter which pod ran.
+   The preview is the thing the director drives by postMessage, so an offline preview
+   means SAY and the gesture buttons reach nothing. ── */
+(function(){
+  const q = new URLSearchParams(location.search);
+  if(!q.get('scene')) q.set('scene','open');
+  /* In backend mode the preview must NOT mount its own pod iframe: the stage OBS
+     captures and this preview would each open a Realtime session, and she would
+     speak twice. Phase 1 keeps the live preview, because there the preview IS the
+     stage and the director drives it directly. */
+  if(q.get('api')) q.set('preview','1');
+  $('stage').src = 'maya-stage.html?' + q.toString();
+})();
+
+function log(msg){
+  const d=document.createElement('div');
+  d.textContent = new Date().toLocaleTimeString('en-GB') + '  ' + msg;
+  $('log').appendChild(d); $('log').scrollTop = 1e9;
+}
+/* ── TRANSPORT (Phase 2) ──────────────────────────────────────────────────────
+   The Phase-1 promise was that "every action routes through one send(), so Phase 2
+   swaps the transport without touching a single button". This is that swap, and the
+   buttons below are unchanged.
+     no ?api=  → postMessage straight to the preview stage (Phase 1, still works alone)
+     ?api=…    → REST to maya-server, which routes through the stage socket to the brain
+   A failed backend call is LOGGED WITH ITS REASON, never swallowed: a 409 here means
+   the stage is not connected and the line never reached her. */
+const API = (new URLSearchParams(location.search).get('api') || '').replace(/\/+$/, '') || null;
+
+async function apiPost(path, body){
+  const r = await fetch(API + path, {
+    method:'POST', headers:{'content-type':'application/json'},
+    body: JSON.stringify(body || {})
+  });
+  let j = null; try{ j = await r.json(); }catch(_){}
+  if(!r.ok){ log('API ' + r.status + ' ' + path + ' — ' + ((j && j.detail) || 'no detail')); throw new Error(path); }
+  return j;
+}
+
+const ROUTE = {
+  say:     d => ['/say',     {text:d.text}],
+  cue:     d => ['/cue',     {intent:d.intent, ctx:d.ctx||''}],
+  gesture: d => ['/gesture', {name:d.name}],
+  scene:   d => ['/scene',   {scene:d.name}],
+  hold:    d => ['/hold',    {on:!!d.on}],
+  kill:    () => ['/kill',   {}]
+};
+
+function send(act, extra){
+  const msg = Object.assign({__maya:true, act}, extra||{});
+  if(API && ROUTE[act]){
+    const [path, body] = ROUTE[act](msg);
+    apiPost(path, body).catch(()=>{});
+    return;
+  }
+  try{ stage().postMessage(msg,'*'); }catch(e){ log('SEND FAILED: '+e.message); }
+}
+
+/* ── SAY ── */
+function doSay(){
+  const t = $('say').value.trim(); if(!t) return;
+  send('say',{text:t}); lineCount++; $('v-lines').textContent=lineCount;
+  log('SAY: '+t.slice(0,60));
+  const h=document.createElement('div'); h.textContent=t;
+  h.onclick=()=>{ $('say').value=t; };            /* click-to-repeat */
+  $('hist').prepend(h);
+  while($('hist').children.length>8) $('hist').lastChild.remove();
+  $('say').value='';
+}
+$('sayBtn').onclick=doSay;
+$('say').addEventListener('keydown',e=>{ if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)) doSay(); });
+
+/* ── GESTURES: buttons generated from the registry ── */
+fetch('maya-gestures.json',{cache:'no-store'}).then(r=>r.json()).then(reg=>{
+  const wrap=$('gestures');
+  Object.entries(reg).forEach(([k,v])=>{
+    if(k.startsWith('_')) return;
+    const b=document.createElement('button');
+    b.textContent = v.label || k;
+    b.onclick=()=>{ send('gesture',{name:k}); $('v-gest').textContent=k; log('GESTURE: '+k+' ('+v.avatar+')'); };
+    wrap.appendChild(b);
+  });
+  log('registry loaded — '+(Object.keys(reg).filter(k=>!k.startsWith('_')).length)+' gestures');
+}).catch(e=>log('REGISTRY FAILED: '+e.message));
+
+/* ── SCENES ── */
+['open','product','offer','close'].forEach(s=>{
+  const b=document.createElement('button'); b.className='scene-btn'; b.textContent=s; b.dataset.s=s;
+  b.onclick=()=>{
+    document.querySelectorAll('.scene-btn').forEach(x=>x.classList.toggle('on',x===b));
+    send('scene',{name:s}); $('v-scene').textContent=s; log('SCENE: '+s);
+  };
+  $('scenes').appendChild(b);
+});
+
+/* ── KILL SWITCH (toggles, so the operator can bring her back) ── */
+$('kill').onclick=()=>{
+  killed=!killed;
+  if(killed){ send('kill'); $('kill').textContent='KILLED — click to resume'; $('kill').classList.add('armed'); log('*** KILL SWITCH — mic off, idle, BRB card ***'); }
+  else      { send('hold',{on:false}); $('kill').textContent='KILL — mic off, Maya idle, "be right back"'; $('kill').classList.remove('armed'); log('resumed'); }
+};
+
+$('stage').addEventListener('load',()=>{
+  $('v-stage').innerHTML='<span class="pill ok"></span>loaded';
+  log('stage loaded');
+});
+
+/* ═══ CHAT MONITOR + VITALS (Phase 2, via maya-server) ═══════════════════════
+   Answer modes (02 §4): auto = she answers everything that passed n8n's filter ·
+   approve = the operator releases each message (the pilot default) · manual = the
+   operator writes the answer and Maya voices it verbatim. */
+const Console2 = {
+  ws:null, tries:0,
+  start(){
+    if(!API) return;
+    $('chatCard').style.display='';
+    ['auto','approve','manual'].forEach(m=>{
+      const b=document.createElement('button'); b.textContent=m; b.dataset.m=m;
+      b.onclick=()=>apiPost('/answer-mode',{mode:m}).then(()=>log('answer-mode: '+m)).catch(()=>{});
+      $('modes').appendChild(b);
+    });
+    apiPost('/session/start',{}).then(j=>{
+      log('session '+j.stream_id+' — brain '+(j.brain_ok?'OK':'NOT REACHABLE')+', catalog '+j.catalog);
+      if(!j.brain_ok) log('WARNING: backend could not reach the brain /health');
+    }).catch(()=>{});
+    this.connect();
+  },
+  connect(){
+    const url = API.replace(/^http/,'ws') + '/ws/director';
+    let s; try{ s=new WebSocket(url); }catch(e){ log('director socket failed: '+e.message); return; }
+    this.ws=s;
+    s.onopen = ()=>{ this.tries=0; log('backend connected — '+API); };
+    s.onmessage = ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(_){ return; } this.on(m); };
+    s.onclose = ()=>{ this.ws=null; const d=Math.min(30000,1500*Math.pow(1.8,this.tries++));
+                      log('backend socket closed — retrying'); setTimeout(()=>this.connect(), d); };
+  },
+  on(m){
+    if(m.ev==='lead')          log('🔥 LEAD — '+(m.lead.name||'?')+' · '+(m.lead.message||'').slice(0,40));
+    if(m.ev==='chat_queued')   log('chat queued: '+m.item.name+' — '+m.item.text.slice(0,40));
+    if(m.ev==='chat_dropped')  log('chat dropped ('+m.reason+')');
+    if(m.ev==='said')          { if(m.hits && m.hits.length) log('⚠ CLAIM ALERT — she said: '+m.hits.join(', ')); }
+    if(m.ev==='claim_alert')   log('⚠ CLAIM ALERT in operator line: '+m.hits.join(', '));
+    if(m.ev==='stage_disconnected') log('stage socket dropped — director actions will 409 until it returns');
+    if(m.snap) this.render(m.snap);
+  },
+  render(snap){
+    const v=snap.vitals||{};
+    $('v-queue').textContent    = v.queue_depth;
+    $('v-answered').textContent = v.messages_answered + '/' + v.messages_in;
+    $('v-lat').textContent      = v.median_latency_ms==null ? '—' : v.median_latency_ms+' ms';
+    $('v-leads').textContent    = v.leads;
+    $('v-scene').textContent    = (snap.state||{}).scene || '—';
+    $('modeLabel').textContent  = (snap.state||{}).answer_mode || '—';
+    document.querySelectorAll('#modes button').forEach(b=>{
+      b.classList.add('scene-btn');                       /* reuse the accent 'on' style */
+      b.classList.toggle('on', b.dataset.m===(snap.state||{}).answer_mode);
+    });
+    $('v-stage').innerHTML = v.stage_connected
+      ? '<span class="pill ok"></span>connected'
+      : '<span class="pill bad"></span>NOT connected';
+    const q=$('queue'); q.innerHTML='';
+    (snap.queue||[]).forEach(item=>{
+      const row=document.createElement('div');
+      row.style.cssText='background:#0e1218;border-radius:7px;padding:9px 11px;margin-top:7px;font-size:13px';
+      const who=document.createElement('div');
+      who.innerHTML='<b style="color:var(--accent)"></b> <span></span> <i style="color:var(--dim);font-style:normal">·'+item.priority+'</i>';
+      who.querySelector('b').textContent=item.name; who.querySelector('span').textContent=item.text;
+      const btns=document.createElement('div'); btns.className='row'; btns.style.marginTop='7px';
+      const ok=document.createElement('button'); ok.textContent='Answer'; ok.style.flex='1';
+      ok.onclick=()=>apiPost('/chat-approve/'+item.id,{}).catch(()=>{});
+      const no=document.createElement('button'); no.textContent='Skip';
+      no.onclick=()=>apiPost('/chat-reject/'+item.id,{}).catch(()=>{});
+      const my=document.createElement('button'); my.textContent='I answer';
+      my.onclick=()=>{ const t=$('say').value.trim();
+        if(!t){ log('type the answer in the SAY box first, then press "I answer"'); return; }
+        apiPost('/chat-answer/'+item.id,{text:t}).then(()=>{ $('say').value=''; }).catch(()=>{}); };
+      btns.append(ok,my,no); row.append(who,btns); q.appendChild(row);
+    });
+  }
+};
+Console2.start();
+
+log(API ? ('director ready — Phase 2 via backend ' + API)
+        : 'director ready — Phase 1 (direct to stage; add ?api=<maya-server> for the backend)');
+</script>
+</body>
+</html>
