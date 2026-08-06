@@ -21,6 +21,13 @@ VOICE = os.environ.get("NOVA_VOICE", "marin")
 RT_URL = f"wss://api.openai.com/v1/realtime?model={MODEL}"
 
 PROMPT = (
+    "ABSOLUTE BREVITY LAW - overrides every other rule: EVERY reply is ONE short sentence, "
+    "maximum 10 words. Total intro under 10 seconds, then the game runs. In the FREEZE game: "
+    "kid says yes -> start INSTANTLY: say Dance dance dance! ... then FREEZE! ... hold a beat, "
+    "praise in 3 words, next round. Never explain, never tell stories, never offer choices.
+
+"
+
     # RESTORED from DIRECTOR-GOLD (novapython/nova_director.py, git-tagged golden) — the proven
     # kid intro: greet+name -> shoulder magic light -> isolation -> lead to dance. SHORT, not chat.
     "You are Nova — a magic movement friend for kids, like a cool older sister (11-12 energy). "
@@ -279,8 +286,8 @@ async def relay(request):
                 _intro = (request.query.get("intro") or "").strip().lower()
                 if _intro == "freeze":
                     _greet = ("Greet the child in ONE short excited line and say exactly this "
-                              "spirit: Hi! I'm Nova - we're going to play the FREEZE game! "
-                              "Are you ready? Then STOP and wait for their answer. Do NOT ask "
+                              "spirit: Hi, I'm Nova! FREEZE game - ready? "
+                              "Then STOP and wait for their answer. Do NOT ask "
                               "their name. Do NOT offer any other game. Do NOT start counting "
                               "down or start the music - the game begins only when they say yes.")
                 else:
@@ -930,6 +937,14 @@ document.getElementById('gstart').onclick=async()=>{
   connectWS();
   try{await startMic();}catch(e){log('MIC BLOCKED '+e.message);}
 };
+/* DEADLOCK FIX 2026-08-06: inside the game this page sits in an INVISIBLE iframe under a
+   "tap to wake Nova" card — the kid taps the card's middle, the tap falls through into
+   this page, and it must count wherever it lands. Only the small centered button used to
+   be clickable; a tap 20px off it did nothing, silently. Whole gate = start. */
+document.getElementById('gate').addEventListener('click',(e)=>{
+  const b=document.getElementById('gstart');
+  if(e.target!==b) b.click();
+});
 </script>
 <!-- SARAY FRAME-MODE PATCH v3 (2026-07-27) — v2 overscan-contain (hardened #v + !important,
      the approved specificity fix) KEPT VERBATIM + AMBIENT ROOM FILL merged in: a blurred
@@ -949,13 +964,13 @@ document.getElementById('gstart').onclick=async()=>{
   }
   /* ambient kept behind purely as insurance; cover leaves no gap so it never shows */
   /* LAW-FRAME-TALK waist-up 8.6% (rows100-866, face22.6%) | LAW-FRAME-FULL freeze whole-body */
-  #v.mode-full, video.nova-frame.mode-full { object-position:50% 50%!important; }
+  #v.mode-full, video.nova-frame.mode-full { object-fit:contain!important; object-position:50% 50%!important; }
   #nova-ambient { position:fixed!important; inset:0!important; width:100%!important; height:100%!important;
     object-fit:cover!important; object-position:50% 8.6%!important; z-index:0!important; pointer-events:none; }
 </style>
 <script id="frame-mode-js">
 (function(){
-  var MODE = 'closeup';                       // default until the app says otherwise
+  var MODE = /[?&]intro=freeze/.test(location.search) ? 'full' : 'closeup';   // freeze = whole body by default
   function ensureAmbient(v){
     var a = document.getElementById('nova-ambient');
     if (!a) { a = document.createElement('video');

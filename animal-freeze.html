@@ -157,8 +157,14 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
 #nova-stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:linear-gradient(180deg,#f2d7f2 0%,#e8c6ea 55%,#caa3d6 100%);z-index:3;
   opacity:0;transition:opacity .7s ease}
 #nova-stage iframe.ready{opacity:1}
+/* DEADLOCK FIX 2026-08-06: this card used to swallow every tap (opaque, z4, above the
+   iframe at z3) while the pod page's start-gate waited for a tap INSIDE the iframe — and
+   the card only lifted after she SPOKE, which needed that tap. Nobody's tap could ever
+   start the session; every load "timed out" into the silent clip fallback and read as
+   "no voice / no intro". pointer-events:none lets the kid's tap fall through the card
+   into the (invisible but hit-testable) iframe, where the pod gate catches it. */
 #nova-wait{position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;gap:16px;text-align:center;padding:20px;
+  justify-content:center;gap:16px;text-align:center;padding:20px;pointer-events:none;
   background:radial-gradient(ellipse 65% 55% at 50% 42%,#4a1276,#1a0139 72%)}
 #nova-wait.gone{display:none}
 #nova-wait .orb{width:66px;height:66px;border-radius:50%;
@@ -453,11 +459,21 @@ const Live = {
   frame:null, on:false, dead:false,
   init(){
     if(LIVE_OFF){ this.fail('forced offline (?nolive=1)'); return; }
-    const ctl = ('AbortController' in window) ? new AbortController() : null;
-    const to = setTimeout(()=>{ try{ ctl&&ctl.abort(); }catch(_){}; this.fail('pod not reachable in 4s'); }, 4000);
-    fetch(SARAY,{mode:'no-cors',cache:'no-store',signal:ctl?ctl.signal:undefined})
-      .then(()=>{ if(this.dead) return; clearTimeout(to); this.mount(); })
-      .catch(()=>{ clearTimeout(to); this.fail('pod probe failed (down?)'); });
+    /* RETRY PROBE 2026-08-06: the RunPod proxy's FIRST answer can take >4s on a
+       cold route even with the pod healthy — one 4s shot lost that race and
+       silently killed live Nova ("voice napping" with everything up). 3 probes
+       of 8s each; only after all three fail do we fall back to the clip bank. */
+    const attempt=(n)=>{
+      if(this.dead) return;
+      const ctl = ('AbortController' in window) ? new AbortController() : null;
+      const to = setTimeout(()=>{ try{ ctl&&ctl.abort(); }catch(_){} }, 8000);
+      fetch(SARAY,{mode:'no-cors',cache:'no-store',signal:ctl?ctl.signal:undefined})
+        .then(()=>{ if(this.dead) return; clearTimeout(to); this.mount(); })
+        .catch(()=>{ clearTimeout(to);
+          if(n<3) attempt(n+1);
+          else this.fail('pod not reachable after 3 probes (8s each)'); });
+    };
+    attempt(1);
   },
   mount(){
     if(this.on||this.dead) return; this.on=true;
@@ -540,11 +556,14 @@ const Live = {
      Taking 40s to arrive is acceptable. Looking broken for 40s is not. */
   _revealed:false, _waitT:null,
   _waitStage(n){
+    /* DEADLOCK FIX 2026-08-06: the copy now ASKS FOR THE TAP — the tap is what starts
+       her session (it falls through this card into the pod gate). The old "waking up…"
+       wording told the kid to wait for something that was waiting for them. */
     const msgs=[
-      ['Nova is waking up…','getting her ready for you ✨'],
-      ['Almost there…','she is stretching her arms 🌟'],
-      ['Nearly ready…','worth the wait, promise 💫'],
-      ['Just a few more seconds…','she is nearly here 🎵']
+      ['👆 Tap to wake Nova!','one tap and she says hi ✨'],
+      ['👆 Tap right in the middle!','Nova is waiting for your tap 🌟'],
+      ['👆 One little tap!','she wakes up the moment you tap 💫'],
+      ['👆 Tap tap tap!','Nova can’t wait to meet you 🎵']
     ];
     const m=msgs[Math.min(n,msgs.length-1)];
     const t=document.getElementById('wait-title'), s=document.getElementById('wait-sub');
