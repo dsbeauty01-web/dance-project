@@ -30,7 +30,13 @@
 html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
   font-family:'Segoe UI',system-ui,-apple-system,'Noto Sans Hebrew',sans-serif;overflow:hidden}
 
-#room{position:fixed;inset:0;display:grid;grid-template-columns:minmax(280px,26%) 1fr minmax(220px,18%);
+/* Side-column minimums are FLUID (min(px,vw)), not hard px. Hard 280px+220px minimums
+   exceed any viewport under ~500px — the grid then gives the middle column (HER) zero
+   width. That is exactly what the director preview is: this page in a ~450px iframe.
+   She rendered 0px wide there — present, speaking, invisible (found 2026-08-06).
+   At every real canvas (1920/1080 wide) min() resolves to the original 280/220. */
+#room{position:fixed;inset:0;display:grid;
+  grid-template-columns:minmax(min(280px,22vw),26%) 1fr minmax(min(220px,16vw),18%);
   gap:0;align-items:stretch}
 
 /* ── MAYA: 9:16 stage, ratio locked to the bake so cover-crop crops nothing ── */
