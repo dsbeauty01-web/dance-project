@@ -17,7 +17,7 @@ LK_SEC = os.environ["LIVEKIT_API_SECRET"]
 LK_ROOM = os.environ.get("LK_ROOM", "nova-live")
 ENGINE = os.environ.get("ENGINE_URL", "http://127.0.0.1:8010")
 MODEL = os.environ.get("RT_MODEL", "gpt-realtime-2")
-VOICE = os.environ.get("NOVA_VOICE", "shimmer")   # V2 2026-08-07: bright/young > marin for kids; per-session override via ?voice=
+VOICE = os.environ.get("NOVA_VOICE", "coral")   # V2.1 2026-08-07: founder heard shimmer as too adult; coral = youngest/warmest of the set. ?voice= still overrides per-session
 RT_URL = f"wss://api.openai.com/v1/realtime?model={MODEL}"
 
 PROMPT = (

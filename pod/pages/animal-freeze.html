@@ -1095,9 +1095,11 @@ function tick(){
         SFX.beep(toCtx(f.at),       1320, 420, .40); // T-0 long
         SFX.horn(toCtx(f.at));                       // T-0 horn
 
-        /* 2. MUSIC — dim at T-2, full stop at T-0. Uses the same audio clock via duck(). */
+        /* 2. MUSIC — dim at T-2 (cosmetic, wall timer is fine). The FULL STOP moved into
+           startFreeze() (V2.1 2026-08-07): a wall timer drifts from the song clock when the
+           mp3 buffers (worst on the FIRST freeze) — the stop must ride the same tick that
+           starts the freeze, so they can never disagree. */
         setTimeout(()=>{ try{ Music.duck(0.20, 120); }catch(_){} }, Math.max(0,(CD_AT-now)*1000));
-        setTimeout(()=>{ try{ Music.duck(0.0, 60); }catch(_){} },  Math.max(0,(f.at-now)*1000));
 
         /* 3. FLASH at T-0 */
         setTimeout(()=>Flash.fire(), Math.max(0,(f.at-now)*1000));
@@ -1148,7 +1150,9 @@ function startFreeze(def,idx){
   const c=ASSETS.clips[def.clip];
   const hold=effHold(def);                            // adaptive: harder = longer hold
   G.freeze={def, idx, hold, stillMs:0, winMs:0, moved:false, lastT:Music.t()};
-  /* MUSIC LAW (2026-07-27): never duck at freezes — the mp3's own beat IS the freeze texture */
+  /* V2.1 MUSIC SYNC (2026-08-07): the full stop fires HERE, on the same song-clock tick
+     that starts the freeze — music and freeze can never disagree, first round included. */
+  try{ Music.duck(0.0, 80); }catch(_){}
   Nova.freeze(def.clip);                              // she BECOMES the animal (live) / clip (fallback)
   // FX ride HER pose: live swap takes ~350ms to show — frost/badge fire WITH her, never before
   const fxDelay = (typeof Live!=='undefined' && Live.on) ? 350 : 0;
@@ -1160,6 +1164,10 @@ function startFreeze(def,idx){
 }
 
 function endFreeze(){
+  /* V2.1 MUSIC SYNC (2026-08-07): the resume was MISSING — music ducked to 0 at T-0 and
+     nothing ever brought it back (only the pause button did). Fast 250ms ramp: the beat
+     is back before her praise line lands. */
+  try{ Music.duck(1.0, 250); }catch(_){}
   const f=G.freeze; G.freeze=null; ring.classList.remove('moving');
   const frac = f.winMs>0 ? f.stillMs/f.winMs : 1;      // fraction of the scoring window held STILL
   const credit = freezeCredit(frac);
