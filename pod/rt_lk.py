@@ -286,7 +286,8 @@ async def relay(request):
         async with http.ws_connect(RT_URL, headers={"Authorization": f"Bearer {KEY}"}, heartbeat=20) as oai:
             _intro = (request.query.get("intro") or "").strip().lower()
             _voice = (request.query.get("voice") or "").strip() or None   # V2: ?voice=coral etc. for instant A/B
-            await oai.send_json(session_update(freeze=(_intro == "freeze"), voice=_voice))
+            _freeze_mode = (_intro == "freeze")   # V2.1: page owns the game -> brain self-triggers OFF
+            await oai.send_json(session_update(freeze=_freeze_mode, voice=_voice))
             await log("connected to " + MODEL + " (voice " + VOICE + ")")
             # GREET FIRST — but only on the FIRST connect, not on a seamless reconnect
             # (browser sends ?rc=1 when re-establishing after an OpenAI session drop / 55min cap).
@@ -315,6 +316,11 @@ async def relay(request):
                 # a response is active, so it can never self-chain or nag.
                 while True:
                     await asyncio.sleep(1.0)
+                    # V2.1 2026-08-07: in freeze mode the PAGE owns every beat — the brain
+                    # never self-fires (the V2 greet says "you FREEZE!" which tripped the
+                    # statue regex on her OWN words -> whisper + invented praise pre-yes).
+                    if _freeze_mode:
+                        continue
                     if speaking["v"] or speaking["resp_active"]:
                         continue
                     # #5 STATUE: ONE quick whisper fills the hold naturally (~1.5s in), then silence.
@@ -658,7 +664,7 @@ async def relay(request):
                             elif light["state"] == "idle":
                                 light["state"] = "invited"; light["ts"] = time.time(); print("[LIGHT] invited", flush=True)
                         # #5 STATUE: her freeze call-out closes her mouth until a hold-fact / move-on.
-                        if FREEZE_CALL_RE.search(txt) and not statue["active"]:
+                        if FREEZE_CALL_RE.search(txt) and not statue["active"] and not _freeze_mode:
                             statue["active"] = True; statue["ts"] = time.time(); statue["whispered"] = False
                             print("[STATUE] mouth closed (hold window open)", flush=True)
                         # #2 NO-SELF-ANSWER: she confirmed/picked with NO real kid input -> log (never grants consent).
