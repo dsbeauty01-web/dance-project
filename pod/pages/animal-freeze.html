@@ -709,6 +709,7 @@ const Live = {
       'nova-fact':    m=>({type:'nova-fact', move:m.move}),
       'nova-pick':    m=>({type:'nova-pick', game:m.game}),
       'hold':         m=>({type:'hold',      on:!!m.on}),
+      'game-start':   m=>({type:'game-start'}),   // V2 2026-08-07: R7-equivalent for the one-origin page (no iframe bridge here)
     };
     const mk=map[t]; if(!mk) return;
     if(this.ws&&this.ws.readyState===1) this.ws.send(JSON.stringify(mk(msg)));
@@ -1207,8 +1208,9 @@ let _cueN=0;
    Asking again here made her ask twice, so this is now a single BACKUP nudge, fired only if
    she has been silent for a while — never a second greeting on top of the first. */
 function cueReady(){ if(!Ready.active || _cueN>=1) return; _cueN++;
-  if(Live.cue) Live.cue('In two short, excited lines welcome the child to the ANIMAL FREEZE game and explain it: they groove while the music plays, and when an animal pops up they hold SUPER still like that animal — a total statue! Collect all five animal stamps to win. Then ask ONE short question inviting a big YES.','Music waits for their yes.');
-  else if(Live.on) Live.say('Ready to freeze and dance? Say YES!');
+  /* V2 2026-08-07: the greet already explained the whole game in one line. This is only a
+     nudge if the kid went quiet — verbatim, short, zero LLM drift. */
+  if(Live.on) Live.say('Say YES when you are ready!');
 }
 async function runReadyGate(){
   /* FIX 2026-08-05 — "she is not talking before the music".
@@ -1282,6 +1284,7 @@ $('start-btn').addEventListener('click', async ()=>{
   await countdown();                                                 // countdown GATES play — the law
   try{ await Music.ctx.resume(); }catch(e){}
   Music.el.play().catch(()=>{});
+  try{ Live.post({type:'game-start'}); }catch(_){}   // V2: she learns the music is RUNNING at this exact moment
   G.running=true; requestAnimationFrame(tick);
 });
 
