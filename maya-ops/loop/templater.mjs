@@ -31,22 +31,30 @@ let failed = false;
 
 for (const p of catalog.products) {
   const x = extras[p.id] || {};
-  const gift = need(x.gift_he, 'מתנה/קופון ללייב');
+  /* gift + testimonial are OPTIONAL: absent -> the line is DROPPED, never invented.
+     A fabricated customer quote or phantom gift on a sales stream is a lie with legal
+     teeth — the templater structurally cannot produce one. Supply real ones in
+     extras.json any time and rebuild; the script gets stronger, not different. */
+  const gift = x.gift_he || null;
+  const testimonial = x.testimonial_he || null;
   const scenario = need(x.scenario_he, 'תרחיש שימוש');
-  const testimonial = need(x.testimonial_he, 'משפט המלצה מאושר');
   const bullets = p.bullets_he ? p.bullets_he.split('·').map(s => s.trim()) : [];
   while (bullets.length < 3) bullets.push(need(null, `נקודת מכירה ${bullets.length + 1}`));
 
   const segs = [
-    seg('hook', 'hook', 'REVEAL', `
-      תראו מה יש לי בשבילכם! ${p.name_he}. במקום ${p.old_price_he} — עכשיו בלייב בלבד ${p.price_he}, ועוד מתנה: ${gift}. רק כאן, רק עכשיו.`),
+    seg('hook', 'hook', 'REVEAL', gift
+      ? `תראו מה יש לי בשבילכם! ${p.name_he}. במקום ${p.old_price_he} — עכשיו בלייב בלבד ${p.price_he}, ועוד מתנה: ${gift}. רק כאן, רק עכשיו.`
+      : `תראו מה יש לי בשבילכם! ${p.name_he}. במקום ${p.old_price_he} — עכשיו בלייב בלבד ${p.price_he}. רק כאן, רק עכשיו.`),
     seg('point-1', 'points', 'POINT', `נקודה ראשונה: ${bullets[0]}. זה מה שעושה את ההבדל.`),
     seg('point-2', 'points', 'POINT', `ודבר שני: ${bullets[1]}. ${scenario}`),
-    seg('point-3', 'points', 'POINT', `ושלישי: ${bullets[2]}. לקוחה כתבה לנו: "${testimonial}"`),
+    seg('point-3', 'points', 'POINT', testimonial
+      ? `ושלישי: ${bullets[2]}. לקוחה כתבה לנו: "${testimonial}"`
+      : `ושלישי: ${bullets[2]}. ${p.stock_note === 'in stock' ? 'וזה במלאי, מוכן לצאת אליכם.' : ''}`),
     seg('interact', 'interact', 'NUDGE', `
       עכשיו אתם: מי שכבר מכיר את ${p.name_he} — תכתבו 1. מי ששומע עליו פעם ראשונה — תכתבו 2. אני פה, עונה לכל שאלה על משלוח, מידות והנחות.`),
-    seg('urgency', 'urgency', 'REVEAL', `
-      בואו נסגור את זה: מחיר רגיל ${p.old_price_he}, מחיר לייב ${p.price_he}, ועוד ${gift}. המלאי ללייב הזה מוגבל — הקישור למטה, לוחצים עכשיו. שוב: ${p.price_he} בלבד.`),
+    seg('urgency', 'urgency', 'REVEAL', gift
+      ? `בואו נסגור את זה: מחיר רגיל ${p.old_price_he}, מחיר לייב ${p.price_he}, ועוד ${gift}. המלאי ללייב הזה מוגבל — הקישור למטה, לוחצים עכשיו. שוב: ${p.price_he} בלבד.`
+      : `בואו נסגור את זה: מחיר רגיל ${p.old_price_he}, מחיר לייב ${p.price_he}. המלאי ללייב הזה מוגבל — הקישור למטה, לוחצים עכשיו. שוב: ${p.price_he} בלבד.`),
     seg('close', 'close', 'WAVE', `
       עוד רגע עוברים למוצר הבא — תישארו איתי ותעשו עקוב כדי לא לפספס. ${p.name_he}, ${p.price_he}, הקישור למטה.`),
   ];
