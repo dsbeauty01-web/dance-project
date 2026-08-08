@@ -11,7 +11,7 @@ const cp = require('child_process');
 const ROOT = path.resolve(__dirname, '..', '..');
 // maya-stage.html IS the stream and maya-director.html is the only way to steer it —
 // a broken brace in either is a dead broadcast, so they get the same guard as the games.
-const HTML = ['nova-commercial.html', 'animal-freeze.html',
+const HTML = ['nova-commercial.html', 'animal-freeze.html', 'pod/pages/animal-freeze.html',
               'maya-stage.html', 'maya-director.html'];
 const JS = ['nova-ending.js', 'nova-engine.js', 'nova-light.js', 'nova-session-rec.js'];
 
