@@ -944,8 +944,16 @@ async def relay(request):
         except Exception: pass
     return ws_client
 
+# AI DISCLOSURE LABEL — required on every platform (EU AI Act Art.50, Meta/YouTube policy;
+# see live-platform-rules skill). ONE build-time constant, injected at serve time; there is
+# deliberately NO runtime toggle — a label that can be switched off mid-stream is not
+# compliance. Founder wording change = edit this line, redeploy. The bake pipeline
+# (maya-ops/loop/bake_playlist.py MAYA_AI_LABEL) must carry the SAME text.
+AI_LABEL = "AI · מיה — מנחה וירטואלית"
+
 async def index(request):
-    return web.Response(text=PAGE, content_type="text/html",
+    return web.Response(text=PAGE.replace("__AI_LABEL__", AI_LABEL),
+                        content_type="text/html",
                         headers={"Cache-Control": "no-store"})
 
 async def token(request):
@@ -954,9 +962,9 @@ async def token(request):
 async def health(request):
     return web.json_response({"ok": True, "voice": VOICE, "room": LK_ROOM})
 
-PAGE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+PAGE = r"""<!doctype html><html lang="he"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Nova</title>
+<title>מיה · Maya</title>
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.umd.min.js"></script>
 <style>
  *{box-sizing:border-box;margin:0;padding:0}
@@ -997,27 +1005,33 @@ PAGE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8">
    background:linear-gradient(135deg,#5aa2ff,#8a6cff);box-shadow:0 8px 30px rgba(90,120,255,.4);animation:breathe 2.4s ease-in-out infinite}
  @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
  #gate p{color:#7c8aa0;font-size:13px}
+ /* AI disclosure label — ON the pixels OBS captures, above the video, below the gate.
+    dir=rtl on the span keeps the mixed AI·Hebrew string reading correctly. */
+ #ailabel{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:5;
+   padding:6px 16px;border-radius:999px;background:rgba(0,0,0,.35);color:rgba(255,255,255,.85);
+   font-size:15px;font-weight:500;letter-spacing:.02em;pointer-events:none;white-space:nowrap}
 </style></head><body>
 <div id="stage"><video id="v" autoplay playsinline></video></div>
-<div id="poster"><div class="pill">one sec…</div></div>
-<div id="badge" class="badge listening"><span id="bdot"></span><span id="btext">Listening</span></div>
+<div id="ailabel"><span dir="rtl">__AI_LABEL__</span></div>
+<div id="poster"><div class="pill">רגע…</div></div>
+<div id="badge" class="badge listening"><span id="bdot"></span><span id="btext">מקשיבה</span></div>
 <div id="mlvl"><div id="mfill"></div></div>
 <button id="ttog" title="show text">💬</button>
 <div id="textlane">
   <div id="chat"></div>
-  <div class="row"><input id="txt" placeholder="type to Nova…"><button id="send">Send</button></div>
+  <div class="row"><input id="txt" dir="rtl" placeholder="כתבו למיה…"><button id="send">שליחה</button></div>
 </div>
 <div id="gate">
-  <h2>Nova</h2>
-  <button id="gstart">tap to talk to Nova</button>
-  <p>she'll say hi — just allow the mic</p>
+  <h2>מיה</h2>
+  <button id="gstart">הקישו כדי לדבר עם מיה</button>
+  <p>היא תגיד שלום — רק אשרו את המיקרופון · Tap to talk to Maya</p>
 </div>
 <script>
 const LK=window.LivekitClient||window.LiveKitClient;
 const v=document.getElementById('v'),chat=document.getElementById('chat');
 const badgeEl=document.getElementById('badge'),btext=document.getElementById('btext');
 const poster=document.getElementById('poster'),mlvl=document.getElementById('mlvl'),mfill=document.getElementById('mfill');
-function badge(state){badgeEl.className='badge '+state;btext.textContent=state==='thinking'?'Thinking':state==='talking'?'Talking':'Listening';}
+function badge(state){badgeEl.className='badge '+state;btext.textContent=state==='thinking'?'חושבת':state==='talking'?'מדברת':'מקשיבה';}
 function showUI(){badgeEl.classList.add('show');mlvl.classList.add('show');document.getElementById('ttog').classList.add('show');}
 function log(t){try{console.log('[nova]',t);}catch(e){}}
 function bubble(cls,t){const d=document.createElement('div');d.className='b '+cls;d.textContent=t;chat.appendChild(d);while(chat.children.length>120)chat.removeChild(chat.firstChild);chat.scrollTop=chat.scrollHeight;return d;}
