@@ -9,7 +9,7 @@
 // game-media reference. A whole-file regex would false-match across comments.
 const { read, has } = require('./_lib');
 
-const FILES = ['nova-commercial.html', 'animal-freeze.html'];
+const FILES = ['nova-commercial.html', 'pod/pages/animal-freeze.html'];  // ONE-ORIGIN 2026-08-08: the game moved to the pod-served copy; root animal-freeze.html is a redirect launcher (no media)
 const GAME_MEDIA = /(nova-joined|handywave|freeze|\.mp3)/i;
 let violated = false;
 const fails = [];

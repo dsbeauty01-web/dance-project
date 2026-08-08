@@ -3,7 +3,7 @@
 // nova-ending.js must be wired into both live game files and keep its zero-guard.
 const { runLaw } = require('./_lib');
 const NC = 'nova-commercial.html';
-const AF = 'animal-freeze.html';
+const AF = 'pod/pages/animal-freeze.html';  // ONE-ORIGIN 2026-08-08: the real game file
 const END = 'nova-ending.js';
 runLaw({
   id: 'law-endings', title: 'nova-ending.js wired in both games; no raw "0 pts" renderable', status: 'active',

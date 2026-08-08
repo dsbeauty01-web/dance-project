@@ -17,16 +17,13 @@ LK_SEC = os.environ["LIVEKIT_API_SECRET"]
 LK_ROOM = os.environ.get("LK_ROOM", "nova-live")
 ENGINE = os.environ.get("ENGINE_URL", "http://127.0.0.1:8010")
 MODEL = os.environ.get("RT_MODEL", "gpt-realtime-2")
-VOICE = os.environ.get("NOVA_VOICE", "marin")
+VOICE = os.environ.get("NOVA_VOICE", "marin")   # 2026-08-08 founder decision: marin IS Nova's voice (shimmer too adult, coral weird). ?voice= still overrides per-session for A/B
 RT_URL = f"wss://api.openai.com/v1/realtime?model={MODEL}"
 
 PROMPT = (
     "ABSOLUTE BREVITY LAW - overrides every other rule: EVERY reply is ONE short sentence, "
-    "maximum 10 words. Total intro under 10 seconds, then the game runs. In the FREEZE game: "
-    "kid says yes -> start INSTANTLY: say Dance dance dance! ... then FREEZE! ... hold a beat, "
-    "praise in 3 words, next round. Never explain, never tell stories, never offer choices.
-
-"
+    "maximum 10 words. Total intro under 10 seconds, then the game runs. "
+    "Never explain, never tell stories, never offer choices.\n\n"
 
     # RESTORED from DIRECTOR-GOLD (novapython/nova_director.py, git-tagged golden) — the proven
     # kid intro: greet+name -> shoulder magic light -> isolation -> lead to dance. SHORT, not chat.
@@ -131,9 +128,23 @@ def viewer_token():
     return (api.AccessToken(LK_KEY, LK_SEC).with_identity(ident).with_name("You")
             .with_grants(g).to_jwt())
 
-def session_update():
+FREEZE_RULES = (
+    "\n\nFREEZE MODE - overrides the whole intro script above: you are ONLY the "
+    "freeze-game VOICE. NEVER ask their name. NEVER mention other games, magic "
+    "lights, or shoulders.\n"
+    "THE GAME ENGINE RUNS THE GAME - NOT YOU. It owns the music, the animals, and "
+    "every moment. You NEVER invent an animal, NEVER start a round, NEVER count "
+    "down, NEVER say FREEZE on your own, NEVER announce what comes next. Speak "
+    "ONLY when (a) the kid talks to you - answer in one tiny line - or (b) a cue "
+    "tells you exactly what is happening RIGHT NOW - then voice that one beat and "
+    "stop. During a freeze hold: TOTAL silence. "
+    "Voice style: bright, bouncy, quick - big-sister hype, never slow, never calm-narrator. "
+    "Every line under 8 words.")
+
+def session_update(freeze=False, voice=None):
     return {"type": "session.update", "session": {
-        "type": "realtime", "output_modalities": ["audio"], "instructions": PROMPT,
+        "type": "realtime", "output_modalities": ["audio"],
+        "instructions": PROMPT + (FREEZE_RULES if freeze else ""),
         "audio": {
             "input": {"format": {"type": "audio/pcm", "rate": 24000},
                       "noise_reduction": {"type": "near_field"},
@@ -141,7 +152,7 @@ def session_update():
                                          "prefix_padding_ms": 250, "silence_duration_ms": 400,
                                          "create_response": True, "interrupt_response": False},
                       "transcription": {"model": "gpt-4o-mini-transcribe", "language": "en"}},
-            "output": {"format": {"type": "audio/pcm", "rate": 24000}, "voice": VOICE}},
+            "output": {"format": {"type": "audio/pcm", "rate": 24000}, "voice": (voice or VOICE)}},
         "max_output_tokens": "inf"}}
 
 def pcm24_to_wav16(pcm_bytes):
@@ -273,7 +284,10 @@ async def relay(request):
 
     try:
         async with http.ws_connect(RT_URL, headers={"Authorization": f"Bearer {KEY}"}, heartbeat=20) as oai:
-            await oai.send_json(session_update())
+            _intro = (request.query.get("intro") or "").strip().lower()
+            _voice = (request.query.get("voice") or "").strip() or None   # V2: ?voice=coral etc. for instant A/B
+            _freeze_mode = (_intro == "freeze")   # V2.1: page owns the game -> brain self-triggers OFF
+            await oai.send_json(session_update(freeze=_freeze_mode, voice=_voice))
             await log("connected to " + MODEL + " (voice " + VOICE + ")")
             # GREET FIRST — but only on the FIRST connect, not on a seamless reconnect
             # (browser sends ?rc=1 when re-establishing after an OpenAI session drop / 55min cap).
@@ -285,8 +299,8 @@ async def relay(request):
                 # A page declares its game with ?intro=<game> on the iframe URL.
                 _intro = (request.query.get("intro") or "").strip().lower()
                 if _intro == "freeze":
-                    _greet = ("Greet the child in ONE short excited line and say exactly this "
-                              "spirit: Hi, I'm Nova! FREEZE game - ready? "
+                    _greet = ("Say EXACTLY these words and NOTHING more: "
+                              "Hi, I'm Nova! Music plays - you dance. Animal pops - you FREEZE! Ready? "
                               "Then STOP and wait for their answer. Do NOT ask "
                               "their name. Do NOT offer any other game. Do NOT start counting "
                               "down or start the music - the game begins only when they say yes.")
@@ -302,6 +316,11 @@ async def relay(request):
                 # a response is active, so it can never self-chain or nag.
                 while True:
                     await asyncio.sleep(1.0)
+                    # V2.1 2026-08-07: in freeze mode the PAGE owns every beat — the brain
+                    # never self-fires (the V2 greet says "you FREEZE!" which tripped the
+                    # statue regex on her OWN words -> whisper + invented praise pre-yes).
+                    if _freeze_mode:
+                        continue
                     if speaking["v"] or speaking["resp_active"]:
                         continue
                     # #5 STATUE: ONE quick whisper fills the hold naturally (~1.5s in), then silence.
@@ -529,20 +548,27 @@ async def relay(request):
                         if speaking["resp_active"] or speaking["v"]:
                             print("[TURN-GATE] readiness held (busy):", game, flush=True)
                         elif game == "freeze":
-                            fired = await fire_freeze_demo()
-                            instr = ("The kid picked FREEZE. In ONE short line ask them: can you show me a FREEZE? "
-                                     + ("A freeze demo is playing on you right now, so add 'like this!'. "
-                                        if fired else
-                                        "You have NO way to show it, so describe it in words only: "
-                                        "'like a statue — don't move!'. Never claim to show it. ")
-                                     + "Then wait for them.")
-                            await oai.send_json({"type": "response.create", "response": {"instructions": instr}})
+                            # V2 2026-08-07: mode switch ONLY - no spoken line. The greet already asked
+                            # "Ready?"; a second "show me a FREEZE" made the intro long and off-game.
+                            # Demo gestures and every round-call belong to the PAGE now.
+                            print("[PICK] freeze: silent mode-switch", flush=True)
                         elif game in ("wave", "up groove", "upgroove", "groove"):
                             await oai.send_json({"type": "response.create", "response": {
                                 "instructions": ("The kid picked " + game + ". In ONE short line ask them: "
                                                  "can you lift a hand UP? Then wait for them to do it.")}})
                         else:
                             print("[PICK] unknown game, ignored:", game, flush=True)
+                    elif t == "game-start":
+                        # V2 2026-08-07: the page reports the EXACT music-start moment. One 3-word
+                        # burst, then in-game silence until cued. Skip the line if she's mid-speech.
+                        print("[GAME-START] music running - in-game mode", flush=True)
+                        if not (speaking["resp_active"] or speaking["v"]):
+                            try:
+                                await oai.send_json({"type": "response.create", "response": {"instructions":
+                                    "The music just started! Shout ONE excited burst, three words max, "
+                                    "like: Dance dance dance! Then stay silent until told what happens."}})
+                            except Exception as _e:
+                                print("[GAME-START] err", _e, flush=True)
                     elif t == "bye": break
                 try: await oai.close()
                 except Exception: pass
@@ -638,7 +664,7 @@ async def relay(request):
                             elif light["state"] == "idle":
                                 light["state"] = "invited"; light["ts"] = time.time(); print("[LIGHT] invited", flush=True)
                         # #5 STATUE: her freeze call-out closes her mouth until a hold-fact / move-on.
-                        if FREEZE_CALL_RE.search(txt) and not statue["active"]:
+                        if FREEZE_CALL_RE.search(txt) and not statue["active"] and not _freeze_mode:
                             statue["active"] = True; statue["ts"] = time.time(); statue["whispered"] = False
                             print("[STATUE] mouth closed (hold window open)", flush=True)
                         # #2 NO-SELF-ANSWER: she confirmed/picked with NO real kid input -> log (never grants consent).
@@ -907,7 +933,7 @@ function connectWS(){
 document.getElementById('send').onclick=()=>{const t=document.getElementById('txt');const m=t.value.trim();if(m&&ws&&ws.readyState===1){t.value='';bubble('u',m);ws.send(JSON.stringify({type:'text',text:m}));}};
 document.getElementById('txt').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('send').click();});
 document.getElementById('ttog').onclick=()=>document.getElementById('textlane').classList.toggle('open');
-window.addEventListener('message',(e)=>{try{const d=e.data;if(d&&d.type==='nova-say'&&d.text&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-say',text:d.text}));}if(d&&d.type==='nova-cue'&&d.intent&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-cue',intent:d.intent,ctx:d.ctx||''}));}if(d&&d.type==='set-avatar'&&d.id){fetch('/set_avatar?id='+encodeURIComponent(d.id)).catch(()=>{});}if(d&&(d.type==='nova-persona'||d.type==='set_persona')&&d.text&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'persona',text:d.text}));}if(d&&d.type==='nova-fact'&&d.move&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-fact',move:d.move}));}if(d&&d.type==='nova-pick'&&d.game&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-pick',game:d.game}));}if(d&&d.type==='hold'&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'hold',on:!!d.on}));}}catch(_){}}); /* pitch-plan + intro brain: parent tells live Nova a detected move (nova-fact) or the chosen game (nova-pick) */
+window.addEventListener('message',(e)=>{try{const d=e.data;if(d&&d.type==='nova-say'&&d.text&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-say',text:d.text}));}if(d&&d.type==='nova-cue'&&d.intent&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-cue',intent:d.intent,ctx:d.ctx||''}));}if(d&&d.type==='set-avatar'&&d.id){fetch('/set_avatar?id='+encodeURIComponent(d.id)).catch(()=>{});}if(d&&(d.type==='nova-persona'||d.type==='set_persona')&&d.text&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'persona',text:d.text}));}if(d&&d.type==='nova-fact'&&d.move&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-fact',move:d.move}));}if(d&&d.type==='nova-pick'&&d.game&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-pick',game:d.game}));}if(d&&d.type==='hold'&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'hold',on:!!d.on}));}if(d&&d.type==='game-start'&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'game-start'}));}}catch(_){}}); /* pitch-plan + intro brain: parent tells live Nova a detected move (nova-fact) or the chosen game (nova-pick) */
 /* ---- mic capture ---- */
 let ctx,micOn=false,micGated=false;
 async function startMic(){
@@ -1019,8 +1045,21 @@ async def set_avatar_proxy(request):
         return web.json_response({'ok': False, 'err': str(e)}, status=502, headers=hdr)
 
 
+async def freeze_page(request):
+    # ONE-ORIGIN (2026-08-06): serve the freeze GAME from this origin so the game talks
+    # to /token /rt /set_avatar first-party — no iframe, no permission delegation, no
+    # postMessage bridge. Deploy step copies the file from the repo (pod/pages/).
+    try:
+        with open("/workspace/pages/animal-freeze.html", encoding="utf-8") as f:
+            html = f.read()
+    except FileNotFoundError:
+        return web.Response(status=503, text="freeze page not deployed yet")
+    return web.Response(text=html, content_type="text/html",
+                        headers={"Cache-Control": "no-store"})
+
 app = web.Application()
 app.router.add_get("/", index)
+app.router.add_get("/freeze", freeze_page)
 app.router.add_get("/token", token)
 app.router.add_get("/health", health)
 app.router.add_get("/rt", relay)

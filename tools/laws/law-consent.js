@@ -10,7 +10,7 @@
 // future removal turns the build RED.
 const { runLaw } = require('./_lib');
 const NC = 'nova-commercial.html';
-const AF = 'animal-freeze.html';
+const AF = 'pod/pages/animal-freeze.html';  // ONE-ORIGIN 2026-08-08: the real game file
 const CONSENT = /consent|parental|הסכמ|תנאי שימוש|מדיניות פרטיות/i;
 runLaw({
   id: 'law-consent', title: 'Parental-consent / legal lock-line in both game files (EN+HE)', status: 'lost',
