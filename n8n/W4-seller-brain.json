@@ -1,0 +1,94 @@
+{
+  "name": "MAYA W4 — seller brain",
+  "meta": {
+    "why": "L3+L4 of the product map: the loop/live seller brain as an n8n workflow (per-client cloneable). Takes ONE classified message (from W2), answers by name in Hebrew from catalog truth only, <=35 words (~15s spoken), then fires at most one tool: show_product (switchboard /scene) or post_link (CTA speech; chat-posting needs liveChatId plumbing — honest TODO). Guards run AFTER the model: word cap, forbidden-claims scan, catalog-only fallback. The pod stays a dumb mouth.",
+    "setup": "1) CONFIG.maya_api = live pod URL. 2) Attach the OpenAI credential to 'Seller LLM' (same one as W2's Classify batch). 3) Wire W2's '→ maya-server /chat-in' to ALSO post here, or point the switchboard's approve-release at this webhook — founder decision at activation.",
+    "input": "{ platform, msg_id, name, text, lang, priority, product_id? }"
+  },
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "maya-brain", "responseMode": "lastNode", "options": {} },
+      "id": "w4-hook", "name": "Webhook", "type": "n8n-nodes-base.webhook", "typeVersion": 2,
+      "position": [ -640, 300 ], "webhookId": "maya-brain"
+    },
+    {
+      "parameters": { "assignments": { "assignments": [
+        { "id": "d1", "name": "maya_api", "value": "http://localhost:8000", "type": "string" }
+      ] }, "options": {} },
+      "id": "w4-config", "name": "CONFIG", "type": "n8n-nodes-base.set", "typeVersion": 3.4,
+      "position": [ -440, 300 ]
+    },
+    {
+      "parameters": { "url": "={{ $('CONFIG').first().json.maya_api }}/catalog", "options": {} },
+      "id": "w4-catalog", "name": "Fetch catalog", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
+      "position": [ -240, 300 ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the seller prompt. Catalog JSON IS the only fact source (truth law).\nconst msg = $('Webhook').first().json.body || $('Webhook').first().json;\nconst catalog = $input.first().json;\nconst system = `את מיה, מנחת לייב-מכירות ישראלית, חמה ואנרגטית. כללים קשיחים:\\n1. עני בעברית, קצר: עד 35 מילים (15 שניות דיבור).\\n2. פני לשואל/ת בשמם הפרטי בתחילת התשובה.\\n3. עובדות (מחיר, גודל, משלוח, מלאי) — אך ורק מהקטלוג המצורף. אין בקטלוג? אמרי \\\"אני אבדוק את זה עבורך\\\" — לעולם אל תמציאי.\\n4. אסור: הבטחות מוחלטות (\\\"100%\\\", \\\"הכי זול\\\"), טענות רפואיות, והמילים האסורות שברשימת כל מוצר.\\n5. אם שואלים אם את AI — אשרי בחן במשפט אחד והמשיכי.\\n6. החזירי JSON בלבד: {\\\"answer_he\\\":\\\"...\\\",\\\"tool\\\":null או {\\\"name\\\":\\\"show_product\\\"|\\\"post_link\\\",\\\"product_id\\\":\\\"...\\\"}}\\n   show_product — כששואלים על מוצר ספציפי; post_link — כשיש כוונת קנייה.\\nקטלוג: ${JSON.stringify(catalog)}`;\nreturn [{ json: { msg, request: { model: 'gpt-4o-mini', temperature: 0.4, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: system }, { role: 'user', content: `${msg.name || 'צופה'} (${msg.priority || 'question'}): ${msg.text || ''}` } ] } } }];"
+      },
+      "id": "w4-prompt", "name": "Build prompt", "type": "n8n-nodes-base.code", "typeVersion": 2,
+      "position": [ -40, 300 ]
+    },
+    {
+      "parameters": {
+        "method": "POST", "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType", "nodeCredentialType": "openAiApi",
+        "sendBody": true, "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}", "options": {}
+      },
+      "id": "w4-llm", "name": "Seller LLM", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
+      "position": [ 160, 300 ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// GUARDS — run AFTER the model, because the model is not a compliance layer.\nconst msg = $('Build prompt').first().json.msg;\nconst catalog = $('Fetch catalog').first().json;\nlet answer = '', tool = null;\ntry {\n  const out = JSON.parse($input.first().json.choices[0].message.content);\n  answer = String(out.answer_he || '').trim();\n  tool = out.tool || null;\n} catch (e) { answer = ''; }\n// fail safe, not silent\nif (!answer) { answer = `${msg.name || ''}, שאלה מצוינת — אני בודקת ותכף עונה לך.`.trim(); tool = null; }\n// word cap ~15s\nconst words = answer.split(/\\s+/);\nif (words.length > 38) answer = words.slice(0, 36).join(' ') + '…';\n// forbidden-claims scan across ALL products' lists + absolutes\nconst forbidden = new Set(['100%', 'הכי זול', 'מובטח']);\nfor (const p of (catalog.products || [])) for (const c of (p.forbidden_claims || [])) forbidden.add(String(c).toLowerCase());\nconst low = answer.toLowerCase();\nconst hits = [...forbidden].filter(f => low.includes(String(f).toLowerCase()));\nif (hits.length) {\n  answer = `${msg.name || ''}, זו שאלה שאני מעדיפה שנציג אנושי יענה עליה — רגע איתך.`.trim();\n  tool = { name: 'alert_operator', reason: `forbidden claim blocked: ${hits.join(',')}` };\n}\n// tool sanity: product must exist\nif (tool && tool.product_id && !(catalog.products || []).some(p => p.id === tool.product_id)) tool = null;\nreturn [{ json: { answer_he: answer, tool, msg_id: msg.msg_id, name: msg.name, blocked: hits } }];"
+      },
+      "id": "w4-guard", "name": "Guards", "type": "n8n-nodes-base.code", "typeVersion": 2,
+      "position": [ 360, 300 ]
+    },
+    {
+      "parameters": {
+        "method": "POST", "url": "={{ $('CONFIG').first().json.maya_api }}/say",
+        "sendBody": true, "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $json.answer_he }) }}", "options": {}
+      },
+      "id": "w4-say", "name": "→ speak (/say)", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
+      "position": [ 560, 200 ]
+    },
+    {
+      "parameters": {
+        "conditions": { "options": { "caseSensitive": true, "version": 2 }, "conditions": [
+          { "id": "t1", "leftValue": "={{ $json.tool?.name }}", "rightValue": "show_product",
+            "operator": { "type": "string", "operation": "equals" } } ], "combinator": "and" },
+        "options": {}
+      },
+      "id": "w4-isshow", "name": "show_product?", "type": "n8n-nodes-base.if", "typeVersion": 2,
+      "position": [ 560, 420 ]
+    },
+    {
+      "parameters": {
+        "method": "POST", "url": "={{ $('CONFIG').first().json.maya_api }}/scene",
+        "sendBody": true, "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ scene: 'product', product_id: $json.tool.product_id }) }}",
+        "options": {}
+      },
+      "id": "w4-show", "name": "→ show product (/scene)", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
+      "position": [ 780, 420 ]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [ [ { "node": "CONFIG", "type": "main", "index": 0 } ] ] },
+    "CONFIG": { "main": [ [ { "node": "Fetch catalog", "type": "main", "index": 0 } ] ] },
+    "Fetch catalog": { "main": [ [ { "node": "Build prompt", "type": "main", "index": 0 } ] ] },
+    "Build prompt": { "main": [ [ { "node": "Seller LLM", "type": "main", "index": 0 } ] ] },
+    "Seller LLM": { "main": [ [ { "node": "Guards", "type": "main", "index": 0 } ] ] },
+    "Guards": { "main": [ [
+      { "node": "→ speak (/say)", "type": "main", "index": 0 },
+      { "node": "show_product?", "type": "main", "index": 0 }
+    ] ] },
+    "show_product?": { "main": [ [ { "node": "→ show product (/scene)", "type": "main", "index": 0 } ], [] ] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [ { "name": "maya" } ]
+}

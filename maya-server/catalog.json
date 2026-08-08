@@ -3,7 +3,8 @@
     "version": 1,
     "updated": "2026-08-05",
     "why": "THE source of product truth (TRUTH LAW). Maya may state a price, a stock level, a delivery time or a spec ONLY if it appears here. A field left empty is a fact she does not have — she says she'll check. Phase 3 syncs this file from the client's Google Sheet via n8n; the shape does not change.",
-    "forbidden_claims": "Per product, the regulated words this client must never have said on their stream (cosmetics/supplement law). The backend alerts the operator if one appears in an outbound line. It is an alarm, not a filter — the real block is the brain's pre-synthesis truth gate."
+    "forbidden_claims": "Per product, the regulated words this client must never have said on their stream (cosmetics/supplement law). The backend alerts the operator if one appears in an outbound line. It is an alarm, not a filter — the real block is the brain's pre-synthesis truth gate.",
+    "commerce": "L6: payment_link = the per-product checkout URL (Stripe/Grow/Meshulam) — null means the post_link tool alerts the operator instead of posting. coupon = the PER-STREAM attribution code, set before each stream; it is how revenue gets attributed to Maya (no coupon = no proof = no retainer renewal). in_stock=false auto-removes the product from the rundown and from the brain answers."
   },
   "products": [
     {
@@ -33,7 +34,10 @@
         "טיפול רפואי",
         "מוכח קלינית",
         "מסיר קמטים לצמיתות"
-      ]
+      ],
+      "payment_link": null,
+      "coupon": null,
+      "in_stock": true
     },
     {
       "id": "cream-night",
@@ -60,7 +64,10 @@
         "מרפא",
         "טיפול רפואי",
         "מוכח קלינית"
-      ]
+      ],
+      "payment_link": null,
+      "coupon": null,
+      "in_stock": true
     }
   ]
 }
