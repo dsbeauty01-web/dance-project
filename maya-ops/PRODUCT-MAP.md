@@ -60,6 +60,12 @@ Rule: brain and ops live in n8n (per-client cloneable); the pod stays a dumb mou
 
 ## PROGRESS NOTES (kept by the CLI)
 
+- **2026-08-08 (later):** Demo-road phase A done: W4 converted to an AI AGENT node
+  (personality editable in System Message; old node kept disabled); full dry-run with mock
+  switchboard proved say-by-name / show_product→scene / forbidden-claim-block wires; W1-FB
+  (Meta ear) staged inactive. DEPLOY became one command: maya-ops/deploy/maya-up.mjs
+  (create→deploy→boot→verify→n8n re-point→links+beep) + maya-down.mjs; the pod now serves
+  /test — the founder's green/red board (L8 dashboard seed).
 - **2026-08-08:** W4 "seller brain" built + imported to n8n (id dtiKI9wJAbk3lWuK, inactive):
   webhook → catalog fetch → LLM (playbook persona, JSON out) → POST-MODEL GUARDS (word cap,
   forbidden-claims block with operator fallback, catalog-existence check) → /say by name +
