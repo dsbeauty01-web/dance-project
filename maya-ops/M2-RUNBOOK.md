@@ -31,6 +31,10 @@ The recording of a passing M2 **is the client demo** — nothing to stage, nothi
 
 ## The 10-comment script (from a SECOND account, ~1 per 30–45s)
 
+**Comment method (decided 2026-08-08): the founder phone-types them.** Automated posting
+would need a second Google account's OAuth kept in n8n — more moving parts than typing 10
+comments, and typing from a real phone is also the more honest test of the real path.
+
 | # | type | comment |
 |---|------|---------|
 | 1 | product | כמה ויטמין C יש בסרום? |
