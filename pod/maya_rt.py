@@ -1220,10 +1220,77 @@ async def set_avatar_proxy(request):
         return web.json_response({'ok': False, 'err': str(e)}, status=502, headers=hdr)
 
 
+# ── SELF-TEST (2026-08-08) ───────────────────────────────────────────────────
+# One same-origin endpoint that checks every internal part FROM THE POD (localhost),
+# so the /test page needs zero cross-origin tricks — the lesson that ended the
+# iframe wars: serve diagnostics from the same origin as the thing they diagnose.
+async def selftest(request):
+    import asyncio as _aio
+    out = {"room": LK_ROOM, "voice": VOICE, "ai_label": AI_LABEL,
+           "room_law_ok": LK_ROOM == "maya-live"}
+    async def probe(name, url):
+        try:
+            import aiohttp as _ah
+            async with _ah.ClientSession() as s:
+                async with s.get(url, timeout=_ah.ClientTimeout(total=4)) as r:
+                    out[name] = {"ok": r.status < 500, "status": r.status}
+        except Exception as e:
+            out[name] = {"ok": False, "err": str(e)[:120]}
+    await probe("engine_8010", "http://127.0.0.1:8010/")
+    await probe("switchboard_8000", "http://127.0.0.1:8000/health")
+    try:
+        r, w = await _aio.wait_for(_aio.open_connection("127.0.0.1", 9999), timeout=3)
+        w.close(); out["bridge_9999"] = {"ok": True}
+    except Exception as e:
+        out["bridge_9999"] = {"ok": False, "err": str(e)[:120]}
+    out["ok"] = all(v.get("ok") for k, v in out.items() if isinstance(v, dict))
+    return web.json_response(out)
+
+TEST_PAGE = r"""<!doctype html><html lang="he"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>מיה · בדיקות</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0b0e14;color:#e9eef6;font-family:Segoe UI,system-ui,sans-serif;padding:28px;max-width:680px;margin:auto}
+h1{font-size:22px;margin-bottom:4px} .sub{color:#7c8aa0;font-size:13px;margin-bottom:22px}
+.tile{display:flex;justify-content:space-between;align-items:center;background:#131926;border:1px solid #222c40;
+ border-radius:12px;padding:14px 18px;margin-bottom:10px;font-size:15px}
+.ok{color:#3fbf7f}.bad{color:#ff6b5e}.dim{color:#7c8aa0;font-size:12px}
+button{background:#5aa2ff;border:0;color:#fff;border-radius:10px;padding:12px 18px;font-size:15px;cursor:pointer;margin:12px 8px 0 0}
+a.btn{display:inline-block;background:#1d2639;border:1px solid #33415e;color:#cfd8e6;border-radius:10px;padding:12px 18px;font-size:15px;text-decoration:none;margin-top:12px}
+#log{background:#0f1520;border:1px solid #222c40;border-radius:10px;padding:12px;margin-top:16px;font-size:13px;color:#9fb0c8;white-space:pre-wrap;direction:ltr;text-align:left}
+</style></head><body dir="rtl">
+<h1>מיה — לוח בדיקות</h1><div class="sub">הדף הזה מוגש מהפוד עצמו: ירוק כאן = החלק באמת חי</div>
+<div id="tiles">טוען…</div>
+<button onclick="run()">רענון בדיקות</button>
+<a class="btn" href="/">לפתוח את מיה (לדבר איתה)</a>
+<div id="log"></div>
+<script>
+const T={engine_8010:'מנוע (הפנים והגוף)',bridge_9999:'גשר וידאו',switchboard_8000:'מרכזייה',room_law_ok:'חדר שידור נכון (maya-live)'};
+async function run(){
+  const el=document.getElementById('tiles');el.textContent='בודק…';
+  try{
+    const r=await fetch('/selftest');const d=await r.json();let h='';
+    for(const k of Object.keys(T)){
+      const v=d[k];const ok=(typeof v==='object')?v.ok:v;
+      h+=`<div class="tile"><span>${T[k]}</span><span class="${ok?'ok':'bad'}">${ok?'✓ חי':'✗ לא עונה'}</span></div>`;
+    }
+    h+=`<div class="tile"><span>תווית AI</span><span class="dim">${d.ai_label||'—'}</span></div>`;
+    h+=`<div class="tile"><span>הכל יחד</span><span class="${d.ok?'ok':'bad'}">${d.ok?'✓ מוכנה לשידור':'✗ יש בעיה'}</span></div>`;
+    el.innerHTML=h;document.getElementById('log').textContent=JSON.stringify(d,null,1);
+  }catch(e){el.innerHTML='<div class="tile"><span>המוח (הדף הזה)</span><span class="bad">✗ '+e.message+'</span></div>';}
+}
+run();
+</script></body></html>"""
+
+async def test_page(request):
+    return web.Response(text=TEST_PAGE, content_type="text/html",
+                        headers={"Cache-Control": "no-store"})
+
 app = web.Application()
 app.router.add_get("/", index)
 app.router.add_get("/token", token)
 app.router.add_get("/health", health)
+app.router.add_get("/selftest", selftest)
+app.router.add_get("/test", test_page)
 app.router.add_get("/rt", relay)
 app.router.add_get("/set_avatar", set_avatar_proxy)
 
