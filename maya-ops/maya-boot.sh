@@ -26,7 +26,7 @@ which tmux  >/dev/null 2>&1 || apt-get install -y -qq tmux
 python3 -c "import flask" 2>/dev/null || pip install -q --ignore-installed blinker flask flask-sock python-dotenv edge_tts websockets aiortc av
 python3 -c "import fastapi" 2>/dev/null || pip install -q fastapi "uvicorn[standard]"
 
-RUNSVC='export PYTHONPATH=/workspace/_sys/pylibs311_good/dist-packages && set -a && . /root/nova.env && set +a'
+RUNSVC='export PYTHONPATH=/workspace/_sys/pylibs311_good/dist-packages && set -a && . /root/nova.env && set +a && export LK_ROOM=maya-live'
 
 # 1. ENGINE first (the long cold load; up to 25 min on a fresh container)
 tmux new-session -d -s mayaengine "$RUNSVC && cd /workspace/LiveTalking && python3 -u app.py --transport livekit --model musetalk --avatar_id maya_idle --max_session 1 --batch_size 8 --listenport 8010 >> /root/app.log 2>&1"
