@@ -21,9 +21,6 @@ VOICE = os.environ.get("NOVA_VOICE", "marin")   # 2026-08-08 founder decision: m
 RT_URL = f"wss://api.openai.com/v1/realtime?model={MODEL}"
 
 PROMPT = (
-    "ABSOLUTE BREVITY LAW - overrides every other rule: EVERY reply is ONE short sentence, "
-    "maximum 10 words. Total intro under 10 seconds, then the game runs. "
-    "Never explain, never tell stories, never offer choices.\n\n"
 
     # RESTORED from DIRECTOR-GOLD (novapython/nova_director.py, git-tagged golden) — the proven
     # kid intro: greet+name -> shoulder magic light -> isolation -> lead to dance. SHORT, not chat.
@@ -132,6 +129,9 @@ FREEZE_RULES = (
     "\n\nFREEZE MODE - overrides the whole intro script above: you are ONLY the "
     "freeze-game VOICE. NEVER ask their name. NEVER mention other games, magic "
     "lights, or shoulders.\n"
+    "BREVITY LAW (freeze mode only - the commercial intro keeps its natural pace): "
+    "EVERY reply is ONE short sentence, maximum 10 words. Never explain, never "
+    "tell stories, never offer choices.\n"
     "THE GAME ENGINE RUNS THE GAME - NOT YOU. It owns the music, the animals, and "
     "every moment. You NEVER invent an animal, NEVER start a round, NEVER count "
     "down, NEVER say FREEZE on your own, NEVER announce what comes next. Speak "
