@@ -8,6 +8,8 @@
      the deferred module below, so window.NovaRec / window.NovaEnding exist in time.
      Both are 100% fire-and-forget: a dead worker changes nothing for the kid. -->
 <script src="nova-session-rec.js"></script>
+<!-- LAW-DIRECT-VOICE: ?voiceonly&direct=1 → browser↔OpenAI Realtime WebRTC, worker never touches audio -->
+<script src="nova-direct-voice.js"></script>
 <script src="nova-ending.js"></script>
 <script>
 /* ═══ HEBREW LAYER (2026-07-15) — ?lang=he · persisted to localStorage nova-lang ═══
@@ -5800,6 +5802,18 @@ async function novaSend(payload) {
   }
 }
 window.__novaSend = novaSend;
+// LAW-DIRECT-VOICE: in direct mode the browser's own facts also feed the direct
+// brain (system items over the OpenAI data channel) — the worker room is voice-dead.
+const _novaSendBase = window.__novaSend;
+window.__novaSend = function (pkt) {
+  try {
+    if (window.__directVoice && pkt && pkt.kind === 'game-event' && pkt.event) {
+      if (pkt.event.event === 'try_move') window.__directVoice.moveFact(pkt.event.action || 'move');
+      else window.__directVoice.gameFact(pkt.event);
+    }
+  } catch (_) {}
+  return _novaSendBase(pkt);
+};
 
 // ── TELEMETRY SHIPPER ─────────────────────────────────────────────────
 // Streams the client LOG_BUFFER to the worker over the data channel, so each
@@ -7394,7 +7408,12 @@ document.addEventListener('arrival-done', async () => {
 
   // v91: Now is the right moment to start Runway (user has tapped, has gesture)
   // This requests camera+mic and connects LiveKit room.
-  if (window.__initRunwayNova) {
+  // LAW-DIRECT-VOICE: in direct mode the OLD voice room never starts — the browser
+  // is already talking to OpenAI Realtime itself; a second voice = echo + two ears.
+  if (window.__directVoice) {
+    LOG('GAME', 'DIRECT VOICE mode — LiveKit voice room skipped, provider owns the pipe');
+    try { window.__directVoice.start(); } catch (_) {}
+  } else if (window.__initRunwayNova) {
     LOG('GAME', 'starting Runway Nova...');
     window.__initRunwayNova();
   }
