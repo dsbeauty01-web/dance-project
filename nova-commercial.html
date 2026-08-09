@@ -3203,6 +3203,14 @@ const VOICEONLY = /[?&]voiceonly/.test(location.search);
 const DIRECTGAME = !NONOVA ? ((location.search.match(/[?&]game=(\w+)/) || [])[1] || null) : null;
 window.__VOICEONLY = VOICEONLY; window.__DIRECTGAME = DIRECTGAME;
 if (VOICEONLY) LOG('CFG', 'VOICE-ONLY mode — Nova speaks, no avatar');
+// CHAT INPUT IN VOICE-ONLY (founder ask 2026-08-09, tested at home with a TV):
+// noisy rooms make voice flaky — the type-to-chat column (a hidden "parent tool")
+// is ALWAYS visible in voiceonly so there is a reliable second path to her.
+// Same #rec-input → handleKidInput(text,'typed') → user-said → worker.
+if (VOICEONLY) document.addEventListener('DOMContentLoaded', () => {
+  try { document.getElementById('rec-chat-col').classList.add('parent-open');
+        LOG('CFG', 'voiceonly: type-to-chat revealed'); } catch(_){}
+});
 if (DIRECTGAME) LOG('CFG', 'DIRECT-GAME mode — auto-launching "' + DIRECTGAME + '" after the reveal');
 async function startCamNonova(){
   if (window.__kidStream) return;                         // already up
