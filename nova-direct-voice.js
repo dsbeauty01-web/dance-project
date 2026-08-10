@@ -50,7 +50,7 @@
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      const sdp = await fetch('https://api.openai.com/v1/realtime?model=' + encodeURIComponent(js.model), {
+      const sdp = await fetch('https://api.openai.com/v1/realtime/calls?model=' + encodeURIComponent(js.model), {
         method: 'POST', body: offer.sdp,
         headers: { 'Authorization': 'Bearer ' + js.client_secret, 'Content-Type': 'application/sdp' } });
       await pc.setRemoteDescription({ type: 'answer', sdp: await sdp.text() });
