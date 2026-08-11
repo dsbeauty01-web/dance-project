@@ -206,6 +206,16 @@ features. New work goes in nova-commercial.html.
 
 ---
 
+### law-direct-voice — the provider owns the voice  (2026-08-09)
+Voice-to-voice runs **browser ↔ OpenAI Realtime, DIRECT over WebRTC** (ephemeral
+key from `/v2/realtime-key`). The worker is a thin director: facts in, actions
+out — it NEVER touches audio, NEVER runs VAD, NEVER referees a turn.
+**Status:** `active` · **Why:** three months of "she stops talking on every
+sound" came from a local VAD referee fighting the provider's native turn-taking.
+Founder decision 2026-08-09 ("u know what to do") after FROM-SCRATCH-WHY-THE-LOOP.
+law-v2v remains in force for the legacy path and now has CI teeth in novapython
+(`LAW-V2V-FROZEN` marker + v2v-law.yml workflow).
+
 ## Machine block — CI reads this. Do not reformat.
 Format:  `law-id | status | file1,file2 | marker one ;; marker two`
 Only `active` rows are gated. Markers are literal substrings (case-sensitive).
@@ -226,6 +236,7 @@ law-soft       | active | nova-commercial.html                                  
 law-storage    | active | nova-commercial.html,nova-session-rec.js                | NovaRec
 law-consent    | active | nova-commercial.html                                    | A grown-up should read ;; תנאי שימוש
 law-pods       | active | tools/pod/launch_pod.sh,tools/pod/boot.sh               | "cloudType": "SECURE" ;; runpodctl stop pod ;; nohup sleep 6h ;; git -C /workspace/repo pull ;; NO-PKILL-WINDOW ;; LAW-PODS-7-TMUX ;; LAW-PODS-8-BRACKET ;; LAW-PODS-9-COLDLOAD
+law-direct-voice | active | nova-commercial.html,nova-direct-voice.js             | LAW-DIRECT-VOICE ;; oai-events ;; response.cancel
 law-ambient    | lost   | -                                                       | nova-ambient
 law-v2v        | policy | -                                                       | -
 law-treaty     | policy | -                                                       | -
