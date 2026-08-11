@@ -379,9 +379,10 @@ async def relay(request):
                         print("[TURN-GATE] silence %.0fs -> ONE gentle retry" % quiet, flush=True)
                         try:
                             await oai.send_json({"type": "response.create", "response": {
-                                "instructions": ("The kid has been quiet for a bit. Give ONE gentle, warm, "
-                                                 "very short invite to move or chat, then stop. Do not repeat "
-                                                 "a line you already said.")}})
+                                "instructions": ("The kid has been quiet for a bit. Say ONE tiny warm line "
+                                                 "that you're here whenever they're ready — under 8 words. "
+                                                 "NEVER use a name unless they already gave one, NEVER invite "
+                                                 "a move or warm-up, never repeat a line you already said.")}})
                         except Exception as e:
                             print("[TURN-GATE] retry err", e, flush=True)
             silwatch = asyncio.create_task(silence_watch())
@@ -641,7 +642,11 @@ async def relay(request):
                         # fact dies immediately — waiting for the move word lost the audio race
                         # (founder log: "You nailed that freeze" fully audible despite the block).
                         elif (not resp["killed"]) and (time.time() - facts["last_ts"] > FACT_WINDOW) \
+                           and (time.time() - kidinput["ts"] > 6.0) \
                            and PRAISE_RE.search(resp["buf"][:40]) and not INVITE_RE.search(resp["buf"]):
+                            # (praise within 6s of a REAL kid turn is a legit reaction —
+                            #  the disease was praise into silence; torture-1 killed her
+                            #  honest name-echo and glued "Let's GO!" on top)
                             resp["killed"] = True
                             print("[TRUTH-GATE] pre-synth blocked (no fact):", resp["buf"][:70], flush=True)
                             try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"[TRUTH-GATE] pre-synth blocked: "+resp["buf"]+"\n")
