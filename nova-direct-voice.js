@@ -36,7 +36,11 @@
       const pc = new RTCPeerConnection();
       this.pc = pc;
       const mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-      mic.getTracks().forEach(t => pc.addTrack(t, mic));
+      /* MIC GATED UNTIL REVEAL (founder 2026-08-11: she answered room noise while
+         the page still said "finding you"). The track exists but is MUTED — she
+         hears nothing, so she cannot speak early. onReveal() opens the ear. */
+      mic.getTracks().forEach(t => { t.enabled = false; pc.addTrack(t, mic); });
+      this._micTracks = mic.getTracks();
       pc.ontrack = (e) => {
         const a = this.audioEl = this.audioEl || document.createElement('audio');
         a.autoplay = true; a.srcObject = e.streams[0]; document.body.appendChild(a);
@@ -71,7 +75,10 @@
 
     beat(instructions) { this.send({ type: 'response.create', response: { instructions: instructions } }); },
 
-    onReveal() { this.greet(); },
+    onReveal() {
+      try { (this._micTracks || []).forEach(t => { t.enabled = true; }); LOG('AUDIO', 'ear OPEN (reveal)'); } catch (_) {}
+      this.greet();
+    },
 
     greet() {
       if (this.greeted) return; this.greeted = true;
