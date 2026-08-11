@@ -46,7 +46,7 @@
       };
       const dc = this.dc = pc.createDataChannel('oai-events');
       dc.onmessage = (e) => { try { this.onEvent(JSON.parse(e.data)); } catch (_) {} };
-      dc.onopen = () => { LOG('BOOT', 'events channel open'); this.greet(); };
+      dc.onopen = () => { LOG('BOOT', 'events channel open — waiting for the page reveal'); };
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -55,7 +55,12 @@
         headers: { 'Authorization': 'Bearer ' + js.client_secret, 'Content-Type': 'application/sdp' } });
       await pc.setRemoteDescription({ type: 'answer', sdp: await sdp.text() });
       this.ready = true;
-      LOG('BOOT', 'WebRTC connected to OpenAI Realtime — no middleman');
+      /* the page's CALM-REVEAL gate polls these — in direct mode WE are the pipeline */
+      try {
+        window.__novaPipelineReady = true;
+        if (window.__gate) { window.__gate.evi = Date.now(); window.__gate.avatar = window.__gate.avatar || Date.now(); }
+      } catch (_) {}
+      LOG('BOOT', 'WebRTC connected to OpenAI Realtime — no middleman; gates satisfied');
       setTimeout(() => this.lightBeat(), 22000);          // world event, same 20s law
     },
 
@@ -65,6 +70,8 @@
       type: 'message', role: 'system', content: [{ type: 'input_text', text: text }] } }); },
 
     beat(instructions) { this.send({ type: 'response.create', response: { instructions: instructions } }); },
+
+    onReveal() { this.greet(); },
 
     greet() {
       if (this.greeted) return; this.greeted = true;

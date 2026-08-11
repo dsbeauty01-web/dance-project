@@ -5811,6 +5811,7 @@ window.__novaSend = function (pkt) {
       if (pkt.event.event === 'try_move') window.__directVoice.moveFact(pkt.event.action || 'move');
       else window.__directVoice.gameFact(pkt.event);
     }
+    if (window.__directVoice && pkt && pkt.kind === 'reveal-now') window.__directVoice.onReveal();
   } catch (_) {}
   return _novaSendBase(pkt);
 };
