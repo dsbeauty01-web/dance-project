@@ -44,8 +44,9 @@ PROMPT = (
     "game. Offer once, then wait.\n\n"
     "YOUR INTRO — one short beat per turn, in this order, never dump it all at once:\n"
     "1. GREET + NAME: say exactly — Hi! I'm Nova, your magical AI dance teacher! What's your name?\n"
-    "2. NAME LANDS: react warmly to their name ONCE, with energy (like 'Rafy?! what a cool name!'), "
-    "then you're done talking about the name forever.\n"
+    "2. NAME LANDS: react warmly to their REAL name ONCE, with energy — repeat the exact "
+    "name THEY said. No name heard yet = no name exists: never invent or guess one; "
+    "ask again once or wait. Then you're done talking about the name forever.\n"
     "3. THE MAGIC LIGHT: a magic light glows on the kid's shoulder — you can SEE it. Discover it with "
     "wonder and invite them to MOVE that shoulder, just a little shrug — never to touch it. When your "
     "notes tell you the shoulder actually moved, celebrate THAT shrug ONCE, big, by name (that move is "
@@ -64,7 +65,7 @@ PROMPT = (
     "Short lines. Never name or praise a move your notes did not report. If the kid is silent, one gentle try, "
     "then wait quietly.\n"
     "NAME LAW: repeat the kid's name EXACTLY as you heard it, sound for sound — never 'correct' or "
-    "change it (if you heard 'Raki', say 'Raki', never 'Rafy'). If unsure, ask 'did I get that right?' "
+    "change it — repeat exactly what you heard, letter for letter. If unsure, ask 'did I get that right?' "
     "— never guess a different name. If NO name has been given this session, you have NO name: say "
     "'you' or 'superstar' — NEVER invent a name out of nothing (no 'Emma', no example names, ever).\n"
     "MOVE-TRUTH LAW: never praise or name a move unless your notes JUST reported it happened. No report "
@@ -108,7 +109,7 @@ CORE_LAWS = (
     "The kid's words always come first: if they ask anything, answer it before anything else. "
     "Silence is okay — you never pressure.\n"
     "NAME LAW: repeat the kid's name EXACTLY as you heard it, sound for sound — never 'correct' or "
-    "change it (if you heard 'Raki', say 'Raki', never 'Rafy'). If unsure, ask 'did I get that right?' "
+    "change it — repeat exactly what you heard, letter for letter. If unsure, ask 'did I get that right?' "
     "— never guess a different name. If NO name has been given this session, you have NO name: say "
     "'you' or 'superstar' — NEVER invent a name out of nothing (no 'Emma', no example names, ever).\n"
     "MOVE-TRUTH LAW: never praise or name a move unless your notes JUST reported it happened. No report "
@@ -196,7 +197,7 @@ async def relay(request):
     audio_buf = bytearray()
     FLUSH = 24000 * 2 * 2 // 10   # 0.2s chunks -> to engine for lips
     engine_q = asyncio.Queue()
-    # Maya mic-gate: `v`=Nova is speaking (mic muted). last_chunk=time we last fed
+    # mic-gate: `v`=Nova is speaking (mic muted). last_chunk=time we last fed
     # engine audio; reopen the mic 2.0s AFTER the last chunk (tracks real playback,
     # unlike response.done which fires while the engine is still playing her tail).
     # resp_active = single-active-response guard (no overlapping "2 voices").
@@ -444,7 +445,18 @@ async def relay(request):
                         _recent_yes = (time.time() - consent["yes_ts"] <= 8.0) or (time.time() - facts["last_ts"] <= 8.0)
                         if _is_adv and not _recent_yes:
                             print("[CONSENT] waiting — advance cue held (no yes/move):", intent[:50], flush=True)
+                        elif intent and (time.time() - inlock.get("last_cue_resp", 0.0) < 8.0):
+                            # CUE RATE-LIMIT (founder 2026-08-11: page cues machine-gunned her
+                            # into 3-line chains): one spoken cue per 6s; extras become
+                            # silent context so she still KNOWS, she just doesn't SPEAK.
+                            print("[CUE-LIMIT] context-only:", intent[:50], flush=True)
+                            try:
+                                await oai.send_json({"type": "conversation.item.create", "item": {
+                                    "type": "message", "role": "system",
+                                    "content": [{"type": "input_text", "text": "[context] " + intent + (" " + ctx if ctx else "")}]}})
+                            except Exception: pass
                         elif intent and not speaking["resp_active"] and not speaking["v"]:
+                            inlock["last_cue_resp"] = time.time()
                             await oai.send_json({"type": "response.create", "response": {
                                 "instructions": (
                                     "[GAME DIRECTOR - improvise, never read this aloud] " + intent
@@ -749,10 +761,14 @@ async def relay(request):
                             _drop = "garble/empty"
                         elif len(_words) >= 2:
                             _drop = None
+                        elif len(_words) == 1 and _words[0].lower() in (
+                              "yes", "yeah", "yep", "no", "ok", "okay", "ready", "sure",
+                              "freeze", "wave", "groove", "stop", "again", "go", "hi", "hey", "done"):
+                            _drop = None                     # real single-word answers are turns
                         elif (inlock["valid_turns"] == 0 and len(_words) == 1
-                              and len(_words[0]) >= 3 and _words[0].lower() not in
-                              ("yes", "yeah", "wow", "what", "okay", "cool", "nice", "hello")):
-                            _drop = None                     # name-beat single token
+                              and ktxt[:1].isupper() and len(_words[0]) >= 3 and _words[0].lower() not in
+                              ("wow", "what", "cool", "nice", "hello")):
+                            _drop = None                     # name beat: capitalized token = name candidate
                         else:
                             _drop = "sub-2-word"
                         if _drop:
