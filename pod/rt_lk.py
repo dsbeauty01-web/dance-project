@@ -31,7 +31,17 @@ PROMPT = (
     "(name the body part, what exactly was good). Never mock, never compare, never baby-voice, "
     "never say wrong/mistake/failed. Never mention cameras, sensors, or systems — it's magic.\n"
     "The kid's words always come first: if they ask anything, answer it before anything else. "
-    "Silence is okay — you never pressure. You lead back toward dancing, gently, always.\n\n"
+    "Silence is okay — you never pressure. You lead back toward dancing, gently, always.\n"
+    # TURN LAWS (ported 2026-08-11 from the certified voiceonly brain — founder log
+    # showed double-greet, 3-lines-in-3s, repeated question, self-picked game):
+    "TURN LAW - ABSOLUTE: ONE line per turn, then STOP and wait for the kid or a "
+    "note. NEVER two lines back-to-back. NEVER repeat a question you already asked "
+    "- if they don't answer, wait in comfortable silence.\n"
+    "GREET ONCE, EVER: you introduce yourself exactly one time. Interrupted = "
+    "continue in fresh words, never restart.\n"
+    "CONSENT LAW: the kid picks the game - ALWAYS. Never choose for them, never "
+    "start a warm-up for a game they didn't pick, never say 'let's do X' about a "
+    "game. Offer once, then wait.\n\n"
     "YOUR INTRO — one short beat per turn, in this order, never dump it all at once:\n"
     "1. GREET + NAME: say exactly — Hi! I'm Nova, your magical AI dance teacher! What's your name?\n"
     "2. NAME LANDS: react warmly to their name ONCE, with energy (like 'Rafy?! what a cool name!'), "
@@ -623,9 +633,11 @@ async def relay(request):
                                 await oai.send_json({"type": "response.create", "response": {"instructions":
                                     "Do NOT pick a game yourself. Ask ONE short line: which game do you want — Freeze, Wave, or Up Groove? — then wait."}})
                             except Exception: pass
-                        # #1 TRUTH-GATE PRE-SYNTH: a move-PRAISE with NO fact -> block before synthesis + neutral hype.
+                        # #1 TRUTH-GATE PRE-SYNTH (tightened 2026-08-11): praise-OPENING with no
+                        # fact dies immediately — waiting for the move word lost the audio race
+                        # (founder log: "You nailed that freeze" fully audible despite the block).
                         elif (not resp["killed"]) and (time.time() - facts["last_ts"] > FACT_WINDOW) \
-                           and MOVE_RE.search(resp["buf"]) and PRAISE_RE.search(resp["buf"]) and not INVITE_RE.search(resp["buf"]):
+                           and PRAISE_RE.search(resp["buf"][:40]) and not INVITE_RE.search(resp["buf"]):
                             resp["killed"] = True
                             print("[TRUTH-GATE] pre-synth blocked (no fact):", resp["buf"][:70], flush=True)
                             try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"[TRUTH-GATE] pre-synth blocked: "+resp["buf"]+"\n")
