@@ -216,6 +216,16 @@ Founder decision 2026-08-09 ("u know what to do") after FROM-SCRATCH-WHY-THE-LOO
 law-v2v remains in force for the legacy path and now has CI teeth in novapython
 (`LAW-V2V-FROZEN` marker + v2v-law.yml workflow).
 
+### law-inputlock — THE FINAL LOCK: she cannot answer air  (2026-08-11)
+The pod brain generates ONLY on a validated kid-turn: transcript >=2 real words
+(or the session's first clean name token), a detection FACT, a tap, or typed
+input. VAD auto-response is OFF (`create_response: False`); every non-turn is
+consumed silently and logged `[INPUT-LOCK] dropped`. One validated turn = exactly
+ONE generation. **Status:** `active` · **Why:** founder logs 2026-08-11: she
+answered breaths, invented the name "Rilu" from noise, chained 4 lines into
+silence, and celebrated a choice nobody made. Symptom gates leaked; the input
+lock kills the class.
+
 ## Machine block — CI reads this. Do not reformat.
 Format:  `law-id | status | file1,file2 | marker one ;; marker two`
 Only `active` rows are gated. Markers are literal substrings (case-sensitive).
@@ -237,6 +247,7 @@ law-storage    | active | nova-commercial.html,nova-session-rec.js              
 law-consent    | active | nova-commercial.html                                    | A grown-up should read ;; תנאי שימוש
 law-pods       | active | tools/pod/launch_pod.sh,tools/pod/boot.sh               | "cloudType": "SECURE" ;; runpodctl stop pod ;; nohup sleep 6h ;; git -C /workspace/repo pull ;; NO-PKILL-WINDOW ;; LAW-PODS-7-TMUX ;; LAW-PODS-8-BRACKET ;; LAW-PODS-9-COLDLOAD
 law-direct-voice | active | nova-commercial.html,nova-direct-voice.js             | LAW-DIRECT-VOICE ;; oai-events ;; response.cancel
+law-inputlock  | active | pod/rt_lk.py                                            | LAW-INPUT-LOCK ;; [INPUT-LOCK] ;; one-shot fired for turn
 law-ambient    | lost   | -                                                       | nova-ambient
 law-v2v        | policy | -                                                       | -
 law-treaty     | policy | -                                                       | -

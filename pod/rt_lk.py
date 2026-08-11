@@ -158,9 +158,12 @@ def session_update(freeze=False, voice=None):
         "audio": {
             "input": {"format": {"type": "audio/pcm", "rate": 24000},
                       "noise_reduction": {"type": "near_field"},
+                      # LAW-INPUT-LOCK (founder 2026-08-11, THE FINAL LOCK): the model may
+                      # generate ONLY on a validated kid-turn. VAD commits + transcribes,
+                      # but create_response is OFF — air structurally cannot reach her.
                       "turn_detection": {"type": "server_vad", "threshold": 0.55,
                                          "prefix_padding_ms": 250, "silence_duration_ms": 400,
-                                         "create_response": True, "interrupt_response": False},
+                                         "create_response": False, "interrupt_response": False},
                       "transcription": {"model": "gpt-4o-mini-transcribe", "language": "en"}},
             "output": {"format": {"type": "audio/pcm", "rate": 24000}, "voice": (voice or VOICE)}},
         "max_output_tokens": "inf"}}
@@ -244,6 +247,7 @@ async def relay(request):
         letters = _re.findall(r"[A-Za-z]", t)
         return len(letters) < max(2, len(t) // 3)   # mostly non-English script -> garble
     kidinput = {"ts": 0.0}                             # #2 last REAL kid input (garble excluded)
+    inlock = {"valid_turns": 0}                        # LAW-INPUT-LOCK: validated-turn counter
     # #1 LIGHT BEAT = ONE ATTEMPT: idle -> invited -> reinvited -> done(fact|moved-on)
     # #4 LIGHT ONCE PER SESSION: 'ever' locks it — any second trigger is blocked.
     light = {"state": "idle", "ts": 0.0, "ever": False}
@@ -729,14 +733,30 @@ async def relay(request):
                             await ws_client.send_json({"type": "status", "speaking": False, "state": "listening"})
                         asyncio.create_task(reopen())
                     elif et == "conversation.item.input_audio_transcription.completed":
-                        ktxt = e.get("transcript", "") or ""
-                        # #4 GARBLE-IGNORE: nonsense/<3-char = no turn, no name, no consent, no counter.
-                        if is_garble(ktxt):
-                            print("[GARBLE] ignored:", ktxt[:30], flush=True)
-                            try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"[GARBLE] ignored: "+ktxt+"\n")
+                        ktxt = (e.get("transcript", "") or "").strip()
+                        # LAW-INPUT-LOCK VALIDATION: a kid-turn is real ONLY if the
+                        # transcript has >=2 real English words, OR it is the session's
+                        # FIRST valid turn and is one clean name-shaped token (the name
+                        # answer). Everything else is consumed silently — no generation.
+                        _words = _re.findall(r"[A-Za-z][A-Za-z'\-]*", ktxt)
+                        _drop = None
+                        if not ktxt or is_garble(ktxt):
+                            _drop = "garble/empty"
+                        elif len(_words) >= 2:
+                            _drop = None
+                        elif (inlock["valid_turns"] == 0 and len(_words) == 1
+                              and len(_words[0]) >= 3 and _words[0].lower() not in
+                              ("yes", "yeah", "wow", "what", "okay", "cool", "nice", "hello")):
+                            _drop = None                     # name-beat single token
+                        else:
+                            _drop = "sub-2-word"
+                        if _drop:
+                            print("[INPUT-LOCK] dropped:", _drop, "|", ktxt[:30], flush=True)
+                            try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"[INPUT-LOCK] dropped ("+_drop+"): "+ktxt[:60]+"\n")
                             except Exception: pass
                         else:
                             # real kid input: NOW reset the turn counter, record input, log.
+                            inlock["valid_turns"] += 1
                             turn["kid_ts"] = time.time(); turn["retried"] = False
                             kidinput["ts"] = time.time()
                             await ws_client.send_json({"type": "you_text", "text": ktxt})
@@ -745,6 +765,12 @@ async def relay(request):
                             # #5 CONSENT=REAL YES: a clear spoken yes/ready/ok is a real consent.
                             if YES_RE.search(ktxt):
                                 consent["yes_ts"] = time.time(); print("[CONSENT] real yes:", ktxt[:40], flush=True)
+                            # ONE-SHOT GENERATION: this validated turn buys exactly one response.
+                            try:
+                                await oai.send_json({"type": "response.create"})
+                                print("[INPUT-LOCK] one-shot fired for turn", inlock["valid_turns"], flush=True)
+                            except Exception as _e:
+                                print("[INPUT-LOCK] fire err", _e, flush=True)
                     elif et == "error":
                         await log("ERROR: " + str(e.get("error", {}).get("message", ""))[:120])
 
