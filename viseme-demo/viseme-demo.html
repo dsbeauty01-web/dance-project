@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova · 30s lipsync test</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+         justify-content: center; gap: 18px; background: #14102b; color: #fff;
+         font-family: system-ui, sans-serif; padding: 18px; }
+  h1 { font-size: 20px; font-weight: 600; }
+  #row { display: flex; gap: 26px; flex-wrap: wrap; justify-content: center; }
+  /* waist-up crop: video is top-aligned, panel height cuts at ~1200/1924 video px */
+  .panel { position: relative; width: 440px; aspect-ratio: 1076 / 1200; overflow: hidden;
+           border-radius: 14px; }
+  .panel video { width: 100%; display: block; }
+  .panel .tag { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,.55);
+                padding: 4px 14px; border-radius: 999px; font-size: 15px; font-weight: 700; }
+  .mouth { position: absolute; pointer-events: none; display: none;
+           transition: opacity 60ms linear; }
+  #play { font-size: 20px; font-weight: 700; padding: 14px 44px; border: 0; cursor: pointer;
+          border-radius: 999px; color: #fff; background: linear-gradient(135deg,#12b981,#0d9668); }
+  #note { color: rgba(255,255,255,.55); font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>Nova — 30 second mouth test (A vs B)</h1>
+<div id="row">
+  <div class="panel" id="pa">
+    <video id="va" src="../freezegame/idle_sway.mp4" muted loop playsinline preload="auto"></video>
+    <img class="mouth" id="m0" alt="">
+    <img class="mouth" id="m1" alt="">
+    <div class="tag">A</div>
+  </div>
+  <div class="panel">
+    <video id="vb" src="../freezegame/idle_sway.mp4" muted loop playsinline preload="auto"></video>
+    <div class="tag">B</div>
+  </div>
+</div>
+<button id="play">▶ Play the test</button>
+<div id="note">same voice on both. A and B differ only in the mouth.</div>
+<audio id="voice" src="nova-voice.wav" preload="auto"></audio>
+<script>
+(async function () {
+  const [meta, timeline, track] = await Promise.all([
+    fetch('visemes/meta.json').then(r => r.json()),
+    fetch('timeline.json').then(r => r.json()),
+    fetch('anchor-track.json').then(r => r.json()),
+  ]);
+  const sprites = {};
+  for (const v of meta.sprites) { const im = new Image(); im.src = 'visemes/' + v + '.png'; sprites[v] = im; }
+
+  const va = document.getElementById('va'), voice = document.getElementById('voice');
+  const layers = [document.getElementById('m0'), document.getElementById('m1')];
+  let front = 0, shown = null;
+
+  // 60ms crossfade between mouth shapes: two stacked layers swap roles
+  function setMouth(v) {
+    if (v === shown) return;
+    shown = v;
+    const back = 1 - front;
+    layers[back].src = sprites[v].src;
+    layers[back].style.opacity = 1;
+    layers[front].style.opacity = 0;
+    front = back;
+  }
+
+  // glue the sprite to her face: static anchor + per-frame sway offset,
+  // sampled from anchor-track.json by the video's own clock (lerped)
+  function place() {
+    const scale = va.clientWidth / meta.video.w;
+    const n = track.frames.length;
+    const f = (va.currentTime * track.fps) % n;
+    const i = Math.floor(f), a = track.frames[i], b = track.frames[(i + 1) % n];
+    const k = f - i;
+    const dx = a[0] + (b[0] - a[0]) * k, dy = a[1] + (b[1] - a[1]) * k;
+    const w = meta.anchor.w * scale, h = meta.anchor.h * scale;
+    const x = (meta.anchor.cx + dx - meta.anchor.w / 2) * scale;
+    const y = (meta.anchor.cy + dy - meta.anchor.h / 2) * scale;
+    for (const m of layers) {
+      m.style.width = w + 'px'; m.style.height = h + 'px';
+      m.style.transform = `translate(${x}px, ${y}px)`;
+      m.style.left = 0; m.style.top = 0;
+    }
+  }
+
+  let idx = 0, running = false;
+  function tick() {
+    place();
+    const t = voice.currentTime;
+    while (idx < timeline.length - 1 && timeline[idx + 1].t <= t) idx++;
+    // idle to closed mouth whenever the voice is silent or done
+    const v = (voice.paused || voice.ended) ? 'rest' : (timeline[idx] ? timeline[idx].v : 'rest');
+    setMouth(sprites[v] ? v : 'rest');
+    requestAnimationFrame(tick);   // keep tracking after speech so 'rest' stays glued
+  }
+
+  document.getElementById('play').onclick = async () => {
+    idx = 0; voice.currentTime = 0;
+    for (const m of layers) m.style.display = 'block';
+    document.getElementById('va').play(); document.getElementById('vb').play();
+    await voice.play();
+    if (!running) { running = true; requestAnimationFrame(tick); }
+  };
+})();
+</script>
+</body>
+</html>
