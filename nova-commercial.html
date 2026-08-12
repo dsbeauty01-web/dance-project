@@ -1794,13 +1794,35 @@ function novaStageTo(frameId, phaseId){
     return;
   }
   if (phaseId !== 'phase-end' && phaseId !== 'phase-recognition') {
-    // MUSETALK: keep her VISIBLE in a fixed body-level corner during picker/countdown/game
-    // (the official machinery would otherwise strand her inside the now-hidden recognition frame).
     if (window.__MUSETALK) {
       document.querySelectorAll('#rec-avatar-frame.pod-live,#end-avatar-frame.pod-live')
         .forEach(f => f.classList.remove('pod-live'));
       stage.classList.remove('in-frame');
       if (stage.parentElement !== document.body) document.body.appendChild(stage);
+      // VOICE-ONLY IN UNBAKED GAMES (founder 2026-08-11): during the GAME itself her
+      // side window shows ONLY for freeze (fully baked — she becomes the animals).
+      // Every other game: window hidden, her VOICE keeps flowing from the live iframe.
+      // Picker/countdown keep the corner (between-game moments, she hypes visibly).
+      const _gid = ((window.__selectedSongId
+                    || (typeof selectedSong !== 'undefined' && selectedSong && selectedSong.id)
+                    || '') + '').toLowerCase();
+      // BAKED-AVATAR GAMES (2026-08-12): freeze + wave (id 'wave') + up-groove (id
+      // 'joined') now have baked avatars — she SHOWS. Truly-unbaked games
+      // (hello / wavemagic / bounce) stay voice-only, window hidden.
+      const _baked = /freeze/.test(_gid) || _gid === 'wave' || _gid === 'joined';
+      if (phaseId === 'phase-game' && !_baked) {
+        stage.classList.remove('ms-corner');
+        stage.style.display = 'none';                 // voice-only: iframe alive, video gone
+        try { LOG('FRAME', 'unbaked game (' + _gid + ') → voice-only, window hidden'); } catch(_){}
+        return;
+      }
+      // baked game → make her BECOME that avatar (set_avatar switches the baked loop)
+      if (phaseId === 'phase-game') {
+        const _av = _gid === 'wave' ? 'nova_wave' : _gid === 'joined' ? 'nova_upgroove' : null;
+        if (_av) { try { const _sf = document.getElementById('saray-frame');
+          if (_sf && _sf.contentWindow) { _sf.contentWindow.postMessage({ type: 'set-avatar', id: _av }, '*');
+            LOG('FRAME', 'baked game (' + _gid + ') → set-avatar ' + _av); } } catch(_){} }
+      }
       stage.classList.add('ms-corner');
       stage.style.display = 'block';
       window.__sarayFrameMode && window.__sarayFrameMode('full');   // corner = FULL BODY, max coverage
@@ -6927,6 +6949,23 @@ function gameTick() {
           dosage: cj.dosage || null, summaryTemplate: cj.summaryTemplate || null } });
         window.__brainSent = cj.id;   // QA hook
         LOG('CHOREO', 'game_brain sent (' + cj.id + ')');
+      }
+      // MUSETALK PER-GAME BRAIN (2026-08-12): in ?musetalk her voice is the saray iframe,
+      // NOT the LiveKit worker — the __novaSend game_brain above never reaches her. Post
+      // the per-game knowledge as a [GAME-MODE] persona through the PROVEN iframe path
+      // (the one freeze already uses), so each game runs its OWN brain, not the intro.
+      if (window.__MUSETALK && cj && cj.knowledge) {
+        const _sf = document.getElementById('saray-frame');
+        if (_sf && _sf.contentWindow) {
+          const ex = cj.styleExamples ? ' Style examples: ' + JSON.stringify(cj.styleExamples) : '';
+          const gp = '[GAME-MODE] ' + cj.knowledge +
+            ' You are IN this game now — the intro is over. One short line per beat, ' +
+            'react only to move-facts I send, never invent a move, stay mostly quiet ' +
+            'between beats.' + ex;
+          _sf.contentWindow.postMessage({ type:'nova-persona', text: gp }, '*');
+          _sf.contentWindow.postMessage({ type:'set_persona',  text: gp }, '*');
+          LOG('CHOREO', 'musetalk [GAME-MODE] persona posted (' + cj.id + ')');
+        }
       }
     } catch(_){}
   }

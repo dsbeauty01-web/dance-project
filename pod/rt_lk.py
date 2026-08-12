@@ -44,8 +44,9 @@ PROMPT = (
     "game. Offer once, then wait.\n\n"
     "YOUR INTRO — one short beat per turn, in this order, never dump it all at once:\n"
     "1. GREET + NAME: say exactly — Hi! I'm Nova, your magical AI dance teacher! What's your name?\n"
-    "2. NAME LANDS: react warmly to their name ONCE, with energy (like 'Rafy?! what a cool name!'), "
-    "then you're done talking about the name forever.\n"
+    "2. NAME LANDS: react warmly to their REAL name ONCE, with energy — repeat the exact "
+    "name THEY said. No name heard yet = no name exists: never invent or guess one; "
+    "ask again once or wait. Then you're done talking about the name forever.\n"
     "3. THE MAGIC LIGHT: a magic light glows on the kid's shoulder — you can SEE it. Discover it with "
     "wonder and invite them to MOVE that shoulder, just a little shrug — never to touch it. When your "
     "notes tell you the shoulder actually moved, celebrate THAT shrug ONCE, big, by name (that move is "
@@ -64,7 +65,7 @@ PROMPT = (
     "Short lines. Never name or praise a move your notes did not report. If the kid is silent, one gentle try, "
     "then wait quietly.\n"
     "NAME LAW: repeat the kid's name EXACTLY as you heard it, sound for sound — never 'correct' or "
-    "change it (if you heard 'Raki', say 'Raki', never 'Rafy'). If unsure, ask 'did I get that right?' "
+    "change it — repeat exactly what you heard, letter for letter. If unsure, ask 'did I get that right?' "
     "— never guess a different name. If NO name has been given this session, you have NO name: say "
     "'you' or 'superstar' — NEVER invent a name out of nothing (no 'Emma', no example names, ever).\n"
     "MOVE-TRUTH LAW: never praise or name a move unless your notes JUST reported it happened. No report "
@@ -108,7 +109,7 @@ CORE_LAWS = (
     "The kid's words always come first: if they ask anything, answer it before anything else. "
     "Silence is okay — you never pressure.\n"
     "NAME LAW: repeat the kid's name EXACTLY as you heard it, sound for sound — never 'correct' or "
-    "change it (if you heard 'Raki', say 'Raki', never 'Rafy'). If unsure, ask 'did I get that right?' "
+    "change it — repeat exactly what you heard, letter for letter. If unsure, ask 'did I get that right?' "
     "— never guess a different name. If NO name has been given this session, you have NO name: say "
     "'you' or 'superstar' — NEVER invent a name out of nothing (no 'Emma', no example names, ever).\n"
     "MOVE-TRUTH LAW: never praise or name a move unless your notes JUST reported it happened. No report "
@@ -158,9 +159,12 @@ def session_update(freeze=False, voice=None):
         "audio": {
             "input": {"format": {"type": "audio/pcm", "rate": 24000},
                       "noise_reduction": {"type": "near_field"},
+                      # LAW-INPUT-LOCK (founder 2026-08-11, THE FINAL LOCK): the model may
+                      # generate ONLY on a validated kid-turn. VAD commits + transcribes,
+                      # but create_response is OFF — air structurally cannot reach her.
                       "turn_detection": {"type": "server_vad", "threshold": 0.55,
                                          "prefix_padding_ms": 250, "silence_duration_ms": 400,
-                                         "create_response": True, "interrupt_response": False},
+                                         "create_response": False, "interrupt_response": False},
                       "transcription": {"model": "gpt-4o-mini-transcribe", "language": "en"}},
             "output": {"format": {"type": "audio/pcm", "rate": 24000}, "voice": (voice or VOICE)}},
         "max_output_tokens": "inf"}}
@@ -193,7 +197,7 @@ async def relay(request):
     audio_buf = bytearray()
     FLUSH = 24000 * 2 * 2 // 10   # 0.2s chunks -> to engine for lips
     engine_q = asyncio.Queue()
-    # Maya mic-gate: `v`=Nova is speaking (mic muted). last_chunk=time we last fed
+    # mic-gate: `v`=Nova is speaking (mic muted). last_chunk=time we last fed
     # engine audio; reopen the mic 2.0s AFTER the last chunk (tracks real playback,
     # unlike response.done which fires while the engine is still playing her tail).
     # resp_active = single-active-response guard (no overlapping "2 voices").
@@ -244,6 +248,7 @@ async def relay(request):
         letters = _re.findall(r"[A-Za-z]", t)
         return len(letters) < max(2, len(t) // 3)   # mostly non-English script -> garble
     kidinput = {"ts": 0.0}                             # #2 last REAL kid input (garble excluded)
+    inlock = {"valid_turns": 0}                        # LAW-INPUT-LOCK: validated-turn counter
     # #1 LIGHT BEAT = ONE ATTEMPT: idle -> invited -> reinvited -> done(fact|moved-on)
     # #4 LIGHT ONCE PER SESSION: 'ever' locks it — any second trigger is blocked.
     light = {"state": "idle", "ts": 0.0, "ever": False}
@@ -375,9 +380,10 @@ async def relay(request):
                         print("[TURN-GATE] silence %.0fs -> ONE gentle retry" % quiet, flush=True)
                         try:
                             await oai.send_json({"type": "response.create", "response": {
-                                "instructions": ("The kid has been quiet for a bit. Give ONE gentle, warm, "
-                                                 "very short invite to move or chat, then stop. Do not repeat "
-                                                 "a line you already said.")}})
+                                "instructions": ("The kid has been quiet for a bit. Say ONE tiny warm line "
+                                                 "that you're here whenever they're ready — under 8 words. "
+                                                 "NEVER use a name unless they already gave one, NEVER invite "
+                                                 "a move or warm-up, never repeat a line you already said.")}})
                         except Exception as e:
                             print("[TURN-GATE] retry err", e, flush=True)
             silwatch = asyncio.create_task(silence_watch())
@@ -439,7 +445,18 @@ async def relay(request):
                         _recent_yes = (time.time() - consent["yes_ts"] <= 8.0) or (time.time() - facts["last_ts"] <= 8.0)
                         if _is_adv and not _recent_yes:
                             print("[CONSENT] waiting — advance cue held (no yes/move):", intent[:50], flush=True)
+                        elif intent and (time.time() - inlock.get("last_cue_resp", 0.0) < 8.0):
+                            # CUE RATE-LIMIT (founder 2026-08-11: page cues machine-gunned her
+                            # into 3-line chains): one spoken cue per 6s; extras become
+                            # silent context so she still KNOWS, she just doesn't SPEAK.
+                            print("[CUE-LIMIT] context-only:", intent[:50], flush=True)
+                            try:
+                                await oai.send_json({"type": "conversation.item.create", "item": {
+                                    "type": "message", "role": "system",
+                                    "content": [{"type": "input_text", "text": "[context] " + intent + (" " + ctx if ctx else "")}]}})
+                            except Exception: pass
                         elif intent and not speaking["resp_active"] and not speaking["v"]:
+                            inlock["last_cue_resp"] = time.time()
                             await oai.send_json({"type": "response.create", "response": {
                                 "instructions": (
                                     "[GAME DIRECTOR - improvise, never read this aloud] " + intent
@@ -637,7 +654,11 @@ async def relay(request):
                         # fact dies immediately — waiting for the move word lost the audio race
                         # (founder log: "You nailed that freeze" fully audible despite the block).
                         elif (not resp["killed"]) and (time.time() - facts["last_ts"] > FACT_WINDOW) \
+                           and (time.time() - kidinput["ts"] > 6.0) \
                            and PRAISE_RE.search(resp["buf"][:40]) and not INVITE_RE.search(resp["buf"]):
+                            # (praise within 6s of a REAL kid turn is a legit reaction —
+                            #  the disease was praise into silence; torture-1 killed her
+                            #  honest name-echo and glued "Let's GO!" on top)
                             resp["killed"] = True
                             print("[TRUTH-GATE] pre-synth blocked (no fact):", resp["buf"][:70], flush=True)
                             try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"[TRUTH-GATE] pre-synth blocked: "+resp["buf"]+"\n")
@@ -729,14 +750,34 @@ async def relay(request):
                             await ws_client.send_json({"type": "status", "speaking": False, "state": "listening"})
                         asyncio.create_task(reopen())
                     elif et == "conversation.item.input_audio_transcription.completed":
-                        ktxt = e.get("transcript", "") or ""
-                        # #4 GARBLE-IGNORE: nonsense/<3-char = no turn, no name, no consent, no counter.
-                        if is_garble(ktxt):
-                            print("[GARBLE] ignored:", ktxt[:30], flush=True)
-                            try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"[GARBLE] ignored: "+ktxt+"\n")
+                        ktxt = (e.get("transcript", "") or "").strip()
+                        # LAW-INPUT-LOCK VALIDATION: a kid-turn is real ONLY if the
+                        # transcript has >=2 real English words, OR it is the session's
+                        # FIRST valid turn and is one clean name-shaped token (the name
+                        # answer). Everything else is consumed silently — no generation.
+                        _words = _re.findall(r"[A-Za-z][A-Za-z'\-]*", ktxt)
+                        _drop = None
+                        if not ktxt or is_garble(ktxt):
+                            _drop = "garble/empty"
+                        elif len(_words) >= 2:
+                            _drop = None
+                        elif len(_words) == 1 and _words[0].lower() in (
+                              "yes", "yeah", "yep", "no", "ok", "okay", "ready", "sure",
+                              "freeze", "wave", "groove", "stop", "again", "go", "hi", "hey", "done"):
+                            _drop = None                     # real single-word answers are turns
+                        elif (inlock["valid_turns"] == 0 and len(_words) == 1
+                              and ktxt[:1].isupper() and len(_words[0]) >= 3 and _words[0].lower() not in
+                              ("wow", "what", "cool", "nice", "hello")):
+                            _drop = None                     # name beat: capitalized token = name candidate
+                        else:
+                            _drop = "sub-2-word"
+                        if _drop:
+                            print("[INPUT-LOCK] dropped:", _drop, "|", ktxt[:30], flush=True)
+                            try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"[INPUT-LOCK] dropped ("+_drop+"): "+ktxt[:60]+"\n")
                             except Exception: pass
                         else:
                             # real kid input: NOW reset the turn counter, record input, log.
+                            inlock["valid_turns"] += 1
                             turn["kid_ts"] = time.time(); turn["retried"] = False
                             kidinput["ts"] = time.time()
                             await ws_client.send_json({"type": "you_text", "text": ktxt})
@@ -745,6 +786,12 @@ async def relay(request):
                             # #5 CONSENT=REAL YES: a clear spoken yes/ready/ok is a real consent.
                             if YES_RE.search(ktxt):
                                 consent["yes_ts"] = time.time(); print("[CONSENT] real yes:", ktxt[:40], flush=True)
+                            # ONE-SHOT GENERATION: this validated turn buys exactly one response.
+                            try:
+                                await oai.send_json({"type": "response.create"})
+                                print("[INPUT-LOCK] one-shot fired for turn", inlock["valid_turns"], flush=True)
+                            except Exception as _e:
+                                print("[INPUT-LOCK] fire err", _e, flush=True)
                     elif et == "error":
                         await log("ERROR: " + str(e.get("error", {}).get("message", ""))[:120])
 
