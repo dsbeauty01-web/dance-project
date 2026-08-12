@@ -6967,6 +6967,7 @@ function gameTick() {
           LOG('CHOREO', 'musetalk [GAME-MODE] persona posted (' + cj.id + ')');
         }
       }
+    } catch(_){}
   }
   if (!window.__lastTickSent || elapsed - window.__lastTickSent > 1000) {
     window.__lastTickSent = elapsed;
