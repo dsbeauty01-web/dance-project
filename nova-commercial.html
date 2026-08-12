@@ -1806,11 +1806,22 @@ function novaStageTo(frameId, phaseId){
       const _gid = ((window.__selectedSongId
                     || (typeof selectedSong !== 'undefined' && selectedSong && selectedSong.id)
                     || '') + '').toLowerCase();
-      if (phaseId === 'phase-game' && !_gid.includes('freeze')) {
+      // BAKED-AVATAR GAMES (2026-08-12): freeze + wave (id 'wave') + up-groove (id
+      // 'joined') now have baked avatars — she SHOWS. Truly-unbaked games
+      // (hello / wavemagic / bounce) stay voice-only, window hidden.
+      const _baked = /freeze/.test(_gid) || _gid === 'wave' || _gid === 'joined';
+      if (phaseId === 'phase-game' && !_baked) {
         stage.classList.remove('ms-corner');
         stage.style.display = 'none';                 // voice-only: iframe alive, video gone
         try { LOG('FRAME', 'unbaked game (' + _gid + ') → voice-only, window hidden'); } catch(_){}
         return;
+      }
+      // baked game → make her BECOME that avatar (set_avatar switches the baked loop)
+      if (phaseId === 'phase-game') {
+        const _av = _gid === 'wave' ? 'nova_wave' : _gid === 'joined' ? 'nova_upgroove' : null;
+        if (_av) { try { const _sf = document.getElementById('saray-frame');
+          if (_sf && _sf.contentWindow) { _sf.contentWindow.postMessage({ type: 'set-avatar', id: _av }, '*');
+            LOG('FRAME', 'baked game (' + _gid + ') → set-avatar ' + _av); } } catch(_){} }
       }
       stage.classList.add('ms-corner');
       stage.style.display = 'block';
