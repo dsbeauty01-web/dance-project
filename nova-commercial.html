@@ -6950,7 +6950,23 @@ function gameTick() {
         window.__brainSent = cj.id;   // QA hook
         LOG('CHOREO', 'game_brain sent (' + cj.id + ')');
       }
-    } catch(_){}
+      // MUSETALK PER-GAME BRAIN (2026-08-12): in ?musetalk her voice is the saray iframe,
+      // NOT the LiveKit worker — the __novaSend game_brain above never reaches her. Post
+      // the per-game knowledge as a [GAME-MODE] persona through the PROVEN iframe path
+      // (the one freeze already uses), so each game runs its OWN brain, not the intro.
+      if (window.__MUSETALK && cj && cj.knowledge) {
+        const _sf = document.getElementById('saray-frame');
+        if (_sf && _sf.contentWindow) {
+          const ex = cj.styleExamples ? ' Style examples: ' + JSON.stringify(cj.styleExamples) : '';
+          const gp = '[GAME-MODE] ' + cj.knowledge +
+            ' You are IN this game now — the intro is over. One short line per beat, ' +
+            'react only to move-facts I send, never invent a move, stay mostly quiet ' +
+            'between beats.' + ex;
+          _sf.contentWindow.postMessage({ type:'nova-persona', text: gp }, '*');
+          _sf.contentWindow.postMessage({ type:'set_persona',  text: gp }, '*');
+          LOG('CHOREO', 'musetalk [GAME-MODE] persona posted (' + cj.id + ')');
+        }
+      }
   }
   if (!window.__lastTickSent || elapsed - window.__lastTickSent > 1000) {
     window.__lastTickSent = elapsed;
