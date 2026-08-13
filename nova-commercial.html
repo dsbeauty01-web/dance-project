@@ -2095,7 +2095,7 @@ function playAgainNow(){
 window.__endingAudio = null;
 window.__endingSpeak = function(text){
   try {
-    if (window.__novaRoom) return;                 // live worker = her mouth; stay silent
+    if (window.__novaRoom || window.__MUSETALK) return;  // live worker/pod = her mouth; stay silent
     const t = (text || '').toString().slice(0, 90);
     if (!t) return;
     fetch(CFG.RENDER_URL + '/v2/tts', {
@@ -6022,7 +6022,10 @@ let lastAnticipationTime = 0;
 function novaAnticipate(action, dir) {
   // TALK SCORE (2026-07-05): when the REAL Nova is connected, HER voice score calls
   // the moves — the robotic browser-TTS must stay silent. TTS remains for ?nonova.
-  if (window.__novaRoom) return;
+  // 2026-08-13: in MUSETALK mode the LiveKit room lives INSIDE the saray iframe, so
+  // the parent's __novaRoom is never set — guard on __MUSETALK too, or the male OS
+  // voice reads the moves over Nova (founder-reported "man voice for the moves").
+  if (window.__novaRoom || window.__MUSETALK) return;
   const now = Date.now();
   if(now - lastAnticipationTime < 5000) return; // max once per 5s
   lastAnticipationTime = now;
