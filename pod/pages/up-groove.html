@@ -76,7 +76,7 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
 /* score + stamps */
 #hud{position:fixed;top:34px;left:50%;transform:translateX(-50%);z-index:50;display:flex;gap:14px;align-items:center}
 #score{font-family:'Fredoka';font-weight:700;font-size:26px;color:#ffe27d;text-shadow:0 2px 10px #000}
-#stamps{display:flex;gap:6px}
+#stamps{display:none}   /* UP GROOVE: no stamps (freeze-collection remnant stripped per spec) */
 .stamp{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.08);
   border:2px solid rgba(125,216,255,.3);display:flex;align-items:center;justify-content:center;
   font-size:20px;filter:grayscale(1);opacity:.45;transition:all .4s}
@@ -248,7 +248,7 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
 
 <div class="screen" id="start-screen">
   <h1>🕺 Up Groove! 🕺</h1>
-  <p>Say hi — Nova can <b>hear you and talk back!</b> Follow her groove — one body part at a time: <b>HEAD, SHOULDER, RIBS, HIPS!</b> Then everything at once. Collect all the move stamps!</p>
+  <p>Say hi — Nova can <b>hear you and talk back!</b> Watch her groove and follow along — one body part at a time: <b>HEAD, SHOULDER, RIBS, HIPS!</b> Then everything at once!</p>
   <button class="bigbtn" id="start-btn">▶ Let's Play!</button>
   <!-- LAW-CONSENT (ported from nova-commercial 2026-08-06): the legal lock-line must be
        visible BEFORE camera+mic run on a child. Marker strings "A grown-up should read" /
@@ -823,14 +823,44 @@ const Nova = {
   cue(intent, ctx, pool){ if(Live.on) Live.cue(intent, ctx); else NovaSay.log(Fallback.pick(pool)); }, // live=she writes it; clips=varied local text
   setTier(t2){ if(!TIER_AVATAR[t2] || CUR_TIER===t2) return; CUR_TIER=t2;   // ENERGY LADDER
     try{ console.log('[TIER] →', t2); }catch(_){}
-    if(Live.on){ if(!G.freeze) Live.setAvatar(TIER_AVATAR[t2]); }           // mid-hold: applies at melt
-    else Clips.setTier(t2); },
-  // UP GROOVE: a "moment" is NOT a freeze — Nova keeps dancing the nova_upgroove loop.
-  // In live mode we do NOT swap her to a gest_ pose (she never stops grooving). The
-  // offline clip-bank still shows the move clip so the fallback has visible feedback.
-  freeze(clipKey){ if(Live.on) { /* stay grooving as nova_upgroove */ } else Clips.freeze(clipKey); },
-  melt(){ if(Live.on) Live.setAvatar(TIER_AVATAR[CUR_TIER]||'nova_upgroove'); else Clips.melt(); },
+    // UP GROOVE: the part-rotation owns the live avatar (a/b/c) — tier no longer swaps it,
+    // or it would fight the rotation. Tier tracking stays only for the offline clip-bank.
+    if(!Live.on) Clips.setTier(t2); },
+  // UP GROOVE: a "moment" is NOT a freeze — Nova keeps grooving. Live mode never swaps her
+  // to a gest_ pose; the rotation keeps her on a/b/c. Offline clip-bank shows the move clip.
+  freeze(clipKey){ if(Live.on) { /* stay grooving — rotation owns the avatar */ } else Clips.freeze(clipKey); },
+  melt(){ if(!Live.on) Clips.melt(); },
 };
+
+/* ═══ UP GROOVE part rotation (2026-08-14) ═══
+   The full 90s routine can't bake (face turns/occludes → MuseTalk face-seg crashes), so we
+   bake the 3 longest FACE-CLEAR windows (nova_upgroove_a 16.5s / b 7.5s / c 6.8s) and chain
+   them in a NON-repeating order, cross-faded on each switch so the face-away cut is hidden.
+   The single 23.8s nova_upgroove stays as the fallback: add ?onepart=1 to use it. */
+const UPG_PARTS = ['nova_upgroove_a','nova_upgroove_b','nova_upgroove_c'];
+let _upgLast = null, _upgTimer = null;
+function _nextUpgPart(){
+  const pool = UPG_PARTS.filter(p => p !== _upgLast);   // never the same part twice → no fixed loop
+  const p = pool[Math.floor(Math.random()*pool.length)];
+  _upgLast = p; return p;
+}
+function _rotateUpg(){
+  if(!G.running || G.paused || !Live.on) return;
+  const p = _nextUpgPart();
+  const st = novaStage;
+  st.style.transition = 'opacity .45s ease';
+  st.style.opacity = '0.12';                              // cross-fade dip hides the face-away cut
+  setTimeout(()=>{ try{ Live.setAvatar(p); }catch(_){} }, 420);
+  setTimeout(()=>{ st.style.opacity = '1'; }, 800);
+}
+function startUpgRotation(){
+  if(Q.get('onepart')==='1'){ if(Live.on) Live.setAvatar('nova_upgroove'); return; }  // fallback single loop
+  _upgLast = null;
+  if(Live.on) Live.setAvatar(_nextUpgPart());            // first part right away
+  clearInterval(_upgTimer);
+  _upgTimer = setInterval(_rotateUpg, 9000);             // rotate ~every 9s (parts are 6.5–16.5s)
+}
+function stopUpgRotation(){ clearInterval(_upgTimer); _upgTimer=null; }
 
 /* ═══ incoming from the avatar iframe: kid's words + Nova's words → speech log,
    and voice-stop ("stop") → same pause path as the button ═══ */
@@ -1325,7 +1355,7 @@ $('start-btn').addEventListener('click', async ()=>{
   try{ await Music.ctx.resume(); }catch(e){}
   Music.el.play().catch(()=>{});
   try{ Live.post({type:'game-start'}); }catch(_){}   // V2: she learns the music is RUNNING at this exact moment
-  G.running=true; requestAnimationFrame(tick);
+  G.running=true; startUpgRotation(); requestAnimationFrame(tick);   // UP GROOVE: begin the a/b/c part rotation
 });
 
 /* ONE pause path — used by the button AND by voice ("stop").
@@ -1336,7 +1366,7 @@ $('start-btn').addEventListener('click', async ()=>{
    frames and cancel any speech already in flight. */
 function doPause(){
   if(!G.running||G.paused) return;
-  G.paused=true; G.running=false; Music.el.pause();
+  G.paused=true; G.running=false; Music.el.pause(); stopUpgRotation();
   if(G.freeze){ Music.duck(1.0,200); Nova.melt(); FX.frostOff(); FX.badgeOff(); ring.classList.remove('show'); G.freeze=null; }
   if(Live.on){
     Live.cue('The game is PAUSED. Say one tiny calm line like "taking a break!" then stay completely silent until the game resumes.','Paused by the child or parent.');
@@ -1351,11 +1381,11 @@ $('resume-btn').addEventListener('click', async ()=>{
   if(Live.on){ Live.hold(false);                                     // ears back on BEFORE she welcomes them
     Live.cue('The game is BACK ON — one short excited welcome-back line.','Resumed.'); }
   await countdown();                                                 // resume ALWAYS gates through 3-2-1
-  Music.el.play().catch(()=>{}); G.paused=false; G.running=true; requestAnimationFrame(tick);
+  Music.el.play().catch(()=>{}); G.paused=false; G.running=true; startUpgRotation(); requestAnimationFrame(tick);
 });
 
 function endGame(){
-  G.running=false; Music.duck(0.0,1500);
+  G.running=false; stopUpgRotation(); Music.duck(0.0,1500);
   // SMART ENDING (2026-07-27): the one shared arc — her moment (built from THIS
   // session's real freeze data, by animal name) → feedback faces 😍🙂😕 → hook.
   // NO score/points on the kid's screen; raw numbers go to the session record only.
