@@ -2031,6 +2031,13 @@ const GAME_WARMUP = {   // each game's ONE mini-warmup — her cue matches the g
   freeze:    'Freeze warmup: ask them to freeze like a statue for two seconds! One short line.',
 };
 function pickGame(songId){
+  // DEDICATED FIRST-PARTY POD PAGES (2026-08-14): baked games run as their own pod-served
+  // page (like Freeze) so the baked avatar IS the full-figure star, talking the whole game —
+  // no in-page canned MP4, no cross-origin iframe. Redirect the moment the game is chosen,
+  // from BOTH the card tap and the voice pick (both funnel through here). Freeze keeps its
+  // own card redirect too; this is belt-and-braces for its voice pick.
+  const DEDICATED_PAGE = { joined: 'up-groove.html', freeze: 'animal-freeze.html' };
+  if (DEDICATED_PAGE[songId]) { window.location.href = DEDICATED_PAGE[songId] + location.search; return; }
   if(typeof markUserInteraction === 'function') markUserInteraction();
   // GAME-MATCHED WARMUP (2026-07-27): her mini-challenge fits the picked game — never a
   // freeze cue for Up Groove. One line, then the transition carries on.
