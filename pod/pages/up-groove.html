@@ -741,9 +741,12 @@ const Live = {
     const mk=map[t]; if(!mk) return;
     if(this.ws&&this.ws.readyState===1) this.ws.send(JSON.stringify(mk(msg)));
   }catch(_){} },
-  // She BECOMES the animal: switch the baked pose live (HTTP + postMessage, whichever the app honors)
+  // She BECOMES the avatar: switch the baked loop live (HTTP + postMessage, whichever the app honors)
   setAvatar(id){
     if(!this.on) return;
+    // BAKE-VALIDATOR GUARD (2026-08-15): only ids the validator verified may ever load. An
+    // unverified/broken id (0-byte latents, count mismatch) is what blanked Nova — refuse it.
+    if(!VERIFIED_AVATARS.has(id)){ try{ console.warn('[GUARD] refused unverified avatar', id); }catch(_){}; return; }
     /* SARAY_BASE, not SARAY: SARAY now carries ?intro=freeze, and concatenating
        'set_avatar?id=' onto a URL that already has a query string produces
        ".../?intro=freezeset_avatar?id=..." — a silently dead request. */
@@ -837,7 +840,10 @@ const Nova = {
    bake the 3 longest FACE-CLEAR windows (nova_upgroove_a 16.5s / b 7.5s / c 6.8s) and chain
    them in a NON-repeating order, cross-faded on each switch so the face-away cut is hidden.
    The single 23.8s nova_upgroove stays as the fallback: add ?onepart=1 to use it. */
-const UPG_PARTS = ['nova_upgroove_a','nova_upgroove_b','nova_upgroove_c'];
+// BAKE-VALIDATOR allowlist (2026-08-15): every id this page may setAvatar. Must match the
+// pod's verified-avatars.json — an id absent here is refused in Live.setAvatar (blank-Nova guard).
+const VERIFIED_AVATARS = new Set(['nova_idle','nova_upgroove','nova_upgroove_a','nova_upgroove_b','nova_upgroove_c']);
+const UPG_PARTS = ['nova_upgroove_a','nova_upgroove_b','nova_upgroove_c'];  /* c re-baked + re-copied (valid); all three chained */
 let _upgLast = null, _upgTimer = null;
 function _nextUpgPart(){
   const pool = UPG_PARTS.filter(p => p !== _upgLast);   // never the same part twice → no fixed loop
