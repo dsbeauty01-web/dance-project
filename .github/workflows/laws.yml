@@ -19,8 +19,36 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # full history so the freeze guardian can diff against base
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - name: Freeze lockdown guardian (2026-08-15)
+        # Freeze is DONE and founder-approved. Any PR that touches the freeze files must
+        # carry a commit whose message contains FREEZE-APPROVED, or the build goes RED.
+        # Freeze is not a parts bin — this stops silent drift into the approved game.
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          FREEZE_FILES="animal-freeze.html pod/pages/animal-freeze.html"
+          changed="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+          touched=""
+          for f in $FREEZE_FILES; do
+            echo "$changed" | grep -qxF "$f" && touched="$touched $f"
+          done
+          if [ -n "$touched" ]; then
+            echo "PR touches freeze files:$touched"
+            if git log --format=%B "$BASE_SHA".."$HEAD_SHA" | grep -q 'FREEZE-APPROVED'; then
+              echo "FREEZE-APPROVED found in a commit message — allowed."
+            else
+              echo "::error::Freeze is DONE + founder-approved. A PR touching$touched must include FREEZE-APPROVED in a commit message. Restore the approved version or get sign-off."
+              exit 1
+            fi
+          else
+            echo "No freeze files touched — guardian passes."
+          fi
       - name: Run Nova law-tests (walls)
         run: bash tools/laws/run-all.sh
