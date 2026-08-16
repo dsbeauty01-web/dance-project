@@ -98,119 +98,70 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const SONG = 'handywave.mp4';   // game music + clock
-const SONG_END = 28;
+const SONG_END = 28.5;
 const PARTS = ['nova_wave_a'];
 const FALLBACK = 'nova_wave_a';
 
 // ── UP GROOVE brain (Part 2, verbatim) ──
 const PERSONA = "[GAME-MODE] You are Nova leading THE WAVE — arms flow like water. A 28-second sprint: your scripted lines ride the cue notes, at most ONE extra fact-hype. Calm-warm, max 10 words, smooth beats fast. Never name a move your notes did not report. Never mention a light or other games.";
 
-// ── the cue timeline (Part 3) — fires off music.currentTime (CLOCK LAW) ──
-const SECTIONS = [
-  {
-    "t": 4,
-    "key": "shoulderroll",
-    "emoji": "🤷",
-    "label": "SHOULDERS",
-    "joint": "shoulder",
-    "line": "shoulders alive!"
-  },
-  {
-    "t": 8,
-    "key": "elbowpump",
-    "emoji": "💪",
-    "label": "ELBOWS",
-    "joint": "arm",
-    "line": "elbows next!"
-  },
-  {
-    "t": 12,
-    "key": "wristwave",
-    "emoji": "👋",
-    "label": "WAVE!",
-    "joint": "arm",
-    "line": "let it travel: fingers, wrist, elbow!"
-  },
-  {
-    "t": 18,
-    "key": "chain",
-    "emoji": "🌊",
-    "label": "THE CHAIN",
-    "joint": "arm",
-    "line": "the light TRAVELED!"
-  },
-  {
-    "t": 23,
-    "key": "freestyle",
-    "emoji": "🌊",
-    "label": "FREESTYLE",
-    "joint": "all",
-    "line": "river of LIGHT!"
-  }
+// ── REAL WAVE ENGINE (traced) ──
+/* ORIGIN: nova-wave.html L335 (THRESH), L343-360 (DOM dominant-mover) */
+const THRESH = { shOsc:0.045, elOsc:0.075, wxOsc:0.10, motion:0.06 };
+const DOM = { cap:3, disc:0.6 };
+/* ORIGIN: nova-wave.html L458 — smoothing EMA a=0.6 */
+const _sm={}; function sm(k,x,y){ const a=0.6; if(!_sm[k])_sm[k]={x,y}; _sm[k].x=_sm[k].x*a+x*(1-a); _sm[k].y=_sm[k].y*a+y*(1-a); return _sm[k]; }
+/* ORIGIN: nova-wave.html L488-492 — oscillation buffers OSC_N=24 (max-min over ~0.8s) */
+const OSC_N=24, _osc={sh:[],el:[],wx:[]};
+function pushOsc(k,v){ const a=_osc[k]; if(v==null){ if(a.length)a.push(a[a.length-1]); } else a.push(v); while(a.length>OSC_N)a.shift(); if(a.length<4)return 0; let mn=Infinity,mx=-Infinity; for(const x of a){if(x<mn)mn=x;if(x>mx)mx=x;} return mx-mn; }
+let baseY=0; const det={ shOsc:0, elbowOsc:0, wristOsc:0, motion:0 }; let prevKp=null;
+/* ORIGIN: nova-wave.html L497-526 — active-arm + oscillation signals */
+function onPose(kps){
+  const K=n=>kps.find(k=>k.name===n&&k.score>0.25);
+  const ls=K('left_shoulder'),rs=K('right_shoulder'); if(!ls||!rs) return;
+  const Ls=sm('ls',ls.x,ls.y),Rs=sm('rs',rs.x,rs.y);
+  const sw=Math.max(Math.abs(Ls.x-Rs.x),60), midShY=(Ls.y+Rs.y)/2, midShX=(Ls.x+Rs.x)/2;
+  baseY = baseY? baseY*0.98+midShY*0.02 : midShY;
+  const lw=K('left_wrist'),rw=K('right_wrist'),le=K('left_elbow'),re=K('right_elbow');
+  const Lw=lw?sm('lw',lw.x,lw.y):null,Rw=rw?sm('rw',rw.x,rw.y):null,Le=le?sm('le',le.x,le.y):null,Re=re?sm('re',re.x,re.y):null;
+  let aw=null,ae=null; if(Lw||Rw){ const useL=Lw&&(!Rw||Lw.y<=Rw.y); aw=useL?Lw:Rw; ae=useL?Le:Re; }
+  const shoulderLift=(baseY-midShY)/sw;
+  det.shOsc=pushOsc('sh',shoulderLift);
+  det.elbowOsc=pushOsc('el', ae?(midShY-ae.y)/sw:null);
+  det.wristOsc=pushOsc('wx', aw?(aw.x-midShX)/sw:null);
+  if(prevKp){ let tot=0,c=0; for(let i=0;i<kps.length;i++){ if(kps[i].score>0.25&&prevKp[i]&&prevKp[i].score>0.25){ tot+=Math.hypot(kps[i].x-prevKp[i].x,kps[i].y-prevKp[i].y); c++; } } if(c) det.motion=0.6*det.motion+0.4*Math.min(1,(tot/c)/sw*3); }
+  prevKp=kps;
+  if(G.running && G.win && CHECK[G.win.act] && CHECK[G.win.act](det)) hit();
+}
+/* ORIGIN: nova-wave.html L343-357 — dominant-mover checks */
+const domScores=d=>({ S:Math.min(DOM.cap,d.shOsc/THRESH.shOsc), E:Math.min(DOM.cap,d.elbowOsc/THRESH.elOsc), W:Math.min(DOM.cap,d.wristOsc/THRESH.wxOsc) });
+const CHECK={ shoulderroll:d=>{const s=domScores(d);return d.shOsc>THRESH.shOsc&&s.S>s.E*DOM.disc&&s.S>s.W*DOM.disc;}, elbowpump:d=>{const s=domScores(d);return d.elbowOsc>THRESH.elOsc&&s.E>s.S*DOM.disc&&s.E>s.W*DOM.disc;}, wristwave:d=>d.wristOsc>THRESH.wxOsc, wavefree:d=>d.motion>THRESH.motion };
+/* ORIGIN: nova-joined.html L4993-5020 — Wave timeline (handywave.mp4, verbatim pts) */
+const TIMELINE=[
+  {s:4.5,e:6.1,act:'shoulderroll',emoji:'🤷',label:'SHOULDERS UP',pts:100},{s:6.5,e:8.0,act:'shoulderroll',emoji:'🤷',label:'SHOULDERS UP',pts:100},
+  {s:8.5,e:10.1,act:'elbowpump',emoji:'💪',label:'ELBOWS OUT',pts:100},{s:10.5,e:12.0,act:'elbowpump',emoji:'💪',label:'ELBOWS OUT',pts:100},
+  {s:12.5,e:14.1,act:'wristwave',emoji:'👋',label:'WAVE!',pts:100},{s:14.5,e:16.1,act:'wristwave',emoji:'👋',label:'WAVE!',pts:100},{s:16.5,e:17.8,act:'wristwave',emoji:'👋',label:'WAVE!',pts:100},
+  {s:18.0,e:18.76,act:'wristwave',emoji:'👋',label:'WRIST',pts:150},{s:18.83,e:19.59,act:'elbowpump',emoji:'💪',label:'ELBOW',pts:150},{s:19.66,e:20.42,act:'shoulderroll',emoji:'🤷',label:'SHOULDER',pts:150},{s:20.49,e:21.25,act:'shoulderroll',emoji:'🤷',label:'SHOULDER',pts:150},{s:21.32,e:22.08,act:'elbowpump',emoji:'💪',label:'ELBOW',pts:150},{s:22.15,e:22.91,act:'wristwave',emoji:'👋',label:'WRIST',pts:150},
+  {s:23.2,e:28.2,act:'wavefree',emoji:'🌊',label:'FREESTYLE',pts:200},
 ];
-
-let G = { score:0, combo:0, running:false, kidName:'', section:null, sectionHits:0, factHype:0, fired:new Set() };
-
+const LINES={ shoulderroll:'roll those shoulders!', elbowpump:'pump those elbows!', wristwave:'wave that hand!', wavefree:'wave it ALL!' };
+let G={ score:0,hits:0,attempts:0,streak:0,maxStreak:0,running:false,kidName:'',win:null };
 function setScore(n){ G.score=n; $('score').textContent=n; }
 function addScore(n){ setScore(G.score+n); }
-function showCue(s){ $('cueEmoji').textContent=s.emoji; $('cueLabel').textContent=s.label; $('cue').classList.add('show'); clearTimeout(window._ct); window._ct=setTimeout(()=>$('cue').classList.remove('show'), 4200); }
-
-// ── isolation detection from MoveNet keypoints (lightweight, soft-law generous) ──
-const kp = {}; let lastPose=null;
-function onPose(keypoints){
-  lastPose = keypoints;
-  const get = n => keypoints.find(k=>k.name===n && k.score>0.3);
-  const nose=get('nose'), ls=get('left_shoulder'), rs=get('right_shoulder'), lh=get('left_hip'), rh=get('right_hip'), lw=get('left_wrist'), rw=get('right_wrist');
-  const now = performance.now();
-  const track = (id,val)=>{ if(val==null) return 0; const p=kp[id]; kp[id]={v:val,t:now}; return p? Math.abs(val-p.v):0; };
-  const headDx = nose? track('nose', nose.x):0;
-  const shY = (ls&&rs)? track('sh', (ls.y+rs.y)/2):0;
-  const ribDx = (ls&&rs)? track('rib', (ls.x+rs.x)/2):0;
-  const hipDx = (lh&&rh)? track('hip', (lh.x+rh.x)/2):0;
-  const wristDy = (lw||rw)? track('wr', (lw?lw.y:rw.y)):0;
-  // score if the current section's joint is moving
-  if(G.running && G.section){
-    const j = G.section.joint; let moved=false;
-    if(j==='head' && headDx>6) moved=true;
-    else if(j==='shoulder' && shY>5) moved=true;
-    else if(j==='rib' && ribDx>6) moved=true;
-    else if(j==='hip' && hipDx>6) moved=true;
-    else if((j==='all'||j==='arm') && (headDx>5||shY>4||ribDx>5||hipDx>5||wristDy>5)) moved=true;
-    if(moved){ hitMove(); }
-  }
-}
+function showCue(w){ $('cueEmoji').textContent=w.emoji; $('cueLabel').textContent=w.label; $('cue').classList.add('show'); clearTimeout(window._ct); window._ct=setTimeout(()=>$('cue').classList.remove('show'),1400); }
 let _lastHit=0;
-function hitMove(){
-  const now=performance.now(); if(now-_lastHit<450) return; _lastHit=now;   // rate-limit hits
-  G.sectionHits++; G.combo++;
-  const base = (G.section.joint==='all'||G.section.joint==='arm')?5:10;
-  addScore(base + (G.combo>=3?5:0));
-  if(G.sectionHits===3){ addScore(20); flashLight(G.section.joint); }        // section completed
-  $('combo').textContent = G.combo>1? ('🔥 '+G.combo):'';
-}
-function flashLight(joint){ /* light on the right joint (E overlay) */
-  const g=document.createElement('div'); g.className='glow';
-  const pos = {head:['46%','8%'],shoulder:['30%','30%'],rib:['46%','44%'],hip:['46%','60%'],all:['46%','40%'],arm:['70%','36%']}[joint]||['46%','40%'];
-  g.style.left=pos[0]; g.style.top=pos[1]; $('lights').appendChild(g);
-  requestAnimationFrame(()=>{g.style.opacity='1';}); setTimeout(()=>{g.style.opacity='0';},600); setTimeout(()=>g.remove(),1000);
-}
-
-// ── the game clock — reads music.currentTime, fires sections, ends the song ──
-function tick(){
-  if(!G.running) return;
-  const t = music.currentTime||0;
-  for(const s of SECTIONS){
-    if(t>=s.t && !G.fired.has(s.t)){
-      G.fired.add(s.t); G.section=s; G.sectionHits=0; G.combo=0;
-      showCue(s);
-      // her ONE line for the section (via the brain, budget-respected)
-      NovaCore.cue(s.line, 'Up Groove section: '+s.label+'. Say it once, <=10 words, then silence.');
-      if(s.joint) flashLight(s.joint);
-    }
-  }
-  if(t>=SONG_END){ return endGame(); }
-  requestAnimationFrame(tick);
-}
+function hit(){ const now=performance.now(); if(now-_lastHit<300)return; _lastHit=now; if(G.win._scored)return; G.win._scored=true;
+  const el=(music.currentTime-G.win.s),dur=G.win.e-G.win.s,fast=el<dur*0.4; const pts=fast?Math.round(G.win.pts*1.5):G.win.pts;
+  G.hits++; G.streak++; if(G.streak>G.maxStreak)G.maxStreak=G.streak; addScore(pts);
+  $('combo').textContent=G.streak>=2?('🔥 x'+(G.streak>=3?G.streak:2)):''; flashLight(G.win.act); }
+function flashLight(act){ const g=document.createElement('div'); g.className='glow'; g.style.left='50%'; g.style.top='40%'; $('lights').appendChild(g);
+  requestAnimationFrame(()=>{g.style.opacity='1';}); setTimeout(()=>{g.style.opacity='0';},500); setTimeout(()=>g.remove(),900); }
+let _lastGroup=null;
+function tick(){ if(!G.running)return; const t=music.currentTime||0;
+  let cur=null; for(const w of TIMELINE){ if(t>=w.s&&t<w.e){cur=w;break;} }
+  if(cur!==G.win){ if(G.win&&!G.win._scored&&G.win.act!=='wavefree'){G.streak=0;G.attempts++;} G.win=cur;
+    if(cur){ cur._scored=false; showCue(cur); flashLight(cur.act); if(cur.act!==_lastGroup){_lastGroup=cur.act; const l=LINES[cur.act]; if(l)NovaCore.cue(l,'Wave — say once, <=10 words, calm-warm.');} } }
+  if(t>=SONG_END)return endGame(); requestAnimationFrame(tick); }
 
 // ── avatar rotation (a/b/c, cross-fade) ──
 let _rotTimer=null, _lastPart=null;
