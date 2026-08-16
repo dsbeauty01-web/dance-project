@@ -14,15 +14,18 @@
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%;background:#05060a;color:#eef;font-family:'Fredoka',system-ui,-apple-system,sans-serif;overflow:hidden;-webkit-user-select:none;user-select:none}
-  /* E3 — Nova IS the screen (full-bleed, face ≤30% via object-position) */
-  #novapanel{position:fixed;inset:0;z-index:10;background:#0a0a14}
-  #nova{width:100%;height:100%;object-fit:cover;object-position:50% 8%;background:transparent}
-  /* E1 — the kid's self-view, MIRRORED */
-  #usercam{position:fixed;right:2vw;bottom:2vh;width:22vw;max-width:280px;aspect-ratio:3/4;object-fit:cover;
-    transform:scaleX(-1);border-radius:16px;border:3px solid rgba(255,255,255,.55);
-    box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:40;background:#111}
-  #camoff{position:fixed;right:2vw;bottom:2vh;z-index:40;display:none;padding:10px 16px;border-radius:14px;
-    background:rgba(10,12,20,.8);border:1px solid rgba(255,255,255,.15);font-size:14px}
+  /* ORIGINAL TWO-PANEL LAYOUT: Nova (left) + kid camera (right), side by side */
+  #stage{position:fixed;inset:0;z-index:10;display:flex;gap:10px;padding:10px;
+    background:radial-gradient(ellipse 80% 70% at 50% 30%,#0e2340,#05060a 70%)}
+  .panel{position:relative;flex:1 1 0;min-width:0;border-radius:18px;overflow:hidden;background:#000;
+    border:3px solid rgba(125,216,255,.28);box-shadow:0 10px 40px rgba(0,0,0,.4)}
+  .panel video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  #nova{object-position:50% 8%;background:transparent}
+  #usercam{transform:scaleX(-1)}   /* MIRROR LAW */
+  #camoff{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:none;padding:10px 16px;
+    border-radius:14px;background:rgba(10,12,20,.8);border:1px solid rgba(255,255,255,.15);font-size:14px;z-index:2}
+  .plabel{position:absolute;left:12px;top:10px;z-index:3;font-size:13px;font-weight:600;color:rgba(255,255,255,.75);
+    background:rgba(10,12,20,.55);padding:3px 10px;border-radius:999px}
   /* score HUD (z50) */
   #hud{position:fixed;left:18px;top:16px;z-index:50;display:flex;gap:10px;align-items:center}
   #score{font-weight:700;font-size:30px;color:#ffe27d;text-shadow:0 2px 12px #000}
@@ -33,7 +36,7 @@
   #cueEmoji{font-size:84px;line-height:1;filter:drop-shadow(0 4px 14px rgba(0,0,0,.5))}
   #cueLabel{font-weight:700;font-size:26px;color:#fff;text-shadow:0 2px 12px #000;letter-spacing:1px}
   /* lights overlay the usercam (z45) */
-  #lights{position:fixed;right:2vw;bottom:2vh;width:22vw;max-width:280px;aspect-ratio:3/4;z-index:45;pointer-events:none}
+  #lights{position:absolute;inset:0;z-index:2;pointer-events:none}
   .glow{position:absolute;width:44px;height:44px;border-radius:50%;background:radial-gradient(circle,#ffe27d,rgba(255,226,125,0) 70%);opacity:0;transition:opacity .2s}
   /* start gate */
   #gate{position:fixed;inset:0;z-index:80;display:flex;flex-direction:column;gap:22px;align-items:center;justify-content:center;
@@ -65,10 +68,11 @@
 </head>
 <body>
 <div id="banner">🕺 UP GROOVE · GitHub Pages + LiveKit-direct · nova_upgroove a/b/c · own cue engine 🕺</div>
-<div id="novapanel"><video id="nova" autoplay playsinline></video></div>
-<video id="usercam" autoplay muted playsinline></video>
-<div id="camoff">camera off 🎥</div>
-<div id="lights"><!-- glows injected per joint --></div>
+<div id="stage">
+  <div class="panel" id="nova-panel"><div class="plabel">🌟 Nova</div><video id="nova" autoplay playsinline></video></div>
+  <div class="panel" id="cam-panel"><div class="plabel">You</div><video id="usercam" autoplay muted playsinline></video><div id="camoff">camera off 🎥</div>
+    <div id="lights"><!-- glows over the kid panel --></div></div>
+</div>
 <div id="hud"><div id="score">0</div><div id="combo"></div></div>
 <div id="cue"><div id="cueEmoji"></div><div id="cueLabel"></div></div>
 <div id="chatrow"><input id="txt" placeholder="type to Nova…"><button id="send">Send</button></div>
