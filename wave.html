@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Wave! · Nova</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%95%BA%3C/text%3E%3C/svg%3E">
+<!-- GAMES-PERFECT (2026-08-16): OWN page on GitHub Pages. Pod serves ONLY avatar stream + brain
+     (CORS). LiveKit-direct via game-core.js. Zero freeze logic, own cue table + scoring. -->
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<script src="pod-registry.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#05060a;color:#eef;font-family:'Fredoka',system-ui,-apple-system,sans-serif;overflow:hidden;-webkit-user-select:none;user-select:none}
+  /* ORIGINAL TWO-PANEL LAYOUT: Nova (left) + kid camera (right), side by side */
+  #stage{position:fixed;inset:0;z-index:10;display:flex;gap:10px;padding:10px;
+    background:radial-gradient(ellipse 80% 70% at 50% 30%,#0e2340,#05060a 70%)}
+  .panel{position:relative;flex:1 1 0;min-width:0;border-radius:18px;overflow:hidden;background:#000;
+    border:3px solid rgba(125,216,255,.28);box-shadow:0 10px 40px rgba(0,0,0,.4)}
+  .panel video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  #nova{object-position:50% 8%;background:transparent}
+  #usercam{transform:scaleX(-1)}   /* MIRROR LAW */
+  #camoff{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:none;padding:10px 16px;
+    border-radius:14px;background:rgba(10,12,20,.8);border:1px solid rgba(255,255,255,.15);font-size:14px;z-index:2}
+  .plabel{position:absolute;left:12px;top:10px;z-index:3;font-size:13px;font-weight:600;color:rgba(255,255,255,.75);
+    background:rgba(10,12,20,.55);padding:3px 10px;border-radius:999px}
+  /* score HUD (z50) */
+  #hud{position:fixed;left:18px;top:16px;z-index:50;display:flex;gap:10px;align-items:center}
+  #score{font-weight:700;font-size:30px;color:#ffe27d;text-shadow:0 2px 12px #000}
+  #combo{font-weight:600;font-size:15px;color:#8ff;opacity:.9}
+  /* cue icon (top-center, z50) */
+  #cue{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:50;text-align:center;pointer-events:none;opacity:0;transition:opacity .25s}
+  #cue.show{opacity:1}
+  #cueEmoji{font-size:84px;line-height:1;filter:drop-shadow(0 4px 14px rgba(0,0,0,.5))}
+  #cueLabel{font-weight:700;font-size:26px;color:#fff;text-shadow:0 2px 12px #000;letter-spacing:1px}
+  /* lights overlay the usercam (z45) */
+  #lights{position:absolute;inset:0;z-index:2;pointer-events:none}
+  .glow{position:absolute;width:44px;height:44px;border-radius:50%;background:radial-gradient(circle,#ffe27d,rgba(255,226,125,0) 70%);opacity:0;transition:opacity .2s}
+  /* start gate */
+  #gate{position:fixed;inset:0;z-index:80;display:flex;flex-direction:column;gap:22px;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse 70% 60% at 50% 38%,#0e2340,#05060a 75%);text-align:center;padding:24px}
+  #gate h1{font-size:clamp(34px,7vw,60px)}
+  #gate p{color:rgba(255,255,255,.7);max-width:440px;line-height:1.5}
+  #play{font-size:clamp(20px,3.4vw,26px);font-weight:700;color:#fff;border:0;cursor:pointer;padding:18px 48px;border-radius:999px;
+    background:linear-gradient(135deg,#38b6ff,#8a6cff);box-shadow:0 10px 40px rgba(90,120,255,.45);animation:breathe 2.4s ease-in-out infinite}
+  @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+  #ready{position:fixed;inset:0;z-index:70;display:none;flex-direction:column;gap:16px;align-items:center;justify-content:flex-end;padding-bottom:8vh;pointer-events:none}
+  #ready .card{pointer-events:auto;background:rgba(6,16,34,.9);border:1px solid rgba(125,216,255,.35);border-radius:18px;padding:16px 22px;text-align:center;backdrop-filter:blur(8px)}
+  #ready.show{display:flex}
+  #rbtn{margin-top:10px;font-size:18px;font-weight:700;color:#fff;border:0;border-radius:999px;padding:12px 30px;cursor:pointer;background:linear-gradient(135deg,#38b6ff,#7df0ff)}
+  /* ending */
+  #end{position:fixed;inset:0;z-index:85;display:none;flex-direction:column;gap:16px;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at 50% 40%,#141d2e,#05060a);text-align:center;padding:24px}
+  #end.show{display:flex}
+  #end h1{font-size:clamp(30px,6vw,52px);color:#ffe27d}
+  #fb{margin-top:8px;display:flex;gap:14px;font-size:38px;cursor:pointer}
+  #fb span{cursor:pointer;transition:transform .15s} #fb span:hover{transform:scale(1.25)}
+  .bigbtn{font-size:18px;font-weight:700;color:#fff;border:0;border-radius:999px;padding:14px 34px;cursor:pointer;background:linear-gradient(135deg,#12b981,#0d9668)}
+  #banner{position:fixed;top:0;left:0;right:0;z-index:60;text-align:center;font-size:11px;color:rgba(255,255,255,.4);padding:3px}
+  #chatrow{position:fixed;left:14px;bottom:2vh;z-index:50;display:flex;gap:6px}
+  #txt{background:rgba(10,16,26,.85);border:1px solid rgba(255,255,255,.15);color:#eef;border-radius:9px;padding:8px 10px;width:min(40vw,220px)}
+  #send{background:#5aa2ff;color:#fff;border:0;border-radius:9px;padding:8px 14px;cursor:pointer;font-weight:600}
+  #foot{position:fixed;bottom:4px;left:50%;transform:translateX(-50%);z-index:81;font-size:11px;color:rgba(255,255,255,.45)}
+  #foot a{color:rgba(255,255,255,.6)}
+</style>
+</head>
+<body>
+<div id="banner">🌊 WAVE · two-panel · LiveKit-direct · nova_wave_a · own cue engine 🌊</div>
+<div id="stage">
+  <div class="panel" id="nova-panel"><div class="plabel">🌟 Nova</div><video id="nova" autoplay playsinline></video></div>
+  <div class="panel" id="cam-panel"><div class="plabel">You</div><video id="usercam" autoplay muted playsinline></video><div id="camoff">camera off 🎥</div>
+    <div id="lights"><!-- glows over the kid panel --></div></div>
+</div>
+<div id="hud"><div id="score">0</div><div id="combo"></div></div>
+<div id="cue"><div id="cueEmoji"></div><div id="cueLabel"></div></div>
+<div id="chatrow"><input id="txt" placeholder="type to Nova…"><button id="send">Send</button></div>
+
+<div id="gate">
+  <h1>🌊 Wave! 🌊</h1>
+  <p>Follow Nova's groove — one body part at a time: <b>HEAD, SHOULDER, RIBS, HIPS!</b> Then everything at once. Nova can see you and talk back.</p>
+  <button id="play">▶ Let's Play!</button>
+  <div id="foot">Nova is an AI character · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="parents.html">For Parents</a></div>
+</div>
+
+<div id="ready"><div class="card">🕺 Ready to groove?<br><small>say "YES!" or tap</small><button id="rbtn">✋ I'm ready!</button></div></div>
+
+<div id="end">
+  <h1 id="endline">🌟 Amazing!</h1>
+  <p id="endsub"></p>
+  <div id="fb" title="how was it?"><span data-fb="fun">😀</span><span data-fb="ok">😐</span><span data-fb="meh">😞</span></div>
+  <button class="bigbtn" onclick="location.reload()">🔁 Play again!</button>
+</div>
+
+<script src="game-core.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const SONG = 'handywave.mp4';   // game music + clock
+const SONG_END = 28;
+const PARTS = ['nova_wave_a'];
+const FALLBACK = 'nova_wave_a';
+
+// ── UP GROOVE brain (Part 2, verbatim) ──
+const PERSONA = "[GAME-MODE] You are Nova leading THE WAVE — arms flow like water. A 28-second sprint: your scripted lines ride the cue notes, at most ONE extra fact-hype. Calm-warm, max 10 words, smooth beats fast. Never name a move your notes did not report. Never mention a light or other games.";
+
+// ── the cue timeline (Part 3) — fires off music.currentTime (CLOCK LAW) ──
+const SECTIONS = [
+  {
+    "t": 4,
+    "key": "shoulderroll",
+    "emoji": "🤷",
+    "label": "SHOULDERS",
+    "joint": "shoulder",
+    "line": "shoulders alive!"
+  },
+  {
+    "t": 8,
+    "key": "elbowpump",
+    "emoji": "💪",
+    "label": "ELBOWS",
+    "joint": "arm",
+    "line": "elbows next!"
+  },
+  {
+    "t": 12,
+    "key": "wristwave",
+    "emoji": "👋",
+    "label": "WAVE!",
+    "joint": "arm",
+    "line": "let it travel: fingers, wrist, elbow!"
+  },
+  {
+    "t": 18,
+    "key": "chain",
+    "emoji": "🌊",
+    "label": "THE CHAIN",
+    "joint": "arm",
+    "line": "the light TRAVELED!"
+  },
+  {
+    "t": 23,
+    "key": "freestyle",
+    "emoji": "🌊",
+    "label": "FREESTYLE",
+    "joint": "all",
+    "line": "river of LIGHT!"
+  }
+];
+
+let G = { score:0, combo:0, running:false, kidName:'', section:null, sectionHits:0, factHype:0, fired:new Set() };
+
+function setScore(n){ G.score=n; $('score').textContent=n; }
+function addScore(n){ setScore(G.score+n); }
+function showCue(s){ $('cueEmoji').textContent=s.emoji; $('cueLabel').textContent=s.label; $('cue').classList.add('show'); clearTimeout(window._ct); window._ct=setTimeout(()=>$('cue').classList.remove('show'), 4200); }
+
+// ── isolation detection from MoveNet keypoints (lightweight, soft-law generous) ──
+const kp = {}; let lastPose=null;
+function onPose(keypoints){
+  lastPose = keypoints;
+  const get = n => keypoints.find(k=>k.name===n && k.score>0.3);
+  const nose=get('nose'), ls=get('left_shoulder'), rs=get('right_shoulder'), lh=get('left_hip'), rh=get('right_hip'), lw=get('left_wrist'), rw=get('right_wrist');
+  const now = performance.now();
+  const track = (id,val)=>{ if(val==null) return 0; const p=kp[id]; kp[id]={v:val,t:now}; return p? Math.abs(val-p.v):0; };
+  const headDx = nose? track('nose', nose.x):0;
+  const shY = (ls&&rs)? track('sh', (ls.y+rs.y)/2):0;
+  const ribDx = (ls&&rs)? track('rib', (ls.x+rs.x)/2):0;
+  const hipDx = (lh&&rh)? track('hip', (lh.x+rh.x)/2):0;
+  const wristDy = (lw||rw)? track('wr', (lw?lw.y:rw.y)):0;
+  // score if the current section's joint is moving
+  if(G.running && G.section){
+    const j = G.section.joint; let moved=false;
+    if(j==='head' && headDx>6) moved=true;
+    else if(j==='shoulder' && shY>5) moved=true;
+    else if(j==='rib' && ribDx>6) moved=true;
+    else if(j==='hip' && hipDx>6) moved=true;
+    else if((j==='all'||j==='arm') && (headDx>5||shY>4||ribDx>5||hipDx>5||wristDy>5)) moved=true;
+    if(moved){ hitMove(); }
+  }
+}
+let _lastHit=0;
+function hitMove(){
+  const now=performance.now(); if(now-_lastHit<450) return; _lastHit=now;   // rate-limit hits
+  G.sectionHits++; G.combo++;
+  const base = (G.section.joint==='all'||G.section.joint==='arm')?5:10;
+  addScore(base + (G.combo>=3?5:0));
+  if(G.sectionHits===3){ addScore(20); flashLight(G.section.joint); }        // section completed
+  $('combo').textContent = G.combo>1? ('🔥 '+G.combo):'';
+}
+function flashLight(joint){ /* light on the right joint (E overlay) */
+  const g=document.createElement('div'); g.className='glow';
+  const pos = {head:['46%','8%'],shoulder:['30%','30%'],rib:['46%','44%'],hip:['46%','60%'],all:['46%','40%'],arm:['70%','36%']}[joint]||['46%','40%'];
+  g.style.left=pos[0]; g.style.top=pos[1]; $('lights').appendChild(g);
+  requestAnimationFrame(()=>{g.style.opacity='1';}); setTimeout(()=>{g.style.opacity='0';},600); setTimeout(()=>g.remove(),1000);
+}
+
+// ── the game clock — reads music.currentTime, fires sections, ends the song ──
+function tick(){
+  if(!G.running) return;
+  const t = music.currentTime||0;
+  for(const s of SECTIONS){
+    if(t>=s.t && !G.fired.has(s.t)){
+      G.fired.add(s.t); G.section=s; G.sectionHits=0; G.combo=0;
+      showCue(s);
+      // her ONE line for the section (via the brain, budget-respected)
+      NovaCore.cue(s.line, 'Up Groove section: '+s.label+'. Say it once, <=10 words, then silence.');
+      if(s.joint) flashLight(s.joint);
+    }
+  }
+  if(t>=SONG_END){ return endGame(); }
+  requestAnimationFrame(tick);
+}
+
+// ── avatar rotation (a/b/c, cross-fade) ──
+let _rotTimer=null, _lastPart=null;
+function nextPart(){ const pool=PARTS.filter(p=>p!==_lastPart); const p=pool.length?pool[Math.floor(Math.random()*pool.length)]:PARTS[0]; _lastPart=p; return p; }
+function startRotation(){ NovaCore.setAvatar(nextPart()); clearInterval(_rotTimer); _rotTimer=setInterval(()=>{ if(!G.running)return; const nv=$('nova'); nv.style.transition='opacity .4s'; nv.style.opacity='.15'; setTimeout(()=>{NovaCore.setAvatar(nextPart());},400); setTimeout(()=>{nv.style.opacity='1';},800); }, 9000); }
+function stopRotation(){ clearInterval(_rotTimer); }
+
+// ── ending trio (Part 4) + PULSE ──
+function endGame(){
+  G.running=false; stopRotation();
+  try{ music.pause(); }catch(e){}
+  const nm = G.kidName || 'superstar';
+  $('endline').textContent = '🌟 '+nm+', '+G.score+' points!';
+  $('endsub').textContent = 'You found the trickiest move in the whole dance!';
+  $('end').classList.add('show');
+  // 1. real-score celebration (spoken), 2. feedback ask, 3. named goodbye + hook
+  NovaCore.say(nm+', '+G.score+' points of shoulder power!');
+  setTimeout(()=>NovaCore.say('Did you have fun? Tell me anything!'), 2600);
+  window._feedback=null;
+  document.querySelectorAll('#fb span').forEach(s=>s.onclick=()=>{ window._feedback=s.dataset.fb; s.style.transform='scale(1.5)'; setTimeout(sayBye,300); });
+  setTimeout(()=>{ if(!window._feedback) sayBye(); }, 9000);
+}
+function sayBye(){
+  const nm=G.kidName||'superstar';
+  NovaCore.say('Bye '+nm+' — same time tomorrow?');
+  NovaCore.pulse({ game:'wave', score:G.score, duration:Math.round(music.currentTime||0), feedback:window._feedback||null, name:G.kidName||null });
+}
+
+// ── boot: connect avatar+brain, camera, then the consent gate ──
+const music = document.createElement('video'); music.src=SONG; music.playsInline=true; music.preload='auto'; music.style.display='none'; document.body.appendChild(music);
+NovaCore.attachMusic(music);
+
+$('play').onclick = async () => {
+  $('gate').style.display='none';
+  try {
+    await NovaCore.connect({
+      videoEl: $('nova'), persona: PERSONA, intro: 'wave',
+      onKidSaid: (t)=>{ // capture the name from the first thing they say (brain also echoes it)
+        if(!G.kidName){ const m=(t||'').trim().split(/\s+/); if(m.length && m.length<=3) G.kidName=m[m.length-1].replace(/[^A-Za-z].*$/,''); }
+        // consent: a spoken "yes/ready" starts the game
+        if($('ready').classList.contains('show') && /\b(yes|yeah|ready|ok|okay|go)\b/i.test(t)) startPlay();
+      },
+      onStatus: ()=>{}
+    });
+    await NovaCore.startMic();
+    await NovaCore.startCamera($('usercam'), onPose);
+    if(!NovaCore.camOK()){ $('usercam').style.display='none'; $('camoff').style.display='block'; }
+    // she greets via the universal intro; when she's led to the game, show readiness
+    setTimeout(()=>{ $('ready').classList.add('show'); }, 1500);
+  } catch(e){ alert('Nova is waking up — try again in a moment.'); location.reload(); }
+};
+$('rbtn').onclick = ()=> startPlay();
+function startPlay(){
+  if(G.running) return; $('ready').classList.remove('show');
+  G.running=true; setScore(0);
+  NovaCore.gameStart(); startRotation();
+  music.volume=NovaCore.MUSIC_VOL; music.currentTime=0; music.play().catch(()=>{ music.muted=true; music.play().catch(()=>{}); });
+  requestAnimationFrame(tick);
+}
+$('send').onclick=()=>{ const t=$('txt'); const m=t.value.trim(); if(m){ NovaCore.send({type:'text',text:m}); t.value=''; if($('ready').classList.contains('show')&&/\b(yes|ready|ok|go)\b/i.test(m)) startPlay(); } };
+$('txt').addEventListener('keydown',e=>{ if(e.key==='Enter') $('send').click(); });
+</script>
+</body>
+</html>
