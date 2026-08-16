@@ -1120,9 +1120,28 @@ async def upgroove_page(request):
     return web.Response(text=html, content_type="text/html",
                         headers={"Cache-Control": "no-store"})
 
-app = web.Application()
+async def wave_page(request):
+    try:
+        with open("/workspace/pages/wave.html", encoding="utf-8") as f: html = f.read()
+    except FileNotFoundError:
+        return web.Response(status=503, text="wave page not deployed")
+    return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
+
+@web.middleware
+async def cors_mw(request, handler):
+    if request.method == "OPTIONS":
+        resp = web.Response(status=204)
+    else:
+        resp = await handler(request)
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    resp.headers["Access-Control-Allow-Headers"] = "*"
+    return resp
+
+app = web.Application(middlewares=[cors_mw])
 app.router.add_get("/", index)
 app.router.add_get("/freeze", freeze_page)
+app.router.add_get("/wave", wave_page)
 app.router.add_get("/upgroove", upgroove_page)
 app.router.add_get("/token", token)
 app.router.add_get("/health", health)
