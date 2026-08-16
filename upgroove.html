@@ -215,7 +215,7 @@ $('play').onclick = async () => {
   $('gate').style.display='none';
   try {
     await NovaCore.connect({
-      videoEl: $('nova'), persona: PERSONA, intro: 'joined',
+      videoEl: $('nova'), persona: PERSONA, intro: 'joined', avatar: PARTS[0],
       onKidSaid: (t)=>{ // capture the name from the first thing they say (brain also echoes it)
         if(!G.kidName){ const m=(t||'').trim().split(/\s+/); if(m.length && m.length<=3) G.kidName=m[m.length-1].replace(/[^A-Za-z].*$/,''); }
         // consent: a spoken "yes/ready" starts the game
@@ -226,8 +226,9 @@ $('play').onclick = async () => {
     await NovaCore.startMic();
     await NovaCore.startCamera($('usercam'), onPose);
     if(!NovaCore.camOK()){ $('usercam').style.display='none'; $('camoff').style.display='block'; }
-    // she greets via the universal intro; when she's led to the game, show readiness
-    setTimeout(()=>{ $('ready').classList.add('show'); }, 1500);
+    // GREET on connect so she TALKS (game-mode persona is otherwise silent until a cue)
+    setTimeout(()=>{ NovaCore.cue('Kick off the game with ONE excited greeting line, then ask if they are ready.', 'The game just started. Greet warmly + ask ready, max 10 words.'); }, 1400);
+    setTimeout(()=>{ $('ready').classList.add('show'); }, 2200);
   } catch(e){ alert('Nova is waking up — try again in a moment.'); location.reload(); }
 };
 $('rbtn').onclick = ()=> startPlay();

@@ -39,6 +39,8 @@
       this._persona = opts.persona || null;
       this._intro = opts.intro || null;      // e.g. 'joined' — game context for the brain
       await this._joinRoom();
+      // set THIS game's avatar immediately, so it never shows the previous game's bake
+      if (opts.avatar) { this.setAvatar(opts.avatar); }
       this._connectWS();
     },
 
