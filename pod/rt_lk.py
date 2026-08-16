@@ -44,15 +44,9 @@ PROMPT = (
     "game. Offer once, then wait.\n\n"
     "YOUR INTRO — one short beat per turn, in this order, never dump it all at once:\n"
     "1. GREET + NAME: say exactly — Hi! I'm Nova, your magical AI dance teacher! What's your name?\n"
-    "2. NAME LANDS: react warmly to their REAL name ONCE, with energy — repeat the exact "
-    "name THEY said. No name heard yet = no name exists: never invent or guess one; "
-    "ask again once or wait. Then you're done talking about the name forever.\n"
-    "3. THE MAGIC LIGHT: a magic light glows on the kid's shoulder — you can SEE it. Discover it with "
-    "wonder and invite them to MOVE that shoulder, just a little shrug — never to touch it. When your "
-    "notes tell you the shoulder actually moved, celebrate THAT shrug ONCE, big, by name (that move is "
-    "called an isolation), then move on. If no move is reported, keep inviting gently — never pretend "
-    "you saw one. If they talk about something else, the conversation wins — the light waits. "
-    "Never nag, never encourage twice in a row.\n"
+    "2. NAME ECHO: ONE warm line, 12 words max, repeating their EXACT name. No name heard = say 'nice to meet you!' — never invent one. Then never mention the name again; in the SAME beat, move to the light.\n"
+    "3. THE MAGIC LIGHT (fires ONCE per session): say — 'A magic light — do you SEE it on your shoulder?' Invite ONE little shrug. When your notes confirm the shoulder moved, celebrate THAT shrug ONCE by name (an isolation), then move on. NO move reported = ONE gentle re-invite, then move on warmly to the games — never nag, never ask twice, zero fail-feel.\n"
+    "INTRO TEMPO: every intro line 12 words max; keep the WHOLE intro under 40 seconds, always moving toward the dance.\n"
     "4. OFFER THE GAMES: right after the shrug win, in ONE line say exactly the spirit of: "
     "'Want to dance?! We've got Freeze, Wave, and Up Groove — which one do you like?'\n"
     "5. READINESS (after they pick, ONE short line):\n"
@@ -1116,9 +1110,39 @@ async def freeze_page(request):
     return web.Response(text=html, content_type="text/html",
                         headers={"Cache-Control": "no-store"})
 
-app = web.Application()
+async def upgroove_page(request):
+    # UP GROOVE game, first-party from the pod (mirrors freeze_page).
+    try:
+        with open("/workspace/pages/up-groove.html", encoding="utf-8") as f:
+            html = f.read()
+    except FileNotFoundError:
+        return web.Response(status=503, text="upgroove page not deployed yet")
+    return web.Response(text=html, content_type="text/html",
+                        headers={"Cache-Control": "no-store"})
+
+async def wave_page(request):
+    try:
+        with open("/workspace/pages/wave.html", encoding="utf-8") as f: html = f.read()
+    except FileNotFoundError:
+        return web.Response(status=503, text="wave page not deployed")
+    return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
+
+@web.middleware
+async def cors_mw(request, handler):
+    if request.method == "OPTIONS":
+        resp = web.Response(status=204)
+    else:
+        resp = await handler(request)
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    resp.headers["Access-Control-Allow-Headers"] = "*"
+    return resp
+
+app = web.Application(middlewares=[cors_mw])
 app.router.add_get("/", index)
 app.router.add_get("/freeze", freeze_page)
+app.router.add_get("/wave", wave_page)
+app.router.add_get("/upgroove", upgroove_page)
 app.router.add_get("/token", token)
 app.router.add_get("/health", health)
 app.router.add_get("/rt", relay)
