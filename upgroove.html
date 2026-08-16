@@ -19,6 +19,8 @@
     background:radial-gradient(ellipse 80% 70% at 50% 30%,#0e2340,#05060a 70%)}
   .panel{position:relative;flex:1 1 0;min-width:0;border-radius:18px;overflow:hidden;background:#000;
     border:3px solid rgba(125,216,255,.28);box-shadow:0 10px 40px rgba(0,0,0,.4)}
+  /* ORIGIN: nova-joined.html L338 — "Nova leads at 63%" */
+  #nova-panel{flex-grow:1.7}
   .panel video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   #nova{object-position:50% 8%;background:transparent}
   #usercam{transform:scaleX(-1)}   /* MIRROR LAW */
@@ -105,78 +107,103 @@ const FALLBACK = 'nova_upgroove';
 // ── UP GROOVE brain (Part 2, verbatim) ──
 const PERSONA = "[GAME-MODE] You are Nova leading UP GROOVE — an isolation ladder: head, shoulders, ribs, hips, then faster, then the arm chain, then freestyle. You speak only on notes: section notes get their one line, fact notes may get short hype (max 4 per game). Max 10 words. Never name a move your notes didn't report. Silence between — the music leads. Never mention a light, a shoulder glow, or other games.";
 
-// ── the cue timeline (Part 3) — fires off music.currentTime (CLOCK LAW) ──
-const SECTIONS = [
-  { t: 8,  key:'groove', emoji:'✨', label:'FEEL IT', line:'feel the beat first...' },
-  { t: 30, key:'headbob',   emoji:'🙂', label:'HEAD ←→',     joint:'head',     line:'HEAD side to side!' },
-  { t: 35, key:'shrug',     emoji:'🤷', label:'SHOULDER ←→', joint:'shoulder', line:'shoulders now!' },
-  { t: 40, key:'ribslide',  emoji:'🕺', label:'RIBS ←→',     joint:'rib',      line:'RIBS!' },
-  { t: 45, key:'hipbounce', emoji:'🍑', label:'HIPS ←→',     joint:'hip',      line:'HIPS!' },
-  { t: 50, key:'fast',      emoji:'⚡', label:'FASTER!',     joint:'all',      line:'again — FASTER!' },
-  { t: 65, key:'chain',     emoji:'🌊', label:'ARM CHAIN',   joint:'arm',      line:'fingers... elbows... wrists!' },
-  { t: 78, key:'freestyle', emoji:'🔥', label:'FREESTYLE',   joint:'all',      line:'YOUR moves — go wild!' },
-];
+/* ORIGIN: nova-joined.html L4340-4363 — ISO isolation-pulse detection (thresholds normalized by shoulder width) */
+const ISO = { win: 1100, thr: { headbob:0.22, shrug:0.15, ribslide:0.18, hipbounce:0.18 } };
+const isoBuf = { headbob:[], shrug:[], ribslide:[], hipbounce:[] };
+function isoPulse(key, value, now, sw){
+  const b = isoBuf[key]; b.push({ t:now, v:value });
+  while (b.length && now - b[0].t > ISO.win) b.shift();
+  if (b.length < 5 || sw <= 0) return 0;
+  let mn=Infinity, mx=-Infinity; for (const s of b){ if(s.v<mn)mn=s.v; if(s.v>mx)mx=s.v; }
+  return (mx - mn) / sw;   // peak-to-peak / shoulder width
+}
 
-let G = { score:0, combo:0, running:false, kidName:'', section:null, sectionHits:0, factHype:0, fired:new Set() };
+/* ORIGIN: nova-joined.html L4884-4972 — "Lose Yourself to Dance" isolation ladder (open windows, seconds, verbatim pts) */
+const TIMELINE = [
+  {s:4.0,e:12.0,act:'combo',emoji:'✨',label:"LET'S GO!",pts:80},
+  {s:13.0,e:21.0,act:'combo',emoji:'🌟',label:'KEEP MOVING!',pts:80},
+  {s:22.0,e:29.0,act:'combo',emoji:'💫',label:'YEAH!',pts:80},
+  {s:30.10,e:31.18,act:'headbob',emoji:'🙂',label:'HEAD ←',pts:100},{s:31.32,e:32.40,act:'headbob',emoji:'🙂',label:'HEAD →',pts:100},
+  {s:32.54,e:33.62,act:'headbob',emoji:'🙂',label:'HEAD ←',pts:100},{s:33.76,e:34.84,act:'headbob',emoji:'🙂',label:'HEAD →',pts:100},
+  {s:35.00,e:36.08,act:'shrug',emoji:'🤷',label:'SHOULDER ←',pts:120},{s:36.22,e:37.30,act:'shrug',emoji:'🤷',label:'SHOULDER →',pts:120},
+  {s:37.44,e:38.52,act:'shrug',emoji:'🤷',label:'SHOULDER ←',pts:120},{s:38.66,e:39.74,act:'shrug',emoji:'🤷',label:'SHOULDER →',pts:120},
+  {s:39.90,e:40.98,act:'ribslide',emoji:'🕺',label:'RIBS ←',pts:140},{s:41.12,e:42.20,act:'ribslide',emoji:'🕺',label:'RIBS →',pts:140},
+  {s:42.34,e:43.42,act:'ribslide',emoji:'🕺',label:'RIBS ←',pts:140},{s:43.56,e:44.64,act:'ribslide',emoji:'🕺',label:'RIBS →',pts:140},
+  {s:44.80,e:45.88,act:'hipbounce',emoji:'🍑',label:'HIPS ←',pts:130},{s:46.02,e:47.10,act:'hipbounce',emoji:'🍑',label:'HIPS →',pts:130},
+  {s:47.24,e:48.32,act:'hipbounce',emoji:'🍑',label:'HIPS ←',pts:130},{s:48.46,e:49.54,act:'hipbounce',emoji:'🍑',label:'HIPS →',pts:130},
+  // double-speed reversed HIP→RIB→SHOULDER→HEAD (L4935-4953)
+  {s:50.00,e:50.52,act:'hipbounce',emoji:'🍑',label:'HIPS →',pts:130},{s:50.60,e:51.12,act:'hipbounce',emoji:'🍑',label:'HIPS ←',pts:130},
+  {s:51.20,e:51.72,act:'hipbounce',emoji:'🍑',label:'HIPS →',pts:130},{s:51.80,e:52.32,act:'hipbounce',emoji:'🍑',label:'HIPS ←',pts:130},
+  {s:52.40,e:52.92,act:'ribslide',emoji:'🕺',label:'RIBS →',pts:140},{s:53.00,e:53.52,act:'ribslide',emoji:'🕺',label:'RIBS ←',pts:140},
+  {s:53.60,e:54.12,act:'ribslide',emoji:'🕺',label:'RIBS →',pts:140},{s:54.20,e:54.72,act:'ribslide',emoji:'🕺',label:'RIBS ←',pts:140},
+  {s:54.80,e:55.32,act:'shrug',emoji:'🤷',label:'SHOULDER →',pts:120},{s:55.40,e:55.92,act:'shrug',emoji:'🤷',label:'SHOULDER ←',pts:120},
+  {s:56.00,e:56.52,act:'shrug',emoji:'🤷',label:'SHOULDER →',pts:120},{s:56.60,e:57.12,act:'shrug',emoji:'🤷',label:'SHOULDER ←',pts:120},
+  {s:57.20,e:57.72,act:'headbob',emoji:'🙂',label:'HEAD →',pts:100},{s:57.80,e:58.32,act:'headbob',emoji:'🙂',label:'HEAD ←',pts:100},
+  {s:58.40,e:58.92,act:'headbob',emoji:'🙂',label:'HEAD →',pts:100},{s:59.00,e:59.52,act:'headbob',emoji:'🙂',label:'HEAD ←',pts:100},
+  // MOVE IT ALL freestyle (L4956-4959)
+  {s:60.0,e:66.5,act:'combo',emoji:'✨',label:'MOVE IT ALL!',pts:250},
+  {s:67.0,e:73.5,act:'combo',emoji:'🔥',label:'KEEP GOING!',pts:250},
+  {s:74.0,e:80.0,act:'combo',emoji:'⚡',label:'BIGGER!',pts:300},
+];
+// her scripted lines (GAMES-PERFECT) — fired once per move-GROUP change
+const LINES = { combo:'feel the beat — move it!', headbob:'HEAD side to side!', shrug:'shoulders now!', ribslide:'RIBS — slide it!', hipbounce:'HIPS!', };
+
+let G = { score:0, hits:0, attempts:0, streak:0, maxStreak:0, running:false, kidName:'', win:null };
+const moves = { headbob:false, shrug:false, ribslide:false, hipbounce:false, combo:false };
 
 function setScore(n){ G.score=n; $('score').textContent=n; }
 function addScore(n){ setScore(G.score+n); }
-function showCue(s){ $('cueEmoji').textContent=s.emoji; $('cueLabel').textContent=s.label; $('cue').classList.add('show'); clearTimeout(window._ct); window._ct=setTimeout(()=>$('cue').classList.remove('show'), 4200); }
+function showCue(w){ $('cueEmoji').textContent=w.emoji; $('cueLabel').textContent=w.label; $('cue').classList.add('show'); clearTimeout(window._ct); window._ct=setTimeout(()=>$('cue').classList.remove('show'), 1600); }
 
-// ── isolation detection from MoveNet keypoints (lightweight, soft-law generous) ──
-const kp = {}; let lastPose=null;
-function onPose(keypoints){
-  lastPose = keypoints;
-  const get = n => keypoints.find(k=>k.name===n && k.score>0.3);
-  const nose=get('nose'), ls=get('left_shoulder'), rs=get('right_shoulder'), lh=get('left_hip'), rh=get('right_hip'), lw=get('left_wrist'), rw=get('right_wrist');
-  const now = performance.now();
-  const track = (id,val)=>{ if(val==null) return 0; const p=kp[id]; kp[id]={v:val,t:now}; return p? Math.abs(val-p.v):0; };
-  const headDx = nose? track('nose', nose.x):0;
-  const shY = (ls&&rs)? track('sh', (ls.y+rs.y)/2):0;
-  const ribDx = (ls&&rs)? track('rib', (ls.x+rs.x)/2):0;
-  const hipDx = (lh&&rh)? track('hip', (lh.x+rh.x)/2):0;
-  const wristDy = (lw||rw)? track('wr', (lw?lw.y:rw.y)):0;
-  // score if the current section's joint is moving
-  if(G.running && G.section){
-    const j = G.section.joint; let moved=false;
-    if(j==='head' && headDx>6) moved=true;
-    else if(j==='shoulder' && shY>5) moved=true;
-    else if(j==='rib' && ribDx>6) moved=true;
-    else if(j==='hip' && hipDx>6) moved=true;
-    else if((j==='all'||j==='arm') && (headDx>5||shY>4||ribDx>5||hipDx>5||wristDy>5)) moved=true;
-    if(moved){ hitMove(); }
-  }
+/* ORIGIN: nova-joined.html L4672-4703 — SIDE-TO-SIDE isolation nudges (direction-agnostic, normalized by shoulder width) */
+function onPose(kps){
+  const g=n=>kps.find(k=>k.name===n && k.score>0.3);
+  const nose=g('nose'), ls=g('left_shoulder'), rs=g('right_shoulder'), lh=g('left_hip'), rh=g('right_hip');
+  if(!ls||!rs) return;
+  const sw = Math.abs(rs.x-ls.x) || 1;          // shoulder width = scale reference
+  const midShX=(ls.x+rs.x)/2, haveHips=lh&&rh, midHpX=haveHips?(lh.x+rh.x)/2:midShX, now=performance.now();
+  moves.headbob   = nose ? isoPulse('headbob', nose.x-midShX, now, sw) > ISO.thr.headbob : false;
+  moves.shrug     = isoPulse('shrug', ls.y-rs.y, now, sw) > ISO.thr.shrug;
+  moves.ribslide  = isoPulse('ribslide', midShX-midHpX, now, sw) > ISO.thr.ribslide;
+  const hipSig = haveHips ? (midHpX-midShX) : midShX;
+  moves.hipbounce = isoPulse('hipbounce', hipSig, now, sw) > ISO.thr.hipbounce;
+  const active=(moves.headbob?1:0)+(moves.shrug?1:0)+(moves.ribslide?1:0)+(moves.hipbounce?1:0);
+  moves.combo = active >= 2;
+  if(G.running && G.win && moves[G.win.act]) hit();
 }
 let _lastHit=0;
-function hitMove(){
-  const now=performance.now(); if(now-_lastHit<450) return; _lastHit=now;   // rate-limit hits
-  G.sectionHits++; G.combo++;
-  const base = (G.section.joint==='all'||G.section.joint==='arm')?5:10;
-  addScore(base + (G.combo>=3?5:0));
-  if(G.sectionHits===3){ addScore(20); flashLight(G.section.joint); }        // section completed
-  $('combo').textContent = G.combo>1? ('🔥 '+G.combo):'';
+function hit(){
+  const now=performance.now(); if(now-_lastHit<300) return; _lastHit=now;
+  if(G.win._scored) return; G.win._scored=true;                        // one score per window
+  /* ORIGIN: nova-joined.html L6309 — fast hit = pts × 1.5 */
+  const elapsed=(music.currentTime-G.win.s), dur=G.win.e-G.win.s, fast=elapsed < dur*0.4;
+  const pts = fast ? Math.round(G.win.pts*1.5) : G.win.pts;
+  G.hits++; G.streak++; if(G.streak>G.maxStreak)G.maxStreak=G.streak; addScore(pts);
+  /* ORIGIN: nova-joined.html L2405, L1591 — streak ×2 shown at ≥2 */
+  $('combo').textContent = G.streak>=2 ? ('🔥 x'+(G.streak>=3?G.streak:2)) : '';
+  flashLight(G.win.act);
 }
-function flashLight(joint){ /* light on the right joint (E overlay) */
+function flashLight(act){
   const g=document.createElement('div'); g.className='glow';
-  const pos = {head:['46%','8%'],shoulder:['30%','30%'],rib:['46%','44%'],hip:['46%','60%'],all:['46%','40%'],arm:['70%','36%']}[joint]||['46%','40%'];
+  const pos = {headbob:['46%','8%'],shrug:['30%','26%'],ribslide:['46%','42%'],hipbounce:['46%','60%'],combo:['46%','36%']}[act]||['46%','36%'];
   g.style.left=pos[0]; g.style.top=pos[1]; $('lights').appendChild(g);
-  requestAnimationFrame(()=>{g.style.opacity='1';}); setTimeout(()=>{g.style.opacity='0';},600); setTimeout(()=>g.remove(),1000);
+  requestAnimationFrame(()=>{g.style.opacity='1';}); setTimeout(()=>{g.style.opacity='0';},500); setTimeout(()=>g.remove(),900);
 }
 
-// ── the game clock — reads music.currentTime, fires sections, ends the song ──
+// ── game clock: read music.currentTime, open/close the real windows, end at SONG_END ──
+let _lastGroup=null;
 function tick(){
   if(!G.running) return;
   const t = music.currentTime||0;
-  for(const s of SECTIONS){
-    if(t>=s.t && !G.fired.has(s.t)){
-      G.fired.add(s.t); G.section=s; G.sectionHits=0; G.combo=0;
-      showCue(s);
-      // her ONE line for the section (via the brain, budget-respected)
-      NovaCore.cue(s.line, 'Up Groove section: '+s.label+'. Say it once, <=10 words, then silence.');
-      if(s.joint) flashLight(s.joint);
+  let cur=null; for(const w of TIMELINE){ if(t>=w.s && t<w.e){ cur=w; break; } }
+  if(cur!==G.win){
+    if(G.win && !G.win._scored && G.win.act!=='combo'){ G.streak=0; G.attempts++; }  // missed a move window
+    G.win=cur;
+    if(cur){ cur._scored=false; showCue(cur); flashLight(cur.act);
+      if(cur.act!==_lastGroup){ _lastGroup=cur.act; const l=LINES[cur.act]; if(l) NovaCore.cue(l, 'Up Groove — say once, <=10 words, then let the music lead.'); }
     }
   }
-  if(t>=SONG_END){ return endGame(); }
+  if(t>=SONG_END) return endGame();
   requestAnimationFrame(tick);
 }
 
@@ -192,7 +219,7 @@ function endGame(){
   try{ music.pause(); }catch(e){}
   const nm = G.kidName || 'superstar';
   $('endline').textContent = '🌟 '+nm+', '+G.score+' points!';
-  $('endsub').textContent = 'You found the trickiest move in the whole dance!';
+  $('endsub').textContent = G.hits+' moves nailed · best streak '+G.maxStreak+'! You found the trickiest move in the dance!';
   $('end').classList.add('show');
   // 1. real-score celebration (spoken), 2. feedback ask, 3. named goodbye + hook
   NovaCore.say(nm+', '+G.score+' points of shoulder power!');
@@ -204,7 +231,7 @@ function endGame(){
 function sayBye(){
   const nm=G.kidName||'superstar';
   NovaCore.say('Bye '+nm+' — same time tomorrow?');
-  NovaCore.pulse({ game:'upgroove', score:G.score, duration:Math.round(music.currentTime||0), feedback:window._feedback||null, name:G.kidName||null });
+  NovaCore.pulse({ game:'upgroove', score:G.score, hits:G.hits, streak:G.maxStreak, duration:Math.round(music.currentTime||0), feedback:window._feedback||null, name:G.kidName||null });
 }
 
 // ── boot: connect avatar+brain, camera, then the consent gate ──
