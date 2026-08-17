@@ -26,10 +26,19 @@
   /* ── SET THIS ─────────────────────────────────────────────────────────────
      The pod id of the CURRENTLY RUNNING pod. null = no known-live pod, so
      call sites use their legacy fallback. */
-  var ACTIVE = 'b0tkuoabsq616l';
+  var ACTIVE = '1l8zzrqk2c3fs6';
 
   /* ── Known pods (history, so a dead id is never silently reused) ───────── */
   var KNOWN = {
+    '1l8zzrqk2c3fs6': {
+      role: 'LIVE — saray/brain 8765, engine 8010, bridge -> LiveKit room nova-live',
+      note: 'SECURE RTX 4090, EU-RO-1, volume 1ditrne6cb, name nova-live-2026-08-17. Created ' +
+            '2026-08-17 to smoke-test the MuseTalk game fixes (up-groove nova-pick=upgroove; ' +
+            'wave nova-pick=wave + nova_idle fallback since wave is unbakeable). Booted from ' +
+            '/workspace/boot.sh in tmux(novaboot); VOICE_BACKEND=hume.',
+      lastSeenLive: '2026-08-17',
+      status: 'BOOTING — MuseTalk cold load per LAW-PODS-9'
+    },
     '2bhlam3hm43qnz': {
       role: 'BAKE POD (not a live target) — Maya gesture set, volume 1ditrne6cb',
       note: 'SECURE 4090 EU-RO-1, name nova-bake-maya. Created 2026-08-04 to bake the 6 Maya ' +
