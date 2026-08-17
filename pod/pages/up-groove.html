@@ -803,7 +803,7 @@ const Live = {
         this.post({type:'nova-persona', text:TENSION_MASTER});
         this.post({type:'set_persona',  text:TENSION_MASTER});
       }
-      if(!this._ackPick) this.post({type:'nova-pick', game:'joined'});
+      if(!this._ackPick) this.post({type:'nova-pick', game:'upgroove'});
     };
     send();                                            // immediate first try on ws-open
     this._introTimer = setInterval(send, 1000);

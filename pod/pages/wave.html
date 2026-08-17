@@ -217,7 +217,7 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
 </style>
 </head>
 <body>
-<div id="banner">🌊 WAVE · LIVE Nova (V2V) · full-figure baked nova_wave_a · one-mic 🌊</div>
+<div id="banner">🌊 WAVE · LIVE Nova (V2V) · full-figure nova_idle (wave unbakeable) · voice-led · one-mic 🌊</div>
 
 <div id="stage">
   <div class="panel" id="nova-panel">
@@ -798,7 +798,7 @@ const Live = {
         this.post({type:'nova-persona', text:TENSION_MASTER});
         this.post({type:'set_persona',  text:TENSION_MASTER});
       }
-      if(!this._ackPick) this.post({type:'nova-pick', game:'joined'});
+      if(!this._ackPick) this.post({type:'nova-pick', game:'wave'});
     };
     send();                                            // immediate first try on ws-open
     this._introTimer = setInterval(send, 1000);
@@ -812,7 +812,10 @@ const Live = {
 /* ENERGY LADDER (2026-07-27) avatar map: hype→nova_active (nova_sub+nova_active baked; hype clip dropped) */
 // UP GROOVE: she IS the baked nova_upgroove dance loop for the whole game — every tier
 // maps to it, so the energy ladder never swaps her out of the isolation routine.
-const TIER_AVATAR = { calm:'nova_upgroove', sub:'nova_upgroove', active:'nova_upgroove', hype:'nova_upgroove' };
+// WAVE CANNOT BAKE (pre-wave.mp4 + handywave.mp4 crash MuseTalk face-seg). No wave dance loop;
+// every tier stays on full-figure nova_idle and Nova leads the wave with her VOICE. (Never point
+// this at nova_upgroove — that is the GROOVE routine and would show the wrong dance during Wave.)
+const TIER_AVATAR = { calm:'nova_idle', sub:'nova_idle', active:'nova_idle', hype:'nova_idle' };
 let CUR_TIER = 'calm';
 
 /* ═══ Nova facade — the game calls these; they route live-avatar vs clip-bank ═══ */
@@ -837,8 +840,8 @@ const Nova = {
    The single 23.8s nova_upgroove stays as the fallback: add ?onepart=1 to use it. */
 // BAKE-VALIDATOR allowlist (2026-08-15): every id this page may setAvatar. Must match the
 // pod's verified-avatars.json — an id absent here is refused in Live.setAvatar (blank-Nova guard).
-const VERIFIED_AVATARS = new Set(['nova_idle','nova_wave_a']);
-const UPG_PARTS = ['nova_wave_a'];  /* single baked wave avatar (52s, face-clear) */
+const VERIFIED_AVATARS = new Set(['nova_idle']);
+const UPG_PARTS = ['nova_idle'];  /* WAVE IS UNBAKEABLE (face-occlusion crash) -> full-figure nova_idle, voice-led. Blank-Nova guard refuses anything else. */
 let _upgLast = null, _upgTimer = null;
 function _nextUpgPart(){
   const pool = UPG_PARTS.filter(p => p !== _upgLast);   // never the same part twice → no fixed loop
