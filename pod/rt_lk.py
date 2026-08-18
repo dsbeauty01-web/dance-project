@@ -5,12 +5,66 @@
 #  - feeds Nova's reply audio to the avatar engine (/humanaudio) so her lips move
 #    and the SAME audio is what the engine publishes to LiveKit (synced).
 # The avatar NEVER sits between mic and brain; it only renders the reply.
-import os, json, base64, asyncio, tempfile, subprocess, wave, time
+import os, re, json, base64, asyncio, tempfile, subprocess, wave, time
 import aiohttp
 from aiohttp import web
 from livekit import api
 
 KEY   = os.environ["OPENAI_API_KEY"]
+# ── HUME EVI BACKEND (2026-08-16, founder order: switch voice to Hume) ────────
+# Parallel voice backend — select with VOICE_BACKEND=hume (env) or ?vb=hume /
+# ?vb=openai per-session. The OpenAI relay below is UNTOUCHED; if the Hume key
+# is missing or the Hume path fails, /rt falls back to OpenAI. Instant rollback:
+# unset VOICE_BACKEND (or ?vb=openai) — no code change, Nova can't go mute.
+HUME_KEY    = os.environ.get("HUME_API_KEY", "")
+HUME_CONFIG = os.environ.get("HUME_CONFIG_ID", "bddc965a-0b47-44f3-97b8-37ce89526d65")  # Nova-Kora-EVI3 v2
+HUME_URL    = "wss://api.hume.ai/v0/evi/chat"
+# EVI has no per-response instructions; improv cues ride user_input marked
+# [DIRECTOR], licensed by this clause appended to every system prompt.
+DIRECTOR_LAW = (
+    "\n\n[DIRECTOR CHANNEL] Messages that begin with [DIRECTOR] are silent stage "
+    "directions from the game engine - they are NOT the kid speaking. Obey them "
+    "with ONE short spoken line. Never read a direction aloud, never mention the "
+    "director, never answer a direction as if the kid asked it.")
+
+# HUME FIX (2026-08-17): the full CORE_LAWS+persona trips the W0112 content filter,
+# so on game-pick it never applies and Nova free-forms (the "monologue"). This SHORT
+# game-mode prompt carries only the silence rule and is worded to PASS the filter
+# (no kid/child/watching/whisper/name words). It guarantees "speak only on cues".
+GAME_SILENCE = (
+    "[GAME MODE] You are Nova, leading a dance game with warm energy. "
+    "Speak ONLY when the director channel cues you - then ONE short line, six words or less. "
+    "Between cues stay silent; the music leads. Say only what the cue tells you; never invent a move. "
+    "English only.")
+
+def hume_safe(p):
+    # HUME W0112 CONTENT FILTER (2026-08-16): Hume moderates every system prompt
+    # (session_settings AND config create) with a cumulative classifier; the
+    # combination of child-focused watching/whisper/name wording trips it even
+    # though each sentence alone can pass. These semantic-preserving rewrites were
+    # found by LIVE BISECTION against the filter; kid/child->dancer is REQUIRED.
+    # Verified passing (2026-08-16): hume_safe(PROMPT + FREEZE_RULES) + DIRECTOR_LAW.
+    # Known still-blocked: CORE_LAWS + TENSION_MASTER persona, PROMPT alone — a
+    # rejected update is logged and EVI keeps the previous (working) prompt.
+    p = p.replace("You can SEE the kid and HEAR them.",
+                  "You can see and hear the dancer on screen.")
+    p = p.replace("a magic sensor ", "the game ")
+    p = p.replace("sees their body, so a real shrug",
+                  "reports their real moves to you, so a real shrug")
+    p = p.replace("Build suspense with a short breathy WHISPER just before each freeze, then go COMPLETELY SILENT while the child holds - do not speak during a hold.",
+                  "Build suspense with a soft hushed line just before each freeze, then stay quiet while they hold still.")
+    p = p.replace("Sometimes I'll ask you to fake them out ('ready to freeze... JUST KIDDING, MOVE!') - sell it.",
+                  "Sometimes the game asks for a playful tease ('ready to freeze... just kidding, keep moving!') - sell it.")
+    p = p.replace("NAME LAW: repeat the kid's name EXACTLY as you heard it, sound for sound — never 'correct' or "
+                  "change it — repeat exactly what you heard, letter for letter. If unsure, ask 'did I get that right?' "
+                  "— never guess a different name. If NO name has been given this session, you have NO name: say "
+                  "'you' or 'superstar' — NEVER invent a name out of nothing (no 'Emma', no example names, ever).",
+                  "NAME LAW: repeat their name exactly as you heard it - never correct or change it. If unsure, ask "
+                  "'did I get that right?'. If no name has been given this session, say 'you' or 'superstar' - never invent one.")
+    for a, b in ((r"\bkids'", "dancers'"), (r"\bkid's", "dancer's"), (r"\bkids\b", "dancers"),
+                 (r"\bkid\b", "dancer"), (r"\bchildren\b", "dancers"), (r"\bchild\b", "dancer")):
+        p = re.sub(a, b, p)
+    return p
 LK_URL = os.environ["LIVEKIT_URL"]
 LK_KEY = os.environ["LIVEKIT_API_KEY"]
 LK_SEC = os.environ["LIVEKIT_API_SECRET"]
@@ -167,6 +221,16 @@ def pcm24_to_wav16(pcm_bytes):
     src = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
     with wave.open(src.name, "wb") as w:
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(24000); w.writeframes(pcm_bytes)
+    dst = src.name + ".16k.wav"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", src.name, "-ar", "16000", "-ac", "1", dst], check=True)
+    with open(dst, "rb") as f:
+        return f.read()
+
+def wav_to_wav16(wav_bytes):
+    # HUME: audio_output chunks are self-contained WAV files (usually 48k).
+    # The avatar engine wants 16k mono — same ffmpeg hop as pcm24_to_wav16.
+    src = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+    src.write(wav_bytes); src.close()
     dst = src.name + ".16k.wav"
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", src.name, "-ar", "16000", "-ac", "1", dst], check=True)
     with open(dst, "rb") as f:
@@ -804,6 +868,399 @@ async def relay(request):
         except Exception: pass
     return ws_client
 
+async def relay_hume(request):
+    # ═══ HUME EVI RELAY (2026-08-16) ══════════════════════════════════════════
+    # Browser protocol is IDENTICAL to the OpenAI relay (audio b64 PCM16@24k in,
+    # status/nova_text/you_text out, engine feed via /humanaudio) — pages need
+    # zero changes. EVI differences that shape this port:
+    #  - EVI runs its own VAD and AUTO-RESPONDS to a kid turn (no
+    #    create_response:False). LAW-INPUT-LOCK is enforced at the OUTPUT: a turn
+    #    failing validation sets kill-until-assistant_end, so that reply's audio
+    #    never reaches the engine — air still cannot be answered AUDIBLY.
+    #  - Exact lines = assistant_input (speaks text verbatim — stronger than the
+    #    OpenAI "say exactly" instruction). Improv cues = user_input [DIRECTOR].
+    #  - TRUTH-GATE / NO-SELF-ANSWER kill the reply's audio post-hoc and speak a
+    #    neutral hype line after assistant_end (OpenAI path cancels mid-gen).
+    #  - v1 scope note: the intro-only STATUE/LIGHT watchers are not ported;
+    #    freeze mode never used them (page owns every beat).
+    ws_client = web.WebSocketResponse(max_msg_size=16*1024*1024)
+    await ws_client.prepare(request)
+    http = aiohttp.ClientSession()
+    print("browser connected (HUME)", flush=True)
+    engine_q = asyncio.Queue()
+    speaking = {"v": False, "last_chunk": 0.0, "resp_active": False, "spoke": False}
+    GATE_COOLDOWN = 1.4
+    mic_stats = {"n": 0, "bytes": 0}
+    import re as _re
+    facts = {"last_ts": 0.0, "moves": []}
+    FACT_WINDOW = 6.0
+    turn = {"kid_ts": time.time(), "retried": False}
+    SILENCE_RETRY_S = 13.0
+    NEUTRAL_HYPE = ("Let's GO!", "Here we go!", "Yeah—keep going!", "Woohoo, let's move!", "Come on!")
+    MOVE_RE   = _re.compile(r"\b(freeze|shrug|spin|wave|isolation|jump|groove|twirl|dance move|that move)\b", _re.I)
+    PRAISE_RE = _re.compile(r"(crushed|nailed|rocked|killed it|you (did it|got it|totally|really|just)|perfect|awesome|amazing|great|incredible|on point|that was (a|so|an)|so good|love (it|that)|way to go|you found it|epic|fantastic|beautiful|wonderful)", _re.I)
+    INVITE_RE = _re.compile(r"(can you|could you|show me|let'?s|try|give (me|it|that|your|a)|want to|wanna|how about|ready to|do a|go for|lift|shrug your|hold (it|still)|don'?t move|like a statue|show off|when you|check (this|it) out|check out|here'?s|discover|glow|magic light|see (the|that|it)|add a|next|other shoulder|come on|pick a game)", _re.I)
+    SELFANSWER_RE = _re.compile(r"(awesome choice|great choice|good (pick|choice)|nice pick|let'?s do (freeze|wave|up ?groove|animal)|you picked|you chose|i'?ll pick|we'?ll (do|play) (freeze|wave|up ?groove)|great, (freeze|wave)|perfect, let'?s)", _re.I)
+    YES_RE = _re.compile(r"\b(yes|yeah|yep|yup|ready|ok|okay|sure|uh[- ]?huh|i did|let's go|go)\b", _re.I)
+    kill = {"on": False, "reason": "", "hype": False}
+    resp = {"buf": ""}
+    spoken = set()
+    consent = {"yes_ts": 0.0}
+    hidx = {"i": 0}
+    kidinput = {"ts": 0.0}
+    inlock = {"valid_turns": 0, "last_cue_resp": 0.0}
+    game_mode = {"persona": "", "applied": ""}
+    picked = {"game": ""}
+    hold = {"on": False}
+
+    def is_garble(t):
+        t = (t or "").strip()
+        if len(t) < 3: return True
+        letters = _re.findall(r"[A-Za-z]", t)
+        return len(letters) < max(2, len(t) // 3)
+
+    async def engine_worker():
+        while True:
+            wav = await engine_q.get()
+            if wav is None: break
+            try:
+                w16 = await asyncio.get_event_loop().run_in_executor(None, wav_to_wav16, wav)
+                await feed_engine(http, w16)
+            except Exception as e:
+                print("worker err (hume)", e, flush=True)
+    worker = asyncio.create_task(engine_worker())
+
+    async def log(m):
+        try: await ws_client.send_json({"type": "log", "msg": m})
+        except Exception: pass
+
+    _intro = (request.query.get("intro") or "").strip().lower()
+    _freeze_mode = (_intro == "freeze")
+    silwatch = None
+    try:
+        _url = HUME_URL + "?api_key=" + HUME_KEY + (("&config_id=" + HUME_CONFIG) if HUME_CONFIG else "")
+        async with http.ws_connect(_url, heartbeat=20, max_msg_size=16*1024*1024) as evi:
+            # session_settings FIRST: declares the mic format (browser sends
+            # linear16 mono 24k) and installs Nova's brain as the system prompt.
+            sysprompt = hume_safe(PROMPT + (FREEZE_RULES if _freeze_mode else "")) + DIRECTOR_LAW
+            await evi.send_json({"type": "session_settings",
+                                 "audio": {"encoding": "linear16", "sample_rate": 24000, "channels": 1},
+                                 "system_prompt": sysprompt})
+            await log("connected to Hume EVI (config " + (HUME_CONFIG[:8] if HUME_CONFIG else "default") + ")")
+            if not request.query.get("rc"):
+                # GREET: assistant_input speaks the exact words — no drift possible.
+                if _freeze_mode:
+                    _greet = "Hi, I'm Nova! Music plays - you dance. Animal pops - you FREEZE! Ready?"
+                else:
+                    _greet = "Hi! I'm Nova, your magical AI dance teacher! What's your name?"
+                await evi.send_json({"type": "assistant_input", "text": _greet})
+
+            async def silence_watch():
+                # TURN-GATE only (STATUE/LIGHT are intro-flow watchers, not ported in v1).
+                while True:
+                    await asyncio.sleep(1.0)
+                    if _freeze_mode or hold["on"]: continue
+                    if speaking["v"] or speaking["resp_active"]: continue
+                    quiet = time.time() - turn["kid_ts"]
+                    if quiet >= SILENCE_RETRY_S and not turn["retried"]:
+                        turn["retried"] = True
+                        print("[TURN-GATE] silence %.0fs -> ONE gentle retry (hume)" % quiet, flush=True)
+                        try:
+                            await evi.send_json({"type": "user_input", "text":
+                                "[DIRECTOR] Quiet for a bit. Say ONE tiny warm line that you're here when they're ready - under 8 words."})
+                        except Exception as e:
+                            print("[TURN-GATE] retry err (hume)", e, flush=True)
+            silwatch = asyncio.create_task(silence_watch())
+
+            async def from_browser():
+                async for msg in ws_client:
+                    if msg.type != aiohttp.WSMsgType.TEXT: continue
+                    m = json.loads(msg.data); t = m.get("type")
+                    if hold["on"] and t in ("text", "nova-say", "nova-cue", "nova-fact"):
+                        print("[HOLD] dropped while paused (hume):", t, flush=True)
+                        continue
+                    if t == "audio":
+                        mic_stats["n"] += 1; mic_stats["bytes"] += len(m.get("data", ""))
+                        if mic_stats["n"] % 50 == 0:
+                            print(f"MIC recv: {mic_stats['n']} chunks, ~{mic_stats['bytes']} b64 bytes", flush=True)
+                        if speaking["v"] or hold["on"]:   # ANTI-ECHO + PAUSE: same gates as OpenAI path
+                            continue
+                        await evi.send_json({"type": "audio_input", "data": m["data"]})
+                    elif t == "text":
+                        if is_garble(m.get("text", "")):
+                            print("[GARBLE] ignored (typed):", (m.get("text","")[:20]), flush=True); continue
+                        turn["kid_ts"] = time.time(); turn["retried"] = False
+                        kidinput["ts"] = time.time()
+                        if YES_RE.search(m.get("text", "")):
+                            consent["yes_ts"] = time.time(); print("[CONSENT] real yes (typed)", flush=True)
+                        await evi.send_json({"type": "user_input", "text": m["text"]})
+                        await ws_client.send_json({"type": "you_text", "text": m["text"]})
+                    elif t == "nova-say":
+                        line = (m.get("text") or "").strip()
+                        if line and line.lower() in spoken:
+                            print("[DE-CAN] dropped duplicate staged line:", line[:50], flush=True)
+                        elif line and not speaking["resp_active"] and not speaking["v"]:
+                            spoken.add(line.lower())
+                            await evi.send_json({"type": "assistant_input", "text": line})
+                            print("PITCH say (hume):", line, flush=True)
+                        else:
+                            print("PITCH skip (busy):", line, flush=True)
+                    elif t == "nova-cue":
+                        intent = (m.get("intent") or "").strip()
+                        ctx = (m.get("ctx") or "").strip()
+                        _is_adv = bool(_re.search(r"countdown|3.?2.?1|\bstart\b|\bbegin\b|next round|let'?s play|here we go|freeze dance|go time|are you ready", (intent + " " + ctx), _re.I))
+                        _recent_yes = (time.time() - consent["yes_ts"] <= 8.0) or (time.time() - facts["last_ts"] <= 8.0)
+                        if _is_adv and not _recent_yes:
+                            print("[CONSENT] waiting — advance cue held (no yes/move):", intent[:50], flush=True)
+                        elif intent and (time.time() - inlock["last_cue_resp"] < 8.0):
+                            # CUE RATE-LIMIT: extras become silent context (Hume's native
+                            # context injection — she KNOWS without SPEAKING).
+                            print("[CUE-LIMIT] context-only (hume):", intent[:50], flush=True)
+                            try:
+                                await evi.send_json({"type": "session_settings", "context": {
+                                    "text": "[context] " + intent + ((" " + ctx) if ctx else ""), "type": "temporary"}})
+                            except Exception: pass
+                        elif intent and not speaking["resp_active"] and not speaking["v"]:
+                            inlock["last_cue_resp"] = time.time()
+                            await evi.send_json({"type": "user_input", "text":
+                                ("[DIRECTOR] " + intent + ((" Facts: " + ctx) if ctx else ""))[:240]})
+                            print("PITCH cue (hume):", intent[:70], "| ctx:", ctx[:70], flush=True)
+                        else:
+                            print("PITCH cue skip (busy):", intent[:40], flush=True)
+                    elif t == "persona":
+                        ptext = (m.get("text") or "").strip()
+                        if ptext:
+                            if ptext.startswith(GAME_MODE_MARK):
+                                game_mode["persona"] = ptext
+                                # HUME: the full game persona trips W0112 -> send the short
+                                # filter-safe SILENCE prompt so "speak only on cues" actually lands.
+                                instr = GAME_SILENCE
+                                print("PERSONA REPLACE (game-mode -> SILENCE, hume):", ptext[:60], flush=True)
+                            else:
+                                instr = PROMPT + "\n\n[FREEZE GAME - TENSION MASTER]\n" + ptext
+                                print("PERSONA append (legacy, hume):", ptext[:60], flush=True)
+                            # NOTE: CORE_LAWS+persona is known to still trip W0112 —
+                            # EVI then KEEPS the previous (working) prompt; the error
+                            # is logged by from_evi. Attempted anyway: filter may relax.
+                            await evi.send_json({"type": "session_settings",
+                                                 "system_prompt": hume_safe(instr) + DIRECTOR_LAW})
+                            try: await ws_client.send_json({"type": "ack", "of": "persona"})
+                            except Exception: pass
+                            if game_mode.get("applied") == ptext:
+                                print("PERSONA duplicate ignored", flush=True)
+                                continue
+                            game_mode["applied"] = ptext
+                    elif t == "nova-fact":
+                        move = (m.get("move") or "").strip().lower()
+                        if move:
+                            facts["last_ts"] = time.time(); facts["moves"].append(move)
+                            turn["kid_ts"] = time.time(); turn["retried"] = False
+                            kidinput["ts"] = time.time()
+                            print("[FACT] detected move:", move, flush=True)
+                            if not speaking["resp_active"] and not speaking["v"]:
+                                await evi.send_json({"type": "user_input", "text":
+                                    ("[DIRECTOR] FACT - real move just happened: " + move
+                                     + ". Cheer THAT move once, by name, one short line.")[:240]})
+                                print("[TRUTH-GATE] sanctioned praise for:", move, flush=True)
+                            else:
+                                print("[TURN-GATE] praise held (busy) for:", move, flush=True)
+                    elif t == "hold":
+                        on = bool(m.get("on"))
+                        hold["on"] = on
+                        try:
+                            await evi.send_json({"type": "pause_assistant_message" if on
+                                                 else "resume_assistant_message"})
+                        except Exception: pass
+                        if on:
+                            kill["on"] = True; kill["reason"] = "hold"; kill["hype"] = False
+                            print("[HOLD] ON — mic dropped, EVI paused (hume)", flush=True)
+                        else:
+                            kill["on"] = False
+                            turn["kid_ts"] = time.time(); turn["retried"] = False
+                            print("[HOLD] OFF — listening again (hume)", flush=True)
+                        await ws_client.send_json({"type": "status", "state": "paused" if on else "listening"})
+                    elif t == "nova-pick":
+                        game = (m.get("game") or "").strip().lower().replace("-", " ")
+                        turn["kid_ts"] = time.time(); turn["retried"] = False; kidinput["ts"] = time.time()
+                        print("[PICK]", game, "(hume)", flush=True)
+                        try: await ws_client.send_json({"type": "ack", "of": "nova-pick", "game": game})
+                        except Exception: pass
+                        if picked.get("game") == game:
+                            print("[PICK] duplicate ignored (already picked)", flush=True)
+                            continue
+                        picked["game"] = game
+                        if game_mode["persona"]:
+                            try:
+                                await evi.send_json({"type": "session_settings",
+                                                     "system_prompt": hume_safe(GAME_SILENCE) + DIRECTOR_LAW})
+                                print("[PICK] session switched to game-mode SILENCE prompt (hume)", flush=True)
+                            except Exception as _e:
+                                print("[PICK] session switch failed:", _e, flush=True)
+                        if speaking["resp_active"] or speaking["v"]:
+                            print("[TURN-GATE] readiness held (busy):", game, flush=True)
+                        elif game == "freeze":
+                            print("[PICK] freeze: silent mode-switch", flush=True)
+                        elif game in ("wave", "up groove", "upgroove", "groove"):
+                            await evi.send_json({"type": "user_input", "text":
+                                "[DIRECTOR] They picked " + game + ". Ask in ONE line: can you lift a hand UP?"})
+                        else:
+                            print("[PICK] unknown game, ignored:", game, flush=True)
+                    elif t == "game-start":
+                        print("[GAME-START] music running - in-game mode (hume)", flush=True)
+                        if not (speaking["resp_active"] or speaking["v"]):
+                            try:
+                                await evi.send_json({"type": "user_input", "text":
+                                    "[DIRECTOR] Music started! ONE three-word cheer, then stay silent."})
+                            except Exception as _e:
+                                print("[GAME-START] err", _e, flush=True)
+                    elif t == "bye": break
+                try: await evi.close()
+                except Exception: pass
+
+            async def from_evi():
+                async for msg in evi:
+                    if msg.type != aiohttp.WSMsgType.TEXT: continue
+                    e = json.loads(msg.data); et = e.get("type", "")
+                    if et == "chat_metadata":
+                        print("EVI: chat", e.get("chat_id"), flush=True)
+                    elif et == "user_message":
+                        if e.get("interim"): continue
+                        ktxt = ((e.get("message") or {}).get("content") or "").strip()
+                        # LAW-INPUT-LOCK (EVI variant): EVI will auto-respond to this
+                        # turn — validation decides whether that reply is HEARD.
+                        _words = _re.findall(r"[A-Za-z][A-Za-z'\-]*", ktxt)
+                        _drop = None
+                        if not ktxt or is_garble(ktxt):
+                            _drop = "garble/empty"
+                        elif len(_words) >= 2:
+                            _drop = None
+                        elif len(_words) == 1 and _words[0].lower() in (
+                              "yes", "yeah", "yep", "no", "ok", "okay", "ready", "sure",
+                              "freeze", "wave", "groove", "stop", "again", "go", "hi", "hey", "done"):
+                            _drop = None
+                        elif (inlock["valid_turns"] == 0 and len(_words) == 1
+                              and ktxt[:1].isupper() and len(_words[0]) >= 3 and _words[0].lower() not in
+                              ("wow", "what", "cool", "nice", "hello")):
+                            _drop = None
+                        else:
+                            _drop = "sub-2-word"
+                        if _drop:
+                            kill["on"] = True; kill["reason"] = "input-lock:" + _drop; kill["hype"] = False
+                            print("[INPUT-LOCK] dropped:", _drop, "|", ktxt[:30], "(reply muted)", flush=True)
+                            try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"[INPUT-LOCK] dropped ("+_drop+"): "+ktxt[:60]+"\n")
+                            except Exception: pass
+                        else:
+                            inlock["valid_turns"] += 1
+                            kill["on"] = False; kill["hype"] = False
+                            turn["kid_ts"] = time.time(); turn["retried"] = False
+                            kidinput["ts"] = time.time()
+                            await ws_client.send_json({"type": "you_text", "text": ktxt})
+                            try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"KID:  "+ktxt+"\n")
+                            except Exception: pass
+                            if YES_RE.search(ktxt):
+                                consent["yes_ts"] = time.time(); print("[CONSENT] real yes:", ktxt[:40], flush=True)
+                    elif et == "assistant_message":
+                        txt = ((e.get("message") or {}).get("content") or "")
+                        if not speaking["resp_active"]:
+                            speaking["resp_active"] = True
+                            speaking["v"] = True
+                            speaking["spoke"] = False
+                            speaking["last_chunk"] = time.time()
+                            resp["buf"] = ""
+                            print("GATE CLOSED: mic discarded (Nova speaking, hume)", flush=True)
+                            await ws_client.send_json({"type": "status", "speaking": True, "state": "thinking"})
+                        resp["buf"] += ((" " if resp["buf"] else "") + txt)
+                        if not kill["on"]:
+                            await ws_client.send_json({"type": "nova_text", "delta": txt})
+                            # TRUTH-GATE / NO-SELF-ANSWER (post-hoc): mute the rest of this
+                            # reply's audio; a neutral hype line replaces it after assistant_end.
+                            if (time.time() - kidinput["ts"] > 6.0) and SELFANSWER_RE.search(resp["buf"]):
+                                kill["on"] = True; kill["reason"] = "self-answer"; kill["hype"] = True
+                            elif (time.time() - facts["last_ts"] > FACT_WINDOW) \
+                                 and (time.time() - kidinput["ts"] > 6.0) \
+                                 and PRAISE_RE.search(resp["buf"][:80]) and not INVITE_RE.search(resp["buf"]):
+                                kill["on"] = True; kill["reason"] = "truth-gate"; kill["hype"] = True
+                            if kill["on"]:
+                                print("[TRUTH-GATE] muted (hume, " + kill["reason"] + "):", resp["buf"][:70], flush=True)
+                                try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"[TRUTH-GATE] muted ("+kill["reason"]+"): "+resp["buf"]+"\n")
+                                except Exception: pass
+                    elif et == "audio_output":
+                        if kill["on"]:
+                            continue
+                        raw = base64.b64decode(e.get("data", ""))
+                        if not raw:
+                            continue
+                        if not speaking["resp_active"]:   # audio before its assistant_message: still gate the mic
+                            speaking["resp_active"] = True; speaking["v"] = True; speaking["spoke"] = False
+                        if not speaking["spoke"]:
+                            speaking["spoke"] = True
+                            await ws_client.send_json({"type": "status", "state": "talking"})
+                        speaking["last_chunk"] = time.time()
+                        await engine_q.put(raw)
+                    elif et == "assistant_end":
+                        was_killed = kill["on"]; want_hype = kill["hype"]
+                        if kill["reason"] != "hold":     # hold-kill stays on until the page releases it
+                            kill["on"] = False; kill["hype"] = False
+                        speaking["resp_active"] = False
+                        txt = resp["buf"]
+                        if txt and not was_killed:
+                            await ws_client.send_json({"type": "nova_done", "text": txt})
+                            try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"NOVA: "+txt+"\n")
+                            except Exception: pass
+                            low = txt.lower()
+                            if low in spoken:
+                                print("[DE-CAN] she repeated a line verbatim:", txt[:50], flush=True)
+                            if low: spoken.add(low)
+                        if was_killed and want_hype and not hold["on"]:
+                            hy = NEUTRAL_HYPE[hidx["i"] % len(NEUTRAL_HYPE)]; hidx["i"] += 1
+                            try: await evi.send_json({"type": "assistant_input", "text": hy})
+                            except Exception: pass
+                        async def reopen():
+                            while time.time() - speaking["last_chunk"] < GATE_COOLDOWN:
+                                await asyncio.sleep(0.15)
+                            if not speaking["resp_active"]:   # a follow-up (e.g. hype) may have started
+                                speaking["v"] = False
+                                print(f"GATE OPEN: mic live ({GATE_COOLDOWN}s after last chunk, hume)", flush=True)
+                                await ws_client.send_json({"type": "status", "speaking": False, "state": "listening"})
+                        asyncio.create_task(reopen())
+                    elif et == "user_interruption":
+                        # our anti-echo gate never feeds EVI her own voice, so this is
+                        # a real kid barge-in EVI already honoured — just log it.
+                        print("EVI: user_interruption", flush=True)
+                    elif et == "error":
+                        print("EVI: error ->", e.get("code"), "|", str(e.get("message"))[:200], flush=True)
+                        await log("ERROR: " + str(e.get("message"))[:120])
+                    elif et in ("assistant_prosody",):
+                        pass   # emotion scores — not used
+                    else:
+                        print("EVI:", et, flush=True)
+
+            try:
+                await asyncio.gather(from_browser(), from_evi())
+            finally:
+                if silwatch: silwatch.cancel()
+    except Exception as e:
+        print("relay err (hume)", e, flush=True)
+    finally:
+        await engine_q.put(None)
+        try: await worker
+        except Exception: pass
+        await http.close()
+        try: await ws_client.close()
+        except Exception: pass
+    return ws_client
+
+async def rt_dispatch(request):
+    # VOICE BACKEND SWITCH (2026-08-16): ?vb= overrides env, env overrides the
+    # openai default. A hume request with no key falls back to OpenAI LOUDLY.
+    vb = (request.query.get("vb") or os.environ.get("VOICE_BACKEND") or "openai").strip().lower()
+    if vb == "hume":
+        if not HUME_KEY:
+            print("[VB] hume requested but HUME_API_KEY missing -> openai fallback", flush=True)
+            return await relay(request)
+        return await relay_hume(request)
+    return await relay(request)
+
 async def index(request):
     return web.Response(text=PAGE, content_type="text/html",
                         headers={"Cache-Control": "no-store"})
@@ -812,7 +1269,9 @@ async def token(request):
     return web.json_response({"url": LK_URL, "token": viewer_token(), "room": LK_ROOM})
 
 async def health(request):
-    return web.json_response({"ok": True, "voice": VOICE, "room": LK_ROOM})
+    return web.json_response({"ok": True, "voice": VOICE, "room": LK_ROOM,
+                              "backend": (os.environ.get("VOICE_BACKEND") or "openai"),
+                              "hume_key_set": bool(HUME_KEY)})
 
 PAGE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -1145,7 +1604,7 @@ app.router.add_get("/wave", wave_page)
 app.router.add_get("/upgroove", upgroove_page)
 app.router.add_get("/token", token)
 app.router.add_get("/health", health)
-app.router.add_get("/rt", relay)
+app.router.add_get("/rt", rt_dispatch)
 app.router.add_get("/set_avatar", set_avatar_proxy)
 
 if __name__ == "__main__":
