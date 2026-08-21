@@ -393,7 +393,9 @@ function tickTier(pos){
    the game-mode marker, so rt_lk.py REPLACES the intro script with it. If the fetch hasn't
    landed at send-time, the intro retry loop resends until PERSONA is non-empty. */
 let PERSONA = '';   // loaded from the certified file — never inline persona text in a page
-fetch('/prompts/upgroove-persona').then(r=>r.text()).then(t=>{ PERSONA = t.trim(); }).catch(()=>{});
+// location.origin (NOT a root-relative path): the page has <base href=github.io>, so
+// '/prompts/...' would resolve to GitHub Pages and CORS-fail. The pod serves /prompts/.
+fetch(location.origin + '/prompts/upgroove-persona').then(r=>r.text()).then(t=>{ PERSONA = t.trim(); }).catch(()=>{});
 
 /* ── elements ── */
 const $ = id => document.getElementById(id);

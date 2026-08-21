@@ -16,7 +16,7 @@ for (const page of ['pod/pages/up-groove.html','pod/pages/wave.html']) {
   if (/\[GAME-MODE\]/.test(s)) {           // persona text belongs in pod/prompts/, not pages
     console.error(`LAW-PROMPTS FAIL: inline persona text in ${page}`); fail = true;
   }
-  if (!/fetch\('\/prompts\//.test(s)) {
+  if (!/fetch\([^)]*\/prompts\//.test(s)) {   // fetch(location.origin + '/prompts/..') — base-href-safe
     console.error(`LAW-PROMPTS FAIL: ${page} does not load its persona from /prompts/`); fail = true;
   }
 }
