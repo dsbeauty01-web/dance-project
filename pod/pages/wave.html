@@ -219,7 +219,7 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
 </style>
 </head>
 <body>
-<div id="banner">🌊 WAVE · LIVE Nova (V2V) · full-figure baked nova_wave_a · one-mic 🌊</div>
+<div id="banner">🌊 WAVE · LIVE Nova (V2V) · full-figure baked fullwave10sec · one-mic 🌊</div>
 
 <div id="stage">
   <div class="panel" id="nova-panel">
@@ -321,7 +321,7 @@ try {
    credit) · no kid-visible errors · V2V is sacred (the pipe is untouched).
    ═══════════════════════════════════════════════════════════════════ */
 
-// UP GROOVE (2026-08-14): the LIVE avatar is the baked nova_upgroove loop (she dances
+// UP GROOVE (2026-08-14): the LIVE avatar is the baked 3shoulderleft-right10sec loop (she dances
 // the isolation routine the whole song). The clip files below are only the OFFLINE
 // fallback / stamp emoji+name source — live mode never loads them, so they point at the
 // harmless up-groove clip. The "moment" keys are the four isolation stations + finale.
@@ -811,11 +811,11 @@ const Live = {
 };
 
 /* ENERGY LADDER (2026-07-27) avatar map: hype→nova_active (nova_sub+nova_active baked; hype clip dropped) */
-// UP GROOVE: she IS the baked nova_upgroove dance loop for the whole game — every tier
+// UP GROOVE: she IS the baked 3shoulderleft-right10sec dance loop for the whole game — every tier
 // maps to it, so the energy ladder never swaps her out of the isolation routine.
-// WAVE: she IS the baked nova_wave_a wave loop (63s, face-clear, baked 2026-08-15) for the
+// WAVE: she IS the baked fullwave10sec wave loop (63s, face-clear, baked 2026-08-15) for the
 // whole game — every tier maps to it so the energy ladder never swaps her out of the wave.
-const TIER_AVATAR = { calm:'nova_wave_a', sub:'nova_wave_a', active:'nova_wave_a', hype:'nova_wave_a' };
+const TIER_AVATAR = { calm:'fullwave10sec', sub:'fullwave10sec', active:'fullwave10sec', hype:'fullwave10sec' };
 let CUR_TIER = 'calm';
 
 /* ═══ Nova facade — the game calls these; they route live-avatar vs clip-bank ═══ */
@@ -837,11 +837,11 @@ const Nova = {
    The full 90s routine can't bake (face turns/occludes → MuseTalk face-seg crashes), so we
    bake the 3 longest FACE-CLEAR windows (nova_upgroove_a 16.5s / b 7.5s / c 6.8s) and chain
    them in a NON-repeating order, cross-faded on each switch so the face-away cut is hidden.
-   The single 23.8s nova_upgroove stays as the fallback: add ?onepart=1 to use it. */
+   The single 23.8s 3shoulderleft-right10sec stays as the fallback: add ?onepart=1 to use it. */
 // BAKE-VALIDATOR allowlist (2026-08-15): every id this page may setAvatar. Must match the
 // pod's verified-avatars.json — an id absent here is refused in Live.setAvatar (blank-Nova guard).
-const VERIFIED_AVATARS = new Set(['nova_idle','nova_wave_a']);
-const UPG_PARTS = ['nova_wave_a'];  /* the real baked wave avatar (63s, face-clear, baked 2026-08-15) */
+const VERIFIED_AVATARS = new Set(['nova_idle','fullwave10sec']);
+const UPG_PARTS = ['fullwave10sec'];  /* the real baked wave avatar (63s, face-clear, baked 2026-08-15) */
 let _upgLast = null, _upgTimer = null;
 function _nextUpgPart(){
   const pool = UPG_PARTS.filter(p => p !== _upgLast);   // never the same part twice → no fixed loop

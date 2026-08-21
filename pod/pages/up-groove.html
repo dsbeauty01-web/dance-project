@@ -219,7 +219,7 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
 </style>
 </head>
 <body>
-<div id="banner">🕺 UP GROOVE · LIVE Nova (V2V) · full-figure baked nova_upgroove · isolation dance · one-mic 🕺</div>
+<div id="banner">🕺 UP GROOVE · LIVE Nova (V2V) · full-figure baked 3shoulderleft-right10sec · isolation dance · one-mic 🕺</div>
 
 <div id="stage">
   <div class="panel" id="nova-panel">
@@ -321,7 +321,7 @@ try {
    credit) · no kid-visible errors · V2V is sacred (the pipe is untouched).
    ═══════════════════════════════════════════════════════════════════ */
 
-// UP GROOVE (2026-08-14): the LIVE avatar is the baked nova_upgroove loop (she dances
+// UP GROOVE (2026-08-14): the LIVE avatar is the baked 3shoulderleft-right10sec loop (she dances
 // the isolation routine the whole song). The clip files below are only the OFFLINE
 // fallback / stamp emoji+name source — live mode never loads them, so they point at the
 // harmless up-groove clip. The "moment" keys are the four isolation stations + finale.
@@ -825,9 +825,9 @@ const Live = {
 };
 
 /* ENERGY LADDER (2026-07-27) avatar map: hype→nova_active (nova_sub+nova_active baked; hype clip dropped) */
-// UP GROOVE: she IS the baked nova_upgroove dance loop for the whole game — every tier
+// UP GROOVE: she IS the baked 3shoulderleft-right10sec dance loop for the whole game — every tier
 // maps to it, so the energy ladder never swaps her out of the isolation routine.
-const TIER_AVATAR = { calm:'nova_upgroove', sub:'nova_upgroove', active:'nova_upgroove', hype:'nova_upgroove' };
+const TIER_AVATAR = { calm:'3shoulderleft-right10sec', sub:'3shoulderleft-right10sec', active:'3shoulderleft-right10sec', hype:'3shoulderleft-right10sec' };
 let CUR_TIER = 'calm';
 
 /* ═══ Nova facade — the game calls these; they route live-avatar vs clip-bank ═══ */
@@ -849,10 +849,10 @@ const Nova = {
    The full 90s routine can't bake (face turns/occludes → MuseTalk face-seg crashes), so we
    bake the 3 longest FACE-CLEAR windows (nova_upgroove_a 16.5s / b 7.5s / c 6.8s) and chain
    them in a NON-repeating order, cross-faded on each switch so the face-away cut is hidden.
-   The single 23.8s nova_upgroove stays as the fallback: add ?onepart=1 to use it. */
+   The single 23.8s 3shoulderleft-right10sec stays as the fallback: add ?onepart=1 to use it. */
 // BAKE-VALIDATOR allowlist (2026-08-15): every id this page may setAvatar. Must match the
 // pod's verified-avatars.json — an id absent here is refused in Live.setAvatar (blank-Nova guard).
-const VERIFIED_AVATARS = new Set(['nova_idle','nova_upgroove','nova_upgroove_a','nova_upgroove_b','nova_upgroove_c']);
+const VERIFIED_AVATARS = new Set(['nova_idle','3shoulderleft-right10sec','nova_upgroove_a','nova_upgroove_b','nova_upgroove_c']);
 const UPG_PARTS = ['nova_upgroove_a','nova_upgroove_b','nova_upgroove_c'];  /* c re-baked + re-copied (valid); all three chained */
 let _upgLast = null, _upgTimer = null;
 function _nextUpgPart(){
@@ -870,7 +870,7 @@ function _rotateUpg(){
   setTimeout(()=>{ st.style.opacity = '1'; }, 800);
 }
 function startUpgRotation(){
-  if(Q.get('onepart')==='1'){ if(Live.on) Live.setAvatar('nova_upgroove'); return; }  // fallback single loop
+  if(Q.get('onepart')==='1'){ if(Live.on) Live.setAvatar('3shoulderleft-right10sec'); return; }  // fallback single loop
   _upgLast = null;
   if(Live.on) Live.setAvatar(_nextUpgPart());            // first part right away
   clearInterval(_upgTimer);

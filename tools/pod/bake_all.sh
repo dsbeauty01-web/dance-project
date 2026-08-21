@@ -16,11 +16,11 @@ echo "$(date -u) ========== BAKE-ALL START =========="
 
 # id  src  start  end
 JOBS=(
-  "nova_wave_a|handywave-full.mp4|5.6|58.0"
+  "fullwave10sec|handywave-full.mp4|5.6|58.0"
   "nova_hello_a|nova-hello.mp4|27.3|67.4"
   "nova_hello_b|nova-hello.mp4|68.3|80.0"
   "nova_prewave_a|pre-wave.mp4|0.3|33.4"
-  "nova_prewave_b|pre-wave.mp4|61.3|75.0"
+  "shoulderright-left10sec|pre-wave.mp4|61.3|75.0"
   "nova_prewave_c|pre-wave.mp4|45.0|54.7"
 )
 
