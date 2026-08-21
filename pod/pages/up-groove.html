@@ -387,27 +387,13 @@ function tickTier(pos){
   for(const e of TIER_AT){ if(pos>=e.t && !_tierFired.has(e.t)){ _tierFired.add(e.t); Nova.setTier(e.tier); } }
 }
 
-/* TENSION MASTER — her brain for this game, injected once at start. */
-/* [GAME-MODE] marker (2026-08-04): tells rt_lk.py to REPLACE the intro script with
-   CORE_LAWS + this persona, instead of appending underneath it. Appending never worked —
-   the ~6.8KB intro (incl. the magic shoulder light) outranked this, so she ran the intro
-   inside the game. The marker must stay the FIRST characters of the string. */
-const TENSION_MASTER =
- "[GAME-MODE] "+
- "You are Nova, teaching UP GROOVE right now — your favorite isolation dance. THIS IS THE UP GROOVE GAME ONLY — "+
- "there is no intro to run, no name to collect, no magic light on anyone's shoulder, and no other games to offer. "+
- "Never mention a light, a shoulder glow, or a choice of games. "+
- "The kid moves ONE body part at a time while the rest stays still; that's the magic trick and you LOVE it. "+
- "The dance: warm-up free movement, then four stations top-to-bottom HEAD then SHOULDER then RIB then HIP (you say "+
- "the BODY PART, never left/right), then everything again DOUBLE SPEED back up the body, then freestyle everything "+
- "at once. Ribs are hardest — extra love for ANY attempt. Talk in tiny bursts, 5 words max, name what you SEE "+
- "(part, speed, wiggle): 'THAT rib slide!' not 'great job'. React to the move I send; if none came you still saw "+
- "effort — cheer trying, name a part. Double-speed = your energy doubles, breathless. Freestyle = loudest of the "+
- "game. NEVER repeat a line you've already said this game. If you learned their name, use it 2-3 times across the "+
- "game, not every line. React to what they SAY to you. Never say wrong, no, miss, fail, or oops — every child always "+
- "wins. You are 110% more excited than the kid, always. Tiny warm lines. "+
- "Speak ONLY in English — never Spanish or any other language, even if you hear another language. "+
- "Never say freeze, hold still, or statue — this game is about MOVING.";
+/* PERSONA — her brain for this game. CERTIFIED and Guardian-enforced: the text lives in
+   pod/prompts/upgroove-persona.txt (single source of truth), served at /prompts/. Never
+   inline persona text in a page (law-prompts fails CI). The file's first characters are
+   the game-mode marker, so rt_lk.py REPLACES the intro script with it. If the fetch hasn't
+   landed at send-time, the intro retry loop resends until PERSONA is non-empty. */
+let PERSONA = '';   // loaded from the certified file — never inline persona text in a page
+fetch('/prompts/upgroove-persona').then(r=>r.text()).then(t=>{ PERSONA = t.trim(); }).catch(()=>{});
 
 /* ── elements ── */
 const $ = id => document.getElementById(id);
@@ -821,9 +807,9 @@ const Live = {
       }
       this._introTries++;
       console.log('[INTRO] try '+this._introTries+'/10 — sending persona + nova-pick');
-      if(!this._ackPersona){
-        this.post({type:'nova-persona', text:TENSION_MASTER});
-        this.post({type:'set_persona',  text:TENSION_MASTER});
+      if(!this._ackPersona && PERSONA){                 // wait for the certified persona to load, then send
+        this.post({type:'nova-persona', text:PERSONA});
+        this.post({type:'set_persona',  text:PERSONA});
       }
       if(!this._ackPick) this.post({type:'nova-pick', game:'upgroove'});
     };
@@ -923,6 +909,8 @@ window.addEventListener('message', (e)=>{
     if(Ready.active && /\b(yes+|yeah|yep|ya|ready|ok|okay|okey|sure|go|start|now|i'?m ready|let'?s go)\b/i.test(text)) Ready.hit();  // "yes" → start the music
   } else if(/nova|assistant|bot|agent|say|reply/.test(type)){
     try{ if(window.__SYNCLOG) window.__SYNCLOG.push({ev:'nova-said', songT:(typeof Music!=='undefined'&&Music.t)?Music.t():0, wall:performance.now(), text:text.slice(0,40)}); }catch(_){}
+    // AUDIT (Guardian Part 2): full-text Nova lines with song-time -> audit_transcript.py JSONL
+    try{ (window.__NOVA_LINES=window.__NOVA_LINES||[]).push({t:+(((typeof Music!=='undefined'&&Music.t)?Music.t():0)).toFixed(2), text:text}); }catch(_){}
     NovaSay.log(text);
     try { if(window.NovaRec) NovaRec.transcript('nova', text); } catch(_){}
   }
@@ -1165,6 +1153,9 @@ const VOICE_LEAD = Math.max(0, Math.min(4, parseFloat(Q.get('voicelead')) || 1.9
    Calibrated at boot by Calib.run() when a pod is live. */
 let GESTURE_LEAD = Math.max(0, Math.min(3, parseFloat(Q.get('gesturelead')) || 0.45));
 try{ window.__SYNCLOG = window.__SYNCLOG || []; }catch(_){}
+try{ window.__NOVA_LINES = window.__NOVA_LINES || [];
+     window.__novaJSONL = function(){ return (window.__NOVA_LINES||[]).map(function(o){return JSON.stringify(o);}).join('\n'); };
+}catch(_){}
 function effHold(def){ return G.diff==='hard'? def.hold+0.7 : G.diff==='easy'? Math.max(2.5,def.hold-0.6) : def.hold; }
 /* ═══ FREEZE SCORING (2026-07-28): MOVEMENT COSTS THE SCORE — but fair ═══
    0.7s reaction grace after FREEZE!, then measure the fraction of the hold the kid held STILL
@@ -1180,17 +1171,17 @@ function freezeCredit(frac){
 const FAKES = [];   // fake-outs removed — Up Groove is a MOVE game, no freeze suspense
 
 /* ═══ MONOLOGUE FIX (2026-08-21) ═══════════════════════════════════════════════
-   ONE global speak gate. Every spoken line — station call, improv, move-praise —
-   passes through here. If she spoke < SPEAK_GAP ago, the line is DROPPED (never
+   ONE global SPEAK-GATE. Every spoken line — station call, improv, move-praise —
+   passes through here. If she spoke < SPEAK_GATE_MS ago, the line is DROPPED (never
    queued), so she can never flood/overlap ("PITCH skip (busy)" storm) and never
    monologues. Station calls pass priority=true (they always speak and reset the
    gate); reactions/improv pass priority=false (they only fill a genuine gap). She
    reacts to the LATEST real thing, in English, then stays quiet. */
 let _lastSpokeT = -1e9;
-const SPEAK_GAP = 7000;   // ms — at most one spoken line per 7s
+const SPEAK_GATE_MS = 7000;   // ms — at most one spoken line per 7s
 function _canSpeak(priority){
   const n = (window.performance&&performance.now)?performance.now():Date.now();
-  if(!priority && n - _lastSpokeT < SPEAK_GAP) return false;
+  if(!priority && n - _lastSpokeT < SPEAK_GATE_MS) return false;
   _lastSpokeT = n; return true;
 }
 

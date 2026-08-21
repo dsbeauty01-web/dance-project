@@ -20,6 +20,19 @@ MODEL = os.environ.get("RT_MODEL", "gpt-realtime-2")
 VOICE = os.environ.get("NOVA_VOICE", "marin")   # 2026-08-08 founder decision: marin IS Nova's voice (shimmer too adult, coral weird). ?voice= still overrides per-session for A/B
 RT_URL = f"wss://api.openai.com/v1/realtime?model={MODEL}"
 
+# ── CERTIFIED PROMPTS loaded from pod/prompts/ (Guardian, 2026-08-21) ──────────
+# Single source of truth for game/freeze rules. Pages fetch the same files via
+# /prompts/<name>. Deploy syncs /workspace/prompts/ alongside rt_lk.py.
+import os as _os
+_PROMPT_DIR = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "prompts")
+def load_prompt(name: str) -> str:
+    try:
+        with open(_os.path.join(_PROMPT_DIR, name + ".txt"), "r", encoding="utf-8") as _f:
+            return _f.read().strip()
+    except Exception as _e:
+        print(f"[PROMPT-MISSING] {name}: {_e}", flush=True)   # loud, never silent
+        return ""
+
 PROMPT = (
 
     # RESTORED from DIRECTOR-GOLD (novapython/nova_director.py, git-tagged golden) — the proven
@@ -130,8 +143,11 @@ def viewer_token():
     return (api.AccessToken(LK_KEY, LK_SEC).with_identity(ident).with_name("You")
             .with_grants(g).to_jwt())
 
-FREEZE_RULES = (
-    "\n\nFREEZE MODE - overrides the whole intro script above: you are ONLY the "
+# Certified freeze rules now live in pod/prompts/freeze-rules.txt (Guardian 2026-08-21).
+# FALLBACK below is the exact prior inline text — used ONLY if the file failed to sync,
+# so a deploy glitch can never mute the WORKING freeze game.
+_FREEZE_RULES_FALLBACK = (
+    "FREEZE MODE - overrides the whole intro script above: you are ONLY the "
     "freeze-game VOICE. NEVER ask their name. NEVER mention other games, magic "
     "lights, or shoulders.\n"
     "BREVITY LAW (freeze mode only - the commercial intro keeps its natural pace): "
@@ -145,6 +161,7 @@ FREEZE_RULES = (
     "stop. During a freeze hold: TOTAL silence. "
     "Voice style: bright, bouncy, quick - big-sister hype, never slow, never calm-narrator. "
     "Every line under 8 words.")
+FREEZE_RULES = "\n\n" + (load_prompt("freeze-rules") or _FREEZE_RULES_FALLBACK)
 
 def session_update(freeze=False, voice=None):
     return {"type": "session.update", "session": {
@@ -1127,6 +1144,15 @@ async def wave_page(request):
         return web.Response(status=503, text="wave page not deployed")
     return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
 
+async def prompt_file(request):
+    name = request.match_info["name"]
+    if not name.replace("-", "").isalnum():
+        return web.Response(status=400, text="bad name")
+    p = _os.path.join(_PROMPT_DIR, name + ".txt")
+    if not _os.path.isfile(p):
+        return web.Response(status=404, text="no such prompt")
+    return web.FileResponse(p)
+
 @web.middleware
 async def cors_mw(request, handler):
     if request.method == "OPTIONS":
@@ -1147,6 +1173,14 @@ app.router.add_get("/token", token)
 app.router.add_get("/health", health)
 app.router.add_get("/rt", relay)
 app.router.add_get("/set_avatar", set_avatar_proxy)
+app.router.add_get("/prompts/{name}", prompt_file)
+# Bake gallery (Guardian Part 3): serve the generated previews if present.
+_GALLERY_DIR = "/workspace/gallery"
+try:
+    _os.makedirs(_GALLERY_DIR, exist_ok=True)
+    app.router.add_static("/gallery", _GALLERY_DIR, show_index=True)
+except Exception as _e:
+    print(f"[GALLERY] static route not mounted: {_e}", flush=True)
 
 if __name__ == "__main__":
     web.run_app(app, host="0.0.0.0", port=8765, print=None)
