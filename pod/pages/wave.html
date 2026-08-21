@@ -386,7 +386,8 @@ const TENSION_MASTER =
  "arrives about what they did; if no fact came, you still saw effort — cheer trying, name the part. NEVER name a "+
  "move your notes didn't report. Talk in tiny bursts, 5 words max. NEVER repeat a line. If you learned their name, "+
  "use it 2-3 times across the game. React to what they SAY. Never say wrong, no, miss, fail, or oops — every child "+
- "always wins. You are 110% more excited than the kid. Tiny warm lines. English only.";
+ "always wins. You are 110% more excited than the kid. Tiny warm lines. "+
+ "Speak ONLY in English — never Spanish or any other language, even if you hear another language.";
 
 /* ── elements ── */
 const $ = id => document.getElementById(id);
@@ -1159,6 +1160,19 @@ function freezeCredit(frac){
 /* fake-out beats a few seconds before rounds 3 & 4 (indices 2,3) — NEVER the final (index 4) */
 const FAKES = [];   // removed — Wave is a MOVE game
 
+/* ═══ MONOLOGUE FIX (2026-08-21) ═══════════════════════════════════════════════
+   ONE global speak gate. Every spoken line passes through here. If she spoke <
+   SPEAK_GAP ago, the line is DROPPED (never queued) — she can never flood/overlap
+   or monologue. Station calls pass priority=true (always speak, reset the gate);
+   reactions/improv pass priority=false (fill a genuine gap only). */
+let _lastSpokeT = -1e9;
+const SPEAK_GAP = 7000;   // ms — at most one spoken line per 7s
+function _canSpeak(priority){
+  const n = (window.performance&&performance.now)?performance.now():Date.now();
+  if(!priority && n - _lastSpokeT < SPEAK_GAP) return false;
+  _lastSpokeT = n; return true;
+}
+
 /* ═══ The scheduler — SONG TIME ONLY, no wall clock ═══ */
 function tick(){
   if(!G.running){ requestAnimationFrame(tick); return; }
@@ -1166,7 +1180,7 @@ function tick(){
   DANCE_CUES.forEach((c,i)=>{ if(t>=c.at && !G.fired.c.has(i)){ G.fired.c.add(i); FX.cue(c.text); }});
   tickTier(t);
   MOVE_ROUNDS.forEach((f,i)=>{
-    if(ROUND_SAY[f.at]!==undefined && t>=f.at-VOICE_LEAD && !G.fired.s.has(i)){ G.fired.s.add(i); Nova.say(ROUND_SAY[f.at]); }
+    if(ROUND_SAY[f.at]!==undefined && t>=f.at-VOICE_LEAD && !G.fired.s.has(i)){ G.fired.s.add(i); if(_canSpeak(true)) Nova.say(ROUND_SAY[f.at]); }
     if(t>=f.at && !G.fired.f.has(i) && !G.round){ G.fired.f.add(i); startRound(f,i); }
   });
   if(G.round){
@@ -1187,8 +1201,8 @@ function startRound(def,idx){
   ring.classList.remove('moving'); ring.classList.add('show','moving-good'); ring.style.setProperty('--p',0);
   FX.badge(def.emoji, def.label);
   FX.cue(def.label+' '+def.emoji, false, Math.max(1200,(def.end-def.at)*1000));
-  if(ROUND_SAY[def.at]===undefined){
-    Nova.cue('Call ONE tiny excited line to keep them WAVING — four words. Bright and quick.',
+  if(ROUND_SAY[def.at]===undefined && _canSpeak(false)){   // fill a GAP only (gated)
+    Nova.cue('Call ONE tiny excited line in ENGLISH to keep them WAVING — four words. Bright and quick.',
              'Wave game: keep them waving, high energy.', 'move');
   }
 }
@@ -1201,7 +1215,7 @@ function endRound(){
   const win = ratio >= 0.25 || (f.def.action==='wave' && f.ever);
   const pts = Math.round(f.def.pts * Math.min(1, Math.max(win?0.6:0, ratio*1.6)) / 10) * 10;
   const label = f.def.label.replace(/!/g,'');
-  if(Live.on) Live.post({type:'nova-fact', move:f.def.action, win:win, ratio:+ratio.toFixed(2)});
+  if(Live.on && _canSpeak(false)) Live.post({type:'nova-fact', move:f.def.action, win:win, ratio:+ratio.toFixed(2)});  // gated so it fills a gap (no flood)
   FX.badgeOff();
   if(pts>0){ G.addScore(pts); FX.fly('+'+pts); const s=$('stamp'+f.idx); if(s) s.classList.add('got'); if(!G.stamps.includes(f.idx)) G.stamps.push(f.idx); }
   else { FX.fly('WAVE!'); }
