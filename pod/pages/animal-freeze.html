@@ -830,7 +830,10 @@ const Live = {
 };
 
 /* ENERGY LADDER (2026-07-27) avatar map: hype→nova_active (nova_sub+nova_active baked; hype clip dropped) */
-const TIER_AVATAR = { calm:'nova_idle', sub:'nova_sub', active:'nova_active', hype:'nova_active' };
+/* FINALFREEZE Part 4 (2026-08-23): nova_idlegroove_v2 (Kling bake, GATE-verified) is now the
+   ONE decent groove body across every energy tier. The old grooves (nova_idle/nova_sub/
+   nova_active) are PARKED — out of rotation, files kept on the volume, not deleted. */
+const TIER_AVATAR = { calm:'nova_idlegroove_v2', sub:'nova_idlegroove_v2', active:'nova_idlegroove_v2', hype:'nova_idlegroove_v2' };
 let CUR_TIER = 'calm';
 
 /* ═══ Nova facade — the game calls these; they route live-avatar vs clip-bank ═══ */
