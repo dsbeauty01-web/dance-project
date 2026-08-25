@@ -104,9 +104,13 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
   font-family:'Fredoka';font-weight:700;font-size:16px;cursor:pointer;display:flex;align-items:center;gap:7px}
 #pausebtn:active{transform:scale(.95)}
 #status{position:fixed;bottom:8px;left:10px;z-index:90;font-size:11px;color:rgba(255,255,255,.35)}
-/* LAW-CONSENT footer + modals (ported from nova-commercial) */
-#legal-foot{margin-top:14px;font-size:11px;color:rgba(255,255,255,.5);line-height:1.7}
-#legal-foot a{color:rgba(255,255,255,.65)}
+/* LAW-CONSENT footer + modals (ported from nova-commercial).
+   CLEANED 2026-08-25 (founder: "clean the footer"): one compact dim line, note and
+   links inline — the block may not be removed (visible-before-camera law), only quiet. */
+#legal-foot{margin-top:16px;font-size:10px;color:rgba(255,255,255,.35);line-height:1.5;
+  max-width:520px;margin-left:auto;margin-right:auto}
+#legal-foot a{color:rgba(255,255,255,.45);text-decoration:none}
+#legal-foot a:hover{color:rgba(255,255,255,.7);text-decoration:underline}
 #legal-ov{position:fixed;inset:0;z-index:99990;background:rgba(8,4,20,.82);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:18px}
 #legal-ov.show{display:flex}
 #legal-card{position:relative;max-width:640px;width:100%;max-height:80vh;overflow:auto;background:#160b2e;border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:26px 24px;color:#e9e0ff;font-size:14.5px;line-height:1.65}
@@ -283,7 +287,7 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
        visible BEFORE camera+mic run on a child. Marker strings "A grown-up should read" /
        "תנאי שימוש" are what LAWS.md audits grep for — keep them intact. -->
   <div id="legal-foot">
-    <span id="ai-note"></span><br>
+    <span id="ai-note"></span>
     <a href="#" onclick="showLegal('privacy');return false" data-legal="privacy"></a> ·
     <a href="#" onclick="showLegal('terms');return false" data-legal="terms"></a> ·
     <a href="#" onclick="showLegal('parents');return false" data-legal="parents"></a>
