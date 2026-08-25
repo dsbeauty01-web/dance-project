@@ -972,7 +972,7 @@ const FX = {
 
 /* ═══ Game state ═══ */
 const G = {
-  score:0, stamps:[], running:false, paused:false,
+  score:0, streak:0, maxStreak:0, moments:[], stamps:[], running:false, paused:false,   // FINALFREEZE Part 6: streak + session moments
   fired:{c:new Set(), f:new Set(), w:new Set(), k:new Set(), cd:new Set()},   // cd = countdown armed
   freeze:null,   // active: {def, idx, hold, heldMs, lastT}
   rounds:[], best:null, diff:'normal', fakes:0,       // smart-layer memory + adaptation
@@ -1163,10 +1163,10 @@ function tick(){
         const toCtx = (songT)=> ctxNow + (songT - now);   // song time -> audio-clock time
 
         /* 1. SOUND — scheduled on the audio clock, so load spikes cannot shift them */
-        SFX.beep(toCtx(CD_AT),       880, 140);      // T-2
-        SFX.beep(toCtx(CD_AT + 1.0), 880, 140);      // T-1
-        SFX.beep(toCtx(f.at),       1320, 420, .40); // T-0 long
-        SFX.horn(toCtx(f.at));                       // T-0 horn
+        SFX.beep(toCtx(CD_AT),       880, 140);      // T-2 count-in (get-ready)
+        SFX.beep(toCtx(CD_AT + 1.0), 880, 140);      // T-1 count-in
+        /* FINALFREEZE (2026-08-23): T-0 beep + horn REMOVED — the cut is hard-mute + her
+           "FREEZE!" sting ONLY (fired in startFreeze). No vinyl, no horn at the snap. */
 
         /* 2. MUSIC — dim at T-2 (cosmetic, wall timer is fine). The FULL STOP moved into
            startFreeze() (V2.1 2026-08-07): a wall timer drifts from the song clock when the
@@ -1222,12 +1222,13 @@ function tick(){
 function startFreeze(def,idx){
   const c=ASSETS.clips[def.clip];
   const hold=effHold(def);                            // adaptive: harder = longer hold
-  G.freeze={def, idx, hold, stillMs:0, winMs:0, moved:false, lastT:Music.t()};
+  G.freeze={def, idx, hold, stillMs:0, winMs:0, moved:false, present:true, lastT:Music.t()};  // present: NOSHOW hook (defaults true; empty-room detection = TODO, needs a Pose body signal)
   /* V2.1 MUSIC SYNC (2026-08-07): the full stop fires HERE, on the same song-clock tick
      that starts the freeze — music and freeze can never disagree, first round included.
      FINALFREEZE (2026-08-23) THE SNAP: hard-mute the SAME FRAME (0ms, no fade) so the freeze
      lands like a cut, not a dip. Release restores instantly in endFreeze. */
   try{ Music.duck(0.0, 0); }catch(_){}
+  sting('sting_freeze');                               // FINALFREEZE Part 5: her "FREEZE!" — SAME FRAME as the cut, zero latency (hard-mute + sting only, no vinyl)
   Nova.freeze(def.clip);                              // she BECOMES the animal (live) / clip (fallback)
   // FX ride HER pose: live swap takes ~350ms to show — frost/badge fire WITH her, never before
   const fxDelay = (typeof Live!=='undefined' && Live.on) ? 350 : 0;
@@ -1245,32 +1246,42 @@ function endFreeze(){
      0.6 level — the release is as tight as the freeze. */
   try{ Music.duck(MUSIC_VOL, 0); }catch(_){}
   const f=G.freeze; G.freeze=null; ring.classList.remove('moving');
-  const frac = f.winMs>0 ? f.stillMs/f.winMs : 1;      // fraction of the scoring window held STILL
-  const credit = freezeCredit(frac);
-  const pts=Math.round(f.def.pts*credit);
-  const name=ASSETS.clips[f.def.clip].name, secs=(f.stillMs/1000).toFixed(1), pct=Math.round(frac*100);
-  const froze = frac>=FULL_AT, moved = frac<MOVE_AT;
-  if(Live.on && froze) Live.post({type:'nova-fact', move:'freeze', name, pct});   // FIX 2026-08-02: TRUTH-GATE food — lets her praise the REAL freeze + releases the consent gate
-  Nova.melt();                                        // back to current-tier avatar (live) / melt clip (fallback)
-  // MELT REACTION — brain writes fresh words from REAL stillness data
-  const beatBest = G.best && froze && f.stillMs > G.best.heldMs + 1;
-  const ctx = 'They held the '+name+' freeze STILL for '+pct+'% of the window'
-    + (froze?' — a PERFECT freeze!':moved?' — they kept MOVING, not a real freeze.':' — wobbly, half-still.')
-    + (G.best ? ' Best still-freeze so far: '+G.best.name+'.' : '')
-    + (beatBest ? ' NEW BEST — say so with extra excitement.' : '');
-  Nova.cue(moved ? 'Playfully tell them to FREEZE and hold still next time — warm, never say wrong/bad. Five words max.'
-                 : 'Explode with delight in five words or fewer about their freeze. Never say no/wrong/missed.',
-           ctx, moved?'moved':'boom');
-  G.rounds.push({name, frac, pts});
-  try { if(window.NovaRec) NovaRec.event('freeze', {name, frac, pct, pts, still:froze}); } catch(_){}
+  const {v, frac} = freezeVerdict(f);                  // FINALFREEZE Part 4: HELD / ALMOST / MISSED / NOSHOW
+  const name=ASSETS.clips[f.def.clip].name, pct=Math.round(frac*100);
+  /* Part 6 scoring: HELD banks pts (×2 at streak≥3), ALMOST banks 40% and resets streak,
+     MISSED/NOSHOW bank nothing. A broken freeze is never "wrong" — just no points. */
+  let pts=0;
+  if(v==='HELD'){ G.streak++; G.maxStreak=Math.max(G.maxStreak,G.streak); pts=Math.round(f.def.pts*(G.streak>=3?2:1)); }
+  else if(v==='ALMOST'){ pts=Math.round(f.def.pts*0.4); G.streak=0; }
+  else if(v==='MISSED'){ G.streak=0; }
+  // instant filler (<0.5s of the verdict) while the LLM composes the specific line
+  sting(v==='HELD'?'filler_held':v==='ALMOST'?'filler_almost':v==='MISSED'?'filler_missed':null);
+  // TRUTH-GATE food: her praise rides ONLY this verdict fact
+  if(Live.on && v!=='NOSHOW') Live.post({type:'nova-fact', move:'freeze', name, verdict:v, pct, streak:G.streak});
+  Nova.melt();
+  // session memory: last 3 moments injected into her next line
+  G.moments.unshift(name+':'+v); G.moments=G.moments.slice(0,3);
+  const beatBest = G.best && v==='HELD' && f.stillMs > G.best.heldMs + 1;
+  const ctx = 'Freeze verdict: '+v+' ('+pct+'% still). Streak '+G.streak+', best '+G.maxStreak+'.'
+    + (G.moments.length>1 ? ' Recent: '+G.moments.join(', ')+'.' : '')
+    + (beatBest ? ' NEW BEST — extra excitement.' : '');
+  Nova.cue(
+    v==='HELD'   ? 'Explode with joy, 4-6 words, about THIS '+name+' freeze — specific, never generic.'
+    : v==='ALMOST'? 'Warm "SO close!", 4-6 words. A broken freeze is never wrong.'
+    : v==='MISSED'? 'Playful "next one is YOURS!", 4-6 words. Never wrong/bad.'
+    : 'Warm — invite them back on camera, 4-6 words.',
+    ctx, v==='HELD'?'boom':'moved');
+  G.rounds.push({name, verdict:v, frac, pts});
+  try { if(window.NovaRec) NovaRec.event('freeze', {name, verdict:v, frac, pct, pts, streak:G.streak}); } catch(_){}
   if(!G.best || f.stillMs>G.best.heldMs) G.best={name, heldMs:f.stillMs, frac};   // best = stillest freeze
   G.diff = frac>0.85 ? 'hard' : frac<0.5 ? 'easy' : 'normal';                     // ADAPT the next round
   FX.frostOff(); FX.badgeOff(); ring.classList.remove('show');
-  if(pts>0){ FX.shatter(); G.addScore(pts); FX.fly('+'+pts); $('stamp'+f.idx).classList.add('got'); G.stamps.push(f.idx); }
-  else { FX.fly('MOVED!'); }                            // danced through it → no points, no stamp
-  const lines= froze ? ['PERFECT STATUE! 🌟','FROZEN SOLID! ❄️','ICE LEGEND! 💎']
-             : !moved ? ['Almost! Tiny wiggle ✨','So close to stone! 🧊']
-                      : ['You moved! Freeze next time ❄️','Keep dancing… then FREEZE! 💃'];
+  if(pts>0){ FX.shatter(); G.addScore(pts); FX.fly('+'+pts+(G.streak>=3?' ×2!':'')); $('stamp'+f.idx).classList.add('got'); G.stamps.push(f.idx); }
+  else { FX.fly(v==='NOSHOW'?'…?':'MOVED!'); }          // broke/absent → no points, no stamp
+  const lines= v==='HELD'   ? ['PERFECT STATUE! 🌟','FROZEN SOLID! ❄️','ICE LEGEND! 💎']
+             : v==='ALMOST' ? ['Almost! Tiny wiggle ✨','So close to stone! 🧊']
+             : v==='MISSED' ? ['You moved! Freeze next time ❄️','Keep dancing… then FREEZE! 💃']
+                            : ['Come back on camera! 📸'];
   FX.cue(lines[Math.floor(Math.random()*lines.length)]);
 }
 
