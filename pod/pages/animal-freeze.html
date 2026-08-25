@@ -862,10 +862,26 @@ const Live = {
 const TIER_AVATAR = { calm:'nova_idlegroove_v2', sub:'nova_idlegroove_v2', active:'nova_idlegroove_v2', hype:'nova_idlegroove_v2' };
 let CUR_TIER = 'calm';
 
+/* ═══ MONOLOGUE FIX — freeze port (2026-08-25) ═══════════════════════════════
+   ONE global SPEAK-GATE, same law as Up Groove / Wave: every spoken line passes
+   _canSpeak(). If she spoke (or was asked to) < SPEAK_GATE_MS ago, the line is
+   DROPPED — never queued — so two cues can never stack into the
+   conversation_already_has_active_response storm (gamy.md error 1). Round-critical
+   lines (whisper call, verdict praise, goodbye) pass priority=true: they always
+   speak and reset the gate. The gate also listens to her ACTUAL words (nova-said
+   messages), so a backup nudge never lands on top of a line she is still saying. */
+let _lastSpokeT = -1e9;
+const SPEAK_GATE_MS = 7000;   // ms — at most one spoken line per 7s
+function _canSpeak(priority){
+  const n = (window.performance&&performance.now)?performance.now():Date.now();
+  if(!priority && n - _lastSpokeT < SPEAK_GATE_MS) return false;
+  _lastSpokeT = n; return true;
+}
+
 /* ═══ Nova facade — the game calls these; they route live-avatar vs clip-bank ═══ */
 const Nova = {
-  say(text){ NovaSay.log(text); if(Live.on) Live.say(text); },      // exact line (rarely needed now)
-  cue(intent, ctx, pool){ if(Live.on) Live.cue(intent, ctx); else NovaSay.log(Fallback.pick(pool)); }, // live=she writes it; clips=varied local text
+  say(text, priority){ if(!_canSpeak(!!priority)) return; NovaSay.log(text); if(Live.on) Live.say(text); },      // exact line (rarely needed now)
+  cue(intent, ctx, pool, priority){ if(!_canSpeak(!!priority)) return; if(Live.on) Live.cue(intent, ctx); else NovaSay.log(Fallback.pick(pool)); }, // live=she writes it; clips=varied local text
   setTier(t2){ if(!TIER_AVATAR[t2] || CUR_TIER===t2) return; CUR_TIER=t2;   // ENERGY LADDER
     try{ console.log('[TIER] →', t2); }catch(_){}
     if(Live.on){ if(!G.freeze) Live.setAvatar(TIER_AVATAR[t2]); }           // mid-hold: applies at melt
@@ -929,6 +945,7 @@ window.addEventListener('message', (e)=>{
     if(Ready.active && /\b(yes+|yeah|yep|ya|ready|ok|okay|okey|sure|go|start|now|i'?m ready|let'?s go)\b/i.test(text)) Ready.hit();  // "yes" → start the music
   } else if(/nova|assistant|bot|agent|say|reply/.test(type)){
     try{ if(window.__SYNCLOG) window.__SYNCLOG.push({ev:'nova-said', songT:(typeof Music!=='undefined'&&Music.t)?Music.t():0, wall:performance.now(), text:text.slice(0,40)}); }catch(_){}
+    try{ _lastSpokeT = performance.now(); }catch(_){}   // SPEAK-GATE hears her real words too
     NovaSay.log(text);
     try { if(window.NovaRec) NovaRec.transcript('nova', text); } catch(_){}
   }
@@ -1183,10 +1200,10 @@ function tick(){
   if(!G.freeze){
     DANCE_CUES.forEach((c,i)=>{ if(t>=c.at && !G.fired.c.has(i)){ G.fired.c.add(i); FX.cue(c.text); }});
     tickTier(t);                                   // ENERGY LADDER: she escalates with the game
-    // READY? beat — she asks and reacts to the kid's real answer (her live session hears them)
-    if(t>=20 && !G.fired.k.has('ready')){ G.fired.k.add('ready');
-      Nova.cue('Playfully ask the child if they are READY to freeze. If they answer, react to their exact energy; if quiet, stay warm and carry on.',
-               'The freeze rounds are coming soon.', 'ready'); }
+    /* STALE READY CHIT-CHAT — REMOVED (2026-08-25, gamy.md error 2). The t>=20 "are you
+       READY to freeze?" beat was leftover pre-game chatter from the old engine: the intro
+       already asks it, the ready-gate already settled it, and mid-song it collided with
+       the round whispers. The first whisper is now her first in-game line. */
     // FAKE-OUTS — rounds 3+ only, max 2, never the final round
     FAKES.forEach((fk,i)=>{ if(t>=fk.at && !G.fired.k.has('fake'+i) && G.fakes<2){ G.fired.k.add('fake'+i); G.fakes++;
       Nova.cue('Do a playful FAKE-OUT: build suspense like a freeze is coming, then suddenly burst out to keep DANCING — no freeze this time.',
@@ -1231,11 +1248,11 @@ function tick(){
           if(window.__SYNCLOG) window.__SYNCLOG.push({ev:'gesture-sent',round:i,songT:Music.t(),wall:performance.now()});
         }catch(_){} }, Math.max(0,(CD_AT - GESTURE_LEAD - now)*1000));
 
-        /* 5. PREP LINE — one SHORT sentence so it fits inside the 2s window. Fire and
-              forget: her speech never blocks the timeline. */
+        /* 5. PREP LINE — REMOVED (2026-08-25, gamy.md error 1). It fired ~0.85s before the
+           whisper cue below — two OpenAI speech requests inside one second, every round =
+           the conversation_already_has_active_response storm. The whisper IS the round call
+           now; the beeps carry the T-2 count-in. SYNCLOG still marks the moment. */
         setTimeout(()=>{ try{
-          Nova.cue('Say ONE very short line, four words or fewer, telling them to get ready to freeze like a '+nm+'.',
-                   'Freeze in 2 seconds. Keep it under four words.', 'warn');
           if(window.__SYNCLOG) window.__SYNCLOG.push({ev:'speech-cue-sent',round:i,songT:Music.t(),wall:performance.now()});
         }catch(_){} }, Math.max(0,(CD_AT - VOICE_LEAD - now)*1000));
 
@@ -1246,7 +1263,7 @@ function tick(){
         const nm=ASSETS.clips[f.clip].name;
         Nova.cue('Whisper a short suspenseful warning that a '+nm+' freeze is coming. '+
                  (G.diff==='hard'?'Make it fast and snappy.':G.diff==='easy'?'Give a gentle, clear heads-up.':''),
-                 'Difficulty '+G.diff+', round '+(i+1)+' of '+FREEZES.length+'.', G.diff==='hard'?'warnHard':'warn');
+                 'Difficulty '+G.diff+', round '+(i+1)+' of '+FREEZES.length+'.', G.diff==='hard'?'warnHard':'warn', true);   // priority: the round call always speaks
         FX.cue(f.final?'shhh… the BIG one!':'shhh… '+nm+' time…',true,1600); }
       if(t>=f.at && !G.fired.f.has(i)){ G.fired.f.add(i); startFreeze(f,i); }
     });
@@ -1325,7 +1342,7 @@ function endFreeze(){
     : v==='ALMOST'? 'Warm "SO close!", 4-6 words. A broken freeze is never wrong.'
     : v==='MISSED'? 'Playful "next one is YOURS!", 4-6 words. Never wrong/bad.'
     : 'Warm — invite them back on camera, 4-6 words.',
-    ctx, v==='HELD'?'boom':'moved');
+    ctx, v==='HELD'?'boom':'moved', true);   // priority: the verdict praise always speaks
   G.rounds.push({name, verdict:v, frac, pts});
   try { if(window.NovaRec) NovaRec.event('freeze', {name, verdict:v, frac, pct, pts, streak:G.streak}); } catch(_){}
   if(!G.best || f.stillMs>G.best.heldMs) G.best={name, heldMs:f.stillMs, frac};   // best = stillest freeze
@@ -1360,7 +1377,9 @@ let _cueN=0;
 function cueReady(){ if(!Ready.active || _cueN>=1) return; _cueN++;
   /* V2 2026-08-07: the greet already explained the whole game in one line. This is only a
      nudge if the kid went quiet — verbatim, short, zero LLM drift. */
-  if(Live.on) Live.say('Say YES when you are ready!');
+  /* SPEAK-GATE (2026-08-25): the nudge is a true BACKUP now — if she said anything
+     (intro included) in the last 7s, it drops instead of landing on top of her. */
+  if(Live.on && _canSpeak(false)) Live.say('Say YES when you are ready!');
 }
 async function runReadyGate(){
   /* FIX 2026-08-05 — "she is not talking before the music".
@@ -1505,7 +1524,7 @@ function endGame(){
   $('end-screen').style.display='flex';
   try { if(window.NovaRec) NovaRec.end(statsRec); } catch(_){}
   const byCtx = (G.best?'Their best freeze was the '+G.best.name+' at '+secs+'s. ':'');
-  Nova.cue('Say a warm goodbye, celebrate their best freeze by name, and invite them to play again. Keep it short.', byCtx, 'bye');
+  Nova.cue('Say a warm goodbye, celebrate their best freeze by name, and invite them to play again. Keep it short.', byCtx, 'bye', true);   // priority: the goodbye always speaks
 }
 </script>
 <script>
