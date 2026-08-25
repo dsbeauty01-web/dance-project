@@ -215,21 +215,33 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
   opacity:0;transform:translateY(8px);transition:opacity .25s,transform .25s;pointer-events:none}
 #kid-bubble.show{opacity:1;transform:translateY(0)}
 
-/* ═══ FINALFREEZE Part 7 (2026-08-23, REVISED 2026-08-25) — usercam PIP + Nova takes the stage ═══
-   The fullscreen-COVER experiment is DEAD (it crop-broke the July-28 LAW-FRAME-FULL verified
-   framing). Restored: Nova keeps her ORIGINAL matched-aspect framing (base #nova-stage:
-   aspect-ratio:1076/1924 + object-fit:contain + object-position:50% 50% = full figure head-to-
-   feet, zero crop, zero black, room fills the side margins). We ONLY make the stage full-bleed
-   and turn the kid cam into a mirrored 22vw PIP bottom-right; #nova-stage itself is UNTOUCHED so
-   the verified framing wins. */
-#stage{ inset:0 !important; display:block !important; padding:0 !important; }
-#nova-panel{ position:absolute !important; inset:0 !important; border:0 !important; border-radius:0 !important; }
-#cam-panel{ position:absolute !important; z-index:6; right:14px; bottom:14px;
-            width:22vw; max-width:200px; height:auto !important; aspect-ratio:3/4;
-            border-width:2px; border-radius:14px; box-shadow:0 6px 22px rgba(0,0,0,.5); }
-@media(max-width:820px){
-  #stage{ grid-template-columns:none !important; grid-template-rows:none !important; }
-  #cam-panel{ width:30vw; }
+/* ═══ FINALFREEZE-V2 Part 1 (2026-08-25) — 60/40 layout + ambient room-stretch ═══
+   Nova 60vw LEFT: her REAL figure keeps LAW-FRAME-FULL (base #nova-stage: matched aspect
+   1076/1924 + object-fit:contain + object-position 50% 50% = full figure, zero crop), sitting
+   OVER a blurred/stretched self-copy (#nova-ambient) that fills her 60vw with her own room —
+   no empty margins. Kid 40vw RIGHT, big, mirrored cover. The fullscreen-cover experiment stays
+   dead; #nova-stage framing is UNTOUCHED (just z-indexed above the ambient). */
+#stage{ inset:0 !important; display:flex !important; padding:0 !important; background:#f4d9ea !important; }
+#nova-panel{ position:relative !important; width:60vw !important; height:100vh !important; inset:auto !important;
+             overflow:hidden !important; border:0 !important; border-radius:0 !important; }
+#cam-panel{ position:relative !important; width:40vw !important; height:100vh !important;
+             inset:auto !important; right:auto !important; bottom:auto !important; max-width:none !important;
+             aspect-ratio:auto !important; overflow:hidden !important; border:0 !important;
+             border-radius:0 !important; box-shadow:none !important; }
+#cam{ object-fit:cover !important; transform:scaleX(-1) !important; }   /* kid BIG, mirrored */
+#nova-ambient{ position:absolute; left:50%; top:50%; height:120vh; width:auto;
+               transform:translate(-50%,-50%) scaleX(2.2); filter:blur(28px) saturate(1.15);
+               opacity:.9; z-index:0; pointer-events:none; }
+#nova-stage{ z-index:1 !important; }                                     /* real figure over the ambient */
+/* state badge (Watching / Listening / Talking / FREEZE!) */
+#nova-badge{ position:absolute; left:12px; bottom:12px; z-index:3; background:rgba(0,0,0,.55);
+             color:#fff; padding:4px 12px; border-radius:999px; font-size:13px; font-weight:600;
+             font-family:Fredoka,system-ui,sans-serif; letter-spacing:.3px; }
+#nova-badge.freeze{ background:rgba(120,200,255,.92); color:#04263b; }
+@media(max-width:820px){                                                /* portrait: stack 60/40 */
+  #stage{ flex-direction:column !important; grid-template-columns:none !important; grid-template-rows:none !important; }
+  #nova-panel{ width:100vw !important; height:60vh !important; }
+  #cam-panel{ width:100vw !important; height:40vh !important; }
 }
 </style>
 </head>
@@ -532,6 +544,13 @@ const Live = {
     v.style.cssText='width:100%;height:100%;object-fit:contain;object-position:50% 50%;background:transparent';
     f.appendChild(v);
     novaStage.appendChild(f); this.frame=f; this.video=v;
+    /* FINALFREEZE-V2 Part 1: a blurred/stretched SELF-COPY behind her (same LiveKit track,
+       attached twice) fills her 60vw room — plus the state badge. */
+    try{ const amb=document.createElement('video'); amb.id='nova-ambient';
+         amb.autoplay=true; amb.muted=true; amb.playsInline=true;
+         novaPanel.insertBefore(amb, novaPanel.firstChild); this.ambient=amb; }catch(_){}
+    try{ if(!document.getElementById('nova-badge')){ const nb=document.createElement('div');
+         nb.id='nova-badge'; nb.textContent='Watching'; novaPanel.appendChild(nb); } }catch(_){}
     this._connect();                                    // LiveKit + brain ws + mic — all same-origin
     /* CHAT INPUT (founder ask 2026-08-09): noisy rooms make voice flaky — a small
        always-available typed path to her. Sends the brain the same {"type":"text"}
@@ -597,11 +616,14 @@ const Live = {
       this.room=room;
       room.on(LK.RoomEvent.TrackSubscribed,(track,pub,p)=>{
         if(p.identity!=='nova-avatar')return;
-        if(track.kind==='video'){ track.attach(self.video); }
+        if(track.kind==='video'){ track.attach(self.video);
+          if(self.ambient){ try{ track.attach(self.ambient); }catch(_){} }   // V2: same stream -> ambient room-stretch
+        }
         if(track.kind==='audio'){
           const a=track.attach();
           a.autoplay=true; a.muted=false; a.playsInline=true;
           document.body.appendChild(a);
+          self.herAudio=a; try{ wireTalkMode(a); }catch(_){}   // V2 Part 2: talk-mode body switch + duck rides HER audio
           let ok=false;
           const tryPlay=()=>a.play().then(()=>{ ok=true;
               const b=document.getElementById('unmute-btn'); if(b) b.remove();
@@ -851,6 +873,28 @@ const Nova = {
   freeze(clipKey){ if(Live.on) Live.setAvatar('gest_'+clipKey); else Clips.freeze(clipKey); },
   melt(){ if(Live.on) Live.setAvatar(TIER_AVATAR[CUR_TIER]||'nova_idle'); else Clips.melt(); },  // return to CURRENT tier, never calm
 };
+
+/* ═══ FINALFREEZE-V2 Part 1/2 — state badge + TALK-MODE body switch ═══
+   MuseTalk lips track cleanly on a CALM body but smear on the fast groove. So: while she is
+   TALKING she wears the subtle 'nova_idle' body (clean lips); when silent she grooves on
+   'nova_idlegroove_v2'. Debounced 2.5s so rapid replies don't ping-pong. Never switches during a
+   freeze hold (frozen). ?voiceover=1 disables switching (voice over the groove). */
+const VOICEOVER = Q.get('voiceover') === '1';
+const BODY_TALK = 'nova_idle';
+function novaBadge(state){ const nb=document.getElementById('nova-badge'); if(!nb) return;
+  nb.textContent = state; nb.classList.toggle('freeze', state==='FREEZE!'); }
+let _talkTimer=null;
+function wireTalkMode(a){
+  a.addEventListener('playing', ()=>{ novaBadge('Talking'); try{ Music.duck(DUCK_VOL,150); }catch(_){}
+    clearTimeout(_talkTimer);
+    if(!VOICEOVER && !G.freeze && Live.on) Live.setAvatar(BODY_TALK); });          // calm body = clean lips
+  const settle=()=>{ novaBadge('Watching'); try{ Music.duck(MUSIC_VOL,300); }catch(_){}
+    clearTimeout(_talkTimer);
+    _talkTimer=setTimeout(()=>{ if(!VOICEOVER && !G.freeze && Live.on)                // 2.5s debounce: no ping-pong
+      Live.setAvatar(TIER_AVATAR[CUR_TIER]||'nova_idlegroove_v2'); }, 2500); };
+  a.addEventListener('ended', settle);
+  a.addEventListener('pause', settle);
+}
 
 /* ═══ incoming from the avatar iframe: kid's words + Nova's words → speech log,
    and voice-stop ("stop") → same pause path as the button ═══ */
@@ -1207,17 +1251,20 @@ function tick(){
       if(t>=f.at && !G.fired.f.has(i)){ G.fired.f.add(i); startFreeze(f,i); }
     });
   } else {
+    /* V2 (2026-08-25): the hold now runs on the WALL clock — the music is PAUSED during a
+       freeze, so Music.t() (song clock) is frozen and can't time the hold or the scoring. */
     const f=G.freeze;
-    const now=t;
-    const dt=(now-f.lastT)*1000; f.lastT=now;
-    if((now - f.def.at) >= FREEZE_GRACE){              // past the reaction grace → the scoring window
+    const wnow=performance.now();
+    const held=(wnow - f.wallStart)/1000;              // wall seconds since the cut
+    const dt=wnow - f.lastWall; f.lastWall=wnow;
+    if(held >= FREEZE_GRACE){                          // past the reaction grace → the scoring window
       f.winMs += dt;
-      const still = !Pose.ok || Pose.still;            // no tracking → full credit (soft)
+      const still = !Pose.ok || Pose.still;            // no tracking → full credit (soft); Pose.still = motion<0.045 (verified detector)
       if(still) f.stillMs += dt; else f.moved = true;
       ring.classList.toggle('moving', Pose.ok && !still);   // live RED tint while moving
     }
-    ring.style.setProperty('--p', Math.min(100, (now - f.def.at)/f.hold*100));   // ring = time held
-    if(now >= f.def.at + f.hold) endFreeze();          // SILENT during the whole hold (effHold = adaptive)
+    ring.style.setProperty('--p', Math.min(100, held/f.hold*100));   // ring = time held
+    if(held >= f.hold) endFreeze();                    // SILENT during the whole hold; wall-clock end
   }
 
   if(t>=SONG_END) return endGame();
@@ -1227,13 +1274,15 @@ function tick(){
 function startFreeze(def,idx){
   const c=ASSETS.clips[def.clip];
   const hold=effHold(def);                            // adaptive: harder = longer hold
-  G.freeze={def, idx, hold, stillMs:0, winMs:0, moved:false, present:true, lastT:Music.t()};  // present: NOSHOW hook (defaults true; empty-room detection = TODO, needs a Pose body signal)
+  G.freeze={def, idx, hold, stillMs:0, winMs:0, moved:false, present:true,
+            wallStart:performance.now(), lastWall:performance.now()};  // V2: hold timed on the WALL clock (music paused). present = NOSHOW hook (defaults true; empty-room detection = TODO)
   /* V2.1 MUSIC SYNC (2026-08-07): the full stop fires HERE, on the same song-clock tick
      that starts the freeze — music and freeze can never disagree, first round included.
      FINALFREEZE (2026-08-23) THE SNAP: hard-mute the SAME FRAME (0ms, no fade) so the freeze
      lands like a cut, not a dip. Release restores instantly in endFreeze. */
-  try{ Music.duck(0.0, 0); }catch(_){}
-  sting('sting_freeze');                               // FINALFREEZE Part 5: her "FREEZE!" — SAME FRAME as the cut, zero latency (hard-mute + sting only, no vinyl)
+  try{ Music.el.pause(); }catch(_){}                   // V2 THE SNAP: hard PAUSE (song clock stops, resumes from HERE on release) — matches the GATE-1-approved audio preview, not a mute-over
+  novaBadge('FREEZE!');
+  sting('sting_freeze');                               // her "FREEZE!" — SAME FRAME as the cut, zero latency (pause + sting only, no vinyl/horn)
   Nova.freeze(def.clip);                              // she BECOMES the animal (live) / clip (fallback)
   // FX ride HER pose: live swap takes ~350ms to show — frost/badge fire WITH her, never before
   const fxDelay = (typeof Live!=='undefined' && Live.on) ? 350 : 0;
@@ -1247,9 +1296,10 @@ function startFreeze(def,idx){
 function endFreeze(){
   /* V2.1 MUSIC SYNC (2026-08-07): the resume was MISSING — music ducked to 0 at T-0 and
      nothing ever brought it back (only the pause button did).
-     FINALFREEZE (2026-08-23) THE SLAM-BACK: groove returns the SAME FRAME (0ms) at the base
-     0.6 level — the release is as tight as the freeze. */
-  try{ Music.duck(MUSIC_VOL, 0); }catch(_){}
+     V2 THE SLAM-BACK: RESUME playback the same frame (Music.el.play from the pause point) and
+     restore gain to 0.6 (undo the T-2 anticipation dim) — the release is as tight as the cut. */
+  try{ Music.duck(MUSIC_VOL, 0); Music.el.play().catch(()=>{}); }catch(_){}
+  novaBadge('Watching');
   const f=G.freeze; G.freeze=null; ring.classList.remove('moving');
   const {v, frac} = freezeVerdict(f);                  // FINALFREEZE Part 4: HELD / ALMOST / MISSED / NOSHOW
   const name=ASSETS.clips[f.def.clip].name, pct=Math.round(frac*100);
