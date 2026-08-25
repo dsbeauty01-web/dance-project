@@ -215,14 +215,15 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
   opacity:0;transform:translateY(8px);transition:opacity .25s,transform .25s;pointer-events:none}
 #kid-bubble.show{opacity:1;transform:translateY(0)}
 
-/* ═══ FINALFREEZE Part 5 (2026-08-23) — Nova FULLSCREEN cover + usercam PIP bottom-right ═══
-   Overrides the old 2-panel grid. Nova fills the screen (cover, full-figure => face ~≤30% at
-   top). The kid cam becomes a small MIRRORED picture-in-picture pinned bottom-right. */
+/* ═══ FINALFREEZE Part 7 (2026-08-23, REVISED 2026-08-25) — usercam PIP + Nova takes the stage ═══
+   The fullscreen-COVER experiment is DEAD (it crop-broke the July-28 LAW-FRAME-FULL verified
+   framing). Restored: Nova keeps her ORIGINAL matched-aspect framing (base #nova-stage:
+   aspect-ratio:1076/1924 + object-fit:contain + object-position:50% 50% = full figure head-to-
+   feet, zero crop, zero black, room fills the side margins). We ONLY make the stage full-bleed
+   and turn the kid cam into a mirrored 22vw PIP bottom-right; #nova-stage itself is UNTOUCHED so
+   the verified framing wins. */
 #stage{ inset:0 !important; display:block !important; padding:0 !important; }
 #nova-panel{ position:absolute !important; inset:0 !important; border:0 !important; border-radius:0 !important; }
-#nova-stage{ position:absolute !important; inset:0 !important; width:100% !important; height:100% !important;
-             aspect-ratio:auto !important; max-width:none !important; margin:0 !important; }
-#nova-stage video, #nova-stage #saray-frame video, #nova-stage iframe{ object-fit:cover !important; }
 #cam-panel{ position:absolute !important; z-index:6; right:14px; bottom:14px;
             width:22vw; max-width:200px; height:auto !important; aspect-ratio:3/4;
             border-width:2px; border-radius:14px; box-shadow:0 6px 22px rgba(0,0,0,.5); }
@@ -354,6 +355,9 @@ const ASSETS = {
    ONE double-stab fake-out mid-song (60.8 & 64.1 = ~3s pair) · holds 2.5s (final 4.5s star) ·
    every at: snapped to the 129.2-BPM beat grid · points escalate.
    /* ORIGIN: schedule authored + approved via tools/make_freeze_preview.py (GATE-1). */
+   /* DEVIATION FROM ORIGINS: games/ORIGINS.md records the original freeze as 300 pts/freeze with
+      4000ms holds. This array uses ESCALATING points (100→1100) and 2.5s holds (final 4.5s) —
+      a deliberate founder decision (GATE-1 approved by ear), kept over the ORIGINS values. */
 const FREEZES = [
   { at: 11.146, hold: 2.5, clip:'frog',     pts: 100 },
   { at: 23.220, hold: 2.5, clip:'bear',     pts: 150 },
