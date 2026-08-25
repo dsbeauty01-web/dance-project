@@ -224,11 +224,11 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
              aspect-ratio:auto !important; max-width:none !important; margin:0 !important; }
 #nova-stage video, #nova-stage #saray-frame video, #nova-stage iframe{ object-fit:cover !important; }
 #cam-panel{ position:absolute !important; z-index:6; right:14px; bottom:14px;
-            width:30vw; max-width:220px; height:auto !important; aspect-ratio:3/4;
+            width:22vw; max-width:200px; height:auto !important; aspect-ratio:3/4;
             border-width:2px; border-radius:14px; box-shadow:0 6px 22px rgba(0,0,0,.5); }
 @media(max-width:820px){
   #stage{ grid-template-columns:none !important; grid-template-rows:none !important; }
-  #cam-panel{ width:36vw; }
+  #cam-panel{ width:30vw; }
 }
 </style>
 </head>
@@ -1100,6 +1100,26 @@ function freezeCredit(frac){
   if(frac >= FULL_AT) return 1;
   if(frac <= MOVE_AT) return 0;
   return 0.3 + (frac - MOVE_AT) * (0.7 / (FULL_AT - MOVE_AT));   // 0.40→0.3 … 0.75→1.0
+}
+/* ═══ FINALFREEZE Part 5 — HER VOICE at the cut + instant verdict fillers ═══
+   Preloaded so they fire zero-latency: the sting lands the SAME FRAME as the hard-mute; the
+   filler lands <0.5s after the verdict while the LLM composes the specific line. Files are
+   generated in her voice, served from audio/ (github.io via <base>). Missing = silent. */
+const STING = {};
+['sting_freeze','filler_held','filler_almost','filler_missed'].forEach(n=>{
+  try{ const a=new Audio('audio/'+n+'.mp3'); a.preload='auto'; STING[n]=a; }catch(_){}
+});
+function sting(name){ const a=STING[name]; if(!a) return; try{ a.currentTime=0; a.play().catch(()=>{}); }catch(_){} }
+/* ═══ FINALFREEZE Part 4 — VERDICT on the WORKING detector ═══
+   frac = fraction of the hold the kid held STILL (Pose.still = motion<0.045, the shipped/approved
+   detector). ORIGIN stillness = wrist-variance<0.012·scale² (nova-joined L4663) — reported, not
+   swapped, so the locked game keeps working. HELD/ALMOST/MISSED/NOSHOW → her praise rides this. */
+function freezeVerdict(f){
+  const frac = f.winMs>0 ? f.stillMs/f.winMs : 1;
+  if(f.present===false) return {v:'NOSHOW', frac};        // empty room / lost kid → no scoring
+  if(frac >= FULL_AT)   return {v:'HELD',   frac};
+  if(frac >= MOVE_AT)   return {v:'ALMOST', frac};         // broke partway — never "wrong"
+  return {v:'MISSED', frac};
 }
 /* FINALFREEZE (2026-08-23): the fake-out is now BUILT INTO the array as the double-stab
    (indices 5 & 6, ~3s apart). The old voice fake-outs are disabled — they'd collide with the
