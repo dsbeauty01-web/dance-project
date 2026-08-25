@@ -1107,7 +1107,8 @@ function freezeCredit(frac){
    generated in her voice, served from audio/ (github.io via <base>). Missing = silent. */
 const STING = {};
 ['sting_freeze','filler_held','filler_almost','filler_missed'].forEach(n=>{
-  try{ const a=new Audio('audio/'+n+'.mp3'); a.preload='auto'; STING[n]=a; }catch(_){}
+  // location.origin (the pod, served at /audio/) — NOT a base-href path (that hits github.io).
+  try{ const a=new Audio(location.origin+'/audio/'+n+'.mp3'); a.preload='auto'; STING[n]=a; }catch(_){}
 });
 function sting(name){ const a=STING[name]; if(!a) return; try{ a.currentTime=0; a.play().catch(()=>{}); }catch(_){} }
 /* ═══ FINALFREEZE Part 4 — VERDICT on the WORKING detector ═══

@@ -1181,6 +1181,13 @@ try:
     app.router.add_static("/gallery", _GALLERY_DIR, show_index=True)
 except Exception as _e:
     print(f"[GALLERY] static route not mounted: {_e}", flush=True)
+# FINALFREEZE Part 5: serve her voice stings (sting_freeze/filler_*) at /audio/ (pod origin).
+_AUDIO_DIR = "/workspace/audio"
+try:
+    _os.makedirs(_AUDIO_DIR, exist_ok=True)
+    app.router.add_static("/audio", _AUDIO_DIR, show_index=False)
+except Exception as _e:
+    print(f"[AUDIO] static route not mounted: {_e}", flush=True)
 
 if __name__ == "__main__":
     web.run_app(app, host="0.0.0.0", port=8765, print=None)
