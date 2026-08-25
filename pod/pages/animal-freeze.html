@@ -1421,7 +1421,10 @@ function endGame(){
   const best = G.best
     ? 'that ' + G.best.name.toUpperCase() + ' freeze — ' + secs + ' seconds of pure STATUE!'
     : null;
-  const statsRec = { score:G.score, rounds:G.rounds, best:G.best, stamps:G.stamps.length, diff:G.diff };
+  // FINALFREEZE Part 6: real numbers for her celebration ("«held» freezes, «score» points!")
+  const heldCount = G.rounds.filter(r=>r.verdict==='HELD').length;
+  const statsRec = { score:G.score, rounds:G.rounds, best:G.best, stamps:G.stamps.length, diff:G.diff,
+                     held:heldCount, maxStreak:G.maxStreak };
   const speak = function(text){ try { Nova.say(text); } catch(e){} };   // live SARAY voice, or silent text
   try {
     if (window.NovaEnding) {
