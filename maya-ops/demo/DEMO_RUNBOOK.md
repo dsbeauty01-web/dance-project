@@ -4,9 +4,15 @@ Goal: the client watches a real viewer question become Maya's spoken, correct, b
 answer on a live stream, and a buyer comment become a row in a Google Sheet — live, in
 front of them. All answers below are drawn ONLY from `maya-server/catalog.json` (truth law).
 
+**New reality (2026-08-25):** the demo runs in **English**. Maya has **two baked looks that
+switch live**: `maya_rapa` (dance/hype body — the open and the between-product beats) and
+`maya_serum` (selling body, holding the bottle — the product pitch + Q&A). The avatar switch
+is the on-screen "scene change." *(Hebrew Q&A tables are kept below as the alt-language reference.)*
+
 ## PRE-FLIGHT (15 min before, in order)
 1. `node maya-ops/deploy/maya-up.mjs` → wait for the beep + all-green `/test` board.
-2. `node maya-ops/deploy/maya-golive.mjs` → activates the pipeline, prints the OBS command.
+2. `node maya-ops/deploy/maya-golive.mjs <pod> rapa` → activates the pipeline, sets the opening
+   avatar to `maya_rapa` (dance body), prints the OBS command. (Swap to `serum` at pitch time.)
 3. Desktop: `obs64.exe --startstreaming --minimize-to-tray` (scene "Maya" is preconfigured).
 4. `node maya-ops/deploy/sales-driver.mjs <pod>` → she begins presenting products.
 5. YouTube Studio → confirm the stream is live + **Unlisted** for the demo.
@@ -15,13 +21,29 @@ front of them. All answers below are drawn ONLY from `maya-server/catalog.json` 
 7. Backup plan armed: if any hop dies, the operator relays chat by voice via the director SAY.
 
 ## THE LIVE MOMENT (the sequence the client sees)
-1. Maya presents a product (driver-fed sales script).
+0. **Open on `maya_rapa`** — she dances, drops a hype line (few words). Sets the vibe.
+1. **Switch to `maya_serum`** (`/set_avatar?id=maya_serum`, or `sales-driver` triggers it) — she's now
+   holding the bottle and presents the product (driver-fed **English** sales script).
 2. A planted viewer posts a question (from a second account / phone).
-3. The filter passes it; the seller brain answers **by name, in Hebrew, catalog facts only**.
+3. The filter passes it; the seller brain answers **by name, in English, catalog facts only**.
 4. A "buy" comment lands → a lead row appears in the sheet → point at it on screen.
-5. Repeat once per product, then close.
+5. **Switch back to `maya_rapa`** for a between-product dance beat, then to the next product.
+6. Repeat once per product, then close.
 
-## PLANTED Q&A — Serum (סרום ויטמין C, ₪149, was ₪249)
+*The rapa⇄serum switch mid-stream is the live "scene change" — verify it's clean in the pod session.*
+
+## PLANTED Q&A — Serum · ENGLISH (Concentrated Vitamin C Serum, ₪149, was ₪249) — avatar `maya_serum`
+| Viewer asks (English) | Expected answer (catalog-true) |
+|---|---|
+| How much vitamin C? | "…20% pure vitamin C." |
+| What size is it? | "…30 ml bottle." |
+| What's the price? | "…₪149 on the live, regular ₪249." |
+| How do I use it? | "…one drop every morning, before your moisturizer." |
+| How long is shipping? | "…3–5 business days, free over ₪200." |
+| Does it cure wrinkles? *(trap)* | Brain BLOCKS the medical claim → "that's one for a human host" + operator alert. |
+| I want it! *(lead)* | Lead row lands in the sheet (name + product). |
+
+## PLANTED Q&A — Serum · HEBREW alt (סרום ויטמין C, ₪149, was ₪249)
 | Viewer asks (Hebrew) | Expected answer (catalog-true) |
 |---|---|
 | כמה ויטמין C יש? | "…20% ויטמין C טהור." |
@@ -47,7 +69,8 @@ front of them. All answers below are drawn ONLY from `maya-server/catalog.json` 
 - Stage drops (409s) → reload the OBS browser source; her session lives in the page.
 - Stream drops → OBS auto-reconnects; if not, restart streaming (key is saved).
 - She states something off → hit KILL (BRB card), fix catalog, `/catalog/reload`, resume.
-- Wrong face/size → engine loaded a nova_* bake; restart engine with --avatar_id maya_idle.
+- Wrong face/size → engine loaded a nova_* bake; re-switch `/set_avatar?id=maya_rapa` (or `maya_serum`),
+  or restart engine with `--avatar_id maya_idle` as the safe fallback.
 
 ## AFTER
 - `/session/end` writes the report; show the client the numbers.
