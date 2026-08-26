@@ -249,6 +249,12 @@ async def relay(request):
     game_mode = {"persona": ""}    # last [GAME-MODE] persona, so nova-pick can re-assert it
     picked    = {"game": ""}       # which game is already active (retries must be idempotent)
     hold = {"on": False}           # PAUSE: True = drop mic + cancel speech until released
+    # SPEAK-GATE (FREEZE-STRUCTURAL-FIX 2026-08-26): output-only mute for the GAME phase.
+    # Unlike hold, the MIC KEEPS FLOWING (she hears, transcribes and remembers everything
+    # for the ending) — but no response may synthesize and no assistant audio may reach
+    # the engine. The engine lip-syncs whatever audio it is fed, on whatever body is live
+    # — including the fast dance bakes — so mid-game her voice must never get there.
+    sgate = {"on": False}
     LIGHT_WAIT = 10.0
     LIGHT_INVITE_RE = _re.compile(r"(magic light|on your shoulder|little shrug|shoulder.*(shrug|wiggle|lift))", _re.I)
     # #5 STATUE SILENCE: from her freeze call-out until a hold-fact/move-on, her mouth is CLOSED
@@ -393,6 +399,12 @@ async def relay(request):
                     if hold["on"] and t in ("text", "nova-say", "nova-cue", "nova-fact"):
                         print("[HOLD] dropped while paused:", t, flush=True)
                         continue
+                    # SPEAK-GATE: speech-REQUESTING messages are dropped during the game phase;
+                    # nova-fact deliberately NOT in this list — it is recorded below as silent
+                    # ending-fuel (its response.create is separately blocked at response.created).
+                    if sgate["on"] and t in ("nova-say", "nova-cue"):
+                        print("[SPEAK-GATE] dropped speech request:", t, flush=True)
+                        continue
                     if t == "audio":
                         mic_stats["n"] += 1; mic_stats["bytes"] += len(m.get("data", ""))
                         if mic_stats["n"] % 50 == 0:
@@ -503,7 +515,10 @@ async def relay(request):
                             if "freeze" in move or "held" in move or "still" in move:  # #3/#5 real hold arrived
                                 if statue["active"]: statue["active"] = False; print("[STATUE] hold-fact -> celebrate", flush=True)
                             print("[FACT] detected move:", move, flush=True)
-                            if not speaking["resp_active"] and not speaking["v"]:
+                            if sgate["on"]:
+                                # SPEAK-GATE: fact recorded as silent ending-fuel — no praise line now
+                                print("[SPEAK-GATE] fact stored silently (no praise):", move, flush=True)
+                            elif not speaking["resp_active"] and not speaking["v"]:
                                 await oai.send_json({"type": "response.create", "response": {
                                     "instructions": (
                                         "[FACT — this really happened] The kid just did a real move: " + move
@@ -536,6 +551,17 @@ async def relay(request):
                             turn["kid_ts"] = time.time(); turn["retried"] = False
                             print("[HOLD] OFF — listening again", flush=True)
                         await ws_client.send_json({"type": "status", "state": "paused" if on else "listening"})
+                    elif t == "speak_gate":
+                        # SPEAK-GATE (2026-08-26): the game phase's structural mute. on=True from
+                        # music-start, off at the final verdict. Mic stays open the whole time.
+                        sgate["on"] = bool(m.get("on"))
+                        if sgate["on"] and (speaking["resp_active"] or speaking["v"]):
+                            try: await oai.send_json({"type": "response.cancel"})
+                            except Exception: pass
+                        print("[SPEAK-GATE]", "ON — no synthesis, no engine audio (game phase)" if sgate["on"]
+                              else "OFF — voice open (intro/ending)", flush=True)
+                        try: await ws_client.send_json({"type": "ack", "of": "speak_gate"})
+                        except Exception: pass
                     elif t == "nova-pick":
                         # Readiness beat for the chosen game (a real tap = real kid input).
                         game = (m.get("game") or "").strip().lower().replace("-", " ")
@@ -617,8 +643,9 @@ async def relay(request):
                         audio_buf.extend(base64.b64decode(e["delta"]))
                     elif et in ("response.output_audio.done", "response.audio.done"):
                         # release the whole buffered line to the engine ONLY if the gate cleared it.
-                        if resp["killed"]:
-                            print("[TRUTH-GATE] pre-synth blocked (never synthesized):", resp["buf"][:60], flush=True)
+                        if resp["killed"] or sgate["on"]:
+                            if sgate["on"]: print("[SPEAK-GATE] engine feed blocked (audio.done)", flush=True)
+                            else: print("[TRUTH-GATE] pre-synth blocked (never synthesized):", resp["buf"][:60], flush=True)
                             audio_buf.clear()
                         elif audio_buf:
                             if not speaking.get("spoke"):
@@ -664,7 +691,7 @@ async def relay(request):
                                     "Say EXACTLY this one short line, nothing else, no move-talk: " + hy}})
                             except Exception as _e:
                                 print("[TRUTH-GATE] cancel err", _e, flush=True)
-                        elif (not resp["killed"]) and audio_buf and resp["buf"].rstrip()[-1:] in ".!?":
+                        elif (not resp["killed"]) and (not sgate["on"]) and audio_buf and resp["buf"].rstrip()[-1:] in ".!?":
                             # SENTENCE-LEVEL PRE-SYNTH RELEASE (low latency): this full sentence just
                             # passed the gate clean -> release ITS buffered audio now (don't wait for the
                             # whole line). A later fabricated sentence is still caught + dropped before synth.
@@ -711,7 +738,13 @@ async def relay(request):
                     elif et == "conversation.item.input_audio_transcription.delta":
                         await ws_client.send_json({"type": "you_delta", "delta": e.get("delta", "")})
                     elif et == "response.created":
-                        if speaking["resp_active"]:
+                        if sgate["on"]:
+                            # SPEAK-GATE: NOTHING synthesizes during the game phase — VAD
+                            # auto-replies, late cues, fact praise: all cancelled at birth.
+                            print("[SPEAK-GATE] cancelled response (game phase)", flush=True)
+                            try: await oai.send_json({"type": "response.cancel"})
+                            except Exception: pass
+                        elif speaking["resp_active"]:
                             # single-active-response guard: a second response overlapping
                             # the first would give two voices — cancel the newcomer.
                             print("GATE: suppressed overlapping response", flush=True)
