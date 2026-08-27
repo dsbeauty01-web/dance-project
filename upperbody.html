@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Upper Body! · Nova</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%83%3C/text%3E%3C/svg%3E">
+<!-- ONE-ORIGIN LAUNCHER (2026-08-27). The game itself is served BY THE POD at
+     <pod>/upperbody so that Nova's video, voice, mic and brain socket are all
+     first-party (the Freeze pattern). This page is just the stable public front
+     door: it reads the current pod from pod-registry.js and sends the player there. -->
+<script src="pod-registry.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif;text-align:center;padding:24px;
+    background:radial-gradient(ellipse 70% 60% at 50% 38%,#4a1276,#1a0139 75%);color:#fff}
+  h1{font-size:clamp(30px,6vw,52px)}
+  p{color:rgba(255,255,255,.75);font-size:clamp(14px,2.2vw,17px);max-width:460px;line-height:1.5}
+  #play{font-size:clamp(20px,3.4vw,28px);font-weight:700;color:#fff;border:0;cursor:pointer;
+    padding:20px 54px;border-radius:999px;background:linear-gradient(135deg,#12b981,#0d9668);
+    box-shadow:0 10px 40px rgba(18,185,129,.45);animation:breathe 2.4s ease-in-out infinite}
+  @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+  #err{display:none;color:#ffb4c0;font-size:15px;max-width:420px;line-height:1.5}
+  footer{position:fixed;bottom:14px;font-size:12px;color:rgba(255,255,255,.45)}
+  footer a{color:rgba(255,255,255,.6)}
+</style>
+</head>
+<body>
+<h1>💃 Upper Body! 💃</h1>
+<p>Hands on your waist — your torso dances back, right, left, front… and your hips stay <b>FROZEN!</b><br>
+Nova dances it with you and can see you. A grown-up should read the policies and press play.</p>
+<button id="play">▶&nbsp; Let's Play!</button>
+<div id="err">Nova's play-room is napping right now — please try again in a minute! 💤</div>
+<footer><a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="parents.html">For Parents</a></footer>
+<script>
+(function(){
+  var Q = new URLSearchParams(location.search);
+  /* pod resolution: ?saray= override → pod-registry ACTIVE. saray() returns the
+     8765 base URL (https://<pod>-8765.proxy.runpod.net/); the game lives at /upperbody. */
+  var base = Q.get('saray') || (window.NOVA_PODS && window.NOVA_PODS.saray()) || null;
+  var game = base ? base.replace(/\/+$/,'') + '/upperbody' : null;
+  document.getElementById('play').addEventListener('click', function(){
+    if(!game){ document.getElementById('err').style.display='block'; return; }
+    location.href = game;         // one hop, same tab — the game is first-party on the pod
+  });
+})();
+</script>
+</body>
+</html>

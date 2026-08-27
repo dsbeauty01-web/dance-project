@@ -20,6 +20,19 @@ MODEL = os.environ.get("RT_MODEL", "gpt-realtime-2")
 VOICE = os.environ.get("NOVA_VOICE", "marin")   # 2026-08-08 founder decision: marin IS Nova's voice (shimmer too adult, coral weird). ?voice= still overrides per-session for A/B
 RT_URL = f"wss://api.openai.com/v1/realtime?model={MODEL}"
 
+# ── CERTIFIED PROMPTS loaded from pod/prompts/ (Guardian, 2026-08-21) ──────────
+# Single source of truth for game/freeze rules. Pages fetch the same files via
+# /prompts/<name>. Deploy syncs /workspace/prompts/ alongside rt_lk.py.
+import os as _os
+_PROMPT_DIR = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "prompts")
+def load_prompt(name: str) -> str:
+    try:
+        with open(_os.path.join(_PROMPT_DIR, name + ".txt"), "r", encoding="utf-8") as _f:
+            return _f.read().strip()
+    except Exception as _e:
+        print(f"[PROMPT-MISSING] {name}: {_e}", flush=True)   # loud, never silent
+        return ""
+
 PROMPT = (
 
     # RESTORED from DIRECTOR-GOLD (novapython/nova_director.py, git-tagged golden) — the proven
@@ -130,8 +143,11 @@ def viewer_token():
     return (api.AccessToken(LK_KEY, LK_SEC).with_identity(ident).with_name("You")
             .with_grants(g).to_jwt())
 
-FREEZE_RULES = (
-    "\n\nFREEZE MODE - overrides the whole intro script above: you are ONLY the "
+# Certified freeze rules now live in pod/prompts/freeze-rules.txt (Guardian 2026-08-21).
+# FALLBACK below is the exact prior inline text — used ONLY if the file failed to sync,
+# so a deploy glitch can never mute the WORKING freeze game.
+_FREEZE_RULES_FALLBACK = (
+    "FREEZE MODE - overrides the whole intro script above: you are ONLY the "
     "freeze-game VOICE. NEVER ask their name. NEVER mention other games, magic "
     "lights, or shoulders.\n"
     "BREVITY LAW (freeze mode only - the commercial intro keeps its natural pace): "
@@ -145,6 +161,7 @@ FREEZE_RULES = (
     "stop. During a freeze hold: TOTAL silence. "
     "Voice style: bright, bouncy, quick - big-sister hype, never slow, never calm-narrator. "
     "Every line under 8 words.")
+FREEZE_RULES = "\n\n" + (load_prompt("freeze-rules") or _FREEZE_RULES_FALLBACK)
 
 def session_update(freeze=False, voice=None):
     return {"type": "session.update", "session": {
@@ -251,10 +268,14 @@ async def relay(request):
     hold = {"on": False}           # PAUSE: True = drop mic + cancel speech until released
     # SPEAK-GATE (FREEZE-STRUCTURAL-FIX 2026-08-26): output-only mute for the GAME phase.
     # Unlike hold, the MIC KEEPS FLOWING (she hears, transcribes and remembers everything
-    # for the ending) — but no response may synthesize and no assistant audio may reach
+    # for the ending) - but no response may synthesize and no assistant audio may reach
     # the engine. The engine lip-syncs whatever audio it is fed, on whatever body is live
-    # — including the fast dance bakes — so mid-game her voice must never get there.
-    sgate = {"on": False}
+    # - including the fast dance bakes - so mid-game her voice must never get there.
+    # AIR MODE (FREEZE-SIMPLIFIED 2026-08-27): mode 'hard' = no generations at all
+    # (freeze holds). mode 'air' = the page may buy exactly ONE line per gap (credit,
+    # granted by its nova-say/cue) and her audio is sent to the BROWSER as voice_air -
+    # the engine NEVER gets it, so lips never move on the groove body.
+    sgate = {"on": False, "mode": "hard", "credit": 0}
     LIGHT_WAIT = 10.0
     LIGHT_INVITE_RE = _re.compile(r"(magic light|on your shoulder|little shrug|shoulder.*(shrug|wiggle|lift))", _re.I)
     # #5 STATUE SILENCE: from her freeze call-out until a hold-fact/move-on, her mouth is CLOSED
@@ -314,11 +335,26 @@ async def relay(request):
                 # A page declares its game with ?intro=<game> on the iframe URL.
                 _intro = (request.query.get("intro") or "").strip().lower()
                 if _intro == "freeze":
+                    # READY.md Part 1 (2026-08-27): the intro is a REAL conversation now —
+                    # greet + name ask, echo the TRANSCRIPT name, answer anything, then
+                    # steer to the freeze rule and the ready question. No example names.
                     _greet = ("Say EXACTLY these words and NOTHING more: "
-                              "Hi, I'm Nova! Music plays - you dance. Animal pops - you FREEZE! Ready? "
-                              "Then STOP and wait for their answer. Do NOT ask "
-                              "their name. Do NOT offer any other game. Do NOT start counting "
-                              "down or start the music - the game begins only when they say yes.")
+                              "Hi! I'm Nova - FREEZE time! What's your name? "
+                              "Then STOP and wait. When they answer, echo the exact name you heard "
+                              "warmly and keep a real short conversation - answer anything they say. "
+                              "After their name or two exchanges, explain: when the music plays DANCE - "
+                              "when it stops... FREEZE! Then ask: Ready? Do NOT offer any other game. "
+                              "Do NOT start counting down - the game begins only when they say yes.")
+                elif _intro == "upperbody":
+                    # UPPER BODY (2026-08-27): page-owned game, Freeze pattern. Short
+                    # conversational greet; after it the PAGE drives every beat.
+                    _greet = ("Speak ONLY the words inside the quotes, then stop: "
+                              "\"Hi! I'm Nova - UPPER BODY time! Hands on your waist - your torso "
+                              "dances, your hips FREEZE! What's your name?\" "
+                              "Everything after this is silent direction, never spoken: wait for "
+                              "their answer, echo the exact name you heard warmly, then ask if "
+                              "they are ready to dance with you. Never offer another game. Never "
+                              "start the dance - the game begins when they press ready.")
                 else:
                     _greet = ("Greet the kid in ONE short excited line and say exactly: "
                               "Hi! I'm Nova, your magical AI dance teacher! What's your name?")
@@ -334,8 +370,11 @@ async def relay(request):
                     # V2.1 2026-08-07: in freeze mode the PAGE owns every beat — the brain
                     # never self-fires (the V2 greet says "you FREEZE!" which tripped the
                     # statue regex on her OWN words -> whisper + invented praise pre-yes).
-                    if _freeze_mode:
-                        continue
+                    if _freeze_mode and sgate["on"]:
+                        continue     # game phase: the page owns every beat, brain never self-fires
+                    if _intro == "upperbody":
+                        continue     # UPPER BODY 2026-08-27: page owns EVERY beat (statue/light
+                                     # intro machinery must never fire inside this game)
                     if speaking["v"] or speaking["resp_active"]:
                         continue
                     # #5 STATUE: ONE quick whisper fills the hold naturally (~1.5s in), then silence.
@@ -400,11 +439,15 @@ async def relay(request):
                         print("[HOLD] dropped while paused:", t, flush=True)
                         continue
                     # SPEAK-GATE: speech-REQUESTING messages are dropped during the game phase;
-                    # nova-fact deliberately NOT in this list — it is recorded below as silent
+                    # nova-fact deliberately NOT in this list - it is recorded below as silent
                     # ending-fuel (its response.create is separately blocked at response.created).
                     if sgate["on"] and t in ("nova-say", "nova-cue"):
-                        print("[SPEAK-GATE] dropped speech request:", t, flush=True)
-                        continue
+                        if sgate["mode"] == "air":
+                            sgate["credit"] = 1     # this gap's ONE allowed line
+                            print("[SPEAK-GATE] air line credited:", t, flush=True)
+                        else:
+                            print("[SPEAK-GATE] dropped speech request:", t, flush=True)
+                            continue
                     if t == "audio":
                         mic_stats["n"] += 1; mic_stats["bytes"] += len(m.get("data", ""))
                         if mic_stats["n"] % 50 == 0:
@@ -451,7 +494,7 @@ async def relay(request):
                         _recent_yes = (time.time() - consent["yes_ts"] <= 8.0) or (time.time() - facts["last_ts"] <= 8.0)
                         if _is_adv and not _recent_yes:
                             print("[CONSENT] waiting — advance cue held (no yes/move):", intent[:50], flush=True)
-                        elif intent and (time.time() - inlock.get("last_cue_resp", 0.0) < 8.0):
+                        elif intent and (time.time() - inlock.get("last_cue_resp", 0.0) < 8.0) and not (sgate["on"] and sgate["mode"] == "air"):
                             # CUE RATE-LIMIT (founder 2026-08-11: page cues machine-gunned her
                             # into 3-line chains): one spoken cue per 6s; extras become
                             # silent context so she still KNOWS, she just doesn't SPEAK.
@@ -492,6 +535,11 @@ async def relay(request):
                             # so the persona never applied and she kept answering out of context.
                             await oai.send_json({"type": "session.update", "session": {
                                 "type": "realtime", "instructions": instr}})
+                            try:
+                                import hashlib as _hl
+                                print("[PERSONA-HASH]", _hl.sha1(instr.encode()).hexdigest()[:12],
+                                      "len", len(instr), flush=True)
+                            except Exception: pass
                             # ACK 2026-08-05 — the page retries until it hears this.
                             try: await ws_client.send_json({"type": "ack", "of": "persona"})
                             except Exception: pass
@@ -516,7 +564,7 @@ async def relay(request):
                                 if statue["active"]: statue["active"] = False; print("[STATUE] hold-fact -> celebrate", flush=True)
                             print("[FACT] detected move:", move, flush=True)
                             if sgate["on"]:
-                                # SPEAK-GATE: fact recorded as silent ending-fuel — no praise line now
+                                # SPEAK-GATE: fact recorded as silent ending-fuel - no praise line now
                                 print("[SPEAK-GATE] fact stored silently (no praise):", move, flush=True)
                             elif not speaking["resp_active"] and not speaking["v"]:
                                 await oai.send_json({"type": "response.create", "response": {
@@ -555,11 +603,13 @@ async def relay(request):
                         # SPEAK-GATE (2026-08-26): the game phase's structural mute. on=True from
                         # music-start, off at the final verdict. Mic stays open the whole time.
                         sgate["on"] = bool(m.get("on"))
-                        if sgate["on"] and (speaking["resp_active"] or speaking["v"]):
+                        sgate["mode"] = (m.get("mode") or "hard") if sgate["on"] else "hard"
+                        sgate["credit"] = 0
+                        if sgate["on"] and sgate["mode"] == "hard" and (speaking["resp_active"] or speaking["v"]):
                             try: await oai.send_json({"type": "response.cancel"})
                             except Exception: pass
-                        print("[SPEAK-GATE]", "ON — no synthesis, no engine audio (game phase)" if sgate["on"]
-                              else "OFF — voice open (intro/ending)", flush=True)
+                        print("[SPEAK-GATE]", ("ON (" + sgate["mode"] + ") - engine audio blocked") if sgate["on"]
+                              else "OFF - voice open (intro/ending)", flush=True)
                         try: await ws_client.send_json({"type": "ack", "of": "speak_gate"})
                         except Exception: pass
                     elif t == "nova-pick":
@@ -599,6 +649,10 @@ async def relay(request):
                             # "Ready?"; a second "show me a FREEZE" made the intro long and off-game.
                             # Demo gestures and every round-call belong to the PAGE now.
                             print("[PICK] freeze: silent mode-switch", flush=True)
+                        elif game == "upperbody":
+                            # 2026-08-27: mode switch ONLY — the greet already asked "Ready?";
+                            # the demo and every loop-call belong to the PAGE (Freeze pattern).
+                            print("[PICK] upperbody: silent mode-switch", flush=True)
                         elif game in ("wave", "up groove", "upgroove", "groove"):
                             await oai.send_json({"type": "response.create", "response": {
                                 "instructions": ("The kid picked " + game + ". In ONE short line ask them: "
@@ -643,10 +697,22 @@ async def relay(request):
                         audio_buf.extend(base64.b64decode(e["delta"]))
                     elif et in ("response.output_audio.done", "response.audio.done"):
                         # release the whole buffered line to the engine ONLY if the gate cleared it.
-                        if resp["killed"] or sgate["on"]:
-                            if sgate["on"]: print("[SPEAK-GATE] engine feed blocked (audio.done)", flush=True)
-                            else: print("[TRUTH-GATE] pre-synth blocked (never synthesized):", resp["buf"][:60], flush=True)
+                        if resp["killed"]:
+                            print("[TRUTH-GATE] pre-synth blocked (never synthesized):", resp["buf"][:60], flush=True)
                             audio_buf.clear()
+                        elif sgate["on"]:
+                            # AIR MODE: her line goes to the PAGE, never the engine (no lips)
+                            if sgate["mode"] == "air" and audio_buf:
+                                data = bytes(audio_buf); audio_buf.clear()
+                                try:
+                                    await ws_client.send_json({"type": "voice_air",
+                                        "data": base64.b64encode(data).decode()})
+                                    print("[SPEAK-GATE] air voice -> page:", len(data), "bytes", flush=True)
+                                except Exception as _e:
+                                    print("[SPEAK-GATE] air send err", _e, flush=True)
+                            else:
+                                audio_buf.clear()
+                                print("[SPEAK-GATE] engine feed blocked (audio.done)", flush=True)
                         elif audio_buf:
                             if not speaking.get("spoke"):
                                 speaking["spoke"] = True
@@ -704,6 +770,9 @@ async def relay(request):
                     elif et in ("response.output_audio_transcript.done", "response.audio_transcript.done"):
                         txt = e.get("transcript", "") or ""
                         await ws_client.send_json({"type": "nova_done", "text": txt})
+                        # [PERSONA-LEAK] watch (READY.md Part 6) - expected count: 0
+                        if _re.search(r"happy to help|assist you|how can i assist|as an ai", txt, _re.I):
+                            print("[PERSONA-LEAK]", txt[:80], flush=True)
                         try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"NOVA: "+txt+"\n")
                         except Exception: pass
                         # #6 DE-CAN: remember every line she said; flag exact repeats.
@@ -738,9 +807,10 @@ async def relay(request):
                     elif et == "conversation.item.input_audio_transcription.delta":
                         await ws_client.send_json({"type": "you_delta", "delta": e.get("delta", "")})
                     elif et == "response.created":
-                        if sgate["on"]:
-                            # SPEAK-GATE: NOTHING synthesizes during the game phase — VAD
-                            # auto-replies, late cues, fact praise: all cancelled at birth.
+                        _air_ok = sgate["on"] and sgate["mode"] == "air" and sgate["credit"] > 0
+                        if sgate["on"] and not _air_ok:
+                            # SPEAK-GATE: uncredited generations die at birth (VAD auto-replies,
+                            # late cues, fact praise). Air credit = the page's one line per gap.
                             print("[SPEAK-GATE] cancelled response (game phase)", flush=True)
                             try: await oai.send_json({"type": "response.cancel"})
                             except Exception: pass
@@ -757,6 +827,9 @@ async def relay(request):
                             try: await oai.send_json({"type": "response.cancel"})
                             except Exception: pass
                         else:
+                            if sgate["on"] and sgate["credit"] > 0:
+                                sgate["credit"] -= 1
+                                print("[SPEAK-GATE] air line generating (credit spent)", flush=True)
                             if statue["allow"]: statue["allow"] = False; print("[STATUE] whisper (allowed)", flush=True)
                             speaking["resp_active"] = True
                             speaking["v"] = True                 # gate CLOSED (mic discarded)
@@ -814,11 +887,16 @@ async def relay(request):
                             if YES_RE.search(ktxt):
                                 consent["yes_ts"] = time.time(); print("[CONSENT] real yes:", ktxt[:40], flush=True)
                             # ONE-SHOT GENERATION: this validated turn buys exactly one response.
-                            try:
-                                await oai.send_json({"type": "response.create"})
-                                print("[INPUT-LOCK] one-shot fired for turn", inlock["valid_turns"], flush=True)
-                            except Exception as _e:
-                                print("[INPUT-LOCK] fire err", _e, flush=True)
+                            # SPEAK-GATE: mid-game the kid's words are context only - no reply
+                            # (and no stealing the gap's air credit).
+                            if sgate["on"]:
+                                print("[SPEAK-GATE] kid turn stored, no reply (game phase)", flush=True)
+                            else:
+                                try:
+                                    await oai.send_json({"type": "response.create"})
+                                    print("[INPUT-LOCK] one-shot fired for turn", inlock["valid_turns"], flush=True)
+                                except Exception as _e:
+                                    print("[INPUT-LOCK] fire err", _e, flush=True)
                     elif et == "error":
                         await log("ERROR: " + str(e.get("error", {}).get("message", ""))[:120])
 
@@ -1160,6 +1238,23 @@ async def wave_page(request):
         return web.Response(status=503, text="wave page not deployed")
     return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
 
+async def upperbody_page(request):
+    # UPPER BODY ISOLATION game (2026-08-27), first-party from the pod (mirrors freeze_page).
+    try:
+        with open("/workspace/pages/upperbody.html", encoding="utf-8") as f: html = f.read()
+    except FileNotFoundError:
+        return web.Response(status=503, text="upperbody page not deployed")
+    return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
+
+async def prompt_file(request):
+    name = request.match_info["name"]
+    if not name.replace("-", "").isalnum():
+        return web.Response(status=400, text="bad name")
+    p = _os.path.join(_PROMPT_DIR, name + ".txt")
+    if not _os.path.isfile(p):
+        return web.Response(status=404, text="no such prompt")
+    return web.FileResponse(p)
+
 @web.middleware
 async def cors_mw(request, handler):
     if request.method == "OPTIONS":
@@ -1176,10 +1271,26 @@ app.router.add_get("/", index)
 app.router.add_get("/freeze", freeze_page)
 app.router.add_get("/wave", wave_page)
 app.router.add_get("/upgroove", upgroove_page)
+app.router.add_get("/upperbody", upperbody_page)
 app.router.add_get("/token", token)
 app.router.add_get("/health", health)
 app.router.add_get("/rt", relay)
 app.router.add_get("/set_avatar", set_avatar_proxy)
+app.router.add_get("/prompts/{name}", prompt_file)
+# Bake gallery (Guardian Part 3): serve the generated previews if present.
+_GALLERY_DIR = "/workspace/gallery"
+try:
+    _os.makedirs(_GALLERY_DIR, exist_ok=True)
+    app.router.add_static("/gallery", _GALLERY_DIR, show_index=True)
+except Exception as _e:
+    print(f"[GALLERY] static route not mounted: {_e}", flush=True)
+# FINALFREEZE Part 5: serve her voice stings (sting_freeze/filler_*) at /audio/ (pod origin).
+_AUDIO_DIR = "/workspace/audio"
+try:
+    _os.makedirs(_AUDIO_DIR, exist_ok=True)
+    app.router.add_static("/audio", _AUDIO_DIR, show_index=False)
+except Exception as _e:
+    print(f"[AUDIO] static route not mounted: {_e}", flush=True)
 
 if __name__ == "__main__":
     web.run_app(app, host="0.0.0.0", port=8765, print=None)

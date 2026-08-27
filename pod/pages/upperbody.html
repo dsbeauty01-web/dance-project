@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Upper Body! · Nova</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%83%3C/text%3E%3C/svg%3E">
+<!-- UPPER BODY ISOLATION (2026-08-27) — first-party pod game, Freeze pattern:
+     served BY THE POD at /upperbody, talks to /token /rt /set_avatar same-origin.
+     NO iframe. The 38s routine VIDEO is the game clock (__mp4Leads): the engine's
+     LiveKit avatar cycles frames ping-pong at its own fps and can never be a clock,
+     so the routine plays as a local <video> (with its own music) and her LIVE voice
+     coaches over it. The live-lips avatar (maya_rapa_full) takes the stage for the
+     greet and the ending, where sync doesn't matter.
+     STRUCTURE (founder 2026-08-27 + measured map UPPERBODY-STEP0-MAP.md):
+       0-7    arms out, torso side to side  — NO tracking (calibration)
+       7-13.5 hands on waist, keep sliding  — NO tracking (calibration)
+       14-31  THREE SLOW LOOPS  back → right → left → front  (sides measured
+              16.10/17.37 · 23.00/24.30 · 28.07/29.37; back/front interpolated)
+       31.3-34.8  FAST twice — sides only scored (R,L,R,L @ 31.90/32.50/33.27/34.33)
+       35.2   finish pose → 1s stillness check on the end pose
+     Sides are SCREEN-SPACE from the viewer's point of view (usercam is mirrored, so
+     the same sign convention applies to the kid — verified convention, spec'd law).
+     Front/back detection = shoulder-width ratio vs baseline (lean toward camera =
+     wider). Thresholds PROVISIONAL — tune with ?front= ?back= ?slide= ?hip= -->
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.umd.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#fff;
+    background:radial-gradient(ellipse 75% 65% at 50% 35%,#3d1066,#150128 78%)}
+  #stage{display:flex;height:100%;gap:10px;padding:10px}
+  /* ── LEFT 60%: Nova — either the LIVE avatar or the routine video ── */
+  #nova-panel{flex:0 0 60%;position:relative;border-radius:18px;overflow:hidden;
+    background:#0d0118;display:flex;align-items:center;justify-content:center}
+  #nova-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  #saray-frame{position:absolute;inset:0;opacity:0;transition:opacity .6s}
+  #saray-frame.ready{opacity:1}
+  #routine{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
+    background:#0d0118;opacity:0;transition:opacity .5s;pointer-events:none}
+  #routine.show{opacity:1}
+  #nova-tag{position:absolute;top:10px;left:12px;z-index:8;font-weight:700;font-size:15px;
+    background:rgba(0,0,0,.45);padding:6px 12px;border-radius:999px}
+  #status{position:absolute;bottom:10px;left:12px;z-index:8;font-size:13px;color:rgba(255,255,255,.75);
+    background:rgba(0,0,0,.4);padding:5px 10px;border-radius:999px}
+  #nova-say{position:absolute;bottom:44px;left:50%;transform:translateX(-50%);z-index:8;max-width:86%;
+    font-size:16px;font-weight:600;background:rgba(60,20,110,.85);padding:8px 16px;border-radius:14px;
+    opacity:0;transition:opacity .3s;pointer-events:none}
+  #nova-say.show{opacity:1}
+  #nova-wait{position:absolute;inset:0;z-index:7;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:10px;background:rgba(13,1,24,.92);transition:opacity .5s}
+  #nova-wait.gone{opacity:0;pointer-events:none}
+  #wait-title{font-size:clamp(22px,3.4vw,34px);font-weight:800}
+  #wait-sub{font-size:15px;color:rgba(255,255,255,.7)}
+  /* ── RIGHT 40%: the kid, mirrored + HUD ── */
+  #kid-panel{flex:1;position:relative;border-radius:18px;overflow:hidden;background:#0d0118}
+  #cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  #hud{position:absolute;inset:0;pointer-events:none;z-index:5}
+  #score-pill{position:absolute;top:10px;right:12px;font-weight:800;font-size:22px;
+    background:rgba(0,0,0,.5);padding:8px 16px;border-radius:999px}
+  #streak{position:absolute;top:52px;right:12px;font-weight:700;font-size:15px;color:#ffd24a;
+    opacity:0;transition:opacity .3s}
+  #streak.show{opacity:1}
+  #banner{position:absolute;top:14px;left:50%;transform:translateX(-50%);font-weight:800;
+    font-size:clamp(18px,2.6vw,26px);background:rgba(80,30,140,.9);padding:10px 22px;border-radius:16px;
+    opacity:0;transition:opacity .35s;white-space:nowrap}
+  #banner.show{opacity:1}
+  #arrow{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;
+    opacity:0;transition:opacity .25s,transform .25s}
+  #arrow.show{opacity:1}
+  #arrow .glyph{font-size:clamp(60px,10vw,110px);line-height:1;filter:drop-shadow(0 4px 18px rgba(0,0,0,.6))}
+  #arrow .word{font-size:clamp(20px,3vw,30px);font-weight:800;letter-spacing:2px;
+    text-shadow:0 2px 10px rgba(0,0,0,.8)}
+  #hit-flash{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:clamp(70px,12vw,130px);opacity:0;pointer-events:none}
+  #hit-flash.pop{animation:hitpop .55s ease-out}
+  @keyframes hitpop{0%{opacity:0;transform:scale(.5)}30%{opacity:1;transform:scale(1.15)}100%{opacity:0;transform:scale(1)}}
+  #hip-warn{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);font-weight:700;
+    font-size:17px;color:#ffb4c0;background:rgba(0,0,0,.55);padding:7px 14px;border-radius:12px;
+    opacity:0;transition:opacity .3s}
+  #hip-warn.show{opacity:1}
+  #kid-bubble{position:absolute;bottom:48px;left:12px;max-width:80%;font-size:14px;
+    background:rgba(20,40,90,.85);padding:7px 12px;border-radius:12px;opacity:0;transition:opacity .3s}
+  #kid-bubble.show{opacity:1}
+  /* ── controls + countdown ── */
+  #controls{position:fixed;top:14px;left:14px;z-index:60;display:flex;gap:8px}
+  #controls button{background:rgba(0,0,0,.5);color:#fff;border:1px solid rgba(255,255,255,.25);
+    border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:14px}
+  #ready-btn{position:fixed;left:50%;bottom:8%;transform:translateX(-50%);z-index:70;display:none;
+    font-size:clamp(20px,3.2vw,28px);font-weight:800;color:#fff;border:0;cursor:pointer;
+    padding:18px 50px;border-radius:999px;background:linear-gradient(135deg,#12b981,#0d9668);
+    box-shadow:0 10px 40px rgba(18,185,129,.45);animation:breathe 2.2s ease-in-out infinite}
+  #ready-btn.on{display:block}
+  @keyframes breathe{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.05)}}
+  #count{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;
+    font-size:clamp(90px,18vw,200px);font-weight:900;background:rgba(0,0,0,.35);pointer-events:none}
+  #count.on{display:flex}
+  #verdict{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);z-index:75;text-align:center;
+    opacity:0;transition:opacity .5s;pointer-events:none}
+  #verdict.show{opacity:1}
+  #verdict .big{font-size:clamp(40px,7vw,80px);font-weight:900;text-shadow:0 4px 22px rgba(0,0,0,.6)}
+  #verdict .sub{font-size:clamp(18px,2.6vw,26px);font-weight:700;color:#ffd24a}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="nova-panel">
+    <div id="nova-stage">
+      <div id="nova-static" style="font-size:80px">🌟</div>
+    </div>
+    <video id="routine" src="/gallery/upperbody-routine.mp4" playsinline preload="auto"></video>
+    <div id="nova-tag">🌟 Nova</div>
+    <div id="nova-say"></div>
+    <div id="status">connecting…</div>
+    <div id="nova-wait">
+      <div id="wait-title">👆 Tap to wake Nova!</div>
+      <div id="wait-sub">one tap and she says hi ✨</div>
+    </div>
+  </div>
+  <div id="kid-panel">
+    <video id="cam" autoplay playsinline muted></video>
+    <div id="hud">
+      <div id="score-pill">⭐ 0</div>
+      <div id="streak">🔥 streak ×2</div>
+      <div id="banner"></div>
+      <div id="arrow"><div class="glyph"></div><div class="word"></div></div>
+      <div id="hit-flash"></div>
+      <div id="hip-warn">🍑 hips frozen!</div>
+      <div id="kid-bubble"></div>
+    </div>
+  </div>
+</div>
+<div id="controls">
+  <button id="btn-pause">⏸ Pause</button>
+  <button id="btn-exit">✖ Exit</button>
+</div>
+<button id="ready-btn">💃 I'M READY!</button>
+<div id="count"></div>
+<div id="verdict"><div class="big"></div><div class="sub"></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const novaStage=$('nova-stage'), camEl=$('cam'), statusEl=$('status'),
+      routine=$('routine'), scoreEl=$('score-pill'), bannerEl=$('banner');
+const Q=new URLSearchParams(location.search);
+const SARAY_BASE=location.origin+'/';
+const LIVE_OFF=Q.get('nolive')==='1';
+
+/* ═══ THE MAP — measured (UPPERBODY-STEP0-MAP.md) + founder structure 2026-08-27.
+   Sides are viewer screen-space. B/F times are interpolated inside each loop
+   (the camera measurement is x-only and blind to back/front — those phases are
+   the "x-quiet zones" between the measured side slides). ═══ */
+const DEMO_END=13.5, FINISH_AT=35.2, POSE_AT=37.3, VIDEO_END=37.9;
+const LOOPS=[
+  {id:1,tempo:'slow',start:14.0,end:19.4,targets:[['B',14.9],['R',16.10],['L',17.37],['F',18.7]]},
+  {id:2,tempo:'slow',start:19.4,end:25.9,targets:[['B',21.8],['R',23.00],['L',24.30],['F',25.5]]},
+  {id:3,tempo:'slow',start:25.9,end:30.9,targets:[['B',27.0],['R',28.07],['L',29.37],['F',30.4]]},
+  {id:4,tempo:'fast',start:31.3,end:34.8,targets:[['R',31.90],['L',32.50],['R',33.27],['L',34.33]]},
+];
+/* hit windows: measured side times get tight-ish windows; interpolated B/F get wide ones */
+const WIN={slowSide:1.0, slowBF:1.3, fast:0.55};
+/* detector thresholds — PROVISIONAL for kids, URL-tunable */
+const T={
+  slide:parseFloat(Q.get('slide'))||0.09,   // norm-x deviation (her amp 0.125-0.176)
+  front:parseFloat(Q.get('front'))||1.09,   // shoulder-width ratio vs baseline
+  back:parseFloat(Q.get('back')) ||0.92,
+  hip:parseFloat(Q.get('hip'))   ||0.06,    // hips-still (map: consistent with her own dance)
+  conf:0.30,
+};
+
+/* ═══ HER BRAIN — [GAME-MODE] replaces the intro script (CORE_LAWS stays) ═══ */
+const UB_COACH=
+ "[GAME-MODE] "+
+ "You are Nova, dancing UPPER BODY ISOLATION right now — the only game where you coach WHILE you dance. "+
+ "THIS IS THE UPPER BODY GAME ONLY — no intro to run, no name to collect, no magic light, no other games. "+
+ "Never mention a light, a shoulder glow, or a choice of games. "+
+ "The move: hands on your waist, torso travels in a circle — BACK, RIGHT, LEFT, FRONT — while the hips "+
+ "stay FROZEN. That isolation is the magic trick and you LOVE it. "+
+ "The flow you are dancing: first a demo (arms out, torso side to side, then hands come to the waist — "+
+ "teach in tiny lines like 'arms out... slide... hips FROZEN'). Then THREE SLOW loops of back-right-left-"+
+ "front — call directions softly as you move, s-t-r-e-t-c-h. Then the FAST part, twice — energy doubles, "+
+ "mostly sounds ('Woo! Keep up!'), no sentences. Then the FINISH POSE: total silence from you until I "+
+ "give you the verdict. "+
+ "Talk in tiny bursts, 6 words max. Praise ONLY what I tell you the camera saw — specific, like 'hips "+
+ "didn't move, PERFECT!' — never invent a move you weren't told about. If no move came, cheer effort. "+
+ "NEVER repeat a line you've already said this game. Never say wrong, no, miss, fail, or oops — every "+
+ "child always wins. You are 110% more excited than the kid, always. English only.";
+
+/* ═══ Speech log ═══ */
+const KidBubble={el:$('kid-bubble'),_t:null,
+  show(t){if(!t)return;this.el.textContent=t;this.el.classList.add('show');
+    clearTimeout(this._t);this._t=setTimeout(()=>this.el.classList.remove('show'),3600);}};
+const NovaSay={el:$('nova-say'),_t:null,
+  log(t){if(!t)return;this.el.textContent=t;this.el.classList.add('show');
+    clearTimeout(this._t);this._t=setTimeout(()=>this.el.classList.remove('show'),5200);}};
+
+/* ═══ LIVE Nova — the proven one-origin connection (freeze page pattern) ═══ */
+const Live={
+  frame:null,on:false,dead:false,alive:false,video:null,audioEl:null,ws:null,room:null,
+  init(){
+    if(LIVE_OFF){this.fail('forced offline (?nolive=1)');return;}
+    const attempt=(n)=>{
+      if(this.dead)return;
+      const ctl=('AbortController' in window)?new AbortController():null;
+      const to=setTimeout(()=>{try{ctl&&ctl.abort();}catch(_){}},8000);
+      fetch(SARAY_BASE,{mode:'no-cors',cache:'no-store',signal:ctl?ctl.signal:undefined})
+        .then(()=>{if(this.dead)return;clearTimeout(to);this.mount();})
+        .catch(()=>{clearTimeout(to);
+          if(n<3)attempt(n+1);
+          else this.fail('pod not reachable after 3 probes');});
+    };
+    attempt(1);
+  },
+  mount(){
+    if(this.on||this.dead)return;this.on=true;
+    const f=document.createElement('div');f.id='saray-frame';
+    const v=document.createElement('video');
+    v.id='nova-live-video';v.autoplay=true;v.playsInline=true;
+    v.style.cssText='width:100%;height:100%;object-fit:contain;object-position:50% 50%;background:transparent';
+    f.appendChild(v);novaStage.appendChild(f);this.frame=f;this.video=v;
+    this._connect();
+    $('nova-static').style.display='none';
+    statusEl.textContent='waking Nova…';
+    const gateMs=(parseInt(Q.get('gate'),10)||45)*1000;
+    this._aliveTimer=setTimeout(()=>{
+      if(!this.alive)this.fail('no session after '+(gateMs/1000)+'s');},gateMs);
+  },
+  async _connect(){
+    const self=this;
+    try{
+      const LK=window.LivekitClient||window.LiveKitClient;
+      const r=await(await fetch(SARAY_BASE+'token')).json();
+      const room=new LK.Room({adaptiveStream:false,dynacast:false});
+      this.room=room;
+      room.on(LK.RoomEvent.TrackSubscribed,(track,pub,p)=>{
+        if(p.identity!=='nova-avatar')return;
+        if(track.kind==='video'){track.attach(self.video);}
+        if(track.kind==='audio'){
+          const a=track.attach();
+          a.autoplay=true;a.muted=false;a.playsInline=true;
+          document.body.appendChild(a);self.audioEl=a;
+          let ok=false;
+          const tryPlay=()=>a.play().then(()=>{ok=true;
+              const b=$('unmute-btn');if(b)b.remove();
+            }).catch(e=>console.warn('[AUDIO] blocked:',e.name));
+          tryPlay();
+          ['pointerdown','touchstart','keydown'].forEach(ev=>document.addEventListener(ev,tryPlay,{passive:true}));
+          setTimeout(()=>{if(ok||$('unmute-btn'))return;
+            const b=document.createElement('button');b.id='unmute-btn';
+            b.textContent='🔊  TAP TO HEAR NOVA';
+            b.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:99999;'+
+              'font:700 22px system-ui,sans-serif;color:#1a1013;background:#ffd24a;border:0;'+
+              'padding:20px 34px;border-radius:999px;box-shadow:0 10px 40px rgba(0,0,0,.5);cursor:pointer';
+            b.onclick=()=>{a.muted=false;a.volume=1.0;tryPlay();setTimeout(()=>{if(ok&&b.parentNode)b.remove();},400);};
+            document.body.appendChild(b);
+          },1500);
+        }
+      });
+      let rc=2000;
+      const resub=async()=>{try{const r2=await(await fetch(SARAY_BASE+'token')).json();
+          await room.connect(r2.url,r2.token);rc=2000;}
+        catch(_){rc=Math.min(30000,Math.round(rc*1.8));setTimeout(resub,rc);}};
+      room.on(LK.RoomEvent.Disconnected,()=>setTimeout(resub,rc));
+      await room.connect(r.url,r.token);
+      console.log('[ONE-ORIGIN] LiveKit joined',r.room);
+    }catch(e){console.warn('[ONE-ORIGIN] room err',e&&e.message);}
+    this._connectWS();
+    try{await this._startMic();}catch(e){console.warn('[ONE-ORIGIN] MIC BLOCKED',e&&e.message);}
+    this.setAvatar('maya_rapa_full');          // the routine body — live lips for greet + ending
+  },
+  _wsConns:0,_wsDelay:1500,_micGated:false,
+  _connectWS(){
+    const self=this;
+    const qs=new URLSearchParams(location.search);
+    qs.set('intro','upperbody');                 // her FIRST line is the upper-body greet
+    if(this._wsConns++)qs.set('rc','1');
+    const ws=new WebSocket(SARAY_BASE.replace('http','ws')+'rt?'+qs.toString());
+    this.ws=ws;
+    ws.onopen=()=>{self._wsDelay=1500;Intro.arm();};
+    ws.onclose=()=>{self._wsDelay=Math.min(30000,Math.round((self._wsDelay||1500)*1.8));
+      setTimeout(()=>{if(!self.dead)self._connectWS();},self._wsDelay);};
+    ws.onmessage=(ev)=>{const m=JSON.parse(ev.data);
+      if(m.type==='ack'){Intro.ack(m.of);return;}
+      if(m.type==='you_text'){KidBubble.show(m.text||'');return;}
+      if(m.type==='nova_done'){self.alive=true;self.reveal('she spoke');NovaSay.log(m.text||'');return;}
+      if(m.type==='status'){
+        if(m.speaking===true){self._micGated=true;Music.duck(true);}
+        else if(m.speaking===false){self._micGated=false;Music.duck(false);}
+      }
+    };
+  },
+  async _startMic(){
+    const self=this;
+    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+    const ctx=new AudioContext();if(ctx.state==='suspended')await ctx.resume();
+    const src=ctx.createMediaStreamSource(stream);
+    const proc=ctx.createScriptProcessor(4096,1,1);
+    const ratio=ctx.sampleRate/24000;
+    proc.onaudioprocess=(e)=>{
+      if(self._micGated)return;
+      const ch=e.inputBuffer.getChannelData(0);
+      const n=Math.floor(ch.length/ratio),b=new Int16Array(n);
+      for(let i=0;i<n;i++){let s=ch[Math.floor(i*ratio)];if(s>1)s=1;if(s<-1)s=-1;b[i]=s*0x7fff;}
+      const u=new Uint8Array(b.buffer);let x='';for(let i=0;i<u.length;i++)x+=String.fromCharCode(u[i]);
+      if(self.ws&&self.ws.readyState===1)self.ws.send(JSON.stringify({type:'audio',data:btoa(x)}));
+    };
+    src.connect(proc);proc.connect(ctx.destination);
+  },
+  fail(reason){
+    if(this.dead)return;this.dead=true;this.on=false;
+    try{clearTimeout(this._aliveTimer);}catch(_){}
+    const w=$('nova-wait');if(w)w.classList.add('gone');
+    $('nova-static').style.display='none';
+    $('nova-tag').textContent='🌟 Nova · 💤 voice napping';
+    statusEl.textContent='playing without her voice';
+    console.warn('[LIVE] off — silent mode:',reason);
+    Game.readyGate();                            // the game still works: music + banners
+  },
+  _revealed:false,
+  reveal(why){
+    if(this._revealed)return;this._revealed=true;
+    console.log('[REVEAL]',why);
+    if(this.frame)this.frame.classList.add('ready');
+    const w=$('nova-wait');if(w)w.classList.add('gone');
+    $('nova-tag').textContent='🌟 Nova · live';
+    statusEl.textContent='✓ live Nova';
+    try{if(!Pose._started){Pose._started=true;Pose.init();}}catch(_){}
+    Game.readyGate();
+  },
+  post(msg){try{
+    const t=(msg&&msg.type)||'';
+    if(t==='set-avatar'){if(msg.id)fetch(SARAY_BASE+'set_avatar?id='+encodeURIComponent(msg.id)).catch(()=>{});return;}
+    const map={
+      'nova-say':m=>({type:'nova-say',text:m.text}),
+      'nova-cue':m=>({type:'nova-cue',intent:m.intent,ctx:m.ctx||''}),
+      'nova-persona':m=>({type:'persona',text:m.text}),
+      'nova-fact':m=>({type:'nova-fact',move:m.move}),
+      'nova-pick':m=>({type:'nova-pick',game:m.game}),
+      'hold':m=>({type:'hold',on:!!m.on}),
+      'game-start':m=>({type:'game-start'}),
+    };
+    const mk=map[t];if(!mk)return;
+    if(this.ws&&this.ws.readyState===1)this.ws.send(JSON.stringify(mk(msg)));
+  }catch(_){}},
+  setAvatar(id){
+    if(!this.on)return;
+    try{fetch(SARAY_BASE+'set_avatar?id='+encodeURIComponent(id),{mode:'no-cors',cache:'no-store'}).catch(()=>{});}catch(_){}
+  },
+  cue(intent,ctx){this.post({type:'nova-cue',intent,ctx:ctx||''});},
+  hold(on){this.post({type:'hold',on:!!on});},
+};
+
+/* ═══ INTRO ARMING — persona + pick, retried until ACKed (freeze pattern) ═══ */
+const Intro={
+  _ackPersona:false,_ackPick:false,_tries:0,_timer:null,
+  arm(){
+    if(this._timer)return;
+    const send=()=>{
+      if(this._ackPersona&&this._ackPick){
+        console.log('[INTRO] ACKed after '+this._tries+' try(s)');
+        clearInterval(this._timer);this._timer=null;return;}
+      if(this._tries>=10){
+        console.warn('[INTRO] gave up — persona='+this._ackPersona+' pick='+this._ackPick);
+        clearInterval(this._timer);this._timer=null;return;}
+      this._tries++;
+      if(!this._ackPersona)Live.post({type:'nova-persona',text:UB_COACH});
+      if(!this._ackPick)Live.post({type:'nova-pick',game:'upperbody'});
+    };
+    send();this._timer=setInterval(send,2500);
+  },
+  ack(of){
+    if(of==='persona'){this._ackPersona=true;console.log('[INTRO] ACK persona');}
+    if(of==='nova-pick'){this._ackPick=true;console.log('[INTRO] ACK pick');}
+  },
+};
+
+/* ═══ Music = the routine video's own track. Duck while she speaks. ═══ */
+const Music={
+  base:0.65,ducked:0.30,
+  duck(on){try{routine.volume=on?this.ducked:this.base;}catch(_){}},
+};
+
+/* ═══ Pose — MoveNet lightning; direction + hips + stillness ═══ */
+const Pose={
+  det:null,ok:false,_started:false,lastKp:null,still:true,motion:0,
+  dir:null,hipDev:0,confOk:false,
+  _sx:[],_w:[],_hx:[],_base:null,          // rolling calibration → frozen baseline
+  async init(){
+    try{
+      await tf.setBackend('webgl');
+      this.det=await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,
+        {modelType:poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING});
+      this.ok=true;statusEl.textContent='✓ Nova sees you';
+      this.loop();
+    }catch(e){statusEl.textContent='playing without tracking';}
+  },
+  async loop(){
+    try{
+      const poses=await this.det.estimatePoses(camEl,{flipHorizontal:false});
+      const kp=poses[0]?.keypoints;
+      const W=camEl.videoWidth||960;
+      const g=n=>kp?kp.find(p=>p.name===n):null;
+      const ls=g('left_shoulder'),rs=g('right_shoulder'),lh=g('left_hip'),rh=g('right_hip');
+      this.confOk=!!(ls&&rs&&ls.score>T.conf&&rs.score>T.conf);
+      if(this.confOk){
+        /* SCREEN-SPACE x: usercam displays mirrored (scaleX(-1)), MoveNet sees the raw
+           frame → screen_x = 1 - raw_x/W. With that flip, "kid slides toward screen-right"
+           gives dev > 0, matching HER screen-space 'R' in the map. */
+        const sxr=(ls.x+rs.x)/2/W, sx=1-sxr;
+        const w=Math.abs(ls.x-rs.x)/W;
+        let hx=null;
+        if(lh&&rh&&lh.score>T.conf&&rh.score>T.conf)hx=1-((lh.x+rh.x)/2/W);
+        if(!this._base){                          // calibration phase: rolling window
+          this._sx.push(sx);this._w.push(w);if(hx!=null)this._hx.push(hx);
+          if(this._sx.length>90){this._sx.shift();this._w.shift();}
+          if(this._hx.length>90)this._hx.shift();
+          this.dir=null;this.hipDev=0;
+        }else{
+          const b=this._base;
+          const dev=sx-b.sx, wr=b.w>0?w/b.w:1;
+          this.hipDev=(hx!=null&&b.hx!=null)?Math.abs(hx-b.hx):0;
+          /* side beats front/back when both trip (a side slide also changes apparent width) */
+          this.dir = dev>T.slide?'R' : dev<-T.slide?'L' : wr>T.front?'F' : wr<T.back?'B' : null;
+        }
+        /* stillness (finish check) — shoulder-normalized motion, freeze-page formula */
+        if(this.lastKp){
+          const prev=Object.fromEntries(this.lastKp.map(p=>[p.name,p]));
+          let d=0,n=0,sw=1;
+          if(ls&&rs)sw=Math.max(30,Math.hypot(ls.x-rs.x,ls.y-rs.y));
+          for(const p of (kp||[])){if(p.score>T.conf){const q=prev[p.name];if(q){d+=Math.hypot(p.x-q.x,p.y-q.y);n++;}}}
+          this.motion=n?(d/n)/sw:0;this.still=this.motion<0.045;
+        }
+        this.lastKp=(kp||[]).filter(p=>p.score>T.conf);
+      }
+    }catch(e){}
+    requestAnimationFrame(()=>this.loop());
+  },
+  freezeBaseline(){
+    const med=a=>{if(!a.length)return null;const s=[...a].sort((x,y)=>x-y);return s[Math.floor(s.length/2)];};
+    this._base={sx:med(this._sx)??0.5,w:med(this._w)??0.2,hx:med(this._hx)};
+    console.log('[POSE] baseline frozen',JSON.stringify(this._base));
+  },
+};
+
+/* ═══ Director cues — the timed script (she improvises the words) ═══ */
+const CUES=[
+  [0.5 ,'Demo begins. Coach while dancing: arms out, torso side to side, hips frozen. Two tiny lines only.'],
+  [7.2 ,'Hands to your waist now. One tiny line: hands on your waist, keep sliding!'],
+  [13.0,'Game starts. One line: your turn, copy me, GO!'],
+  [14.6,'Slow loop one: torso goes BACK, RIGHT, LEFT, FRONT. Call directions softly as you dance them.'],
+  [19.9,'Loop two. One tiny line max, fresh words. You may remind: hips FROZEN.'],
+  [25.9,'Loop three, last slow one. One tiny line max, never repeat yourself.'],
+  [31.0,'FAST part, twice! Sounds mostly: Woo! Keep up! No sentences.'],
+  [35.2,'Finish pose NOW. Say exactly: FREEZE like me! Then total silence until I give the verdict.'],
+];
+
+/* ═══ THE GAME ═══ */
+const Game={
+  phase:'connect',              // connect → ready → play → finish → ending
+  score:0,streak:0,facts:0,hipWarned:false,
+  loopIdx:-1,verdicts:[],cueIdx:0,_finishArmed:false,_stillMs:0,_raf:null,
+  DIRWORD:{B:['🙆','BACK'],R:['➡️','RIGHT'],L:['⬅️','LEFT'],F:['🙇','FRONT']},
+
+  readyGate(){
+    if(this.phase!=='connect')return;
+    this.phase='ready';
+    $('ready-btn').classList.add('on');
+  },
+  start(){
+    if(this.phase!=='ready')return;
+    $('ready-btn').classList.remove('on');
+    let n=3;const c=$('count');c.classList.add('on');c.textContent=n;
+    const t=setInterval(()=>{n--;
+      if(n>0){c.textContent=n;return;}
+      clearInterval(t);c.classList.remove('on');
+      this.begin();
+    },900);
+  },
+  begin(){
+    this.phase='play';
+    if(Live.frame)Live.frame.classList.remove('ready');   // live avatar steps aside…
+    routine.classList.add('show');                        // …the routine takes the stage
+    routine.volume=Music.base;routine.currentTime=0;
+    routine.play().catch(e=>console.warn('[ROUTINE] play blocked',e));
+    Live.post({type:'game-start'});
+    $('nova-tag').textContent='💃 Upper Body!';
+    this._raf=requestAnimationFrame(()=>this.tick());
+  },
+  tick(){
+    if(this.phase!=='play'&&this.phase!=='finish')return;
+    const t=routine.currentTime;
+    /* timed director cues */
+    while(this.cueIdx<CUES.length&&t>=CUES[this.cueIdx][0]){
+      Live.cue(CUES[this.cueIdx][1]);this.cueIdx++;
+    }
+    /* demo → game: freeze the calibration baseline exactly once */
+    if(t>=DEMO_END&&!Pose._base&&Pose._sx.length)Pose.freezeBaseline();
+    /* loop transitions */
+    const li=LOOPS.findIndex(R=>t>=R.start&&t<R.end);
+    if(li!==this.loopIdx){
+      if(this.loopIdx>=0&&LOOPS[this.loopIdx])this.endLoop(LOOPS[this.loopIdx]);
+      this.loopIdx=li;
+      if(li>=0)this.startLoop(LOOPS[li]);
+    }
+    if(li>=0)this.checkPose(LOOPS[li],t);
+    /* finish */
+    if(t>=FINISH_AT&&!this._finishArmed){this._finishArmed=true;
+      if(this.loopIdx>=0){this.endLoop(LOOPS[this.loopIdx]);this.loopIdx=-1;}
+      bannerEl.textContent='🧊 FREEZE like her!';bannerEl.classList.add('show');
+    }
+    if(t>=VIDEO_END&&this.phase==='play'){routine.pause();this.phase='finish';this._stillT0=performance.now();}
+    if(this.phase==='finish')this.finishCheck();
+    this._raf=requestAnimationFrame(()=>this.tick());
+  },
+  startLoop(R){
+    R.hits=0;R.iso=0;
+    bannerEl.textContent=R.tempo==='fast'?'⚡ FAST — twice!':'🌀 Loop '+R.id+' — slow';
+    bannerEl.classList.add('show');
+    setTimeout(()=>bannerEl.classList.remove('show'),2200);
+    this.armCue(R,0);
+  },
+  armCue(R,i){
+    const a=$('arrow');
+    if(!R.targets[i]){a.classList.remove('show');return;}
+    const[dir]=R.targets[i];
+    const[g,w]=this.DIRWORD[dir];
+    a.querySelector('.glyph').textContent=g;
+    a.querySelector('.word').textContent=w;
+    a.classList.add('show');
+  },
+  winFor(R,dir){return R.tempo==='fast'?WIN.fast:(dir==='B'||dir==='F')?WIN.slowBF:WIN.slowSide;},
+  checkPose(R,t){
+    if(!Pose._base||!Pose.confOk||!Pose.dir)return;
+    const d=Pose.dir;
+    /* find the first unhit target whose window covers now */
+    for(let i=0;i<R.targets.length;i++){
+      const tg=R.targets[i];
+      if(tg.hit)continue;
+      const[dir,at]=tg;
+      if(Math.abs(t-at)>this.winFor(R,dir))continue;
+      const sideTarget=(dir==='R'||dir==='L'), sideSeen=(d==='R'||d==='L');
+      if(d===dir){this.hit(R,tg,i,true);return;}
+      if(sideTarget&&sideSeen&&d!==dir){this.hit(R,tg,i,false);return;}  // wrong side = half
+      return;                       // window active, direction not shown yet — wait
+    }
+    /* hip wobble — soft, her line max ONCE per game */
+    if(Pose.hipDev>T.hip*1.8){
+      $('hip-warn').classList.add('show');
+      setTimeout(()=>$('hip-warn').classList.remove('show'),1400);
+      if(!this.hipWarned){this.hipWarned=true;
+        Live.cue('Their hips are wobbling. ONE playful line: freeze those hips!');}
+    }
+  },
+  hit(R,tg,i,rightDir){
+    tg.hit=true;R.hits++;
+    let pts=R.tempo==='slow'?15:10;
+    if(!rightDir)pts=Math.round(pts/2);
+    const iso=Pose.hipDev<T.hip;
+    if(iso&&R.tempo==='slow'){pts+=10;R.iso++;}
+    if(R.tempo==='fast'){this.streak++;
+      if(this.streak>=3){pts*=2;$('streak').classList.add('show');}
+    }else this.streak=0;
+    this.score+=pts;scoreEl.textContent='⭐ '+this.score;
+    const f=$('hit-flash');f.textContent=iso?'💎':'✨';
+    f.classList.remove('pop');void f.offsetWidth;f.classList.add('pop');
+    if(iso&&this.facts<4){this.facts++;
+      Live.post({type:'nova-fact',move:'torso slide with hips frozen'});}
+    this.armCue(R,R.targets.findIndex(x=>!x.hit));
+  },
+  endLoop(R){
+    if(R._ended)return;R._ended=true;
+    $('arrow').classList.remove('show');$('streak').classList.remove('show');
+    const v=R.hits>=3?'NAILED':R.hits>=2?'GOOD':'TRIED';
+    this.verdicts.push(v);
+    if(v==='NAILED')this.score+=30;
+    scoreEl.textContent='⭐ '+this.score;
+    if(R.tempo==='slow')
+      Live.cue('Loop '+R.id+' done, verdict '+v+' ('+R.hits+' of 4 moves'+(R.iso?', hips stayed frozen':'')+'). ONE proud line, six words max, fresh words.');
+    else
+      Live.cue('Fast part done, verdict '+v+' ('+R.hits+' of 4). ONE breathless proud line, six words max.');
+  },
+  finishCheck(){
+    /* 1s of stillness on the end pose (freeze stillness law: shoulder-normalized) */
+    if(Pose.ok&&!Pose.still)this._stillT0=performance.now();
+    if(performance.now()-this._stillT0>=1000||!Pose.ok){
+      this.phase='ending';this.ending();
+    }
+  },
+  ending(){
+    bannerEl.classList.remove('show');
+    this.score+=50;                                       // finish freeze held
+    const allNailed=this.verdicts.length===4&&this.verdicts.every(v=>v==='NAILED');
+    if(allNailed)this.score+=100;
+    scoreEl.textContent='⭐ '+this.score;
+    const vd=$('verdict');
+    vd.querySelector('.big').textContent=allNailed?'🏆 PERFECT!':'🌟 AMAZING!';
+    vd.querySelector('.sub').textContent=this.score+' points';
+    vd.classList.add('show');
+    setTimeout(()=>vd.classList.remove('show'),5200);
+    /* the live avatar returns for the goodbye */
+    routine.classList.remove('show');
+    if(Live.frame)Live.frame.classList.add('ready');
+    const best=1+this.verdicts.reduce((b,v,i,a)=>v==='NAILED'&&b<0?i:b,-1);
+    Live.cue('Game over! Score '+this.score+', verdicts '+this.verdicts.join('/')+
+      (best>0?', best loop '+best:'')+'. Say warmly: your torso dances ALONE — '+this.score+
+      ' points! Then ask: did you have fun? Then say bye — same time tomorrow?');
+  },
+  /* pause / exit */
+  paused:false,
+  togglePause(){
+    if(this.phase!=='play')return;
+    this.paused=!this.paused;
+    if(this.paused){routine.pause();Live.hold(true);$('btn-pause').textContent='▶ Resume';}
+    else{Live.hold(false);$('btn-pause').textContent='⏸ Pause';
+      let n=3;const c=$('count');c.classList.add('on');c.textContent=n;
+      const t=setInterval(()=>{n--;
+        if(n>0){c.textContent=n;return;}
+        clearInterval(t);c.classList.remove('on');routine.play().catch(()=>{});
+      },800);}
+  },
+};
+
+/* ═══ boot ═══ */
+$('ready-btn').addEventListener('click',()=>Game.start());
+$('btn-pause').addEventListener('click',()=>Game.togglePause());
+$('btn-exit').addEventListener('click',()=>{try{Live.hold(true);}catch(_){}location.href='/';});
+(async()=>{
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:{width:960,height:720},audio:false});
+    camEl.srcObject=stream;
+  }catch(e){statusEl.textContent='camera blocked — she can\'t see you';}
+  Live.init();
+  /* pose can start early in nolive mode (reveal never fires) */
+  if(LIVE_OFF&&!Pose._started){Pose._started=true;Pose.init();}
+})();
+</script>
+</body>
+</html>
