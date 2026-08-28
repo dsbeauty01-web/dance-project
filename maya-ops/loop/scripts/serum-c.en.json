@@ -5,6 +5,35 @@
   "lang": "en",
   "generated": "2026-08-25",
   "holes": 0,
+
+  "_comment_commerce": "T4 fields for the interactive build. buy_url is a PLACEHOLDER until the human picks a processor (Stripe Payment Link / PayPal / existing store URL). Never invent a real URL.",
+  "price": 149,
+  "regular_price": 249,
+  "currency": "ILS",
+  "currency_symbol": "₪",
+  "free_shipping_over": 200,
+  "buy_url": "PLACEHOLDER_SET_BY_HUMAN",
+  "buy_utm": "utm_source=youtube&utm_medium=live&utm_campaign=serum_demo",
+
+  "_comment_truthgate": "facts = the ONLY claims Maya may state about the product (ground rule #3). Anything not here -> honest 'I don't have that in front of me'. Do not add claims without catalog backing.",
+  "facts": {
+    "what_it_is": "a concentrated vitamin C facial serum",
+    "active_ingredient": "20% pure vitamin C",
+    "volume": "30 ml",
+    "usage": "one drop every morning, before your moisturizer",
+    "price_live": "₪149",
+    "price_regular": "₪249",
+    "shipping": "free shipping on orders over ₪200",
+    "stock": "in stock, ready to ship"
+  },
+
+  "_comment_deflections": "Mandatory canned responses. medical = the q4 trap deflection (never give medical/treatment claims). off_catalog = honest fallback for anything not in facts.",
+  "deflections": {
+    "medical": "I can't give medical or treatment advice — for anything to do with a skin condition, please check with your dermatologist. What I can tell you is exactly what's in it and how to use it.",
+    "off_catalog": "I don't have that detail in front of me right now, so I won't guess — I'll get it confirmed for you. What I can tell you for sure is",
+    "no_discount": "The live price is already the deal — ₪149 instead of ₪249. That's the best I have for you right now."
+  },
+
   "segments": [
     {
       "id": "hook",
