@@ -435,6 +435,33 @@ const NovaSay = {
   log(text){ if(!text) return; this.el.textContent=text; this.el.classList.add('show');
     clearTimeout(this._t); this._t=setTimeout(()=>this.el.classList.remove('show'),4200); },
 };
+/* ═══ 👂 HEARD-YOU INDICATOR (2026-08-28, founder: "how can u test she hears u") ═══
+   Live proof on screen: the ear pulses the moment the voice detector fires, the chip
+   shows YOUR words as they transcribe, and flashes green when the turn is accepted.
+   If you talk and the ear never moves — the mic signal is not reaching her. */
+const Ear = {
+  el:null, _t:null,
+  ensure(){
+    if(this.el) return this.el;
+    const d=document.createElement('div'); d.id='ear-chip';
+    d.style.cssText='position:fixed;top:34px;right:120px;z-index:95;display:flex;gap:8px;align-items:center;'+
+      'padding:7px 14px;border-radius:20px;background:rgba(8,20,40,.85);border:2px solid rgba(125,216,255,.35);'+
+      'font-family:Fredoka,system-ui,sans-serif;font-weight:600;font-size:14px;color:#9ab;max-width:38vw;'+
+      'overflow:hidden;white-space:nowrap;text-overflow:ellipsis;transition:border-color .2s,color .2s';
+    d.textContent='👂 say something…';
+    document.body.appendChild(d); this.el=d; return d;
+  },
+  hearing(){ const d=this.ensure(); d.style.borderColor='#ffe27d'; d.style.color='#ffe27d';
+    d.textContent='👂 hearing you…'; this._arm(); },
+  delta(txt){ const d=this.ensure(); d.style.borderColor='#ffe27d'; d.style.color='#fff';
+    d.textContent='👂 '+txt; this._arm(); },
+  heard(txt){ const d=this.ensure(); d.style.borderColor='#7dffb0'; d.style.color='#7dffb0';
+    d.textContent='✅ heard: '+txt; this._arm(4500); },
+  _arm(ms){ clearTimeout(this._t);
+    this._t=setTimeout(()=>{ if(this.el){ this.el.style.borderColor='rgba(125,216,255,.35)';
+      this.el.style.color='#9ab'; this.el.textContent='👂 say something…'; } }, ms||3000); },
+  _buf:'',
+};
 
 /* ═══ Clip-bank Nova — FALLBACK ONLY, built lazily when the pod is down ═══ */
 const Clips = {
@@ -642,10 +669,13 @@ const Live = {
       setTimeout(()=>{ if(!self.dead) self._connectWS(); }, self._wsDelay); };
     ws.onmessage=(ev)=>{ const m=JSON.parse(ev.data);
       if(m.type==='voice_air'){ try{ AirVoice.push(m.data); }catch(_){} return; }   // her live voice, in the air
+      if(m.type==='you_delta'){ try{ Ear._buf+=(m.delta||''); Ear.delta(Ear._buf.slice(-46)); }catch(_){} return; }
       if(m.type==='ack')            window.postMessage({type:'nova-ack',of:m.of,game:m.game},'*');
-      else if(m.type==='you_text')  window.postMessage({type:'kid-said',text:m.text||''},'*');
+      else if(m.type==='you_text'){ try{ Ear._buf=''; Ear.heard((m.text||'').slice(0,46)); }catch(_){}
+                                    window.postMessage({type:'kid-said',text:m.text||''},'*'); }
       else if(m.type==='nova_done') window.postMessage({type:'nova-said',text:m.text||''},'*');
       else if(m.type==='status'){
+        if(m.hearing===true){ try{ Ear.hearing(); }catch(_){} }
         if(m.speaking===true) self._micGated=true; else if(m.speaking===false) self._micGated=false;
         window.postMessage({type:'nova-status',state:m.state||'',speaking:m.speaking},'*');
       }
@@ -1035,8 +1065,11 @@ const Music = {
    standing-start pose. Embedded (not fetched) so it can never 404. Re-run the tool and
    paste here whenever the groove bake or the pose clips change. ═══ */
 const NEUTRAL = {
-  loopDur: 22.76, mirror: true,                       // engine ping-pongs: period = 2*loopDur
-  times: [0.8, 2.32, 4.36, 6.4, 7.68, 8.72, 12.0, 13.76, 15.6, 16.64, 19.6, 21.64],
+  /* FOUNDER FIX 2026-08-28: body corrected to nova_groove (the real 23.8s groove bake;
+     nova_idlegroove_v2 was the upper-body bake — wrong body). Data below re-scanned
+     against nova_groove's 596 frames. */
+  loopDur: 23.84, mirror: true,                       // engine ping-pongs: period = 2*loopDur
+  times: [1.04, 2.32, 5.24, 6.28, 7.52, 8.92, 12.92, 18.76, 19.8, 20.88, 22.28, 23.48],
   arrivals: { bear:1.37, frog:4.28, flamingo:1.24, star:1.07 },  // clip in-points: she LANDS into the pose
   setT: 0,                                            // performance.now() when the groove avatar was set
   NET_LAG: 0.45,                                      // est. engine→browser latency (phase offset)
@@ -1531,7 +1564,7 @@ $('start-btn').addEventListener('click', async ()=>{
      · setPhase(GAME): voice routes to AIR — engine gets NO audio until the ending
      · freeze poses ready as page clips · groove loop clock stamped for neutral swaps ═══ */
   if(Live.on){ try{ PoseClip.init(); }catch(_){}
-    try{ Live.setAvatar('nova_idlegroove_v2'); NEUTRAL.setT=performance.now(); }catch(_){} }
+    try{ Live.setAvatar('nova_groove'); NEUTRAL.setT=performance.now(); }catch(_){} }   // the REAL groove bake (founder 2026-08-28)
   Music.start();                                     // schedules EVERY strip/sting/slam on the audio clock, sample-accurate
   setPhase(PH.GAME);
   try{ Live.post({type:'game-start'}); }catch(_){}   // V2: she learns the music is RUNNING at this exact moment
