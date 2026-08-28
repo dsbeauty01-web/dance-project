@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Upper Body! · Nova</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%83%3C/text%3E%3C/svg%3E">
+<!-- UPPERBODY-FINAL (2026-08-28) — implements Downloads/UPPERBODY-FINAL.md.
+     4 ROUNDS: slow 1.0x → slow 1.0x (windows ×0.9) → fast 1.25x (×0.75) → fast 1.25x (×0.65).
+     Joint LIGHTS on a canvas over the kid replace arrows (the light IS the cue, it follows
+     the kid's live MoveNet joints). Smart tracking: per-kid calibration in the round-1 demo
+     (their OWN sway range sets thresholds), EMA smoothing + velocity assist, sustained-only
+     hip wobble. Talking phases (intro/between/ending) = nova_idle engine lips; game rounds =
+     the routine video (the clock). KEEPS from V1/V2: one-origin Live object, quoted greet
+     intro=upperbody, PICK 'upperbody', /gallery/upperbody-routine.mp4 (NOTE: spec says
+     /media/rapa_src.mp4 but that copy has NO audio track — the gallery copy carries the
+     music, so it stays).
+     Sides are SCREEN-SPACE (usercam mirrored; kid's RIGHT shoulder appears screen-right). -->
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.umd.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{font-family:'Baloo 2',system-ui,-apple-system,'Segoe UI',sans-serif;color:#fff;background:#1a0f2e}
+  #stage{position:fixed;inset:0;display:flex;background:#f4d9ea}
+  #novaWrap{position:relative;width:60vw;height:100vh;overflow:hidden;background:#14092a}
+  #camWrap{position:relative;width:40vw;height:100vh;overflow:hidden;background:#0d0118}
+  #routine{position:absolute;left:50%;top:0;height:100vh;width:auto;transform:translateX(-50%);
+    z-index:2;opacity:0;transition:opacity .5s;pointer-events:none}
+  #routine.show{opacity:1}
+  #saray-frame{position:absolute;inset:0;z-index:3;opacity:0;transition:opacity .6s}
+  #saray-frame.ready{opacity:1}
+  #usercam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  #lightsFx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5}
+  /* HUD */
+  #hud{position:fixed;top:2vh;left:0;right:0;display:flex;gap:14px;justify-content:center;align-items:center;z-index:50;pointer-events:none}
+  #score{font-size:42px;font-weight:800;color:#ffb703;text-shadow:0 2px 8px rgba(0,0,0,.35)}
+  #roundTag{background:rgba(0,0,0,.55);color:#fff;border-radius:999px;padding:4px 16px;font-weight:700;display:none}
+  #streakTag{color:#ffd166;font-weight:800;font-size:18px;opacity:0;transition:opacity .3s}
+  #streakTag.show{opacity:1}
+  #banner{position:fixed;top:9vh;left:50%;transform:translateX(-50%);font-weight:800;z-index:50;
+    font-size:clamp(18px,2.6vw,26px);background:rgba(80,30,140,.9);padding:10px 22px;border-radius:16px;
+    opacity:0;transition:opacity .35s;white-space:nowrap;pointer-events:none}
+  #banner.show{opacity:1}
+  #progress{position:fixed;bottom:0;left:0;right:0;height:6px;background:rgba(0,0,0,.15);z-index:50}
+  #progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7df0ff,#ffb703)}
+  /* Nova chrome */
+  #nova-tag{position:absolute;top:10px;left:12px;z-index:8;font-weight:700;font-size:15px;
+    background:rgba(0,0,0,.45);padding:6px 12px;border-radius:999px}
+  #status{position:absolute;bottom:10px;left:12px;z-index:8;font-size:13px;color:rgba(255,255,255,.75);
+    background:rgba(0,0,0,.4);padding:5px 10px;border-radius:999px}
+  #nova-say{position:absolute;bottom:44px;left:50%;transform:translateX(-50%);z-index:8;max-width:86%;
+    font-size:16px;font-weight:600;background:rgba(60,20,110,.85);padding:8px 16px;border-radius:14px;
+    opacity:0;transition:opacity .3s;pointer-events:none}
+  #nova-say.show{opacity:1}
+  #nova-wait{position:absolute;inset:0;z-index:7;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:10px;background:rgba(13,1,24,.92);transition:opacity .5s}
+  #nova-wait.gone{opacity:0;pointer-events:none}
+  #wait-title{font-size:clamp(22px,3.4vw,34px);font-weight:800}
+  #wait-sub{font-size:15px;color:rgba(255,255,255,.7)}
+  #kid-bubble{position:absolute;bottom:14px;left:12px;z-index:8;max-width:80%;font-size:14px;
+    background:rgba(20,40,90,.85);padding:7px 12px;border-radius:12px;opacity:0;transition:opacity .3s}
+  #kid-bubble.show{opacity:1}
+  /* controls, gates, cards */
+  #controls{position:fixed;top:14px;left:14px;z-index:60;display:flex;gap:8px}
+  #controls button{background:rgba(0,0,0,.5);color:#fff;border:1px solid rgba(255,255,255,.25);
+    border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:14px}
+  #ready-btn{position:fixed;left:50%;bottom:8%;transform:translateX(-50%);z-index:70;display:none;
+    font-size:clamp(20px,3.2vw,28px);font-weight:800;color:#fff;border:0;cursor:pointer;
+    padding:18px 50px;border-radius:999px;background:linear-gradient(135deg,#12b981,#0d9668);
+    box-shadow:0 10px 40px rgba(18,185,129,.45);animation:breathe 2.2s ease-in-out infinite}
+  #ready-btn.on{display:block}
+  @keyframes breathe{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.05)}}
+  #count{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;
+    font-size:clamp(90px,18vw,200px);font-weight:900;background:rgba(0,0,0,.35);pointer-events:none}
+  #count.on{display:flex}
+  #scorecard{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(20,16,30,.82);z-index:75;color:#fff;text-align:center}
+  #scorecard.on{display:flex}
+  #scorecard h2{font-size:clamp(26px,4.4vw,42px);margin-bottom:14px}
+  #scorecard .row{font-size:clamp(16px,2.4vw,21px);font-weight:700;margin:5px 0;display:flex;gap:26px;justify-content:space-between;min-width:min(420px,80vw)}
+  #scorecard .row .stars{color:#ffd24a}
+  #scorecard .total{font-size:clamp(24px,3.6vw,32px);font-weight:900;color:#ffb703;margin-top:14px}
+  #scorecard button{margin-top:20px;font-size:clamp(17px,2.6vw,23px);font-weight:800;color:#fff;border:0;
+    cursor:pointer;padding:14px 36px;border-radius:999px;background:linear-gradient(135deg,#e8590c,#d9480f);
+    box-shadow:0 8px 30px rgba(232,89,12,.45)}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="novaWrap">
+    <video id="routine" src="/gallery/upperbody-routine.mp4" playsinline preload="auto"></video>
+    <div id="nova-tag">🌟 Nova</div>
+    <div id="nova-say"></div>
+    <div id="status">connecting…</div>
+    <div id="nova-wait">
+      <div id="wait-title">👆 Tap to wake Nova!</div>
+      <div id="wait-sub">one tap and she says hi ✨</div>
+    </div>
+  </div>
+  <div id="camWrap">
+    <video id="usercam" autoplay playsinline muted></video>
+    <canvas id="lightsFx"></canvas>
+    <div id="kid-bubble"></div>
+  </div>
+</div>
+<div id="hud">
+  <div id="score">0</div>
+  <div id="roundTag">ROUND 1 · SLOW</div>
+  <div id="streakTag">🔥 streak ×2</div>
+</div>
+<div id="banner"></div>
+<div id="progress"><i></i></div>
+<div id="controls">
+  <button id="btn-pause">⏸ Pause</button>
+  <button id="btn-exit">✖ Exit</button>
+</div>
+<button id="ready-btn">💃 I'M READY!</button>
+<div id="count"></div>
+<div id="scorecard">
+  <h2></h2><div id="sc-rows"></div><div class="total" id="sc-total"></div>
+  <button id="sc-btn"></button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const novaWrap=$('novaWrap'), camEl=$('usercam'), statusEl=$('status'),
+      routine=$('routine'), bannerEl=$('banner');
+const Q=new URLSearchParams(location.search);
+const SARAY_BASE=location.origin+'/';
+const LIVE_OFF=Q.get('nolive')==='1';
+
+/* ═══ THE ROUND ENGINE (UPPERBODY-FINAL §2): 4 rounds slow,slow,fast,fast ═══ */
+const ROUNDS=[
+  {n:1,rate:1.00,label:'ROUND 1 · SLOW',windowScale:1.0},
+  {n:2,rate:1.00,label:'ROUND 2 · SLOW',windowScale:0.9},
+  {n:3,rate:1.25,label:'ROUND 3 · FAST',windowScale:0.75},
+  {n:4,rate:1.25,label:'ROUND 4 · FAST',windowScale:0.65},
+];
+/* measured target map, video-time seconds, sides screen-space (FINAL §2) */
+const TARGETS=[
+  {t:16.10,dir:'R'},{t:17.37,dir:'L'},
+  {t:19.55,dir:'B'},{t:21.20,dir:'F'},
+  {t:23.00,dir:'R'},{t:24.30,dir:'L'},
+  {t:25.55,dir:'B'},{t:26.80,dir:'F'},
+  {t:28.07,dir:'R'},{t:29.37,dir:'L'},
+  {t:31.90,dir:'R'},{t:32.50,dir:'L'},{t:33.27,dir:'R'},{t:34.33,dir:'L'},
+  {t:35.20,dir:'FREEZE',hold:1.0},
+];
+const DEMO_END=13.5, BASE_WINDOW=0.9;
+const leadFor=r=>ROUNDS[r].rate>1?0.7:1.1;    // light the target one beat early
+
+/* ═══ HER BRAIN — [GAME-MODE] persona (4-round FINAL flow) ═══ */
+const UB_COACH=
+ "[GAME-MODE] "+
+ "You are Nova, dancing UPPER BODY ISOLATION right now — the only game where you coach WHILE you dance. "+
+ "THIS IS THE UPPER BODY GAME ONLY — no intro to run, no name to collect, no magic light, no other games. "+
+ "Never mention a light on a shoulder, a shoulder glow ritual, or a choice of games. "+
+ "The move: hands on the waist, torso travels BACK, RIGHT, LEFT, FRONT while the hips stay FROZEN — that "+
+ "isolation is the magic trick and you LOVE it. "+
+ "The game is FOUR rounds of the same routine: rounds one and two SLOW (s-t-r-e-t-c-h, call directions "+
+ "softly), rounds three and four FASTER (energy doubles, mostly sounds like 'Woo! Keep up!', no sentences). "+
+ "Between rounds I hand you REAL camera facts — coach from them: praise the side they nailed, encourage the "+
+ "side that needs love, then ask if they're ready for the next round. "+
+ "Talk in tiny bursts, 6 words max. Praise ONLY what I tell you the camera saw — specific, like 'hips "+
+ "didn't move, PERFECT!' — never invent a move. If no facts came, cheer effort. "+
+ "At the FREEZE pose: total silence until I give the verdict. "+
+ "NEVER repeat a line you've already said this game. Never say wrong, no, miss, fail, or oops — every "+
+ "child always wins. You are 110% more excited than the kid, always. English only.";
+
+/* ═══ Speech log ═══ */
+const KidBubble={el:$('kid-bubble'),_t:null,
+  show(t){if(!t)return;this.el.textContent=t;this.el.classList.add('show');
+    clearTimeout(this._t);this._t=setTimeout(()=>this.el.classList.remove('show'),3600);}};
+const NovaSay={el:$('nova-say'),_t:null,
+  log(t){if(!t)return;this.el.textContent=t;this.el.classList.add('show');
+    clearTimeout(this._t);this._t=setTimeout(()=>this.el.classList.remove('show'),5200);}};
+
+/* ═══ LIVE Nova — proven one-origin connection (unchanged from V1/V2) ═══ */
+const Live={
+  frame:null,on:false,dead:false,alive:false,video:null,audioEl:null,ws:null,room:null,
+  init(){
+    if(LIVE_OFF){this.fail('forced offline (?nolive=1)');return;}
+    const attempt=(n)=>{
+      if(this.dead)return;
+      const ctl=('AbortController' in window)?new AbortController():null;
+      const to=setTimeout(()=>{try{ctl&&ctl.abort();}catch(_){}},8000);
+      fetch(SARAY_BASE,{mode:'no-cors',cache:'no-store',signal:ctl?ctl.signal:undefined})
+        .then(()=>{if(this.dead)return;clearTimeout(to);this.mount();})
+        .catch(()=>{clearTimeout(to);
+          if(n<3)attempt(n+1);
+          else this.fail('pod not reachable after 3 probes');});
+    };
+    attempt(1);
+  },
+  mount(){
+    if(this.on||this.dead)return;this.on=true;
+    const f=document.createElement('div');f.id='saray-frame';
+    const v=document.createElement('video');
+    v.id='nova-live-video';v.autoplay=true;v.playsInline=true;
+    v.style.cssText='width:100%;height:100%;object-fit:contain;object-position:50% 50%;background:#14092a';
+    f.appendChild(v);novaWrap.appendChild(f);this.frame=f;this.video=v;
+    this._connect();
+    statusEl.textContent='waking Nova…';
+    const gateMs=(parseInt(Q.get('gate'),10)||45)*1000;
+    this._aliveTimer=setTimeout(()=>{
+      if(!this.alive)this.fail('no session after '+(gateMs/1000)+'s');},gateMs);
+  },
+  async _connect(){
+    const self=this;
+    try{
+      const LK=window.LivekitClient||window.LiveKitClient;
+      const r=await(await fetch(SARAY_BASE+'token')).json();
+      const room=new LK.Room({adaptiveStream:false,dynacast:false});
+      this.room=room;
+      room.on(LK.RoomEvent.TrackSubscribed,(track,pub,p)=>{
+        if(p.identity!=='nova-avatar')return;
+        if(track.kind==='video'){track.attach(self.video);}
+        if(track.kind==='audio'){
+          const a=track.attach();
+          a.autoplay=true;a.muted=false;a.playsInline=true;
+          document.body.appendChild(a);self.audioEl=a;
+          let ok=false;
+          const tryPlay=()=>a.play().then(()=>{ok=true;
+              const b=$('unmute-btn');if(b)b.remove();
+            }).catch(e=>console.warn('[AUDIO] blocked:',e.name));
+          tryPlay();
+          ['pointerdown','touchstart','keydown'].forEach(ev=>document.addEventListener(ev,tryPlay,{passive:true}));
+          setTimeout(()=>{if(ok||$('unmute-btn'))return;
+            const b=document.createElement('button');b.id='unmute-btn';
+            b.textContent='🔊  TAP TO HEAR NOVA';
+            b.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:99999;'+
+              'font:700 22px system-ui,sans-serif;color:#1a1013;background:#ffd24a;border:0;'+
+              'padding:20px 34px;border-radius:999px;box-shadow:0 10px 40px rgba(0,0,0,.5);cursor:pointer';
+            b.onclick=()=>{a.muted=false;a.volume=1.0;tryPlay();setTimeout(()=>{if(ok&&b.parentNode)b.remove();},400);};
+            document.body.appendChild(b);
+          },1500);
+        }
+      });
+      let rc=2000;
+      const resub=async()=>{try{const r2=await(await fetch(SARAY_BASE+'token')).json();
+          await room.connect(r2.url,r2.token);rc=2000;}
+        catch(_){rc=Math.min(30000,Math.round(rc*1.8));setTimeout(resub,rc);}};
+      room.on(LK.RoomEvent.Disconnected,()=>setTimeout(resub,rc));
+      await room.connect(r.url,r.token);
+      console.log('[ONE-ORIGIN] LiveKit joined',r.room);
+    }catch(e){console.warn('[ONE-ORIGIN] room err',e&&e.message);}
+    this._connectWS();
+    try{await this._startMic();}catch(e){console.warn('[ONE-ORIGIN] MIC BLOCKED',e&&e.message);}
+    /* IDLE BAKE for all live talking (founder law 2026-08-28): a talking avatar can
+       never be the dance-loop body. nova_idle = the proven calm intro/ending body. */
+    this.setAvatar('nova_idle');
+  },
+  _wsConns:0,_wsDelay:1500,_micGated:false,
+  _connectWS(){
+    const self=this;
+    const qs=new URLSearchParams(location.search);
+    qs.set('intro','upperbody');
+    if(this._wsConns++)qs.set('rc','1');
+    const ws=new WebSocket(SARAY_BASE.replace('http','ws')+'rt?'+qs.toString());
+    this.ws=ws;
+    ws.onopen=()=>{self._wsDelay=1500;Intro.arm();};
+    ws.onclose=()=>{self._wsDelay=Math.min(30000,Math.round((self._wsDelay||1500)*1.8));
+      setTimeout(()=>{if(!self.dead)self._connectWS();},self._wsDelay);};
+    ws.onmessage=(ev)=>{const m=JSON.parse(ev.data);
+      if(m.type==='ack'){Intro.ack(m.of);return;}
+      if(m.type==='you_text'){KidBubble.show(m.text||'');return;}
+      if(m.type==='nova_done'){self.alive=true;self.reveal('she spoke');NovaSay.log(m.text||'');return;}
+      if(m.type==='status'){
+        if(m.speaking===true){self._micGated=true;Music.duck(true);}
+        else if(m.speaking===false){self._micGated=false;Music.duck(false);}
+      }
+    };
+  },
+  async _startMic(){
+    const self=this;
+    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+    const ctx=new AudioContext();if(ctx.state==='suspended')await ctx.resume();
+    const src=ctx.createMediaStreamSource(stream);
+    const proc=ctx.createScriptProcessor(4096,1,1);
+    const ratio=ctx.sampleRate/24000;
+    proc.onaudioprocess=(e)=>{
+      if(self._micGated)return;
+      const ch=e.inputBuffer.getChannelData(0);
+      const n=Math.floor(ch.length/ratio),b=new Int16Array(n);
+      for(let i=0;i<n;i++){let s=ch[Math.floor(i*ratio)];if(s>1)s=1;if(s<-1)s=-1;b[i]=s*0x7fff;}
+      const u=new Uint8Array(b.buffer);let x='';for(let i=0;i<u.length;i++)x+=String.fromCharCode(u[i]);
+      if(self.ws&&self.ws.readyState===1)self.ws.send(JSON.stringify({type:'audio',data:btoa(x)}));
+    };
+    src.connect(proc);proc.connect(ctx.destination);
+  },
+  fail(reason){
+    if(this.dead)return;this.dead=true;this.on=false;
+    try{clearTimeout(this._aliveTimer);}catch(_){}
+    const w=$('nova-wait');if(w)w.classList.add('gone');
+    $('nova-tag').textContent='🌟 Nova · 💤 voice napping';
+    statusEl.textContent='playing without her voice';
+    console.warn('[LIVE] off — silent mode:',reason);
+    Game.readyGate();
+  },
+  _revealed:false,
+  reveal(why){
+    if(this._revealed)return;this._revealed=true;
+    console.log('[REVEAL]',why);
+    if(this.frame)this.frame.classList.add('ready');
+    const w=$('nova-wait');if(w)w.classList.add('gone');
+    $('nova-tag').textContent='🌟 Nova · live';
+    statusEl.textContent='✓ live Nova';
+    try{if(!Pose._started){Pose._started=true;Pose.init();}}catch(_){}
+    Game.readyGate();
+  },
+  post(msg){try{
+    const t=(msg&&msg.type)||'';
+    if(t==='set-avatar'){if(msg.id)fetch(SARAY_BASE+'set_avatar?id='+encodeURIComponent(msg.id)).catch(()=>{});return;}
+    const map={
+      'nova-say':m=>({type:'nova-say',text:m.text}),
+      'nova-cue':m=>({type:'nova-cue',intent:m.intent,ctx:m.ctx||''}),
+      'nova-persona':m=>({type:'persona',text:m.text}),
+      'nova-fact':m=>({type:'nova-fact',move:m.move}),
+      'nova-pick':m=>({type:'nova-pick',game:m.game}),
+      'hold':m=>({type:'hold',on:!!m.on}),
+      'game-start':m=>({type:'game-start'}),
+    };
+    const mk=map[t];if(!mk)return;
+    if(this.ws&&this.ws.readyState===1)this.ws.send(JSON.stringify(mk(msg)));
+  }catch(_){}},
+  setAvatar(id){
+    if(!this.on)return;
+    try{fetch(SARAY_BASE+'set_avatar?id='+encodeURIComponent(id),{mode:'no-cors',cache:'no-store'}).catch(()=>{});}catch(_){}
+  },
+  cue(intent,ctx){this.post({type:'nova-cue',intent,ctx:ctx||''});},
+  hold(on){this.post({type:'hold',on:!!on});},
+};
+
+/* ═══ INTRO ARMING — persona + pick, retried until ACKed ═══ */
+const Intro={
+  _ackPersona:false,_ackPick:false,_tries:0,_timer:null,
+  arm(){
+    if(this._timer)return;
+    const send=()=>{
+      if(this._ackPersona&&this._ackPick){clearInterval(this._timer);this._timer=null;return;}
+      if(this._tries>=10){clearInterval(this._timer);this._timer=null;return;}
+      this._tries++;
+      if(!this._ackPersona)Live.post({type:'nova-persona',text:UB_COACH});
+      if(!this._ackPick)Live.post({type:'nova-pick',game:'upperbody'});
+    };
+    send();this._timer=setInterval(send,2500);
+  },
+  ack(of){
+    if(of==='persona')this._ackPersona=true;
+    if(of==='nova-pick')this._ackPick=true;
+  },
+};
+
+/* ═══ Music = the routine's own track; duck while she speaks ═══ */
+const Music={base:0.65,ducked:0.30,
+  duck(on){try{routine.volume=on?this.ducked:this.base;}catch(_){}}};
+
+/* ═══ SMART TRACKING (FINAL §3) — per-kid calibration + EMA + velocity ═══ */
+let CAL=null, lastDev=null;
+const cal={sx:[],sw:[],hx:[]};
+function percentile(a,p){const s=[...a].sort((x,y)=>x-y);return s[Math.min(s.length-1,Math.floor(s.length*p/100))];}
+function finishCalibration(){
+  if(!cal.sx.length){console.warn('[CAL] no samples — fallback defaults');
+    CAL={sx0:0.5,hx0:0.5,sw0:0.2,slideThr:0.09,hipThr:0.06,frontThr:1.07,backThr:0.93};return;}
+  const med=a=>[...a].sort((x,y)=>x-y)[a.length>>1];
+  const spread=percentile(cal.sx,90)-percentile(cal.sx,10);   // the kid's OWN demo sway range
+  CAL={
+    sx0:med(cal.sx),hx0:cal.hx.length?med(cal.hx):null,sw0:med(cal.sw),
+    slideThr:Math.max(0.05,spread*0.35),
+    hipThr:Math.max(0.03,spread*0.18),
+    frontThr:1.07,backThr:0.93,
+  };
+  /* live-tune overrides post-calibration (FINAL: report defaults kept) */
+  if(Q.get('slide'))CAL.slideThr=parseFloat(Q.get('slide'));
+  if(Q.get('hip'))CAL.hipThr=parseFloat(Q.get('hip'));
+  if(Q.get('front'))CAL.frontThr=parseFloat(Q.get('front'));
+  if(Q.get('back'))CAL.backThr=parseFloat(Q.get('back'));
+  console.log('[CAL]',JSON.stringify(CAL));       // the personalization proof — paste in evidence
+}
+let ema={sx:null,sw:null,hx:null};
+
+/* ═══ Pose — MoveNet lightning; feeds calibration, detection, lights, stillness ═══ */
+const Pose={
+  det:null,ok:false,_started:false,lastKp:null,still:true,motion:0,kpNow:null,
+  async init(){
+    try{
+      await tf.setBackend('webgl');
+      this.det=await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,
+        {modelType:poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING});
+      this.ok=true;statusEl.textContent='✓ Nova sees you';
+      this.loop();
+    }catch(e){statusEl.textContent='playing without tracking';}
+  },
+  async loop(){
+    try{
+      const poses=await this.det.estimatePoses(camEl,{flipHorizontal:false});
+      const kp=poses[0]?.keypoints;
+      if(kp&&kp.length>=13){
+        this.kpNow=kp;
+        const W=camEl.videoWidth||960;
+        /* normalized screen-space (mirror flip): screen_x = 1 - raw_x/W */
+        const g=i=>kp[i];
+        const ls=g(5),rs=g(6),lh=g(11),rh=g(12);
+        if(ls.score>0.35&&rs.score>0.35){
+          const norm={sx:1-((ls.x+rs.x)/2)/W, sw:Math.abs(ls.x-rs.x)/W,
+                      hx:(lh.score>0.35&&rh.score>0.35)?1-((lh.x+rh.x)/2)/W:null};
+          Game.onPose(norm);
+        }
+        /* stillness (freeze check) — shoulder-normalized motion */
+        if(this.lastKp){
+          const prev=this.lastKp;let d=0,n=0,sw=1;
+          if(ls&&rs)sw=Math.max(30,Math.hypot(ls.x-rs.x,ls.y-rs.y));
+          for(let i=0;i<kp.length;i++){if(kp[i].score>0.35&&prev[i]&&prev[i].score>0.35){
+            d+=Math.hypot(kp[i].x-prev[i].x,kp[i].y-prev[i].y);n++;}}
+          this.motion=n?(d/n)/sw:0;this.still=this.motion<0.045;
+        }
+        this.lastKp=kp;
+      }
+    }catch(e){}
+    requestAnimationFrame(()=>this.loop());
+  },
+};
+
+/* ═══ THE JOINT LIGHTS (FINAL §4) — canvas over the kid, mirrored coords ═══ */
+const fxCanvas=$('lightsFx'), fctx=fxCanvas.getContext('2d');
+function fitCanvas(){fxCanvas.width=fxCanvas.clientWidth;fxCanvas.height=fxCanvas.clientHeight;}
+window.addEventListener('resize',fitCanvas);
+const fx={
+  _glow:null,_pops:[],_shimmer:0,_warm:0,_letterUntil:0,_letter:'',
+  audio:null,
+  blip(streak){
+    try{
+      if(!this.audio)this.audio=new AudioContext();
+      const c=this.audio,o=c.createOscillator(),gn=c.createGain();
+      o.frequency.value=520+Math.min(6,streak)*90;         // pitch rises with streak
+      gn.gain.setValueAtTime(0.12,c.currentTime);
+      gn.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.18);
+      o.connect(gn);gn.connect(c.destination);o.start();o.stop(c.currentTime+0.2);
+    }catch(_){}
+  },
+  jointPos(name){
+    /* live joint position in canvas coords (mirrored) */
+    const kp=Pose.kpNow;if(!kp)return null;
+    const W=camEl.videoWidth||960,H=camEl.videoHeight||720;
+    const map={leftShoulder:5,rightShoulder:6,leftHip:11,rightHip:12};
+    let x,y;
+    if(name==='chest'){const a=kp[5],b=kp[6];if(a.score<0.3||b.score<0.3)return null;
+      x=(a.x+b.x)/2;y=(a.y+b.y)/2+0.06*H;}
+    else if(name==='hips'){const a=kp[11],b=kp[12];if(a.score<0.3||b.score<0.3)return null;
+      x=(a.x+b.x)/2;y=(a.y+b.y)/2;}
+    else{const k=kp[map[name]];if(!k||k.score<0.3)return null;x=k.x;y=k.y;}
+    /* object-fit:cover mapping + mirror */
+    const cw=fxCanvas.width,ch=fxCanvas.height;
+    const scale=Math.max(cw/W,ch/H), ox=(cw-W*scale)/2, oy=(ch-H*scale)/2;
+    return {x:cw-(x*scale+ox), y:y*scale+oy};
+  },
+  glow(joint,color,letter){this._glow={joint,color:color||'#7df0ff',t0:performance.now()};
+    if(letter)this._letter=letter;},
+  dim(){this._glow=null;this._letter='';},
+  pop(joint,streak){
+    const p=this.jointPos(joint)||{x:fxCanvas.width/2,y:fxCanvas.height/2};
+    for(let i=0;i<12;i++){const a=Math.PI*2*i/12;
+      this._pops.push({x:p.x,y:p.y,vx:Math.cos(a)*3.2,vy:Math.sin(a)*3.2,t0:performance.now()});}
+    this._ring={x:p.x,y:p.y,t0:performance.now()};
+    this.blip(streak||0);
+  },
+  hipShimmer(){this._shimmer=performance.now();},
+  hipWarm(){this._warm=performance.now();},
+  render(){
+    const now=performance.now(),cw=fxCanvas.width,ch=fxCanvas.height;
+    fctx.clearRect(0,0,cw,ch);
+    if(this._glow){
+      const p=this.jointPos(this._glow.joint);
+      if(p){
+        const pulse=0.55+0.45*Math.sin((now-this._glow.t0)/1000*Math.PI*6);  // 3 pulses/s
+        const r=Math.min(cw,ch)*0.11*(0.85+0.3*pulse);
+        const g=fctx.createRadialGradient(p.x,p.y,r*0.15,p.x,p.y,r);
+        g.addColorStop(0,this._glow.color+'ee');g.addColorStop(1,this._glow.color+'00');
+        fctx.fillStyle=g;fctx.beginPath();fctx.arc(p.x,p.y,r,0,7);fctx.fill();
+        if(this._letter&&now<this._letterUntil){
+          fctx.fillStyle='#fff';fctx.font='800 '+Math.round(r*0.6)+'px system-ui';
+          fctx.textAlign='center';fctx.textBaseline='middle';fctx.fillText(this._letter,p.x,p.y);
+        }
+      }
+    }
+    this._pops=this._pops.filter(q=>now-q.t0<320);
+    for(const q of this._pops){const k=(now-q.t0)/320;
+      fctx.globalAlpha=1-k;fctx.fillStyle='#ffd166';
+      fctx.beginPath();fctx.arc(q.x+q.vx*k*30,q.y+q.vy*k*30,4*(1-k)+1,0,7);fctx.fill();}
+    if(this._ring&&now-this._ring.t0<300){const k=(now-this._ring.t0)/300;
+      fctx.globalAlpha=1-k;fctx.strokeStyle='#7df0ff';fctx.lineWidth=4*(1-k)+1;
+      fctx.beginPath();fctx.arc(this._ring.x,this._ring.y,20+k*70,0,7);fctx.stroke();}
+    if(now-this._shimmer<600){const p=this.jointPos('hips');
+      if(p){const k=(now-this._shimmer)/600;
+        fctx.globalAlpha=(1-k)*0.9;fctx.strokeStyle='#ffd700';fctx.lineWidth=6*(1-k)+2;
+        fctx.beginPath();fctx.arc(p.x,p.y,44+k*30,0,7);fctx.stroke();}}
+    if(now-this._warm<400){const p=this.jointPos('hips');
+      if(p){const k=(now-this._warm)/400;
+        const g=fctx.createRadialGradient(p.x,p.y,8,p.x,p.y,80);
+        g.addColorStop(0,'rgba(255,150,60,'+(0.5*(1-k))+')');g.addColorStop(1,'rgba(255,150,60,0)');
+        fctx.fillStyle=g;fctx.beginPath();fctx.arc(p.x,p.y,80,0,7);fctx.fill();}}
+    fctx.globalAlpha=1;
+    requestAnimationFrame(()=>this.render());
+  },
+};
+const JOINT_FOR={R:'rightShoulder',L:'leftShoulder',F:'chest',B:'chest',FREEZE:'chest'};
+const GLOW_COLOR={R:'#7df0ff',L:'#7df0ff',F:'#ffd166',B:'#b98cff',FREEZE:'#aee8ff'};
+
+/* ═══ THE GAME (FINAL §2/§5/§6) ═══ */
+const Game={
+  phase:'connect',   // connect → ready → play → between → … → ending
+  round:0,targets:[],ti:0,score:0,streak:0,
+  loopHits:[0,0,0,0],roundIso:[0,0,0,0],roundVerdict:[],
+  sideStats:null,facts:0,hipWarnedRound:false,_finishArmed:false,_freezeDone:false,_stillT0:0,
+  onPose(norm){
+    if(this.phase!=='play')return;
+    const t=routine.currentTime;
+    if(this.round===0&&t<DEMO_END){                       // calibration (round 1 demo only)
+      cal.sx.push(norm.sx);cal.sw.push(norm.sw);if(norm.hx!=null)cal.hx.push(norm.hx);
+      return;
+    }
+    if(!CAL)return;
+    for(const key of ['sx','sw','hx']){const v=norm[key];if(v==null)continue;
+      ema[key]=ema[key]==null?v:ema[key]*0.6+v*0.4;}      // jitter kill
+    const dev=ema.sx-CAL.sx0, wr=ema.sw/CAL.sw0,
+          hipDev=(ema.hx!=null&&CAL.hx0!=null)?Math.abs(ema.hx-CAL.hx0):0;
+    const vel=dev-(lastDev??dev);lastDev=dev;
+    const nxt=this.targets[this.ti];if(!nxt||nxt.hit)return;
+    const w=BASE_WINDOW*ROUNDS[this.round].windowScale;
+    if(nxt.dir==='FREEZE')return;                          // freeze handled in tick
+    if(Math.abs(t-nxt.t)>w){this.trackHipWobble(hipDev);return;}
+    let got=null;
+    if(nxt.dir==='R'&&(dev> CAL.slideThr||(dev> CAL.slideThr*0.6&&vel> 0.004)))got='R';
+    if(nxt.dir==='L'&&(dev<-CAL.slideThr||(dev<-CAL.slideThr*0.6&&vel<-0.004)))got='L';
+    if(nxt.dir==='F'&&wr>CAL.frontThr)got='F';
+    if(nxt.dir==='B'&&wr<CAL.backThr)got='B';
+    if(got){nxt.hit=true;this.ti++;this.registerHit(nxt,hipDev<CAL.hipThr,false);}
+    else{
+      const wrong=dev>CAL.slideThr?'R':dev<-CAL.slideThr?'L':null;   // any big slide
+      if(wrong&&(nxt.dir==='R'||nxt.dir==='L')&&Math.abs(t-nxt.t)<w*0.5){
+        nxt.hit=true;this.ti++;this.registerHit(nxt,hipDev<CAL.hipThr,true);}
+    }
+  },
+  wob:0,_lastWobT:0,
+  trackHipWobble(h){
+    if(!CAL)return;
+    const now=performance.now(),dt=this._lastWobT?now-this._lastWobT:16;this._lastWobT=now;
+    this.wob=h>CAL.hipThr*1.6?this.wob+dt:0;
+    if(this.wob>400){fx.hipWarm();this.wob=0;
+      if(!this.hipWarnedRound){this.hipWarnedRound=true;
+        Live.cue('Their hips are wobbling. ONE playful line: freeze those hips!');}}
+  },
+  registerHit(tg,iso,wrong){
+    fx.pop(JOINT_FOR[tg.dir],this.streak);
+    if(iso)fx.hipShimmer();
+    fx.dim();
+    const R=ROUNDS[this.round];
+    let pts=R.rate===1.0?15:10;
+    if(wrong)pts=Math.round(pts/2);
+    if(iso&&R.rate===1.0)pts+=10;
+    if(R.rate>1.0){this.streak++;if(this.streak>=3){pts*=2;$('streakTag').classList.add('show');}}
+    else this.streak=0;
+    if(this.round===3)pts+=5;                             // round 4 = the chase bonus
+    this.score+=pts;$('score').textContent=this.score;
+    this.loopHits[this.round]++;
+    if(iso)this.roundIso[this.round]++;
+    const s=this.sideStats;if(s){s[tg.dir]=(s[tg.dir]||0)+1;if(iso)s.iso++;if(wrong)s.wrong++;}
+    if(iso&&this.facts<4){this.facts++;
+      Live.post({type:'nova-fact',move:'torso slide with hips frozen'});}
+  },
+  readyGate(){
+    if(this.phase!=='connect')return;
+    this.phase='ready';$('ready-btn').classList.add('on');
+  },
+  start(){
+    if(this.phase!=='ready')return;
+    $('ready-btn').classList.remove('on');
+    this.countdown(()=>this.startRound(0));
+  },
+  countdown(done){
+    let n=3;const c=$('count');c.classList.add('on');c.textContent=n;
+    const t=setInterval(()=>{n--;
+      if(n>0){c.textContent=n;return;}
+      clearInterval(t);c.classList.remove('on');done();
+    },850);
+  },
+  startRound(i){
+    this.round=i;this.ti=0;this._finishArmed=false;this._freezeDone=false;
+    this.hipWarnedRound=false;this.streak=0;$('streakTag').classList.remove('show');
+    this.sideStats={R:0,L:0,F:0,B:0,iso:0,wrong:0};
+    ema={sx:null,sw:null,hx:null};lastDev=null;
+    this.targets=TARGETS.map(x=>({...x,hit:false,missed:false,lit:false}));
+    const R=ROUNDS[i];
+    $('roundTag').textContent=R.label;$('roundTag').style.display='block';
+    routine.playbackRate=R.rate;try{routine.preservesPitch=true;}catch(_){}
+    routine.currentTime=i===0?0:DEMO_END;                 // demo plays only in round 1
+    routine.volume=Music.base;
+    /* stage swap: routine on, idle Nova off */
+    routine.classList.add('show');
+    if(Live.frame)Live.frame.classList.remove('ready');
+    this.phase='play';
+    if(i===0)Live.post({type:'game-start'});
+    Live.cue(R.rate>1
+      ?'Round '+R.n+' — FASTER! One breathless line: same circles, speed up!'
+      :'Round '+R.n+' begins, slow and stretchy. One tiny line: copy me, hips frozen!');
+    bannerEl.textContent=R.label;bannerEl.classList.add('show');
+    setTimeout(()=>bannerEl.classList.remove('show'),2000);
+    routine.play().catch(e=>console.warn('[ROUTINE] play blocked',e));
+    requestAnimationFrame(()=>this.tick());
+  },
+  tick(){
+    if(this.phase!=='play')return;
+    const t=routine.currentTime;
+    $('progress').firstElementChild.style.width=Math.min(100,t/(routine.duration||38)*100)+'%';
+    /* calibration completes exactly once, at round-1 demo end */
+    if(this.round===0&&!CAL&&t>=DEMO_END)finishCalibration();
+    /* light the NEXT target one beat early; expire missed windows */
+    const w=BASE_WINDOW*ROUNDS[this.round].windowScale;
+    const nxt=this.targets[this.ti];
+    if(nxt&&nxt.dir!=='FREEZE'){
+      if(!nxt.lit&&t>=nxt.t-leadFor(this.round)){
+        nxt.lit=true;
+        /* direction letter shown inside the glow only for the first loop of round 1 */
+        const letter=(this.round===0&&this.ti<4)?nxt.dir:'';
+        if(letter)fx._letterUntil=performance.now()+2600;
+        fx.glow(JOINT_FOR[nxt.dir],GLOW_COLOR[nxt.dir],letter);
+      }
+      if(t>nxt.t+w&&!nxt.hit){nxt.missed=true;this.ti++;fx.dim();}
+    }
+    /* FREEZE target: 1s stillness inside its window */
+    if(nxt&&nxt.dir==='FREEZE'&&!this._freezeDone){
+      if(!nxt.lit&&t>=nxt.t-0.5){nxt.lit=true;fx.glow('chest',GLOW_COLOR.FREEZE);
+        bannerEl.textContent='🧊 FREEZE like her!';bannerEl.classList.add('show');}
+      if(t>=nxt.t){
+        if(Pose.ok&&!Pose.still)this._stillT0=performance.now();
+        if(!this._stillT0)this._stillT0=performance.now();
+        if(performance.now()-this._stillT0>=1000*(nxt.hold||1)||!Pose.ok){
+          this._freezeDone=true;nxt.hit=true;this.ti++;
+          this.score+=50;$('score').textContent=this.score;
+          fx.pop('chest');fx.pop('hips');fx.dim();
+          bannerEl.classList.remove('show');
+        }
+      }
+    }
+    if(t>=(routine.duration||38)-0.05)this.endRound();
+    else requestAnimationFrame(()=>this.tick());
+  },
+  endRound(){
+    routine.pause();fx.dim();bannerEl.classList.remove('show');
+    const hits=this.loopHits[this.round],
+          v=hits>=10?'NAILED':hits>=6?'GOOD':'TRIED';
+    this.roundVerdict[this.round]=v;
+    if(v==='NAILED'){this.score+=30;$('score').textContent=this.score;}
+    if(this.round<3){this.phase='between';this.between(v,hits);}
+    else{this.phase='ending';this.finale();}
+  },
+  stars(v){return v==='NAILED'?'⭐⭐⭐':v==='GOOD'?'⭐⭐':'⭐';},
+  _coachCtx(){
+    const s=this.sideStats||{};
+    const sides=[['right',s.R||0],['left',s.L||0],['front',s.F||0],['back',s.B||0]];
+    sides.sort((a,b)=>b[1]-a[1]);
+    return 'best side '+sides[0][0]+' ('+sides[0][1]+' hits), needs love '+sides[3][0]+
+      ' ('+sides[3][1]+'), hips-frozen count '+(s.iso||0);
+  },
+  between(v,hits){
+    /* idle Nova returns and coaches from the FACTS */
+    routine.classList.remove('show');
+    if(Live.frame)Live.frame.classList.add('ready');
+    $('roundTag').style.display='none';
+    const nextR=ROUNDS[this.round+1];
+    Live.cue('Round '+(this.round+1)+' done: '+v+', '+hits+' of 14 moves. Coach from these facts, two tiny '+
+      'lines: praise the best side, encourage the weakest. Then ask: ready for '+nextR.label+'?',
+      this._coachCtx());
+    this._card('🌟 '+ROUNDS[this.round].label+' — '+v+'!','▶ '+nextR.label+'!');
+  },
+  _card(title,btnText){
+    const sc=$('scorecard');
+    sc.querySelector('h2').textContent=title;
+    const rows=$('sc-rows');rows.innerHTML='';
+    for(let i=0;i<4;i++){
+      if(this.roundVerdict[i]==null)continue;
+      rows.insertAdjacentHTML('beforeend',
+        '<div class="row"><span>'+ROUNDS[i].label+'</span><span class="stars">'+
+        this.stars(this.roundVerdict[i])+' · '+this.loopHits[i]+' hits</span></div>');
+    }
+    $('sc-total').textContent='⭐ '+this.score+' points';
+    $('sc-btn').textContent=btnText;
+    sc.classList.add('on');
+  },
+  nextRound(){
+    $('scorecard').classList.remove('on');
+    this.countdown(()=>this.startRound(this.round+1));
+  },
+  finale(){
+    routine.classList.remove('show');
+    if(Live.frame)Live.frame.classList.add('ready');
+    $('roundTag').style.display='none';
+    const allNailed=this.roundVerdict.length===4&&this.roundVerdict.every(x=>x==='NAILED');
+    if(allNailed){this.score+=100;$('score').textContent=this.score;}
+    Live.cue('GAME OVER! Total '+this.score+' points, rounds: '+this.roundVerdict.join('/')+
+      (allNailed?' — ALL FOUR NAILED!':'')+'. Celebrate with the real number: your torso dances ALONE — '+
+      this.score+' points! Then ask: did you have fun, tell me anything! Then a warm goodbye — same time tomorrow?');
+    this._card(allNailed?'🏆 PERFECT — ALL 4 NAILED!':'🏆 Final score!','🔁 PLAY AGAIN');
+  },
+  /* pause / exit */
+  paused:false,
+  togglePause(){
+    if(this.phase!=='play')return;
+    this.paused=!this.paused;
+    if(this.paused){routine.pause();Live.hold(true);$('btn-pause').textContent='▶ Resume';}
+    else{Live.hold(false);$('btn-pause').textContent='⏸ Pause';
+      this.countdown(()=>{routine.play().catch(()=>{});requestAnimationFrame(()=>this.tick());});}
+  },
+};
+
+/* ═══ boot ═══ */
+$('ready-btn').addEventListener('click',()=>Game.start());
+$('sc-btn').addEventListener('click',()=>{
+  if(Game.phase==='between')Game.nextRound();
+  else location.reload();
+});
+$('btn-pause').addEventListener('click',()=>Game.togglePause());
+$('btn-exit').addEventListener('click',()=>{try{Live.hold(true);}catch(_){}location.href='/';});
+(async()=>{
+  fitCanvas();fx.render();
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:{width:960,height:720},audio:false});
+    camEl.srcObject=stream;
+  }catch(e){statusEl.textContent='camera blocked — she can\'t see you';}
+  Live.init();
+  if(LIVE_OFF&&!Pose._started){Pose._started=true;Pose.init();}
+})();
+</script>
+</body>
+</html>
