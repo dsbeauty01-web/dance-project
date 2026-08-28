@@ -5,17 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Upper Body! · Nova</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%83%3C/text%3E%3C/svg%3E">
-<!-- UPPERBODY-FINAL (2026-08-28) — implements Downloads/UPPERBODY-FINAL.md.
-     4 ROUNDS: slow 1.0x → slow 1.0x (windows ×0.9) → fast 1.25x (×0.75) → fast 1.25x (×0.65).
-     Joint LIGHTS on a canvas over the kid replace arrows (the light IS the cue, it follows
-     the kid's live MoveNet joints). Smart tracking: per-kid calibration in the round-1 demo
-     (their OWN sway range sets thresholds), EMA smoothing + velocity assist, sustained-only
-     hip wobble. Talking phases (intro/between/ending) = nova_idle engine lips; game rounds =
-     the routine video (the clock). KEEPS from V1/V2: one-origin Live object, quoted greet
-     intro=upperbody, PICK 'upperbody', /gallery/upperbody-routine.mp4 (NOTE: spec says
-     /media/rapa_src.mp4 but that copy has NO audio track — the gallery copy carries the
-     music, so it stays).
-     Sides are SCREEN-SPACE (usercam mirrored; kid's RIGHT shoulder appears screen-right). -->
+<!-- UPPERBODY V3 (2026-08-28, founder corrections) — built on the repo's TWO skills:
+     · LIGHTS = nova-engine.js (NOVA-OPERATION-BOOK Part 1): 5-state cue lifecycle
+       (PULSE orb → GUIDE lean → FLARE on confirm → FADE), direction shown by the
+       light LEANING — NO arrows, NO letters on the body. Served from /gallery/.
+     · MOVEMENT = the isoPulse family (nova-joined.html): the RIBSLIDE signal —
+       shoulder-center-x MINUS hip-center-x, normalised by SHOULDER WIDTH, kid-proven
+       threshold 0.18. Isolation-aware by construction (whole-body steps cancel out).
+       Plus the hardened detector boot: webgl→wasm fallback + shader warm-up (first
+       webgl inference can stall ~16s — pay it at load, not mid-game).
+     · INTRO/TALKING BODY = nova_idle2 (measured stillest bake on the volume, 3.80
+       motion vs nova_idle 4.87 — nova_idle was baked from 'idle_sway' and grooves,
+       which is what the founder saw and rejected). She stands and just TALKS.
+     4 rounds slow/slow/fast/fast (1.0/1.0/1.25/1.25x, windows ×1.0/.9/.75/.65);
+     demo only in round 1 (calibration); routine video = the one clock. -->
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.umd.min.js"></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
@@ -39,7 +42,12 @@
   #roundTag{background:rgba(0,0,0,.55);color:#fff;border-radius:999px;padding:4px 16px;font-weight:700;display:none}
   #streakTag{color:#ffd166;font-weight:800;font-size:18px;opacity:0;transition:opacity .3s}
   #streakTag.show{opacity:1}
-  #banner{position:fixed;top:9vh;left:50%;transform:translateX(-50%);font-weight:800;z-index:50;
+  /* §1.5 timing bar — ONE meaning per cue, drawn in the top strip */
+  #cuebar-wrap{position:fixed;top:8.2vh;left:50%;transform:translateX(-50%);width:min(300px,40vw);height:8px;
+    background:rgba(0,0,0,.35);border-radius:99px;z-index:50;opacity:0;transition:opacity .3s}
+  #cuebar-wrap.show{opacity:1}
+  #cuebar{height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,#ffd27a,#ffa63d)}
+  #banner{position:fixed;top:11vh;left:50%;transform:translateX(-50%);font-weight:800;z-index:50;
     font-size:clamp(18px,2.6vw,26px);background:rgba(80,30,140,.9);padding:10px 22px;border-radius:16px;
     opacity:0;transition:opacity .35s;white-space:nowrap;pointer-events:none}
   #banner.show{opacity:1}
@@ -111,6 +119,7 @@
   <div id="roundTag">ROUND 1 · SLOW</div>
   <div id="streakTag">🔥 streak ×2</div>
 </div>
+<div id="cuebar-wrap"><div id="cuebar"></div></div>
 <div id="banner"></div>
 <div id="progress"><i></i></div>
 <div id="controls">
@@ -125,7 +134,9 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.20.0/dist/tf-backend-wasm.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<script src="/gallery/nova-engine.js"></script>
 <script>
 'use strict';
 const $=id=>document.getElementById(id);
@@ -135,14 +146,13 @@ const Q=new URLSearchParams(location.search);
 const SARAY_BASE=location.origin+'/';
 const LIVE_OFF=Q.get('nolive')==='1';
 
-/* ═══ THE ROUND ENGINE (UPPERBODY-FINAL §2): 4 rounds slow,slow,fast,fast ═══ */
+/* ═══ ROUNDS + the measured target map (video-time s, sides screen-space) ═══ */
 const ROUNDS=[
   {n:1,rate:1.00,label:'ROUND 1 · SLOW',windowScale:1.0},
   {n:2,rate:1.00,label:'ROUND 2 · SLOW',windowScale:0.9},
   {n:3,rate:1.25,label:'ROUND 3 · FAST',windowScale:0.75},
   {n:4,rate:1.25,label:'ROUND 4 · FAST',windowScale:0.65},
 ];
-/* measured target map, video-time seconds, sides screen-space (FINAL §2) */
 const TARGETS=[
   {t:16.10,dir:'R'},{t:17.37,dir:'L'},
   {t:19.55,dir:'B'},{t:21.20,dir:'F'},
@@ -152,24 +162,49 @@ const TARGETS=[
   {t:31.90,dir:'R'},{t:32.50,dir:'L'},{t:33.27,dir:'R'},{t:34.33,dir:'L'},
   {t:35.20,dir:'FREEZE',hold:1.0},
 ];
-const DEMO_END=13.5, BASE_WINDOW=0.9;
-const leadFor=r=>ROUNDS[r].rate>1?0.7:1.1;    // light the target one beat early
+const DEMO_END=13.5, BASE_WINDOW=0.9, LEAD=0.65;   // light pulses ~a beat before the move
 
-/* ═══ HER BRAIN — [GAME-MODE] persona (4-round FINAL flow) ═══ */
+/* ═══ THE MOVEMENT SKILL (isoPulse family, nova-joined.html) ═══
+   RIBSLIDE: shoulder-center-x MINUS hip-center-x, normalised by shoulder width.
+   Whole-body steps cancel out — only the torso isolation registers. Kid-proven
+   threshold 0.18 (shoulder-width units). Front/back = shoulder-width ratio. */
+const ISO={ thr:{ ribslide:parseFloat(Q.get('slide'))||0.18,
+                  front:parseFloat(Q.get('front'))||1.07,
+                  back:parseFloat(Q.get('back'))||0.93,
+                  hip:parseFloat(Q.get('hip'))||0.06 } };
+const Sig={ribDev:0,wr:1,hipDev:0,ok:false,_ema:{rib:null,sw:null,hx:null},
+  base:{rib:null,sw:null,hx:null},_cal:{rib:[],sw:[],hx:[]},
+  feed(sx,sw,hx){            // all in screen-normalised units, mirrored
+    this.ok=true;
+    const rib=(sx-hx)/Math.max(0.05,sw);
+    for(const[k,v]of[['rib',rib],['sw',sw],['hx',hx]]){
+      this._ema[k]=this._ema[k]==null?v:this._ema[k]*0.6+v*0.4;}
+    if(this.base.rib==null)return;                      // still calibrating
+    this.ribDev=this._ema.rib-this.base.rib;
+    this.wr=this._ema.sw/this.base.sw;
+    this.hipDev=Math.abs(this._ema.hx-this.base.hx);
+  },
+  calSample(sx,sw,hx){this._cal.rib.push((sx-hx)/Math.max(0.05,sw));this._cal.sw.push(sw);this._cal.hx.push(hx);},
+  calFinish(){
+    const med=a=>a.length?[...a].sort((x,y)=>x-y)[a.length>>1]:null;
+    this.base={rib:med(this._cal.rib)??0,sw:med(this._cal.sw)??0.2,hx:med(this._cal.hx)??0.5};
+    console.log('[CAL]',JSON.stringify({base:this.base,thr:ISO.thr}));
+  },
+};
+
+/* ═══ HER BRAIN — [GAME-MODE] persona ═══ */
 const UB_COACH=
  "[GAME-MODE] "+
  "You are Nova, dancing UPPER BODY ISOLATION right now — the only game where you coach WHILE you dance. "+
- "THIS IS THE UPPER BODY GAME ONLY — no intro to run, no name to collect, no magic light, no other games. "+
- "Never mention a light on a shoulder, a shoulder glow ritual, or a choice of games. "+
+ "THIS IS THE UPPER BODY GAME ONLY — no intro to run, no name to collect, no magic light ritual, no other games. "+
  "The move: hands on the waist, torso travels BACK, RIGHT, LEFT, FRONT while the hips stay FROZEN — that "+
- "isolation is the magic trick and you LOVE it. "+
- "The game is FOUR rounds of the same routine: rounds one and two SLOW (s-t-r-e-t-c-h, call directions "+
- "softly), rounds three and four FASTER (energy doubles, mostly sounds like 'Woo! Keep up!', no sentences). "+
- "Between rounds I hand you REAL camera facts — coach from them: praise the side they nailed, encourage the "+
- "side that needs love, then ask if they're ready for the next round. "+
- "Talk in tiny bursts, 6 words max. Praise ONLY what I tell you the camera saw — specific, like 'hips "+
- "didn't move, PERFECT!' — never invent a move. If no facts came, cheer effort. "+
- "At the FREEZE pose: total silence until I give the verdict. "+
+ "isolation is the magic trick and you LOVE it. A golden light on their body shows where to go — you may "+
+ "say 'follow the golden light!' once. "+
+ "FOUR rounds: one and two SLOW (s-t-r-e-t-c-h, call directions softly), three and four FASTER (energy "+
+ "doubles, mostly sounds like 'Woo! Keep up!', no sentences). Between rounds I hand you REAL camera facts — "+
+ "coach from them: praise the side they nailed, encourage the side that needs love, ask ready for the next. "+
+ "Talk in tiny bursts, 6 words max. Praise ONLY what I tell you the camera saw. If no facts came, cheer "+
+ "effort. At the FREEZE pose: total silence until I give the verdict. "+
  "NEVER repeat a line you've already said this game. Never say wrong, no, miss, fail, or oops — every "+
  "child always wins. You are 110% more excited than the kid, always. English only.";
 
@@ -181,7 +216,7 @@ const NovaSay={el:$('nova-say'),_t:null,
   log(t){if(!t)return;this.el.textContent=t;this.el.classList.add('show');
     clearTimeout(this._t);this._t=setTimeout(()=>this.el.classList.remove('show'),5200);}};
 
-/* ═══ LIVE Nova — proven one-origin connection (unchanged from V1/V2) ═══ */
+/* ═══ LIVE Nova — proven one-origin connection ═══ */
 const Live={
   frame:null,on:false,dead:false,alive:false,video:null,audioEl:null,ws:null,room:null,
   init(){
@@ -221,8 +256,6 @@ const Live={
       room.on(LK.RoomEvent.TrackSubscribed,(track,pub,p)=>{
         if(p.identity!=='nova-avatar')return;
         if(track.kind==='video'){track.attach(self.video);
-          /* ambient backdrop = the same stream, blurred+stretched behind everything
-             (fills the letterbox sides behind the 9:16 routine too) */
           try{track.attach($('novaAmbient'));}catch(_){}}
         if(track.kind==='audio'){
           const a=track.attach();
@@ -255,9 +288,9 @@ const Live={
     }catch(e){console.warn('[ONE-ORIGIN] room err',e&&e.message);}
     this._connectWS();
     try{await this._startMic();}catch(e){console.warn('[ONE-ORIGIN] MIC BLOCKED',e&&e.message);}
-    /* IDLE BAKE for all live talking (founder law 2026-08-28): a talking avatar can
-       never be the dance-loop body. nova_idle = the proven calm intro/ending body. */
-    this.setAvatar('nova_idle');
+    /* TALKING BODY = nova_idle2 (founder 2026-08-28: she must stand and JUST TALK.
+       nova_idle was baked from 'idle_sway' and grooves — rejected). */
+    this.setAvatar('nova_idle2');
   },
   _wsConns:0,_wsDelay:1500,_micGated:false,
   _connectWS(){
@@ -340,7 +373,7 @@ const Live={
   hold(on){this.post({type:'hold',on:!!on});},
 };
 
-/* ═══ INTRO ARMING — persona + pick, retried until ACKed ═══ */
+/* ═══ INTRO ARMING ═══ */
 const Intro={
   _ackPersona:false,_ackPick:false,_tries:0,_timer:null,
   arm(){
@@ -360,42 +393,37 @@ const Intro={
   },
 };
 
-/* ═══ Music = the routine's own track; duck while she speaks ═══ */
 const Music={base:0.65,ducked:0.30,
   duck(on){try{routine.volume=on?this.ducked:this.base;}catch(_){}}};
 
-/* ═══ SMART TRACKING (FINAL §3) — per-kid calibration + EMA + velocity ═══ */
-let CAL=null, lastDev=null;
-const cal={sx:[],sw:[],hx:[]};
-function percentile(a,p){const s=[...a].sort((x,y)=>x-y);return s[Math.min(s.length-1,Math.floor(s.length*p/100))];}
-function finishCalibration(){
-  if(!cal.sx.length){console.warn('[CAL] no samples — fallback defaults');
-    CAL={sx0:0.5,hx0:0.5,sw0:0.2,slideThr:0.09,hipThr:0.06,frontThr:1.07,backThr:0.93};return;}
-  const med=a=>[...a].sort((x,y)=>x-y)[a.length>>1];
-  const spread=percentile(cal.sx,90)-percentile(cal.sx,10);   // the kid's OWN demo sway range
-  CAL={
-    sx0:med(cal.sx),hx0:cal.hx.length?med(cal.hx):null,sw0:med(cal.sw),
-    slideThr:Math.max(0.05,spread*0.35),
-    hipThr:Math.max(0.03,spread*0.18),
-    frontThr:1.07,backThr:0.93,
-  };
-  /* live-tune overrides post-calibration (FINAL: report defaults kept) */
-  if(Q.get('slide'))CAL.slideThr=parseFloat(Q.get('slide'));
-  if(Q.get('hip'))CAL.hipThr=parseFloat(Q.get('hip'));
-  if(Q.get('front'))CAL.frontThr=parseFloat(Q.get('front'));
-  if(Q.get('back'))CAL.backThr=parseFloat(Q.get('back'));
-  console.log('[CAL]',JSON.stringify(CAL));       // the personalization proof — paste in evidence
-}
-let ema={sx:null,sw:null,hx:null};
-
-/* ═══ Pose — MoveNet lightning; feeds calibration, detection, lights, stillness ═══ */
+/* ═══ Pose — MoveNet with the SKILL's hardened boot (webgl→wasm + warm-up) ═══ */
 const Pose={
-  det:null,ok:false,_started:false,lastKp:null,still:true,motion:0,kpNow:null,
+  det:null,ok:false,_started:false,lastKp:null,still:true,motion:0,mKP:null,
   async init(){
     try{
-      await tf.setBackend('webgl');
+      window.__tfBackend='';
+      try{if(tf.wasm&&tf.wasm.setWasmPaths)tf.wasm.setWasmPaths('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.20.0/dist/');}catch(_){}
+      let wgl=false;
+      try{wgl=await tf.setBackend('webgl');}catch(e){}
+      if(!wgl){
+        console.error('[POSE] webgl failed → wasm');
+        let wok=false;try{wok=await tf.setBackend('wasm');}catch(e){}
+        if(!wok){try{await tf.setBackend('cpu');}catch(_){}}
+      }
+      await tf.ready();
+      window.__tfBackend=(tf.getBackend&&tf.getBackend())||'?';
+      console.log('[POSE] backend =',window.__tfBackend);
       this.det=await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,
         {modelType:poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING});
+      /* WARM-UP: the first webgl inference compiles shaders (~16s on iGPUs). Pay it
+         NOW on a dummy frame so the game's first real frame is instant. */
+      try{
+        const wc=document.createElement('canvas');wc.width=640;wc.height=480;
+        wc.getContext('2d').fillRect(0,0,640,480);
+        const t0=performance.now();
+        await this.det.estimatePoses(wc);await this.det.estimatePoses(wc);
+        console.log('[POSE] warm-up done in',Math.round(performance.now()-t0),'ms');
+      }catch(e){console.warn('[POSE] warm-up failed (non-fatal)',e&&e.message);}
       this.ok=true;statusEl.textContent='✓ Nova sees you';
       this.loop();
     }catch(e){statusEl.textContent='playing without tracking';}
@@ -405,23 +433,28 @@ const Pose={
       const poses=await this.det.estimatePoses(camEl,{flipHorizontal:false});
       const kp=poses[0]?.keypoints;
       if(kp&&kp.length>=13){
-        this.kpNow=kp;
-        const W=camEl.videoWidth||960;
-        /* normalized screen-space (mirror flip): screen_x = 1 - raw_x/W */
-        const g=i=>kp[i];
-        const ls=g(5),rs=g(6),lh=g(11),rh=g(12);
-        if(ls.score>0.35&&rs.score>0.35){
-          const norm={sx:1-((ls.x+rs.x)/2)/W, sw:Math.abs(ls.x-rs.x)/W,
-                      hx:(lh.score>0.35&&rh.score>0.35)?1-((lh.x+rh.x)/2)/W:null};
-          Game.onPose(norm);
+        const W=camEl.videoWidth||960,H=camEl.videoHeight||720;
+        /* pixel-space + MIRRORED canvas coords for the light engine (§usage law) */
+        const cw=fxCanvas.width,ch=fxCanvas.height;
+        const scale=Math.max(cw/W,ch/H),ox=(cw-W*scale)/2,oy=(ch-H*scale)/2;
+        const m={};
+        for(const p of kp){
+          m[p.name]={x:cw-(p.x*scale+ox),y:p.y*scale+oy,score:p.score,name:p.name};
         }
-        /* stillness (freeze check) — shoulder-normalized motion */
+        this.mKP=m;
+        const ls=kp[5],rs=kp[6],lh=kp[11],rh=kp[12];
+        if(ls.score>0.35&&rs.score>0.35&&lh.score>0.35&&rh.score>0.35){
+          /* screen-normalised signals for the movement skill (mirror = 1-x/W) */
+          const sx=1-((ls.x+rs.x)/2)/W, sw=Math.abs(ls.x-rs.x)/W, hx=1-((lh.x+rh.x)/2)/W;
+          Game.onSignals(sx,sw,hx);
+        }
+        /* stillness (freeze) — shoulder-normalised motion, freeze-page formula */
         if(this.lastKp){
-          const prev=this.lastKp;let d=0,n=0,sw=1;
-          if(ls&&rs)sw=Math.max(30,Math.hypot(ls.x-rs.x,ls.y-rs.y));
+          const prev=this.lastKp;let d=0,n=0,sw2=1;
+          sw2=Math.max(30,Math.hypot(ls.x-rs.x,ls.y-rs.y));
           for(let i=0;i<kp.length;i++){if(kp[i].score>0.35&&prev[i]&&prev[i].score>0.35){
             d+=Math.hypot(kp[i].x-prev[i].x,kp[i].y-prev[i].y);n++;}}
-          this.motion=n?(d/n)/sw:0;this.still=this.motion<0.045;
+          this.motion=n?(d/n)/sw2:0;this.still=this.motion<0.045;
         }
         this.lastKp=kp;
       }
@@ -430,152 +463,69 @@ const Pose={
   },
 };
 
-/* ═══ THE JOINT LIGHTS (FINAL §4) — canvas over the kid, mirrored coords ═══ */
+/* ═══ THE LIGHT ENGINE (nova-engine.js) — songmap + actions per round ═══ */
 const fxCanvas=$('lightsFx'), fctx=fxCanvas.getContext('2d');
 function fitCanvas(){fxCanvas.width=fxCanvas.clientWidth;fxCanvas.height=fxCanvas.clientHeight;}
 window.addEventListener('resize',fitCanvas);
-const fx={
-  _glow:null,_pops:[],_shimmer:0,_warm:0,_letterUntil:0,_letter:'',
-  audio:null,
-  blip(streak){
-    try{
-      if(!this.audio)this.audio=new AudioContext();
-      const c=this.audio,o=c.createOscillator(),gn=c.createGain();
-      o.frequency.value=520+Math.min(6,streak)*90;         // pitch rises with streak
-      gn.gain.setValueAtTime(0.12,c.currentTime);
-      gn.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.18);
-      o.connect(gn);gn.connect(c.destination);o.start();o.stop(c.currentTime+0.2);
-    }catch(_){}
-  },
-  jointPos(name){
-    /* live joint position in canvas coords (mirrored) */
-    const kp=Pose.kpNow;if(!kp)return null;
-    const W=camEl.videoWidth||960,H=camEl.videoHeight||720;
-    const map={leftShoulder:5,rightShoulder:6,leftHip:11,rightHip:12};
-    let x,y;
-    if(name==='chest'){const a=kp[5],b=kp[6];if(a.score<0.3||b.score<0.3)return null;
-      x=(a.x+b.x)/2;y=(a.y+b.y)/2+0.06*H;}
-    else if(name==='hips'){const a=kp[11],b=kp[12];if(a.score<0.3||b.score<0.3)return null;
-      x=(a.x+b.x)/2;y=(a.y+b.y)/2;}
-    else{const k=kp[map[name]];if(!k||k.score<0.3)return null;x=k.x;y=k.y;}
-    /* object-fit:cover mapping + mirror */
-    const cw=fxCanvas.width,ch=fxCanvas.height;
-    const scale=Math.max(cw/W,ch/H), ox=(cw-W*scale)/2, oy=(ch-H*scale)/2;
-    return {x:cw-(x*scale+ox), y:y*scale+oy};
-  },
-  glow(joint,color,letter){this._glow={joint,color:color||'#7df0ff',t0:performance.now()};
-    if(letter)this._letter=letter;},
-  dim(){this._glow=null;this._letter='';},
-  pop(joint,streak){
-    const p=this.jointPos(joint)||{x:fxCanvas.width/2,y:fxCanvas.height/2};
-    for(let i=0;i<12;i++){const a=Math.PI*2*i/12;
-      this._pops.push({x:p.x,y:p.y,vx:Math.cos(a)*3.2,vy:Math.sin(a)*3.2,t0:performance.now()});}
-    this._ring={x:p.x,y:p.y,t0:performance.now()};
-    this.blip(streak||0);
-  },
-  hipShimmer(){this._shimmer=performance.now();},
-  hipWarm(){this._warm=performance.now();},
-  render(){
-    const now=performance.now(),cw=fxCanvas.width,ch=fxCanvas.height;
-    fctx.clearRect(0,0,cw,ch);
-    if(this._glow){
-      const p=this.jointPos(this._glow.joint);
-      if(p){
-        const pulse=0.55+0.45*Math.sin((now-this._glow.t0)/1000*Math.PI*6);  // 3 pulses/s
-        const r=Math.min(cw,ch)*0.11*(0.85+0.3*pulse);
-        const g=fctx.createRadialGradient(p.x,p.y,r*0.15,p.x,p.y,r);
-        g.addColorStop(0,this._glow.color+'ee');g.addColorStop(1,this._glow.color+'00');
-        fctx.fillStyle=g;fctx.beginPath();fctx.arc(p.x,p.y,r,0,7);fctx.fill();
-        if(this._letter&&now<this._letterUntil){
-          fctx.fillStyle='#fff';fctx.font='800 '+Math.round(r*0.6)+'px system-ui';
-          fctx.textAlign='center';fctx.textBaseline='middle';fctx.fillText(this._letter,p.x,p.y);
-        }
-      }
-    }
-    this._pops=this._pops.filter(q=>now-q.t0<320);
-    for(const q of this._pops){const k=(now-q.t0)/320;
-      fctx.globalAlpha=1-k;fctx.fillStyle='#ffd166';
-      fctx.beginPath();fctx.arc(q.x+q.vx*k*30,q.y+q.vy*k*30,4*(1-k)+1,0,7);fctx.fill();}
-    if(this._ring&&now-this._ring.t0<300){const k=(now-this._ring.t0)/300;
-      fctx.globalAlpha=1-k;fctx.strokeStyle='#7df0ff';fctx.lineWidth=4*(1-k)+1;
-      fctx.beginPath();fctx.arc(this._ring.x,this._ring.y,20+k*70,0,7);fctx.stroke();}
-    if(now-this._shimmer<600){const p=this.jointPos('hips');
-      if(p){const k=(now-this._shimmer)/600;
-        fctx.globalAlpha=(1-k)*0.9;fctx.strokeStyle='#ffd700';fctx.lineWidth=6*(1-k)+2;
-        fctx.beginPath();fctx.arc(p.x,p.y,44+k*30,0,7);fctx.stroke();}}
-    if(now-this._warm<400){const p=this.jointPos('hips');
-      if(p){const k=(now-this._warm)/400;
-        const g=fctx.createRadialGradient(p.x,p.y,8,p.x,p.y,80);
-        g.addColorStop(0,'rgba(255,150,60,'+(0.5*(1-k))+')');g.addColorStop(1,'rgba(255,150,60,0)');
-        fctx.fillStyle=g;fctx.beginPath();fctx.arc(p.x,p.y,80,0,7);fctx.fill();}}
-    fctx.globalAlpha=1;
-    requestAnimationFrame(()=>this.render());
-  },
+function chestAnchor(m,gated){
+  const a=gated(m.left_shoulder),b=gated(m.right_shoulder);
+  if(!a||!b)return null;
+  return {x:(a.x+b.x)/2,y:(a.y+b.y)/2+28};
+}
+/* NOTE on sides: keypoints are mirrored, so the kid's right shoulder sits on
+   screen-right — anchor 'R' targets right_shoulder and the lean points +x. */
+const ACTIONS={
+  slideR:{anchor:(m,g)=>g(m.right_shoulder),leanVec:()=>[1,0],
+    check:()=>{const d=Sig.ribDev;return d>ISO.thr.ribslide?{q:Math.min(1,0.5+d/ISO.thr.ribslide*0.3)}:false;},bar:'window'},
+  slideL:{anchor:(m,g)=>g(m.left_shoulder),leanVec:()=>[-1,0],
+    check:()=>{const d=-Sig.ribDev;return d>ISO.thr.ribslide?{q:Math.min(1,0.5+d/ISO.thr.ribslide*0.3)}:false;},bar:'window'},
+  leanF:{anchor:chestAnchor,leanVec:()=>[0,0.9],
+    check:()=>Sig.wr>ISO.thr.front?{q:0.7}:false,bar:'window'},
+  leanB:{anchor:chestAnchor,leanVec:()=>[0,-0.9],
+    check:()=>Sig.wr<ISO.thr.back?{q:0.7}:false,bar:'window'},
+  freeze:{anchor:chestAnchor,leanVec:()=>[0,-1],bar:'hold',holdMs:1000,
+    check:()=>Pose.ok?Pose.still:true},
 };
-const JOINT_FOR={R:'rightShoulder',L:'leftShoulder',F:'chest',B:'chest',FREEZE:'chest'};
-const GLOW_COLOR={R:'#7df0ff',L:'#7df0ff',F:'#ffd166',B:'#b98cff',FREEZE:'#aee8ff'};
+const DIR_ACTION={R:'slideR',L:'slideL',F:'leanF',B:'leanB',FREEZE:'freeze'};
+function buildSongmap(round){
+  const ws=ROUNDS[round].windowScale;
+  return TARGETS.map(tg=>{
+    const win=(tg.dir==='FREEZE'?2.8:BASE_WINDOW*(tg.dir==='B'||tg.dir==='F'?1.3:1.0))*
+              (tg.dir==='FREEZE'?1:ws);
+    return {t:(tg.t-LEAD)*1000, close:(tg.t+win)*1000, action:DIR_ACTION[tg.dir], dir:tg.dir};
+  });
+}
 
-/* ═══ THE GAME (FINAL §2/§5/§6) ═══ */
+/* ═══ Director cues ═══ */
+const CUES_R1=[
+  [0.5 ,'Demo begins. Coach while dancing: arms out, torso side to side, hips frozen. Two tiny lines only.'],
+  [7.2 ,'Hands to your waist now. One tiny line: hands on your waist, keep sliding!'],
+  [13.0,'Game starts. One line: follow the golden light, copy me, GO!'],
+  [19.0,'Slow circles: torso goes BACK, RIGHT, LEFT, FRONT. Call directions softly as you dance them.'],
+  [31.0,'The fast burst! Sounds mostly: Woo! Keep up!'],
+  [35.2,'Finish pose NOW. Say exactly: FREEZE like me! Then total silence until I give the verdict.'],
+];
+const CUES_LATER=[
+  [14.0,'This round begins. One tiny line, fresh words, hips FROZEN allowed.'],
+  [31.0,'Fast burst! Pure sounds: Woo! Fire!'],
+  [35.2,'Finish pose NOW. Say exactly: FREEZE like me! Then silence until the verdict.'],
+];
+
+/* ═══ THE GAME ═══ */
 const Game={
-  phase:'connect',   // connect → ready → play → between → … → ending
-  round:0,targets:[],ti:0,score:0,streak:0,
-  loopHits:[0,0,0,0],roundIso:[0,0,0,0],roundVerdict:[],
-  sideStats:null,facts:0,hipWarnedRound:false,_finishArmed:false,_freezeDone:false,_stillT0:0,
-  onPose(norm){
+  phase:'connect',round:0,eng:null,map:[],scored:new Set(),
+  score:0,streak:0,facts:0,hipWarnedRound:false,cueIdx:0,
+  loopHits:[0,0,0,0],roundIso:[0,0,0,0],roundVerdict:[],sideStats:null,
+  onSignals(sx,sw,hx){
     if(this.phase!=='play')return;
-    const t=routine.currentTime;
-    if(this.round===0&&t<DEMO_END){                       // calibration (round 1 demo only)
-      cal.sx.push(norm.sx);cal.sw.push(norm.sw);if(norm.hx!=null)cal.hx.push(norm.hx);
-      return;
-    }
-    if(!CAL)return;
-    for(const key of ['sx','sw','hx']){const v=norm[key];if(v==null)continue;
-      ema[key]=ema[key]==null?v:ema[key]*0.6+v*0.4;}      // jitter kill
-    const dev=ema.sx-CAL.sx0, wr=ema.sw/CAL.sw0,
-          hipDev=(ema.hx!=null&&CAL.hx0!=null)?Math.abs(ema.hx-CAL.hx0):0;
-    const vel=dev-(lastDev??dev);lastDev=dev;
-    const nxt=this.targets[this.ti];if(!nxt||nxt.hit)return;
-    const w=BASE_WINDOW*ROUNDS[this.round].windowScale;
-    if(nxt.dir==='FREEZE')return;                          // freeze handled in tick
-    if(Math.abs(t-nxt.t)>w){this.trackHipWobble(hipDev);return;}
-    let got=null;
-    if(nxt.dir==='R'&&(dev> CAL.slideThr||(dev> CAL.slideThr*0.6&&vel> 0.004)))got='R';
-    if(nxt.dir==='L'&&(dev<-CAL.slideThr||(dev<-CAL.slideThr*0.6&&vel<-0.004)))got='L';
-    if(nxt.dir==='F'&&wr>CAL.frontThr)got='F';
-    if(nxt.dir==='B'&&wr<CAL.backThr)got='B';
-    if(got){nxt.hit=true;this.ti++;this.registerHit(nxt,hipDev<CAL.hipThr,false);}
-    else{
-      const wrong=dev>CAL.slideThr?'R':dev<-CAL.slideThr?'L':null;   // any big slide
-      if(wrong&&(nxt.dir==='R'||nxt.dir==='L')&&Math.abs(t-nxt.t)<w*0.5){
-        nxt.hit=true;this.ti++;this.registerHit(nxt,hipDev<CAL.hipThr,true);}
-    }
-  },
-  wob:0,_lastWobT:0,
-  trackHipWobble(h){
-    if(!CAL)return;
+    if(this.round===0&&routine.currentTime<DEMO_END){Sig.calSample(sx,sw,hx);return;}
+    if(Sig.base.rib==null)return;
+    Sig.feed(sx,sw,hx);
+    /* sustained hip wobble → her line max once per round (voice only, §no red) */
     const now=performance.now(),dt=this._lastWobT?now-this._lastWobT:16;this._lastWobT=now;
-    this.wob=h>CAL.hipThr*1.6?this.wob+dt:0;
-    if(this.wob>400){fx.hipWarm();this.wob=0;
-      if(!this.hipWarnedRound){this.hipWarnedRound=true;
-        Live.cue('Their hips are wobbling. ONE playful line: freeze those hips!');}}
-  },
-  registerHit(tg,iso,wrong){
-    fx.pop(JOINT_FOR[tg.dir],this.streak);
-    if(iso)fx.hipShimmer();
-    fx.dim();
-    const R=ROUNDS[this.round];
-    let pts=R.rate===1.0?15:10;
-    if(wrong)pts=Math.round(pts/2);
-    if(iso&&R.rate===1.0)pts+=10;
-    if(R.rate>1.0){this.streak++;if(this.streak>=3){pts*=2;$('streakTag').classList.add('show');}}
-    else this.streak=0;
-    if(this.round===3)pts+=5;                             // round 4 = the chase bonus
-    this.score+=pts;$('score').textContent=this.score;
-    this.loopHits[this.round]++;
-    if(iso)this.roundIso[this.round]++;
-    const s=this.sideStats;if(s){s[tg.dir]=(s[tg.dir]||0)+1;if(iso)s.iso++;if(wrong)s.wrong++;}
-    if(iso&&this.facts<4){this.facts++;
-      Live.post({type:'nova-fact',move:'torso slide with hips frozen'});}
+    this._wob=Sig.hipDev>ISO.thr.hip*1.6?(this._wob||0)+dt:0;
+    if(this._wob>400&&!this.hipWarnedRound){this.hipWarnedRound=true;this._wob=0;
+      Live.cue('Their hips are wobbling. ONE playful line: freeze those hips!');}
   },
   readyGate(){
     if(this.phase!=='connect')return;
@@ -594,24 +544,22 @@ const Game={
     },850);
   },
   startRound(i){
-    this.round=i;this.ti=0;this._finishArmed=false;this._freezeDone=false;
+    this.round=i;this.scored=new Set();this.cueIdx=0;
     this.hipWarnedRound=false;this.streak=0;$('streakTag').classList.remove('show');
-    this.sideStats={R:0,L:0,F:0,B:0,iso:0,wrong:0};
-    ema={sx:null,sw:null,hx:null};lastDev=null;
-    this.targets=TARGETS.map(x=>({...x,hit:false,missed:false,lit:false}));
+    this.sideStats={R:0,L:0,F:0,B:0,iso:0};
+    Sig._ema={rib:null,sw:null,hx:null};
+    this.map=buildSongmap(i);
+    this.eng=NovaEngine.create(fctx,{songmap:this.map,actions:ACTIONS,songEndMs:38000});
     const R=ROUNDS[i];
     $('roundTag').textContent=R.label;$('roundTag').style.display='block';
     routine.playbackRate=R.rate;try{routine.preservesPitch=true;}catch(_){}
-    routine.currentTime=i===0?0:DEMO_END;                 // demo plays only in round 1
+    routine.currentTime=i===0?0:DEMO_END;
     routine.volume=Music.base;
-    /* stage swap: routine on, idle Nova off */
     routine.classList.add('show');
     if(Live.frame)Live.frame.classList.remove('ready');
     this.phase='play';
     if(i===0)Live.post({type:'game-start'});
-    Live.cue(R.rate>1
-      ?'Round '+R.n+' — FASTER! One breathless line: same circles, speed up!'
-      :'Round '+R.n+' begins, slow and stretchy. One tiny line: copy me, hips frozen!');
+    else Live.cue(R.rate>1?'Round '+R.n+' — FASTER! One breathless line.':'Round '+R.n+', slow and stretchy. One tiny line.');
     bannerEl.textContent=R.label;bannerEl.classList.add('show');
     setTimeout(()=>bannerEl.classList.remove('show'),2000);
     routine.play().catch(e=>console.warn('[ROUTINE] play blocked',e));
@@ -619,43 +567,49 @@ const Game={
   },
   tick(){
     if(this.phase!=='play')return;
-    const t=routine.currentTime;
+    const t=routine.currentTime, tm=t*1000;
     $('progress').firstElementChild.style.width=Math.min(100,t/(routine.duration||38)*100)+'%';
-    /* calibration completes exactly once, at round-1 demo end */
-    if(this.round===0&&!CAL&&t>=DEMO_END)finishCalibration();
-    /* light the NEXT target one beat early; expire missed windows */
-    const w=BASE_WINDOW*ROUNDS[this.round].windowScale;
-    const nxt=this.targets[this.ti];
-    if(nxt&&nxt.dir!=='FREEZE'){
-      if(!nxt.lit&&t>=nxt.t-leadFor(this.round)){
-        nxt.lit=true;
-        /* direction letter shown inside the glow only for the first loop of round 1 */
-        const letter=(this.round===0&&this.ti<4)?nxt.dir:'';
-        if(letter)fx._letterUntil=performance.now()+2600;
-        fx.glow(JOINT_FOR[nxt.dir],GLOW_COLOR[nxt.dir],letter);
-      }
-      if(t>nxt.t+w&&!nxt.hit){nxt.missed=true;this.ti++;fx.dim();}
-    }
-    /* FREEZE target: 1s stillness inside its window */
-    if(nxt&&nxt.dir==='FREEZE'&&!this._freezeDone){
-      if(!nxt.lit&&t>=nxt.t-0.5){nxt.lit=true;fx.glow('chest',GLOW_COLOR.FREEZE);
-        bannerEl.textContent='🧊 FREEZE like her!';bannerEl.classList.add('show');}
-      if(t>=nxt.t){
-        if(Pose.ok&&!Pose.still)this._stillT0=performance.now();
-        if(!this._stillT0)this._stillT0=performance.now();
-        if(performance.now()-this._stillT0>=1000*(nxt.hold||1)||!Pose.ok){
-          this._freezeDone=true;nxt.hit=true;this.ti++;
-          this.score+=50;$('score').textContent=this.score;
-          fx.pop('chest');fx.pop('hips');fx.dim();
-          bannerEl.classList.remove('show');
-        }
-      }
+    const CU=this.round===0?CUES_R1:CUES_LATER;
+    while(this.cueIdx<CU.length&&t>=CU[this.cueIdx][0]){Live.cue(CU[this.cueIdx][1]);this.cueIdx++;}
+    if(this.round===0&&Sig.base.rib==null&&t>=DEMO_END)Sig.calFinish();
+    /* THE LIGHT ENGINE runs the cues (pulse → lean → flare → fade) */
+    const res=this.eng.frame(tm,Pose.mKP||{});
+    /* §1.5 timing bar */
+    const bw=$('cuebar-wrap');
+    if(res.cueIndex>=0&&res.bar){bw.classList.add('show');
+      $('cuebar').style.width=Math.round(res.bar.value*100)+'%';}
+    else bw.classList.remove('show');
+    /* score each cue once, on its FLARE */
+    if(res.cueIndex>=0&&res.confirmed&&!this.scored.has(res.cueIndex)){
+      this.scored.add(res.cueIndex);
+      this.registerHit(this.map[res.cueIndex],res.quality??0.7);
     }
     if(t>=(routine.duration||38)-0.05)this.endRound();
     else requestAnimationFrame(()=>this.tick());
   },
+  registerHit(cue,q){
+    const R=ROUNDS[this.round];
+    if(cue.dir==='FREEZE'){
+      this.score+=50;$('score').textContent=this.score;
+      return;
+    }
+    const iso=Sig.hipDev<ISO.thr.hip;
+    let pts=R.rate===1.0?15:10;
+    if(iso&&R.rate===1.0)pts+=10;
+    if(R.rate>1.0){this.streak++;if(this.streak>=3){pts*=2;$('streakTag').classList.add('show');}}
+    else this.streak=0;
+    if(this.round===3)pts+=5;
+    this.score+=pts;$('score').textContent=this.score;
+    this.loopHits[this.round]++;
+    if(iso){this.roundIso[this.round]++;this.sideStats.iso++;}
+    this.sideStats[cue.dir]=(this.sideStats[cue.dir]||0)+1;
+    if(iso&&this.facts<4){this.facts++;
+      Live.post({type:'nova-fact',move:'torso slide with hips frozen'});}
+  },
   endRound(){
-    routine.pause();fx.dim();bannerEl.classList.remove('show');
+    routine.pause();this.eng&&this.eng.reset();
+    fctx.clearRect(0,0,fxCanvas.width,fxCanvas.height);
+    $('cuebar-wrap').classList.remove('show');bannerEl.classList.remove('show');
     const hits=this.loopHits[this.round],
           v=hits>=10?'NAILED':hits>=6?'GOOD':'TRIED';
     this.roundVerdict[this.round]=v;
@@ -672,7 +626,6 @@ const Game={
       ' ('+sides[3][1]+'), hips-frozen count '+(s.iso||0);
   },
   between(v,hits){
-    /* idle Nova returns and coaches from the FACTS */
     routine.classList.remove('show');
     if(Live.frame)Live.frame.classList.add('ready');
     $('roundTag').style.display='none';
@@ -706,10 +659,9 @@ const Game={
     $('roundTag').style.display='none';
     const allNailed=this.roundVerdict.length===4&&this.roundVerdict.every(x=>x==='NAILED');
     if(allNailed){this.score+=100;$('score').textContent=this.score;}
-    /* PULSE: the durable end-of-game row (POST → /workspace/pulse.log on the volume) */
     try{fetch('/pulse',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({game:'upperbody',score:this.score,verdicts:this.roundVerdict,
-        hits:this.loopHits,cal:CAL?{slide:+CAL.slideThr.toFixed(3),hip:+CAL.hipThr.toFixed(3)}:null})})
+        hits:this.loopHits,cal:Sig.base.rib!=null?{rib:+Sig.base.rib.toFixed(3),thr:ISO.thr.ribslide}:null})})
       .then(r=>r.json()).then(d=>console.log('[PULSE] row:',JSON.stringify(d.row)))
       .catch(e=>console.warn('[PULSE] failed',e));}catch(_){}
     Live.cue('GAME OVER! Total '+this.score+' points, rounds: '+this.roundVerdict.join('/')+
@@ -717,7 +669,6 @@ const Game={
       this.score+' points! Then ask: did you have fun, tell me anything! Then a warm goodbye — same time tomorrow?');
     this._card(allNailed?'🏆 PERFECT — ALL 4 NAILED!':'🏆 Final score!','🔁 PLAY AGAIN');
   },
-  /* pause / exit */
   paused:false,
   togglePause(){
     if(this.phase!=='play')return;
@@ -737,7 +688,7 @@ $('sc-btn').addEventListener('click',()=>{
 $('btn-pause').addEventListener('click',()=>Game.togglePause());
 $('btn-exit').addEventListener('click',()=>{try{Live.hold(true);}catch(_){}location.href='/';});
 (async()=>{
-  fitCanvas();fx.render();
+  fitCanvas();
   try{
     const stream=await navigator.mediaDevices.getUserMedia({video:{width:960,height:720},audio:false});
     camEl.srcObject=stream;
