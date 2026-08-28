@@ -95,6 +95,22 @@
   #count{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;
     font-size:clamp(90px,18vw,200px);font-weight:900;background:rgba(0,0,0,.35);pointer-events:none}
   #count.on{display:flex}
+  #probar-wrap{position:absolute;left:0;right:0;bottom:0;height:7px;background:rgba(255,255,255,.12);z-index:9}
+  #probar{height:100%;width:0%;background:linear-gradient(90deg,#12b981,#ffd24a);transition:width .2s linear}
+  #round-tag{position:absolute;top:10px;right:12px;z-index:8;font-weight:800;font-size:15px;
+    background:rgba(80,30,140,.85);padding:6px 13px;border-radius:999px}
+  #scorecard{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:85;text-align:center;
+    background:rgba(18,4,36,.96);border:2px solid rgba(255,255,255,.18);border-radius:22px;
+    padding:26px 40px;display:none;box-shadow:0 20px 80px rgba(0,0,0,.6)}
+  #scorecard.on{display:block}
+  #scorecard h2{font-size:clamp(24px,4vw,38px);margin-bottom:12px}
+  #scorecard .row{font-size:clamp(16px,2.4vw,21px);font-weight:700;margin:6px 0;display:flex;
+    justify-content:space-between;gap:26px}
+  #scorecard .row .stars{color:#ffd24a}
+  #scorecard .total{font-size:clamp(22px,3.4vw,30px);font-weight:900;color:#ffd24a;margin-top:12px}
+  #scorecard button{margin-top:18px;font-size:clamp(17px,2.6vw,23px);font-weight:800;color:#fff;border:0;
+    cursor:pointer;padding:14px 36px;border-radius:999px;background:linear-gradient(135deg,#e8590c,#d9480f);
+    box-shadow:0 8px 30px rgba(232,89,12,.45)}
   #verdict{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);z-index:75;text-align:center;
     opacity:0;transition:opacity .5s;pointer-events:none}
   #verdict.show{opacity:1}
@@ -110,8 +126,10 @@
     </div>
     <video id="routine" src="/gallery/upperbody-routine.mp4" playsinline preload="auto"></video>
     <div id="nova-tag">🌟 Nova</div>
+    <div id="round-tag" style="display:none"></div>
     <div id="nova-say"></div>
     <div id="status">connecting…</div>
+    <div id="probar-wrap"><div id="probar"></div></div>
     <div id="nova-wait">
       <div id="wait-title">👆 Tap to wake Nova!</div>
       <div id="wait-sub">one tap and she says hi ✨</div>
@@ -137,6 +155,12 @@
 <button id="ready-btn">💃 I'M READY!</button>
 <div id="count"></div>
 <div id="verdict"><div class="big"></div><div class="sub"></div></div>
+<div id="scorecard">
+  <h2>🌟 Round 1 done!</h2>
+  <div id="sc-rows"></div>
+  <div class="total" id="sc-total"></div>
+  <button id="sc-btn">⚡ ROUND 2 — FASTER!</button>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
@@ -269,7 +293,11 @@ const Live={
     }catch(e){console.warn('[ONE-ORIGIN] room err',e&&e.message);}
     this._connectWS();
     try{await this._startMic();}catch(e){console.warn('[ONE-ORIGIN] MIC BLOCKED',e&&e.message);}
-    this.setAvatar('maya_rapa_full');          // the routine body — live lips for greet + ending
+    /* IDLE BAKE for all live talking (founder 2026-08-28): a talking avatar cannot
+       be the dance-loop body — MuseTalk lips over a ping-pong dance loop reads as
+       broken. nova_idle = the proven calm intro/ending body. The routine itself
+       plays as the local video; the engine never needs the dance bake here. */
+    this.setAvatar('nova_idle');
   },
   _wsConns:0,_wsDelay:1500,_micGated:false,
   _connectWS(){
@@ -445,8 +473,12 @@ const Pose={
   },
 };
 
-/* ═══ Director cues — the timed script (she improvises the words) ═══ */
-const CUES=[
+/* ═══ Director cues — the timed script (she improvises the words).
+   ROUND SYSTEM (founder 2026-08-28): full game = the routine TWICE.
+   Round 1 = SLOW (1.0x). Round 2 = FAST (1.25x playbackRate — video clock still
+   reads routine-time, so every target/cue time below works unchanged; the hit
+   windows simply tighten in real time, which IS the difficulty). ═══ */
+const CUES_R1=[
   [0.5 ,'Demo begins. Coach while dancing: arms out, torso side to side, hips frozen. Two tiny lines only.'],
   [7.2 ,'Hands to your waist now. One tiny line: hands on your waist, keep sliding!'],
   [13.0,'Game starts. One line: your turn, copy me, GO!'],
@@ -456,13 +488,21 @@ const CUES=[
   [31.0,'FAST part, twice! Sounds mostly: Woo! Keep up! No sentences.'],
   [35.2,'Finish pose NOW. Say exactly: FREEZE like me! Then total silence until I give the verdict.'],
 ];
+const CUES_R2=[
+  [0.5 ,'ROUND TWO — everything FASTER! One hyped line: same circles, double speed, ready?!'],
+  [13.0,'Round two starts. One breathless line: GO GO GO!'],
+  [31.0,'The mega-fast part! Pure sounds: Woo! Fire!'],
+  [35.2,'Finish pose NOW. Say exactly: FREEZE like me! Then total silence until I give the verdict.'],
+];
 
 /* ═══ THE GAME ═══ */
 const Game={
-  phase:'connect',              // connect → ready → play → finish → ending
-  score:0,streak:0,facts:0,hipWarned:false,
-  loopIdx:-1,verdicts:[],cueIdx:0,_finishArmed:false,_stillMs:0,_raf:null,
+  phase:'connect',              // connect → ready → play → finish → between → play(2) → ending
+  round:1,SPEED2:1.25,
+  score:0,roundScore:{1:0,2:0},streak:0,facts:0,hipWarned:false,
+  loopIdx:-1,verdicts:{1:[],2:[]},cueIdx:0,_finishArmed:false,_stillMs:0,_raf:null,
   DIRWORD:{B:['🙆','BACK'],R:['➡️','RIGHT'],L:['⬅️','LEFT'],F:['🙇','FRONT']},
+  cues(){return this.round===1?CUES_R1:CUES_R2;},
 
   readyGate(){
     if(this.phase!=='connect')return;
@@ -484,19 +524,26 @@ const Game={
     if(Live.frame)Live.frame.classList.remove('ready');   // live avatar steps aside…
     routine.classList.add('show');                        // …the routine takes the stage
     routine.volume=Music.base;routine.currentTime=0;
+    routine.playbackRate=this.round===2?this.SPEED2:1.0;
+    try{routine.preservesPitch=true;}catch(_){}
     routine.play().catch(e=>console.warn('[ROUTINE] play blocked',e));
     Live.post({type:'game-start'});
     $('nova-tag').textContent='💃 Upper Body!';
+    const rt=$('round-tag');rt.style.display='block';
+    rt.textContent=this.round===1?'ROUND 1 · SLOW':'ROUND 2 · ⚡FAST';
     this._raf=requestAnimationFrame(()=>this.tick());
   },
   tick(){
     if(this.phase!=='play'&&this.phase!=='finish')return;
     const t=routine.currentTime;
+    $('probar').style.width=Math.min(100,t/VIDEO_END*100)+'%';
     /* timed director cues */
-    while(this.cueIdx<CUES.length&&t>=CUES[this.cueIdx][0]){
-      Live.cue(CUES[this.cueIdx][1]);this.cueIdx++;
+    const CU=this.cues();
+    while(this.cueIdx<CU.length&&t>=CU[this.cueIdx][0]){
+      Live.cue(CU[this.cueIdx][1]);this.cueIdx++;
     }
-    /* demo → game: freeze the calibration baseline exactly once */
+    /* demo → game: freeze the calibration baseline exactly once per round
+       (round 2 re-freezes — the kid may have drifted across the frame) */
     if(t>=DEMO_END&&!Pose._base&&Pose._sx.length)Pose.freezeBaseline();
     /* loop transitions */
     const li=LOOPS.findIndex(R=>t>=R.start&&t<R.end);
@@ -505,10 +552,11 @@ const Game={
       this.loopIdx=li;
       if(li>=0)this.startLoop(LOOPS[li]);
     }
-    if(li>=0)this.checkPose(LOOPS[li],t);
+    if(li>=0){this.updateArrow(LOOPS[li],t);this.checkPose(LOOPS[li],t);}
     /* finish */
     if(t>=FINISH_AT&&!this._finishArmed){this._finishArmed=true;
       if(this.loopIdx>=0){this.endLoop(LOOPS[this.loopIdx]);this.loopIdx=-1;}
+      $('arrow').classList.remove('show');
       bannerEl.textContent='🧊 FREEZE like her!';bannerEl.classList.add('show');
     }
     if(t>=VIDEO_END&&this.phase==='play'){routine.pause();this.phase='finish';this._stillT0=performance.now();}
@@ -516,20 +564,30 @@ const Game={
     this._raf=requestAnimationFrame(()=>this.tick());
   },
   startLoop(R){
-    R.hits=0;R.iso=0;
+    R.hits=0;R.iso=0;R._ended=false;
+    for(const tg of R.targets)tg.hit=false;
     bannerEl.textContent=R.tempo==='fast'?'⚡ FAST — twice!':'🌀 Loop '+R.id+' — slow';
     bannerEl.classList.add('show');
     setTimeout(()=>bannerEl.classList.remove('show'),2200);
-    this.armCue(R,0);
   },
-  armCue(R,i){
+  /* arrow shows ~a beat BEFORE each target and hides when its window expires —
+     the kid always sees WHERE to go next, never a stale direction */
+  updateArrow(R,t){
     const a=$('arrow');
-    if(!R.targets[i]){a.classList.remove('show');return;}
-    const[dir]=R.targets[i];
-    const[g,w]=this.DIRWORD[dir];
-    a.querySelector('.glyph').textContent=g;
-    a.querySelector('.word').textContent=w;
-    a.classList.add('show');
+    const pre=R.tempo==='fast'?0.8:1.3;
+    for(const tg of R.targets){
+      if(tg.hit)continue;
+      const[dir,at]=tg;
+      if(t>at+this.winFor(R,dir))continue;        // window expired — next target
+      if(t>=at-pre){
+        const[g,w]=this.DIRWORD[dir];
+        a.querySelector('.glyph').textContent=g;
+        a.querySelector('.word').textContent=w;
+        a.classList.add('show');
+      }else a.classList.remove('show');
+      return;
+    }
+    a.classList.remove('show');
   },
   winFor(R,dir){return R.tempo==='fast'?WIN.fast:(dir==='B'||dir==='F')?WIN.slowBF:WIN.slowSide;},
   checkPose(R,t){
@@ -557,25 +615,26 @@ const Game={
   hit(R,tg,i,rightDir){
     tg.hit=true;R.hits++;
     let pts=R.tempo==='slow'?15:10;
+    if(this.round===2)pts+=5;                             // fast round pays more
     if(!rightDir)pts=Math.round(pts/2);
     const iso=Pose.hipDev<T.hip;
     if(iso&&R.tempo==='slow'){pts+=10;R.iso++;}
     if(R.tempo==='fast'){this.streak++;
       if(this.streak>=3){pts*=2;$('streak').classList.add('show');}
     }else this.streak=0;
-    this.score+=pts;scoreEl.textContent='⭐ '+this.score;
+    this.score+=pts;this.roundScore[this.round]+=pts;
+    scoreEl.textContent='⭐ '+this.score;
     const f=$('hit-flash');f.textContent=iso?'💎':'✨';
     f.classList.remove('pop');void f.offsetWidth;f.classList.add('pop');
     if(iso&&this.facts<4){this.facts++;
       Live.post({type:'nova-fact',move:'torso slide with hips frozen'});}
-    this.armCue(R,R.targets.findIndex(x=>!x.hit));
   },
   endLoop(R){
     if(R._ended)return;R._ended=true;
     $('arrow').classList.remove('show');$('streak').classList.remove('show');
     const v=R.hits>=3?'NAILED':R.hits>=2?'GOOD':'TRIED';
-    this.verdicts.push(v);
-    if(v==='NAILED')this.score+=30;
+    this.verdicts[this.round].push(v);
+    if(v==='NAILED'){this.score+=30;this.roundScore[this.round]+=30;}
     scoreEl.textContent='⭐ '+this.score;
     if(R.tempo==='slow')
       Live.cue('Loop '+R.id+' done, verdict '+v+' ('+R.hits+' of 4 moves'+(R.iso?', hips stayed frozen':'')+'). ONE proud line, six words max, fresh words.');
@@ -586,26 +645,64 @@ const Game={
     /* 1s of stillness on the end pose (freeze stillness law: shoulder-normalized) */
     if(Pose.ok&&!Pose.still)this._stillT0=performance.now();
     if(performance.now()-this._stillT0>=1000||!Pose.ok){
-      this.phase='ending';this.ending();
+      this.score+=50;this.roundScore[this.round]+=50;     // finish freeze held
+      if(this.round===1){this.phase='between';this.between();}
+      else{this.phase='ending';this.ending();}
     }
   },
+  stars(v){return v==='NAILED'?'⭐⭐⭐':v==='GOOD'?'⭐⭐':'⭐';},
+  _card(title,btnText){
+    const sc=$('scorecard');
+    sc.querySelector('h2').textContent=title;
+    const rows=$('sc-rows');rows.innerHTML='';
+    const label=['Loop 1','Loop 2','Loop 3','Fast part'];
+    for(const r of [1,2]){
+      if(!this.verdicts[r].length)continue;
+      this.verdicts[r].forEach((v,i)=>{
+        rows.insertAdjacentHTML('beforeend',
+          '<div class="row"><span>'+(r===2?'⚡ ':'')+label[i]+'</span><span class="stars">'+this.stars(v)+'</span></div>');
+      });
+    }
+    $('sc-total').textContent='⭐ '+this.score+' points';
+    const b=$('sc-btn');b.textContent=btnText;
+    sc.classList.add('on');
+  },
+  between(){
+    bannerEl.classList.remove('show');$('round-tag').style.display='none';
+    /* the live avatar returns while she reacts to round 1 */
+    routine.classList.remove('show');
+    if(Live.frame)Live.frame.classList.add('ready');
+    Live.cue('Round one done, score '+this.roundScore[1]+', verdicts '+this.verdicts[1].join('/')+
+      '. ONE proud line then hype round two: same dance but FASTER. Ask: ready?');
+    this._card('🌟 Round 1 done!','⚡ ROUND 2 — FASTER!');
+  },
+  startRound2(){
+    $('scorecard').classList.remove('on');
+    this.round=2;this.cueIdx=0;this.loopIdx=-1;this._finishArmed=false;
+    this.streak=0;Pose._base=null;Pose._sx=[];Pose._w=[];Pose._hx=[];
+    let n=3;const c=$('count');c.classList.add('on');c.textContent=n;
+    const t=setInterval(()=>{n--;
+      if(n>0){c.textContent=n;return;}
+      clearInterval(t);c.classList.remove('on');this.begin();
+    },800);
+  },
   ending(){
-    bannerEl.classList.remove('show');
-    this.score+=50;                                       // finish freeze held
-    const allNailed=this.verdicts.length===4&&this.verdicts.every(v=>v==='NAILED');
+    bannerEl.classList.remove('show');$('round-tag').style.display='none';
+    const all=[...this.verdicts[1],...this.verdicts[2]];
+    const allNailed=all.length===8&&all.every(v=>v==='NAILED');
     if(allNailed)this.score+=100;
     scoreEl.textContent='⭐ '+this.score;
     const vd=$('verdict');
     vd.querySelector('.big').textContent=allNailed?'🏆 PERFECT!':'🌟 AMAZING!';
     vd.querySelector('.sub').textContent=this.score+' points';
     vd.classList.add('show');
-    setTimeout(()=>vd.classList.remove('show'),5200);
+    setTimeout(()=>vd.classList.remove('show'),4200);
     /* the live avatar returns for the goodbye */
     routine.classList.remove('show');
     if(Live.frame)Live.frame.classList.add('ready');
-    const best=1+this.verdicts.reduce((b,v,i,a)=>v==='NAILED'&&b<0?i:b,-1);
-    Live.cue('Game over! Score '+this.score+', verdicts '+this.verdicts.join('/')+
-      (best>0?', best loop '+best:'')+'. Say warmly: your torso dances ALONE — '+this.score+
+    setTimeout(()=>this._card('🏆 Final score!','🔁 PLAY AGAIN'),4300);
+    Live.cue('Game over! Total '+this.score+' points, round one '+this.roundScore[1]+
+      ', round two '+this.roundScore[2]+'. Say warmly: your torso dances ALONE — '+this.score+
       ' points! Then ask: did you have fun? Then say bye — same time tomorrow?');
   },
   /* pause / exit */
@@ -625,6 +722,10 @@ const Game={
 
 /* ═══ boot ═══ */
 $('ready-btn').addEventListener('click',()=>Game.start());
+$('sc-btn').addEventListener('click',()=>{
+  if(Game.phase==='between')Game.startRound2();
+  else location.reload();                       // PLAY AGAIN after the final card
+});
 $('btn-pause').addEventListener('click',()=>Game.togglePause());
 $('btn-exit').addEventListener('click',()=>{try{Live.hold(true);}catch(_){}location.href='/';});
 (async()=>{

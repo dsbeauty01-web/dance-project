@@ -173,8 +173,12 @@ def session_update(freeze=False, voice=None):
                       # LAW-INPUT-LOCK (founder 2026-08-11, THE FINAL LOCK): the model may
                       # generate ONLY on a validated kid-turn. VAD commits + transcribes,
                       # but create_response is OFF — air structurally cannot reach her.
-                      "turn_detection": {"type": "server_vad", "threshold": 0.55,
-                                         "prefix_padding_ms": 250, "silence_duration_ms": 400,
+                      # VOICE-DEAF FIX (2026-08-28, founder cafe test: mic streamed but ZERO
+                      # speech_started): 0.55 never triggered over background noise. 0.35 =
+                      # sensitive enough for a noisy room; INPUT-LOCK word-validation still
+                      # discards anything that transcribes to garbage, so noise cannot speak.
+                      "turn_detection": {"type": "server_vad", "threshold": 0.35,
+                                         "prefix_padding_ms": 300, "silence_duration_ms": 500,
                                          "create_response": False, "interrupt_response": False},
                       "transcription": {"model": "gpt-4o-mini-transcribe", "language": "en"}},
             "output": {"format": {"type": "audio/pcm", "rate": 24000}, "voice": (voice or VOICE)}},
@@ -213,7 +217,9 @@ async def relay(request):
     # unlike response.done which fires while the engine is still playing her tail).
     # resp_active = single-active-response guard (no overlapping "2 voices").
     speaking = {"v": False, "last_chunk": 0.0, "resp_active": False}
-    GATE_COOLDOWN = 1.4   # faster mic-reopen after she speaks (was 2.0) — snappier turn-taking
+    GATE_COOLDOWN = 0.6   # VOICE-DEAF FIX 2026-08-28: was 1.4 — with the chatty intro + game
+                          # warnings the mic was closed most of the time; 0.6s keeps just enough
+                          # anti-echo while letting the kid answer right after her line
     mic_stats = {"n": 0, "bytes": 0}
     # --- INTRO BRAIN GATES (2026-07-28) -------------------------------------
     # TRUTH-GATE: Nova may only name/praise a move that arrived as a detection
@@ -255,6 +261,8 @@ async def relay(request):
     # #4 GARBLE-IGNORE: <3 chars or mostly-non-latin nonsense = not real input.
     def is_garble(t):
         t = (t or "").strip()
+        # VOICE-DEAF FIX 2026-08-28: "hi" was eaten by the len<3 rule — tiny REAL words pass
+        if t.lower().strip("!.?,") in ("hi", "ok", "no", "yes", "ya", "yo", "hey"): return False
         if len(t) < 3: return True
         letters = _re.findall(r"[A-Za-z]", t)
         return len(letters) < max(2, len(t) // 3)   # mostly non-English script -> garble
