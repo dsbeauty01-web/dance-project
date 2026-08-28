@@ -24,6 +24,8 @@
   #stage{position:fixed;inset:0;display:flex;background:#f4d9ea}
   #novaWrap{position:relative;width:60vw;height:100vh;overflow:hidden;background:#14092a}
   #camWrap{position:relative;width:40vw;height:100vh;overflow:hidden;background:#0d0118}
+  #novaAmbient{position:absolute;left:50%;top:50%;height:120vh;transform:translate(-50%,-50%) scaleX(2.2);
+    filter:blur(28px) saturate(1.15);opacity:.9;z-index:1;pointer-events:none}
   #routine{position:absolute;left:50%;top:0;height:100vh;width:auto;transform:translateX(-50%);
     z-index:2;opacity:0;transition:opacity .5s;pointer-events:none}
   #routine.show{opacity:1}
@@ -88,6 +90,7 @@
 <body>
 <div id="stage">
   <div id="novaWrap">
+    <video id="novaAmbient" autoplay muted playsinline></video>
     <video id="routine" src="/gallery/upperbody-routine.mp4" playsinline preload="auto"></video>
     <div id="nova-tag">🌟 Nova</div>
     <div id="nova-say"></div>
@@ -217,7 +220,10 @@ const Live={
       this.room=room;
       room.on(LK.RoomEvent.TrackSubscribed,(track,pub,p)=>{
         if(p.identity!=='nova-avatar')return;
-        if(track.kind==='video'){track.attach(self.video);}
+        if(track.kind==='video'){track.attach(self.video);
+          /* ambient backdrop = the same stream, blurred+stretched behind everything
+             (fills the letterbox sides behind the 9:16 routine too) */
+          try{track.attach($('novaAmbient'));}catch(_){}}
         if(track.kind==='audio'){
           const a=track.attach();
           a.autoplay=true;a.muted=false;a.playsInline=true;
@@ -700,6 +706,12 @@ const Game={
     $('roundTag').style.display='none';
     const allNailed=this.roundVerdict.length===4&&this.roundVerdict.every(x=>x==='NAILED');
     if(allNailed){this.score+=100;$('score').textContent=this.score;}
+    /* PULSE: the durable end-of-game row (POST → /workspace/pulse.log on the volume) */
+    try{fetch('/pulse',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({game:'upperbody',score:this.score,verdicts:this.roundVerdict,
+        hits:this.loopHits,cal:CAL?{slide:+CAL.slideThr.toFixed(3),hip:+CAL.hipThr.toFixed(3)}:null})})
+      .then(r=>r.json()).then(d=>console.log('[PULSE] row:',JSON.stringify(d.row)))
+      .catch(e=>console.warn('[PULSE] failed',e));}catch(_){}
     Live.cue('GAME OVER! Total '+this.score+' points, rounds: '+this.roundVerdict.join('/')+
       (allNailed?' — ALL FOUR NAILED!':'')+'. Celebrate with the real number: your torso dances ALONE — '+
       this.score+' points! Then ask: did you have fun, tell me anything! Then a warm goodbye — same time tomorrow?');

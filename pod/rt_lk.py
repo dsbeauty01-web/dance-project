@@ -1246,6 +1246,25 @@ async def wave_page(request):
         return web.Response(status=503, text="wave page not deployed")
     return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
 
+async def pulse_post(request):
+    # PULSE (2026-08-28): the durable end-of-game row. Spec'd in UPPERBODY-BUILD
+    # PART 6 / UPPERBODY-FINAL but never implemented anywhere — this is the minimal
+    # real thing: append a JSON line to the volume, verifiable with `tail pulse.log`.
+    try:
+        data = await request.json()
+    except Exception:
+        return web.Response(status=400, text="bad json")
+    row = {"ts": time.strftime("%Y-%m-%d %H:%M:%S")}
+    if isinstance(data, dict):
+        row.update({k: v for k, v in data.items() if k != "ts"})
+    try:
+        with open("/workspace/pulse.log", "a", encoding="utf-8") as f:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    except Exception as e:
+        return web.Response(status=500, text=str(e))
+    print("[PULSE]", row, flush=True)
+    return web.json_response({"ok": True, "row": row})
+
 async def upperbody_page(request):
     # UPPER BODY ISOLATION game (2026-08-27), first-party from the pod (mirrors freeze_page).
     try:
@@ -1280,6 +1299,7 @@ app.router.add_get("/freeze", freeze_page)
 app.router.add_get("/wave", wave_page)
 app.router.add_get("/upgroove", upgroove_page)
 app.router.add_get("/upperbody", upperbody_page)
+app.router.add_post("/pulse", pulse_post)
 app.router.add_get("/token", token)
 app.router.add_get("/health", health)
 app.router.add_get("/rt", relay)
