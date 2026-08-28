@@ -345,17 +345,17 @@ const Q0 = k => new URLSearchParams(location.search).get(k);
 const BPM = 129.2, BEAT = 60/BPM;
 const BEAT_OFFSET = Math.max(0, parseFloat(Q0('beatoffset')) || 0.151);   // grid phase, from the analyzer
 const FREEZES = [
-  { at: 11.761, hold: 3.5, clip:'star',     pts: 150 },
-  { at: 23.835, hold: 3.5, clip:'bear',     pts: 150 },
-  { at: 35.445, hold: 3.5, clip:'flamingo', pts: 200 },
-  { at: 48.448, hold: 3.5, clip:'frog',     pts: 200 },
-  { at: 60.987, hold: 3.5, clip:'star',     pts: 250 },
-  { at: 65.631, hold: 3.5, clip:'bear',     pts: 300, stab:true },  // THE STAB: 1s of melody, then BAM
-  { at: 77.705, hold: 3.5, clip:'flamingo', pts: 250 },
-  { at: 89.779, hold: 3.5, clip:'frog',     pts: 300 },
-  { at:101.854, hold: 3.5, clip:'star',     pts: 350 },
-  { at:113.464, hold: 3.5, clip:'bear',     pts: 400 },
-  { at:125.074, hold: 6.0, clip:'star',     pts: 800, final:true },
+  { at: 11.761, hold: 2.5, clip:'star',     pts: 150 },
+  { at: 23.835, hold: 2.5, clip:'bear',     pts: 150 },
+  { at: 35.445, hold: 2.5, clip:'flamingo', pts: 200 },
+  { at: 48.448, hold: 2.5, clip:'frog',     pts: 200 },
+  { at: 60.987, hold: 2.5, clip:'star',     pts: 250 },
+  { at: 64.702, hold: 2.5, clip:'bear',     pts: 300, stab:true },  // THE STAB: ~1s of melody, then BAM
+  { at: 77.705, hold: 2.5, clip:'flamingo', pts: 250 },
+  { at: 89.779, hold: 2.5, clip:'frog',     pts: 300 },
+  { at:101.854, hold: 2.5, clip:'star',     pts: 350 },
+  { at:113.464, hold: 2.5, clip:'bear',     pts: 400 },
+  { at:125.074, hold: 5.0, clip:'star',     pts: 800, final:true },
 ];
 /* dance cues live in the GAPS between holds (visual text only — never voice) */
 const DANCE_CUES = [
@@ -391,14 +391,17 @@ function tickTier(pos){
    (mic + facts keep flowing) so the ending can use the real numbers. */
 const TENSION_MASTER =
  "[GAME-MODE] "+
- "You are Nova hosting a kids' Animal Freeze dance game. THIS IS THE FREEZE GAME ONLY — there is no "+
- "intro to run, no name to collect, no magic light on anyone's shoulder, and no other games to offer. "+
- "Never mention a light, a shoulder glow, or a choice of games. "+
- "BEFORE the music: greet warmly, explain in one line (freeze like a statue when the music stops!), ask if they are ready. "+
- "DURING the music you are SILENT — the game plays your recorded lines for you; do not speak even if spoken to. "+
- "Keep listening and remembering everything: their words, their freezes, their best moments. "+
- "AFTER the final freeze you speak again: celebrate their REAL best freeze by name with real numbers, warm and specific. "+
- "If you learned their name, use it. Never say no, wrong, missed, or bad — every child always wins. Tiny warm lines. English only.";
+ "You are Nova, a kids' dance friend hosting the Animal Freeze game. THIS IS THE FREEZE GAME ONLY — no "+
+ "other games to offer, no magic light on anyone's shoulder. Never mention a light, a shoulder glow, or a choice of games. "+
+ "BEFORE the music (the intro): a REAL conversation. Greet once and ask their name. When they tell you, echo the EXACT "+
+ "name you heard, warmly. Answer ANYTHING they say — questions get real in-character answers, chit-chat gets chat. "+
+ "Never invent or guess a name. After the name (or two exchanges), explain: when the music plays DANCE — when it "+
+ "stops... FREEZE! Then ask if they are ready. "+
+ "DURING the music: you speak ONLY when the game director asks (short warnings and reactions to REAL results); "+
+ "otherwise stay silent, keep listening and remembering everything. "+
+ "AFTER the final freeze: celebrate their REAL best freeze by name with real numbers, ask if they had fun, warm goodbye. "+
+ "If you learned their name, use it. Never say no, wrong, missed, or bad — every child always wins. Tiny warm lines. English only. "+
+ "NEVER use assistant phrases ('I'd be happy to help', 'How can I assist', 'Sure!'). You are Nova the dance friend, never an assistant.";
 
 /* ── elements ── */
 const $ = id => document.getElementById(id);
@@ -638,6 +641,7 @@ const Live = {
     ws.onclose=()=>{ self._wsDelay=Math.min(30000,Math.round((self._wsDelay||1500)*1.8));
       setTimeout(()=>{ if(!self.dead) self._connectWS(); }, self._wsDelay); };
     ws.onmessage=(ev)=>{ const m=JSON.parse(ev.data);
+      if(m.type==='voice_air'){ try{ AirVoice.push(m.data); }catch(_){} return; }   // her live voice, in the air
       if(m.type==='ack')            window.postMessage({type:'nova-ack',of:m.of,game:m.game},'*');
       else if(m.type==='you_text')  window.postMessage({type:'kid-said',text:m.text||''},'*');
       else if(m.type==='nova_done') window.postMessage({type:'nova-said',text:m.text||''},'*');
@@ -750,7 +754,7 @@ const Live = {
       'nova-fact':    m=>({type:'nova-fact', move:m.move}),
       'nova-pick':    m=>({type:'nova-pick', game:m.game}),
       'hold':         m=>({type:'hold',      on:!!m.on}),
-      'speak_gate':   m=>({type:'speak_gate',on:!!m.on}),   // VOICE REROUTE: output-only mute (mic + facts keep flowing)
+      'speak_gate':   m=>({type:'speak_gate',on:!!m.on, mode:m.mode||'hard'}),   // VOICE REROUTE: air = voice to page, hard = full mute
       'game-start':   m=>({type:'game-start'}),   // V2 2026-08-07: R7-equivalent for the one-origin page (no iframe bridge here)
     };
     const mk=map[t]; if(!mk) return;
@@ -798,11 +802,17 @@ const Live = {
           know speak_gate yet cannot speak over the game (lips degrade gracefully there
           until that pod's rt_lk is updated). */
   _speakGated:false,
-  speakGate(on){
+  /* FREEZE-SIMPLIFIED (2026-08-27): two gate modes.
+       'air'  — game gaps: she may speak (max one short line per gap, page-driven),
+                but her audio comes HERE as voice_air and never touches the engine.
+       'hard' — freeze holds: no generations at all.
+     Either way the engine gets NO audio mid-game and the browser mutes the LiveKit
+     audio element, so lips can never move on the groove body. */
+  speakGate(on, mode){
     this._speakGated=!!on;
     try{ if(this.audioEl) this.audioEl.muted=this._speakGated; }catch(_){}
-    this.post({type:'speak_gate', on:this._speakGated});
-    try{ console.log('[SPEAK-GATE]', on?'ON — live voice blocked (game phase)':'OFF — live voice open (intro/ending)'); }catch(_){}
+    this.post({type:'speak_gate', on:this._speakGated, mode:mode||'hard'});
+    try{ console.log('[SPEAK-GATE]', on?('ON ('+(mode||'hard')+')'):'OFF — live voice open (intro/ending)'); }catch(_){}
   },
 
   /* ═══ INTRO ARMING (2026-08-05) ═══════════════════════════════════════════════
@@ -846,20 +856,39 @@ const Live = {
 const TIER_AVATAR = { calm:'nova_idle', sub:'nova_sub', active:'nova_active', hype:'nova_active' };
 let CUR_TIER = 'calm';
 
-/* ═══ Nova facade — the game calls these; they route live-avatar vs clip-bank ═══
-   PHASE (Mission C): 'intro' → live voice · 'game' → live voice BLOCKED (any say/cue
-   becomes text-only; audio is the VoiceBank) · 'ending' → live voice again. The guard
-   here is belt-and-braces — game code no longer calls say/cue mid-game at all. */
-let PHASE='intro';
+/* ═══ THE PHASE MACHINE (READY.md PART 0, 2026-08-27) — the spine ═══
+   INTRO/ENDING → voice through the ENGINE (lips ON, calm body nova_idle)
+   GAME         → voice in the AIR (live V2V played by the page; engine gets NO audio)
+   HOLD         → absolute silence, no generations
+   routeVoice is the ONLY function allowed to change audio routing. */
+const PH = { INTRO:'intro', GAME:'game', HOLD:'hold', ENDING:'ending' };
+let PHASE = PH.INTRO;
+function routeVoice(r){
+  if(!Live.on) return;
+  if(r==='engine')    Live.speakGate(false);
+  else if(r==='air')  Live.speakGate(true,'air');
+  else                Live.speakGate(true,'hard');   // 'mute'
+}
+function setPhase(p){
+  PHASE=p; try{ console.log('[PHASE]', p); }catch(_){}
+  if(p===PH.INTRO || p===PH.ENDING) routeVoice('engine');
+  else if(p===PH.GAME)              routeVoice('air');
+  else                              routeVoice('mute');
+}
+/* ═══ Nova facade — the game calls these; they route live-avatar vs clip-bank.
+   Live speech through the facade is INTRO/ENDING only; GAME-phase lines go
+   through the producer-note path (fireVerdict / the pre-freeze warning). ═══ */
 const Nova = {
-  say(text){ NovaSay.log(text); if(Live.on && PHASE!=='game') Live.say(text); },
-  cue(intent, ctx, pool){ if(Live.on && PHASE!=='game') Live.cue(intent, ctx); else NovaSay.log(Fallback.pick(pool)); },
-  setTier(t2){ if(!TIER_AVATAR[t2] || CUR_TIER===t2) return; CUR_TIER=t2;   // ENERGY LADDER
-    try{ console.log('[TIER] →', t2); }catch(_){}
-    if(Live.on){ if(!G.freeze) Live.setAvatar(TIER_AVATAR[t2]); }           // mid-hold: applies at melt
-    else Clips.setTier(t2); },
-  freeze(clipKey){ if(Live.on) Live.setAvatar('gest_'+clipKey); else Clips.freeze(clipKey); },
-  melt(){ if(Live.on) Live.setAvatar(TIER_AVATAR[CUR_TIER]||'nova_idle'); else Clips.melt(); },  // return to CURRENT tier, never calm
+  say(text){ NovaSay.log(text); if(Live.on && (PHASE===PH.INTRO||PHASE===PH.ENDING)) Live.say(text); },
+  cue(intent, ctx, pool){ if(Live.on && (PHASE===PH.INTRO||PHASE===PH.ENDING)) Live.cue(intent, ctx); else NovaSay.log(Fallback.pick(pool)); },
+  /* FREEZE-SIMPLIFIED (2026-08-27): the engine body is nova_idlegroove_v2 for the WHOLE
+     game — NO body switching mid-game. Tier ladder = clip-fallback only. The freeze pose
+     is a page clip overlay (PoseClip), never /set_avatar. */
+  setTier(t2){ if(!TIER_AVATAR[t2] || CUR_TIER===t2) return; CUR_TIER=t2;
+    try{ console.log('[TIER] →', t2, Live.on?'(live: body stays groove)':''); }catch(_){}
+    if(!Live.on) Clips.setTier(t2); },
+  freeze(clipKey){ if(Live.on){ PoseClip.show(clipKey); } else Clips.freeze(clipKey); },
+  melt(){ if(Live.on){ PoseClip.hide(); } else Clips.melt(); },
 };
 
 /* ═══ incoming from the avatar iframe: kid's words + Nova's words → speech log,
@@ -995,33 +1024,119 @@ const Music = {
   },
 };
 
-/* ═══ VOICE REROUTE (Mission C) — mid-game speech is PRE-BAKED, page-played ═══
-   From music start to the final verdict her live voice NEVER reaches the engine
-   (pod speak-gate + browser mute, below). These real-Kora clips are the whole
-   mid-game voice: verdicts by REAL result (MOVE-TRUTH preserved) + hype. */
-const VoiceBank = {
-  sets:{
-    held:  ['audio/clips/score_freeze_0.mp3','audio/clips/score_freeze_3.mp3','audio/clips/score_freeze_6.mp3',
-            'audio/clips/score_freeze_10.mp3','audio/clips/score_freeze_11.mp3','audio/clips/score_freeze_12.mp3'],
-    almost:['audio/clips/ch_close_win.mp3','audio/clips/pool_combo_joy_0.mp3','audio/clips/pool_combo_joy_1.mp3'],
-    moved: ['audio/clips/cb_freeze_0.mp3','audio/clips/cb_freeze_1.mp3','audio/clips/ch_close_miss.mp3'],
-    hype:  ['audio/clips/pool_hit_echo_0.mp3','audio/clips/pool_hit_echo_1.mp3',
-            'audio/clips/pool_combo_joy_2.mp3','audio/clips/pool_combo_joy_3.mp3'],
+/* ═══ CANNED-VOICE PURGE (READY.md PART 4, 2026-08-27): the VoiceBank (16 pre-baked
+   speech clips: score_freeze_0/3/6/10/11/12, ch_close_win, ch_close_miss, cb_freeze_0/1,
+   pool_combo_joy_0-3, pool_hit_echo_0/1) is DELETED. The ONLY voice-content audio this
+   page loads is sting_freeze.mp3; the only other game sounds are the synthesized release
+   ding + bare beat. Mid-game speech = live V2V in the air, nothing else. ═══ */
+
+/* ═══ NEUTRAL-CROSSING DATA (READY.md PART 2a) — output of tools/find_neutrals.py run
+   on nova_idlegroove_v2 (569 frames @25fps, mirror/ping-pong loop) vs the freeze clips'
+   standing-start pose. Embedded (not fetched) so it can never 404. Re-run the tool and
+   paste here whenever the groove bake or the pose clips change. ═══ */
+const NEUTRAL = {
+  loopDur: 22.76, mirror: true,                       // engine ping-pongs: period = 2*loopDur
+  times: [0.8, 2.32, 4.36, 6.4, 7.68, 8.72, 12.0, 13.76, 15.6, 16.64, 19.6, 21.64],
+  arrivals: { bear:1.37, frog:4.28, flamingo:1.24, star:1.07 },  // clip in-points: she LANDS into the pose
+  setT: 0,                                            // performance.now() when the groove avatar was set
+  NET_LAG: 0.45,                                      // est. engine→browser latency (phase offset)
+  loopTime(){                                         // current position inside the loop (est. ±0.5s)
+    if(!this.setT) return 0;
+    const el = ((performance.now()-this.setT)/1000 - this.NET_LAG + 3600*this.loopDur*2) % (2*this.loopDur);
+    return el < this.loopDur ? el : 2*this.loopDur - el;
   },
-  bufs:{}, _idx:{},
-  load(){
-    for(const [k,urls] of Object.entries(this.sets)){
-      this.bufs[k]=[]; this._idx[k]=0;
-      urls.forEach(u=>Music._fetchBuf(u).then(b=>this.bufs[k].push(b))
-        .catch(e=>console.warn('[VOICE] skip '+u+':',e&&e.message)));
+  /* seconds until the nearest neutral crossing (searching forward a little and allowing
+     "now" if we are already within 0.25s of one) */
+  untilNeutral(){
+    const lt = this.loopTime();
+    let best = 9;
+    for(const n of this.times){
+      for(const cand of [n - lt, (n + this.loopDur - lt)]){   // this pass or the mirrored next
+        if(cand >= -0.25 && cand < best) best = Math.max(0, cand);
+      }
+    }
+    return best === 9 ? 0 : best;
+  },
+};
+
+/* ═══ FREEZE-SIMPLIFIED (2026-08-27): the freeze pose is a PAGE CLIP, not a body switch.
+   The engine body stays nova_idlegroove_v2 the WHOLE game — at each freeze the baked
+   pose clip snaps in ON TOP of the live stage (z6 > live video z3), pauses on the pose,
+   and lifts at melt. Zero /set_avatar calls mid-game. ═══ */
+const PoseClip = {
+  vids:{}, built:false, showing:null,
+  init(){
+    if(this.built) return; this.built=true;
+    for(const k of ['star','frog','bear','flamingo']){
+      const c=ASSETS.clips[k]; if(!c) continue;
+      const v=document.createElement('video');
+      v.src=c.file; v.preload='auto'; v.muted=true; v.playsInline=true;
+      v.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:contain;'+
+        'z-index:6;opacity:0;transition:opacity .18s linear;background:#150a24;pointer-events:none';
+      novaStage.appendChild(v); this.vids[k]=v;
     }
   },
-  play(set){
-    const arr=this.bufs[set]||[];
-    if(!arr.length) return false;
-    const b=arr[this._idx[set]++ % arr.length];
-    Music.playVoice(b); return true;
+  /* ARRIVAL in-point (READY.md 2a): the clip starts 0.3s BEFORE its pose stillness —
+     she lands INTO the pose with momentum, then holds (paused ~0.35s after in-point). */
+  show(k){
+    const v=this.vids[k]; if(!v) return false; this.showing=k;
+    const ip=(NEUTRAL.arrivals[k]!=null)?NEUTRAL.arrivals[k]:0;
+    v.currentTime=ip; v.style.opacity='1'; v.play().catch(()=>{});
+    const stopAt=ip+0.35;
+    const chk=()=>{ if(this.showing!==k) return;
+      if(v.currentTime>=stopAt) v.pause(); else requestAnimationFrame(chk); };
+    requestAnimationFrame(chk);
+    return true;
   },
+  hide(){
+    const k=this.showing; this.showing=null;
+    if(k && this.vids[k]){ this.vids[k].style.opacity='0'; this.vids[k].pause(); }
+  },
+};
+
+/* ═══ VOICE IN THE AIR (2026-08-27): mid-game her LIVE voice plays from the PAGE, not
+   the engine — rt_lk (speak-gate mode 'air') sends her generated speech here as raw
+   PCM16@24k instead of feeding the lip engine. Lips never move on the groove body.
+   Buffers chain seamlessly on the audio clock; music ducks under her and recovers. ═══ */
+const AirVoice = {
+  playhead:0, _duckT:null, _srcs:[], _pending:null,
+  /* [VERDICT-LATENCY] (READY.md PART 5): fireVerdict stamps _pending; the next arriving
+     air line closes the measurement. Target median <=1500ms; report if >2500ms. */
+  expect(tag){ this._pending={tag, t:performance.now()}; },
+  lat:[],
+  push(b64){
+    try{
+      if(!Music.ctx) return;
+      if(PHASE===PH.HOLD){ console.log('[AIR] dropped (hold = absolute silence)'); return; }
+      if(this._pending){
+        const ms=Math.round(performance.now()-this._pending.t);
+        this.lat.push(ms);
+        console.log('[VERDICT-LATENCY]', this._pending.tag, ms+'ms');
+        this._pending=null;
+      }
+      const raw=atob(b64); const n=raw.length>>1;
+      if(!n) return;
+      const buf=Music.ctx.createBuffer(1,n,24000);
+      const ch=buf.getChannelData(0);
+      for(let i=0;i<n;i++){ let v=(raw.charCodeAt(2*i)|(raw.charCodeAt(2*i+1)<<8));
+        if(v>=0x8000)v-=0x10000; ch[i]=v/32768; }
+      const src=Music.ctx.createBufferSource(); src.buffer=buf; src.connect(Music.gVoice);
+      const t=Math.max(Music.ctx.currentTime+0.05, this.playhead);
+      src.start(t); this.playhead=t+buf.duration;
+      this._srcs.push(src); if(this._srcs.length>6) this._srcs.shift();
+      Music.duck(0.3,120);
+      clearTimeout(this._duckT);
+      this._duckT=setTimeout(()=>{ try{ Music.duck(1.0,300); }catch(_){} },
+        Math.max(0,(this.playhead-Music.ctx.currentTime)*1000+180));
+    }catch(e){ console.warn('[AIR] push err', e&&e.message); }
+  },
+  /* HOLD start = absolute silence: cut anything still playing mid-air */
+  cut(){
+    for(const s of this._srcs){ try{ s.stop(); }catch(_){} }
+    this._srcs.length=0; this.playhead=0;
+    try{ Music.duck(1.0,120); }catch(_){}
+  },
+  busy(){ return Music.ctx && this.playhead > Music.ctx.currentTime + 0.3; },
 };
 
 /* ═══ Pose: stillness only — this game tracks ONE thing ═══ */
@@ -1218,20 +1333,29 @@ function tick(){
   if(!G.freeze){
     DANCE_CUES.forEach((c,i)=>{ if(t>=c.at && !G.fired.c.has(i)){ G.fired.c.add(i); FX.cue(c.text); }});
     tickTier(t);                                   // ENERGY LADDER: she escalates with the game
-    /* ═══ STRUCTURAL SCHEDULER (2026-08-26) ═══════════════════════════════════════
-       The AUDIO already carries the whole round (strip, sting, slam-back) — it was
-       scheduled sample-accurately at Music.start(). The page only has to make the
-       VISUALS follow the audio clock:
-         · T-GESTURE_LEAD  → /set_avatar so her pose lands AT the strip
-         · T-0             → flash, frost, badge, ring (startFreeze)
-       No beeps, no ducks, no speech cues here — the strip IS the signal, and mid-game
-       voice is verdict clips only (endFreeze). Nothing awaits the network. */
+    /* ═══ READY.md SCHEDULER (2026-08-27) ═════════════════════════════════════════
+       AUDIO already carries the whole round (strip/sting/slam — scheduled sample-exact
+       at Music.start; that is LAW). The page adds, per round:
+         · T-4.5  LIVE pre-freeze warning in the air (lands ~T-3; the STAB gets none)
+         · T-0.6  swap window opens: the pose clip cuts in at the groove's nearest
+                  NEUTRAL crossing inside ±0.6s, masked by flash+snow (never a teleport)
+         · T-0    HOLD phase (mute) + FX + scoring window — the kid's clock is the MUSIC */
     FREEZES.forEach((f,i)=>{
-      if(t >= f.at - GESTURE_LEAD - 0.35 && !G.fired.cd.has(i)){
+      if(!f.stab && t >= f.at-4.5 && !G.fired.w.has(i)){
+        G.fired.w.add(i);
+        if(Live.on && PHASE===PH.GAME && !AirVoice.busy()){
+          try{ Live.cue('warn: freeze in 3 seconds. Say a SHORT playful warning, 3-5 words, like "get ready to freeeeze!" Nothing else.',''); }catch(_){}
+        }
+      }
+      if(t >= f.at-0.6 && !G.fired.cd.has(i)){
         G.fired.cd.add(i);
-        try{ Nova.freeze(f.clip);
-          if(window.__SYNCLOG) window.__SYNCLOG.push({ev:'gesture-sent',round:i,songT:Music.t(),wall:performance.now()});
-        }catch(_){}
+        if(Live.on){
+          const wait=Math.min(NEUTRAL.untilNeutral(), 1.2);   // never later than +0.6 past the cut
+          setTimeout(()=>{ if(G.running||G.freeze){ Flash.fire(); FX.shatter(); PoseClip.show(FREEZES[i].clip); } }, wait*1000);
+          try{ console.log('[SWAP] round',i,'neutral in',wait.toFixed(2)+'s (loopT '+NEUTRAL.loopTime().toFixed(2)+')'); }catch(_){}
+        } else {
+          try{ Nova.freeze(f.clip); }catch(_){}               // clip fallback pre-arm
+        }
       }
       if(t>=f.at && !G.fired.f.has(i)){ G.fired.f.add(i); startFreeze(f,i); }
     });
@@ -1255,11 +1379,12 @@ function tick(){
 
 function startFreeze(def,idx){
   const c=ASSETS.clips[def.clip];
-  /* the hold is FIXED — the audio strip was scheduled from this same number */
+  /* the hold is FIXED — the audio strip was scheduled from this same number.
+     The kid's clock is the MUSIC: stillness detection starts NOW (f.at) exactly;
+     the body swap rides its own neutral-crossing schedule (±0.6s around now). */
   G.freeze={def, idx, hold:def.hold, stillMs:0, winMs:0, moved:false, lastT:Music.t()};
-  /* NO music calls here: the strip + sting already fired on the audio clock. The avatar
-     swap was pre-sent GESTURE_LEAD early, so she is snapping into the pose right now. */
-  Flash.fire();
+  setPhase(PH.HOLD);                                   // absolute silence: no generations
+  AirVoice.cut();                                      // and nothing mid-air spills into the hold
   FX.frostOn(); FX.badge(c.emo, def.final?('BIG '+c.name+'!'):(c.name+'!'));
   FX.cue(def.stab?'AGAIN?! FREEZE! 🧊':'FREEZE! 🧊',false,def.hold*1000);
   ring.classList.add('show'); ring.style.setProperty('--p',0);
@@ -1274,13 +1399,27 @@ function endFreeze(){
   const pts=Math.round(f.def.pts*credit);
   const name=ASSETS.clips[f.def.clip].name, secs=(f.stillMs/1000).toFixed(1), pct=Math.round(frac*100);
   const froze = frac>=FULL_AT, moved = frac<MOVE_AT;
-  /* facts still flow to the brain SILENTLY (speak-gate holds) — ending fuel only */
+  setPhase(PH.GAME);                                   // gap: voice routes to AIR again
+  /* facts flow to the brain (ending fuel + the verdict note below) */
   if(Live.on && froze) Live.post({type:'nova-fact', move:'freeze', name, pct});
-  Nova.melt();                                        // back to current-tier avatar (live) / melt clip (fallback)
-  /* VERDICT — pre-baked clip by REAL result (MOVE-TRUTH preserved: held / almost / moved).
-     Page-played on the audio clock: zero pipeline, zero lips on the fast body. */
-  VoiceBank.play(froze ? 'held' : moved ? 'moved' : 'almost');
-  if(froze && SFX.ready){ SFX.beep(Music.ctx.currentTime+0.05, 1560, 160, .28); }   // tiny success ding
+  Nova.melt();                                         // pose clip lifts / melt clip (fallback)
+  Flash.fire();                                        // melt mask (return cut) + release ding
+  if(SFX.ready){ SFX.beep(Music.ctx.currentTime+0.05, froze?1560:1180, 160, .28); }
+  /* VERDICT FAST (READY.md PART 5): ding+score+HUD are INSTANT (just fired); her live
+     reaction is a producer note — measured as [VERDICT-LATENCY]. The stab round starts
+     ~1.2s after round 5's melt, so THAT verdict stays unspoken (its hold would swallow
+     the line); the stab's own verdict speaks for both. */
+  const nx = FREEZES.find(x=>x.at > f.def.at + f.def.hold);
+  const gapOk = !nx || (nx.at - (f.def.at+f.def.hold)) >= 3.5;
+  if(Live.on && gapOk){
+    AirVoice.expect('round'+(f.idx+1)+':'+(froze?'held':moved?'moved':'almost'));
+    try{ Live.cue('verdict: React in 4-6 words, specific, NOW.',
+      'They held the '+name+' freeze STILL for '+pct+'% of the window'
+      + (froze?' — a PERFECT freeze!':moved?' — they kept MOVING, not a real freeze; be warm, never say wrong/bad.':' — wobbly, half-still.')
+      + ' Streak: '+G.stamps.length+' freezes held so far.'); }catch(_){}
+  } else if(!Live.on){
+    NovaSay.log(Fallback.pick(froze?'boom':moved?'moved':'boom'));
+  }
   G.rounds.push({name, frac, pts});
   try { if(window.NovaRec) NovaRec.event('freeze', {name, frac, pct, pts, still:froze}); } catch(_){}
   if(!G.best || f.stillMs>G.best.heldMs) G.best={name, heldMs:f.stillMs, frac};   // best = stillest freeze
@@ -1378,7 +1517,6 @@ $('start-btn').addEventListener('click', async ()=>{
      Live.reveal() starts it once she is actually on screen. If the pod is down, the
      clip-fallback path starts it instead, so tracking still works offline. */
   Music.init();                                                      // creates the ctx + starts buffer decode
-  VoiceBank.load();                                                  // baked mid-game voice decodes in parallel
   try{ SFX.init(Music.ctx); }catch(e){ console.warn('[SFX] init failed', e); }   // dings share the music clock
   Live.init();                                                       // probe pod → mount V2V iframe (owns mic) or clip fallback
   statusEl.textContent='warming up…';
@@ -1388,11 +1526,15 @@ $('start-btn').addEventListener('click', async ()=>{
   await Music.whenReady();                                           // song+beat buffers must be decoded before the clock starts
   await countdown();                                                 // countdown GATES play — the law
   try{ await Music.ctx.resume(); }catch(e){}
-  /* ═══ THE SWITCH POINT: music start = engine-voice OFF (Mission C) ═══ */
-  PHASE='game';
+  /* ═══ THE SWITCH POINT (READY.md): music start =
+     · engine body → nova_idlegroove_v2 (the bouncy groove, for the WHOLE game)
+     · setPhase(GAME): voice routes to AIR — engine gets NO audio until the ending
+     · freeze poses ready as page clips · groove loop clock stamped for neutral swaps ═══ */
+  if(Live.on){ try{ PoseClip.init(); }catch(_){}
+    try{ Live.setAvatar('nova_idlegroove_v2'); NEUTRAL.setT=performance.now(); }catch(_){} }
   Music.start();                                     // schedules EVERY strip/sting/slam on the audio clock, sample-accurate
+  setPhase(PH.GAME);
   try{ Live.post({type:'game-start'}); }catch(_){}   // V2: she learns the music is RUNNING at this exact moment
-  try{ Live.speakGate(true); }catch(_){}             // her live voice cannot reach the engine until the final verdict
   G.running=true; requestAnimationFrame(tick);
 });
 
@@ -1408,7 +1550,8 @@ function doPause(){
   /* ctx.suspend() freezes the ENTIRE audio timeline — music, beat, every scheduled
      strip/sting — and resumes bit-exact. Music.t() freezes with it (same clock). */
   try{ Music.ctx.suspend(); }catch(_){}
-  if(G.freeze){ Nova.melt(); FX.frostOff(); FX.badgeOff(); ring.classList.remove('show'); G.freeze=null; }
+  if(G.freeze){ Nova.melt(); FX.frostOff(); FX.badgeOff(); ring.classList.remove('show'); G.freeze=null;
+    if(PHASE===PH.HOLD) setPhase(PH.GAME); }          // never leave the phase stuck in HOLD
   /* mid-game = no LLM pause line (voice reroute). hold() drops mic + in-flight speech. */
   if(Live.on) Live.hold(true);
   $('pause-screen').style.display='flex';
@@ -1425,11 +1568,14 @@ $('resume-btn').addEventListener('click', async ()=>{
 
 function endGame(){
   G.running=false; Music.duck(0.0,1500);
-  /* ═══ THE SWITCH POINT: final verdict = engine-voice back ON (Mission C) ═══
-     calm body first, then the gate opens — lips return on the calm body only. */
-  PHASE='ending';
+  /* ═══ THE SWITCH POINT: final verdict = calm body back, THEN setPhase(ENDING)
+     opens the engine path — lips (MuseTalk) return on the calm idle body ONLY. ═══ */
   try{ Nova.melt(); }catch(_){}
-  try{ Live.speakGate(false); }catch(_){}
+  if(Live.on){ try{ Live.setAvatar('nova_idle'); }catch(_){} }
+  setPhase(PH.ENDING);
+  /* [VERDICT-LATENCY] summary for the evidence pack */
+  try{ const L=AirVoice.lat.slice().sort((a,b)=>a-b);
+    if(L.length) console.log('[VERDICT-LATENCY] per-round:', AirVoice.lat.join('ms, ')+'ms — median', L[Math.floor(L.length/2)]+'ms'); }catch(_){}
   // SMART ENDING (2026-07-27): the one shared arc — her moment (built from THIS
   // session's real freeze data, by animal name) → feedback faces 😍🙂😕 → hook.
   // NO score/points on the kid's screen; raw numbers go to the session record only.

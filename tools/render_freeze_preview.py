@@ -18,21 +18,20 @@ SR = 44100
 BPM = 129.2
 BEAT = 60.0 / BPM
 
-# FREEZE-PRECISE-FIX approved array: 10-14s gaps, one 3.5s fake-out stab (#6),
-# 3.5s holds (founder ear-check 2026-08-26: +1s each), 6s final star.
-# Every `at` is beat-snapped to the track grid at render.
+# FREEZE-SIMPLIFIED array (founder spec 2026-08-27): 12-14s gaps, 2.5s holds,
+# 5s final star, one fake-out stab (#6). Every `at` beat-snapped at render.
 FREEZES = [
-    {"at": 11.6,  "hold": 3.5, "clip": "statue"},
-    {"at": 24.0,  "hold": 3.5, "clip": "bear"},
-    {"at": 35.5,  "hold": 3.5, "clip": "flamingo"},
-    {"at": 48.5,  "hold": 3.5, "clip": "frog"},
-    {"at": 61.0,  "hold": 3.5, "clip": "statue"},
-    {"at": 65.5,  "hold": 3.5, "clip": "bear"},     # THE STAB (fake-out, 1s of melody after #5 then BAM)
-    {"at": 77.5,  "hold": 3.5, "clip": "flamingo"},
-    {"at": 90.0,  "hold": 3.5, "clip": "frog"},
-    {"at": 102.0, "hold": 3.5, "clip": "statue"},
-    {"at": 113.5, "hold": 3.5, "clip": "bear"},
-    {"at": 125.0, "hold": 6.0, "clip": "star"},
+    {"at": 11.6,  "hold": 2.5, "clip": "statue"},
+    {"at": 24.0,  "hold": 2.5, "clip": "bear"},
+    {"at": 35.5,  "hold": 2.5, "clip": "flamingo"},
+    {"at": 48.5,  "hold": 2.5, "clip": "frog"},
+    {"at": 61.0,  "hold": 2.5, "clip": "statue"},
+    {"at": 64.5,  "hold": 2.5, "clip": "bear"},     # THE STAB (fake-out, ~1s of melody after #5 then BAM)
+    {"at": 77.5,  "hold": 2.5, "clip": "flamingo"},
+    {"at": 90.0,  "hold": 2.5, "clip": "frog"},
+    {"at": 102.0, "hold": 2.5, "clip": "statue"},
+    {"at": 113.5, "hold": 2.5, "clip": "bear"},
+    {"at": 125.0, "hold": 5.0, "clip": "star"},
 ]
 
 MUSIC_GAIN = 0.6

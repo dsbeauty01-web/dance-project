@@ -156,8 +156,12 @@ def session_update(freeze=False, voice=None):
                       # LAW-INPUT-LOCK (founder 2026-08-11, THE FINAL LOCK): the model may
                       # generate ONLY on a validated kid-turn. VAD commits + transcribes,
                       # but create_response is OFF — air structurally cannot reach her.
-                      "turn_detection": {"type": "server_vad", "threshold": 0.55,
-                                         "prefix_padding_ms": 250, "silence_duration_ms": 400,
+                      # VOICE-DEAF FIX (2026-08-28, founder cafe test: mic streamed but ZERO
+                      # speech_started): 0.55 never triggered over background noise. 0.35 =
+                      # sensitive enough for a noisy room; INPUT-LOCK word-validation still
+                      # discards anything that transcribes to garbage, so noise cannot speak.
+                      "turn_detection": {"type": "server_vad", "threshold": 0.35,
+                                         "prefix_padding_ms": 300, "silence_duration_ms": 500,
                                          "create_response": False, "interrupt_response": False},
                       "transcription": {"model": "gpt-4o-mini-transcribe", "language": "en"}},
             "output": {"format": {"type": "audio/pcm", "rate": 24000}, "voice": (voice or VOICE)}},
@@ -196,7 +200,9 @@ async def relay(request):
     # unlike response.done which fires while the engine is still playing her tail).
     # resp_active = single-active-response guard (no overlapping "2 voices").
     speaking = {"v": False, "last_chunk": 0.0, "resp_active": False}
-    GATE_COOLDOWN = 1.4   # faster mic-reopen after she speaks (was 2.0) — snappier turn-taking
+    GATE_COOLDOWN = 0.6   # VOICE-DEAF FIX 2026-08-28: was 1.4 — with the chatty intro + game
+                          # warnings the mic was closed most of the time; 0.6s keeps just enough
+                          # anti-echo while letting the kid answer right after her line
     mic_stats = {"n": 0, "bytes": 0}
     # --- INTRO BRAIN GATES (2026-07-28) -------------------------------------
     # TRUTH-GATE: Nova may only name/praise a move that arrived as a detection
@@ -238,6 +244,8 @@ async def relay(request):
     # #4 GARBLE-IGNORE: <3 chars or mostly-non-latin nonsense = not real input.
     def is_garble(t):
         t = (t or "").strip()
+        # VOICE-DEAF FIX 2026-08-28: "hi" was eaten by the len<3 rule — tiny REAL words pass
+        if t.lower().strip("!.?,") in ("hi", "ok", "no", "yes", "ya", "yo", "hey"): return False
         if len(t) < 3: return True
         letters = _re.findall(r"[A-Za-z]", t)
         return len(letters) < max(2, len(t) // 3)   # mostly non-English script -> garble
@@ -254,7 +262,11 @@ async def relay(request):
     # for the ending) — but no response may synthesize and no assistant audio may reach
     # the engine. The engine lip-syncs whatever audio it is fed, on whatever body is live
     # — including the fast dance bakes — so mid-game her voice must never get there.
-    sgate = {"on": False}
+    # AIR MODE (FREEZE-SIMPLIFIED 2026-08-27): mode 'hard' = no generations at all
+    # (freeze holds). mode 'air' = the page may buy exactly ONE line per gap (credit,
+    # granted by its nova-say/cue) and her audio is sent to the BROWSER as voice_air -
+    # the engine NEVER gets it, so lips never move on the groove body.
+    sgate = {"on": False, "mode": "hard", "credit": 0}
     LIGHT_WAIT = 10.0
     LIGHT_INVITE_RE = _re.compile(r"(magic light|on your shoulder|little shrug|shoulder.*(shrug|wiggle|lift))", _re.I)
     # #5 STATUE SILENCE: from her freeze call-out until a hold-fact/move-on, her mouth is CLOSED
@@ -314,11 +326,16 @@ async def relay(request):
                 # A page declares its game with ?intro=<game> on the iframe URL.
                 _intro = (request.query.get("intro") or "").strip().lower()
                 if _intro == "freeze":
+                    # READY.md Part 1 (2026-08-27): the intro is a REAL conversation now —
+                    # greet + name ask, echo the TRANSCRIPT name, answer anything, then
+                    # steer to the freeze rule and the ready question. No example names.
                     _greet = ("Say EXACTLY these words and NOTHING more: "
-                              "Hi, I'm Nova! Music plays - you dance. Animal pops - you FREEZE! Ready? "
-                              "Then STOP and wait for their answer. Do NOT ask "
-                              "their name. Do NOT offer any other game. Do NOT start counting "
-                              "down or start the music - the game begins only when they say yes.")
+                              "Hi! I'm Nova - FREEZE time! What's your name? "
+                              "Then STOP and wait. When they answer, echo the exact name you heard "
+                              "warmly and keep a real short conversation - answer anything they say. "
+                              "After their name or two exchanges, explain: when the music plays DANCE - "
+                              "when it stops... FREEZE! Then ask: Ready? Do NOT offer any other game. "
+                              "Do NOT start counting down - the game begins only when they say yes.")
                 else:
                     _greet = ("Greet the kid in ONE short excited line and say exactly: "
                               "Hi! I'm Nova, your magical AI dance teacher! What's your name?")
@@ -334,8 +351,8 @@ async def relay(request):
                     # V2.1 2026-08-07: in freeze mode the PAGE owns every beat — the brain
                     # never self-fires (the V2 greet says "you FREEZE!" which tripped the
                     # statue regex on her OWN words -> whisper + invented praise pre-yes).
-                    if _freeze_mode:
-                        continue
+                    if _freeze_mode and sgate["on"]:
+                        continue     # game phase: the page owns every beat, brain never self-fires
                     if speaking["v"] or speaking["resp_active"]:
                         continue
                     # #5 STATUE: ONE quick whisper fills the hold naturally (~1.5s in), then silence.
@@ -403,8 +420,12 @@ async def relay(request):
                     # nova-fact deliberately NOT in this list — it is recorded below as silent
                     # ending-fuel (its response.create is separately blocked at response.created).
                     if sgate["on"] and t in ("nova-say", "nova-cue"):
-                        print("[SPEAK-GATE] dropped speech request:", t, flush=True)
-                        continue
+                        if sgate["mode"] == "air":
+                            sgate["credit"] = 1     # this gap's ONE allowed line
+                            print("[SPEAK-GATE] air line credited:", t, flush=True)
+                        else:
+                            print("[SPEAK-GATE] dropped speech request:", t, flush=True)
+                            continue
                     if t == "audio":
                         mic_stats["n"] += 1; mic_stats["bytes"] += len(m.get("data", ""))
                         if mic_stats["n"] % 50 == 0:
@@ -451,7 +472,7 @@ async def relay(request):
                         _recent_yes = (time.time() - consent["yes_ts"] <= 8.0) or (time.time() - facts["last_ts"] <= 8.0)
                         if _is_adv and not _recent_yes:
                             print("[CONSENT] waiting — advance cue held (no yes/move):", intent[:50], flush=True)
-                        elif intent and (time.time() - inlock.get("last_cue_resp", 0.0) < 8.0):
+                        elif intent and (time.time() - inlock.get("last_cue_resp", 0.0) < 8.0) and not (sgate["on"] and sgate["mode"] == "air"):
                             # CUE RATE-LIMIT (founder 2026-08-11: page cues machine-gunned her
                             # into 3-line chains): one spoken cue per 6s; extras become
                             # silent context so she still KNOWS, she just doesn't SPEAK.
@@ -492,6 +513,11 @@ async def relay(request):
                             # so the persona never applied and she kept answering out of context.
                             await oai.send_json({"type": "session.update", "session": {
                                 "type": "realtime", "instructions": instr}})
+                            try:
+                                import hashlib as _hl
+                                print("[PERSONA-HASH]", _hl.sha1(instr.encode()).hexdigest()[:12],
+                                      "len", len(instr), flush=True)
+                            except Exception: pass
                             # ACK 2026-08-05 — the page retries until it hears this.
                             try: await ws_client.send_json({"type": "ack", "of": "persona"})
                             except Exception: pass
@@ -555,11 +581,13 @@ async def relay(request):
                         # SPEAK-GATE (2026-08-26): the game phase's structural mute. on=True from
                         # music-start, off at the final verdict. Mic stays open the whole time.
                         sgate["on"] = bool(m.get("on"))
-                        if sgate["on"] and (speaking["resp_active"] or speaking["v"]):
+                        sgate["mode"] = (m.get("mode") or "hard") if sgate["on"] else "hard"
+                        sgate["credit"] = 0
+                        if sgate["on"] and sgate["mode"] == "hard" and (speaking["resp_active"] or speaking["v"]):
                             try: await oai.send_json({"type": "response.cancel"})
                             except Exception: pass
-                        print("[SPEAK-GATE]", "ON — no synthesis, no engine audio (game phase)" if sgate["on"]
-                              else "OFF — voice open (intro/ending)", flush=True)
+                        print("[SPEAK-GATE]", ("ON (" + sgate["mode"] + ") - engine audio blocked") if sgate["on"]
+                              else "OFF - voice open (intro/ending)", flush=True)
                         try: await ws_client.send_json({"type": "ack", "of": "speak_gate"})
                         except Exception: pass
                     elif t == "nova-pick":
@@ -643,10 +671,22 @@ async def relay(request):
                         audio_buf.extend(base64.b64decode(e["delta"]))
                     elif et in ("response.output_audio.done", "response.audio.done"):
                         # release the whole buffered line to the engine ONLY if the gate cleared it.
-                        if resp["killed"] or sgate["on"]:
-                            if sgate["on"]: print("[SPEAK-GATE] engine feed blocked (audio.done)", flush=True)
-                            else: print("[TRUTH-GATE] pre-synth blocked (never synthesized):", resp["buf"][:60], flush=True)
+                        if resp["killed"]:
+                            print("[TRUTH-GATE] pre-synth blocked (never synthesized):", resp["buf"][:60], flush=True)
                             audio_buf.clear()
+                        elif sgate["on"]:
+                            # AIR MODE: her line goes to the PAGE, never the engine (no lips)
+                            if sgate["mode"] == "air" and audio_buf:
+                                data = bytes(audio_buf); audio_buf.clear()
+                                try:
+                                    await ws_client.send_json({"type": "voice_air",
+                                        "data": base64.b64encode(data).decode()})
+                                    print("[SPEAK-GATE] air voice -> page:", len(data), "bytes", flush=True)
+                                except Exception as _e:
+                                    print("[SPEAK-GATE] air send err", _e, flush=True)
+                            else:
+                                audio_buf.clear()
+                                print("[SPEAK-GATE] engine feed blocked (audio.done)", flush=True)
                         elif audio_buf:
                             if not speaking.get("spoke"):
                                 speaking["spoke"] = True
@@ -704,6 +744,9 @@ async def relay(request):
                     elif et in ("response.output_audio_transcript.done", "response.audio_transcript.done"):
                         txt = e.get("transcript", "") or ""
                         await ws_client.send_json({"type": "nova_done", "text": txt})
+                        # [PERSONA-LEAK] watch (READY.md Part 6) - expected count: 0
+                        if _re.search(r"happy to help|assist you|how can i assist|as an ai", txt, _re.I):
+                            print("[PERSONA-LEAK]", txt[:80], flush=True)
                         try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"NOVA: "+txt+"\n")
                         except Exception: pass
                         # #6 DE-CAN: remember every line she said; flag exact repeats.
@@ -738,9 +781,10 @@ async def relay(request):
                     elif et == "conversation.item.input_audio_transcription.delta":
                         await ws_client.send_json({"type": "you_delta", "delta": e.get("delta", "")})
                     elif et == "response.created":
-                        if sgate["on"]:
-                            # SPEAK-GATE: NOTHING synthesizes during the game phase — VAD
-                            # auto-replies, late cues, fact praise: all cancelled at birth.
+                        _air_ok = sgate["on"] and sgate["mode"] == "air" and sgate["credit"] > 0
+                        if sgate["on"] and not _air_ok:
+                            # SPEAK-GATE: uncredited generations die at birth (VAD auto-replies,
+                            # late cues, fact praise). Air credit = the page's one line per gap.
                             print("[SPEAK-GATE] cancelled response (game phase)", flush=True)
                             try: await oai.send_json({"type": "response.cancel"})
                             except Exception: pass
@@ -757,6 +801,9 @@ async def relay(request):
                             try: await oai.send_json({"type": "response.cancel"})
                             except Exception: pass
                         else:
+                            if sgate["on"] and sgate["credit"] > 0:
+                                sgate["credit"] -= 1
+                                print("[SPEAK-GATE] air line generating (credit spent)", flush=True)
                             if statue["allow"]: statue["allow"] = False; print("[STATUE] whisper (allowed)", flush=True)
                             speaking["resp_active"] = True
                             speaking["v"] = True                 # gate CLOSED (mic discarded)
@@ -814,11 +861,16 @@ async def relay(request):
                             if YES_RE.search(ktxt):
                                 consent["yes_ts"] = time.time(); print("[CONSENT] real yes:", ktxt[:40], flush=True)
                             # ONE-SHOT GENERATION: this validated turn buys exactly one response.
-                            try:
-                                await oai.send_json({"type": "response.create"})
-                                print("[INPUT-LOCK] one-shot fired for turn", inlock["valid_turns"], flush=True)
-                            except Exception as _e:
-                                print("[INPUT-LOCK] fire err", _e, flush=True)
+                            # SPEAK-GATE: mid-game the kid's words are context only - no reply
+                            # (and no stealing the gap's air credit).
+                            if sgate["on"]:
+                                print("[SPEAK-GATE] kid turn stored, no reply (game phase)", flush=True)
+                            else:
+                                try:
+                                    await oai.send_json({"type": "response.create"})
+                                    print("[INPUT-LOCK] one-shot fired for turn", inlock["valid_turns"], flush=True)
+                                except Exception as _e:
+                                    print("[INPUT-LOCK] fire err", _e, flush=True)
                     elif et == "error":
                         await log("ERROR: " + str(e.get("error", {}).get("message", ""))[:120])
 
