@@ -1021,11 +1021,11 @@ const Music = {
     return await this.ctx.decodeAudioData(await r.arrayBuffer());
   },
   async _load(){
-    /* the song is REQUIRED; sting is voice garnish (skip on 404, FX text still fires) */
+    /* the song is REQUIRED. NO pre-rendered VOICE loads at all (founder ruling
+       2026-08-29: only live OpenAI voice-to-voice) — the sting is GONE; the freeze
+       signal is the melody strip + bare beat + her live warning. stingBuf stays null. */
     try{ this.songBuf=await this._fetchBuf(ASSETS.song); }
     catch(e){ console.error('[MUSIC] song decode FAILED', e); }
-    try{ this.stingBuf=await this._fetchBuf('freezegame/sting_freeze.mp3'); }
-    catch(e){ console.warn('[MUSIC] no sting clip (ok until assets merge):', e&&e.message); }
     try{ this.beatBuf=await this._makeBeat(); }
     catch(e){ console.error('[MUSIC] beat synth failed', e); }
     this._readyRes();
@@ -1143,20 +1143,28 @@ const PoseClip = {
     }
   },
   /* ARRIVAL in-point (READY.md 2a): the clip starts 0.3s BEFORE its pose stillness —
-     she lands INTO the pose with momentum, then holds (paused ~0.35s after in-point). */
+     she lands INTO the pose with momentum, then holds at the KNOWN pose frame (pauseAt).
+     STALE-OVERLAY FIX 2026-08-29 (self-test caught it: all four clips stuck at opacity 1,
+     a paused standing frame covering the dancing groove = "she looks idle"): show() and
+     hide() now clear EVERY overlay, not just the remembered one. */
   show(k){
-    const v=this.vids[k]; if(!v) return false; this.showing=k;
+    const v=this.vids[k]; if(!v) return false;
+    for(const [kk,vv] of Object.entries(this.vids)){
+      if(kk!==k){ vv.style.opacity='0'; try{ vv.pause(); }catch(_){} }
+    }
+    this.showing=k;
     const ip=(NEUTRAL.arrivals[k]!=null)?NEUTRAL.arrivals[k]:0;
+    const c=ASSETS.clips[k]||{};
+    const stopAt=Math.max(ip+0.35, c.pauseAt||0);   // never pause before the real pose
     v.currentTime=ip; v.style.opacity='1'; v.play().catch(()=>{});
-    const stopAt=ip+0.35;
     const chk=()=>{ if(this.showing!==k) return;
       if(v.currentTime>=stopAt) v.pause(); else requestAnimationFrame(chk); };
     requestAnimationFrame(chk);
     return true;
   },
   hide(){
-    const k=this.showing; this.showing=null;
-    if(k && this.vids[k]){ this.vids[k].style.opacity='0'; this.vids[k].pause(); }
+    this.showing=null;
+    for(const v of Object.values(this.vids)){ v.style.opacity='0'; try{ v.pause(); }catch(_){} }
   },
 };
 
@@ -1417,7 +1425,13 @@ function tick(){
         G.fired.cd.add(i);
         if(Live.on){
           const wait=Math.min(NEUTRAL.untilNeutral(), 1.2);   // never later than +0.6 past the cut
-          setTimeout(()=>{ if(G.running||G.freeze){ Flash.fire(); FX.shatter(); PoseClip.show(FREEZES[i].clip); } }, wait*1000);
+          setTimeout(()=>{
+            /* only paint the pose if ITS round is still running — a timer that fires
+               late (backgrounded tab) must never leave a stale overlay */
+            if((G.running||G.freeze) && Music.t() < FREEZES[i].at + FREEZES[i].hold - 0.2){
+              Flash.fire(); FX.shatter(); PoseClip.show(FREEZES[i].clip);
+            }
+          }, wait*1000);
           try{ console.log('[SWAP] round',i,'neutral in',wait.toFixed(2)+'s (loopT '+NEUTRAL.loopTime().toFixed(2)+')'); }catch(_){}
         } else {
           try{ Nova.freeze(f.clip); }catch(_){}               // clip fallback pre-arm
