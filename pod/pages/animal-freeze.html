@@ -1094,13 +1094,15 @@ const Music = {
    standing-start pose. Embedded (not fetched) so it can never 404. Re-run the tool and
    paste here whenever the groove bake or the pose clips change. ═══ */
 const NEUTRAL = {
-  /* FOUNDER RULING 2026-08-28 (FINAL, confirmed on video): the game body is
-     maya_rapa_full — "rapa", the newest bake (Aug 27, 1140 frames / 45.6s), her real
-     routine. Intro/ending stay nova_idle. Data = the rapa scan: these timestamps are
-     rapa's most idle-like frames (closest to the freeze clips' standing pose), so the
-     cut into each freeze gesture comes from a calm moment and reads clean. */
-  loopDur: 45.6, mirror: true,                        // engine ping-pongs: period = 2*loopDur
-  times: [8.36, 9.8, 12.76, 14.08, 15.64, 20.6, 22.2, 25.0, 28.84, 30.48, 34.84, 36.48, 39.44, 40.72, 42.36, 45.28],
+  /* FOUNDER RULING 2026-08-29 (settled by VIDEO EVIDENCE, Downloads/output (1).mp4):
+     the game body is nova_idlegroove_v2 — the pointing-groove that matches the founder's
+     reference video frame-for-frame in outfit, room and move style.
+     NOT maya_rapa_full: that is the ARMS-SPREAD-WIDE routine (the exact thing the
+     founder kept rejecting as "arms wide"). NOT nova_groove (standing/waving).
+     Data = the idlegroove_v2 scan (569 frames @25fps): its most idle-like frames,
+     so the cut into each freeze gesture comes from a calm moment and reads clean. */
+  loopDur: 22.76, mirror: true,                       // engine ping-pongs: period = 2*loopDur
+  times: [0.8, 2.32, 4.36, 6.4, 7.68, 8.72, 12.0, 13.76, 15.6, 16.64, 19.6, 21.64],
   arrivals: { bear:1.37, frog:4.28, flamingo:1.24, star:1.07 },  // clip in-points: she LANDS into the pose
   setT: 0,                                            // performance.now() when the groove avatar was set
   NET_LAG: 0.45,                                      // est. engine→browser latency (phase offset)
@@ -1595,7 +1597,7 @@ $('start-btn').addEventListener('click', async ()=>{
      · setPhase(GAME): voice routes to AIR — engine gets NO audio until the ending
      · freeze poses ready as page clips · groove loop clock stamped for neutral swaps ═══ */
   if(Live.on){ try{ PoseClip.init(); }catch(_){}
-    try{ Live.setAvatar('maya_rapa_full'); NEUTRAL.setT=performance.now(); }catch(_){} }   // RAPA — founder-confirmed on video 2026-08-28
+    try{ Live.setAvatar('nova_idlegroove_v2'); NEUTRAL.setT=performance.now(); }catch(_){} }   // matches founder's reference video (ruling 2026-08-29)
   Music.start();                                     // schedules EVERY strip/sting/slam on the audio clock, sample-accurate
   setPhase(PH.GAME);
   try{ Live.post({type:'game-start'}); }catch(_){}   // V2: she learns the music is RUNNING at this exact moment
