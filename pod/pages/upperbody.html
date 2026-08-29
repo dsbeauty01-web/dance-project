@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Upper Body! · Nova</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%83%3C/text%3E%3C/svg%3E">
+<!-- UPPERBODY-PERFECT (2026-08-29) — built to Downloads/UPPERBODY-PERFECT.md as written.
+     LAWS: INPUT-LOCK untouched · mid-round voice live-in-air only (engine lips ONLY on
+     nova_idle2 in intro/between/ending) · never red, never punishing · GOLD is the only
+     action color · all cues on the routine's video clock · first-party page, no iframes ·
+     PULSE fires at end.
+     [CLI-FILL] log (gaps the spec missed, filled in the spirit of the laws):
+     1. video src = /gallery/upperbody-routine.mp4 (spec wrote /media/rapa_src.mp4 — that
+        file has NO audio track and no /media route exists; the gallery copy carries the
+        music the game needs).
+     2. Target times NOT scaled by 1/rate: video.currentTime always reads routine-time at
+        any playbackRate — scaling would desync every cue from her actual body. Windows
+        tighten in REAL time automatically at 1.25x, which is the intended difficulty.
+     3. Kept the hardened MoveNet boot from the isoPulse skill (webgl→wasm fallback +
+        shader warm-up) — spec silent, but without it the first inference stalls ~16s.
+     4. "tap or verbal yes" → implemented as the tap button (verbal-yes page trigger not
+        wired brain-side yet).
+     5. FREEZE hold check = the proven shoulder-normalised stillness detector (spec left
+        checkHold as a comment).
+     6. Round-1 pre-target countdown = gold 3·2·1 overlaid at video 12.5-13.5s (video-led,
+        never pauses); between-round countdowns pause-free before play resumes. -->
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Nunito:wght@600;800&display=swap" rel="stylesheet">
+<style>
+  /* §0 DESIGN TOKENS — from HER world */
+  :root{
+    --room-pink:#f4d9ea; --room-lilac:#cbb7e8;
+    --hoodie:#7c5cbf;
+    --gold:#ffc23e; --gold-hot:#ffdf7e;
+    --ice:#aee8ff;
+    --ink:#2a2140;
+    --ok-green:#7ddba3;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{font-family:'Nunito',system-ui;color:var(--ink)}
+  #stage{position:fixed;inset:0;display:flex;background:var(--room-pink);font-family:'Nunito',system-ui}
+  #novaWrap{position:relative;height:100vh;overflow:hidden;transition:width .5s ease;width:60vw;background:var(--room-lilac)}
+  #camWrap{position:relative;height:100vh;overflow:hidden;transition:width .5s ease;width:40vw;background:#2a2140}
+  /* ADAPTIVE (Lexi law) */
+  #stage[data-phase="intro"] #novaWrap,#stage[data-phase="between"] #novaWrap,#stage[data-phase="ending"] #novaWrap{width:66vw}
+  #stage[data-phase="intro"] #camWrap, #stage[data-phase="between"] #camWrap, #stage[data-phase="ending"] #camWrap{width:34vw}
+  #routine,#novaMain{position:absolute;left:50%;top:0;height:100vh;width:auto;transform:translateX(-50%);z-index:2}
+  #routine{display:none}
+  #stage[data-phase="round"] #routine{display:block}
+  #stage[data-phase="round"] #novaMain{display:none}
+  #novaAmbient{position:absolute;left:50%;top:50%;height:120vh;transform:translate(-50%,-50%) scaleX(2.2);filter:blur(28px) saturate(1.12);opacity:.9;z-index:1}
+  #usercam{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  #fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6}
+  #scorePop{position:absolute;inset:0;pointer-events:none;z-index:7}
+  .pop{position:absolute;font-family:'Baloo 2';font-weight:800;font-size:30px;color:var(--gold);
+    text-shadow:0 2px 8px rgba(42,33,64,.5);animation:flyup .7s ease-out forwards}
+  @keyframes flyup{to{transform:translateY(-70px);opacity:0}}
+  #stateBadge{position:absolute;left:14px;bottom:14px;z-index:4;background:rgba(42,33,64,.6);color:#fff;padding:5px 14px;border-radius:999px;font-weight:700;font-size:13px}
+  #hud{position:fixed;top:1.6vh;left:0;right:0;display:flex;gap:16px;justify-content:center;align-items:center;z-index:50;pointer-events:none}
+  #score{font-family:'Baloo 2';font-size:44px;font-weight:800;color:var(--gold);text-shadow:0 2px 10px rgba(124,92,191,.35);font-variant-numeric:tabular-nums}
+  #fire{font-family:'Baloo 2';font-size:26px;color:var(--gold-hot);animation:firePulse .5s infinite alternate}
+  @keyframes firePulse{to{transform:scale(1.12);filter:brightness(1.2)}}
+  #roundTag{background:var(--hoodie);color:#fff;border-radius:999px;padding:5px 16px;font-weight:800}
+  #roundDots i{display:inline-block;width:10px;height:10px;border-radius:50%;background:rgba(124,92,191,.3);margin:0 3px}
+  #roundDots i.on{background:var(--gold)}
+  #countdown{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Baloo 2';font-size:20vw;color:var(--gold);text-shadow:0 6px 40px rgba(255,194,62,.5);z-index:70;pointer-events:none}
+  #verdictCard{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(42,33,64,.55);z-index:75;color:#fff;font-family:'Baloo 2';pointer-events:none}
+  #verdictCard .word{font-size:clamp(50px,9vw,110px);color:var(--gold-hot)}
+  #verdictCard .stars{font-size:clamp(26px,4vw,44px)}
+  #verdictCard .iso{font-family:'Nunito';font-size:clamp(15px,2vw,20px);color:var(--ice)}
+  #scorecard{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(42,33,64,.85);z-index:80;color:#fff}
+  #scorecard h2{font-family:'Baloo 2';font-size:clamp(26px,4.4vw,42px);color:var(--gold);margin-bottom:14px}
+  #scorecard .row{font-size:clamp(16px,2.4vw,21px);font-weight:800;margin:5px 0;display:flex;gap:26px;justify-content:space-between;min-width:min(420px,80vw)}
+  #scorecard .row .stars{color:var(--gold-hot)}
+  #scorecard .total{font-family:'Baloo 2';font-size:clamp(24px,3.6vw,32px);color:var(--gold);margin-top:14px}
+  #scorecard button{margin-top:20px;font-family:'Baloo 2';font-size:clamp(17px,2.6vw,23px);font-weight:800;color:#fff;border:0;
+    cursor:pointer;padding:14px 36px;border-radius:999px;background:var(--hoodie);box-shadow:0 8px 30px rgba(124,92,191,.5)}
+  #pauseBtn,#exitBtn{position:fixed;top:1.6vh;z-index:60;background:rgba(42,33,64,.55);color:#fff;border:0;border-radius:12px;padding:8px 12px;font-size:16px;cursor:pointer}
+  #pauseBtn{right:64px}#exitBtn{right:14px}
+  .hidden{display:none!important}
+  /* wake / ready chrome (kept from the working flow) */
+  #nova-wait{position:absolute;inset:0;z-index:8;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:10px;background:rgba(42,33,64,.92);color:#fff;transition:opacity .5s}
+  #nova-wait.gone{opacity:0;pointer-events:none}
+  #wait-title{font-family:'Baloo 2';font-size:clamp(22px,3.4vw,34px);font-weight:800}
+  #wait-sub{font-size:15px;color:rgba(255,255,255,.7)}
+  #status{position:absolute;bottom:14px;right:14px;z-index:8;font-size:12px;color:rgba(255,255,255,.85);
+    background:rgba(42,33,64,.5);padding:4px 10px;border-radius:999px}
+  #nova-say{position:absolute;bottom:52px;left:50%;transform:translateX(-50%);z-index:8;max-width:86%;
+    font-size:16px;font-weight:600;color:#fff;background:rgba(124,92,191,.9);padding:8px 16px;border-radius:14px;
+    opacity:0;transition:opacity .3s;pointer-events:none}
+  #nova-say.show{opacity:1}
+  #kid-bubble{position:absolute;bottom:14px;left:12px;z-index:8;max-width:80%;font-size:14px;color:#fff;
+    background:rgba(42,33,64,.8);padding:7px 12px;border-radius:12px;opacity:0;transition:opacity .3s}
+  #kid-bubble.show{opacity:1}
+  #ready-btn{position:fixed;left:50%;bottom:8%;transform:translateX(-50%);z-index:70;display:none;
+    font-family:'Baloo 2';font-size:clamp(20px,3.2vw,28px);font-weight:800;color:var(--ink);border:0;cursor:pointer;
+    padding:18px 50px;border-radius:999px;background:linear-gradient(135deg,var(--gold),var(--gold-hot));
+    box-shadow:0 10px 40px rgba(255,194,62,.5);animation:breathe 2.2s ease-in-out infinite}
+  #ready-btn.on{display:block}
+  @keyframes breathe{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.05)}}
+</style>
+</head>
+<body>
+<div id="stage" data-phase="intro">
+  <div id="novaWrap">
+    <video id="novaAmbient" autoplay muted playsinline></video>
+    <video id="routine" playsinline preload="auto" src="/gallery/upperbody-routine.mp4"></video>
+    <video id="novaMain" autoplay muted playsinline></video>
+    <div id="stateBadge">Waking…</div>
+    <div id="nova-say"></div>
+    <div id="status">connecting…</div>
+    <div id="nova-wait">
+      <div id="wait-title">👆 Tap to wake Nova!</div>
+      <div id="wait-sub">one tap and she says hi ✨</div>
+    </div>
+  </div>
+  <div id="camWrap">
+    <video id="usercam" autoplay playsinline muted></video>
+    <canvas id="fx"></canvas>
+    <div id="scorePop"></div>
+    <div id="kid-bubble"></div>
+  </div>
+  <div id="hud">
+    <div id="roundDots"><i class="on"></i><i></i><i></i><i></i></div>
+    <div id="score">0</div><div id="fire" class="hidden">🔥×2</div>
+    <div id="roundTag" class="hidden">ROUND 1 · SLOW</div>
+  </div>
+  <div id="countdown" class="hidden"></div>
+  <div id="verdictCard" class="hidden"><div class="word"></div><div class="stars"></div><div class="iso"></div></div>
+  <div id="scorecard" class="hidden"><h2></h2><div id="sc-rows"></div><div class="total" id="sc-total"></div><button id="sc-btn"></button></div>
+  <button id="pauseBtn">⏸</button><button id="exitBtn">✕</button>
+</div>
+<button id="ready-btn">💃 I'M READY!</button>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.20.0/dist/tf-backend-wasm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const stage=$('stage'), camEl=$('usercam'), statusEl=$('status'), routine=$('routine');
+const Q=new URLSearchParams(location.search);
+const SARAY_BASE=location.origin+'/';
+const LIVE_OFF=Q.get('nolive')==='1';
+const log=(...a)=>console.log(...a);
+function setPhase(p){stage.dataset.phase=p;
+  $('stateBadge').textContent=p==='intro'?'Say hi!':p==='round'?'Copy her!':p==='between'?'Nova is watching':'Party!';}
+
+/* §2 THE MEASURED CUE MAP — frame-verified, DO NOT REMEASURE */
+const DEMO_END=13.5;
+const TARGETS=[
+  {t:16.10,dir:'R'},{t:17.37,dir:'L'},{t:19.55,dir:'B'},{t:21.20,dir:'F'},
+  {t:23.00,dir:'R'},{t:24.30,dir:'L'},{t:25.55,dir:'B'},{t:26.80,dir:'F'},
+  {t:28.07,dir:'R'},{t:29.37,dir:'L'},
+  {t:31.90,dir:'R'},{t:32.50,dir:'L'},{t:33.27,dir:'R'},{t:34.33,dir:'L'},
+  {t:35.20,dir:'FREEZE',hold:1.0},
+];
+const ROUNDS=[
+  {n:1,rate:1.00,label:'ROUND 1 · SLOW',win:1.0,lead:1.2},
+  {n:2,rate:1.00,label:'ROUND 2 · SLOW',win:0.9,lead:1.1},
+  {n:3,rate:1.25,label:'ROUND 3 · FAST',win:0.75,lead:0.9},
+  {n:4,rate:1.25,label:'ROUND 4 · FAST',win:0.65,lead:0.8},
+];
+/* [CLI-FILL #2] target times stay in video-time (currentTime is rate-independent) */
+
+/* ═══ HER BRAIN — [GAME-MODE] persona ═══ */
+const UB_COACH=
+ "[GAME-MODE] "+
+ "You are Nova, dancing UPPER BODY ISOLATION right now — the only game where you coach WHILE you dance. "+
+ "THIS IS THE UPPER BODY GAME ONLY — no intro to run, no name to collect, no magic light ritual, no other games. "+
+ "The move: hands on the waist, torso travels BACK, RIGHT, LEFT, FRONT while the hips stay FROZEN — that "+
+ "isolation is the magic trick and you LOVE it. A golden light on their body shows where to go — you may "+
+ "say 'follow the golden light!' once. "+
+ "FOUR rounds: one and two SLOW (s-t-r-e-t-c-h, call directions softly), three and four FASTER (energy "+
+ "doubles, mostly sounds like 'Woo! Keep up!', no sentences). Between rounds I hand you REAL camera facts — "+
+ "coach from them: praise the side they nailed, wake up the side that needs love, ask ready for the next. "+
+ "Talk in tiny bursts, 6 words max, max ONE line mid-round. Praise ONLY what I tell you the camera saw. "+
+ "At the FREEZE pose: total silence until I give the verdict. "+
+ "NEVER repeat a line you've already said this game. Never say wrong, no, miss, fail, or oops — every "+
+ "child always wins. You are 110% more excited than the kid, always. English only.";
+
+/* ═══ Speech log ═══ */
+const KidBubble={el:$('kid-bubble'),_t:null,
+  show(t){if(!t)return;this.el.textContent=t;this.el.classList.add('show');
+    clearTimeout(this._t);this._t=setTimeout(()=>this.el.classList.remove('show'),3600);}};
+const NovaSay={el:$('nova-say'),_t:null,
+  log(t){if(!t)return;this.el.textContent=t;this.el.classList.add('show');
+    clearTimeout(this._t);this._t=setTimeout(()=>this.el.classList.remove('show'),5200);}};
+
+/* ═══ LIVE Nova — proven one-origin connection (lips on nova_idle2 only) ═══ */
+const Live={
+  on:false,dead:false,alive:false,video:null,audioEl:null,ws:null,room:null,
+  init(){
+    if(LIVE_OFF){this.fail('forced offline (?nolive=1)');return;}
+    const attempt=(n)=>{
+      if(this.dead)return;
+      const ctl=('AbortController' in window)?new AbortController():null;
+      const to=setTimeout(()=>{try{ctl&&ctl.abort();}catch(_){}},8000);
+      fetch(SARAY_BASE,{mode:'no-cors',cache:'no-store',signal:ctl?ctl.signal:undefined})
+        .then(()=>{if(this.dead)return;clearTimeout(to);this.mount();})
+        .catch(()=>{clearTimeout(to);
+          if(n<3)attempt(n+1);
+          else this.fail('pod not reachable after 3 probes');});
+    };
+    attempt(1);
+  },
+  mount(){
+    if(this.on||this.dead)return;this.on=true;
+    this.video=$('novaMain');
+    this._connect();
+    statusEl.textContent='waking Nova…';
+    const gateMs=(parseInt(Q.get('gate'),10)||45)*1000;
+    this._aliveTimer=setTimeout(()=>{
+      if(!this.alive)this.fail('no session after '+(gateMs/1000)+'s');},gateMs);
+  },
+  async _connect(){
+    const self=this;
+    try{
+      const LK=window.LivekitClient||window.LiveKitClient;
+      const r=await(await fetch(SARAY_BASE+'token')).json();
+      const room=new LK.Room({adaptiveStream:false,dynacast:false});
+      this.room=room;
+      room.on(LK.RoomEvent.TrackSubscribed,(track,pub,p)=>{
+        if(p.identity!=='nova-avatar')return;
+        if(track.kind==='video'){track.attach(self.video);
+          try{track.attach($('novaAmbient'));}catch(_){}}
+        if(track.kind==='audio'){
+          const a=track.attach();
+          a.autoplay=true;a.muted=false;a.playsInline=true;
+          document.body.appendChild(a);self.audioEl=a;
+          let ok=false;
+          const tryPlay=()=>a.play().then(()=>{ok=true;
+              const b=$('unmute-btn');if(b)b.remove();
+            }).catch(e=>console.warn('[AUDIO] blocked:',e.name));
+          tryPlay();
+          ['pointerdown','touchstart','keydown'].forEach(ev=>document.addEventListener(ev,tryPlay,{passive:true}));
+          setTimeout(()=>{if(ok||$('unmute-btn'))return;
+            const b=document.createElement('button');b.id='unmute-btn';
+            b.textContent='🔊  TAP TO HEAR NOVA';
+            b.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:99999;'+
+              'font:700 22px system-ui,sans-serif;color:#2a2140;background:#ffc23e;border:0;'+
+              'padding:20px 34px;border-radius:999px;box-shadow:0 10px 40px rgba(0,0,0,.5);cursor:pointer';
+            b.onclick=()=>{a.muted=false;a.volume=1.0;tryPlay();setTimeout(()=>{if(ok&&b.parentNode)b.remove();},400);};
+            document.body.appendChild(b);
+          },1500);
+        }
+      });
+      let rc=2000;
+      const resub=async()=>{try{const r2=await(await fetch(SARAY_BASE+'token')).json();
+          await room.connect(r2.url,r2.token);rc=2000;}
+        catch(_){rc=Math.min(30000,Math.round(rc*1.8));setTimeout(resub,rc);}};
+      room.on(LK.RoomEvent.Disconnected,()=>setTimeout(resub,rc));
+      await room.connect(r.url,r.token);
+      log('[ONE-ORIGIN] LiveKit joined',r.room);
+    }catch(e){console.warn('[ONE-ORIGIN] room err',e&&e.message);}
+    this._connectWS();
+    try{await this._startMic();}catch(e){console.warn('[ONE-ORIGIN] MIC BLOCKED',e&&e.message);}
+    this.setAvatar('nova_idle2');            // LAW: lips only on nova_idle2
+  },
+  _wsConns:0,_wsDelay:1500,_micGated:false,
+  _connectWS(){
+    const self=this;
+    const qs=new URLSearchParams(location.search);
+    qs.set('intro','upperbody');
+    if(this._wsConns++)qs.set('rc','1');
+    const ws=new WebSocket(SARAY_BASE.replace('http','ws')+'rt?'+qs.toString());
+    this.ws=ws;
+    ws.onopen=()=>{self._wsDelay=1500;Intro.arm();};
+    ws.onclose=()=>{self._wsDelay=Math.min(30000,Math.round((self._wsDelay||1500)*1.8));
+      setTimeout(()=>{if(!self.dead)self._connectWS();},self._wsDelay);};
+    ws.onmessage=(ev)=>{const m=JSON.parse(ev.data);
+      if(m.type==='ack'){Intro.ack(m.of);return;}
+      if(m.type==='you_text'){KidBubble.show(m.text||'');return;}
+      if(m.type==='nova_done'){self.alive=true;self.reveal('she spoke');NovaSay.log(m.text||'');return;}
+      if(m.type==='status'){
+        if(m.speaking===true){self._micGated=true;Music.duck(true);}
+        else if(m.speaking===false){self._micGated=false;Music.duck(false);}
+      }
+    };
+  },
+  async _startMic(){
+    const self=this;
+    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+    const ctx=new AudioContext();if(ctx.state==='suspended')await ctx.resume();
+    const src=ctx.createMediaStreamSource(stream);
+    const proc=ctx.createScriptProcessor(4096,1,1);
+    const ratio=ctx.sampleRate/24000;
+    proc.onaudioprocess=(e)=>{
+      if(self._micGated)return;
+      const ch=e.inputBuffer.getChannelData(0);
+      const n=Math.floor(ch.length/ratio),b=new Int16Array(n);
+      for(let i=0;i<n;i++){let s=ch[Math.floor(i*ratio)];if(s>1)s=1;if(s<-1)s=-1;b[i]=s*0x7fff;}
+      const u=new Uint8Array(b.buffer);let x='';for(let i=0;i<u.length;i++)x+=String.fromCharCode(u[i]);
+      if(self.ws&&self.ws.readyState===1)self.ws.send(JSON.stringify({type:'audio',data:btoa(x)}));
+    };
+    src.connect(proc);proc.connect(ctx.destination);
+  },
+  fail(reason){
+    if(this.dead)return;this.dead=true;this.on=false;
+    try{clearTimeout(this._aliveTimer);}catch(_){}
+    const w=$('nova-wait');if(w)w.classList.add('gone');
+    statusEl.textContent='playing without her voice';
+    console.warn('[LIVE] off — silent mode:',reason);
+    Game.readyGate();
+  },
+  _revealed:false,
+  reveal(why){
+    if(this._revealed)return;this._revealed=true;
+    log('[REVEAL]',why);
+    const w=$('nova-wait');if(w)w.classList.add('gone');
+    statusEl.textContent='✓ live Nova';
+    try{if(!Pose._started){Pose._started=true;Pose.init();}}catch(_){}
+    Game.readyGate();
+  },
+  post(msg){try{
+    const t=(msg&&msg.type)||'';
+    if(t==='set-avatar'){if(msg.id)fetch(SARAY_BASE+'set_avatar?id='+encodeURIComponent(msg.id)).catch(()=>{});return;}
+    const map={
+      'nova-say':m=>({type:'nova-say',text:m.text}),
+      'nova-cue':m=>({type:'nova-cue',intent:m.intent,ctx:m.ctx||''}),
+      'nova-persona':m=>({type:'persona',text:m.text}),
+      'nova-fact':m=>({type:'nova-fact',move:m.move}),
+      'nova-pick':m=>({type:'nova-pick',game:m.game}),
+      'hold':m=>({type:'hold',on:!!m.on}),
+      'game-start':m=>({type:'game-start'}),
+    };
+    const mk=map[t];if(!mk)return;
+    if(this.ws&&this.ws.readyState===1)this.ws.send(JSON.stringify(mk(msg)));
+  }catch(_){}},
+  setAvatar(id){
+    if(!this.on)return;
+    try{fetch(SARAY_BASE+'set_avatar?id='+encodeURIComponent(id),{mode:'no-cors',cache:'no-store'}).catch(()=>{});}catch(_){}
+  },
+  cue(intent,ctx){this.post({type:'nova-cue',intent,ctx:ctx||''});},
+  hold(on){this.post({type:'hold',on:!!on});},
+};
+
+/* ═══ INTRO ARMING ═══ */
+const Intro={
+  _ackPersona:false,_ackPick:false,_tries:0,_timer:null,
+  arm(){
+    if(this._timer)return;
+    const send=()=>{
+      if(this._ackPersona&&this._ackPick){clearInterval(this._timer);this._timer=null;return;}
+      if(this._tries>=10){clearInterval(this._timer);this._timer=null;return;}
+      this._tries++;
+      if(!this._ackPersona)Live.post({type:'nova-persona',text:UB_COACH});
+      if(!this._ackPick)Live.post({type:'nova-pick',game:'upperbody'});
+    };
+    send();this._timer=setInterval(send,2500);
+  },
+  ack(of){
+    if(of==='persona')this._ackPersona=true;
+    if(of==='nova-pick')this._ackPick=true;
+  },
+};
+
+const Music={base:0.65,ducked:0.30,
+  duck(on){try{routine.volume=on?this.ducked:this.base;}catch(_){}}};
+
+/* §3 THE GOLDEN-LIGHT ENGINE — spec code, canvas fx over the kid */
+const cv=$('fx'),cx=cv.getContext('2d');
+function fitCanvas(){cv.width=cv.clientWidth*devicePixelRatio;cv.height=cv.clientHeight*devicePixelRatio;}
+addEventListener('resize',fitCanvas);
+let joints={};                       // {name:{x,y}} canvas px, mirrored — fed per pose frame
+function jpos(name){
+  if(name==='chest'){const a=joints.ls,b=joints.rs;return a&&b?{x:(a.x+b.x)/2,y:(a.y+b.y)/2+18*devicePixelRatio}:null;}
+  return joints[name]||null;
+}
+let cue=null,parts=[],rings=[],fire=false;
+function setCue(dir,windowMs){cue={dir,born:performance.now(),windowMs,joint:dir==='R'?'rs':dir==='L'?'ls':'chest'};chime();}
+function clearCue(){cue=null;}
+function flare(dir,quality){const p=jpos(dir==='R'?'rs':dir==='L'?'ls':'chest');if(!p)return;
+  const col=quality==='iso'?'#ffdf7e':quality==='wrong'?'#cbb7e8':'#ffc23e';
+  for(let i=0;i<16;i++)parts.push({x:p.x,y:p.y,vx:(Math.random()-0.5)*7,vy:(Math.random()-0.8)*7,r:(3+Math.random()*3)*devicePixelRatio,a:1,col});
+  ring(p,col);}
+function ring(p,col){rings.push({x:p.x,y:p.y,r:8,a:1,col});}
+function hipShimmer(){const l=jpos('lh'),r=jpos('rh');if(!l||!r)return;
+  for(const p of [l,r])for(let i=0;i<10;i++)parts.push({x:p.x,y:p.y,vx:(Math.random()-.5)*3,vy:-Math.random()*2,r:2.5*devicePixelRatio,a:1,col:'#ffdf7e'});}
+function hipWarm(){const l=jpos('lh'),r=jpos('rh');if(l&&r)rings.push({x:(l.x+r.x)/2,y:(l.y+r.y)/2,r:26,a:.5,col:'#ffb27d',soft:true});}
+function draw(){
+  cx.clearRect(0,0,cv.width,cv.height);
+  if(cue){const p=jpos(cue.joint);if(p){
+    const age=(performance.now()-cue.born)/1000,pulse=(8+Math.sin(age*6)*3)*devicePixelRatio,R=((fire?26:20)*devicePixelRatio)+pulse;
+    const g=cx.createRadialGradient(p.x,p.y,2,p.x,p.y,R*2.4);
+    g.addColorStop(0,fire?'#ffdf7e':'#ffc23e');g.addColorStop(1,'rgba(255,194,62,0)');
+    cx.fillStyle=g;cx.beginPath();cx.arc(p.x,p.y,R*2.4,0,7);cx.fill();
+    const frac=Math.max(0,1-(age*1000)/cue.windowMs);
+    cx.strokeStyle='rgba(255,223,126,.9)';cx.lineWidth=3*devicePixelRatio;
+    cx.beginPath();cx.arc(p.x,p.y,R*2.4*frac+R,0,7);cx.stroke();
+    if(cue.dir==='R'||cue.dir==='L'){const s=cue.dir==='R'?1:-1,k=devicePixelRatio;
+      cx.strokeStyle='rgba(255,194,62,.8)';cx.lineWidth=6*k;cx.lineCap='round';
+      cx.beginPath();cx.moveTo(p.x,p.y);cx.quadraticCurveTo(p.x+s*46*k,p.y-8*k,p.x+s*82*k,p.y-2*k);cx.stroke();}
+    if(cue.dir==='F'||cue.dir==='B'){
+      for(let i=1;i<=2;i++){cx.strokeStyle='rgba(255,194,62,'+(.7/i)+')';cx.lineWidth=4*devicePixelRatio;
+        cx.beginPath();cx.arc(p.x,p.y,R+10*i*devicePixelRatio,0,7);cx.stroke();}}
+    if(cue.dir==='FREEZE'){cx.strokeStyle='rgba(174,232,255,.85)';cx.lineWidth=5*devicePixelRatio;
+      cx.beginPath();cx.arc(p.x,p.y,R+14*devicePixelRatio,0,7);cx.stroke();}
+  }}
+  for(const q of parts){q.x+=q.vx;q.y+=q.vy;q.vy+=.12;q.a-=.03;
+    cx.globalAlpha=Math.max(q.a,0);cx.fillStyle=q.col;cx.beginPath();cx.arc(q.x,q.y,q.r,0,7);cx.fill();}
+  parts=parts.filter(q=>q.a>0);cx.globalAlpha=1;
+  for(const r of rings){r.r+=r.soft?1.2:4;r.a-=r.soft?.015:.05;
+    cx.strokeStyle=r.col;cx.globalAlpha=Math.max(r.a,0);cx.lineWidth=(r.soft?8:3)*devicePixelRatio;
+    cx.beginPath();cx.arc(r.x,r.y,r.r,0,7);cx.stroke();}
+  rings=rings.filter(r=>r.a>0);cx.globalAlpha=1;
+  requestAnimationFrame(draw);
+}
+/* SOUND: tick on hit (base 660Hz +40/streak, cap 1100) · soft chime on cue-born · no miss sound */
+let _ac=null;function _osc(f,dur,gain){try{if(!_ac)_ac=new AudioContext();
+  const o=_ac.createOscillator(),g=_ac.createGain();o.frequency.value=f;
+  g.gain.setValueAtTime(gain,_ac.currentTime);g.gain.exponentialRampToValueAtTime(0.001,_ac.currentTime+dur);
+  o.connect(g);g.connect(_ac.destination);o.start();o.stop(_ac.currentTime+dur);}catch(_){}}
+function tickSnd(streak){_osc(Math.min(1100,660+streak*40),0.16,0.11);}
+function chime(){_osc(520,0.12,0.05);}
+function popScore(pts,dir){
+  const p=jpos(dir==='R'?'rs':dir==='L'?'ls':'chest');
+  const el=document.createElement('div');el.className='pop';el.textContent='+'+pts;
+  const sp=$('scorePop');
+  el.style.left=(p?(p.x/devicePixelRatio):sp.clientWidth/2)+'px';
+  el.style.top=(p?(p.y/devicePixelRatio):sp.clientHeight/2)+'px';
+  sp.appendChild(el);setTimeout(()=>el.remove(),720);
+}
+
+/* §4 SMART DETECTION — calibrated · smoothed · kind */
+const cal={sx:[],sw:[],hx:[]};
+function pct(a,p){const s=[...a].sort((x,y)=>x-y);return s[Math.floor(s.length*p)];}
+let CAL=null;
+function finishCal(){
+  if(!cal.sx.length){CAL={sx0:.5,hx0:.5,sw0:.2,slide:.09,hip:.06,front:1.07,back:.93};
+    log('[CAL] no samples — defaults',CAL);return;}
+  const spread=pct(cal.sx,.9)-pct(cal.sx,.1);
+  CAL={sx0:pct(cal.sx,.5),hx0:pct(cal.hx,.5),sw0:pct(cal.sw,.5),
+    slide:Math.max(.05,spread*.35),hip:Math.max(.03,spread*.18),front:1.07,back:.93};
+  if(Q.get('slide'))CAL.slide=parseFloat(Q.get('slide'));
+  if(Q.get('hip'))CAL.hip=parseFloat(Q.get('hip'));
+  if(Q.get('front'))CAL.front=parseFloat(Q.get('front'));
+  if(Q.get('back'))CAL.back=parseFloat(Q.get('back'));
+  log('[CAL]',JSON.stringify(CAL));
+}
+let ema={},lastDev=0;
+
+/* ═══ Pose — MoveNet, hardened boot [CLI-FILL #3] ═══ */
+const Pose={
+  det:null,ok:false,_started:false,lastKp:null,still:true,motion:0,
+  async init(){
+    try{
+      try{if(tf.wasm&&tf.wasm.setWasmPaths)tf.wasm.setWasmPaths('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.20.0/dist/');}catch(_){}
+      let wgl=false;try{wgl=await tf.setBackend('webgl');}catch(e){}
+      if(!wgl){let wok=false;try{wok=await tf.setBackend('wasm');}catch(e){}
+        if(!wok){try{await tf.setBackend('cpu');}catch(_){}}}
+      await tf.ready();
+      log('[POSE] backend =',(tf.getBackend&&tf.getBackend())||'?');
+      this.det=await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,
+        {modelType:poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING});
+      try{const wc=document.createElement('canvas');wc.width=640;wc.height=480;
+        wc.getContext('2d').fillRect(0,0,640,480);
+        const t0=performance.now();
+        await this.det.estimatePoses(wc);await this.det.estimatePoses(wc);
+        log('[POSE] warm-up',Math.round(performance.now()-t0),'ms');}catch(e){}
+      this.ok=true;statusEl.textContent='✓ Nova sees you';
+      this.loop();
+    }catch(e){statusEl.textContent='playing without tracking';}
+  },
+  async loop(){
+    try{
+      const poses=await this.det.estimatePoses(camEl,{flipHorizontal:false});
+      const kp=poses[0]?.keypoints;
+      if(kp&&kp.length>=13){
+        const W=camEl.videoWidth||960,H=camEl.videoHeight||720;
+        /* joints → mirrored canvas px for the light engine (object-fit cover) */
+        const scale=Math.max(cv.width/W,cv.height/H),ox=(cv.width-W*scale)/2,oy=(cv.height-H*scale)/2;
+        const put=(name,p)=>{if(p.score>0.3)joints[name]={x:cv.width-(p.x*scale+ox),y:p.y*scale+oy};};
+        put('ls',kp[5]);put('rs',kp[6]);put('lh',kp[11]);put('rh',kp[12]);
+        Game.onPose(kp);
+        if(this.lastKp){
+          const prev=this.lastKp;let d=0,n=0;
+          const sw2=Math.max(30,Math.hypot(kp[5].x-kp[6].x,kp[5].y-kp[6].y));
+          for(let i=0;i<kp.length;i++){if(kp[i].score>0.35&&prev[i]&&prev[i].score>0.35){
+            d+=Math.hypot(kp[i].x-prev[i].x,kp[i].y-prev[i].y);n++;}}
+          this.motion=n?(d/n)/sw2:0;this.still=this.motion<0.045;
+        }
+        this.lastKp=kp;
+      }
+    }catch(e){}
+    requestAnimationFrame(()=>this.loop());
+  },
+};
+
+/* mid-round + demo director cues (ONE line law mid-round) */
+const CUES_R1=[
+  [0.5 ,'Demo begins. Coach while dancing: arms out, torso side to side, hips frozen. Two tiny lines only.'],
+  [7.2 ,'Hands to your waist now. One tiny line: hands on your waist, keep sliding!'],
+  [22.0,'ONE tiny line only, from the facts if any came. Otherwise: hips FROZEN, keep going!'],
+  [35.2,'Finish pose NOW. Say exactly: FREEZE like me! Then total silence until I give the verdict.'],
+];
+const CUES_LATER=[
+  [22.0,'ONE tiny line only, breathless if the round is fast.'],
+  [35.2,'Finish pose NOW. Say exactly: FREEZE like me! Then silence until the verdict.'],
+];
+
+/* §5 + game flow */
+const Game={
+  phase:'connect',round:0,targets:[],ti:0,cueIdx:0,
+  score:0,streak:0,facts:0,roundHits:0,roundIso:0,graceUsed:false,
+  roundVerdict:[],sideStats:{R:0,L:0,B:0,F:0},wob:0,_cd:new Set(),
+  onPose(k){
+    if(this.phase!=='round')return;
+    const L=5,R=6,HL=11,HR=12;
+    if(k[L].score<.35||k[R].score<.35)return;
+    const t=routine.currentTime;
+    if(this.round===0&&t<DEMO_END){         // calibration
+      cal.sx.push((k[L].x+k[R].x)/2);cal.sw.push(Math.abs(k[L].x-k[R].x));
+      if(k[HL].score>.35&&k[HR].score>.35)cal.hx.push((k[HL].x+k[HR].x)/2);
+      return;}
+    if(!CAL)return;
+    const raw={sx:(k[L].x+k[R].x)/2,sw:Math.abs(k[L].x-k[R].x),hx:(k[HL].x+k[HR].x)/2};
+    for(const key in raw)ema[key]=ema[key]==null?raw[key]:ema[key]*.6+raw[key]*.4;
+    /* SCREEN-SPACE: usercam mirrored → dev sign flips (kid slides screen-right = raw sx decreases) */
+    const dev=-(ema.sx-CAL.sx0)/Math.max(1,CAL.sw0), wr=ema.sw/CAL.sw0,
+          hip=Math.abs(ema.hx-CAL.hx0)/Math.max(1,CAL.sw0),
+          slideThr=CAL.slide/Math.max(1,CAL.sw0), hipThr=CAL.hip/Math.max(1,CAL.sw0);
+    const vel=dev-lastDev;lastDev=dev;
+    const nxt=this.targets[this.ti];
+    if(!nxt||nxt.hit)return this.trackWobble(hip,hipThr);
+    const w=ROUNDS[this.round].win;
+    if(nxt.dir==='FREEZE')return;                       // handled in tick (stillness)
+    if(t<nxt.t-w)return;
+    if(t>nxt.t+w){if(!this.graceUsed&&!nxt.missed){this.graceUsed=true;nxt.grace=true;}
+      nxt.missed=true;this.ti++;clearCue();return;}
+    let got=null;
+    if(nxt.dir==='R'&&(dev> slideThr||(dev> slideThr*.6&&vel> .004)))got='R';
+    if(nxt.dir==='L'&&(dev<-slideThr||(dev<-slideThr*.6&&vel<-.004)))got='L';
+    if(nxt.dir==='F'&&wr>CAL.front)got='F';
+    if(nxt.dir==='B'&&wr<CAL.back)got='B';
+    if(got){this.hit(nxt,hip<hipThr,false);}
+    else{const any=dev>slideThr?'R':dev<-slideThr?'L':null;
+      if(any&&(nxt.dir==='R'||nxt.dir==='L')&&Math.abs(t-nxt.t)<w*.5)this.hit(nxt,hip<hipThr,true);}
+  },
+  trackWobble(h,thr){
+    this.wob=h>thr*1.6?this.wob+16:0;
+    if(this.wob>400){hipWarm();this.wob=0;
+      if(!this._hipLine){this._hipLine=true;
+        Live.cue('Their hips are wobbling. ONE playful line: freeze those hips!');}}
+  },
+  hit(tg,iso,wrong){
+    tg.hit=true;this.ti++;clearCue();
+    const R=ROUNDS[this.round];let pts=R.rate===1?15:10;
+    if(wrong)pts=Math.round(pts/2);
+    if(iso&&R.rate===1){pts+=10;hipShimmer();this.roundIso++;}
+    if(R.rate>1){this.streak++;fire=this.streak>=3;$('fire').classList.toggle('hidden',!fire);if(fire)pts*=2;}
+    else{this.streak=0;fire=false;$('fire').classList.add('hidden');}
+    if(this.round===3)pts+=5;
+    this.score+=pts;this.roundHits++;if(!wrong)this.sideStats[tg.dir]++;
+    flare(tg.dir,iso?'iso':wrong?'wrong':'good');tickSnd(this.streak);popScore(pts,tg.dir);
+    $('score').textContent=this.score;
+    if(iso&&this.facts<4){this.facts++;
+      Live.post({type:'nova-fact',move:'torso slide with hips frozen'});}
+  },
+  readyGate(){
+    if(this.phase!=='connect')return;
+    this.phase='ready';$('ready-btn').classList.add('on');
+  },
+  start(){
+    if(this.phase!=='ready')return;
+    $('ready-btn').classList.remove('on');
+    this.startRound(0);
+  },
+  countdown(done){
+    let n=3;const c=$('countdown');c.classList.remove('hidden');c.textContent=n;
+    const t=setInterval(()=>{n--;
+      if(n>0){c.textContent=n;return;}
+      clearInterval(t);c.classList.add('hidden');done();
+    },850);
+  },
+  startRound(i){
+    const go=()=>{
+      this.round=i;this.ti=0;this.cueIdx=0;this.roundHits=0;this.roundIso=0;
+      this.graceUsed=false;this._hipLine=false;this._cd=new Set();
+      this.streak=0;fire=false;$('fire').classList.add('hidden');
+      this.sideStats={R:0,L:0,B:0,F:0};ema={};lastDev=0;
+      this.targets=TARGETS.map(x=>({...x,hit:false,missed:false,lit:false}));
+      const R=ROUNDS[i];
+      document.querySelectorAll('#roundDots i').forEach((d,j)=>d.classList.toggle('on',j<=i));
+      $('roundTag').textContent=R.label;$('roundTag').classList.remove('hidden');
+      routine.playbackRate=R.rate;try{routine.preservesPitch=true;}catch(_){}
+      routine.currentTime=i===0?0:DEMO_END;
+      routine.volume=Music.base;
+      setPhase('round');this.phase='round';
+      if(i===0)Live.post({type:'game-start'});
+      else Live.cue(R.rate>1?'Round '+R.n+' — FASTER! One breathless line.':'Round '+R.n+', slow and stretchy. One tiny line.');
+      routine.play().catch(e=>console.warn('[ROUTINE] play blocked',e));
+      requestAnimationFrame(()=>this.tick());
+    };
+    i===0?go():this.countdown(go);      // round 1's countdown rides the video at 12.5s
+  },
+  tick(){
+    if(this.phase!=='round')return;
+    const t=routine.currentTime;
+    const CU=this.round===0?CUES_R1:CUES_LATER;
+    while(this.cueIdx<CU.length&&t>=CU[this.cueIdx][0]){Live.cue(CU[this.cueIdx][1],this._coachCtx());this.cueIdx++;}
+    if(this.round===0&&!CAL&&t>=DEMO_END)finishCal();
+    /* [CLI-FILL #6] round-1 countdown rides the video clock 12.5→13.5 */
+    if(this.round===0&&t>=12.5&&t<13.6){const n=Math.max(1,Math.ceil(13.5-t));
+      if(!this._cd.has(n)){this._cd.add(n);const c=$('countdown');
+        c.classList.remove('hidden');c.textContent=n;
+        clearTimeout(this._cdT);this._cdT=setTimeout(()=>c.classList.add('hidden'),420);}}
+    /* light the NEXT target one lead early */
+    const R=ROUNDS[this.round];
+    const nxt=this.targets[this.ti];
+    if(nxt&&nxt.dir!=='FREEZE'&&!nxt.lit&&t>=nxt.t-R.lead){
+      nxt.lit=true;setCue(nxt.dir,(R.lead+R.win)*1000);}
+    /* FREEZE: ice cue + 1s stillness → +50 */
+    if(nxt&&nxt.dir==='FREEZE'){
+      if(!nxt.lit&&t>=nxt.t-0.5){nxt.lit=true;setCue('FREEZE',3200);}
+      if(t>=nxt.t&&!nxt.hit){
+        if(Pose.ok&&!Pose.still)this._stillT0=performance.now();
+        if(!this._stillT0)this._stillT0=performance.now();
+        if(performance.now()-this._stillT0>=1000*(nxt.hold||1)||!Pose.ok){
+          nxt.hit=true;this.ti++;clearCue();
+          this.score+=50;$('score').textContent=this.score;
+          flare('R','iso');flare('L','iso');hipShimmer();
+        }
+      }
+    }
+    if(t>=(routine.duration||38)-0.05)this.endRound();
+    else requestAnimationFrame(()=>this.tick());
+  },
+  endRound(){
+    routine.pause();clearCue();
+    const hits=this.roundHits,v=hits>=10?'NAILED':hits>=6?'GOOD':'TRIED';
+    this.roundVerdict[this.round]=v;
+    if(v==='NAILED'){this.score+=30;$('score').textContent=this.score;}
+    /* 2.2s verdict card */
+    const vc=$('verdictCard');
+    vc.querySelector('.word').textContent=v+'!';
+    vc.querySelector('.stars').textContent=v==='NAILED'?'⭐⭐⭐':v==='GOOD'?'⭐⭐':'⭐';
+    vc.querySelector('.iso').textContent=this.roundIso?('🧊 hips frozen ×'+this.roundIso):'';
+    vc.classList.remove('hidden');
+    setTimeout(()=>{vc.classList.add('hidden');
+      this.round<3?this.between(v,hits):this.finale();},2200);
+  },
+  stars(v){return v==='NAILED'?'⭐⭐⭐':v==='GOOD'?'⭐⭐':'⭐';},
+  _coachCtx(){
+    const s=this.sideStats||{};
+    const sides=[['right',s.R||0],['left',s.L||0],['front',s.F||0],['back',s.B||0]];
+    sides.sort((a,b)=>b[1]-a[1]);
+    return 'best side '+sides[0][0]+' ('+sides[0][1]+'), needs love '+sides[3][0]+
+      ' ('+sides[3][1]+'), hips-frozen count '+(this.roundIso||0);
+  },
+  between(v,hits){
+    this.phase='between';setPhase('between');
+    $('roundTag').classList.add('hidden');
+    const nextR=ROUNDS[this.round+1];
+    Live.cue('Round '+(this.round+1)+' done: '+v+', '+hits+' of 14 moves. Coach from these facts, two tiny '+
+      'lines: praise the best side, wake the weakest. Then ask: ready for '+nextR.label+'?',
+      this._coachCtx());
+    this._card('🌟 '+ROUNDS[this.round].label+' — '+v+'!','▶ '+nextR.label+'!');
+  },
+  _card(title,btnText){
+    const sc=$('scorecard');
+    sc.querySelector('h2').textContent=title;
+    const rows=$('sc-rows');rows.innerHTML='';
+    for(let i=0;i<4;i++){
+      if(this.roundVerdict[i]==null)continue;
+      rows.insertAdjacentHTML('beforeend',
+        '<div class="row"><span>'+ROUNDS[i].label+'</span><span class="stars">'+
+        this.stars(this.roundVerdict[i])+'</span></div>');
+    }
+    $('sc-total').textContent='⭐ '+this.score+' points';
+    $('sc-btn').textContent=btnText;
+    sc.classList.remove('hidden');
+  },
+  nextRound(){
+    $('scorecard').classList.add('hidden');
+    this.startRound(this.round+1);
+  },
+  finale(){
+    this.phase='ending';setPhase('ending');
+    $('roundTag').classList.add('hidden');
+    const allNailed=this.roundVerdict.length===4&&this.roundVerdict.every(x=>x==='NAILED');
+    if(allNailed){this.score+=100;$('score').textContent=this.score;}
+    try{fetch('/pulse',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({game:'upperbody',score:this.score,verdicts:this.roundVerdict,
+        cal:CAL?{slide:+CAL.slide.toFixed(2),hip:+CAL.hip.toFixed(2)}:null})})
+      .then(r=>r.json()).then(d=>log('[PULSE] row:',JSON.stringify(d.row)))
+      .catch(e=>console.warn('[PULSE] failed',e));}catch(_){}
+    Live.cue('GAME OVER! Total '+this.score+' points, rounds: '+this.roundVerdict.join('/')+
+      (allNailed?' — ALL FOUR NAILED!':'')+'. Celebrate with the real number: your torso dances ALONE — '+
+      this.score+' points! Then ask: did you have fun, tell me anything! Then a warm goodbye — same time tomorrow?');
+    this._card(allNailed?'🏆 PERFECT — ALL 4 NAILED!':'🏆 Final score!','🔁 PLAY AGAIN');
+  },
+  paused:false,
+  togglePause(){
+    if(this.phase!=='round')return;
+    this.paused=!this.paused;
+    if(this.paused){routine.pause();Live.hold(true);$('pauseBtn').textContent='▶';}
+    else{Live.hold(false);$('pauseBtn').textContent='⏸';
+      this.countdown(()=>{routine.play().catch(()=>{});requestAnimationFrame(()=>this.tick());});}
+  },
+};
+
+/* ═══ boot ═══ */
+$('ready-btn').addEventListener('click',()=>Game.start());
+$('sc-btn').addEventListener('click',()=>{
+  if(Game.phase==='between')Game.nextRound();
+  else location.reload();
+});
+$('pauseBtn').addEventListener('click',()=>Game.togglePause());
+$('exitBtn').addEventListener('click',()=>{try{Live.hold(true);}catch(_){}location.href='/';});
+(async()=>{
+  fitCanvas();draw();setPhase('intro');
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:{width:960,height:720},audio:false});
+    camEl.srcObject=stream;
+  }catch(e){statusEl.textContent='camera blocked — she can\'t see you';}
+  Live.init();
+  if(LIVE_OFF&&!Pose._started){Pose._started=true;Pose.init();}
+})();
+</script>
+</body>
+</html>

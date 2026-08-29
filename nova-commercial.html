@@ -72,6 +72,7 @@ en: {
   songWavemagic: 'Wave Magic!', songBounce: 'Bounce Groove!',
   tagWavemagic: 'the magic arm', tagBounce: 'whole-body bounce',
   songFreeze: 'Freeze Dance!',   // v114: SONGS.freeze finally has a picker card
+  songUpperbody: 'Upper Body!',  // UPPERBODY 2026-08-28: torso isolation game card
   novaPickLabel: "Nova's pick!",
   descHello: 'hands up · clap<br>Nova says',
   descJoined: 'head · shoulders<br>ribs · hips',
@@ -152,6 +153,7 @@ he: {
   songWavemagic: 'גל הקסם!', songBounce: 'באונס גרוב!',
   tagWavemagic: 'היד הקסומה', tagBounce: 'באונס בכל הגוף',
   songFreeze: 'ריקוד הקפאה!',
+  songUpperbody: 'פלג גוף עליון!',
   novaPickLabel: 'הבחירה של נובה!',
   descHello: 'ידיים למעלה · מחיאות כף<br>נובה אומרת',
   descJoined: 'ראש · כתפיים<br>צלעות · ירכיים',
@@ -1573,6 +1575,11 @@ if (/[?&]debug\b/.test(location.search)) document.documentElement.classList.add(
       <button class="picker-card freeze-card" onclick="window.location.href='animal-freeze.html'+location.search">
         <div class="picker-emoji">🧊</div>
         <div class="picker-name" data-l="songFreeze">Freeze Dance!</div>
+      </button>
+      <!-- UPPERBODY (2026-08-28): first-party pod game, Freeze pattern (launcher upperbody.html). -->
+      <button class="picker-card upperbody-card" onclick="window.location.href='upperbody.html'+location.search">
+        <div class="picker-emoji">💃</div>
+        <div class="picker-name" data-l="songUpperbody">Upper Body!</div>
       </button>
       <button class="picker-card wave-card" onclick="pickGame('wave')">
         <div class="picker-emoji">🌊</div>
