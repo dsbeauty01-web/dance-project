@@ -28,6 +28,30 @@
      call sites use their legacy fallback. */
   var ACTIVE = '481r8xm6wdau4y';
 
+  /* ── LIVE-POD AUTO-DETECTION (2026-08-29, founder: "yes build it") ────────
+     THE PROBLEM THIS KILLS: pods die (suicide timers, founder closes them) and
+     ACTIVE keeps pointing at the corpse until someone repoints it in a PR — so
+     the PUBLIC page regularly serves a dead pod ("voice napping" for everyone).
+     THE FIX: at load, this file probes /health on ACTIVE + the recent-pod list
+     + the pod this browser last saw alive (localStorage). First healthy pod
+     WINS and silently replaces ACTIVE for every later API call (call sites use
+     the API functions lazily, so they inherit the live id with zero changes).
+     If NOTHING answers, behaviour is exactly as before (ACTIVE + legacy
+     fallbacks) — this feature can only ever improve the outcome.
+     NOTE: /health must send CORS (Access-Control-Allow-Origin:*) for a probe
+     to read it; pods running an older rt_lk just look dead to the probe, which
+     is no worse than today. Sessions should append fresh pod ids here. */
+  var CANDIDATES = [
+    ACTIVE,
+    'qfe21r86dqilms',   // nova-freeze-fresh3  (2026-08-29)
+    'fh9v6w92vlcdhl',   // nova-freeze-final2  (2026-08-29)
+    'q0xetjpgafc926',   // nova-freeze-onetap  (2026-08-28)
+    'ze6l99yiw0t9gg',   // nova-freeze-ready2  (2026-08-28)
+    'juy2dwly735jok'    // nova-freeze-final   (2026-08-28)
+  ];
+  var LIVE = null;            // set by detection; wins over ACTIVE when present
+  var DETECTION_DONE = false; // true once every probe settled
+
   /* ── Known pods (history, so a dead id is never silently reused) ───────── */
   var KNOWN = {
     '1l8zzrqk2c3fs6': {
@@ -82,33 +106,90 @@
 
   function host(id, port) { return id + '-' + port + '.proxy.runpod.net'; }
 
+  /* the id every API call should use: a detected-live pod beats the static ACTIVE */
+  function cur() { return LIVE || ACTIVE; }
+
   var API = {
     ACTIVE: ACTIVE,
     KNOWN: KNOWN,
 
     /* the live pod id, or null */
-    id: function () { return ACTIVE; },
+    id: function () { return cur(); },
 
-    /* true when a pod id is set AND not marked DEAD */
+    /* true when a pod id is set AND not marked DEAD. After detection completes
+       with a confirmed-live pod, always true; detection never flips this false
+       (a probe miss must not break legacy behaviour). */
     isLive: function () {
+      if (LIVE) return true;
       if (!ACTIVE) return false;
       var k = KNOWN[ACTIVE];
       return !(k && k.status === 'DEAD');
     },
 
     /* Each returns a URL for the live pod, or null so the caller falls back. */
-    saray: function () { return API.isLive() ? 'https://' + host(ACTIVE, 8765) + '/' : null; },
+    saray: function () { return API.isLive() ? 'https://' + host(cur(), 8765) + '/' : null; },
     /* Engine port is 8010 on the current stack (boot.sh: app.py --listenport 8010,
        ENGINE_URL=http://127.0.0.1:8010). The older k9o3iexgqif9il generation used
        8011; on pod ubu8krpcf0k62v port 8011 answers 502. Verified 2026-08-02. */
-    engine: function () { return API.isLive() ? 'https://' + host(ACTIVE, 8010) : null; },
-    bridge: function () { return API.isLive() ? 'wss://' + host(ACTIVE, 8765) : null; },
-    flv: function () { return API.isLive() ? 'https://' + host(ACTIVE, 8080) + '/live/dance_k.flv' : null; }
+    engine: function () { return API.isLive() ? 'https://' + host(cur(), 8010) : null; },
+    bridge: function () { return API.isLive() ? 'wss://' + host(cur(), 8765) : null; },
+    flv: function () { return API.isLive() ? 'https://' + host(cur(), 8080) + '/live/dance_k.flv' : null; },
+
+    /* detection status for pages that want to wait/react:
+       NOVA_PODS.detected(cb) — cb(idOrNull) immediately if done, else on completion */
+    _cbs: [],
+    detected: function (cb) {
+      if (DETECTION_DONE) { try { cb(LIVE); } catch (_) {} }
+      else API._cbs.push(cb);
+    }
   };
+
+  /* ── the detection sweep ── */
+  function probe(id, timeoutMs, cb) {
+    var done = false;
+    var ctl = ('AbortController' in window) ? new AbortController() : null;
+    var t = setTimeout(function () { if (ctl) try { ctl.abort(); } catch (_) {} }, timeoutMs || 5000);
+    fetch('https://' + host(id, 8765) + '/health',
+          { cache: 'no-store', signal: ctl ? ctl.signal : undefined })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { clearTimeout(t); if (!done) { done = true; cb(!!(j && j.ok)); } })
+      .catch(function () { clearTimeout(t); if (!done) { done = true; cb(false); } });
+  }
+
+  function detect() {
+    var ids = [];
+    try { var mem = localStorage.getItem('nova-live-pod'); if (mem) ids.push(mem); } catch (_) {}
+    for (var i = 0; i < CANDIDATES.length; i++) {
+      if (CANDIDATES[i] && ids.indexOf(CANDIDATES[i]) < 0) ids.push(CANDIDATES[i]);
+    }
+    if (!ids.length) { DETECTION_DONE = true; return; }
+    var pending = ids.length;
+    ids.forEach(function (id) {
+      probe(id, 5000, function (ok) {
+        pending--;
+        if (ok && !LIVE) {
+          LIVE = id;
+          API.ACTIVE = id;
+          try { localStorage.setItem('nova-live-pod', id); } catch (_) {}
+          try { console.log('[POD-REGISTRY] LIVE pod detected: ' + id +
+                            (id !== ACTIVE ? ' (auto-corrected from stale ACTIVE=' + ACTIVE + ')' : '')); } catch (_) {}
+          try { window.dispatchEvent(new CustomEvent('nova-pod-live', { detail: { id: id } })); } catch (_) {}
+        }
+        if (pending <= 0) {
+          DETECTION_DONE = true;
+          if (!LIVE) try { console.warn('[POD-REGISTRY] no live pod answered — legacy ACTIVE behaviour'); } catch (_) {}
+          var cbs = API._cbs.splice(0);
+          for (var c = 0; c < cbs.length; c++) { try { cbs[c](LIVE); } catch (_) {} }
+        }
+      });
+    });
+  }
+  try { detect(); } catch (_) { DETECTION_DONE = true; }
 
   window.NOVA_PODS = API;
 
   try {
-    console.log('[POD-REGISTRY] active=' + (ACTIVE || 'none — call sites use legacy fallback'));
+    console.log('[POD-REGISTRY] active=' + (ACTIVE || 'none — call sites use legacy fallback') +
+                ' — probing ' + CANDIDATES.length + ' candidates for a live pod…');
   } catch (_) {}
 })();

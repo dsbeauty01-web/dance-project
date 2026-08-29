@@ -931,7 +931,11 @@ async def token(request):
     return web.json_response({"url": LK_URL, "token": viewer_token(), "room": LK_ROOM})
 
 async def health(request):
-    return web.json_response({"ok": True, "voice": VOICE, "room": LK_ROOM})
+    # CORS (2026-08-29): pod-registry.js probes /health cross-origin from GitHub Pages
+    # to auto-detect the live pod — without this header the probe cannot read the body
+    # and a healthy pod looks dead to the public page.
+    return web.json_response({"ok": True, "voice": VOICE, "room": LK_ROOM},
+                             headers={"Access-Control-Allow-Origin": "*"})
 
 PAGE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
