@@ -14,10 +14,13 @@ KEY   = os.environ["OPENAI_API_KEY"]
 LK_URL = os.environ["LIVEKIT_URL"]
 LK_KEY = os.environ["LIVEKIT_API_KEY"]
 LK_SEC = os.environ["LIVEKIT_API_SECRET"]
-LK_ROOM = os.environ.get("LK_ROOM", "nova-live")
+LK_ROOM = os.environ.get("LK_ROOM", "maya-live")   # ROOM LAW: Maya is maya-live, never nova-live (nova-leak fix 2026-08-29)
 ENGINE = os.environ.get("ENGINE_URL", "http://127.0.0.1:8010")
-MODEL = os.environ.get("RT_MODEL", "gpt-realtime-2")
-VOICE = os.environ.get("NOVA_VOICE", "marin")
+# GA migration 2026-08-29: OpenAI disabled the Realtime *beta* API. The GA model is
+# "gpt-realtime" ("gpt-realtime-2" + the beta shape fail with beta_api_shape_disabled).
+# Verified against GA by maya-ops/interactive/behavior_test (same session shape, PASS).
+MODEL = os.environ.get("RT_MODEL", "gpt-realtime")
+VOICE = os.environ.get("MAYA_VOICE", "marin")      # env firewall: read MAYA_VOICE, not NOVA_VOICE (nova-leak fix)
 RT_URL = f"wss://api.openai.com/v1/realtime?model={MODEL}"
 
 # ══════════════════════════════════════════════════════════════════════════════
