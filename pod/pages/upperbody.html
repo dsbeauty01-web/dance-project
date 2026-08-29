@@ -5,102 +5,112 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Upper Body! · Nova</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%83%3C/text%3E%3C/svg%3E">
-<!-- UPPERBODY V3 (2026-08-28, founder corrections) — built on the repo's TWO skills:
-     · LIGHTS = nova-engine.js (NOVA-OPERATION-BOOK Part 1): 5-state cue lifecycle
-       (PULSE orb → GUIDE lean → FLARE on confirm → FADE), direction shown by the
-       light LEANING — NO arrows, NO letters on the body. Served from /gallery/.
-     · MOVEMENT = the isoPulse family (nova-joined.html): the RIBSLIDE signal —
-       shoulder-center-x MINUS hip-center-x, normalised by SHOULDER WIDTH, kid-proven
-       threshold 0.18. Isolation-aware by construction (whole-body steps cancel out).
-       Plus the hardened detector boot: webgl→wasm fallback + shader warm-up (first
-       webgl inference can stall ~16s — pay it at load, not mid-game).
-     · INTRO/TALKING BODY = nova_idle2 (measured stillest bake on the volume, 3.80
-       motion vs nova_idle 4.87 — nova_idle was baked from 'idle_sway' and grooves,
-       which is what the founder saw and rejected). She stands and just TALKS.
-     4 rounds slow/slow/fast/fast (1.0/1.0/1.25/1.25x, windows ×1.0/.9/.75/.65);
-     demo only in round 1 (calibration); routine video = the one clock. -->
+<!-- UPPERBODY-PERFECT (2026-08-29) — built to Downloads/UPPERBODY-PERFECT.md as written.
+     LAWS: INPUT-LOCK untouched · mid-round voice live-in-air only (engine lips ONLY on
+     nova_idle2 in intro/between/ending) · never red, never punishing · GOLD is the only
+     action color · all cues on the routine's video clock · first-party page, no iframes ·
+     PULSE fires at end.
+     [CLI-FILL] log (gaps the spec missed, filled in the spirit of the laws):
+     1. video src = /gallery/upperbody-routine.mp4 (spec wrote /media/rapa_src.mp4 — that
+        file has NO audio track and no /media route exists; the gallery copy carries the
+        music the game needs).
+     2. Target times NOT scaled by 1/rate: video.currentTime always reads routine-time at
+        any playbackRate — scaling would desync every cue from her actual body. Windows
+        tighten in REAL time automatically at 1.25x, which is the intended difficulty.
+     3. Kept the hardened MoveNet boot from the isoPulse skill (webgl→wasm fallback +
+        shader warm-up) — spec silent, but without it the first inference stalls ~16s.
+     4. "tap or verbal yes" → implemented as the tap button (verbal-yes page trigger not
+        wired brain-side yet).
+     5. FREEZE hold check = the proven shoulder-normalised stillness detector (spec left
+        checkHold as a comment).
+     6. Round-1 pre-target countdown = gold 3·2·1 overlaid at video 12.5-13.5s (video-led,
+        never pauses); between-round countdowns pause-free before play resumes. -->
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Nunito:wght@600;800&display=swap" rel="stylesheet">
 <style>
+  /* §0 DESIGN TOKENS — from HER world */
+  :root{
+    --room-pink:#f4d9ea; --room-lilac:#cbb7e8;
+    --hoodie:#7c5cbf;
+    --gold:#ffc23e; --gold-hot:#ffdf7e;
+    --ice:#aee8ff;
+    --ink:#2a2140;
+    --ok-green:#7ddba3;
+  }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%;overflow:hidden}
-  body{font-family:'Baloo 2',system-ui,-apple-system,'Segoe UI',sans-serif;color:#fff;background:#1a0f2e}
-  #stage{position:fixed;inset:0;display:flex;background:#f4d9ea}
-  #novaWrap{position:relative;width:60vw;height:100vh;overflow:hidden;background:#14092a}
-  #camWrap{position:relative;width:40vw;height:100vh;overflow:hidden;background:#0d0118}
-  #novaAmbient{position:absolute;left:50%;top:50%;height:120vh;transform:translate(-50%,-50%) scaleX(2.2);
-    filter:blur(28px) saturate(1.15);opacity:.9;z-index:1;pointer-events:none}
-  #routine{position:absolute;left:50%;top:0;height:100vh;width:auto;transform:translateX(-50%);
-    z-index:2;opacity:0;transition:opacity .5s;pointer-events:none}
-  #routine.show{opacity:1}
-  #saray-frame{position:absolute;inset:0;z-index:3;opacity:0;transition:opacity .6s}
-  #saray-frame.ready{opacity:1}
-  #usercam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
-  #lightsFx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5}
-  /* HUD */
-  #hud{position:fixed;top:2vh;left:0;right:0;display:flex;gap:14px;justify-content:center;align-items:center;z-index:50;pointer-events:none}
-  #score{font-size:42px;font-weight:800;color:#ffb703;text-shadow:0 2px 8px rgba(0,0,0,.35)}
-  #roundTag{background:rgba(0,0,0,.55);color:#fff;border-radius:999px;padding:4px 16px;font-weight:700;display:none}
-  #streakTag{color:#ffd166;font-weight:800;font-size:18px;opacity:0;transition:opacity .3s}
-  #streakTag.show{opacity:1}
-  /* §1.5 timing bar — ONE meaning per cue, drawn in the top strip */
-  #cuebar-wrap{position:fixed;top:8.2vh;left:50%;transform:translateX(-50%);width:min(300px,40vw);height:8px;
-    background:rgba(0,0,0,.35);border-radius:99px;z-index:50;opacity:0;transition:opacity .3s}
-  #cuebar-wrap.show{opacity:1}
-  #cuebar{height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,#ffd27a,#ffa63d)}
-  #banner{position:fixed;top:11vh;left:50%;transform:translateX(-50%);font-weight:800;z-index:50;
-    font-size:clamp(18px,2.6vw,26px);background:rgba(80,30,140,.9);padding:10px 22px;border-radius:16px;
-    opacity:0;transition:opacity .35s;white-space:nowrap;pointer-events:none}
-  #banner.show{opacity:1}
-  #progress{position:fixed;bottom:0;left:0;right:0;height:6px;background:rgba(0,0,0,.15);z-index:50}
-  #progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7df0ff,#ffb703)}
-  /* Nova chrome */
-  #nova-tag{position:absolute;top:10px;left:12px;z-index:8;font-weight:700;font-size:15px;
-    background:rgba(0,0,0,.45);padding:6px 12px;border-radius:999px}
-  #status{position:absolute;bottom:10px;left:12px;z-index:8;font-size:13px;color:rgba(255,255,255,.75);
-    background:rgba(0,0,0,.4);padding:5px 10px;border-radius:999px}
-  #nova-say{position:absolute;bottom:44px;left:50%;transform:translateX(-50%);z-index:8;max-width:86%;
-    font-size:16px;font-weight:600;background:rgba(60,20,110,.85);padding:8px 16px;border-radius:14px;
+  body{font-family:'Nunito',system-ui;color:var(--ink)}
+  #stage{position:fixed;inset:0;display:flex;background:var(--room-pink);font-family:'Nunito',system-ui}
+  #novaWrap{position:relative;height:100vh;overflow:hidden;transition:width .5s ease;width:60vw;background:var(--room-lilac)}
+  #camWrap{position:relative;height:100vh;overflow:hidden;transition:width .5s ease;width:40vw;background:#2a2140}
+  /* ADAPTIVE (Lexi law) */
+  #stage[data-phase="intro"] #novaWrap,#stage[data-phase="between"] #novaWrap,#stage[data-phase="ending"] #novaWrap{width:66vw}
+  #stage[data-phase="intro"] #camWrap, #stage[data-phase="between"] #camWrap, #stage[data-phase="ending"] #camWrap{width:34vw}
+  #routine,#novaMain{position:absolute;left:50%;top:0;height:100vh;width:auto;transform:translateX(-50%);z-index:2}
+  #routine{display:none}
+  #stage[data-phase="round"] #routine{display:block}
+  #stage[data-phase="round"] #novaMain{display:none}
+  #novaAmbient{position:absolute;left:50%;top:50%;height:120vh;transform:translate(-50%,-50%) scaleX(2.2);filter:blur(28px) saturate(1.12);opacity:.9;z-index:1}
+  #usercam{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  #fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6}
+  #scorePop{position:absolute;inset:0;pointer-events:none;z-index:7}
+  .pop{position:absolute;font-family:'Baloo 2';font-weight:800;font-size:30px;color:var(--gold);
+    text-shadow:0 2px 8px rgba(42,33,64,.5);animation:flyup .7s ease-out forwards}
+  @keyframes flyup{to{transform:translateY(-70px);opacity:0}}
+  #stateBadge{position:absolute;left:14px;bottom:14px;z-index:4;background:rgba(42,33,64,.6);color:#fff;padding:5px 14px;border-radius:999px;font-weight:700;font-size:13px}
+  #hud{position:fixed;top:1.6vh;left:0;right:0;display:flex;gap:16px;justify-content:center;align-items:center;z-index:50;pointer-events:none}
+  #score{font-family:'Baloo 2';font-size:44px;font-weight:800;color:var(--gold);text-shadow:0 2px 10px rgba(124,92,191,.35);font-variant-numeric:tabular-nums}
+  #fire{font-family:'Baloo 2';font-size:26px;color:var(--gold-hot);animation:firePulse .5s infinite alternate}
+  @keyframes firePulse{to{transform:scale(1.12);filter:brightness(1.2)}}
+  #roundTag{background:var(--hoodie);color:#fff;border-radius:999px;padding:5px 16px;font-weight:800}
+  #roundDots i{display:inline-block;width:10px;height:10px;border-radius:50%;background:rgba(124,92,191,.3);margin:0 3px}
+  #roundDots i.on{background:var(--gold)}
+  #countdown{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Baloo 2';font-size:20vw;color:var(--gold);text-shadow:0 6px 40px rgba(255,194,62,.5);z-index:70;pointer-events:none}
+  #verdictCard{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(42,33,64,.55);z-index:75;color:#fff;font-family:'Baloo 2';pointer-events:none}
+  #verdictCard .word{font-size:clamp(50px,9vw,110px);color:var(--gold-hot)}
+  #verdictCard .stars{font-size:clamp(26px,4vw,44px)}
+  #verdictCard .iso{font-family:'Nunito';font-size:clamp(15px,2vw,20px);color:var(--ice)}
+  #scorecard{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(42,33,64,.85);z-index:80;color:#fff}
+  #scorecard h2{font-family:'Baloo 2';font-size:clamp(26px,4.4vw,42px);color:var(--gold);margin-bottom:14px}
+  #scorecard .row{font-size:clamp(16px,2.4vw,21px);font-weight:800;margin:5px 0;display:flex;gap:26px;justify-content:space-between;min-width:min(420px,80vw)}
+  #scorecard .row .stars{color:var(--gold-hot)}
+  #scorecard .total{font-family:'Baloo 2';font-size:clamp(24px,3.6vw,32px);color:var(--gold);margin-top:14px}
+  #scorecard button{margin-top:20px;font-family:'Baloo 2';font-size:clamp(17px,2.6vw,23px);font-weight:800;color:#fff;border:0;
+    cursor:pointer;padding:14px 36px;border-radius:999px;background:var(--hoodie);box-shadow:0 8px 30px rgba(124,92,191,.5)}
+  #pauseBtn,#exitBtn{position:fixed;top:1.6vh;z-index:60;background:rgba(42,33,64,.55);color:#fff;border:0;border-radius:12px;padding:8px 12px;font-size:16px;cursor:pointer}
+  #pauseBtn{right:64px}#exitBtn{right:14px}
+  .hidden{display:none!important}
+  /* wake / ready chrome (kept from the working flow) */
+  #nova-wait{position:absolute;inset:0;z-index:8;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:10px;background:rgba(42,33,64,.92);color:#fff;transition:opacity .5s}
+  #nova-wait.gone{opacity:0;pointer-events:none}
+  #wait-title{font-family:'Baloo 2';font-size:clamp(22px,3.4vw,34px);font-weight:800}
+  #wait-sub{font-size:15px;color:rgba(255,255,255,.7)}
+  #status{position:absolute;bottom:14px;right:14px;z-index:8;font-size:12px;color:rgba(255,255,255,.85);
+    background:rgba(42,33,64,.5);padding:4px 10px;border-radius:999px}
+  #nova-say{position:absolute;bottom:52px;left:50%;transform:translateX(-50%);z-index:8;max-width:86%;
+    font-size:16px;font-weight:600;color:#fff;background:rgba(124,92,191,.9);padding:8px 16px;border-radius:14px;
     opacity:0;transition:opacity .3s;pointer-events:none}
   #nova-say.show{opacity:1}
-  #nova-wait{position:absolute;inset:0;z-index:7;display:flex;flex-direction:column;align-items:center;
-    justify-content:center;gap:10px;background:rgba(13,1,24,.92);transition:opacity .5s}
-  #nova-wait.gone{opacity:0;pointer-events:none}
-  #wait-title{font-size:clamp(22px,3.4vw,34px);font-weight:800}
-  #wait-sub{font-size:15px;color:rgba(255,255,255,.7)}
-  #kid-bubble{position:absolute;bottom:14px;left:12px;z-index:8;max-width:80%;font-size:14px;
-    background:rgba(20,40,90,.85);padding:7px 12px;border-radius:12px;opacity:0;transition:opacity .3s}
+  #kid-bubble{position:absolute;bottom:14px;left:12px;z-index:8;max-width:80%;font-size:14px;color:#fff;
+    background:rgba(42,33,64,.8);padding:7px 12px;border-radius:12px;opacity:0;transition:opacity .3s}
   #kid-bubble.show{opacity:1}
-  /* controls, gates, cards */
-  #controls{position:fixed;top:14px;left:14px;z-index:60;display:flex;gap:8px}
-  #controls button{background:rgba(0,0,0,.5);color:#fff;border:1px solid rgba(255,255,255,.25);
-    border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:14px}
   #ready-btn{position:fixed;left:50%;bottom:8%;transform:translateX(-50%);z-index:70;display:none;
-    font-size:clamp(20px,3.2vw,28px);font-weight:800;color:#fff;border:0;cursor:pointer;
-    padding:18px 50px;border-radius:999px;background:linear-gradient(135deg,#12b981,#0d9668);
-    box-shadow:0 10px 40px rgba(18,185,129,.45);animation:breathe 2.2s ease-in-out infinite}
+    font-family:'Baloo 2';font-size:clamp(20px,3.2vw,28px);font-weight:800;color:var(--ink);border:0;cursor:pointer;
+    padding:18px 50px;border-radius:999px;background:linear-gradient(135deg,var(--gold),var(--gold-hot));
+    box-shadow:0 10px 40px rgba(255,194,62,.5);animation:breathe 2.2s ease-in-out infinite}
   #ready-btn.on{display:block}
   @keyframes breathe{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.05)}}
-  #count{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;
-    font-size:clamp(90px,18vw,200px);font-weight:900;background:rgba(0,0,0,.35);pointer-events:none}
-  #count.on{display:flex}
-  #scorecard{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
-    background:rgba(20,16,30,.82);z-index:75;color:#fff;text-align:center}
-  #scorecard.on{display:flex}
-  #scorecard h2{font-size:clamp(26px,4.4vw,42px);margin-bottom:14px}
-  #scorecard .row{font-size:clamp(16px,2.4vw,21px);font-weight:700;margin:5px 0;display:flex;gap:26px;justify-content:space-between;min-width:min(420px,80vw)}
-  #scorecard .row .stars{color:#ffd24a}
-  #scorecard .total{font-size:clamp(24px,3.6vw,32px);font-weight:900;color:#ffb703;margin-top:14px}
-  #scorecard button{margin-top:20px;font-size:clamp(17px,2.6vw,23px);font-weight:800;color:#fff;border:0;
-    cursor:pointer;padding:14px 36px;border-radius:999px;background:linear-gradient(135deg,#e8590c,#d9480f);
-    box-shadow:0 8px 30px rgba(232,89,12,.45)}
 </style>
 </head>
 <body>
-<div id="stage">
+<div id="stage" data-phase="intro">
   <div id="novaWrap">
     <video id="novaAmbient" autoplay muted playsinline></video>
-    <video id="routine" src="/gallery/upperbody-routine.mp4" playsinline preload="auto"></video>
-    <div id="nova-tag">🌟 Nova</div>
+    <video id="routine" playsinline preload="auto" src="/gallery/upperbody-routine.mp4"></video>
+    <video id="novaMain" autoplay muted playsinline></video>
+    <div id="stateBadge">Waking…</div>
     <div id="nova-say"></div>
     <div id="status">connecting…</div>
     <div id="nova-wait">
@@ -110,87 +120,52 @@
   </div>
   <div id="camWrap">
     <video id="usercam" autoplay playsinline muted></video>
-    <canvas id="lightsFx"></canvas>
+    <canvas id="fx"></canvas>
+    <div id="scorePop"></div>
     <div id="kid-bubble"></div>
   </div>
-</div>
-<div id="hud">
-  <div id="score">0</div>
-  <div id="roundTag">ROUND 1 · SLOW</div>
-  <div id="streakTag">🔥 streak ×2</div>
-</div>
-<div id="cuebar-wrap"><div id="cuebar"></div></div>
-<div id="banner"></div>
-<div id="progress"><i></i></div>
-<div id="controls">
-  <button id="btn-pause">⏸ Pause</button>
-  <button id="btn-exit">✖ Exit</button>
+  <div id="hud">
+    <div id="roundDots"><i class="on"></i><i></i><i></i><i></i></div>
+    <div id="score">0</div><div id="fire" class="hidden">🔥×2</div>
+    <div id="roundTag" class="hidden">ROUND 1 · SLOW</div>
+  </div>
+  <div id="countdown" class="hidden"></div>
+  <div id="verdictCard" class="hidden"><div class="word"></div><div class="stars"></div><div class="iso"></div></div>
+  <div id="scorecard" class="hidden"><h2></h2><div id="sc-rows"></div><div class="total" id="sc-total"></div><button id="sc-btn"></button></div>
+  <button id="pauseBtn">⏸</button><button id="exitBtn">✕</button>
 </div>
 <button id="ready-btn">💃 I'M READY!</button>
-<div id="count"></div>
-<div id="scorecard">
-  <h2></h2><div id="sc-rows"></div><div class="total" id="sc-total"></div>
-  <button id="sc-btn"></button>
-</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.20.0/dist/tf-backend-wasm.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
-<script src="/gallery/nova-engine.js"></script>
 <script>
 'use strict';
 const $=id=>document.getElementById(id);
-const novaWrap=$('novaWrap'), camEl=$('usercam'), statusEl=$('status'),
-      routine=$('routine'), bannerEl=$('banner');
+const stage=$('stage'), camEl=$('usercam'), statusEl=$('status'), routine=$('routine');
 const Q=new URLSearchParams(location.search);
 const SARAY_BASE=location.origin+'/';
 const LIVE_OFF=Q.get('nolive')==='1';
+const log=(...a)=>console.log(...a);
+function setPhase(p){stage.dataset.phase=p;
+  $('stateBadge').textContent=p==='intro'?'Say hi!':p==='round'?'Copy her!':p==='between'?'Nova is watching':'Party!';}
 
-/* ═══ ROUNDS + the measured target map (video-time s, sides screen-space) ═══ */
-const ROUNDS=[
-  {n:1,rate:1.00,label:'ROUND 1 · SLOW',windowScale:1.0},
-  {n:2,rate:1.00,label:'ROUND 2 · SLOW',windowScale:0.9},
-  {n:3,rate:1.25,label:'ROUND 3 · FAST',windowScale:0.75},
-  {n:4,rate:1.25,label:'ROUND 4 · FAST',windowScale:0.65},
-];
+/* §2 THE MEASURED CUE MAP — frame-verified, DO NOT REMEASURE */
+const DEMO_END=13.5;
 const TARGETS=[
-  {t:16.10,dir:'R'},{t:17.37,dir:'L'},
-  {t:19.55,dir:'B'},{t:21.20,dir:'F'},
-  {t:23.00,dir:'R'},{t:24.30,dir:'L'},
-  {t:25.55,dir:'B'},{t:26.80,dir:'F'},
+  {t:16.10,dir:'R'},{t:17.37,dir:'L'},{t:19.55,dir:'B'},{t:21.20,dir:'F'},
+  {t:23.00,dir:'R'},{t:24.30,dir:'L'},{t:25.55,dir:'B'},{t:26.80,dir:'F'},
   {t:28.07,dir:'R'},{t:29.37,dir:'L'},
   {t:31.90,dir:'R'},{t:32.50,dir:'L'},{t:33.27,dir:'R'},{t:34.33,dir:'L'},
   {t:35.20,dir:'FREEZE',hold:1.0},
 ];
-const DEMO_END=13.5, BASE_WINDOW=0.9, LEAD=0.65;   // light pulses ~a beat before the move
-
-/* ═══ THE MOVEMENT SKILL (isoPulse family, nova-joined.html) ═══
-   RIBSLIDE: shoulder-center-x MINUS hip-center-x, normalised by shoulder width.
-   Whole-body steps cancel out — only the torso isolation registers. Kid-proven
-   threshold 0.18 (shoulder-width units). Front/back = shoulder-width ratio. */
-const ISO={ thr:{ ribslide:parseFloat(Q.get('slide'))||0.18,
-                  front:parseFloat(Q.get('front'))||1.07,
-                  back:parseFloat(Q.get('back'))||0.93,
-                  hip:parseFloat(Q.get('hip'))||0.06 } };
-const Sig={ribDev:0,wr:1,hipDev:0,ok:false,_ema:{rib:null,sw:null,hx:null},
-  base:{rib:null,sw:null,hx:null},_cal:{rib:[],sw:[],hx:[]},
-  feed(sx,sw,hx){            // all in screen-normalised units, mirrored
-    this.ok=true;
-    const rib=(sx-hx)/Math.max(0.05,sw);
-    for(const[k,v]of[['rib',rib],['sw',sw],['hx',hx]]){
-      this._ema[k]=this._ema[k]==null?v:this._ema[k]*0.6+v*0.4;}
-    if(this.base.rib==null)return;                      // still calibrating
-    this.ribDev=this._ema.rib-this.base.rib;
-    this.wr=this._ema.sw/this.base.sw;
-    this.hipDev=Math.abs(this._ema.hx-this.base.hx);
-  },
-  calSample(sx,sw,hx){this._cal.rib.push((sx-hx)/Math.max(0.05,sw));this._cal.sw.push(sw);this._cal.hx.push(hx);},
-  calFinish(){
-    const med=a=>a.length?[...a].sort((x,y)=>x-y)[a.length>>1]:null;
-    this.base={rib:med(this._cal.rib)??0,sw:med(this._cal.sw)??0.2,hx:med(this._cal.hx)??0.5};
-    console.log('[CAL]',JSON.stringify({base:this.base,thr:ISO.thr}));
-  },
-};
+const ROUNDS=[
+  {n:1,rate:1.00,label:'ROUND 1 · SLOW',win:1.0,lead:1.2},
+  {n:2,rate:1.00,label:'ROUND 2 · SLOW',win:0.9,lead:1.1},
+  {n:3,rate:1.25,label:'ROUND 3 · FAST',win:0.75,lead:0.9},
+  {n:4,rate:1.25,label:'ROUND 4 · FAST',win:0.65,lead:0.8},
+];
+/* [CLI-FILL #2] target times stay in video-time (currentTime is rate-independent) */
 
 /* ═══ HER BRAIN — [GAME-MODE] persona ═══ */
 const UB_COACH=
@@ -202,9 +177,9 @@ const UB_COACH=
  "say 'follow the golden light!' once. "+
  "FOUR rounds: one and two SLOW (s-t-r-e-t-c-h, call directions softly), three and four FASTER (energy "+
  "doubles, mostly sounds like 'Woo! Keep up!', no sentences). Between rounds I hand you REAL camera facts — "+
- "coach from them: praise the side they nailed, encourage the side that needs love, ask ready for the next. "+
- "Talk in tiny bursts, 6 words max. Praise ONLY what I tell you the camera saw. If no facts came, cheer "+
- "effort. At the FREEZE pose: total silence until I give the verdict. "+
+ "coach from them: praise the side they nailed, wake up the side that needs love, ask ready for the next. "+
+ "Talk in tiny bursts, 6 words max, max ONE line mid-round. Praise ONLY what I tell you the camera saw. "+
+ "At the FREEZE pose: total silence until I give the verdict. "+
  "NEVER repeat a line you've already said this game. Never say wrong, no, miss, fail, or oops — every "+
  "child always wins. You are 110% more excited than the kid, always. English only.";
 
@@ -216,9 +191,9 @@ const NovaSay={el:$('nova-say'),_t:null,
   log(t){if(!t)return;this.el.textContent=t;this.el.classList.add('show');
     clearTimeout(this._t);this._t=setTimeout(()=>this.el.classList.remove('show'),5200);}};
 
-/* ═══ LIVE Nova — proven one-origin connection ═══ */
+/* ═══ LIVE Nova — proven one-origin connection (lips on nova_idle2 only) ═══ */
 const Live={
-  frame:null,on:false,dead:false,alive:false,video:null,audioEl:null,ws:null,room:null,
+  on:false,dead:false,alive:false,video:null,audioEl:null,ws:null,room:null,
   init(){
     if(LIVE_OFF){this.fail('forced offline (?nolive=1)');return;}
     const attempt=(n)=>{
@@ -235,11 +210,7 @@ const Live={
   },
   mount(){
     if(this.on||this.dead)return;this.on=true;
-    const f=document.createElement('div');f.id='saray-frame';
-    const v=document.createElement('video');
-    v.id='nova-live-video';v.autoplay=true;v.playsInline=true;
-    v.style.cssText='width:100%;height:100%;object-fit:contain;object-position:50% 50%;background:#14092a';
-    f.appendChild(v);novaWrap.appendChild(f);this.frame=f;this.video=v;
+    this.video=$('novaMain');
     this._connect();
     statusEl.textContent='waking Nova…';
     const gateMs=(parseInt(Q.get('gate'),10)||45)*1000;
@@ -271,7 +242,7 @@ const Live={
             const b=document.createElement('button');b.id='unmute-btn';
             b.textContent='🔊  TAP TO HEAR NOVA';
             b.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:99999;'+
-              'font:700 22px system-ui,sans-serif;color:#1a1013;background:#ffd24a;border:0;'+
+              'font:700 22px system-ui,sans-serif;color:#2a2140;background:#ffc23e;border:0;'+
               'padding:20px 34px;border-radius:999px;box-shadow:0 10px 40px rgba(0,0,0,.5);cursor:pointer';
             b.onclick=()=>{a.muted=false;a.volume=1.0;tryPlay();setTimeout(()=>{if(ok&&b.parentNode)b.remove();},400);};
             document.body.appendChild(b);
@@ -284,13 +255,11 @@ const Live={
         catch(_){rc=Math.min(30000,Math.round(rc*1.8));setTimeout(resub,rc);}};
       room.on(LK.RoomEvent.Disconnected,()=>setTimeout(resub,rc));
       await room.connect(r.url,r.token);
-      console.log('[ONE-ORIGIN] LiveKit joined',r.room);
+      log('[ONE-ORIGIN] LiveKit joined',r.room);
     }catch(e){console.warn('[ONE-ORIGIN] room err',e&&e.message);}
     this._connectWS();
     try{await this._startMic();}catch(e){console.warn('[ONE-ORIGIN] MIC BLOCKED',e&&e.message);}
-    /* TALKING BODY = nova_idle2 (founder 2026-08-28: she must stand and JUST TALK.
-       nova_idle was baked from 'idle_sway' and grooves — rejected). */
-    this.setAvatar('nova_idle2');
+    this.setAvatar('nova_idle2');            // LAW: lips only on nova_idle2
   },
   _wsConns:0,_wsDelay:1500,_micGated:false,
   _connectWS(){
@@ -334,7 +303,6 @@ const Live={
     if(this.dead)return;this.dead=true;this.on=false;
     try{clearTimeout(this._aliveTimer);}catch(_){}
     const w=$('nova-wait');if(w)w.classList.add('gone');
-    $('nova-tag').textContent='🌟 Nova · 💤 voice napping';
     statusEl.textContent='playing without her voice';
     console.warn('[LIVE] off — silent mode:',reason);
     Game.readyGate();
@@ -342,10 +310,8 @@ const Live={
   _revealed:false,
   reveal(why){
     if(this._revealed)return;this._revealed=true;
-    console.log('[REVEAL]',why);
-    if(this.frame)this.frame.classList.add('ready');
+    log('[REVEAL]',why);
     const w=$('nova-wait');if(w)w.classList.add('gone');
-    $('nova-tag').textContent='🌟 Nova · live';
     statusEl.textContent='✓ live Nova';
     try{if(!Pose._started){Pose._started=true;Pose.init();}}catch(_){}
     Game.readyGate();
@@ -396,34 +362,106 @@ const Intro={
 const Music={base:0.65,ducked:0.30,
   duck(on){try{routine.volume=on?this.ducked:this.base;}catch(_){}}};
 
-/* ═══ Pose — MoveNet with the SKILL's hardened boot (webgl→wasm + warm-up) ═══ */
+/* §3 THE GOLDEN-LIGHT ENGINE — spec code, canvas fx over the kid */
+const cv=$('fx'),cx=cv.getContext('2d');
+function fitCanvas(){cv.width=cv.clientWidth*devicePixelRatio;cv.height=cv.clientHeight*devicePixelRatio;}
+addEventListener('resize',fitCanvas);
+let joints={};                       // {name:{x,y}} canvas px, mirrored — fed per pose frame
+function jpos(name){
+  if(name==='chest'){const a=joints.ls,b=joints.rs;return a&&b?{x:(a.x+b.x)/2,y:(a.y+b.y)/2+18*devicePixelRatio}:null;}
+  return joints[name]||null;
+}
+let cue=null,parts=[],rings=[],fire=false;
+function setCue(dir,windowMs){cue={dir,born:performance.now(),windowMs,joint:dir==='R'?'rs':dir==='L'?'ls':'chest'};chime();}
+function clearCue(){cue=null;}
+function flare(dir,quality){const p=jpos(dir==='R'?'rs':dir==='L'?'ls':'chest');if(!p)return;
+  const col=quality==='iso'?'#ffdf7e':quality==='wrong'?'#cbb7e8':'#ffc23e';
+  for(let i=0;i<16;i++)parts.push({x:p.x,y:p.y,vx:(Math.random()-0.5)*7,vy:(Math.random()-0.8)*7,r:(3+Math.random()*3)*devicePixelRatio,a:1,col});
+  ring(p,col);}
+function ring(p,col){rings.push({x:p.x,y:p.y,r:8,a:1,col});}
+function hipShimmer(){const l=jpos('lh'),r=jpos('rh');if(!l||!r)return;
+  for(const p of [l,r])for(let i=0;i<10;i++)parts.push({x:p.x,y:p.y,vx:(Math.random()-.5)*3,vy:-Math.random()*2,r:2.5*devicePixelRatio,a:1,col:'#ffdf7e'});}
+function hipWarm(){const l=jpos('lh'),r=jpos('rh');if(l&&r)rings.push({x:(l.x+r.x)/2,y:(l.y+r.y)/2,r:26,a:.5,col:'#ffb27d',soft:true});}
+function draw(){
+  cx.clearRect(0,0,cv.width,cv.height);
+  if(cue){const p=jpos(cue.joint);if(p){
+    const age=(performance.now()-cue.born)/1000,pulse=(8+Math.sin(age*6)*3)*devicePixelRatio,R=((fire?26:20)*devicePixelRatio)+pulse;
+    const g=cx.createRadialGradient(p.x,p.y,2,p.x,p.y,R*2.4);
+    g.addColorStop(0,fire?'#ffdf7e':'#ffc23e');g.addColorStop(1,'rgba(255,194,62,0)');
+    cx.fillStyle=g;cx.beginPath();cx.arc(p.x,p.y,R*2.4,0,7);cx.fill();
+    const frac=Math.max(0,1-(age*1000)/cue.windowMs);
+    cx.strokeStyle='rgba(255,223,126,.9)';cx.lineWidth=3*devicePixelRatio;
+    cx.beginPath();cx.arc(p.x,p.y,R*2.4*frac+R,0,7);cx.stroke();
+    if(cue.dir==='R'||cue.dir==='L'){const s=cue.dir==='R'?1:-1,k=devicePixelRatio;
+      cx.strokeStyle='rgba(255,194,62,.8)';cx.lineWidth=6*k;cx.lineCap='round';
+      cx.beginPath();cx.moveTo(p.x,p.y);cx.quadraticCurveTo(p.x+s*46*k,p.y-8*k,p.x+s*82*k,p.y-2*k);cx.stroke();}
+    if(cue.dir==='F'||cue.dir==='B'){
+      for(let i=1;i<=2;i++){cx.strokeStyle='rgba(255,194,62,'+(.7/i)+')';cx.lineWidth=4*devicePixelRatio;
+        cx.beginPath();cx.arc(p.x,p.y,R+10*i*devicePixelRatio,0,7);cx.stroke();}}
+    if(cue.dir==='FREEZE'){cx.strokeStyle='rgba(174,232,255,.85)';cx.lineWidth=5*devicePixelRatio;
+      cx.beginPath();cx.arc(p.x,p.y,R+14*devicePixelRatio,0,7);cx.stroke();}
+  }}
+  for(const q of parts){q.x+=q.vx;q.y+=q.vy;q.vy+=.12;q.a-=.03;
+    cx.globalAlpha=Math.max(q.a,0);cx.fillStyle=q.col;cx.beginPath();cx.arc(q.x,q.y,q.r,0,7);cx.fill();}
+  parts=parts.filter(q=>q.a>0);cx.globalAlpha=1;
+  for(const r of rings){r.r+=r.soft?1.2:4;r.a-=r.soft?.015:.05;
+    cx.strokeStyle=r.col;cx.globalAlpha=Math.max(r.a,0);cx.lineWidth=(r.soft?8:3)*devicePixelRatio;
+    cx.beginPath();cx.arc(r.x,r.y,r.r,0,7);cx.stroke();}
+  rings=rings.filter(r=>r.a>0);cx.globalAlpha=1;
+  requestAnimationFrame(draw);
+}
+/* SOUND: tick on hit (base 660Hz +40/streak, cap 1100) · soft chime on cue-born · no miss sound */
+let _ac=null;function _osc(f,dur,gain){try{if(!_ac)_ac=new AudioContext();
+  const o=_ac.createOscillator(),g=_ac.createGain();o.frequency.value=f;
+  g.gain.setValueAtTime(gain,_ac.currentTime);g.gain.exponentialRampToValueAtTime(0.001,_ac.currentTime+dur);
+  o.connect(g);g.connect(_ac.destination);o.start();o.stop(_ac.currentTime+dur);}catch(_){}}
+function tickSnd(streak){_osc(Math.min(1100,660+streak*40),0.16,0.11);}
+function chime(){_osc(520,0.12,0.05);}
+function popScore(pts,dir){
+  const p=jpos(dir==='R'?'rs':dir==='L'?'ls':'chest');
+  const el=document.createElement('div');el.className='pop';el.textContent='+'+pts;
+  const sp=$('scorePop');
+  el.style.left=(p?(p.x/devicePixelRatio):sp.clientWidth/2)+'px';
+  el.style.top=(p?(p.y/devicePixelRatio):sp.clientHeight/2)+'px';
+  sp.appendChild(el);setTimeout(()=>el.remove(),720);
+}
+
+/* §4 SMART DETECTION — calibrated · smoothed · kind */
+const cal={sx:[],sw:[],hx:[]};
+function pct(a,p){const s=[...a].sort((x,y)=>x-y);return s[Math.floor(s.length*p)];}
+let CAL=null;
+function finishCal(){
+  if(!cal.sx.length){CAL={sx0:.5,hx0:.5,sw0:.2,slide:.09,hip:.06,front:1.07,back:.93};
+    log('[CAL] no samples — defaults',CAL);return;}
+  const spread=pct(cal.sx,.9)-pct(cal.sx,.1);
+  CAL={sx0:pct(cal.sx,.5),hx0:pct(cal.hx,.5),sw0:pct(cal.sw,.5),
+    slide:Math.max(.05,spread*.35),hip:Math.max(.03,spread*.18),front:1.07,back:.93};
+  if(Q.get('slide'))CAL.slide=parseFloat(Q.get('slide'));
+  if(Q.get('hip'))CAL.hip=parseFloat(Q.get('hip'));
+  if(Q.get('front'))CAL.front=parseFloat(Q.get('front'));
+  if(Q.get('back'))CAL.back=parseFloat(Q.get('back'));
+  log('[CAL]',JSON.stringify(CAL));
+}
+let ema={},lastDev=0;
+
+/* ═══ Pose — MoveNet, hardened boot [CLI-FILL #3] ═══ */
 const Pose={
-  det:null,ok:false,_started:false,lastKp:null,still:true,motion:0,mKP:null,
+  det:null,ok:false,_started:false,lastKp:null,still:true,motion:0,
   async init(){
     try{
-      window.__tfBackend='';
       try{if(tf.wasm&&tf.wasm.setWasmPaths)tf.wasm.setWasmPaths('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.20.0/dist/');}catch(_){}
-      let wgl=false;
-      try{wgl=await tf.setBackend('webgl');}catch(e){}
-      if(!wgl){
-        console.error('[POSE] webgl failed → wasm');
-        let wok=false;try{wok=await tf.setBackend('wasm');}catch(e){}
-        if(!wok){try{await tf.setBackend('cpu');}catch(_){}}
-      }
+      let wgl=false;try{wgl=await tf.setBackend('webgl');}catch(e){}
+      if(!wgl){let wok=false;try{wok=await tf.setBackend('wasm');}catch(e){}
+        if(!wok){try{await tf.setBackend('cpu');}catch(_){}}}
       await tf.ready();
-      window.__tfBackend=(tf.getBackend&&tf.getBackend())||'?';
-      console.log('[POSE] backend =',window.__tfBackend);
+      log('[POSE] backend =',(tf.getBackend&&tf.getBackend())||'?');
       this.det=await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,
         {modelType:poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING});
-      /* WARM-UP: the first webgl inference compiles shaders (~16s on iGPUs). Pay it
-         NOW on a dummy frame so the game's first real frame is instant. */
-      try{
-        const wc=document.createElement('canvas');wc.width=640;wc.height=480;
+      try{const wc=document.createElement('canvas');wc.width=640;wc.height=480;
         wc.getContext('2d').fillRect(0,0,640,480);
         const t0=performance.now();
         await this.det.estimatePoses(wc);await this.det.estimatePoses(wc);
-        console.log('[POSE] warm-up done in',Math.round(performance.now()-t0),'ms');
-      }catch(e){console.warn('[POSE] warm-up failed (non-fatal)',e&&e.message);}
+        log('[POSE] warm-up',Math.round(performance.now()-t0),'ms');}catch(e){}
       this.ok=true;statusEl.textContent='✓ Nova sees you';
       this.loop();
     }catch(e){statusEl.textContent='playing without tracking';}
@@ -434,24 +472,14 @@ const Pose={
       const kp=poses[0]?.keypoints;
       if(kp&&kp.length>=13){
         const W=camEl.videoWidth||960,H=camEl.videoHeight||720;
-        /* pixel-space + MIRRORED canvas coords for the light engine (§usage law) */
-        const cw=fxCanvas.width,ch=fxCanvas.height;
-        const scale=Math.max(cw/W,ch/H),ox=(cw-W*scale)/2,oy=(ch-H*scale)/2;
-        const m={};
-        for(const p of kp){
-          m[p.name]={x:cw-(p.x*scale+ox),y:p.y*scale+oy,score:p.score,name:p.name};
-        }
-        this.mKP=m;
-        const ls=kp[5],rs=kp[6],lh=kp[11],rh=kp[12];
-        if(ls.score>0.35&&rs.score>0.35&&lh.score>0.35&&rh.score>0.35){
-          /* screen-normalised signals for the movement skill (mirror = 1-x/W) */
-          const sx=1-((ls.x+rs.x)/2)/W, sw=Math.abs(ls.x-rs.x)/W, hx=1-((lh.x+rh.x)/2)/W;
-          Game.onSignals(sx,sw,hx);
-        }
-        /* stillness (freeze) — shoulder-normalised motion, freeze-page formula */
+        /* joints → mirrored canvas px for the light engine (object-fit cover) */
+        const scale=Math.max(cv.width/W,cv.height/H),ox=(cv.width-W*scale)/2,oy=(cv.height-H*scale)/2;
+        const put=(name,p)=>{if(p.score>0.3)joints[name]={x:cv.width-(p.x*scale+ox),y:p.y*scale+oy};};
+        put('ls',kp[5]);put('rs',kp[6]);put('lh',kp[11]);put('rh',kp[12]);
+        Game.onPose(kp);
         if(this.lastKp){
-          const prev=this.lastKp;let d=0,n=0,sw2=1;
-          sw2=Math.max(30,Math.hypot(ls.x-rs.x,ls.y-rs.y));
+          const prev=this.lastKp;let d=0,n=0;
+          const sw2=Math.max(30,Math.hypot(kp[5].x-kp[6].x,kp[5].y-kp[6].y));
           for(let i=0;i<kp.length;i++){if(kp[i].score>0.35&&prev[i]&&prev[i].score>0.35){
             d+=Math.hypot(kp[i].x-prev[i].x,kp[i].y-prev[i].y);n++;}}
           this.motion=n?(d/n)/sw2:0;this.still=this.motion<0.045;
@@ -463,69 +491,75 @@ const Pose={
   },
 };
 
-/* ═══ THE LIGHT ENGINE (nova-engine.js) — songmap + actions per round ═══ */
-const fxCanvas=$('lightsFx'), fctx=fxCanvas.getContext('2d');
-function fitCanvas(){fxCanvas.width=fxCanvas.clientWidth;fxCanvas.height=fxCanvas.clientHeight;}
-window.addEventListener('resize',fitCanvas);
-function chestAnchor(m,gated){
-  const a=gated(m.left_shoulder),b=gated(m.right_shoulder);
-  if(!a||!b)return null;
-  return {x:(a.x+b.x)/2,y:(a.y+b.y)/2+28};
-}
-/* NOTE on sides: keypoints are mirrored, so the kid's right shoulder sits on
-   screen-right — anchor 'R' targets right_shoulder and the lean points +x. */
-const ACTIONS={
-  slideR:{anchor:(m,g)=>g(m.right_shoulder),leanVec:()=>[1,0],
-    check:()=>{const d=Sig.ribDev;return d>ISO.thr.ribslide?{q:Math.min(1,0.5+d/ISO.thr.ribslide*0.3)}:false;},bar:'window'},
-  slideL:{anchor:(m,g)=>g(m.left_shoulder),leanVec:()=>[-1,0],
-    check:()=>{const d=-Sig.ribDev;return d>ISO.thr.ribslide?{q:Math.min(1,0.5+d/ISO.thr.ribslide*0.3)}:false;},bar:'window'},
-  leanF:{anchor:chestAnchor,leanVec:()=>[0,0.9],
-    check:()=>Sig.wr>ISO.thr.front?{q:0.7}:false,bar:'window'},
-  leanB:{anchor:chestAnchor,leanVec:()=>[0,-0.9],
-    check:()=>Sig.wr<ISO.thr.back?{q:0.7}:false,bar:'window'},
-  freeze:{anchor:chestAnchor,leanVec:()=>[0,-1],bar:'hold',holdMs:1000,
-    check:()=>Pose.ok?Pose.still:true},
-};
-const DIR_ACTION={R:'slideR',L:'slideL',F:'leanF',B:'leanB',FREEZE:'freeze'};
-function buildSongmap(round){
-  const ws=ROUNDS[round].windowScale;
-  return TARGETS.map(tg=>{
-    const win=(tg.dir==='FREEZE'?2.8:BASE_WINDOW*(tg.dir==='B'||tg.dir==='F'?1.3:1.0))*
-              (tg.dir==='FREEZE'?1:ws);
-    return {t:(tg.t-LEAD)*1000, close:(tg.t+win)*1000, action:DIR_ACTION[tg.dir], dir:tg.dir};
-  });
-}
-
-/* ═══ Director cues ═══ */
+/* mid-round + demo director cues (ONE line law mid-round) */
 const CUES_R1=[
   [0.5 ,'Demo begins. Coach while dancing: arms out, torso side to side, hips frozen. Two tiny lines only.'],
   [7.2 ,'Hands to your waist now. One tiny line: hands on your waist, keep sliding!'],
-  [13.0,'Game starts. One line: follow the golden light, copy me, GO!'],
-  [19.0,'Slow circles: torso goes BACK, RIGHT, LEFT, FRONT. Call directions softly as you dance them.'],
-  [31.0,'The fast burst! Sounds mostly: Woo! Keep up!'],
+  [22.0,'ONE tiny line only, from the facts if any came. Otherwise: hips FROZEN, keep going!'],
   [35.2,'Finish pose NOW. Say exactly: FREEZE like me! Then total silence until I give the verdict.'],
 ];
 const CUES_LATER=[
-  [14.0,'This round begins. One tiny line, fresh words, hips FROZEN allowed.'],
-  [31.0,'Fast burst! Pure sounds: Woo! Fire!'],
+  [22.0,'ONE tiny line only, breathless if the round is fast.'],
   [35.2,'Finish pose NOW. Say exactly: FREEZE like me! Then silence until the verdict.'],
 ];
 
-/* ═══ THE GAME ═══ */
+/* §5 + game flow */
 const Game={
-  phase:'connect',round:0,eng:null,map:[],scored:new Set(),
-  score:0,streak:0,facts:0,hipWarnedRound:false,cueIdx:0,
-  loopHits:[0,0,0,0],roundIso:[0,0,0,0],roundVerdict:[],sideStats:null,
-  onSignals(sx,sw,hx){
-    if(this.phase!=='play')return;
-    if(this.round===0&&routine.currentTime<DEMO_END){Sig.calSample(sx,sw,hx);return;}
-    if(Sig.base.rib==null)return;
-    Sig.feed(sx,sw,hx);
-    /* sustained hip wobble → her line max once per round (voice only, §no red) */
-    const now=performance.now(),dt=this._lastWobT?now-this._lastWobT:16;this._lastWobT=now;
-    this._wob=Sig.hipDev>ISO.thr.hip*1.6?(this._wob||0)+dt:0;
-    if(this._wob>400&&!this.hipWarnedRound){this.hipWarnedRound=true;this._wob=0;
-      Live.cue('Their hips are wobbling. ONE playful line: freeze those hips!');}
+  phase:'connect',round:0,targets:[],ti:0,cueIdx:0,
+  score:0,streak:0,facts:0,roundHits:0,roundIso:0,graceUsed:false,
+  roundVerdict:[],sideStats:{R:0,L:0,B:0,F:0},wob:0,_cd:new Set(),
+  onPose(k){
+    if(this.phase!=='round')return;
+    const L=5,R=6,HL=11,HR=12;
+    if(k[L].score<.35||k[R].score<.35)return;
+    const t=routine.currentTime;
+    if(this.round===0&&t<DEMO_END){         // calibration
+      cal.sx.push((k[L].x+k[R].x)/2);cal.sw.push(Math.abs(k[L].x-k[R].x));
+      if(k[HL].score>.35&&k[HR].score>.35)cal.hx.push((k[HL].x+k[HR].x)/2);
+      return;}
+    if(!CAL)return;
+    const raw={sx:(k[L].x+k[R].x)/2,sw:Math.abs(k[L].x-k[R].x),hx:(k[HL].x+k[HR].x)/2};
+    for(const key in raw)ema[key]=ema[key]==null?raw[key]:ema[key]*.6+raw[key]*.4;
+    /* SCREEN-SPACE: usercam mirrored → dev sign flips (kid slides screen-right = raw sx decreases) */
+    const dev=-(ema.sx-CAL.sx0)/Math.max(1,CAL.sw0), wr=ema.sw/CAL.sw0,
+          hip=Math.abs(ema.hx-CAL.hx0)/Math.max(1,CAL.sw0),
+          slideThr=CAL.slide/Math.max(1,CAL.sw0), hipThr=CAL.hip/Math.max(1,CAL.sw0);
+    const vel=dev-lastDev;lastDev=dev;
+    const nxt=this.targets[this.ti];
+    if(!nxt||nxt.hit)return this.trackWobble(hip,hipThr);
+    const w=ROUNDS[this.round].win;
+    if(nxt.dir==='FREEZE')return;                       // handled in tick (stillness)
+    if(t<nxt.t-w)return;
+    if(t>nxt.t+w){if(!this.graceUsed&&!nxt.missed){this.graceUsed=true;nxt.grace=true;}
+      nxt.missed=true;this.ti++;clearCue();return;}
+    let got=null;
+    if(nxt.dir==='R'&&(dev> slideThr||(dev> slideThr*.6&&vel> .004)))got='R';
+    if(nxt.dir==='L'&&(dev<-slideThr||(dev<-slideThr*.6&&vel<-.004)))got='L';
+    if(nxt.dir==='F'&&wr>CAL.front)got='F';
+    if(nxt.dir==='B'&&wr<CAL.back)got='B';
+    if(got){this.hit(nxt,hip<hipThr,false);}
+    else{const any=dev>slideThr?'R':dev<-slideThr?'L':null;
+      if(any&&(nxt.dir==='R'||nxt.dir==='L')&&Math.abs(t-nxt.t)<w*.5)this.hit(nxt,hip<hipThr,true);}
+  },
+  trackWobble(h,thr){
+    this.wob=h>thr*1.6?this.wob+16:0;
+    if(this.wob>400){hipWarm();this.wob=0;
+      if(!this._hipLine){this._hipLine=true;
+        Live.cue('Their hips are wobbling. ONE playful line: freeze those hips!');}}
+  },
+  hit(tg,iso,wrong){
+    tg.hit=true;this.ti++;clearCue();
+    const R=ROUNDS[this.round];let pts=R.rate===1?15:10;
+    if(wrong)pts=Math.round(pts/2);
+    if(iso&&R.rate===1){pts+=10;hipShimmer();this.roundIso++;}
+    if(R.rate>1){this.streak++;fire=this.streak>=3;$('fire').classList.toggle('hidden',!fire);if(fire)pts*=2;}
+    else{this.streak=0;fire=false;$('fire').classList.add('hidden');}
+    if(this.round===3)pts+=5;
+    this.score+=pts;this.roundHits++;if(!wrong)this.sideStats[tg.dir]++;
+    flare(tg.dir,iso?'iso':wrong?'wrong':'good');tickSnd(this.streak);popScore(pts,tg.dir);
+    $('score').textContent=this.score;
+    if(iso&&this.facts<4){this.facts++;
+      Live.post({type:'nova-fact',move:'torso slide with hips frozen'});}
   },
   readyGate(){
     if(this.phase!=='connect')return;
@@ -534,104 +568,96 @@ const Game={
   start(){
     if(this.phase!=='ready')return;
     $('ready-btn').classList.remove('on');
-    this.countdown(()=>this.startRound(0));
+    this.startRound(0);
   },
   countdown(done){
-    let n=3;const c=$('count');c.classList.add('on');c.textContent=n;
+    let n=3;const c=$('countdown');c.classList.remove('hidden');c.textContent=n;
     const t=setInterval(()=>{n--;
       if(n>0){c.textContent=n;return;}
-      clearInterval(t);c.classList.remove('on');done();
+      clearInterval(t);c.classList.add('hidden');done();
     },850);
   },
   startRound(i){
-    this.round=i;this.scored=new Set();this.cueIdx=0;
-    this.hipWarnedRound=false;this.streak=0;$('streakTag').classList.remove('show');
-    this.sideStats={R:0,L:0,F:0,B:0,iso:0};
-    Sig._ema={rib:null,sw:null,hx:null};
-    this.map=buildSongmap(i);
-    this.eng=NovaEngine.create(fctx,{songmap:this.map,actions:ACTIONS,songEndMs:38000});
-    const R=ROUNDS[i];
-    $('roundTag').textContent=R.label;$('roundTag').style.display='block';
-    routine.playbackRate=R.rate;try{routine.preservesPitch=true;}catch(_){}
-    routine.currentTime=i===0?0:DEMO_END;
-    routine.volume=Music.base;
-    routine.classList.add('show');
-    if(Live.frame)Live.frame.classList.remove('ready');
-    this.phase='play';
-    if(i===0)Live.post({type:'game-start'});
-    else Live.cue(R.rate>1?'Round '+R.n+' — FASTER! One breathless line.':'Round '+R.n+', slow and stretchy. One tiny line.');
-    bannerEl.textContent=R.label;bannerEl.classList.add('show');
-    setTimeout(()=>bannerEl.classList.remove('show'),2000);
-    routine.play().catch(e=>console.warn('[ROUTINE] play blocked',e));
-    requestAnimationFrame(()=>this.tick());
+    const go=()=>{
+      this.round=i;this.ti=0;this.cueIdx=0;this.roundHits=0;this.roundIso=0;
+      this.graceUsed=false;this._hipLine=false;this._cd=new Set();
+      this.streak=0;fire=false;$('fire').classList.add('hidden');
+      this.sideStats={R:0,L:0,B:0,F:0};ema={};lastDev=0;
+      this.targets=TARGETS.map(x=>({...x,hit:false,missed:false,lit:false}));
+      const R=ROUNDS[i];
+      document.querySelectorAll('#roundDots i').forEach((d,j)=>d.classList.toggle('on',j<=i));
+      $('roundTag').textContent=R.label;$('roundTag').classList.remove('hidden');
+      routine.playbackRate=R.rate;try{routine.preservesPitch=true;}catch(_){}
+      routine.currentTime=i===0?0:DEMO_END;
+      routine.volume=Music.base;
+      setPhase('round');this.phase='round';
+      if(i===0)Live.post({type:'game-start'});
+      else Live.cue(R.rate>1?'Round '+R.n+' — FASTER! One breathless line.':'Round '+R.n+', slow and stretchy. One tiny line.');
+      routine.play().catch(e=>console.warn('[ROUTINE] play blocked',e));
+      requestAnimationFrame(()=>this.tick());
+    };
+    i===0?go():this.countdown(go);      // round 1's countdown rides the video at 12.5s
   },
   tick(){
-    if(this.phase!=='play')return;
-    const t=routine.currentTime, tm=t*1000;
-    $('progress').firstElementChild.style.width=Math.min(100,t/(routine.duration||38)*100)+'%';
+    if(this.phase!=='round')return;
+    const t=routine.currentTime;
     const CU=this.round===0?CUES_R1:CUES_LATER;
-    while(this.cueIdx<CU.length&&t>=CU[this.cueIdx][0]){Live.cue(CU[this.cueIdx][1]);this.cueIdx++;}
-    if(this.round===0&&Sig.base.rib==null&&t>=DEMO_END)Sig.calFinish();
-    /* THE LIGHT ENGINE runs the cues (pulse → lean → flare → fade) */
-    const res=this.eng.frame(tm,Pose.mKP||{});
-    /* §1.5 timing bar */
-    const bw=$('cuebar-wrap');
-    if(res.cueIndex>=0&&res.bar){bw.classList.add('show');
-      $('cuebar').style.width=Math.round(res.bar.value*100)+'%';}
-    else bw.classList.remove('show');
-    /* score each cue once, on its FLARE */
-    if(res.cueIndex>=0&&res.confirmed&&!this.scored.has(res.cueIndex)){
-      this.scored.add(res.cueIndex);
-      this.registerHit(this.map[res.cueIndex],res.quality??0.7);
+    while(this.cueIdx<CU.length&&t>=CU[this.cueIdx][0]){Live.cue(CU[this.cueIdx][1],this._coachCtx());this.cueIdx++;}
+    if(this.round===0&&!CAL&&t>=DEMO_END)finishCal();
+    /* [CLI-FILL #6] round-1 countdown rides the video clock 12.5→13.5 */
+    if(this.round===0&&t>=12.5&&t<13.6){const n=Math.max(1,Math.ceil(13.5-t));
+      if(!this._cd.has(n)){this._cd.add(n);const c=$('countdown');
+        c.classList.remove('hidden');c.textContent=n;
+        clearTimeout(this._cdT);this._cdT=setTimeout(()=>c.classList.add('hidden'),420);}}
+    /* light the NEXT target one lead early */
+    const R=ROUNDS[this.round];
+    const nxt=this.targets[this.ti];
+    if(nxt&&nxt.dir!=='FREEZE'&&!nxt.lit&&t>=nxt.t-R.lead){
+      nxt.lit=true;setCue(nxt.dir,(R.lead+R.win)*1000);}
+    /* FREEZE: ice cue + 1s stillness → +50 */
+    if(nxt&&nxt.dir==='FREEZE'){
+      if(!nxt.lit&&t>=nxt.t-0.5){nxt.lit=true;setCue('FREEZE',3200);}
+      if(t>=nxt.t&&!nxt.hit){
+        if(Pose.ok&&!Pose.still)this._stillT0=performance.now();
+        if(!this._stillT0)this._stillT0=performance.now();
+        if(performance.now()-this._stillT0>=1000*(nxt.hold||1)||!Pose.ok){
+          nxt.hit=true;this.ti++;clearCue();
+          this.score+=50;$('score').textContent=this.score;
+          flare('R','iso');flare('L','iso');hipShimmer();
+        }
+      }
     }
     if(t>=(routine.duration||38)-0.05)this.endRound();
     else requestAnimationFrame(()=>this.tick());
   },
-  registerHit(cue,q){
-    const R=ROUNDS[this.round];
-    if(cue.dir==='FREEZE'){
-      this.score+=50;$('score').textContent=this.score;
-      return;
-    }
-    const iso=Sig.hipDev<ISO.thr.hip;
-    let pts=R.rate===1.0?15:10;
-    if(iso&&R.rate===1.0)pts+=10;
-    if(R.rate>1.0){this.streak++;if(this.streak>=3){pts*=2;$('streakTag').classList.add('show');}}
-    else this.streak=0;
-    if(this.round===3)pts+=5;
-    this.score+=pts;$('score').textContent=this.score;
-    this.loopHits[this.round]++;
-    if(iso){this.roundIso[this.round]++;this.sideStats.iso++;}
-    this.sideStats[cue.dir]=(this.sideStats[cue.dir]||0)+1;
-    if(iso&&this.facts<4){this.facts++;
-      Live.post({type:'nova-fact',move:'torso slide with hips frozen'});}
-  },
   endRound(){
-    routine.pause();this.eng&&this.eng.reset();
-    fctx.clearRect(0,0,fxCanvas.width,fxCanvas.height);
-    $('cuebar-wrap').classList.remove('show');bannerEl.classList.remove('show');
-    const hits=this.loopHits[this.round],
-          v=hits>=10?'NAILED':hits>=6?'GOOD':'TRIED';
+    routine.pause();clearCue();
+    const hits=this.roundHits,v=hits>=10?'NAILED':hits>=6?'GOOD':'TRIED';
     this.roundVerdict[this.round]=v;
     if(v==='NAILED'){this.score+=30;$('score').textContent=this.score;}
-    if(this.round<3){this.phase='between';this.between(v,hits);}
-    else{this.phase='ending';this.finale();}
+    /* 2.2s verdict card */
+    const vc=$('verdictCard');
+    vc.querySelector('.word').textContent=v+'!';
+    vc.querySelector('.stars').textContent=v==='NAILED'?'⭐⭐⭐':v==='GOOD'?'⭐⭐':'⭐';
+    vc.querySelector('.iso').textContent=this.roundIso?('🧊 hips frozen ×'+this.roundIso):'';
+    vc.classList.remove('hidden');
+    setTimeout(()=>{vc.classList.add('hidden');
+      this.round<3?this.between(v,hits):this.finale();},2200);
   },
   stars(v){return v==='NAILED'?'⭐⭐⭐':v==='GOOD'?'⭐⭐':'⭐';},
   _coachCtx(){
     const s=this.sideStats||{};
     const sides=[['right',s.R||0],['left',s.L||0],['front',s.F||0],['back',s.B||0]];
     sides.sort((a,b)=>b[1]-a[1]);
-    return 'best side '+sides[0][0]+' ('+sides[0][1]+' hits), needs love '+sides[3][0]+
-      ' ('+sides[3][1]+'), hips-frozen count '+(s.iso||0);
+    return 'best side '+sides[0][0]+' ('+sides[0][1]+'), needs love '+sides[3][0]+
+      ' ('+sides[3][1]+'), hips-frozen count '+(this.roundIso||0);
   },
   between(v,hits){
-    routine.classList.remove('show');
-    if(Live.frame)Live.frame.classList.add('ready');
-    $('roundTag').style.display='none';
+    this.phase='between';setPhase('between');
+    $('roundTag').classList.add('hidden');
     const nextR=ROUNDS[this.round+1];
     Live.cue('Round '+(this.round+1)+' done: '+v+', '+hits+' of 14 moves. Coach from these facts, two tiny '+
-      'lines: praise the best side, encourage the weakest. Then ask: ready for '+nextR.label+'?',
+      'lines: praise the best side, wake the weakest. Then ask: ready for '+nextR.label+'?',
       this._coachCtx());
     this._card('🌟 '+ROUNDS[this.round].label+' — '+v+'!','▶ '+nextR.label+'!');
   },
@@ -643,26 +669,25 @@ const Game={
       if(this.roundVerdict[i]==null)continue;
       rows.insertAdjacentHTML('beforeend',
         '<div class="row"><span>'+ROUNDS[i].label+'</span><span class="stars">'+
-        this.stars(this.roundVerdict[i])+' · '+this.loopHits[i]+' hits</span></div>');
+        this.stars(this.roundVerdict[i])+'</span></div>');
     }
     $('sc-total').textContent='⭐ '+this.score+' points';
     $('sc-btn').textContent=btnText;
-    sc.classList.add('on');
+    sc.classList.remove('hidden');
   },
   nextRound(){
-    $('scorecard').classList.remove('on');
-    this.countdown(()=>this.startRound(this.round+1));
+    $('scorecard').classList.add('hidden');
+    this.startRound(this.round+1);
   },
   finale(){
-    routine.classList.remove('show');
-    if(Live.frame)Live.frame.classList.add('ready');
-    $('roundTag').style.display='none';
+    this.phase='ending';setPhase('ending');
+    $('roundTag').classList.add('hidden');
     const allNailed=this.roundVerdict.length===4&&this.roundVerdict.every(x=>x==='NAILED');
     if(allNailed){this.score+=100;$('score').textContent=this.score;}
     try{fetch('/pulse',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({game:'upperbody',score:this.score,verdicts:this.roundVerdict,
-        hits:this.loopHits,cal:Sig.base.rib!=null?{rib:+Sig.base.rib.toFixed(3),thr:ISO.thr.ribslide}:null})})
-      .then(r=>r.json()).then(d=>console.log('[PULSE] row:',JSON.stringify(d.row)))
+        cal:CAL?{slide:+CAL.slide.toFixed(2),hip:+CAL.hip.toFixed(2)}:null})})
+      .then(r=>r.json()).then(d=>log('[PULSE] row:',JSON.stringify(d.row)))
       .catch(e=>console.warn('[PULSE] failed',e));}catch(_){}
     Live.cue('GAME OVER! Total '+this.score+' points, rounds: '+this.roundVerdict.join('/')+
       (allNailed?' — ALL FOUR NAILED!':'')+'. Celebrate with the real number: your torso dances ALONE — '+
@@ -671,10 +696,10 @@ const Game={
   },
   paused:false,
   togglePause(){
-    if(this.phase!=='play')return;
+    if(this.phase!=='round')return;
     this.paused=!this.paused;
-    if(this.paused){routine.pause();Live.hold(true);$('btn-pause').textContent='▶ Resume';}
-    else{Live.hold(false);$('btn-pause').textContent='⏸ Pause';
+    if(this.paused){routine.pause();Live.hold(true);$('pauseBtn').textContent='▶';}
+    else{Live.hold(false);$('pauseBtn').textContent='⏸';
       this.countdown(()=>{routine.play().catch(()=>{});requestAnimationFrame(()=>this.tick());});}
   },
 };
@@ -685,10 +710,10 @@ $('sc-btn').addEventListener('click',()=>{
   if(Game.phase==='between')Game.nextRound();
   else location.reload();
 });
-$('btn-pause').addEventListener('click',()=>Game.togglePause());
-$('btn-exit').addEventListener('click',()=>{try{Live.hold(true);}catch(_){}location.href='/';});
+$('pauseBtn').addEventListener('click',()=>Game.togglePause());
+$('exitBtn').addEventListener('click',()=>{try{Live.hold(true);}catch(_){}location.href='/';});
 (async()=>{
-  fitCanvas();
+  fitCanvas();draw();setPhase('intro');
   try{
     const stream=await navigator.mediaDevices.getUserMedia({video:{width:960,height:720},audio:false});
     camEl.srcObject=stream;
