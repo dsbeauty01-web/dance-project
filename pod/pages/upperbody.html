@@ -139,6 +139,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.20.0/dist/tf-backend-wasm.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<script src="/gallery/nova-engine.js"></script>
 <script>
 'use strict';
 const $=id=>document.getElementById(id);
@@ -629,6 +630,25 @@ const Game={
     }
     if(t>=(routine.duration||38)-0.05)this.endRound();
     else requestAnimationFrame(()=>this.tick());
+  },
+  registerHit(cue,q){
+    const R=ROUNDS[this.round];
+    if(cue.dir==='FREEZE'){
+      this.score+=50;$('score').textContent=this.score;
+      return;
+    }
+    const iso=Sig.hipDev<ISO.thr.hip;
+    let pts=R.rate===1.0?15:10;
+    if(iso&&R.rate===1.0)pts+=10;
+    if(R.rate>1.0){this.streak++;if(this.streak>=3){pts*=2;$('streakTag').classList.add('show');}}
+    else this.streak=0;
+    if(this.round===3)pts+=5;
+    this.score+=pts;$('score').textContent=this.score;
+    this.loopHits[this.round]++;
+    if(iso){this.roundIso[this.round]++;this.sideStats.iso++;}
+    this.sideStats[cue.dir]=(this.sideStats[cue.dir]||0)+1;
+    if(iso&&this.facts<4){this.facts++;
+      Live.post({type:'nova-fact',move:'torso slide with hips frozen'});}
   },
   endRound(){
     routine.pause();clearCue();
