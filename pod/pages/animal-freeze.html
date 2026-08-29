@@ -630,7 +630,10 @@ const Live = {
              WebAudio while the track is also consumed by a media element.) */
           let routed=false;
           try{
-            if(window.Music && Music.ctx && track.mediaStreamTrack){
+            /* FIX 2026-08-29: was `window.Music` — but Music is a script-scope const, NOT
+               a window property, so this guard was ALWAYS false and the one-tap routing
+               never engaged (silent fallback to the old locked element = mute intro). */
+            if(typeof Music!=='undefined' && Music.ctx && track.mediaStreamTrack){
               const ms=new MediaStream([track.mediaStreamTrack]);
               const src=Music.ctx.createMediaStreamSource(ms);
               self.voiceGain=Music.ctx.createGain();
