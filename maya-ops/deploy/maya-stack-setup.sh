@@ -1,55 +1,64 @@
 #!/bin/bash
-# maya-stack-setup.sh — reconstruct the interactive-stack RUNTIME on a fresh pod.
-# WHY: 2026-08-28 dry-run attempt found a fresh pod's container is missing the
-# engine/brain web+rtc deps (the _sys overlay has torch/cv2/av but NOT flask,
-# aiortc, aiohttp), and the SRS binary was gone (only srs_nova.conf remained).
-# This script installs the confirmed-missing pieces so bring-up is repeatable.
-#
-# STATUS: UNVERIFIED — written from the diagnosed gaps; must be RUN ON A POD once
-# to confirm the full dep set (app.py / maya_rt.py may import more). Do NOT claim
-# green until the import-check at the end passes on a real pod. (ground rule #4)
+# maya-stack-setup.sh v2 — reconstruct the interactive-stack RUNTIME on a fresh pod.
+# IDEMPOTENT: run twice = same result (pip "already satisfied" is a no-op).
+# Dep list pulled from the AUTHORITATIVE sources (2026-08-29), not trial-and-error:
+#   LiveTalking/requirements.txt + maya-server/requirements.txt + actual imports of
+#   app.py (engine) / maya_rt.py (brain) / maya-server/app.py (director).
+# Lessons baked in:
+#   - `--ignore-installed blinker` (Ubuntu ships blinker 1.4 as distutils; flask's
+#      dep resolution aborts the whole install without this).
+#   - heavy ML (torch/transformers/diffusers/opencv/librosa/numpy) lives in the
+#      persistent _sys overlay — we only INSTALL if missing, never blindly reinstall.
+#   - NO heavy parallel builds here (the SRS `make -j` OOM killed a pod — SRS is a
+#      separate, dedicated step that writes its binary to the VOLUME).
 set -u
-export PYTHONPATH=/workspace/_sys/pylibs311_good/dist-packages
-FAIL=0
+OVERLAY=/workspace/_sys/pylibs311_good/dist-packages
+export PYTHONPATH="$OVERLAY"
+PIP="pip install -q --ignore-installed blinker"
 
-echo "== 1. system libs (apt) =="
+echo "== 1. system libs (apt, idempotent) =="
 apt-get update -qq 2>&1 | tail -1
-# ffmpeg for our render/label path; opus/vpx are bundled in aiortc manylinux wheels
 apt-get install -y -qq ffmpeg fonts-dejavu-core wget 2>&1 | tail -1
 
-echo "== 2. python web/rtc deps NOT in the _sys overlay (confirmed missing 08-28) =="
-# flask + aiortc were the two that broke the engine; the rest are the usual
-# LiveTalking/maya-server runtime set. Pin loosely; tighten after a verified run.
-pip install -q flask aiohttp "aiortc>=1.6" av soundfile requests websockets \
-    edge-tts python-multipart uvicorn fastapi 2>&1 | tail -3
+echo "== 2. web/util deps the engine+brain+director need (from requirements) =="
+# lightweight, always ensure present (pip is a no-op if satisfied):
+$PIP flask aiortc "aiohttp>=3.9" aiohttp_cors python-dotenv edge_tts \
+     "websockets==12.0" dashscope openai av soundfile \
+     "fastapi==0.115.6" "uvicorn[standard]==0.34.0" \
+     livekit livekit-api 2>&1 | tail -3
 
-echo "== 3. SRS media server (binary was missing; conf persists) =="
-if [ -x /workspace/srs/trunk/objs/srs ]; then
-  echo "  srs binary present, skipping"
-else
-  echo "  srs binary MISSING — restore it. Options (need a human/pod decision):"
-  echo "   a) rebuild:  cd /workspace/srs/trunk && ./configure && make   (slow)"
-  echo "   b) fetch a prebuilt SRS 5.x linux release into objs/srs"
-  echo "  srs_nova.conf is present at /workspace/srs_nova.conf"
-  # NOTE: not auto-fetching a random binary — pin a trusted SRS release URL here
-  # after the human approves the version.
-fi
+echo "== 3. heavy ML deps: install ONLY if not already importable from the overlay =="
+ensure(){  # $1 = import name, $2 = pip name
+  if python -c "import $1" >/dev/null 2>&1; then echo "  $1: present";
+  else echo "  $1: installing ($2)"; $PIP "$2" 2>&1 | tail -1; fi
+}
+ensure torch torch
+ensure cv2 opencv-python-headless
+ensure numpy numpy
+ensure transformers transformers
+ensure diffusers diffusers
+ensure librosa librosa
+ensure accelerate accelerate
 
-echo "== 4. verify the engine/brain imports (the real gate) =="
+echo "== 4. SRS media server (video output) — NOT built here on purpose =="
+if [ -x /workspace/srs/objs/srs ]; then echo "  srs binary present on volume (good)";
+else echo "  srs ABSENT — dedicated step next session: clone+build ONCE, copy the";
+     echo "  binary to /workspace/srs/objs/srs on the VOLUME so it never rebuilds."; fi
+
+echo "== 5. GATE: verify every import the stack needs =="
 python - <<'PY'
-mods = ["flask","aiohttp","aiortc","av","soundfile","requests","websockets"]
-bad = []
-for m in mods:
-    try: __import__(m)
-    except Exception as e: bad.append(f"{m}: {e}")
+eng=["flask","aiortc","aiohttp","aiohttp_cors","dotenv","edge_tts","websockets","av","openai","torch","cv2","numpy","transformers","diffusers","librosa","soundfile"]
+brain=["livekit","aiohttp","openai"]
+srv=["fastapi","uvicorn"]
+bad=[]
+for grp,mods in [("engine",eng),("brain",brain),("server",srv)]:
+    for m in mods:
+        try: __import__(m)
+        except Exception as e: bad.append(f"{grp}/{m}: {e.__class__.__name__} {e}")
 if bad:
-    print("IMPORT CHECK FAILED:"); [print("  -", b) for b in bad]; raise SystemExit(1)
-print("IMPORT CHECK PASS:", ", ".join(mods))
+    print("IMPORT GATE FAILED:"); [print("  -",b) for b in bad]; raise SystemExit(1)
+print("IMPORT GATE PASS — engine+brain+server deps all import")
 PY
 rc=$?
-[ $rc -ne 0 ] && FAIL=1
-
-echo "== done =="
-[ $FAIL -eq 0 ] && echo "SETUP OK (imports green) — SRS still needs step 3 if missing" \
-                || echo "SETUP INCOMPLETE — see failures above"
-exit $FAIL
+echo "== done (rc=$rc) =="
+exit $rc
