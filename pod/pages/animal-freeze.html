@@ -1000,7 +1000,9 @@ window.addEventListener('message', (e)=>{
     KidBubble.show(text);
     try { if(window.NovaRec) NovaRec.transcript('kid', text); } catch(_){}
     if(/\bstop\b|\bpause\b/i.test(text)) voiceStop();          // say "stop" → pause
-    if(Ready.active && /\b(yes+|yeah|yep|ya|ready|ok|okay|okey|sure|go|start|now|i'?m ready|let'?s go)\b/i.test(text)) Ready.hit();  // "yes" → start the music
+    /* HE (he-3): כן often transcribes as "can" — the sound-alikes count as the kid's yes */
+    if(Ready.active && (/\b(yes+|yeah|yep|ya|ready|ok|okay|okey|sure|go|start|now|i'?m ready|let'?s go|can|ken)\b/i.test(text)
+        || /כן|יאללה|מוכן|מוכנה|בטח|סבבה|אוקיי|קדימה/.test(text))) Ready.hit();  // "yes" → start the music
   } else if(/nova|assistant|bot|agent|say|reply/.test(type)){
     try{ if(window.__SYNCLOG) window.__SYNCLOG.push({ev:'nova-said', songT:(typeof Music!=='undefined'&&Music.t)?Music.t():0, wall:performance.now(), text:text.slice(0,40)}); }catch(_){}
     NovaSay.log(text);
@@ -1695,8 +1697,11 @@ function endGame(){
   // NO score/points on the kid's screen; raw numbers go to the session record only.
   // Seconds-of-hold IS celebration data ("4 seconds of statue!"), so it may show.
   const secs = G.best ? (G.best.heldMs/1000).toFixed(1) : null;
+  const HE_AN={STAR:'כוכב',BEAR:'דוב',FLAMINGO:'פלמינגו',FROG:'צפרדע',STATUE:'פסל'};
   const best = G.best
-    ? 'that ' + G.best.name.toUpperCase() + ' freeze — ' + secs + ' seconds of pure STATUE!'
+    ? (LANG_HE
+        ? 'קפאון ה' + (HE_AN[G.best.name.toUpperCase()]||G.best.name) + ' — ' + secs + ' שניות של פסל מושלם!'
+        : 'that ' + G.best.name.toUpperCase() + ' freeze — ' + secs + ' seconds of pure STATUE!')
     : null;
   const statsRec = { score:G.score, rounds:G.rounds, best:G.best, stamps:G.stamps.length, diff:G.diff };
   const speak = function(text){ try { Nova.say(text); } catch(e){} };   // live SARAY voice, or silent text

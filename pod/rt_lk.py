@@ -457,6 +457,7 @@ async def relay(request):
                     if not saylater: continue
                     if hold["on"]: saylater.clear(); continue          # paused game: staged lines die
                     if sgate["on"]: continue   # mid-game (air OR hold): staged lines wait for the ending
+                    if time.time() - kidinput["ts"] < 5.0: continue    # kid just spoke: HER REPLY airs first
                     if speaking["resp_active"] or speaking["v"]: continue
                     line = saylater.pop(0)
                     if line.lower() in spoken: continue
@@ -978,11 +979,11 @@ async def relay(request):
                             inlock["valid_turns"] += 1
                             turn["kid_ts"] = time.time(); turn["retried"] = False
                             kidinput["ts"] = time.time()
-                            # KID OUTRANKS THE QUEUE (en-10): a stale staged line flushing
-                            # after the kid speaks steals her turn and delays the real
-                            # answer past the 3.5s law — the conversation always wins.
-                            if saylater: print("[SAY-QUEUE] cleared by kid turn:", len(saylater), flush=True)
-                            saylater.clear()
+                            # KID OUTRANKS THE QUEUE (en-10, refined he-3): clearing the
+                            # queue killed the trio's score line when the kid answered fast.
+                            # Now the flush just PAUSES around a kid turn (say_flush skips
+                            # for 5s after kidinput) — her reply generates first, staged
+                            # lines follow after. Nothing is lost, nothing steals her turn.
                             await ws_client.send_json({"type": "you_text", "text": ktxt})
                             try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"KID:  "+ktxt+"\n")
                             except Exception: pass
