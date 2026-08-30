@@ -241,16 +241,30 @@ let FR = null;   // freeze schedule — hoisted so collect() works even on early
     await sleep(250);
   }
 
-  /* 9. ending trio: she talks; kid answers ok → bye */
-  await sleep(4000);
+  /* 9. ending trio: she talks; kid answers ok → bye. A REAL kid waits for her to stop
+     talking before answering — talking over her queued trio lines (he-2) piles the
+     engine's sequential audio up and HER reply then airs seconds late. */
+  const waitQuiet = async (maxMs) => {
+    const t0 = Date.now();
+    let seen = 0;
+    for (;;) {
+      const en = await evalJs(`__test.energy(-10)`).catch(() => []);
+      const loud = (en || []).some(e => e.air > 0.01 || e.eng > 0.01);
+      if (!loud) { if (++seen >= 2) return true; } else seen = 0;
+      if (Date.now() - t0 > maxMs) return false;
+      await sleep(400);
+    }
+  };
+  await sleep(3000);
+  await waitQuiet(15000); ev('quiet-before-ok');
   idx = await logCount();
   await say(PH.ok, 'ending-ok');
   await waitReply(idx, 12000, 'ending-ok');
-  await sleep(2000);
+  await waitQuiet(12000); ev('quiet-before-bye');
   idx = await logCount();
   await say(PH.bye, 'ending-bye');
   await waitReply(idx, 12000, 'ending-bye');
-  await sleep(5000);
+  await sleep(6000);
 
   await collect();
   finish(0);

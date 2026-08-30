@@ -1523,8 +1523,12 @@ function endFreeze(){
   const gapOk = !nx || (nx.at - (f.def.at+f.def.hold)) >= 3.5;
   if(Live.on && gapOk){
     AirVoice.expect('round'+(f.idx+1)+':'+(froze?'held':moved?'moved':'almost'));
-    try{ Live.cue('verdict: React in 4-6 words MAX, say the animal name from the facts, NOW. The ONLY animals in this game are STAR, BEAR, FLAMINGO, FROG and STATUE - never any other animal. The game KEEPS GOING - never wrap up, NEVER a question, NEVER offer another round or a new animal.',
-      'They held the '+name+' freeze STILL for '+pct+'% of the window'
+    /* HE (session he-2): the ctx gave English animal names and she free-translated them
+       into inventions (רעם/סופה/שאגה) — hand her the exact local name to say. */
+    const HE_ANIMALS={STAR:'כוכב',BEAR:'דוב',FLAMINGO:'פלמינגו',FROG:'צפרדע',STATUE:'פסל'};
+    const nameLoc = LANG_HE ? (HE_ANIMALS[name]||name) : name;
+    try{ Live.cue('verdict: React in 4-6 words MAX, say the animal name from the facts, NOW. The ONLY animals in this game are '+(LANG_HE?'כוכב, דוב, פלמינגו, צפרדע, פסל':'STAR, BEAR, FLAMINGO, FROG and STATUE')+' - never any other animal. The game KEEPS GOING - never wrap up, NEVER a question, NEVER offer another round or a new animal.',
+      'They held the '+nameLoc+' freeze STILL for '+pct+'% of the window'
       + (froze?' — a PERFECT freeze!':moved?' — they kept MOVING, not a real freeze; be warm, never say wrong/bad.':' — wobbly, half-still.')
       + ' Streak: '+G.stamps.length+' freezes held so far.'); }catch(_){}
   } else if(!Live.on){

@@ -264,8 +264,9 @@ async def relay(request):
     spoken = set()                                # #6 DE-CAN: lines already said this session
     consent = {"yes_ts": 0.0}                     # #5 CONSENT=REAL YES: last real yes/tap/move
     YES_RE = _re.compile(r"\b(yes|yeah|yep|yup|ready|ok|okay|sure|uh[- ]?huh|i did|let's go|go)\b", _re.I)
-    if _hebrew:  # HEBREW MODE: the ready-gate hears Hebrew yes-words (EN words still pass)
-        YES_RE = _re.compile(r"(\b(yes|yeah|yep|ready|ok|okay)\b|כן|יאללה|מוכן|מוכנה|בטח|סבבה|אוקיי|קדימה)", _re.I)
+    if _hebrew:  # HEBREW MODE: the ready-gate hears Hebrew yes-words (EN words still pass;
+        # can/ken = Whisper's English spelling of כן, learned in he-2)
+        YES_RE = _re.compile(r"(\b(yes|yeah|yep|ready|ok|okay|can|ken)\b|כן|יאללה|מוכן|מוכנה|בטח|סבבה|אוקיי|קדימה)", _re.I)
     hidx = {"i": 0}
     # #4 GARBLE-IGNORE: <3 chars or mostly-non-latin nonsense = not real input.
     def is_garble(t):
@@ -953,11 +954,14 @@ async def relay(request):
                             _drop = "garble/empty"
                         elif len(_words) >= 2:
                             _drop = None
-                        elif len(_words) == 1 and _words[0].lower() in (
+                        elif len(_words) == 1 and (_words[0].lower() in (
                               "yes", "yeah", "yep", "no", "ok", "okay", "ready", "sure",
                               "freeze", "wave", "groove", "stop", "again", "go", "hi", "hey", "done",
                               "כן", "לא", "אוקיי", "סבבה", "מוכן", "מוכנה", "עוד", "די", "היי",
-                              "יאללה", "קפוא", "ביי"):
+                              "יאללה", "קפוא", "ביי")
+                              # he-2: Whisper heard the Hebrew כן as English "can" — in HE mode
+                              # the sound-alikes of כן are the kid saying yes
+                              or (_hebrew and _words[0].lower() in ("can", "ken", "cane", "kein"))):
                             _drop = None                     # real single-word answers are turns
                         elif (inlock["valid_turns"] == 0 and len(_words) == 1
                               and (ktxt[:1].isupper() or _hebrew) and len(_words[0]) >= 2 and _words[0].lower() not in
