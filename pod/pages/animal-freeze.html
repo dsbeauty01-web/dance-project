@@ -404,6 +404,10 @@ const TENSION_MASTER =
  "stops... FREEZE! Then ask if they are ready. "+
  "DURING the music: you speak ONLY when the game director asks (short warnings and reactions to REAL results); "+
  "otherwise stay silent, keep listening and remembering everything. "+
+ "MID-GAME LINE LAWS (machine-certified, session en-1 broke all of these): every mid-game line is 6 WORDS OR FEWER. "+
+ "FORBIDDEN mid-game: asking the kid ANY question, offering another round / a new animal / any choice, "+
+ "counting down (never say 3-2-1), announcing or calling a freeze yourself, telling the kid what comes next. "+
+ "The MUSIC and the director run the game — you never do. A warning cue = a tense tease. A verdict cue = the result, by animal name. "+
  "AFTER the final freeze: celebrate their REAL best freeze by name with real numbers, ask if they had fun, warm goodbye. "+
  "If you learned their name, use it. Never say no, wrong, missed, or bad — every child always wins. Tiny warm lines. English only. "+
  "NEVER use assistant phrases ('I'd be happy to help', 'How can I assist', 'Sure!'). You are Nova the dance friend, never an assistant.";
@@ -1166,6 +1170,7 @@ const PoseClip = {
      a paused standing frame covering the dancing groove = "she looks idle"): show() and
      hide() now clear EVERY overlay, not just the remembered one. */
   show(k){
+    if(this.showing===k) return true;   // same round re-fire (swap timer + startFreeze): already up
     const v=this.vids[k]; if(!v) return false;
     for(const [kk,vv] of Object.entries(this.vids)){
       if(kk!==k){ vv.style.opacity='0'; try{ vv.pause(); }catch(_){} }
@@ -1438,7 +1443,7 @@ function tick(){
       if(!f.stab && t >= f.at-4.5 && !G.fired.w.has(i)){
         G.fired.w.add(i);
         if(Live.on && PHASE===PH.GAME && !AirVoice.busy()){
-          try{ Live.cue('warn: freeze in 3 seconds. Say a SHORT playful warning, 3-5 words, like "get ready to freeeeze!" Nothing else.',''); }catch(_){}
+          try{ Live.cue('warn: the music stops in 3 seconds. Whisper ONE tense tease, 3-5 words, like "get ready to freeeeze!" NEVER a question, NEVER an offer, NEVER numbers. Nothing else.',''); }catch(_){}
         }
       }
       if(t >= f.at-0.6 && !G.fired.cd.has(i)){
@@ -1513,7 +1518,7 @@ function endFreeze(){
   const gapOk = !nx || (nx.at - (f.def.at+f.def.hold)) >= 3.5;
   if(Live.on && gapOk){
     AirVoice.expect('round'+(f.idx+1)+':'+(froze?'held':moved?'moved':'almost'));
-    try{ Live.cue('verdict: React in 4-6 words, specific, NOW.',
+    try{ Live.cue('verdict: React in 4-6 words MAX, say the animal name from the facts, NOW. NEVER a question, NEVER offer another round or a new animal.',
       'They held the '+name+' freeze STILL for '+pct+'% of the window'
       + (froze?' — a PERFECT freeze!':moved?' — they kept MOVING, not a real freeze; be warm, never say wrong/bad.':' — wobbly, half-still.')
       + ' Streak: '+G.stamps.length+' freezes held so far.'); }catch(_){}

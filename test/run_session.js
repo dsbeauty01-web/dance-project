@@ -118,27 +118,43 @@ async function waitReply(since, timeoutMs, label) {
 /* ---------- main ---------- */
 let FR = null;   // freeze schedule — hoisted so collect() works even on early aborts
 (async () => {
-  /* 1. launch Chrome */
-  const chrome = ['C:/Program Files/Google/Chrome/Application/chrome.exe',
-                  'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe'].find(p => fs.existsSync(p));
-  if (!chrome) throw new Error('chrome.exe not found');
-  const profile = path.join(OUT, 'profile');
-  const proc = spawn(chrome, [
-    `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`,
-    '--autoplay-policy=no-user-gesture-required', '--deny-permission-prompts',
-    '--no-first-run', '--no-default-browser-check', '--disable-features=Translate',
-    '--window-size=1280,800', '--mute-audio', URL0,
-  ], { stdio: 'ignore' });
-  ev('chrome-launched', { pid: proc.pid, url: URL0 });
+  /* 1. the browser. Node-spawned Chrome dies instantly with exit 21 on this machine
+     (every flag combo, fresh profiles, even --no-sandbox), while Edge launched detached
+     from bash proved reliable — so the loop script starts the browser and the runner
+     ATTACHES (--attach). Self-spawn (Edge first) kept for direct invocation. */
+  let proc = null;
+  if (!process.argv.includes('--attach')) {
+    const browser = ['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+                     'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
+                     'C:/Program Files/Google/Chrome/Application/chrome.exe'].find(p => fs.existsSync(p));
+    if (!browser) throw new Error('no chromium browser found');
+    const profile = path.join(OUT, 'profile-' + process.pid);
+    const flags = [
+      `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`,
+      '--autoplay-policy=no-user-gesture-required', '--deny-permission-prompts',
+      '--no-first-run', '--no-default-browser-check', '--disable-features=Translate',
+      '--window-size=1280,800', '--mute-audio',
+    ];
+    if (!process.argv.includes('--headed')) flags.push('--headless=new');
+    const chromeLog = fs.openSync(path.join(OUT, 'chrome.log'), 'w');
+    proc = spawn(browser, [...flags, URL0], { stdio: ['ignore', chromeLog, chromeLog], detached: true });
+    proc.on('exit', c => ev('chrome-exited', { code: c }));
+  }
+  ev(proc ? 'browser-spawned' : 'attach-mode', { port: PORT, url: URL0 });
 
-  /* 2. attach CDP to the page target */
+  /* 2. attach CDP to the page target. If the port answers but our page is missing
+     (a stale browser already owned the port), open the tab in THAT browser. */
+  let askedNew = false;
   const targets = await until(async () => {
     try {
       const r = await fetch(`http://127.0.0.1:${PORT}/json/list`);
       const list = await r.json();
-      return list.find(t => t.type === 'page' && t.url.includes('/freeze')) || null;
+      const hit = list.find(t => t.type === 'page' && t.url.includes('/freeze'));
+      if (hit) return hit;
+      if (!askedNew) { askedNew = true; await fetch(`http://127.0.0.1:${PORT}/json/new?${encodeURIComponent(URL0)}`, { method: 'PUT' }).catch(() => {}); }
+      return null;
     } catch (_) { return null; }
-  }, 20000, 500, 'CDP target');
+  }, 30000, 500, 'CDP target');
   ws = new WebSocket(targets.webSocketDebuggerUrl);
   await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
   ws.onmessage = m => {
