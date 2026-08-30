@@ -435,6 +435,31 @@ async def relay(request):
                             print("[TURN-GATE] retry err", e, flush=True)
             silwatch = asyncio.create_task(silence_watch())
 
+            # QUEUED STAGED LINES (MACHINE-CERTIFY en-4): nova-say lines that arrived while
+            # she was speaking wait here and fire the moment she goes idle — the ending
+            # trio (score line, fun question) must never vanish behind a late verdict.
+            saylater = []
+            async def say_flush():
+                while True:
+                    await asyncio.sleep(0.4)
+                    if not saylater: continue
+                    if hold["on"]: saylater.clear(); continue          # paused game: staged lines die
+                    if sgate["on"] and sgate["mode"] == "hard": continue   # freeze hold: wait for melt
+                    if speaking["resp_active"] or speaking["v"]: continue
+                    line = saylater.pop(0)
+                    if line.lower() in spoken: continue
+                    spoken.add(line.lower())
+                    try:
+                        await oai.send_json({"type": "response.create", "response": {
+                            "instructions": (
+                                "You are mid-game. Say this ONE short line out loud, exactly as written, "
+                                "once, in your warm excited dance-teacher voice, then stop. Do not add anything. "
+                                'Line: "' + line + '"')}})
+                        print("PITCH say (flushed):", line[:60], flush=True)
+                    except Exception as e:
+                        print("PITCH flush err", e, flush=True)
+            sayflush_task = asyncio.create_task(say_flush())
+
             async def from_browser():
                 async for msg in ws_client:
                     if msg.type != aiohttp.WSMsgType.TEXT: continue
@@ -491,8 +516,17 @@ async def relay(request):
                                     "once, in your warm excited dance-teacher voice, then stop. Do not add anything. "
                                     'Line: "' + line + '"')}})
                             print("PITCH say:", line, flush=True)
-                        else:
-                            print("PITCH skip (busy):", line, flush=True)
+                        elif line:
+                            # QUEUE, don't drop (MACHINE-CERTIFY en-4): the ending trio's
+                            # score line + fun question arrived while the final verdict was
+                            # still speaking and vanished — the say_flush watcher fires
+                            # queued lines the moment she goes idle. Cap 3: staged lines
+                            # are moments, a backlog of them is noise.
+                            if len(saylater) < 3:
+                                saylater.append(line)
+                                print("PITCH queued (busy):", line[:50], flush=True)
+                            else:
+                                print("PITCH queue full, dropped:", line[:40], flush=True)
                     elif t == "nova-cue":
                         intent = (m.get("intent") or "").strip()
                         ctx = (m.get("ctx") or "").strip()
