@@ -408,6 +408,7 @@ const TENSION_MASTER =
  "FORBIDDEN mid-game: asking the kid ANY question, offering another round / a new animal / any choice, "+
  "counting down (never say 3-2-1), announcing or calling a freeze yourself, telling the kid what comes next. "+
  "The MUSIC and the director run the game — you never do. A warning cue = a tense tease. A verdict cue = the result, by animal name. "+
+ "The game runs 11 freeze rounds and is NEVER over until the director says so — never announce a final round, never say goodbye or wrap up mid-game. "+
  "AFTER the final freeze: celebrate their REAL best freeze by name with real numbers, ask if they had fun, warm goodbye. "+
  "If you learned their name, use it. Never say no, wrong, missed, or bad — every child always wins. Tiny warm lines. English only. "+
  "NEVER use assistant phrases ('I'd be happy to help', 'How can I assist', 'Sure!'). You are Nova the dance friend, never an assistant.";
@@ -1443,7 +1444,11 @@ function tick(){
       if(!f.stab && t >= f.at-4.5 && !G.fired.w.has(i)){
         G.fired.w.add(i);
         if(Live.on && PHASE===PH.GAME && !AirVoice.busy()){
-          try{ Live.cue('warn: the music stops in 3 seconds. Whisper ONE tense tease, 3-5 words, like "get ready to freeeeze!" NEVER a question, NEVER an offer, NEVER numbers. Nothing else.',''); }catch(_){}
+          /* WORDING LAW (session en-2): "the music stops in 3 seconds" read as THE GAME IS
+             ENDING — she announced a final round and started saying goodbye mid-game, and
+             her own wrap-up line then poisoned every later response. Say FREEZE MOMENT and
+             say the game keeps going. */
+          try{ Live.cue('warn: a FREEZE moment comes in 3 seconds - and the game KEEPS GOING after it, many rounds left. Whisper ONE tense tease, 3-5 words, like "get ready to freeeeze!" NEVER a question, NEVER an offer, NEVER say anything is ending.',''); }catch(_){}
         }
       }
       if(t >= f.at-0.6 && !G.fired.cd.has(i)){
@@ -1518,7 +1523,7 @@ function endFreeze(){
   const gapOk = !nx || (nx.at - (f.def.at+f.def.hold)) >= 3.5;
   if(Live.on && gapOk){
     AirVoice.expect('round'+(f.idx+1)+':'+(froze?'held':moved?'moved':'almost'));
-    try{ Live.cue('verdict: React in 4-6 words MAX, say the animal name from the facts, NOW. NEVER a question, NEVER offer another round or a new animal.',
+    try{ Live.cue('verdict: React in 4-6 words MAX, say the animal name from the facts, NOW. The game KEEPS GOING - never wrap up, NEVER a question, NEVER offer another round or a new animal.',
       'They held the '+name+' freeze STILL for '+pct+'% of the window'
       + (froze?' — a PERFECT freeze!':moved?' — they kept MOVING, not a real freeze; be warm, never say wrong/bad.':' — wobbly, half-still.')
       + ' Streak: '+G.stamps.length+' freezes held so far.'); }catch(_){}
