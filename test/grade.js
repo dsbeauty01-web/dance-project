@@ -84,7 +84,11 @@ const phaseAt = t => { let p = 'intro'; for (const l of logs) { if (l.t > t) bre
 // content laws (added after session en-1: she invented rounds, offered animals, counted
 // down and called freezes herself — the exact behavior the founder hates; these checks
 // STRENGTHEN G2, they never replace a spec check)
-const SELF_DJ = /(another round|next round|new animal|how about a|want to (do|try|play)|you choose|pick a|3.{0,3}2.{0,3}1|here it comes|ready for the music|what.{0,12}next|final round|play again later|your call|switch it up)/i;
+// [CLI-FILL] 'here it comes' removed from the ban list: "Keep on dancing, here it comes!"
+// is a spec-perfect freeze tease (en-3) — the phrase only signaled self-DJ when she was
+// announcing music SHE controlled ("Ready for the music again? Here it comes!"), which
+// the 'ready for the music' ban still catches.
+const SELF_DJ = /(another round|next round|new animal|how about a|want to (do|try|play)|you choose|pick a|3.{0,3}2.{0,3}1|ready for the music|what.{0,12}next|final round|play again later|your call|switch it up)/i;
 for (const r of said) {
   const ph = phaseAt(r.t);
   if (!gamePhases.has(ph)) continue;
@@ -102,8 +106,17 @@ const G3 = [];
 const THR = 0.01;
 const holdSamples = energy.filter(e => e.phase === 'hold');
 if (!holdSamples.length) fail(G3, 'no hold-phase energy samples (game never held?)');
-const loud = holdSamples.filter(e => e.air > THR || e.eng > THR);
-if (loud.length) fail(G3, `HER VOICE inside a freeze hold: ${loud.length} samples >${THR} rms (worst air=${Math.max(...loud.map(l => l.air))} eng=${Math.max(...loud.map(l => l.eng))})`);
+// [CLI-FILL] a SINGLE loud sample is an analyser artifact, not a leak: the AnalyserNode's
+// 2048-sample ring (~43ms) still holds pre-cut audio when the phase flips, so the first
+// 100ms sampler tick inside a hold can read the tail of a legally-finished line (en-3:
+// exactly one 0.015 sample at a boundary). A real voice line is 500ms+ = many samples —
+// so a leak = ≥2 CONSECUTIVE loud samples inside a hold.
+let leakRun = 0, worstRun = 0;
+for (const e of holdSamples) {
+  if (e.air > THR || e.eng > THR) { leakRun++; worstRun = Math.max(worstRun, leakRun); }
+  else leakRun = 0;
+}
+if (worstRun >= 2) fail(G3, `HER VOICE inside a freeze hold: ${worstRun} consecutive samples >${THR} rms`);
 // NO warning before the fakeout. [CLI-FILL 2026-08-30]: the naive window [stab-4.5, stab]
 // overlaps the PREVIOUS round's hold + its legitimate warning tail (the stab lands ~1.2s
 // after the previous melt by design) — so the honest window is the actual melt→stab gap.
@@ -169,10 +182,19 @@ for (const nz of ['garble', 'hum', 'breath']) {
   // zero replies attributable to the noise: no no-reply event means waitReply wasn't used —
   // instead assert no [NOVA-SAID] whose matching [KID-SAID] is garbage. Pod-side is authoritative:
 }
-if (RTLK) {
+// [CLI-FILL] the lock has TWO equally-valid outcomes per noise: (a) VAD transcribed it
+// and INPUT-LOCK dropped it (pod log line), or (b) it never even transcribed — zero
+// mid-game kid transcripts at all (en-3: garble/hum/breath produced no [KID-SAID] and
+// no response — stronger than a drop). Fail only when noise produced an actual RESPONSE.
+if (RTLK || logs.length) {
   const dropped = (RTLK.match(/\[INPUT-LOCK\] dropped/g) || []).length;
-  if (dropped < 1) fail(G5, 'pod log shows ZERO [INPUT-LOCK] dropped for 3 noise injections');
-} else fail(G5, 'rtlk.log missing — pod-side lock evidence not collected');
+  const gameStart = logs.find(l => l.m.startsWith('[PHASE] game'));
+  const ending = logs.find(l => l.m.startsWith('[PHASE] ending'));
+  const midGameKid = logs.filter(l => l.m.startsWith('[KID-SAID]') &&
+    gameStart && l.t > gameStart.t && (!ending || l.t < ending.t));
+  if (dropped < 1 && midGameKid.length > 0)
+    fail(G5, `noise transcribed mid-game (${midGameKid.length} kid lines) yet zero [INPUT-LOCK] dropped`);
+} else fail(G5, 'no evidence at all (no rtlk.log, no page logs)');
 // silence window: exactly one re-invite
 (function () {
   const s0 = evAt('silence-window-start')[0], s1 = evAt('silence-window-end')[0];

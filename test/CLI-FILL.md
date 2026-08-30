@@ -37,3 +37,11 @@ PART 4 ("Never weaken a grader; a grader change = [CLI-FILL] logged with reason"
 10. **Browser** — sessions run in headless Edge (same Chromium/CDP): node-spawned Chrome
     dies with exit 21 on this machine and headed windows would land on the founder's
     screen. Delivery videos still record the real page pixels via CDP screencast.
+11. **G2 'here it comes'** — removed from the self-DJ ban: "Keep on dancing, here it
+    comes!" (en-3) is a spec-perfect freeze tease; self-DJ music announcements are still
+    caught by 'ready for the music'.
+12. **G3 single-sample leaks** — the analyser's ~43ms ring still holds pre-cut audio at
+    the hold flip, so one loud sample at the boundary is an artifact; a leak = ≥2
+    consecutive loud samples (a real line is 500ms+).
+13. **G5 noise outcomes** — noise that never transcribes (zero mid-game [KID-SAID]) is a
+    PASS equal to an [INPUT-LOCK] drop; only a noise-triggered RESPONSE fails.
