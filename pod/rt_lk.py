@@ -956,6 +956,11 @@ async def relay(request):
                             inlock["valid_turns"] += 1
                             turn["kid_ts"] = time.time(); turn["retried"] = False
                             kidinput["ts"] = time.time()
+                            # KID OUTRANKS THE QUEUE (en-10): a stale staged line flushing
+                            # after the kid speaks steals her turn and delays the real
+                            # answer past the 3.5s law — the conversation always wins.
+                            if saylater: print("[SAY-QUEUE] cleared by kid turn:", len(saylater), flush=True)
+                            saylater.clear()
                             await ws_client.send_json({"type": "you_text", "text": ktxt})
                             try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"KID:  "+ktxt+"\n")
                             except Exception: pass
