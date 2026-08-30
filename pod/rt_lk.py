@@ -1246,6 +1246,47 @@ async def wave_page(request):
         return web.Response(status=503, text="wave page not deployed")
     return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
 
+async def pulse_post(request):
+    # PULSE (2026-08-28, ported from the volume copy 2026-08-30): the durable
+    # end-of-game row. Appends a JSON line to the volume — verifiable with
+    # `tail /workspace/pulse.log` (grader G4 reads it).
+    try:
+        data = await request.json()
+    except Exception:
+        return web.Response(status=400, text="bad json")
+    row = {"ts": time.strftime("%Y-%m-%d %H:%M:%S")}
+    if isinstance(data, dict):
+        row.update({k: v for k, v in data.items() if k != "ts"})
+    try:
+        with open("/workspace/pulse.log", "a", encoding="utf-8") as f:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    except Exception as e:
+        return web.Response(status=500, text=str(e))
+    print("[PULSE]", row, flush=True)
+    return web.json_response({"ok": True, "row": row})
+
+async def upperbody_page(request):
+    # UPPER BODY ISOLATION game (2026-08-27), first-party from the pod (mirrors freeze_page).
+    try:
+        with open("/workspace/pages/upperbody.html", encoding="utf-8") as f: html = f.read()
+    except FileNotFoundError:
+        return web.Response(status=503, text="upperbody page not deployed")
+    return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
+
+# PAGE ASSETS (2026-08-30, MACHINE-CERTIFY found the hole): the freeze page loads
+# nova-session-rec.js / nova-ending.js / pod-registry.js and freezegame/* RELATIVE to
+# the pod origin, but rt_lk never served them — so the SONG and the whole session
+# recorder 404'd on every pod ("game with no melody"). Whitelisted files only.
+_PAGE_ASSETS = ("nova-session-rec.js", "nova-ending.js", "pod-registry.js")
+async def page_asset(request):
+    name = request.match_info["name"]
+    if name not in _PAGE_ASSETS:
+        return web.Response(status=404, text="no such asset")
+    p = os.path.join("/workspace/pages", name)
+    if not os.path.isfile(p):
+        return web.Response(status=404, text="asset not deployed")
+    return web.FileResponse(p)
+
 @web.middleware
 async def cors_mw(request, handler):
     if request.method == "OPTIONS":
@@ -1262,10 +1303,30 @@ app.router.add_get("/", index)
 app.router.add_get("/freeze", freeze_page)
 app.router.add_get("/wave", wave_page)
 app.router.add_get("/upgroove", upgroove_page)
+app.router.add_get("/upperbody", upperbody_page)
+app.router.add_post("/pulse", pulse_post)
 app.router.add_get("/token", token)
 app.router.add_get("/health", health)
 app.router.add_get("/rt", relay)
 app.router.add_get("/set_avatar", set_avatar_proxy)
+app.router.add_get("/{name:nova-session-rec\\.js|nova-ending\\.js|pod-registry\\.js}", page_asset)
+# game assets (song + pose clips) live on the volume next to the pages
+try:
+    os.makedirs("/workspace/pages/freezegame", exist_ok=True)
+    app.router.add_static("/freezegame", "/workspace/pages/freezegame", show_index=False)
+except Exception as _e:
+    print(f"[FREEZEGAME] static route not mounted: {_e}", flush=True)
+# her voice stings + bake gallery (parity with the volume copy this file replaced)
+try:
+    os.makedirs("/workspace/audio", exist_ok=True)
+    app.router.add_static("/audio", "/workspace/audio", show_index=False)
+except Exception as _e:
+    print(f"[AUDIO] static route not mounted: {_e}", flush=True)
+try:
+    os.makedirs("/workspace/gallery", exist_ok=True)
+    app.router.add_static("/gallery", "/workspace/gallery", show_index=True)
+except Exception as _e:
+    print(f"[GALLERY] static route not mounted: {_e}", flush=True)
 
 if __name__ == "__main__":
     web.run_app(app, host="0.0.0.0", port=8765, print=None)

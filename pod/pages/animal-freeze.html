@@ -1790,6 +1790,30 @@ if(TEST_MODE){
     pose: still=>{ Pose.ok=true; Pose.still=!!still; Pose.motion=still?0.01:0.30; return {ok:true,still:Pose.still}; },
     poseOff: ()=>{ Pose.ok=false; return true; },
   };
+  /* G3 evidence: HER-VOICE energy meter. Samples the RMS of BOTH of her audio paths
+     (air voice → Music.gVoice, engine voice → Live.voiceGain) every 100ms, tagged with
+     the music clock + phase — the grader measures actual silence inside every hold
+     window instead of trusting the gate logs. Analysers are parallel taps: zero effect
+     on what plays. */
+  const ENERGY=[]; let _anAir=null, _anEng=null;
+  setInterval(()=>{ try{
+    if(typeof Music==='undefined' || !Music.ctx) return;
+    if(!_anAir && Music.gVoice){ _anAir=Music.ctx.createAnalyser(); _anAir.fftSize=2048; Music.gVoice.connect(_anAir); }
+    if(!_anEng && Live.voiceGain){ _anEng=Music.ctx.createAnalyser(); _anEng.fftSize=2048; Live.voiceGain.connect(_anEng); }
+    const rms=a=>{ if(!a) return 0; const b=new Float32Array(a.fftSize); a.getFloatTimeDomainData(b);
+      let s=0; for(let i=0;i<b.length;i++) s+=b[i]*b[i]; return Math.sqrt(s/b.length); };
+    ENERGY.push({t:Math.round(performance.now()),
+                 mt:(Music.t?+Music.t().toFixed(2):null),
+                 air:+rms(_anAir).toFixed(4), eng:+rms(_anEng).toFixed(4), phase:PHASE});
+    if(ENERGY.length>6000) ENERGY.shift();
+  }catch(_){} }, 100);
+  window.__test.energy = n=>ENERGY.slice(n||0);
+  /* transcript evidence for G1/G2/G5: both sides of the conversation flow through the
+     page as postMessages already — mirror them into the log stream the graders read. */
+  window.addEventListener('message', e=>{ const d=e.data||{}; try{
+    if(d.type==='nova-said') console.log('[NOVA-SAID]', d.text||'');
+    else if(d.type==='kid-said') console.log('[KID-SAID]', d.text||'');
+  }catch(_){} });
   console.log('[TEST] harness armed (?test=1) — window.__test ready');
 }
 </script>
