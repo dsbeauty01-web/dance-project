@@ -289,7 +289,7 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
 try {
   if (window.NovaRec) {
     NovaRec.start({
-      lang: 'en',
+      lang: /[?&]lang=he/.test(location.search) ? 'he' : 'en',
       device: /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
       appVersion: 'animal-freeze-v3',
       game: 'freeze',
@@ -318,6 +318,11 @@ try {
    soft law (misses don't exist, wobble never punished, no-tracking = full
    credit) · no kid-visible errors · V2V is sacred (the pipe is untouched).
    ═══════════════════════════════════════════════════════════════════ */
+
+/* ═══ ?lang=he (MACHINE-CERTIFY): Hebrew session. The ws already forwards the whole
+   query string to rt_lk (qs = location.search), so the brain sees lang=he for free —
+   this flag only drives the page-side UI strings + the session-record lang. ═══ */
+const LANG_HE = /[?&]lang=he/.test(location.search);
 
 const ASSETS = {
   song: 'freezegame/animal-freeze-song.mp3',
@@ -678,7 +683,7 @@ const Live = {
     }catch(e){ console.warn('[ONE-ORIGIN] room err', e&&e.message); }
     this._connectWS();
     try{ await this._startMic(); }catch(e){ console.warn('[ONE-ORIGIN] MIC BLOCKED', e&&e.message); }
-    this.setAvatar('nova_idle');
+    this.setAvatar(TALK_BODY);   // G6: talk body = nova_idle2 (intro, lips on)
   },
   _wsConns:0, _wsDelay:1500, _micGated:false,
   _connectWS(){
@@ -819,6 +824,11 @@ const Live = {
   // She BECOMES the animal: switch the baked pose live (HTTP + postMessage, whichever the app honors)
   setAvatar(id){
     if(!this.on) return;
+    /* [BODY] — MACHINE-CERTIFY G6 evidence line: every engine-body switch is logged so the
+       grader can assert the body-map law (talk=nova_idle2 · dance=nova_idlegroove_v2 ·
+       holds=pose clips) from the console alone. */
+    this._body=id;
+    try{ console.log('[BODY]', id, 'phase='+(typeof PHASE!=='undefined'?PHASE:'boot')); }catch(_){}
     /* SARAY_BASE, not SARAY: SARAY now carries ?intro=freeze, and concatenating
        'set_avatar?id=' onto a URL that already has a query string produces
        ".../?intro=freezeset_avatar?id=..." — a silently dead request. */
@@ -914,6 +924,11 @@ const Live = {
 /* ENERGY LADDER (2026-07-27) avatar map: hype→nova_active (nova_sub+nova_active baked; hype clip dropped) */
 const TIER_AVATAR = { calm:'nova_idle', sub:'nova_sub', active:'nova_active', hype:'nova_active' };
 let CUR_TIER = 'calm';
+
+/* MACHINE-CERTIFY G6 body-map law: TALK body (intro/ending, lips on) = nova_idle2.
+   Bake verified present on volume 1ditrne6cb (ls avatars/ 2026-08-30) before switching —
+   after the body-identity saga, no body name changes without checking the volume. */
+const TALK_BODY = 'nova_idle2';
 
 /* ═══ THE PHASE MACHINE (READY.md PART 0, 2026-08-27) — the spine ═══
    INTRO/ENDING → voice through the ENGINE (lips ON, calm body nova_idle)
@@ -1156,6 +1171,7 @@ const PoseClip = {
       if(kk!==k){ vv.style.opacity='0'; try{ vv.pause(); }catch(_){} }
     }
     this.showing=k;
+    try{ console.log('[BODY] poseclip:'+k, 'phase='+(typeof PHASE!=='undefined'?PHASE:'?')); }catch(_){}   // G6 evidence: holds = pose clips
     const ip=(NEUTRAL.arrivals[k]!=null)?NEUTRAL.arrivals[k]:0;
     const c=ASSETS.clips[k]||{};
     const stopAt=Math.max(ip+0.35, c.pauseAt||0);   // never pause before the real pose
@@ -1166,6 +1182,7 @@ const PoseClip = {
     return true;
   },
   hide(){
+    if(this.showing) try{ console.log('[BODY] poseclip:off'); }catch(_){}
     this.showing=null;
     for(const v of Object.values(this.vids)){ v.style.opacity='0'; try{ v.pause(); }catch(_){} }
   },
@@ -1654,7 +1671,7 @@ function endGame(){
   /* ═══ THE SWITCH POINT: final verdict = calm body back, THEN setPhase(ENDING)
      opens the engine path — lips (MuseTalk) return on the calm idle body ONLY. ═══ */
   try{ Nova.melt(); }catch(_){}
-  if(Live.on){ try{ Live.setAvatar('nova_idle'); }catch(_){} }
+  if(Live.on){ try{ Live.setAvatar(TALK_BODY); }catch(_){} }   // G6: talk body = nova_idle2 (ending, lips on)
   setPhase(PH.ENDING);
   /* [VERDICT-LATENCY] summary for the evidence pack */
   try{ const L=AirVoice.lat.slice().sort((a,b)=>a-b);
@@ -1675,7 +1692,7 @@ function endGame(){
         game: 'freeze',
         name: null,
         bestMoment: best,
-        lang: 'en',
+        lang: LANG_HE ? 'he' : 'en',
         mode: (window.Live && Live.on) ? 'live' : 'silent',
         speak: speak,
         stats: statsRec,
@@ -1694,6 +1711,86 @@ function endGame(){
   try { if(window.NovaRec) NovaRec.end(statsRec); } catch(_){}
   const byCtx = (G.best?'Their best freeze was the '+G.best.name+' at '+secs+'s. ':'');
   Nova.cue('Say a warm goodbye, celebrate their best freeze by name, and invite them to play again. Keep it short.', byCtx, 'bye');
+}
+
+/* ═══ ?lang=he — kid-facing UI in Hebrew (MACHINE-CERTIFY). RTL is applied per-screen,
+   never on <html>, so the absolute-positioned game layout is untouched. ═══ */
+if(LANG_HE){ try{
+  const T={
+    'start-screen h1':'❄ קפאון החיות ❄',
+    'start-screen p':'תגידו שלום — נובה שומעת אתכם ועונה! רוקדים כשהמוזיקה מתנגנת, וכשמופיעה חיה — קופאים! בלי לזוז, כמו פסל. אספו את כל 5 חותמות החיות!',
+  };
+  for(const [sel,txt] of Object.entries(T)){ const el=document.querySelector('#'+sel.split(' ')[0]+' '+sel.split(' ')[1]); if(el) el.textContent=txt; }
+  $('start-btn').textContent='▶ בואו נשחק!';
+  const ps=document.querySelector('#pause-screen h1'); if(ps) ps.textContent='⏸ לוקחים נשימה!';
+  const pp=document.querySelector('#pause-screen p'); if(pp) pp.textContent='נובה מחכה לכם…';
+  $('resume-btn').textContent='▶ ממשיכים לרקוד!';
+  const rt=document.querySelector('#ready-bar .rt'); if(rt) rt.textContent='❄ מוכנים לקפוא? ❄';
+  const rs=document.querySelector('#ready-bar .rs'); if(rs) rs.innerHTML='נובה שואלת — תגידו <b>"כן!"</b> בקול, או לחצו 👇';
+  $('ready-btn').textContent='✋ אני מוכן!';
+  ['start-screen','pause-screen','end-screen','ready-bar'].forEach(id=>{ const el=document.getElementById(id); if(el) el.dir='rtl'; });
+}catch(e){ console.warn('[HE] dict failed', e&&e.message); } }
+
+/* ═══ MACHINE-CERTIFY ?test=1 — the machine-tester's hands and eyes ═══════════════
+   The founder is DONE testing; the harness lets the CLI play the game end-to-end:
+   __test.say(b64 pcm16@24k) speaks INTO the mic channel (same ws message, same pacing),
+   __test.pose(still) simulates the kid's body, __test.state() is the instrument panel,
+   __test.logs() is the evidence stream the graders G1–G6 read. TEST MODE NEVER changes
+   game behavior — it only observes and injects the same inputs a real kid produces.
+   (?test=1 is never in a link given to the founder.) */
+const TEST_MODE = /[?&]test=1/.test(location.search);
+if(TEST_MODE){
+  const LOGS=[];
+  ['log','warn','error'].forEach(k=>{ const orig=console[k].bind(console);
+    console[k]=function(){ try{ let m=''; for(let i=0;i<arguments.length;i++){ const a=arguments[i];
+        m+=(i?' ':'')+(typeof a==='string'?a:(function(){try{return JSON.stringify(a)}catch(_){return String(a)}})()); }
+      LOGS.push({t:Math.round(performance.now()),k,m}); }catch(_){}
+      return orig.apply(null,arguments); }; });
+  window.__test = {
+    /* the evidence stream: logs(n) returns entries from index n (incremental reads) */
+    logs: n=>LOGS.slice(n||0),
+    state: ()=>({
+      phase: PHASE,
+      musicT: (function(){ try{ return (Music.ctx&&Music.t)?+Music.t().toFixed(2):null; }catch(_){ return null; } })(),
+      running: G.running, paused: G.paused, score: G.score, rounds: G.rounds,
+      stamps: G.stamps.length, best: G.best,
+      liveOn: !!Live.on, liveAlive: !!Live.alive, liveDead: !!Live.dead,
+      body: Live._body||null, poseclip: PoseClip.showing||null,
+      gated: !!Live._speakGated,
+      airBusy: (function(){ try{ return AirVoice.busy(); }catch(_){ return null; } })(),
+      verdictLat: AirVoice.lat.slice(),
+      wsOpen: !!(Live.ws&&Live.ws.readyState===1),
+      logCount: LOGS.length,
+    }),
+    freezes: ()=>FREEZES.map(f=>({at:f.at,hold:f.hold,clip:f.clip})),
+    /* tap whatever gate is currently blocking — start button, play-anyway, or ready */
+    tap: ()=>{ const b=$('start-btn'); if(b && !b.disabled && b.offsetParent!==null){ b.click(); return 'start'; }
+      const p=document.getElementById('play-anyway'); if(p){ p.click(); return 'play-anyway'; }
+      const r=$('resume-btn'); if(r && r.offsetParent!==null){ r.click(); return 'resume'; }
+      try{ Ready.hit(); return 'ready'; }catch(_){ return 'none'; } },
+    ready: ()=>{ try{ Ready.hit(); return true; }catch(_){ return false; } },
+    /* speak INTO the mic channel: b64 = raw PCM16 mono @24kHz. Chunked to 100ms and paced
+       on a real clock — rt_lk's VAD sees exactly what a kid at the mic produces. */
+    say: async b64=>{
+      if(!Live.ws || Live.ws.readyState!==1) return 'no-ws';
+      const raw=atob(b64), CH=4800;                      // 4800 bytes = 100ms of pcm16@24k
+      let sent=0;
+      for(let off=0; off<raw.length; off+=CH){
+        const chunk=raw.slice(off,off+CH);
+        Live.ws.send(JSON.stringify({type:'audio',data:btoa(chunk)})); sent++;
+        await new Promise(r=>setTimeout(r,100));
+        if(!Live.ws || Live.ws.readyState!==1) return 'ws-died@'+sent;
+      }
+      const silence=btoa(String.fromCharCode.apply(null,new Uint8Array(CH)));
+      for(let i=0;i<6;i++){ if(Live.ws&&Live.ws.readyState===1) Live.ws.send(JSON.stringify({type:'audio',data:silence}));
+        await new Promise(r=>setTimeout(r,100)); }       // 600ms tail so server VAD closes the turn
+      return 'sent:'+sent;
+    },
+    /* synthetic kid body: no camera in test Chrome, so the detector loop never overwrites these */
+    pose: still=>{ Pose.ok=true; Pose.still=!!still; Pose.motion=still?0.01:0.30; return {ok:true,still:Pose.still}; },
+    poseOff: ()=>{ Pose.ok=false; return true; },
+  };
+  console.log('[TEST] harness armed (?test=1) — window.__test ready');
 }
 </script>
 <script>

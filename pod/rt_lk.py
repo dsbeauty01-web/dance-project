@@ -146,10 +146,20 @@ FREEZE_RULES = (
     "Voice style: bright, bouncy, quick - big-sister hype, never slow, never calm-narrator. "
     "Every line under 8 words.")
 
-def session_update(freeze=False, voice=None):
+# HEBREW MODE (MACHINE-CERTIFY 2026-08-30, ?lang=he): appended AFTER the freeze rules so
+# it overrides the two "ALWAYS speak English only" lines above. Everything else — brevity
+# laws, page-owns-the-game, INPUT-LOCK — is language-independent and stays in force.
+HEBREW_RULES = (
+    "\n\nHEBREW MODE - this overrides every English-only rule above: speak ONLY Hebrew "
+    "(עברית) for the whole session, no matter what language you hear. Warm, modern, "
+    "kid-friendly Hebrew - same energy, same brevity laws (every line stays short). "
+    "Game words in Hebrew: FREEZE = לקפוא, statue = פסל, ready = מוכנים. "
+    "Kids' names stay exactly as heard.")
+
+def session_update(freeze=False, voice=None, lang="en"):
     return {"type": "session.update", "session": {
         "type": "realtime", "output_modalities": ["audio"],
-        "instructions": PROMPT + (FREEZE_RULES if freeze else ""),
+        "instructions": PROMPT + (FREEZE_RULES if freeze else "") + (HEBREW_RULES if lang == "he" else ""),
         "audio": {
             "input": {"format": {"type": "audio/pcm", "rate": 24000},
                       "noise_reduction": {"type": "near_field"},
@@ -163,7 +173,7 @@ def session_update(freeze=False, voice=None):
                       "turn_detection": {"type": "server_vad", "threshold": 0.35,
                                          "prefix_padding_ms": 300, "silence_duration_ms": 500,
                                          "create_response": False, "interrupt_response": False},
-                      "transcription": {"model": "gpt-4o-mini-transcribe", "language": "en"}},
+                      "transcription": {"model": "gpt-4o-mini-transcribe", "language": lang}},
             "output": {"format": {"type": "audio/pcm", "rate": 24000}, "voice": (voice or VOICE)}},
         "max_output_tokens": "inf"}}
 
@@ -204,6 +214,9 @@ async def relay(request):
                           # warnings the mic was closed most of the time; 0.6s keeps just enough
                           # anti-echo while letting the kid answer right after her line
     mic_stats = {"n": 0, "bytes": 0}
+    # HEBREW MODE (?lang=he, MACHINE-CERTIFY 2026-08-30): flips transcription language,
+    # the garble filter's alphabet, the yes-words and the greet. EN behavior is untouched.
+    _hebrew = (request.query.get("lang") or "en").strip().lower().startswith("he")
     # --- INTRO BRAIN GATES (2026-07-28) -------------------------------------
     # TRUTH-GATE: Nova may only name/praise a move that arrived as a detection
     # FACT. Facts enter via a 'nova-fact' message from the page (real detection)
@@ -240,15 +253,21 @@ async def relay(request):
     spoken = set()                                # #6 DE-CAN: lines already said this session
     consent = {"yes_ts": 0.0}                     # #5 CONSENT=REAL YES: last real yes/tap/move
     YES_RE = _re.compile(r"\b(yes|yeah|yep|yup|ready|ok|okay|sure|uh[- ]?huh|i did|let's go|go)\b", _re.I)
+    if _hebrew:  # HEBREW MODE: the ready-gate hears Hebrew yes-words (EN words still pass)
+        YES_RE = _re.compile(r"(\b(yes|yeah|yep|ready|ok|okay)\b|כן|יאללה|מוכן|מוכנה|בטח|סבבה|אוקיי|קדימה)", _re.I)
     hidx = {"i": 0}
     # #4 GARBLE-IGNORE: <3 chars or mostly-non-latin nonsense = not real input.
     def is_garble(t):
         t = (t or "").strip()
         # VOICE-DEAF FIX 2026-08-28: "hi" was eaten by the len<3 rule — tiny REAL words pass
         if t.lower().strip("!.?,") in ("hi", "ok", "no", "yes", "ya", "yo", "hey"): return False
+        # HEBREW MODE: tiny real Hebrew words pass too (כן/לא are 2 chars — the len rule ate them)
+        if t.strip("!.?, ") in ("כן", "לא", "היי", "די", "עוד", "קפוא", "סבבה", "מוכן",
+                                 "מוכנה", "יאללה", "אוקיי"): return False
         if len(t) < 3: return True
-        letters = _re.findall(r"[A-Za-z]", t)
-        return len(letters) < max(2, len(t) // 3)   # mostly non-English script -> garble
+        # HEBREW MODE: Hebrew letters count as real letters; in EN the old rule is unchanged
+        letters = _re.findall(r"[A-Za-zא-ת]" if _hebrew else r"[A-Za-z]", t)
+        return len(letters) < max(2, len(t) // 3)   # mostly wrong-script -> garble
     kidinput = {"ts": 0.0}                             # #2 last REAL kid input (garble excluded)
     inlock = {"valid_turns": 0}                        # LAW-INPUT-LOCK: validated-turn counter
     # #1 LIGHT BEAT = ONE ATTEMPT: idle -> invited -> reinvited -> done(fact|moved-on)
@@ -314,7 +333,8 @@ async def relay(request):
             _intro = (request.query.get("intro") or "").strip().lower()
             _voice = (request.query.get("voice") or "").strip() or None   # V2: ?voice=coral etc. for instant A/B
             _freeze_mode = (_intro == "freeze")   # V2.1: page owns the game -> brain self-triggers OFF
-            await oai.send_json(session_update(freeze=_freeze_mode, voice=_voice))
+            await oai.send_json(session_update(freeze=_freeze_mode, voice=_voice,
+                                               lang=("he" if _hebrew else "en")))
             await log("connected to " + MODEL + " (voice " + VOICE + ")")
             # GREET FIRST — but only on the FIRST connect, not on a seamless reconnect
             # (browser sends ?rc=1 when re-establishing after an OpenAI session drop / 55min cap).
@@ -325,7 +345,17 @@ async def relay(request):
                 # "what's your name?" restarts onboarding they already finished.
                 # A page declares its game with ?intro=<game> on the iframe URL.
                 _intro = (request.query.get("intro") or "").strip().lower()
-                if _intro == "freeze":
+                if _intro == "freeze" and _hebrew:
+                    # HEBREW MODE greet — same conversation contract as the EN freeze intro
+                    _greet = ("Speak HEBREW ONLY. Say EXACTLY these words and NOTHING more: "
+                              "היי! אני נובה - זמן לקפוא! איך קוראים לך? "
+                              "Then STOP and wait. When they answer, echo the exact name you heard "
+                              "warmly and keep a real short conversation in Hebrew - answer anything "
+                              "they say. After their name or two exchanges, explain in Hebrew: when "
+                              "the music plays you DANCE - when it stops... you FREEZE like a statue "
+                              "(קופאים כמו פסל)! Then ask: מוכנים? Do NOT offer any other game. "
+                              "Do NOT start counting down - the game begins only when they say yes.")
+                elif _intro == "freeze":
                     # READY.md Part 1 (2026-08-27): the intro is a REAL conversation now —
                     # greet + name ask, echo the TRANSCRIPT name, answer anything, then
                     # steer to the freeze rule and the ready question. No example names.
@@ -508,6 +538,9 @@ async def relay(request):
                             else:
                                 instr = PROMPT + "\n\n[FREEZE GAME - TENSION MASTER]\n" + ptext
                                 print("PERSONA append (legacy):", ptext[:60], flush=True)
+                            # HEBREW MODE survives every persona swap — without this, the
+                            # game-mode replace silently flipped her back to English mid-game.
+                            if _hebrew: instr += HEBREW_RULES
                             # "type": "realtime" is REQUIRED on session.update in this API version.
                             # Omitting it made the update fail silently (logged only as "OAI: error"),
                             # so the persona never applied and she kept answering out of context.
@@ -616,7 +649,8 @@ async def relay(request):
                             try:
                                 await oai.send_json({"type": "session.update", "session": {
                                     "type": "realtime",
-                                    "instructions": CORE_LAWS + "\n\n" + game_mode["persona"]}})
+                                    "instructions": CORE_LAWS + "\n\n" + game_mode["persona"]
+                                                    + (HEBREW_RULES if _hebrew else "")}})
                                 print("[PICK] session switched to game-mode persona", flush=True)
                             except Exception as _e:
                                 print("[PICK] session switch failed:", _e, flush=True)
