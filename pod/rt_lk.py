@@ -787,7 +787,9 @@ async def relay(request):
                         if (not resp["killed"]) and sgate["on"] and sgate["mode"] == "air":
                             _buf = resp["buf"]
                             _banned = MIDGAME_BAN_RE.search(_buf)
-                            _toolong = len(_buf.split()) > 8
+                            # cancel at word 7 — transcript deltas run ahead of aired audio,
+                            # so the KID hears <=6 words (the G2 law), not the transcript tail
+                            _toolong = len(_buf.split()) > 6
                             if _banned or _toolong:
                                 resp["killed"] = True
                                 print("[MIDGAME-BAN] cancelled (%s): %s" %
@@ -837,7 +839,13 @@ async def relay(request):
                                 speaking["last_chunk"] = time.time(); await engine_q.put(data[i:i+FLUSH])
                     elif et in ("response.output_audio_transcript.done", "response.audio_transcript.done"):
                         txt = e.get("transcript", "") or ""
-                        await ws_client.send_json({"type": "nova_done", "text": txt})
+                        # MIDGAME-BAN (en-7): a watchdog-cancelled response airs at most a sub-second
+                        # stub — its partial transcript must not surface as a full spoken line
+                        # (the kill itself is already logged pod-side for the graders).
+                        if resp["killed"] and sgate["on"] and sgate["mode"] == "air":
+                            print("[MIDGAME-BAN] stub suppressed:", txt[:60], flush=True)
+                        else:
+                            await ws_client.send_json({"type": "nova_done", "text": txt})
                         # [PERSONA-LEAK] watch (READY.md Part 6) - expected count: 0
                         if _re.search(r"happy to help|assist you|how can i assist|as an ai", txt, _re.I):
                             print("[PERSONA-LEAK]", txt[:80], flush=True)
