@@ -827,7 +827,14 @@ async def relay(request):
                                     "Say EXACTLY this one short line, nothing else, no move-talk: " + hy}})
                             except Exception as _e:
                                 print("[TRUTH-GATE] cancel err", _e, flush=True)
-                        elif (not resp["killed"]) and (not sgate["on"]) and audio_buf and resp["buf"].rstrip()[-1:] in ".!?":
+                        elif (not resp["killed"]) and (not sgate["on"]) and audio_buf and (
+                              resp["buf"].rstrip()[-1:] in ".!?"
+                              # FIRST-CLAUSE RELEASE (MACHINE-CERTIFY en-13): a fresh direct
+                              # kid-reply ("Hey, Shuki! ...") waited for the full sentence and
+                              # aired at 3.6s — 0.1s over the law. Within 6s of a real kid turn
+                              # the truth-gates can't fire anyway (praise-within-6s is legit),
+                              # so the first comma is a safe earlier release point.
+                              or (time.time() - kidinput["ts"] <= 6.0 and resp["buf"].rstrip()[-1:] == ",")):
                             # SENTENCE-LEVEL PRE-SYNTH RELEASE (low latency): this full sentence just
                             # passed the gate clean -> release ITS buffered audio now (don't wait for the
                             # whole line). A later fabricated sentence is still caught + dropped before synth.

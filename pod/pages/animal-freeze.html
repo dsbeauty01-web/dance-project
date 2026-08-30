@@ -1523,7 +1523,7 @@ function endFreeze(){
   const gapOk = !nx || (nx.at - (f.def.at+f.def.hold)) >= 3.5;
   if(Live.on && gapOk){
     AirVoice.expect('round'+(f.idx+1)+':'+(froze?'held':moved?'moved':'almost'));
-    try{ Live.cue('verdict: React in 4-6 words MAX, say the animal name from the facts, NOW. The game KEEPS GOING - never wrap up, NEVER a question, NEVER offer another round or a new animal.',
+    try{ Live.cue('verdict: React in 4-6 words MAX, say the animal name from the facts, NOW. The ONLY animals in this game are STAR, BEAR, FLAMINGO, FROG and STATUE - never any other animal. The game KEEPS GOING - never wrap up, NEVER a question, NEVER offer another round or a new animal.',
       'They held the '+name+' freeze STILL for '+pct+'% of the window'
       + (froze?' — a PERFECT freeze!':moved?' — they kept MOVING, not a real freeze; be warm, never say wrong/bad.':' — wobbly, half-still.')
       + ' Streak: '+G.stamps.length+' freezes held so far.'); }catch(_){}
@@ -1720,7 +1720,7 @@ function endGame(){
   $('end-screen').style.display='flex';
   try { if(window.NovaRec) NovaRec.end(statsRec); } catch(_){}
   const byCtx = (G.best?'Their best freeze was the '+G.best.name+' at '+secs+'s. ':'');
-  Nova.cue('Say a warm goodbye, celebrate their best freeze by name, and invite them to play again. Keep it short.', byCtx, 'bye');
+  Nova.cue('Say a warm goodbye USING THE KID\'S NAME you learned in the intro, celebrate their best freeze by animal name, and invite them to play again. Keep it short.', byCtx, 'bye');
 }
 
 /* ═══ ?lang=he — kid-facing UI in Hebrew (MACHINE-CERTIFY). RTL is applied per-screen,
