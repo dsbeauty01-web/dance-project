@@ -78,7 +78,7 @@ const kidSaidLogs = logs.filter(l => l.m.startsWith('[KID-SAID]'));
 /* ---------- G2 presence (mid-game replies) ---------- */
 const G2 = [];
 const NEG = HE ? /(לא נכון|רע\b|טעות|\bno\b|wrong|bad|didn'?t)/i : /\b(no|wrong|bad|didn'?t|not quite|missed)\b/i;
-const ASSISTANT = /(as an ai|assistant|language model|i can help|how can i|i'?m here to)/i;
+const ASSISTANT = /(as an ai|assistant|language model|i can help|how can i|i'?m here to|לעזור לך|אוכל לעזור|במה אוכל)/i;
 const gamePhases = new Set(['game', 'hold']);
 const phaseAt = t => { let p = 'intro'; for (const l of logs) { if (l.t > t) break; if (l.m.startsWith('[PHASE]')) p = l.m.split(' ')[1]; } return p; };
 // content laws (added after session en-1: she invented rounds, offered animals, counted
@@ -97,6 +97,9 @@ for (const r of said) {
   if (NEG.test(r.text)) fail(G2, 'negative word mid-game: "' + r.text.slice(0, 60) + '"');
   if (/[?？]/.test(r.text)) fail(G2, 'mid-game QUESTION (page owns the game): "' + r.text.slice(0, 60) + '"');
   if (SELF_DJ.test(r.text)) fail(G2, 'self-DJ line (inventing rounds/choices): "' + r.text.slice(0, 60) + '"');
+  // HE mode: a mid-game line of 2+ Latin words is a language leak ("Perfect freeze, BEAR!")
+  if (HE && (r.text.match(/[A-Za-z]{2,}/g) || []).length >= 2)
+    fail(G2, 'English leak in Hebrew session: "' + r.text.slice(0, 60) + '"');
 }
 for (const r of said) if (ASSISTANT.test(r.text)) fail(G2, 'assistant-talk: "' + r.text.slice(0, 60) + '"');
 

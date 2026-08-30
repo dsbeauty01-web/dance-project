@@ -151,8 +151,12 @@ FREEZE_RULES = (
 # laws, page-owns-the-game, INPUT-LOCK — is language-independent and stays in force.
 HEBREW_RULES = (
     "\n\nHEBREW MODE - this overrides every English-only rule above: speak ONLY Hebrew "
-    "(עברית) for the whole session, no matter what language you hear. Warm, modern, "
-    "kid-friendly Hebrew - same energy, same brevity laws (every line stays short). "
+    "(עברית) for the whole session, no matter what language you hear - animal names too "
+    "(כוכב, דוב, פלמינגו, צפרדע, פסל), NEVER an English word. Warm, modern, kid-friendly "
+    "Hebrew - same energy, same brevity laws: every line SHORT, intro answers 1-2 short "
+    "sentences max, never a lecture. You are Nova, FEMALE - always לשון נקבה "
+    "(אני אוהבת, אני יכולה, מוכנה). NEVER assistant phrases in any language "
+    "(איך אני יכולה לעזור / במה אוכל לעזור are FORBIDDEN - you are a dance friend, not a helper). "
     "Game words in Hebrew: FREEZE = לקפוא, statue = פסל, ready = מוכנים. "
     "Kids' names stay exactly as heard.")
 
@@ -255,7 +259,8 @@ async def relay(request):
     MIDGAME_BAN_RE = _re.compile(
         r"(\?|another round|next round|new animal|how about|want to|you choose|pick a"
         r"|ready for|what'?s next|final round|play again|your call|switch it up"
-        r"|next beat|show me your|\b3\b[^a-z]{0,4}\b2\b[^a-z]{0,4}\b1\b)", _re.I)
+        r"|next beat|show me your|\b3\b[^a-z]{0,4}\b2\b[^a-z]{0,4}\b1\b"
+        r"|עוד סיבוב|סיבוב נוסף|סיבוב אחרון|רוצה לשחק|רוצים לשחק|איזו חיה|לבחור חיה|נשחק שוב)", _re.I)
     spoken = set()                                # #6 DE-CAN: lines already said this session
     consent = {"yes_ts": 0.0}                     # #5 CONSENT=REAL YES: last real yes/tap/move
     YES_RE = _re.compile(r"\b(yes|yeah|yep|yup|ready|ok|okay|sure|uh[- ]?huh|i did|let's go|go)\b", _re.I)
@@ -559,7 +564,8 @@ async def relay(request):
                                     "[GAME DIRECTOR - improvise, never read this aloud] " + intent
                                     + (" Facts you may use: " + ctx if ctx else "")
                                     + " Respond with ONE tiny spoken line in your OWN fresh words, never reuse "
-                                      "a line you already said, in character, warm and excited, English only, very short.")}
+                                      "a line you already said, in character, warm and excited, "
+                                    + ("HEBREW ONLY (עברית), " if _hebrew else "English only, ") + "very short.")}
                             # MID-GAME TOKEN CAP (MACHINE-CERTIFY en-5): air-mode cue lines are
                             # physically capped — a model that ignores "very short" simply runs out.
                             if sgate["on"] and sgate["mode"] == "air":
@@ -938,7 +944,10 @@ async def relay(request):
                         # transcript has >=2 real English words, OR it is the session's
                         # FIRST valid turn and is one clean name-shaped token (the name
                         # answer). Everything else is consumed silently — no generation.
-                        _words = _re.findall(r"[A-Za-z][A-Za-z'\-]*", ktxt)
+                        # HEBREW MODE (MACHINE-CERTIFY he-1): the Latin-only word regex saw
+                        # ZERO words in perfect Hebrew transcripts ("קוראים לי שוקי") and the
+                        # lock silently ate every kid turn — in HE mode Hebrew letters are words.
+                        _words = _re.findall(r"[A-Za-zא-ת][A-Za-zא-ת'\-]*" if _hebrew else r"[A-Za-z][A-Za-z'\-]*", ktxt)
                         _drop = None
                         if not ktxt or is_garble(ktxt):
                             _drop = "garble/empty"
@@ -946,12 +955,14 @@ async def relay(request):
                             _drop = None
                         elif len(_words) == 1 and _words[0].lower() in (
                               "yes", "yeah", "yep", "no", "ok", "okay", "ready", "sure",
-                              "freeze", "wave", "groove", "stop", "again", "go", "hi", "hey", "done"):
+                              "freeze", "wave", "groove", "stop", "again", "go", "hi", "hey", "done",
+                              "כן", "לא", "אוקיי", "סבבה", "מוכן", "מוכנה", "עוד", "די", "היי",
+                              "יאללה", "קפוא", "ביי"):
                             _drop = None                     # real single-word answers are turns
                         elif (inlock["valid_turns"] == 0 and len(_words) == 1
-                              and ktxt[:1].isupper() and len(_words[0]) >= 3 and _words[0].lower() not in
+                              and (ktxt[:1].isupper() or _hebrew) and len(_words[0]) >= 2 and _words[0].lower() not in
                               ("wow", "what", "cool", "nice", "hello")):
-                            _drop = None                     # name beat: capitalized token = name candidate
+                            _drop = None                     # name beat: name-shaped token (Hebrew has no case)
                         else:
                             _drop = "sub-2-word"
                         if _drop:

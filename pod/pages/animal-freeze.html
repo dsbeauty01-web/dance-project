@@ -1562,7 +1562,7 @@ let _cueN=0;
 function cueReady(){ if(!Ready.active || _cueN>=1) return; _cueN++;
   /* V2 2026-08-07: the greet already explained the whole game in one line. This is only a
      nudge if the kid went quiet — verbatim, short, zero LLM drift. */
-  if(Live.on) Live.say('Say YES when you are ready!');
+  if(Live.on) Live.say(LANG_HE ? 'תגידו כן כשאתם מוכנים!' : 'Say YES when you are ready!');
 }
 async function runReadyGate(){
   /* FIX 2026-08-05 — "she is not talking before the music".
