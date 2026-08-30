@@ -1,0 +1,13 @@
+{
+  "locked_on": "2026-08-30",
+  "decided_by": "founder (Refael) — 'no elevenlabs, best voice from OpenAI'",
+  "engine": "openai",
+  "render_model": "gpt-4o-mini-tts",
+  "realtime_model": "gpt-realtime",
+  "voice": "coral",
+  "lufs": -16,
+  "instructions": "Warm, upbeat live-show host. Smiling voice. Conversational pace about 165 words per minute, brief natural pauses between thoughts, slight emphasis on numbers and the product name. Sounds like she's talking TO one person, not reading. Occasional soft breath.",
+  "elevenlabs": "DROPPED per founder 2026-08-30 — do not re-add without explicit request",
+  "bench": "coral chosen over shimmer/ballad/nova/sage; coral = warmest + upbeat live energy, pacing ~203 wpm (shimmer too rushed at ~233, sage too calm at ~175). Blind set in Downloads/maya-voice-bench-2026-08-30.",
+  "note": "SINGLE SOURCE OF TRUTH. Both the offline render pipeline (tts_adapter.py) and the live brain (maya_rt.py) read this. Env override: MAYA_VOICE / OPENAI_TTS_VOICE."
+}

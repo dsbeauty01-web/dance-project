@@ -20,7 +20,7 @@ ENGINE = os.environ.get("ENGINE_URL", "http://127.0.0.1:8010")
 # "gpt-realtime" ("gpt-realtime-2" + the beta shape fail with beta_api_shape_disabled).
 # Verified against GA by maya-ops/interactive/behavior_test (same session shape, PASS).
 MODEL = os.environ.get("RT_MODEL", "gpt-realtime")
-VOICE = os.environ.get("MAYA_VOICE", "marin")      # env firewall: read MAYA_VOICE, not NOVA_VOICE (nova-leak fix)
+VOICE = os.environ.get("MAYA_VOICE", "coral")      # LOCKED 2026-08-30 (voice.lock.json); env firewall: MAYA_VOICE, not NOVA_VOICE (nova-leak fix)
 RT_URL = f"wss://api.openai.com/v1/realtime?model={MODEL}"
 
 # ══════════════════════════════════════════════════════════════════════════════
