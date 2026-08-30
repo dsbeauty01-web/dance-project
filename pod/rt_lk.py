@@ -250,6 +250,12 @@ async def relay(request):
     # #6 NO-SELF-ANSWER: she cannot pick/confirm FOR the kid — blocked unless real kid input is recent.
     SELFANSWER_RE = _re.compile(r"(awesome choice|great choice|good (pick|choice)|nice pick|let'?s do (freeze|wave|up ?groove|animal)|you picked|you chose|i'?ll pick|we'?ll (do|play) (freeze|wave|up ?groove)|great, (freeze|wave)|perfect, let'?s)", _re.I)
     resp = {"buf": "", "killed": False}          # per-response transcript accumulator
+    # MIDGAME-BAN (MACHINE-CERTIFY): shapes that may never air mid-game — questions,
+    # self-DJ round/animal offers, countdowns, wrap-ups. Enforced by cancel, not hope.
+    MIDGAME_BAN_RE = _re.compile(
+        r"(\?|another round|next round|new animal|how about|want to|you choose|pick a"
+        r"|ready for|what'?s next|final round|play again|your call|switch it up"
+        r"|next beat|show me your|\b3\b[^a-z]{0,4}\b2\b[^a-z]{0,4}\b1\b)", _re.I)
     spoken = set()                                # #6 DE-CAN: lines already said this session
     consent = {"yes_ts": 0.0}                     # #5 CONSENT=REAL YES: last real yes/tap/move
     YES_RE = _re.compile(r"\b(yes|yeah|yep|yup|ready|ok|okay|sure|uh[- ]?huh|i did|let's go|go)\b", _re.I)
@@ -444,7 +450,7 @@ async def relay(request):
                     await asyncio.sleep(0.4)
                     if not saylater: continue
                     if hold["on"]: saylater.clear(); continue          # paused game: staged lines die
-                    if sgate["on"] and sgate["mode"] == "hard": continue   # freeze hold: wait for melt
+                    if sgate["on"]: continue   # mid-game (air OR hold): staged lines wait for the ending
                     if speaking["resp_active"] or speaking["v"]: continue
                     line = saylater.pop(0)
                     if line.lower() in spoken: continue
@@ -548,12 +554,17 @@ async def relay(request):
                             except Exception: pass
                         elif intent and not speaking["resp_active"] and not speaking["v"]:
                             inlock["last_cue_resp"] = time.time()
-                            await oai.send_json({"type": "response.create", "response": {
+                            _cue_resp = {
                                 "instructions": (
                                     "[GAME DIRECTOR - improvise, never read this aloud] " + intent
                                     + (" Facts you may use: " + ctx if ctx else "")
                                     + " Respond with ONE tiny spoken line in your OWN fresh words, never reuse "
-                                      "a line you already said, in character, warm and excited, English only, very short.")}})
+                                      "a line you already said, in character, warm and excited, English only, very short.")}
+                            # MID-GAME TOKEN CAP (MACHINE-CERTIFY en-5): air-mode cue lines are
+                            # physically capped — a model that ignores "very short" simply runs out.
+                            if sgate["on"] and sgate["mode"] == "air":
+                                _cue_resp["max_output_tokens"] = 40
+                            await oai.send_json({"type": "response.create", "response": _cue_resp})
                             print("PITCH cue:", intent[:70], "| ctx:", ctx[:70], flush=True)
                         else:
                             print("PITCH cue skip (busy):", intent[:40], flush=True)
@@ -768,6 +779,21 @@ async def relay(request):
                         # #1 TRUTH-GATE SUPPRESS: the instant a move-claim forms with NO fact in the
                         # last FACT_WINDOW s, cancel the response and replace it with neutral hype.
                         resp["buf"] += d
+                        # MIDGAME-BAN WATCHDOG (MACHINE-CERTIFY en-5): instructions alone flake —
+                        # one session obeys "6 words, no questions", the next asks "Ready for the
+                        # next freeze?". While the speak-gate is on (air mode = mid-game), any
+                        # banned shape or a 9th word cancels the response THE MOMENT the transcript
+                        # shows it. Silence beats chatter mid-game; no replacement line.
+                        if (not resp["killed"]) and sgate["on"] and sgate["mode"] == "air":
+                            _buf = resp["buf"]
+                            _banned = MIDGAME_BAN_RE.search(_buf)
+                            _toolong = len(_buf.split()) > 8
+                            if _banned or _toolong:
+                                resp["killed"] = True
+                                print("[MIDGAME-BAN] cancelled (%s): %s" %
+                                      ("pattern:" + _banned.group(0) if _banned else ">8 words", _buf[:70]), flush=True)
+                                try: await oai.send_json({"type": "response.cancel"})
+                                except Exception: pass
                         # #6 NO-SELF-ANSWER: she is picking/confirming a game FOR the kid with no recent real input.
                         if (not resp["killed"]) and (time.time() - kidinput["ts"] > 6.0) and SELFANSWER_RE.search(resp["buf"]):
                             resp["killed"] = True
