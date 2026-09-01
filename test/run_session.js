@@ -25,6 +25,7 @@ const LANG = arg('lang', 'en');
 const POD  = arg('pod', 'gtdmu76ocpjjmu');
 const OUT  = arg('out', path.join(__dirname, 'sessions', LANG + '-' + arg('n', '0')));
 const PORT = +arg('port', 9333);
+const RECORD = process.argv.includes('--record');   // delivery video: screencast + audio tap
 const URL0 = `https://${POD}-8765.proxy.runpod.net/freeze?test=1&nolog=1` + (LANG === 'he' ? '&lang=he' : '');
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -115,6 +116,48 @@ async function waitReply(since, timeoutMs, label) {
   } catch (e) { ev('no-reply:' + label); return null; }
 }
 
+/* ---------- delivery recording (--record) ----------
+   Video: CDP Page.startScreencast — the REAL page pixels (CLI-FILL #10), works headless.
+   Audio: an in-page tap installed BEFORE page scripts run — AudioNode.connect is wrapped
+   so anything routed to ctx.destination (music, her live voice, the engine path) is also
+   fed to a MediaStreamDestination recorded by MediaRecorder. Epoch stamps on both sides
+   let encode_cert.js align the tracks. */
+const FRAMES_DIR = path.join(OUT, 'frames');
+const frames = [];
+if (RECORD) fs.mkdirSync(FRAMES_DIR, { recursive: true });
+const AUDIO_TAP = `(() => {
+  const chunks = []; let rec = null; let startEpoch = 0;
+  const origConnect = AudioNode.prototype.connect;
+  AudioNode.prototype.connect = function(dst, ...rest) {
+    try {
+      if (dst && (dst instanceof AudioDestinationNode)) {
+        const ctx = dst.context;
+        if (!ctx.__recDest) {
+          ctx.__recDest = ctx.createMediaStreamDestination();
+          rec = new MediaRecorder(ctx.__recDest.stream, { mimeType: 'audio/webm;codecs=opus' });
+          rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+          rec.start(1000);
+          startEpoch = Date.now();
+        }
+        origConnect.call(this, ctx.__recDest, ...rest);
+      }
+    } catch (err) {}
+    return origConnect.call(this, dst, ...rest);
+  };
+  window.__recStop = () => new Promise(res => {
+    if (!rec) return res(null);
+    rec.onstop = async () => {
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const u8 = new Uint8Array(await blob.arrayBuffer());
+      let bin = ''; const CH = 0x8000;
+      for (let i = 0; i < u8.length; i += CH) bin += String.fromCharCode.apply(null, u8.subarray(i, i + CH));
+      window.__recB64 = btoa(bin);
+      res({ startEpoch, bytes: u8.length });
+    };
+    rec.stop();
+  });
+})();`;
+
 /* ---------- main ---------- */
 let FR = null;   // freeze schedule — hoisted so collect() works even on early aborts
 (async () => {
@@ -160,6 +203,13 @@ let FR = null;   // freeze schedule — hoisted so collect() works even on early
   ws.onmessage = m => {
     const d = JSON.parse(m.data);
     if (d.id && pending.has(d.id)) { const p = pending.get(d.id); pending.delete(d.id); d.error ? p.rej(new Error(d.error.message)) : p.res(d.result); }
+    else if (d.method === 'Page.screencastFrame') {
+      const { data, metadata, sessionId } = d.params;
+      const n = frames.length;
+      fs.writeFileSync(path.join(FRAMES_DIR, `f${String(n).padStart(6, '0')}.jpg`), Buffer.from(data, 'base64'));
+      frames.push({ n, ts: metadata.timestamp });
+      cdp('Page.screencastFrameAck', { sessionId }).catch(() => {});
+    }
     else if (d.method === 'Network.requestWillBeSent') {
       const u = d.params.request.url;
       if (/\/session\/|\/pulse|\/api\/v1\//.test(u))
@@ -168,6 +218,17 @@ let FR = null;   // freeze schedule — hoisted so collect() works even on early
   };
   await cdp('Runtime.enable'); await cdp('Network.enable');
   ev('cdp-attached');
+
+  if (RECORD) {
+    /* the tap must exist before page scripts build the audio graph — install it as a
+       new-document script and reload so this session runs with the tap in place */
+    await cdp('Page.enable');
+    await cdp('Page.addScriptToEvaluateOnNewDocument', { source: AUDIO_TAP });
+    await cdp('Page.navigate', { url: URL0 });
+    await sleep(1500);
+    await cdp('Page.startScreencast', { format: 'jpeg', quality: 75, maxWidth: 1280, maxHeight: 800, everyNthFrame: 2 });
+    ev('record-armed');
+  }
 
   /* 3. harness up → tap start */
   await until(async () => evalJs('typeof window.__test !== "undefined"').catch(() => false), 20000, 500, '__test harness');
@@ -271,6 +332,24 @@ let FR = null;   // freeze schedule — hoisted so collect() works even on early
 
   async function collect() {
     ev('collecting');
+    if (RECORD) {
+      try {
+        await cdp('Page.stopScreencast');
+        const meta = await evalJs('window.__recStop ? __recStop() : null', true);
+        if (meta && meta.bytes) {
+          const parts = [];
+          for (let i = 0; i < meta.bytes * 2; i += 1500000) {   // b64 is ~4/3×, slice generously
+            const s = await evalJs(`window.__recB64.slice(${i}, ${i + 1500000})`);
+            if (!s) break;
+            parts.push(s);
+            if (s.length < 1500000) break;
+          }
+          fs.writeFileSync(path.join(OUT, 'audio.webm'), Buffer.from(parts.join(''), 'base64'));
+          fs.writeFileSync(path.join(OUT, 'recmeta.json'), JSON.stringify({ audioStartEpoch: meta.startEpoch, audioBytes: meta.bytes, frames }));
+          ev('record-saved', { frames: frames.length, audioKB: Math.round(meta.bytes / 1024) });
+        } else ev('record-no-audio');
+      } catch (e) { ev('record-fail', { err: String(e && e.message).slice(0, 120) }); }
+    }
     const logs = await evalJs('__test.logs()').catch(() => []);
     const energy = await evalJs('__test.energy()').catch(() => []);
     const fin = await state().catch(() => null);

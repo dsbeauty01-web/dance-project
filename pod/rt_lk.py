@@ -253,20 +253,25 @@ async def relay(request):
     INVITE_RE = _re.compile(r"(can you|could you|show me|let'?s|try|give (me|it|that|your|a)|want to|wanna|how about|ready to|do a|go for|lift|shrug your|hold (it|still)|don'?t move|like a statue|show off|when you|check (this|it) out|check out|here'?s|discover|glow|magic light|see (the|that|it)|add a|next|other shoulder|come on|pick a game)", _re.I)
     # #6 NO-SELF-ANSWER: she cannot pick/confirm FOR the kid — blocked unless real kid input is recent.
     SELFANSWER_RE = _re.compile(r"(awesome choice|great choice|good (pick|choice)|nice pick|let'?s do (freeze|wave|up ?groove|animal)|you picked|you chose|i'?ll pick|we'?ll (do|play) (freeze|wave|up ?groove)|great, (freeze|wave)|perfect, let'?s)", _re.I)
-    resp = {"buf": "", "killed": False}          # per-response transcript accumulator
+    resp = {"buf": "", "killed": False, "origin": None}   # per-response transcript accumulator + origin tag
+    # SAY-ENFORCE (he-9): staged exact lines get verified against her actual transcript;
+    # a paraphrase in intro/ending is re-queued ONCE. Enforcement, not hope (the en-5 lesson).
+    sayenf = {"line": None, "tried": set()}
     # MIDGAME-BAN (MACHINE-CERTIFY): shapes that may never air mid-game — questions,
     # self-DJ round/animal offers, countdowns, wrap-ups. Enforced by cancel, not hope.
     MIDGAME_BAN_RE = _re.compile(
         r"(\?|another round|next round|new animal|how about|want to|you choose|pick a"
         r"|ready for|what'?s next|final round|play again|your call|switch it up"
         r"|next beat|show me your|\b3\b[^a-z]{0,4}\b2\b[^a-z]{0,4}\b1\b"
-        r"|עוד סיבוב|סיבוב נוסף|סיבוב אחרון|רוצה לשחק|רוצים לשחק|איזו חיה|לבחור חיה|נשחק שוב)", _re.I)
+        r"|עוד סיבוב|סיבוב נוסף|סיבוב אחרון|רוצה לשחק|רוצים לשחק|איזו חיה|לבחור חיה|נשחק שוב"
+        # he-10: she said "פאקינג פלמינגו" to a kids' game — profanity in ANY language dies mid-word
+        r"|פאקינג|\bפאק\b|fuck|shit|damn|קללה)", _re.I)
     spoken = set()                                # #6 DE-CAN: lines already said this session
     consent = {"yes_ts": 0.0}                     # #5 CONSENT=REAL YES: last real yes/tap/move
     YES_RE = _re.compile(r"\b(yes|yeah|yep|yup|ready|ok|okay|sure|uh[- ]?huh|i did|let's go|go)\b", _re.I)
     if _hebrew:  # HEBREW MODE: the ready-gate hears Hebrew yes-words (EN words still pass;
         # can/ken = Whisper's English spelling of כן, learned in he-2)
-        YES_RE = _re.compile(r"(\b(yes|yeah|yep|ready|ok|okay|can|ken)\b|כן|יאללה|מוכן|מוכנה|בטח|סבבה|אוקיי|קדימה)", _re.I)
+        YES_RE = _re.compile(r"(\b(yes|yeah|yep|ready|ok|okay|can|ken)\b|כן|קן|יאללה|מוכן|מוכנה|בטח|סבבה|אוקיי|קדימה)", _re.I)
     hidx = {"i": 0}
     # #4 GARBLE-IGNORE: <3 chars or mostly-non-latin nonsense = not real input.
     def is_garble(t):
@@ -275,7 +280,8 @@ async def relay(request):
         if t.lower().strip("!.?,") in ("hi", "ok", "no", "yes", "ya", "yo", "hey"): return False
         # HEBREW MODE: tiny real Hebrew words pass too (כן/לא are 2 chars — the len rule ate them)
         if t.strip("!.?, ") in ("כן", "לא", "היי", "די", "עוד", "קפוא", "סבבה", "מוכן",
-                                 "מוכנה", "יאללה", "אוקיי"): return False
+                                 "מוכנה", "יאללה", "אוקיי",
+                                 "קן"): return False   # he-12: Whisper wrote כן as קן — sound-alike yes
         if len(t) < 3: return True
         # HEBREW MODE: Hebrew letters count as real letters; in EN the old rule is unchanged
         letters = _re.findall(r"[A-Za-zא-ת]" if _hebrew else r"[A-Za-z]", t)
@@ -304,6 +310,16 @@ async def relay(request):
     # (one optional whisper allowed). #3 FREEZE = REAL HOLD: praise only on a 'freeze_held' fact.
     statue = {"active": False, "ts": 0.0, "whispered": False, "allow": False}
     STATUE_MAX = 12.0
+    # TRANSCRIPT-RACE (MACHINE-CERTIFY he-4 2026-09-01): the realtime API's transcription
+    # event is flaky-slow (13.0s on he-4's name phrase vs 0.4-1.7s in clean EN runs — the
+    # same disease behind en-10/en-13). The model hears the audio natively; the transcript
+    # exists only as OUR INPUT-LOCK evidence. So the mic audio is tapped per-utterance and
+    # REST-transcribed in parallel (same model), and whichever transcript arrives FIRST
+    # runs the ONE validation path. The lock is not weakened: both racers funnel into the
+    # same checks and the same one-shot; a per-utterance guard makes the loser a no-op.
+    kidbuf = bytearray()          # pcm16@24k mirror of exactly what the mic sent OAI
+    UTT_PREROLL = 14400           # 300ms pre-VAD audio included in each slice
+    utt = {"n": 0, "start": 0, "rt_seen": 0, "handled": set()}
     FREEZE_CALL_RE = _re.compile(r"(show me a freeze|like a statue|don'?t move|hold (it|still)|freeze!)", _re.I)
 
     async def engine_worker():
@@ -451,27 +467,157 @@ async def relay(request):
             # she was speaking wait here and fire the moment she goes idle — the ending
             # trio (score line, fun question) must never vanish behind a late verdict.
             saylater = []
+            def say_wrap(line):
+                # he-8: the English say-exactly wrapper around a Hebrew line got ignored —
+                # the model swapped the score line for its own continuation ("ואנחנו חוזרים
+                # לתנועה"). Language-matched + hardened wrapper (mirrors the he-1 cue fix).
+                if _hebrew:
+                    return ("אמרי בקול רק את השורה הבאה, מילה במילה, בדיוק כפי שהיא כתובה. "
+                            "אל תחליפי אותה במשפט אחר, אל תוסיפי מילים לפניה או אחריה, "
+                            "ואל תגיבי לשיחה. רק השורה הזאת, פעם אחת, בקול חם ונלהב: "
+                            '"' + line + '"')
+                return ("Say ONLY this exact line out loud, word for word, exactly as written. "
+                        "Do NOT replace it with another sentence, do NOT add words before or "
+                        "after it, do NOT respond to the conversation. Just this line, once, "
+                        'in your warm excited dance-teacher voice: "' + line + '"')
+            def say_resp(line):
+                # OUT-OF-BAND EXACT LINE (he-10): with conversation history in view the model
+                # paraphrased EVERY staged Hebrew line, even on enforce-retry — momentum beat
+                # instructions. conversation:"none" gives it NOTHING to blend with: its whole
+                # world is one "repeat after me" message. Same live voice, same output path.
+                _ask = ("חזרי אחריי מילה במילה, פעם אחת, בקול חם ונלהב: " if _hebrew
+                        else "Repeat after me word for word, once, warm and excited: ")
+                return {"conversation": "none",
+                        "instructions": say_wrap(line),
+                        "input": [{"type": "message", "role": "user",
+                                   "content": [{"type": "input_text", "text": _ask + line}]}]}
             async def say_flush():
                 while True:
                     await asyncio.sleep(0.4)
                     if not saylater: continue
                     if hold["on"]: saylater.clear(); continue          # paused game: staged lines die
                     if sgate["on"]: continue   # mid-game (air OR hold): staged lines wait for the ending
-                    if time.time() - kidinput["ts"] < 5.0: continue    # kid just spoke: HER REPLY airs first
+                    # kid just spoke: HER REPLY airs first. 2.5s (was 5.0, he-7): with the
+                    # transcript race her one-shot goes resp_active well inside 2.5s, and the
+                    # 5s pause starved the ending trio out of the session's final window.
+                    if time.time() - kidinput["ts"] < 2.5: continue
                     if speaking["resp_active"] or speaking["v"]: continue
+                    if time.time() - speaking["last_chunk"] < 0.8: continue   # engine still draining
                     line = saylater.pop(0)
                     if line.lower() in spoken: continue
                     spoken.add(line.lower())
                     try:
-                        await oai.send_json({"type": "response.create", "response": {
-                            "instructions": (
-                                "You are mid-game. Say this ONE short line out loud, exactly as written, "
-                                "once, in your warm excited dance-teacher voice, then stop. Do not add anything. "
-                                'Line: "' + line + '"')}})
+                        resp["origin"] = "say"; sayenf["line"] = line
+                        await oai.send_json({"type": "response.create", "response": say_resp(line)})
                         print("PITCH say (flushed):", line[:60], flush=True)
                     except Exception as e:
                         print("PITCH flush err", e, flush=True)
             sayflush_task = asyncio.create_task(say_flush())
+
+            async def kid_transcript(ktxt, src, n):
+                # TRANSCRIPT-RACE: first transcript per utterance wins; the loser is a no-op.
+                if n in utt["handled"]:
+                    return
+                # LAW-INPUT-LOCK VALIDATION: a kid-turn is real ONLY if the
+                # transcript has >=2 real English words, OR it is the session's
+                # FIRST valid turn and is one clean name-shaped token (the name
+                # answer). Everything else is consumed silently — no generation.
+                # HEBREW MODE (MACHINE-CERTIFY he-1): the Latin-only word regex saw
+                # ZERO words in perfect Hebrew transcripts ("קוראים לי שוקי") and the
+                # lock silently ate every kid turn — in HE mode Hebrew letters are words.
+                _words = _re.findall(r"[A-Za-zא-ת][A-Za-zא-ת'\-]*" if _hebrew else r"[A-Za-z][A-Za-z'\-]*", ktxt)
+                _drop = None
+                if not ktxt or is_garble(ktxt):
+                    _drop = "garble/empty"
+                elif len(_words) >= 2:
+                    _drop = None
+                elif len(_words) == 1 and (_words[0].lower() in (
+                      "yes", "yeah", "yep", "no", "ok", "okay", "ready", "sure",
+                      "freeze", "wave", "groove", "stop", "again", "go", "hi", "hey", "done",
+                      "כן", "לא", "אוקיי", "סבבה", "מוכן", "מוכנה", "עוד", "די", "היי",
+                      "יאללה", "קפוא", "ביי", "קן")
+                      # he-2: Whisper heard the Hebrew כן as English "can" — in HE mode
+                      # the sound-alikes of כן are the kid saying yes
+                      or (_hebrew and _words[0].lower() in ("can", "ken", "cane", "kein"))):
+                    _drop = None                     # real single-word answers are turns
+                elif (inlock["valid_turns"] == 0 and len(_words) == 1
+                      and (ktxt[:1].isupper() or _hebrew) and len(_words[0]) >= 2 and _words[0].lower() not in
+                      ("wow", "what", "cool", "nice", "hello")):
+                    _drop = None                     # name beat: name-shaped token (Hebrew has no case)
+                else:
+                    _drop = "sub-2-word"
+                # RACE POLICY: the REST racer may only ACCEPT a turn, never reject one.
+                # Its transcript of a VAD slice can be junk (probe: "아." for a half
+                # phrase) — a junk win must NOT consume the utterance; the realtime
+                # transcript stays the sole authority for drops. INPUT-LOCK unchanged.
+                if src == "rest" and _drop:
+                    print("[RACE] rest junk (", _drop, ") — deferring utt", n, "to rt", flush=True)
+                    return
+                utt["handled"].add(n)
+                if src == "rest":
+                    print("[RACE] rest transcript won utt", n, ":", ktxt[:40], flush=True)
+                if _drop:
+                    print("[INPUT-LOCK] dropped:", _drop, "|", ktxt[:30], flush=True)
+                    try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"[INPUT-LOCK] dropped ("+_drop+"): "+ktxt[:60]+"\n")
+                    except Exception: pass
+                else:
+                    # real kid input: NOW reset the turn counter, record input, log.
+                    inlock["valid_turns"] += 1
+                    turn["kid_ts"] = time.time(); turn["retried"] = False
+                    kidinput["ts"] = time.time()
+                    # KID OUTRANKS THE QUEUE (en-10, refined he-3): clearing the
+                    # queue killed the trio's score line when the kid answered fast.
+                    # Now the flush just PAUSES around a kid turn (say_flush skips
+                    # for 5s after kidinput) — her reply generates first, staged
+                    # lines follow after. Nothing is lost, nothing steals her turn.
+                    await ws_client.send_json({"type": "you_text", "text": ktxt})
+                    try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"KID:  "+ktxt+"\n")
+                    except Exception: pass
+                    # #5 CONSENT=REAL YES: a clear spoken yes/ready/ok is a real consent.
+                    if YES_RE.search(ktxt):
+                        consent["yes_ts"] = time.time(); print("[CONSENT] real yes:", ktxt[:40], flush=True)
+                    # ONE-SHOT GENERATION: this validated turn buys exactly one response.
+                    # SPEAK-GATE: mid-game the kid's words are context only - no reply
+                    # (and no stealing the gap's air credit).
+                    if sgate["on"]:
+                        print("[SPEAK-GATE] kid turn stored, no reply (game phase)", flush=True)
+                    else:
+                        try:
+                            resp["origin"] = "kid"
+                            await oai.send_json({"type": "response.create"})
+                            print("[INPUT-LOCK] one-shot fired for turn", inlock["valid_turns"], flush=True)
+                        except Exception as _e:
+                            print("[INPUT-LOCK] fire err", _e, flush=True)
+
+            async def rest_transcribe(audio, n):
+                # TRANSCRIPT-RACE: our own transcription of the tapped utterance (same model).
+                try:
+                    import io as _io
+                    bio = _io.BytesIO()
+                    with wave.open(bio, "wb") as w:
+                        w.setnchannels(1); w.setsampwidth(2); w.setframerate(24000)
+                        w.writeframes(audio)
+                    def _form():
+                        f = aiohttp.FormData()
+                        f.add_field("file", bio.getvalue(), filename="utt.wav", content_type="audio/wav")
+                        f.add_field("model", "gpt-4o-mini-transcribe")
+                        f.add_field("language", "he" if _hebrew else "en")
+                        return f
+                    async with aiohttp.ClientSession() as _s:
+                        for _attempt in (1, 2):   # he-12: one retry on 429 — the bye died when
+                            # BOTH racers failed at once (rt 'transcription failed' + rest 429)
+                            async with _s.post("https://api.openai.com/v1/audio/transcriptions",
+                                               headers={"Authorization": "Bearer " + KEY},
+                                               data=_form(), timeout=aiohttp.ClientTimeout(total=8)) as r:
+                                if r.status == 200:
+                                    j = await r.json()
+                                    await kid_transcript((j.get("text") or "").strip(), "rest", n)
+                                    break
+                                print("[RACE] rest http", r.status, "attempt", _attempt, flush=True)
+                                if r.status != 429: break
+                            await asyncio.sleep(1.2)
+                except Exception as _e:
+                    print("[RACE] rest err", str(_e)[:60], flush=True)
 
             async def from_browser():
                 async for msg in ws_client:
@@ -504,6 +650,8 @@ async def relay(request):
                             continue
                         if hold["on"]:      # PAUSE (2026-08-04): game is paused — she must not hear
                             continue
+                        try: kidbuf.extend(base64.b64decode(m["data"]))   # TRANSCRIPT-RACE tap
+                        except Exception: pass
                         await oai.send_json({"type": "input_audio_buffer.append", "audio": m["data"]})
                     elif t == "text":
                         if is_garble(m.get("text", "")):                        # #4 GARBLE: ignore typed nonsense too
@@ -521,21 +669,27 @@ async def relay(request):
                         line = (m.get("text") or "").strip()
                         if line and line.lower() in spoken:      # #6 DE-CAN: never the same line twice
                             print("[DE-CAN] dropped duplicate staged line:", line[:50], flush=True)
-                        elif line and not speaking["resp_active"] and not speaking["v"]:
+                        elif (line and not speaking["resp_active"] and not speaking["v"]
+                              and time.time() - kidinput["ts"] > 2.5
+                              and time.time() - speaking["last_chunk"] > 0.8):
+                            # he-6 guards on the direct path: a staged line sent while the
+                            # kid's turn was still in flight (transcript pending / her reply
+                            # forming) collided with the one-shot, got killed by the overlap
+                            # guard, and DE-CAN blocked the retry. Direct send now requires
+                            # a settled channel — recent kid input or a draining engine
+                            # queues the line instead. (he-7 proved full queueing starves
+                            # the trio and floats air credits — direct stays the fast path.)
                             spoken.add(line.lower())
-                            await oai.send_json({"type": "response.create", "response": {
-                                "instructions": (
-                                    "You are mid-game. Say this ONE short line out loud, exactly as written, "
-                                    "once, in your warm excited dance-teacher voice, then stop. Do not add anything. "
-                                    'Line: "' + line + '"')}})
+                            resp["origin"] = "say"; sayenf["line"] = line
+                            await oai.send_json({"type": "response.create", "response": say_resp(line)})
                             print("PITCH say:", line, flush=True)
                         elif line:
                             # QUEUE, don't drop (MACHINE-CERTIFY en-4): the ending trio's
                             # score line + fun question arrived while the final verdict was
                             # still speaking and vanished — the say_flush watcher fires
-                            # queued lines the moment she goes idle. Cap 3: staged lines
-                            # are moments, a backlog of them is noise.
-                            if len(saylater) < 3:
+                            # queued lines the moment she goes idle. Cap 4: the trio must
+                            # never drop its tail.
+                            if len(saylater) < 4:
                                 saylater.append(line)
                                 print("PITCH queued (busy):", line[:50], flush=True)
                             else:
@@ -567,11 +721,13 @@ async def relay(request):
                                     + (" Facts you may use: " + ctx if ctx else "")
                                     + " Respond with ONE tiny spoken line in your OWN fresh words, never reuse "
                                       "a line you already said, in character, warm and excited, "
-                                    + ("HEBREW ONLY (עברית), " if _hebrew else "English only, ") + "very short.")}
+                                    + ("HEBREW ONLY (עברית), בלי קללות ובלי סלנג באנגלית, " if _hebrew else "English only, ")
+                                    + "kid-safe words only, very short.")}
                             # MID-GAME TOKEN CAP (MACHINE-CERTIFY en-5): air-mode cue lines are
                             # physically capped — a model that ignores "very short" simply runs out.
                             if sgate["on"] and sgate["mode"] == "air":
                                 _cue_resp["max_output_tokens"] = 40
+                            resp["origin"] = "cue:" + intent.split(":")[0]
                             await oai.send_json({"type": "response.create", "response": _cue_resp})
                             print("PITCH cue:", intent[:70], "| ctx:", ctx[:70], flush=True)
                         else:
@@ -854,11 +1010,35 @@ async def relay(request):
                                 speaking["last_chunk"] = time.time(); await engine_q.put(data[i:i+FLUSH])
                     elif et in ("response.output_audio_transcript.done", "response.audio_transcript.done"):
                         txt = e.get("transcript", "") or ""
+                        # ORIGIN TAG (he-9 forensics): who asked for this line?
+                        _org = resp["origin"] or "auto"
+                        resp["origin"] = None
+                        print("[ORIGIN]", _org, "|", txt[:60], flush=True)
+                        # SAY-ENFORCE (he-9): staged exact line paraphrased -> requeue ONCE
+                        # (intro/ending only: an extra ending line is legal, a gap line is not).
+                        if _org == "say" and sayenf["line"]:
+                            _want, _got = sayenf["line"], txt
+                            sayenf["line"] = None
+                            _norm = lambda s: _re.sub(r"[^A-Za-zא-ת0-9]", "", s or "").lower()
+                            import difflib as _dl
+                            _ok = _norm(_want) in _norm(_got) or _dl.SequenceMatcher(
+                                None, _norm(_want), _norm(_got)).ratio() >= 0.6
+                            if (not _ok) and (not sgate["on"]) and _want not in sayenf["tried"]:
+                                sayenf["tried"].add(_want)
+                                spoken.discard(_want.lower())
+                                saylater.insert(0, _want)
+                                print("[SAY-ENFORCE] paraphrase detected, requeued:", _want[:50], flush=True)
                         # MIDGAME-BAN (en-7): a watchdog-cancelled response airs at most a sub-second
                         # stub — its partial transcript must not surface as a full spoken line
                         # (the kill itself is already logged pod-side for the graders).
                         if resp["killed"] and sgate["on"] and sgate["mode"] == "air":
                             print("[MIDGAME-BAN] stub suppressed:", txt[:60], flush=True)
+                        elif sgate["on"] and sgate["mode"] == "hard":
+                            # GHOST LINE (he-10): a response finishing inside a hard hold is
+                            # never HEARD (AirVoice.cut + engine block — the energy graders
+                            # prove silence), but its transcript reached the page log and
+                            # counted as a 3rd gap line. A line nobody heard is not a line.
+                            print("[HOLD-MUTE] ghost transcript suppressed:", txt[:60], flush=True)
                         else:
                             await ws_client.send_json({"type": "nova_done", "text": txt})
                         # [PERSONA-LEAK] watch (READY.md Part 6) - expected count: 0
@@ -893,8 +1073,15 @@ async def relay(request):
                             except Exception: pass
                     elif et == "input_audio_buffer.speech_started":
                         turn["kid_ts"] = time.time(); turn["retried"] = False   # TURN-GATE: real voice
+                        utt["n"] += 1; utt["start"] = max(0, len(kidbuf) - UTT_PREROLL)   # TRANSCRIPT-RACE
                         if not speaking["v"]:
                             await ws_client.send_json({"type": "status", "hearing": True})
+                    elif et == "input_audio_buffer.speech_stopped":
+                        # TRANSCRIPT-RACE: snapshot the utterance, start our racer
+                        _ua = bytes(kidbuf[utt["start"]:])
+                        print("[RACE] armed utt", utt["n"], "bytes", len(_ua), flush=True)
+                        if len(_ua) > 4800:      # >100ms of real audio
+                            asyncio.create_task(rest_transcribe(_ua, utt["n"]))
                     elif et == "conversation.item.input_audio_transcription.delta":
                         await ws_client.send_json({"type": "you_delta", "delta": e.get("delta", "")})
                     elif et == "response.created":
@@ -941,66 +1128,13 @@ async def relay(request):
                             await ws_client.send_json({"type": "status", "speaking": False, "state": "listening"})
                         asyncio.create_task(reopen())
                     elif et == "conversation.item.input_audio_transcription.completed":
-                        ktxt = (e.get("transcript", "") or "").strip()
-                        # LAW-INPUT-LOCK VALIDATION: a kid-turn is real ONLY if the
-                        # transcript has >=2 real English words, OR it is the session's
-                        # FIRST valid turn and is one clean name-shaped token (the name
-                        # answer). Everything else is consumed silently — no generation.
-                        # HEBREW MODE (MACHINE-CERTIFY he-1): the Latin-only word regex saw
-                        # ZERO words in perfect Hebrew transcripts ("קוראים לי שוקי") and the
-                        # lock silently ate every kid turn — in HE mode Hebrew letters are words.
-                        _words = _re.findall(r"[A-Za-zא-ת][A-Za-zא-ת'\-]*" if _hebrew else r"[A-Za-z][A-Za-z'\-]*", ktxt)
-                        _drop = None
-                        if not ktxt or is_garble(ktxt):
-                            _drop = "garble/empty"
-                        elif len(_words) >= 2:
-                            _drop = None
-                        elif len(_words) == 1 and (_words[0].lower() in (
-                              "yes", "yeah", "yep", "no", "ok", "okay", "ready", "sure",
-                              "freeze", "wave", "groove", "stop", "again", "go", "hi", "hey", "done",
-                              "כן", "לא", "אוקיי", "סבבה", "מוכן", "מוכנה", "עוד", "די", "היי",
-                              "יאללה", "קפוא", "ביי")
-                              # he-2: Whisper heard the Hebrew כן as English "can" — in HE mode
-                              # the sound-alikes of כן are the kid saying yes
-                              or (_hebrew and _words[0].lower() in ("can", "ken", "cane", "kein"))):
-                            _drop = None                     # real single-word answers are turns
-                        elif (inlock["valid_turns"] == 0 and len(_words) == 1
-                              and (ktxt[:1].isupper() or _hebrew) and len(_words[0]) >= 2 and _words[0].lower() not in
-                              ("wow", "what", "cool", "nice", "hello")):
-                            _drop = None                     # name beat: name-shaped token (Hebrew has no case)
-                        else:
-                            _drop = "sub-2-word"
-                        if _drop:
-                            print("[INPUT-LOCK] dropped:", _drop, "|", ktxt[:30], flush=True)
-                            try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"[INPUT-LOCK] dropped ("+_drop+"): "+ktxt[:60]+"\n")
-                            except Exception: pass
-                        else:
-                            # real kid input: NOW reset the turn counter, record input, log.
-                            inlock["valid_turns"] += 1
-                            turn["kid_ts"] = time.time(); turn["retried"] = False
-                            kidinput["ts"] = time.time()
-                            # KID OUTRANKS THE QUEUE (en-10, refined he-3): clearing the
-                            # queue killed the trio's score line when the kid answered fast.
-                            # Now the flush just PAUSES around a kid turn (say_flush skips
-                            # for 5s after kidinput) — her reply generates first, staged
-                            # lines follow after. Nothing is lost, nothing steals her turn.
-                            await ws_client.send_json({"type": "you_text", "text": ktxt})
-                            try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"KID:  "+ktxt+"\n")
-                            except Exception: pass
-                            # #5 CONSENT=REAL YES: a clear spoken yes/ready/ok is a real consent.
-                            if YES_RE.search(ktxt):
-                                consent["yes_ts"] = time.time(); print("[CONSENT] real yes:", ktxt[:40], flush=True)
-                            # ONE-SHOT GENERATION: this validated turn buys exactly one response.
-                            # SPEAK-GATE: mid-game the kid's words are context only - no reply
-                            # (and no stealing the gap's air credit).
-                            if sgate["on"]:
-                                print("[SPEAK-GATE] kid turn stored, no reply (game phase)", flush=True)
-                            else:
-                                try:
-                                    await oai.send_json({"type": "response.create"})
-                                    print("[INPUT-LOCK] one-shot fired for turn", inlock["valid_turns"], flush=True)
-                                except Exception as _e:
-                                    print("[INPUT-LOCK] fire err", _e, flush=True)
+                        # TRANSCRIPT-RACE: the realtime transcript is now just one racer —
+                        # validation lives in kid_transcript (shared with the REST path).
+                        utt["rt_seen"] += 1
+                        await kid_transcript((e.get("transcript", "") or "").strip(), "rt", utt["rt_seen"])
+                    elif et == "conversation.item.input_audio_transcription.failed":
+                        utt["rt_seen"] += 1      # TRANSCRIPT-RACE: keep the racers' counters aligned
+                        print("[RACE] rt transcription failed for utt", utt["rt_seen"], flush=True)
                     elif et == "error":
                         await log("ERROR: " + str(e.get("error", {}).get("message", ""))[:120])
 

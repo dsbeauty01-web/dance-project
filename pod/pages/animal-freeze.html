@@ -449,6 +449,21 @@ const NovaSay = {
    Live proof on screen: the ear pulses the moment the voice detector fires, the chip
    shows YOUR words as they transcribe, and flashes green when the turn is accepted.
    If you talk and the ear never moves — the mic signal is not reaching her. */
+/* KID NAME (MACHINE-CERTIFY he-11): the ending's goodbye must carry the kid's name,
+   but NovaEnding got name:null — the page heard the name in the intro and dropped it.
+   Sniff the FIRST intro transcript that carries a name shape; the ending reuses it. */
+const KidName = {
+  v: null,
+  sniff(t){
+    try{
+      if(this.v || (typeof PHASE!=='undefined' && typeof PH!=='undefined' && PHASE!==PH.INTRO)) return;
+      t=(t||'').replace(/[.,!?"']/g,' ').trim();
+      let m=t.match(/(?:קוראים לי|שמי|אני)\s+([א-ת]{2,})/) || t.match(/(?:name is|i am|i'?m)\s+([A-Za-z]{2,})/i);
+      if(!m){ const w=t.split(/\s+/).filter(x=>/^[A-Zא-ת][A-Za-zא-ת']*$/.test(x) && !/^(נובה|nova|hi|hey|hello|היי|שלום|כן|yes)$/i.test(x)); if(w.length===1) m=[null,w[0]]; }
+      if(m && m[1] && !/^(נובה|nova)$/i.test(m[1])) this.v=m[1];
+    }catch(_){}
+  }
+};
 const Ear = {
   el:null, _t:null,
   ensure(){
@@ -707,7 +722,7 @@ const Live = {
       if(m.type==='voice_air'){ try{ AirVoice.push(m.data); }catch(_){} return; }   // her live voice, in the air
       if(m.type==='you_delta'){ try{ Ear._buf+=(m.delta||''); Ear.delta(Ear._buf.slice(-46)); }catch(_){} return; }
       if(m.type==='ack')            window.postMessage({type:'nova-ack',of:m.of,game:m.game},'*');
-      else if(m.type==='you_text'){ try{ Ear._buf=''; Ear.heard((m.text||'').slice(0,46)); }catch(_){}
+      else if(m.type==='you_text'){ try{ Ear._buf=''; Ear.heard((m.text||'').slice(0,46)); KidName.sniff(m.text||''); }catch(_){}
                                     window.postMessage({type:'kid-said',text:m.text||''},'*'); }
       else if(m.type==='nova_done') window.postMessage({type:'nova-said',text:m.text||''},'*');
       else if(m.type==='status'){
@@ -1709,7 +1724,7 @@ function endGame(){
     if (window.NovaEnding) {
       NovaEnding.show({
         game: 'freeze',
-        name: null,
+        name: (typeof KidName !== 'undefined' && KidName.v) || null,   /* const ≠ window prop (he-12) */
         bestMoment: best,
         lang: LANG_HE ? 'he' : 'en',
         mode: (window.Live && Live.on) ? 'live' : 'silent',
