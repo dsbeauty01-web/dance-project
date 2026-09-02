@@ -150,8 +150,9 @@ class ChatBrain:
             "action": "answer",
             "platform": nxt["platform"],
             "user_name": nxt["user_name"],
+            "viewer_text": nxt["text"],                # original msg -> maya_rt "chat" intake
             "intent": nxt["intent"],
-            "voice_text": voice,                       # -> maya_rt Realtime speaks this
+            "voice_text": voice,                       # fallback verbatim line ("say" intake)
             "chat_reply": name_first(nxt["user_name"], chat_reply),  # -> insert/comment
             "lead_row": lead,                          # -> leads sheet (BUY/ME/LINK)
             "filler": f"{nxt['user_name']} — one sec…", # spoken if answer > FILLER_AFTER_S

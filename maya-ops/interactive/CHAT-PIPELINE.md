@@ -30,8 +30,12 @@ if answer would exceed 1.5s · NEVER fake chat when a pipe is down (emits STATUS
    live FB video id passed to `ChatEars.run_facebook`.
 3. **Payment/buy_url**: still `PLACEHOLDER_SET_BY_HUMAN` in `serum-c.en.json`. Until a
    real link is set, purchase replies post WITHOUT a link and flag `[NEEDS-HUMAN]`.
-4. **maya_rt `/chat-in`**: confirm the Realtime brain exposes a `say`-text intake so
-   `chat_live.Speaker` can drive the on-air voice (wire if absent).
+4. ✅ **maya_rt wiring DONE**: `chat_live.Speaker` connects to maya_rt's real `/rt`
+   WebSocket (port 8765) and forwards each admitted viewer message as
+   `{"type":"chat","name","text"}` — maya_rt's existing chat handler answers them
+   BY NAME in her own truth-gated voice. At startup it pushes the catalog facts via
+   `{"type":"product","notes":...}` so her answers match the catalog. `build_rt_msg`
+   wire-shape is unit-tested.
 
 ## T4 — prove it live (one pod session, ask first)
 Unlisted broadcast, planted set + 2 humans: greeting→name hello · price→link reply ·

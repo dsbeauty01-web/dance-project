@@ -19,17 +19,68 @@ import chat_ears
 
 
 # ---- pluggable outbound -------------------------------------------------------
+def build_rt_msg(kind: str, name: str = "", text: str = "") -> dict:
+    """Exact wire shape maya_rt's /rt WebSocket expects (pure -> testable).
+    'chat' = a viewer message; maya_rt answers THEM by name, truth-gated, in its
+    own voice. 'say' = operator line spoken verbatim (fallback)."""
+    if kind == "chat":
+        return {"type": "chat", "name": name, "text": text}
+    return {"type": "say", "text": text}
+
+
 class Speaker:
-    """Sends the voice line to maya_rt's Realtime brain (it speaks on-stream)."""
-    def __init__(self, rt_url=os.environ.get("MAYA_RT_URL", "http://127.0.0.1:8010")):
-        self.rt_url = rt_url.rstrip("/")
-    def speak(self, text: str) -> bool:
+    """Director channel into maya_rt's /rt WebSocket (port 8765). Forwards the viewer
+    message as a 'chat' event so Maya answers by name in her own voice; falls back to
+    'say' (verbatim) if asked. Persistent WS on a background asyncio thread. NEVER
+    fabricates — returns False if the socket is down (caller keeps the queue)."""
+    def __init__(self, rt_url=os.environ.get("MAYA_RT_WS", "ws://127.0.0.1:8765/rt")):
+        self.rt_url = rt_url
+        self._ws = None
+        self._loop = None
+        self._start()
+
+    def _start(self):
+        import threading, asyncio
+        def _runner():
+            self._loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self._loop)
+            self._loop.run_until_complete(self._connect())
+            self._loop.run_forever()
+        threading.Thread(target=_runner, daemon=True).start()
+
+    async def _connect(self):
         try:
-            import requests
-            r = requests.post(self.rt_url + "/chat-in", json={"say": text}, timeout=5)
-            return r.ok
+            import websockets
+            self._ws = await websockets.connect(self.rt_url, max_size=16 * 1024 * 1024)
+        except Exception:
+            self._ws = None
+
+    def _send(self, msg: dict) -> bool:
+        import asyncio, json as _json
+        if not self._loop:
+            return False
+        async def _do():
+            if self._ws is None:
+                await self._connect()
+            if self._ws is None:
+                return False
+            await self._ws.send(_json.dumps(msg))
+            return True
+        try:
+            fut = asyncio.run_coroutine_threadsafe(_do(), self._loop)
+            return bool(fut.result(timeout=5))
         except Exception:
             return False
+
+    def chat(self, name: str, text: str) -> bool:
+        return self._send(build_rt_msg("chat", name, text))
+
+    def say(self, text: str) -> bool:
+        return self._send(build_rt_msg("say", text=text))
+
+    # back-compat: speak() = say verbatim
+    def speak(self, text: str) -> bool:
+        return self.say(text)
 
 
 class Replier:
@@ -80,9 +131,17 @@ def run(catalog: dict, ears=None, speaker=None, replier=None, leads=None,
         dry_run=False, max_ticks=None, live_chat_id=None, on_plan=None, clock=time.time):
     brain = ChatBrain(catalog, AnswerGate())
     ears = ears or chat_ears.ChatEars()
-    speaker = speaker or Speaker()
+    speaker = speaker or (None if dry_run else Speaker())
     replier = replier or Replier()
     leads = leads or Leads()
+    # truth-gate maya_rt to the same catalog: push product notes once at startup
+    if not dry_run and hasattr(speaker, "_send"):
+        facts = catalog.get("facts", {})
+        notes = " · ".join(f"{k}: {v}" for k, v in facts.items())
+        try:
+            speaker._send({"type": "product", "notes": notes})
+        except Exception:
+            pass
     ticks = 0
     while max_ticks is None or ticks < max_ticks:
         ticks += 1
@@ -108,10 +167,9 @@ def run(catalog: dict, ears=None, speaker=None, replier=None, leads=None,
                 if plan.get("lead_row"):
                     print(f"[LEAD] {plan['lead_row']}")
             else:
-                # filler first if the answer is long (keeps <2.5s felt latency)
-                if len(plan["voice_text"]) > 90:
-                    speaker.speak(plan["filler"])
-                spoke = speaker.speak(plan["voice_text"])
+                # forward the viewer message -> maya_rt "chat": she answers BY NAME in
+                # her own (truth-gated, in-language) voice. This is the primary path.
+                spoke = speaker.chat(plan["user_name"], plan["viewer_text"])
                 if plan["platform"] == "youtube":
                     replier.youtube(live_chat_id, plan["chat_reply"])
                 elif plan["platform"] == "facebook":
@@ -154,4 +212,7 @@ if __name__ == "__main__":
     assert any(p.get("lead_row") for p in captured), "BUY should capture a lead"
     # placeholder buy_url in the real catalog -> flagged, no invented link
     assert all("http" not in p["chat_reply"] for p in captured)
+    # maya_rt wire-shape (the /rt intake she actually reads)
+    assert build_rt_msg("chat", "Noa", "how much?") == {"type": "chat", "name": "Noa", "text": "how much?"}
+    assert build_rt_msg("say", text="hi") == {"type": "say", "text": "hi"}
     print("\nchat_live DRY-RUN self-test: PASS (%d plans: %s)" % (len(captured), intents))
