@@ -45,3 +45,4 @@ PART 4 ("Never weaken a grader; a grader change = [CLI-FILL] logged with reason"
     consecutive loud samples (a real line is 500ms+).
 13. **G5 noise outcomes** — noise that never transcribes (zero mid-game [KID-SAID]) is a
     PASS equal to an [INPUT-LOCK] drop; only a noise-triggered RESPONSE fails.
+14. **NAME variant "shaky"** — Whisper spelling of the SAPI kid voice saying Shuki (en-17 goodbye graded on echo, same class as shooki/shuky per #6).

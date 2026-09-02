@@ -457,9 +457,12 @@ const KidName = {
   sniff(t){
     try{
       if(this.v || (typeof PHASE!=='undefined' && typeof PH!=='undefined' && PHASE!==PH.INTRO)) return;
-      t=(t||'').replace(/[.,!?"']/g,' ').trim();
+      t=(t||'').replace(/[.,!?"]/g,' ').trim();   /* keep apostrophes — stripping ' broke "I'm Shooky" (en-17) */
       let m=t.match(/(?:קוראים לי|שמי|אני)\s+([א-ת]{2,})/) || t.match(/(?:name is|i am|i'?m)\s+([A-Za-z]{2,})/i);
-      if(!m){ const w=t.split(/\s+/).filter(x=>/^[A-Zא-ת][A-Za-zא-ת']*$/.test(x) && !/^(נובה|nova|hi|hey|hello|היי|שלום|כן|yes)$/i.test(x)); if(w.length===1) m=[null,w[0]]; }
+      /* en-17: "Do you like pizza?" arriving first made the fallback pick "Do" — the
+         bare-token fallback now needs a SHORT line (a name answer) and a non-word token */
+      const STOP=/^(נובה|nova|hi|hey|hello|היי|שלום|כן|yes|no|ok|okay|do|you|like|what|is|my|me|the|cool|wow|nice|bye|את|אתה|מה|אוהבת|פיצה|לא|ביי)$/i;
+      if(!m){ const ws=t.split(/\s+/); const w=ws.filter(x=>/^[A-Zא-ת][A-Za-zא-ת']*$/.test(x) && !STOP.test(x)); if(w.length===1 && ws.length<=3) m=[null,w[0]]; }
       if(m && m[1] && !/^(נובה|nova)$/i.test(m[1])) this.v=m[1];
     }catch(_){}
   }
@@ -1544,7 +1547,7 @@ function endFreeze(){
        into inventions (רעם/סופה/שאגה) — hand her the exact local name to say. */
     const HE_ANIMALS={STAR:'כוכב',BEAR:'דוב',FLAMINGO:'פלמינגו',FROG:'צפרדע',STATUE:'פסל'};
     const nameLoc = LANG_HE ? (HE_ANIMALS[name]||name) : name;
-    try{ Live.cue('verdict: React in 4-6 words MAX, say the animal name from the facts, NOW. The ONLY animals in this game are '+(LANG_HE?'כוכב, דוב, פלמינגו, צפרדע, פסל':'STAR, BEAR, FLAMINGO, FROG and STATUE')+' - never any other animal. The game KEEPS GOING - never wrap up, NEVER a question, NEVER offer another round or a new animal.',
+    try{ Live.cue('verdict: React in 4-6 words MAX, say the animal name from the facts, NOW. The ONLY animals in this game are '+(LANG_HE?'כוכב, דוב, פלמינגו, צפרדע, פסל':'STAR, BEAR, FLAMINGO, FROG and STATUE')+' - never any other animal. NEVER negative words (missed, wrong, bad, no, didn\'t) - on a broken freeze stay warm, "almost!" energy. The game KEEPS GOING - never wrap up, NEVER a question, NEVER offer another round or a new animal.',
       'They held the '+nameLoc+' freeze STILL for '+pct+'% of the window'
       + (froze?' — a PERFECT freeze!':moved?' — they kept MOVING, not a real freeze; be warm, never say wrong/bad.':' — wobbly, half-still.')
       + ' Streak: '+G.stamps.length+' freezes held so far.'); }catch(_){}

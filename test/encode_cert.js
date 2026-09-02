@@ -33,6 +33,7 @@ console.log(`frames=${frames.length} span=${(frames[frames.length - 1].ts - fram
 const r = spawnSync('ffmpeg', [
   '-y', '-f', 'concat', '-safe', '0', '-i', 'concat.txt',
   ...audioArgs,
+  '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',   // screencast jpegs can be odd-sized; libx264+yuv420p needs even dims
   '-fps_mode', 'vfr', '-pix_fmt', 'yuv420p',
   '-c:v', 'libx264', '-preset', 'medium', '-crf', '21',
   '-c:a', 'aac', '-b:a', '128k', '-shortest',

@@ -175,7 +175,10 @@ def session_update(freeze=False, voice=None, lang="en"):
                       # sensitive enough for a noisy room; INPUT-LOCK word-validation still
                       # discards anything that transcribes to garbage, so noise cannot speak.
                       "turn_detection": {"type": "server_vad", "threshold": 0.35,
-                                         "prefix_padding_ms": 300, "silence_duration_ms": 500,
+                                         # 600ms: 500 (cert value) split "Hi Nova! … my name is Shuki"
+                                         # at the pause; 800 delayed turn-end enough to gate the name
+                                         # behind Nova's re-invite (he-17). 600 threads both.
+                                         "prefix_padding_ms": 300, "silence_duration_ms": 600,
                                          "create_response": False, "interrupt_response": False},
                       "transcription": {"model": "gpt-4o-mini-transcribe", "language": lang}},
             "output": {"format": {"type": "audio/pcm", "rate": 24000}, "voice": (voice or VOICE)}},
@@ -319,7 +322,10 @@ async def relay(request):
     # same checks and the same one-shot; a per-utterance guard makes the loser a no-op.
     kidbuf = bytearray()          # pcm16@24k mirror of exactly what the mic sent OAI
     UTT_PREROLL = 14400           # 300ms pre-VAD audio included in each slice
-    utt = {"n": 0, "start": 0, "rt_seen": 0, "handled": set()}
+    utt = {"n": 0, "start": 0, "handled": set()}
+    # he-13: bare create_task results get GARBAGE-COLLECTED mid-flight (documented
+    # asyncio gotcha) — all 5 racers vanished silently. Pin them until done.
+    race_tasks = set()
     FREEZE_CALL_RE = _re.compile(r"(show me a freeze|like a statue|don'?t move|hold (it|still)|freeze!)", _re.I)
 
     async def engine_worker():
@@ -364,6 +370,26 @@ async def relay(request):
             await oai.send_json(session_update(freeze=_freeze_mode, voice=_voice,
                                                lang=("he" if _hebrew else "en")))
             await log("connected to " + MODEL + " (voice " + VOICE + ")")
+            # TRANSCRIPTION WARM-UP (he-17): the session's FIRST Hebrew transcription
+            # keeps costing 12-14s — a cold path on the provider side that hits the name
+            # beat, the one turn the whole intro hangs on. Burn the cold start NOW on a
+            # throwaway clip (result discarded), so the kid's real first words are warm.
+            if _hebrew:
+                async def _warm():
+                    try:
+                        with open("/workspace/warmup_he.wav", "rb") as _f: _wb = _f.read()
+                        f = aiohttp.FormData()
+                        f.add_field("file", _wb, filename="w.wav", content_type="audio/wav")
+                        f.add_field("model", "gpt-4o-mini-transcribe"); f.add_field("language", "he")
+                        async with aiohttp.ClientSession() as _ws_:
+                            async with _ws_.post("https://api.openai.com/v1/audio/transcriptions",
+                                                 headers={"Authorization": "Bearer " + KEY},
+                                                 data=f, timeout=aiohttp.ClientTimeout(total=20)) as r:
+                                print("[WARMUP] he transcription:", r.status, flush=True)
+                    except Exception as _e:
+                        print("[WARMUP] err", str(_e)[:60], flush=True)
+                _wt = asyncio.create_task(_warm())
+                race_tasks.add(_wt); _wt.add_done_callback(race_tasks.discard)
             # GREET FIRST — but only on the FIRST connect, not on a seamless reconnect
             # (browser sends ?rc=1 when re-establishing after an OpenAI session drop / 55min cap).
             if not request.query.get("rc"):
@@ -591,6 +617,7 @@ async def relay(request):
 
             async def rest_transcribe(audio, n):
                 # TRANSCRIPT-RACE: our own transcription of the tapped utterance (same model).
+                print("[RACE] rest start utt", n, flush=True)
                 try:
                     import io as _io
                     bio = _io.BytesIO()
@@ -611,6 +638,7 @@ async def relay(request):
                                                data=_form(), timeout=aiohttp.ClientTimeout(total=8)) as r:
                                 if r.status == 200:
                                     j = await r.json()
+                                    print("[RACE] rest got utt", n, ":", (j.get("text") or "")[:40], flush=True)
                                     await kid_transcript((j.get("text") or "").strip(), "rest", n)
                                     break
                                 print("[RACE] rest http", r.status, "attempt", _attempt, flush=True)
@@ -943,6 +971,17 @@ async def relay(request):
                         # #1 TRUTH-GATE SUPPRESS: the instant a move-claim forms with NO fact in the
                         # last FACT_WINDOW s, cancel the response and replace it with neutral hype.
                         resp["buf"] += d
+                        # REFUSAL-KILL (en-17): the out-of-band repeat-after-me sometimes makes
+                        # the model REFUSE ("I'm sorry, but I can't fulfill that request") and the
+                        # refusal AIRED as a spoken intro line. Any assistant-refusal shape dies
+                        # the moment it forms, any phase — SAY-ENFORCE then requeues the real line.
+                        if (not resp["killed"]) and _re.match(
+                                r"\s*(i'?m sorry|i can'?t|i cannot|sorry,|מצטערת|אני לא יכולה)", resp["buf"], _re.I):
+                            resp["killed"] = True
+                            print("[REFUSAL-KILL] cancelled:", resp["buf"][:50], flush=True)
+                            try: await oai.send_json({"type": "response.cancel"})
+                            except Exception: pass
+                            audio_buf.clear()
                         # MIDGAME-BAN WATCHDOG (MACHINE-CERTIFY en-5): instructions alone flake —
                         # one session obeys "6 words, no questions", the next asks "Ready for the
                         # next freeze?". While the speak-gate is on (air mode = mid-game), any
@@ -1031,8 +1070,10 @@ async def relay(request):
                         # MIDGAME-BAN (en-7): a watchdog-cancelled response airs at most a sub-second
                         # stub — its partial transcript must not surface as a full spoken line
                         # (the kill itself is already logged pod-side for the graders).
-                        if resp["killed"] and sgate["on"] and sgate["mode"] == "air":
-                            print("[MIDGAME-BAN] stub suppressed:", txt[:60], flush=True)
+                        if resp["killed"]:
+                            # a cancelled response airs at most a sub-second stub in ANY phase
+                            # (en-7 mid-game; en-17 intro refusal) — never surface it as a line
+                            print("[KILL] stub suppressed:", txt[:60], flush=True)
                         elif sgate["on"] and sgate["mode"] == "hard":
                             # GHOST LINE (he-10): a response finishing inside a hard hold is
                             # never HEARD (AirVoice.cut + engine block — the energy graders
@@ -1081,7 +1122,8 @@ async def relay(request):
                         _ua = bytes(kidbuf[utt["start"]:])
                         print("[RACE] armed utt", utt["n"], "bytes", len(_ua), flush=True)
                         if len(_ua) > 4800:      # >100ms of real audio
-                            asyncio.create_task(rest_transcribe(_ua, utt["n"]))
+                            _t = asyncio.create_task(rest_transcribe(_ua, utt["n"]))
+                            race_tasks.add(_t); _t.add_done_callback(race_tasks.discard)
                     elif et == "conversation.item.input_audio_transcription.delta":
                         await ws_client.send_json({"type": "you_delta", "delta": e.get("delta", "")})
                     elif et == "response.created":
@@ -1130,11 +1172,14 @@ async def relay(request):
                     elif et == "conversation.item.input_audio_transcription.completed":
                         # TRANSCRIPT-RACE: the realtime transcript is now just one racer —
                         # validation lives in kid_transcript (shared with the REST path).
-                        utt["rt_seen"] += 1
-                        await kid_transcript((e.get("transcript", "") or "").strip(), "rt", utt["rt_seen"])
+                        # TRANSCRIPT-RACE (he-17 fix): BOTH racers key on utt["n"], the armed
+                        # counter — a separate rt counter drifted from the rest one, so the fast
+                        # rest result and the slow rt result got different dedup keys and the
+                        # slow one still ran. completed refers to the most-recently-armed utt.
+                        await kid_transcript((e.get("transcript", "") or "").strip(), "rt", utt["n"])
                     elif et == "conversation.item.input_audio_transcription.failed":
-                        utt["rt_seen"] += 1      # TRANSCRIPT-RACE: keep the racers' counters aligned
-                        print("[RACE] rt transcription failed for utt", utt["rt_seen"], flush=True)
+                        utt["handled"].add(utt["n"])   # dead utterance is not "pending" — unblocks the retry gate
+                        print("[RACE] rt transcription failed for utt", utt["n"], flush=True)
                     elif et == "error":
                         await log("ERROR: " + str(e.get("error", {}).get("message", ""))[:120])
 

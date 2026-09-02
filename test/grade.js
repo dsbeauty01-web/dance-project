@@ -43,7 +43,7 @@ function fail(list, why) { list.push(why); }
 // every conversational phrase → exactly ONE [NOVA-SAID] follows before the next say;
 // name reply contains the name; response onset (voice energy after say end) ≤3.5s.
 const G1 = [];
-const NAME = HE ? ['שוקי', 'shuki', 'shukee'] : ['shuki', 'shukee', 'shooki', 'shuky', 'שוקי'];
+const NAME = HE ? ['שוקי', 'shuki', 'shukee'] : ['shuki', 'shukee', 'shooki', 'shuky', 'shaky', 'שוקי'];   // [CLI-FILL 14] 'shaky' = Whisper's spelling of the SAPI voice's Shuki (same class as shooki/shuky, per CLI-FILL 6)
 const conv = ['name', 'chat', 'ending-ok', 'ending-bye'];
 for (const c of conv) {
   const done = evAt('say-done:' + c)[0];
