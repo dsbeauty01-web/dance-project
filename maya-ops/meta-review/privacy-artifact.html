@@ -1,0 +1,109 @@
+<style>
+  :root{
+    --bg:#f7f8fb; --panel:#ffffff; --ink:#1c2230; --muted:#5b6478;
+    --rule:#e6e9f0; --accent:#5b4bd6; --accent-soft:#efedfb; --accent-ink:#4335b8;
+    --maxw:64ch;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0f1219; --panel:#161a24; --ink:#e8eaf0; --muted:#9aa3b8;
+      --rule:#262c3a; --accent:#9a8cff; --accent-soft:#20233a; --accent-ink:#b7abff;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#f7f8fb; --panel:#ffffff; --ink:#1c2230; --muted:#5b6478;
+    --rule:#e6e9f0; --accent:#5b4bd6; --accent-soft:#efedfb; --accent-ink:#4335b8;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0f1219; --panel:#161a24; --ink:#e8eaf0; --muted:#9aa3b8;
+    --rule:#262c3a; --accent:#9a8cff; --accent-soft:#20233a; --accent-ink:#b7abff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    line-height:1.62;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:clamp(28px,6vw,64px) 22px 80px}
+  .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent-ink);font-weight:700;margin:0 0 10px}
+  h1{font-size:clamp(28px,5vw,38px);line-height:1.12;margin:0 0 8px;text-wrap:balance;
+    letter-spacing:-.01em}
+  .meta{color:var(--muted);font-size:14.5px;margin:0 0 6px}
+  .meta b{color:var(--ink)}
+  .card{background:var(--panel);border:1px solid var(--rule);border-radius:14px;
+    padding:clamp(20px,4vw,34px);margin-top:26px}
+  h2{font-size:19px;margin:30px 0 8px;letter-spacing:-.005em}
+  h2:first-of-type{margin-top:0}
+  p{margin:8px 0}
+  a{color:var(--accent-ink);text-decoration-thickness:1px;text-underline-offset:2px}
+  ul{margin:8px 0;padding-left:0;list-style:none}
+  li{position:relative;padding:6px 0 6px 30px}
+  li::before{content:"";position:absolute;left:8px;top:15px;width:6px;height:6px;
+    border-radius:50%;background:var(--accent)}
+  li b{color:var(--ink)}
+  .perm{font-family:ui-monospace,"Cascadia Code",Consolas,monospace;font-size:.92em;
+    background:var(--accent-soft);color:var(--accent-ink);padding:1px 7px;border-radius:6px}
+  .foot{color:var(--muted);font-size:13px;margin-top:34px;text-align:center}
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Privacy Policy</p>
+  <h1>Maya Live</h1>
+  <p class="meta">App: <b>livestream</b> (“Maya Live”) &middot; Effective <b>September 3, 2026</b></p>
+  <p class="meta">Contact: <a href="mailto:dsbeauty01@gmail.com">dsbeauty01@gmail.com</a></p>
+
+  <div class="card">
+    <h2>What this app is</h2>
+    <p>Maya Live is a live-streaming assistant that operates an AI-powered video host
+      (“Maya”). When connected to a Facebook Page with the Page owner’s permission, it reads
+      viewer comments on that Page’s live broadcasts so the host can respond to them during
+      the stream.</p>
+
+    <h2>Data we access</h2>
+    <p>With your explicit authorization via Facebook Login, the app accesses: your public
+      profile (name and ID), the list of Pages you manage that you choose to connect, and
+      comments posted on live videos of the connected Page (commenter display name, comment
+      text, and time). We do not access private messages, friend lists, or any data beyond the
+      permissions you approve.</p>
+
+    <h2>Permissions we request and why</h2>
+    <p>The app requests only the Facebook permissions needed to operate a live broadcast on a
+      Page you own and connect:</p>
+    <ul>
+      <li><span class="perm">pages_show_list</span> — to display the list of Pages you manage
+        so you can pick which one to connect. We read only Page names and IDs.</li>
+      <li><span class="perm">pages_read_engagement</span> — to read the viewer comments on the
+        connected Page’s live video (commenter display name, comment text, and time) so the
+        host can respond on stream.</li>
+      <li><span class="perm">pages_manage_posts</span> — to create and end the live video post
+        on the connected Page on your behalf.</li>
+      <li><span class="perm">publish_video</span> — to start the live broadcast (Live Video
+        API) to the connected Page.</li>
+    </ul>
+    <p>We request no other permissions and access no data outside the ones listed above.</p>
+
+    <h2>How we use it</h2>
+    <p>Live comments are processed in real time solely to display them to the stream operator
+      and to generate the host’s on-stream replies. We do not sell personal data, do not share
+      it with third parties for advertising, and do not use it for any purpose other than
+      operating the live broadcast you connected.</p>
+
+    <h2>Storage and retention</h2>
+    <p>Comments are processed transiently during a broadcast. Aggregated, non-identifying
+      statistics about a stream (for example, the number of questions answered) may be kept in
+      end-of-stream reports. Access tokens are stored securely and used only to operate the
+      connected Page’s broadcasts.</p>
+
+    <h2>Data deletion</h2>
+    <p>You can revoke the app’s access at any time from your Facebook settings
+      (<i>Settings &amp; privacy → Settings → Business integrations</i>), which immediately ends
+      all data access. To request deletion of any data associated with your account or Page,
+      email <a href="mailto:dsbeauty01@gmail.com">dsbeauty01@gmail.com</a> with the subject
+      “Data deletion request” and we will delete it within 30 days and confirm by reply.</p>
+
+    <h2>Changes</h2>
+    <p>If this policy changes, the updated version will be published at this same address with
+      a new effective date.</p>
+  </div>
+
+  <p class="foot">Maya Live &middot; livestream &middot; Privacy Policy</p>
+</div>

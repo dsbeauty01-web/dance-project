@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Maya Live — Meta App Review submission pack</title>
+<style>
+ body{max-width:900px;margin:0 auto;padding:24px;font-family:Segoe UI,system-ui,sans-serif;color:#1a1a1a;line-height:1.55;background:#fbfbfd}
+ h1{font-size:26px;margin:0 0 2px} h2{font-size:20px;margin:34px 0 6px;border-bottom:2px solid #eee;padding-bottom:4px}
+ h3{font-size:16px;margin:18px 0 4px;color:#7c3aed}
+ .sub{color:#666;margin-bottom:20px}
+ .card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px 20px;margin:14px 0;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+ .scope{font-family:ui-monospace,Consolas,monospace;background:#f3f0ff;color:#6d28d9;padding:2px 8px;border-radius:6px;font-size:14px}
+ .just{background:#f9fafb;border-left:3px solid #7c3aed;padding:10px 14px;border-radius:0 8px 8px 0;margin:8px 0}
+ ol.shot{margin:6px 0 0 0;padding-left:22px} ol.shot li{margin:4px 0}
+ .chk li{margin:6px 0} .warn{background:#fff7ed;border-left:3px solid # f97316;padding:10px 14px;border-radius:0 8px 8px 0}
+ .warn{background:#fff7ed;border-left:3px solid #f97316}
+ .ok{color:#16a34a;font-weight:600}.no{color:#dc2626;font-weight:600}
+ code{background:#f3f4f6;padding:1px 5px;border-radius:4px;font-size:13px}
+ table{border-collapse:collapse;width:100%;margin:8px 0} td,th{border:1px solid #e5e7eb;padding:7px 10px;text-align:left;font-size:14px}
+ th{background:#f9fafb}
+ @media print{.card{box-shadow:none} body{background:#fff}}
+</style>
+</head>
+<body>
+<h1>Maya Live — App Review submission pack</h1>
+<div class="sub">App ID <b>1335138022110608</b> · Page <b>MythicMingle</b> (1100248523396303) ·
+Graph <b>v26.0</b> · Generated 2026-09-03 · Contact dsbeauty01@gmail.com</div>
+
+<div class="card warn">
+<b>Read first — this pack does NOT submit anything.</b> Meta App Review is a submission
+<i>you</i> click, then Meta reviews it over several days. Nothing here is "live." This page
+gives you, per permission: the <b>justification</b> to paste into Meta's form and the
+<b>screencast shot-script</b> to film. The buttons only you can click are in
+"Your dashboard steps" at the bottom.
+</div>
+
+<h2>Pre-submission gate (Meta hard requirements)</h2>
+<ul class="chk">
+<li>Facebook account <b>≥ 60 days old</b> — <span class="no">VERIFY</span> (accounts created after 2024-06-10 that are newer cannot go live via API).</li>
+<li>Connected Page <b>≥ 100 followers</b> — <span class="no">VERIFY on MythicMingle</span>.</li>
+<li>App has the <b>“Access the Live Video API”</b> use case (Content management) — <span class="no">VERIFY in dashboard</span>.</li>
+<li>Public <b>Privacy Policy URL</b> reachable — privacy.html patched 2026-09-03 with the permission→data map. <span class="no">Confirm it is deployed at a public URL and pasted in App Settings → Basic.</span></li>
+<li>Long-lived <b>User + Page tokens</b> minted into <code>.maya/meta.env</code> — <span class="ok">DONE (is_valid:true)</span>.</li>
+</ul>
+
+<h2>The 4 permissions — justification + screencast script</h2>
+
+<div class="card">
+<h3><span class="scope">pages_show_list</span></h3>
+<div class="just"><b>Justification (paste into Meta form):</b><br>
+After the Page owner signs in with Facebook Login, Maya Live calls
+<code>GET /me/accounts</code> to display the list of Pages they manage, so the owner can
+choose which Page Maya will host the live broadcast on. We read only Page name and ID.
+Without this permission the owner cannot select a Page and the product cannot function.</div>
+<b>Screencast shot-script:</b>
+<ol class="shot">
+<li>Open the Maya Live web app; click <b>“Connect Facebook.”</b></li>
+<li>Facebook Login dialog appears; sign in as the <b>test user</b>; approve <span class="scope">pages_show_list</span>.</li>
+<li>App renders a dropdown of the user’s Pages (data from <code>/me/accounts</code>).</li>
+<li>Cursor selects <b>MythicMingle</b> from the list. Hold 2 seconds on the visible list.</li>
+</ol>
+</div>
+
+<div class="card">
+<h3><span class="scope">pages_read_engagement</span></h3>
+<div class="just"><b>Justification (paste into Meta form):</b><br>
+Maya reads viewer comments on the connected Page’s live video via
+<code>GET /{live-video-id}/comments</code> (polled in reverse-chronological order) so the AI
+host can answer viewers by name during the stream. This is the core interaction of the
+product — the host responding to live comments.</div>
+<b>Screencast shot-script:</b>
+<ol class="shot">
+<li>Page is live (from the next permission’s flow). Operator console open beside the live view.</li>
+<li>From a second account, post a comment on the live video (e.g. “Hi Maya, where are you from?”).</li>
+<li>Within ~2 s the comment appears in Maya’s console (pulled from the comments edge).</li>
+<li>Maya speaks a reply that references the comment/commenter. Show the comment → spoken reply linkage on screen.</li>
+</ol>
+</div>
+
+<div class="card">
+<h3><span class="scope">pages_manage_posts</span></h3>
+<div class="just"><b>Justification (paste into Meta form):</b><br>
+Maya creates and ends the live video post on the connected Page on the owner’s behalf
+(<code>POST /me/live_videos?status=LIVE_NOW</code> to create, <code>POST /{id}?end_live_video=true</code>
+to end). This publishes and later closes the broadcast the owner authorized.</div>
+<b>Screencast shot-script:</b>
+<ol class="shot">
+<li>In Maya Live, operator clicks <b>“Go Live.”</b> App calls create-live-video and shows the returned RTMPS ingest URL.</li>
+<li>Switch to the Page — a <b>live post now appears</b> on MythicMingle.</li>
+<li>Operator clicks <b>“End Stream.”</b> App calls <code>end_live_video=true</code>.</li>
+<li>Switch to the Page — the live post has <b>ended</b>. Show both create and end.</li>
+</ol>
+</div>
+
+<div class="card">
+<h3><span class="scope">publish_video</span></h3>
+<div class="just"><b>Justification (paste into Meta form):</b><br>
+<code>publish_video</code> authorizes the Live Video API broadcast itself: Maya pushes the
+AI host’s video to the Page over RTMPS (<code>rtmps://rtmp-api.facebook.com/rtmp/&lt;key&gt;</code>)
+using the ingest URL returned at creation. Without it the created live video has no video feed.</div>
+<b>Screencast shot-script:</b>
+<ol class="shot">
+<li>Immediately after “Go Live,” the app pushes Maya’s avatar video to the RTMPS <code>secure_stream_url</code>.</li>
+<li>On the Page’s live post, Maya’s avatar is <b>visibly streaming and moving/talking</b>.</li>
+<li>Hold ~10 s on the public live playing so the reviewer sees a real broadcast.</li>
+</ol>
+</div>
+
+<h2>Your dashboard steps (only you can click these)</h2>
+<h3>A · Create a test user with a Page to review against</h3>
+<ol class="shot">
+<li>developers.facebook.com → <b>My Apps</b> → open <b>Maya Live</b> (App ID 1335138022110608).</li>
+<li>Left sidebar → <b>App roles → Test Users</b> → <b>Create test users</b> (set “Authorize test user for this app” = Yes; pick the 4 permissions).</li>
+<li>On the new test user’s row → <b>Options → Log in as</b> → this opens Facebook as that user.</li>
+<li>As the test user, create a Page (test users can own Pages). <i>Note: test-user Pages have 0 followers, so use them for the flow screencast, but the FINAL public go-live must be on a real Page ≥100 followers with a ≥60-day account.</i></li>
+<li>Back in your real Page <b>MythicMingle → Settings → Page roles</b> → add the reviewer/test identity as <b>Admin</b> if you want them to exercise the real Page.</li>
+</ol>
+<h3>B · Submit for review</h3>
+<ol class="shot">
+<li>App dashboard → <b>App Review → Permissions and features</b>.</li>
+<li>Request <b>Advanced access</b> on each of the 4 scopes above; paste the matching justification.</li>
+<li>Upload the screencast that follows the shot-scripts; paste the Privacy Policy URL and test-user login.</li>
+<li>Complete <b>Data Use Checkup</b> and Business Verification if prompted, then <b>Submit</b>.</li>
+</ol>
+
+<div class="card warn"><b>Reality:</b> after you click Submit, approval is Meta’s call and typically takes
+several days. I cannot make the app “live” — only Meta can grant the permissions.</div>
+</body>
+</html>
