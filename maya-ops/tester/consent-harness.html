@@ -1,0 +1,23 @@
+<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;background:#140a33">
+<script>
+  var q = new URLSearchParams(location.search);
+  window.NOVA_LANG = q.get('lang') === 'he' ? 'he' : 'en';
+</script>
+<script src="../../nova-tester-gate.js"></script>
+<script>
+  // force the consent overlay for the screenshot (also ticks the box in ?ticked mode)
+  window.addEventListener('load', function () {
+    setTimeout(function () {
+      try {
+        NOVA_GATE.showConsent();
+        if (new URLSearchParams(location.search).get('ticked')) {
+          var cb = document.getElementById('ntg-cb');
+          if (cb) { cb.checked = true; cb.dispatchEvent(new Event('change')); }
+        }
+      } catch (e) {}
+    }, 250);
+  });
+</script>
+</body></html>
