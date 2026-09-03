@@ -1,7 +1,7 @@
-# META APP REVIEW — copy-paste pack (livestream app, 1335138022110608)
+# META APP REVIEW — copy-paste pack (livestream app `1335138022110608`)
 
-Every field below is ready to paste. Icon: `maya_app_icon_1024.png` (in this folder).
-**Category: Business.** Do NOT click Submit until the human reviews — this pack only prepares.
+Every block is paste-ready. Icon: `maya_app_icon_1024.png` (this folder). **Category: Business.**
+Do NOT click **Submit** until you've reviewed — this pack only prepares the fields.
 
 ---
 
@@ -10,44 +10,68 @@ Every field below is ready to paste. Icon: `maya_app_icon_1024.png` (in this fol
 - **Category:** Business
 - **Privacy Policy URL:** `https://dsbeauty01-web.github.io/dance-project/privacy.html`
 - **User data deletion:** Data deletion instructions URL → `https://dsbeauty01-web.github.io/dance-project/privacy.html`
-- **App domains:** `dsbeauty01-web.github.io` (already set)
+- **App domains:** `dsbeauty01-web.github.io`
 
-## Permission requested: `pages_read_engagement`
+---
 
-**What does your app use this permission for? (paste)**
-> Our app operates an AI-assisted live-shopping host for a Facebook Page owner's own live
-> broadcasts. With the Page admin's explicit consent, the app reads comments posted on the
-> Page's live videos in real time so the human operator and the on-stream host can respond
-> to viewers during the broadcast. Comments are processed transiently to generate on-stream
-> replies and an end-of-stream summary for the Page owner. We do not sell, share for
-> advertising, or retain comment data beyond the broadcast. Access is revocable at any time
-> via Business Integrations.
+## Permission 1 — `pages_read_engagement`
+**How will your app use this permission? (paste)**
+> On the Page owner's own Facebook Live broadcasts, and with the Page admin's consent, our app
+> polls GET /{live-video-id}/comments (reverse_chronological, every ~5 seconds) with a Page token
+> to read viewer comments in real time. We use the comment text, the author's display name, the
+> comment id and created_time solely to let the AI host answer viewers by name during the
+> broadcast and to build an end-of-stream summary for the Page owner. Comments are processed
+> transiently and are not sold, shared for advertising, or retained beyond the broadcast. Access is
+> revocable at any time via Business Integrations.
 
-**Step-by-step instructions for the reviewer (paste)**
-> 1. Log in as a user who administers a Facebook Page (test page provided: MythicMingle).
-> 2. Start a live video on the Page via Live Producer (any RTMP source).
-> 3. Our server polls GET /{live-video-id}/comments (order=reverse_chronological,
->    live_filter=filter_low_quality) every 5 seconds using a Page access token.
-> 4. Post a comment on the live video. Within ~10 seconds the operator console shows the
->    comment and the AI host answers it by name on-stream.
-> 5. End the live; polling stops automatically.
+## Permission 2 — `pages_manage_engagement`
+**How will your app use this permission? (paste)**
+> During the Page's own live broadcast, when a viewer comment is a question or shows purchase
+> intent, our app posts a short written reply on that comment as the Page (POST
+> /{comment-id}/comments), addressing the viewer by name and including the product link only on
+> purchase intent. This lets viewers who aren't listening to audio still receive a written answer
+> and a tappable link in the thread. We only write short reply text generated from the Page owner's
+> own product information; we do not delete or hide user content except obvious spam, and we do not
+> use this data for advertising. Rate-limited to at most two replies per minute.
 
-## Screencast shot list (required video, ~2–3 min)
-1. Show the app/operator console and the connected Facebook Page name.
-2. Start the Facebook live (Live Producer → GO LIVE).
-3. Split screen: the live video + a second phone posting a comment.
-4. Show the comment appearing in the operator console within seconds.
-5. Show/hear the AI host answering that viewer by name on-stream.
-6. Show the AI-disclosure label visible on the broadcast the whole time.
-7. End the stream; show polling stopped.
+## Permission 3 — `pages_manage_posts`
+**How will your app use this permission? (paste)**
+> Our app creates and runs the Page's live shopping broadcasts programmatically:
+> POST /{page-id}/live_videos?status=LIVE_NOW to start (streaming our video to the returned RTMPS
+> ingest) and POST /{live-video-id}?end_live_video=true to stop. This enables scheduled, unattended
+> live sessions for the Page owner without manually opening Live Producer. We create only the Page
+> owner's own live video objects (title, description, status); no personal data is involved.
 
-## The 5-minute human click sequence
-1. App settings → Basic → upload icon, set Category=Business → **Save changes**.
-2. Confirm Privacy + Data-deletion URLs are the privacy.html link → Save.
-3. App Review → Permissions and Features → request **pages_read_engagement** (Advanced Access).
-4. Paste the two answers above; attach the screencast.
-5. Review everything, then click **Submit for review**. (CLI never clicks this.)
+## Permission 4 — `publish_video`
+**How will your app use this permission? (paste)**
+> Our app publishes the live video created above to the Page so the AI host's broadcast appears as a
+> normal Facebook Live on the Page owner's own Page. We publish only the video/audio stream our
+> system generates for the Page owner's live shopping session; the recording remains as the Page's
+> VOD or is deleted at the owner's request. No viewer personal data is published.
 
-## After approval (CLI, zero human)
-`node scratchpad/sysuser.mjs` re-mints the system-user token WITH scopes → create n8n
-Facebook credential → attach to W1-FB → activate. Then Facebook auto-chat is live.
+---
+
+## Reviewer step-by-step (paste into each permission's "instructions" box)
+> 1. Log in as an admin of the provided test Page (MythicMingle).
+> 2. In the operator console, click Start live — the Page goes LIVE (uses pages_manage_posts +
+>    publish_video).
+> 3. From a second account, post: a greeting, "how much?", "does it ship free?", "I want to buy",
+>    and "will it cure acne?".
+> 4. Within ~10s each: the console shows the comment (pages_read_engagement); the host answers by
+>    name on-stream; the Page posts a written reply under the comment (pages_manage_engagement);
+>    the purchase reply includes the product link; the medical question gets a safe deflection.
+> 5. Click End live — the broadcast ends and polling stops.
+
+## Screencast (one take, ~2–3 min) — clips per SUBMISSION.md
+1. read: comment appears in console within ~5s → host answers by name.
+2. reply: Page posts a written by-name reply; "I want to buy" reply carries the link.
+3. start/stop: Start live + End live from the console (no Live Producer).
+4. publish: open the public Page — Maya playing as a normal Live, AI-disclosure label visible throughout.
+
+## Human click sequence (~10 min)
+1. App settings → Basic → upload icon, Category=Business, confirm both URLs → Save.
+2. Update privacy policy per `PRIVACY-PATCH.md` (must name comments + usernames) → Save/redeploy.
+3. Fix Page role per `PAGE-TASKS-FIX.md` (full control on MythicMingle).
+4. App Review → Permissions and Features → request all 4 (Advanced Access): paste each block above.
+5. Add use case "Access the Live Video API" (Content management) if not present.
+6. Attach the screencast, review everything, then click **Submit for review**.
