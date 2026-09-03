@@ -43,6 +43,7 @@
      is no worse than today. Sessions should append fresh pod ids here. */
   var CANDIDATES = [
     ACTIVE,
+    'gtdmu76ocpjjmu',   // nova-certify-2      (2026-08-30, MACHINE-CERTIFY)
     'qfe21r86dqilms',   // nova-freeze-fresh3  (2026-08-29)
     'fh9v6w92vlcdhl',   // nova-freeze-final2  (2026-08-29)
     'q0xetjpgafc926',   // nova-freeze-onetap  (2026-08-28)

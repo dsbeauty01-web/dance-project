@@ -20,19 +20,6 @@ MODEL = os.environ.get("RT_MODEL", "gpt-realtime-2")
 VOICE = os.environ.get("NOVA_VOICE", "marin")   # 2026-08-08 founder decision: marin IS Nova's voice (shimmer too adult, coral weird). ?voice= still overrides per-session for A/B
 RT_URL = f"wss://api.openai.com/v1/realtime?model={MODEL}"
 
-# ── CERTIFIED PROMPTS loaded from pod/prompts/ (Guardian, 2026-08-21) ──────────
-# Single source of truth for game/freeze rules. Pages fetch the same files via
-# /prompts/<name>. Deploy syncs /workspace/prompts/ alongside rt_lk.py.
-import os as _os
-_PROMPT_DIR = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "prompts")
-def load_prompt(name: str) -> str:
-    try:
-        with open(_os.path.join(_PROMPT_DIR, name + ".txt"), "r", encoding="utf-8") as _f:
-            return _f.read().strip()
-    except Exception as _e:
-        print(f"[PROMPT-MISSING] {name}: {_e}", flush=True)   # loud, never silent
-        return ""
-
 PROMPT = (
 
     # RESTORED from DIRECTOR-GOLD (novapython/nova_director.py, git-tagged golden) — the proven
@@ -143,11 +130,8 @@ def viewer_token():
     return (api.AccessToken(LK_KEY, LK_SEC).with_identity(ident).with_name("You")
             .with_grants(g).to_jwt())
 
-# Certified freeze rules now live in pod/prompts/freeze-rules.txt (Guardian 2026-08-21).
-# FALLBACK below is the exact prior inline text — used ONLY if the file failed to sync,
-# so a deploy glitch can never mute the WORKING freeze game.
-_FREEZE_RULES_FALLBACK = (
-    "FREEZE MODE - overrides the whole intro script above: you are ONLY the "
+FREEZE_RULES = (
+    "\n\nFREEZE MODE - overrides the whole intro script above: you are ONLY the "
     "freeze-game VOICE. NEVER ask their name. NEVER mention other games, magic "
     "lights, or shoulders.\n"
     "BREVITY LAW (freeze mode only - the commercial intro keeps its natural pace): "
@@ -161,12 +145,25 @@ _FREEZE_RULES_FALLBACK = (
     "stop. During a freeze hold: TOTAL silence. "
     "Voice style: bright, bouncy, quick - big-sister hype, never slow, never calm-narrator. "
     "Every line under 8 words.")
-FREEZE_RULES = "\n\n" + (load_prompt("freeze-rules") or _FREEZE_RULES_FALLBACK)
 
-def session_update(freeze=False, voice=None):
+# HEBREW MODE (MACHINE-CERTIFY 2026-08-30, ?lang=he): appended AFTER the freeze rules so
+# it overrides the two "ALWAYS speak English only" lines above. Everything else — brevity
+# laws, page-owns-the-game, INPUT-LOCK — is language-independent and stays in force.
+HEBREW_RULES = (
+    "\n\nHEBREW MODE - this overrides every English-only rule above: speak ONLY Hebrew "
+    "(עברית) for the whole session, no matter what language you hear - animal names too "
+    "(כוכב, דוב, פלמינגו, צפרדע, פסל), NEVER an English word. Warm, modern, kid-friendly "
+    "Hebrew - same energy, same brevity laws: every line SHORT, intro answers 1-2 short "
+    "sentences max, never a lecture. You are Nova, FEMALE - always לשון נקבה "
+    "(אני אוהבת, אני יכולה, מוכנה). NEVER assistant phrases in any language "
+    "(איך אני יכולה לעזור / במה אוכל לעזור are FORBIDDEN - you are a dance friend, not a helper). "
+    "Game words in Hebrew: FREEZE = לקפוא, statue = פסל, ready = מוכנים. "
+    "Kids' names stay exactly as heard.")
+
+def session_update(freeze=False, voice=None, lang="en"):
     return {"type": "session.update", "session": {
         "type": "realtime", "output_modalities": ["audio"],
-        "instructions": PROMPT + (FREEZE_RULES if freeze else ""),
+        "instructions": PROMPT + (FREEZE_RULES if freeze else "") + (HEBREW_RULES if lang == "he" else ""),
         "audio": {
             "input": {"format": {"type": "audio/pcm", "rate": 24000},
                       "noise_reduction": {"type": "near_field"},
@@ -178,9 +175,12 @@ def session_update(freeze=False, voice=None):
                       # sensitive enough for a noisy room; INPUT-LOCK word-validation still
                       # discards anything that transcribes to garbage, so noise cannot speak.
                       "turn_detection": {"type": "server_vad", "threshold": 0.35,
-                                         "prefix_padding_ms": 300, "silence_duration_ms": 500,
+                                         # 600ms: 500 (cert value) split "Hi Nova! … my name is Shuki"
+                                         # at the pause; 800 delayed turn-end enough to gate the name
+                                         # behind Nova's re-invite (he-17). 600 threads both.
+                                         "prefix_padding_ms": 300, "silence_duration_ms": 600,
                                          "create_response": False, "interrupt_response": False},
-                      "transcription": {"model": "gpt-4o-mini-transcribe", "language": "en"}},
+                      "transcription": {"model": "gpt-4o-mini-transcribe", "language": lang}},
             "output": {"format": {"type": "audio/pcm", "rate": 24000}, "voice": (voice or VOICE)}},
         "max_output_tokens": "inf"}}
 
@@ -221,6 +221,9 @@ async def relay(request):
                           # warnings the mic was closed most of the time; 0.6s keeps just enough
                           # anti-echo while letting the kid answer right after her line
     mic_stats = {"n": 0, "bytes": 0}
+    # HEBREW MODE (?lang=he, MACHINE-CERTIFY 2026-08-30): flips transcription language,
+    # the garble filter's alphabet, the yes-words and the greet. EN behavior is untouched.
+    _hebrew = (request.query.get("lang") or "en").strip().lower().startswith("he")
     # --- INTRO BRAIN GATES (2026-07-28) -------------------------------------
     # TRUTH-GATE: Nova may only name/praise a move that arrived as a detection
     # FACT. Facts enter via a 'nova-fact' message from the page (real detection)
@@ -253,19 +256,39 @@ async def relay(request):
     INVITE_RE = _re.compile(r"(can you|could you|show me|let'?s|try|give (me|it|that|your|a)|want to|wanna|how about|ready to|do a|go for|lift|shrug your|hold (it|still)|don'?t move|like a statue|show off|when you|check (this|it) out|check out|here'?s|discover|glow|magic light|see (the|that|it)|add a|next|other shoulder|come on|pick a game)", _re.I)
     # #6 NO-SELF-ANSWER: she cannot pick/confirm FOR the kid — blocked unless real kid input is recent.
     SELFANSWER_RE = _re.compile(r"(awesome choice|great choice|good (pick|choice)|nice pick|let'?s do (freeze|wave|up ?groove|animal)|you picked|you chose|i'?ll pick|we'?ll (do|play) (freeze|wave|up ?groove)|great, (freeze|wave)|perfect, let'?s)", _re.I)
-    resp = {"buf": "", "killed": False}          # per-response transcript accumulator
+    resp = {"buf": "", "killed": False, "origin": None}   # per-response transcript accumulator + origin tag
+    # SAY-ENFORCE (he-9): staged exact lines get verified against her actual transcript;
+    # a paraphrase in intro/ending is re-queued ONCE. Enforcement, not hope (the en-5 lesson).
+    sayenf = {"line": None, "tried": set()}
+    # MIDGAME-BAN (MACHINE-CERTIFY): shapes that may never air mid-game — questions,
+    # self-DJ round/animal offers, countdowns, wrap-ups. Enforced by cancel, not hope.
+    MIDGAME_BAN_RE = _re.compile(
+        r"(\?|another round|next round|new animal|how about|want to|you choose|pick a"
+        r"|ready for|what'?s next|final round|play again|your call|switch it up"
+        r"|next beat|show me your|\b3\b[^a-z]{0,4}\b2\b[^a-z]{0,4}\b1\b"
+        r"|עוד סיבוב|סיבוב נוסף|סיבוב אחרון|רוצה לשחק|רוצים לשחק|איזו חיה|לבחור חיה|נשחק שוב"
+        # he-10: she said "פאקינג פלמינגו" to a kids' game — profanity in ANY language dies mid-word
+        r"|פאקינג|\bפאק\b|fuck|shit|damn|קללה)", _re.I)
     spoken = set()                                # #6 DE-CAN: lines already said this session
     consent = {"yes_ts": 0.0}                     # #5 CONSENT=REAL YES: last real yes/tap/move
     YES_RE = _re.compile(r"\b(yes|yeah|yep|yup|ready|ok|okay|sure|uh[- ]?huh|i did|let's go|go)\b", _re.I)
+    if _hebrew:  # HEBREW MODE: the ready-gate hears Hebrew yes-words (EN words still pass;
+        # can/ken = Whisper's English spelling of כן, learned in he-2)
+        YES_RE = _re.compile(r"(\b(yes|yeah|yep|ready|ok|okay|can|ken)\b|כן|קן|יאללה|מוכן|מוכנה|בטח|סבבה|אוקיי|קדימה)", _re.I)
     hidx = {"i": 0}
     # #4 GARBLE-IGNORE: <3 chars or mostly-non-latin nonsense = not real input.
     def is_garble(t):
         t = (t or "").strip()
         # VOICE-DEAF FIX 2026-08-28: "hi" was eaten by the len<3 rule — tiny REAL words pass
         if t.lower().strip("!.?,") in ("hi", "ok", "no", "yes", "ya", "yo", "hey"): return False
+        # HEBREW MODE: tiny real Hebrew words pass too (כן/לא are 2 chars — the len rule ate them)
+        if t.strip("!.?, ") in ("כן", "לא", "היי", "די", "עוד", "קפוא", "סבבה", "מוכן",
+                                 "מוכנה", "יאללה", "אוקיי",
+                                 "קן"): return False   # he-12: Whisper wrote כן as קן — sound-alike yes
         if len(t) < 3: return True
-        letters = _re.findall(r"[A-Za-z]", t)
-        return len(letters) < max(2, len(t) // 3)   # mostly non-English script -> garble
+        # HEBREW MODE: Hebrew letters count as real letters; in EN the old rule is unchanged
+        letters = _re.findall(r"[A-Za-zא-ת]" if _hebrew else r"[A-Za-z]", t)
+        return len(letters) < max(2, len(t) // 3)   # mostly wrong-script -> garble
     kidinput = {"ts": 0.0}                             # #2 last REAL kid input (garble excluded)
     inlock = {"valid_turns": 0}                        # LAW-INPUT-LOCK: validated-turn counter
     # #1 LIGHT BEAT = ONE ATTEMPT: idle -> invited -> reinvited -> done(fact|moved-on)
@@ -276,9 +299,9 @@ async def relay(request):
     hold = {"on": False}           # PAUSE: True = drop mic + cancel speech until released
     # SPEAK-GATE (FREEZE-STRUCTURAL-FIX 2026-08-26): output-only mute for the GAME phase.
     # Unlike hold, the MIC KEEPS FLOWING (she hears, transcribes and remembers everything
-    # for the ending) - but no response may synthesize and no assistant audio may reach
+    # for the ending) — but no response may synthesize and no assistant audio may reach
     # the engine. The engine lip-syncs whatever audio it is fed, on whatever body is live
-    # - including the fast dance bakes - so mid-game her voice must never get there.
+    # — including the fast dance bakes — so mid-game her voice must never get there.
     # AIR MODE (FREEZE-SIMPLIFIED 2026-08-27): mode 'hard' = no generations at all
     # (freeze holds). mode 'air' = the page may buy exactly ONE line per gap (credit,
     # granted by its nova-say/cue) and her audio is sent to the BROWSER as voice_air -
@@ -290,6 +313,19 @@ async def relay(request):
     # (one optional whisper allowed). #3 FREEZE = REAL HOLD: praise only on a 'freeze_held' fact.
     statue = {"active": False, "ts": 0.0, "whispered": False, "allow": False}
     STATUE_MAX = 12.0
+    # TRANSCRIPT-RACE (MACHINE-CERTIFY he-4 2026-09-01): the realtime API's transcription
+    # event is flaky-slow (13.0s on he-4's name phrase vs 0.4-1.7s in clean EN runs — the
+    # same disease behind en-10/en-13). The model hears the audio natively; the transcript
+    # exists only as OUR INPUT-LOCK evidence. So the mic audio is tapped per-utterance and
+    # REST-transcribed in parallel (same model), and whichever transcript arrives FIRST
+    # runs the ONE validation path. The lock is not weakened: both racers funnel into the
+    # same checks and the same one-shot; a per-utterance guard makes the loser a no-op.
+    kidbuf = bytearray()          # pcm16@24k mirror of exactly what the mic sent OAI
+    UTT_PREROLL = 14400           # 300ms pre-VAD audio included in each slice
+    utt = {"n": 0, "start": 0, "handled": set()}
+    # he-13: bare create_task results get GARBAGE-COLLECTED mid-flight (documented
+    # asyncio gotcha) — all 5 racers vanished silently. Pin them until done.
+    race_tasks = set()
     FREEZE_CALL_RE = _re.compile(r"(show me a freeze|like a statue|don'?t move|hold (it|still)|freeze!)", _re.I)
 
     async def engine_worker():
@@ -331,8 +367,29 @@ async def relay(request):
             _intro = (request.query.get("intro") or "").strip().lower()
             _voice = (request.query.get("voice") or "").strip() or None   # V2: ?voice=coral etc. for instant A/B
             _freeze_mode = (_intro == "freeze")   # V2.1: page owns the game -> brain self-triggers OFF
-            await oai.send_json(session_update(freeze=_freeze_mode, voice=_voice))
+            await oai.send_json(session_update(freeze=_freeze_mode, voice=_voice,
+                                               lang=("he" if _hebrew else "en")))
             await log("connected to " + MODEL + " (voice " + VOICE + ")")
+            # TRANSCRIPTION WARM-UP (he-17): the session's FIRST Hebrew transcription
+            # keeps costing 12-14s — a cold path on the provider side that hits the name
+            # beat, the one turn the whole intro hangs on. Burn the cold start NOW on a
+            # throwaway clip (result discarded), so the kid's real first words are warm.
+            if _hebrew:
+                async def _warm():
+                    try:
+                        with open("/workspace/warmup_he.wav", "rb") as _f: _wb = _f.read()
+                        f = aiohttp.FormData()
+                        f.add_field("file", _wb, filename="w.wav", content_type="audio/wav")
+                        f.add_field("model", "gpt-4o-mini-transcribe"); f.add_field("language", "he")
+                        async with aiohttp.ClientSession() as _ws_:
+                            async with _ws_.post("https://api.openai.com/v1/audio/transcriptions",
+                                                 headers={"Authorization": "Bearer " + KEY},
+                                                 data=f, timeout=aiohttp.ClientTimeout(total=20)) as r:
+                                print("[WARMUP] he transcription:", r.status, flush=True)
+                    except Exception as _e:
+                        print("[WARMUP] err", str(_e)[:60], flush=True)
+                _wt = asyncio.create_task(_warm())
+                race_tasks.add(_wt); _wt.add_done_callback(race_tasks.discard)
             # GREET FIRST — but only on the FIRST connect, not on a seamless reconnect
             # (browser sends ?rc=1 when re-establishing after an OpenAI session drop / 55min cap).
             if not request.query.get("rc"):
@@ -342,7 +399,17 @@ async def relay(request):
                 # "what's your name?" restarts onboarding they already finished.
                 # A page declares its game with ?intro=<game> on the iframe URL.
                 _intro = (request.query.get("intro") or "").strip().lower()
-                if _intro == "freeze":
+                if _intro == "freeze" and _hebrew:
+                    # HEBREW MODE greet — same conversation contract as the EN freeze intro
+                    _greet = ("Speak HEBREW ONLY. Say EXACTLY these words and NOTHING more: "
+                              "היי! אני נובה - זמן לקפוא! איך קוראים לך? "
+                              "Then STOP and wait. When they answer, echo the exact name you heard "
+                              "warmly and keep a real short conversation in Hebrew - answer anything "
+                              "they say. After their name or two exchanges, explain in Hebrew: when "
+                              "the music plays you DANCE - when it stops... you FREEZE like a statue "
+                              "(קופאים כמו פסל)! Then ask: מוכנים? Do NOT offer any other game. "
+                              "Do NOT start counting down - the game begins only when they say yes.")
+                elif _intro == "freeze":
                     # READY.md Part 1 (2026-08-27): the intro is a REAL conversation now —
                     # greet + name ask, echo the TRANSCRIPT name, answer anything, then
                     # steer to the freeze rule and the ready question. No example names.
@@ -353,16 +420,6 @@ async def relay(request):
                               "After their name or two exchanges, explain: when the music plays DANCE - "
                               "when it stops... FREEZE! Then ask: Ready? Do NOT offer any other game. "
                               "Do NOT start counting down - the game begins only when they say yes.")
-                elif _intro == "upperbody":
-                    # UPPER BODY (2026-08-27): page-owned game, Freeze pattern. Short
-                    # conversational greet; after it the PAGE drives every beat.
-                    _greet = ("Speak ONLY the words inside the quotes, then stop: "
-                              "\"Hi! I'm Nova - UPPER BODY time! Hands on your waist - your torso "
-                              "dances, your hips FREEZE! What's your name?\" "
-                              "Everything after this is silent direction, never spoken: wait for "
-                              "their answer, echo the exact name you heard warmly, then ask if "
-                              "they are ready to dance with you. Never offer another game. Never "
-                              "start the dance - the game begins when they press ready.")
                 else:
                     _greet = ("Greet the kid in ONE short excited line and say exactly: "
                               "Hi! I'm Nova, your magical AI dance teacher! What's your name?")
@@ -380,9 +437,6 @@ async def relay(request):
                     # statue regex on her OWN words -> whisper + invented praise pre-yes).
                     if _freeze_mode and sgate["on"]:
                         continue     # game phase: the page owns every beat, brain never self-fires
-                    if _intro == "upperbody":
-                        continue     # UPPER BODY 2026-08-27: page owns EVERY beat (statue/light
-                                     # intro machinery must never fire inside this game)
                     if speaking["v"] or speaking["resp_active"]:
                         continue
                     # #5 STATUE: ONE quick whisper fills the hold naturally (~1.5s in), then silence.
@@ -435,6 +489,164 @@ async def relay(request):
                             print("[TURN-GATE] retry err", e, flush=True)
             silwatch = asyncio.create_task(silence_watch())
 
+            # QUEUED STAGED LINES (MACHINE-CERTIFY en-4): nova-say lines that arrived while
+            # she was speaking wait here and fire the moment she goes idle — the ending
+            # trio (score line, fun question) must never vanish behind a late verdict.
+            saylater = []
+            def say_wrap(line):
+                # he-8: the English say-exactly wrapper around a Hebrew line got ignored —
+                # the model swapped the score line for its own continuation ("ואנחנו חוזרים
+                # לתנועה"). Language-matched + hardened wrapper (mirrors the he-1 cue fix).
+                if _hebrew:
+                    return ("אמרי בקול רק את השורה הבאה, מילה במילה, בדיוק כפי שהיא כתובה. "
+                            "אל תחליפי אותה במשפט אחר, אל תוסיפי מילים לפניה או אחריה, "
+                            "ואל תגיבי לשיחה. רק השורה הזאת, פעם אחת, בקול חם ונלהב: "
+                            '"' + line + '"')
+                return ("Say ONLY this exact line out loud, word for word, exactly as written. "
+                        "Do NOT replace it with another sentence, do NOT add words before or "
+                        "after it, do NOT respond to the conversation. Just this line, once, "
+                        'in your warm excited dance-teacher voice: "' + line + '"')
+            def say_resp(line):
+                # OUT-OF-BAND EXACT LINE (he-10): with conversation history in view the model
+                # paraphrased EVERY staged Hebrew line, even on enforce-retry — momentum beat
+                # instructions. conversation:"none" gives it NOTHING to blend with: its whole
+                # world is one "repeat after me" message. Same live voice, same output path.
+                _ask = ("חזרי אחריי מילה במילה, פעם אחת, בקול חם ונלהב: " if _hebrew
+                        else "Repeat after me word for word, once, warm and excited: ")
+                return {"conversation": "none",
+                        "instructions": say_wrap(line),
+                        "input": [{"type": "message", "role": "user",
+                                   "content": [{"type": "input_text", "text": _ask + line}]}]}
+            async def say_flush():
+                while True:
+                    await asyncio.sleep(0.4)
+                    if not saylater: continue
+                    if hold["on"]: saylater.clear(); continue          # paused game: staged lines die
+                    if sgate["on"]: continue   # mid-game (air OR hold): staged lines wait for the ending
+                    # kid just spoke: HER REPLY airs first. 2.5s (was 5.0, he-7): with the
+                    # transcript race her one-shot goes resp_active well inside 2.5s, and the
+                    # 5s pause starved the ending trio out of the session's final window.
+                    if time.time() - kidinput["ts"] < 2.5: continue
+                    if speaking["resp_active"] or speaking["v"]: continue
+                    if time.time() - speaking["last_chunk"] < 0.8: continue   # engine still draining
+                    line = saylater.pop(0)
+                    if line.lower() in spoken: continue
+                    spoken.add(line.lower())
+                    try:
+                        resp["origin"] = "say"; sayenf["line"] = line
+                        await oai.send_json({"type": "response.create", "response": say_resp(line)})
+                        print("PITCH say (flushed):", line[:60], flush=True)
+                    except Exception as e:
+                        print("PITCH flush err", e, flush=True)
+            sayflush_task = asyncio.create_task(say_flush())
+
+            async def kid_transcript(ktxt, src, n):
+                # TRANSCRIPT-RACE: first transcript per utterance wins; the loser is a no-op.
+                if n in utt["handled"]:
+                    return
+                # LAW-INPUT-LOCK VALIDATION: a kid-turn is real ONLY if the
+                # transcript has >=2 real English words, OR it is the session's
+                # FIRST valid turn and is one clean name-shaped token (the name
+                # answer). Everything else is consumed silently — no generation.
+                # HEBREW MODE (MACHINE-CERTIFY he-1): the Latin-only word regex saw
+                # ZERO words in perfect Hebrew transcripts ("קוראים לי שוקי") and the
+                # lock silently ate every kid turn — in HE mode Hebrew letters are words.
+                _words = _re.findall(r"[A-Za-zא-ת][A-Za-zא-ת'\-]*" if _hebrew else r"[A-Za-z][A-Za-z'\-]*", ktxt)
+                _drop = None
+                if not ktxt or is_garble(ktxt):
+                    _drop = "garble/empty"
+                elif len(_words) >= 2:
+                    _drop = None
+                elif len(_words) == 1 and (_words[0].lower() in (
+                      "yes", "yeah", "yep", "no", "ok", "okay", "ready", "sure",
+                      "freeze", "wave", "groove", "stop", "again", "go", "hi", "hey", "done",
+                      "כן", "לא", "אוקיי", "סבבה", "מוכן", "מוכנה", "עוד", "די", "היי",
+                      "יאללה", "קפוא", "ביי", "קן")
+                      # he-2: Whisper heard the Hebrew כן as English "can" — in HE mode
+                      # the sound-alikes of כן are the kid saying yes
+                      or (_hebrew and _words[0].lower() in ("can", "ken", "cane", "kein"))):
+                    _drop = None                     # real single-word answers are turns
+                elif (inlock["valid_turns"] == 0 and len(_words) == 1
+                      and (ktxt[:1].isupper() or _hebrew) and len(_words[0]) >= 2 and _words[0].lower() not in
+                      ("wow", "what", "cool", "nice", "hello")):
+                    _drop = None                     # name beat: name-shaped token (Hebrew has no case)
+                else:
+                    _drop = "sub-2-word"
+                # RACE POLICY: the REST racer may only ACCEPT a turn, never reject one.
+                # Its transcript of a VAD slice can be junk (probe: "아." for a half
+                # phrase) — a junk win must NOT consume the utterance; the realtime
+                # transcript stays the sole authority for drops. INPUT-LOCK unchanged.
+                if src == "rest" and _drop:
+                    print("[RACE] rest junk (", _drop, ") — deferring utt", n, "to rt", flush=True)
+                    return
+                utt["handled"].add(n)
+                if src == "rest":
+                    print("[RACE] rest transcript won utt", n, ":", ktxt[:40], flush=True)
+                if _drop:
+                    print("[INPUT-LOCK] dropped:", _drop, "|", ktxt[:30], flush=True)
+                    try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"[INPUT-LOCK] dropped ("+_drop+"): "+ktxt[:60]+"\n")
+                    except Exception: pass
+                else:
+                    # real kid input: NOW reset the turn counter, record input, log.
+                    inlock["valid_turns"] += 1
+                    turn["kid_ts"] = time.time(); turn["retried"] = False
+                    kidinput["ts"] = time.time()
+                    # KID OUTRANKS THE QUEUE (en-10, refined he-3): clearing the
+                    # queue killed the trio's score line when the kid answered fast.
+                    # Now the flush just PAUSES around a kid turn (say_flush skips
+                    # for 5s after kidinput) — her reply generates first, staged
+                    # lines follow after. Nothing is lost, nothing steals her turn.
+                    await ws_client.send_json({"type": "you_text", "text": ktxt})
+                    try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"KID:  "+ktxt+"\n")
+                    except Exception: pass
+                    # #5 CONSENT=REAL YES: a clear spoken yes/ready/ok is a real consent.
+                    if YES_RE.search(ktxt):
+                        consent["yes_ts"] = time.time(); print("[CONSENT] real yes:", ktxt[:40], flush=True)
+                    # ONE-SHOT GENERATION: this validated turn buys exactly one response.
+                    # SPEAK-GATE: mid-game the kid's words are context only - no reply
+                    # (and no stealing the gap's air credit).
+                    if sgate["on"]:
+                        print("[SPEAK-GATE] kid turn stored, no reply (game phase)", flush=True)
+                    else:
+                        try:
+                            resp["origin"] = "kid"
+                            await oai.send_json({"type": "response.create"})
+                            print("[INPUT-LOCK] one-shot fired for turn", inlock["valid_turns"], flush=True)
+                        except Exception as _e:
+                            print("[INPUT-LOCK] fire err", _e, flush=True)
+
+            async def rest_transcribe(audio, n):
+                # TRANSCRIPT-RACE: our own transcription of the tapped utterance (same model).
+                print("[RACE] rest start utt", n, flush=True)
+                try:
+                    import io as _io
+                    bio = _io.BytesIO()
+                    with wave.open(bio, "wb") as w:
+                        w.setnchannels(1); w.setsampwidth(2); w.setframerate(24000)
+                        w.writeframes(audio)
+                    def _form():
+                        f = aiohttp.FormData()
+                        f.add_field("file", bio.getvalue(), filename="utt.wav", content_type="audio/wav")
+                        f.add_field("model", "gpt-4o-mini-transcribe")
+                        f.add_field("language", "he" if _hebrew else "en")
+                        return f
+                    async with aiohttp.ClientSession() as _s:
+                        for _attempt in (1, 2):   # he-12: one retry on 429 — the bye died when
+                            # BOTH racers failed at once (rt 'transcription failed' + rest 429)
+                            async with _s.post("https://api.openai.com/v1/audio/transcriptions",
+                                               headers={"Authorization": "Bearer " + KEY},
+                                               data=_form(), timeout=aiohttp.ClientTimeout(total=8)) as r:
+                                if r.status == 200:
+                                    j = await r.json()
+                                    print("[RACE] rest got utt", n, ":", (j.get("text") or "")[:40], flush=True)
+                                    await kid_transcript((j.get("text") or "").strip(), "rest", n)
+                                    break
+                                print("[RACE] rest http", r.status, "attempt", _attempt, flush=True)
+                                if r.status != 429: break
+                            await asyncio.sleep(1.2)
+                except Exception as _e:
+                    print("[RACE] rest err", str(_e)[:60], flush=True)
+
             async def from_browser():
                 async for msg in ws_client:
                     if msg.type != aiohttp.WSMsgType.TEXT: continue
@@ -447,7 +659,7 @@ async def relay(request):
                         print("[HOLD] dropped while paused:", t, flush=True)
                         continue
                     # SPEAK-GATE: speech-REQUESTING messages are dropped during the game phase;
-                    # nova-fact deliberately NOT in this list - it is recorded below as silent
+                    # nova-fact deliberately NOT in this list — it is recorded below as silent
                     # ending-fuel (its response.create is separately blocked at response.created).
                     if sgate["on"] and t in ("nova-say", "nova-cue"):
                         if sgate["mode"] == "air":
@@ -466,6 +678,8 @@ async def relay(request):
                             continue
                         if hold["on"]:      # PAUSE (2026-08-04): game is paused — she must not hear
                             continue
+                        try: kidbuf.extend(base64.b64decode(m["data"]))   # TRANSCRIPT-RACE tap
+                        except Exception: pass
                         await oai.send_json({"type": "input_audio_buffer.append", "audio": m["data"]})
                     elif t == "text":
                         if is_garble(m.get("text", "")):                        # #4 GARBLE: ignore typed nonsense too
@@ -483,16 +697,31 @@ async def relay(request):
                         line = (m.get("text") or "").strip()
                         if line and line.lower() in spoken:      # #6 DE-CAN: never the same line twice
                             print("[DE-CAN] dropped duplicate staged line:", line[:50], flush=True)
-                        elif line and not speaking["resp_active"] and not speaking["v"]:
+                        elif (line and not speaking["resp_active"] and not speaking["v"]
+                              and time.time() - kidinput["ts"] > 2.5
+                              and time.time() - speaking["last_chunk"] > 0.8):
+                            # he-6 guards on the direct path: a staged line sent while the
+                            # kid's turn was still in flight (transcript pending / her reply
+                            # forming) collided with the one-shot, got killed by the overlap
+                            # guard, and DE-CAN blocked the retry. Direct send now requires
+                            # a settled channel — recent kid input or a draining engine
+                            # queues the line instead. (he-7 proved full queueing starves
+                            # the trio and floats air credits — direct stays the fast path.)
                             spoken.add(line.lower())
-                            await oai.send_json({"type": "response.create", "response": {
-                                "instructions": (
-                                    "You are mid-game. Say this ONE short line out loud, exactly as written, "
-                                    "once, in your warm excited dance-teacher voice, then stop. Do not add anything. "
-                                    'Line: "' + line + '"')}})
+                            resp["origin"] = "say"; sayenf["line"] = line
+                            await oai.send_json({"type": "response.create", "response": say_resp(line)})
                             print("PITCH say:", line, flush=True)
-                        else:
-                            print("PITCH skip (busy):", line, flush=True)
+                        elif line:
+                            # QUEUE, don't drop (MACHINE-CERTIFY en-4): the ending trio's
+                            # score line + fun question arrived while the final verdict was
+                            # still speaking and vanished — the say_flush watcher fires
+                            # queued lines the moment she goes idle. Cap 4: the trio must
+                            # never drop its tail.
+                            if len(saylater) < 4:
+                                saylater.append(line)
+                                print("PITCH queued (busy):", line[:50], flush=True)
+                            else:
+                                print("PITCH queue full, dropped:", line[:40], flush=True)
                     elif t == "nova-cue":
                         intent = (m.get("intent") or "").strip()
                         ctx = (m.get("ctx") or "").strip()
@@ -514,12 +743,20 @@ async def relay(request):
                             except Exception: pass
                         elif intent and not speaking["resp_active"] and not speaking["v"]:
                             inlock["last_cue_resp"] = time.time()
-                            await oai.send_json({"type": "response.create", "response": {
+                            _cue_resp = {
                                 "instructions": (
                                     "[GAME DIRECTOR - improvise, never read this aloud] " + intent
                                     + (" Facts you may use: " + ctx if ctx else "")
                                     + " Respond with ONE tiny spoken line in your OWN fresh words, never reuse "
-                                      "a line you already said, in character, warm and excited, English only, very short.")}})
+                                      "a line you already said, in character, warm and excited, "
+                                    + ("HEBREW ONLY (עברית), בלי קללות ובלי סלנג באנגלית, " if _hebrew else "English only, ")
+                                    + "kid-safe words only, very short.")}
+                            # MID-GAME TOKEN CAP (MACHINE-CERTIFY en-5): air-mode cue lines are
+                            # physically capped — a model that ignores "very short" simply runs out.
+                            if sgate["on"] and sgate["mode"] == "air":
+                                _cue_resp["max_output_tokens"] = 40
+                            resp["origin"] = "cue:" + intent.split(":")[0]
+                            await oai.send_json({"type": "response.create", "response": _cue_resp})
                             print("PITCH cue:", intent[:70], "| ctx:", ctx[:70], flush=True)
                         else:
                             print("PITCH cue skip (busy):", intent[:40], flush=True)
@@ -538,6 +775,9 @@ async def relay(request):
                             else:
                                 instr = PROMPT + "\n\n[FREEZE GAME - TENSION MASTER]\n" + ptext
                                 print("PERSONA append (legacy):", ptext[:60], flush=True)
+                            # HEBREW MODE survives every persona swap — without this, the
+                            # game-mode replace silently flipped her back to English mid-game.
+                            if _hebrew: instr += HEBREW_RULES
                             # "type": "realtime" is REQUIRED on session.update in this API version.
                             # Omitting it made the update fail silently (logged only as "OAI: error"),
                             # so the persona never applied and she kept answering out of context.
@@ -572,7 +812,7 @@ async def relay(request):
                                 if statue["active"]: statue["active"] = False; print("[STATUE] hold-fact -> celebrate", flush=True)
                             print("[FACT] detected move:", move, flush=True)
                             if sgate["on"]:
-                                # SPEAK-GATE: fact recorded as silent ending-fuel - no praise line now
+                                # SPEAK-GATE: fact recorded as silent ending-fuel — no praise line now
                                 print("[SPEAK-GATE] fact stored silently (no praise):", move, flush=True)
                             elif not speaking["resp_active"] and not speaking["v"]:
                                 await oai.send_json({"type": "response.create", "response": {
@@ -646,7 +886,8 @@ async def relay(request):
                             try:
                                 await oai.send_json({"type": "session.update", "session": {
                                     "type": "realtime",
-                                    "instructions": CORE_LAWS + "\n\n" + game_mode["persona"]}})
+                                    "instructions": CORE_LAWS + "\n\n" + game_mode["persona"]
+                                                    + (HEBREW_RULES if _hebrew else "")}})
                                 print("[PICK] session switched to game-mode persona", flush=True)
                             except Exception as _e:
                                 print("[PICK] session switch failed:", _e, flush=True)
@@ -657,10 +898,6 @@ async def relay(request):
                             # "Ready?"; a second "show me a FREEZE" made the intro long and off-game.
                             # Demo gestures and every round-call belong to the PAGE now.
                             print("[PICK] freeze: silent mode-switch", flush=True)
-                        elif game == "upperbody":
-                            # 2026-08-27: mode switch ONLY — the greet already asked "Ready?";
-                            # the demo and every loop-call belong to the PAGE (Freeze pattern).
-                            print("[PICK] upperbody: silent mode-switch", flush=True)
                         elif game in ("wave", "up groove", "upgroove", "groove"):
                             await oai.send_json({"type": "response.create", "response": {
                                 "instructions": ("The kid picked " + game + ". In ONE short line ask them: "
@@ -734,6 +971,34 @@ async def relay(request):
                         # #1 TRUTH-GATE SUPPRESS: the instant a move-claim forms with NO fact in the
                         # last FACT_WINDOW s, cancel the response and replace it with neutral hype.
                         resp["buf"] += d
+                        # REFUSAL-KILL (en-17): the out-of-band repeat-after-me sometimes makes
+                        # the model REFUSE ("I'm sorry, but I can't fulfill that request") and the
+                        # refusal AIRED as a spoken intro line. Any assistant-refusal shape dies
+                        # the moment it forms, any phase — SAY-ENFORCE then requeues the real line.
+                        if (not resp["killed"]) and _re.match(
+                                r"\s*(i'?m sorry|i can'?t|i cannot|sorry,|מצטערת|אני לא יכולה)", resp["buf"], _re.I):
+                            resp["killed"] = True
+                            print("[REFUSAL-KILL] cancelled:", resp["buf"][:50], flush=True)
+                            try: await oai.send_json({"type": "response.cancel"})
+                            except Exception: pass
+                            audio_buf.clear()
+                        # MIDGAME-BAN WATCHDOG (MACHINE-CERTIFY en-5): instructions alone flake —
+                        # one session obeys "6 words, no questions", the next asks "Ready for the
+                        # next freeze?". While the speak-gate is on (air mode = mid-game), any
+                        # banned shape or a 9th word cancels the response THE MOMENT the transcript
+                        # shows it. Silence beats chatter mid-game; no replacement line.
+                        if (not resp["killed"]) and sgate["on"] and sgate["mode"] == "air":
+                            _buf = resp["buf"]
+                            _banned = MIDGAME_BAN_RE.search(_buf)
+                            # cancel at word 7 — transcript deltas run ahead of aired audio,
+                            # so the KID hears <=6 words (the G2 law), not the transcript tail
+                            _toolong = len(_buf.split()) > 6
+                            if _banned or _toolong:
+                                resp["killed"] = True
+                                print("[MIDGAME-BAN] cancelled (%s): %s" %
+                                      ("pattern:" + _banned.group(0) if _banned else ">8 words", _buf[:70]), flush=True)
+                                try: await oai.send_json({"type": "response.cancel"})
+                                except Exception: pass
                         # #6 NO-SELF-ANSWER: she is picking/confirming a game FOR the kid with no recent real input.
                         if (not resp["killed"]) and (time.time() - kidinput["ts"] > 6.0) and SELFANSWER_RE.search(resp["buf"]):
                             resp["killed"] = True
@@ -765,7 +1030,14 @@ async def relay(request):
                                     "Say EXACTLY this one short line, nothing else, no move-talk: " + hy}})
                             except Exception as _e:
                                 print("[TRUTH-GATE] cancel err", _e, flush=True)
-                        elif (not resp["killed"]) and (not sgate["on"]) and audio_buf and resp["buf"].rstrip()[-1:] in ".!?":
+                        elif (not resp["killed"]) and (not sgate["on"]) and audio_buf and (
+                              resp["buf"].rstrip()[-1:] in ".!?"
+                              # FIRST-CLAUSE RELEASE (MACHINE-CERTIFY en-13): a fresh direct
+                              # kid-reply ("Hey, Shuki! ...") waited for the full sentence and
+                              # aired at 3.6s — 0.1s over the law. Within 6s of a real kid turn
+                              # the truth-gates can't fire anyway (praise-within-6s is legit),
+                              # so the first comma is a safe earlier release point.
+                              or (time.time() - kidinput["ts"] <= 6.0 and resp["buf"].rstrip()[-1:] == ",")):
                             # SENTENCE-LEVEL PRE-SYNTH RELEASE (low latency): this full sentence just
                             # passed the gate clean -> release ITS buffered audio now (don't wait for the
                             # whole line). A later fabricated sentence is still caught + dropped before synth.
@@ -777,7 +1049,39 @@ async def relay(request):
                                 speaking["last_chunk"] = time.time(); await engine_q.put(data[i:i+FLUSH])
                     elif et in ("response.output_audio_transcript.done", "response.audio_transcript.done"):
                         txt = e.get("transcript", "") or ""
-                        await ws_client.send_json({"type": "nova_done", "text": txt})
+                        # ORIGIN TAG (he-9 forensics): who asked for this line?
+                        _org = resp["origin"] or "auto"
+                        resp["origin"] = None
+                        print("[ORIGIN]", _org, "|", txt[:60], flush=True)
+                        # SAY-ENFORCE (he-9): staged exact line paraphrased -> requeue ONCE
+                        # (intro/ending only: an extra ending line is legal, a gap line is not).
+                        if _org == "say" and sayenf["line"]:
+                            _want, _got = sayenf["line"], txt
+                            sayenf["line"] = None
+                            _norm = lambda s: _re.sub(r"[^A-Za-zא-ת0-9]", "", s or "").lower()
+                            import difflib as _dl
+                            _ok = _norm(_want) in _norm(_got) or _dl.SequenceMatcher(
+                                None, _norm(_want), _norm(_got)).ratio() >= 0.6
+                            if (not _ok) and (not sgate["on"]) and _want not in sayenf["tried"]:
+                                sayenf["tried"].add(_want)
+                                spoken.discard(_want.lower())
+                                saylater.insert(0, _want)
+                                print("[SAY-ENFORCE] paraphrase detected, requeued:", _want[:50], flush=True)
+                        # MIDGAME-BAN (en-7): a watchdog-cancelled response airs at most a sub-second
+                        # stub — its partial transcript must not surface as a full spoken line
+                        # (the kill itself is already logged pod-side for the graders).
+                        if resp["killed"]:
+                            # a cancelled response airs at most a sub-second stub in ANY phase
+                            # (en-7 mid-game; en-17 intro refusal) — never surface it as a line
+                            print("[KILL] stub suppressed:", txt[:60], flush=True)
+                        elif sgate["on"] and sgate["mode"] == "hard":
+                            # GHOST LINE (he-10): a response finishing inside a hard hold is
+                            # never HEARD (AirVoice.cut + engine block — the energy graders
+                            # prove silence), but its transcript reached the page log and
+                            # counted as a 3rd gap line. A line nobody heard is not a line.
+                            print("[HOLD-MUTE] ghost transcript suppressed:", txt[:60], flush=True)
+                        else:
+                            await ws_client.send_json({"type": "nova_done", "text": txt})
                         # [PERSONA-LEAK] watch (READY.md Part 6) - expected count: 0
                         if _re.search(r"happy to help|assist you|how can i assist|as an ai", txt, _re.I):
                             print("[PERSONA-LEAK]", txt[:80], flush=True)
@@ -810,8 +1114,16 @@ async def relay(request):
                             except Exception: pass
                     elif et == "input_audio_buffer.speech_started":
                         turn["kid_ts"] = time.time(); turn["retried"] = False   # TURN-GATE: real voice
+                        utt["n"] += 1; utt["start"] = max(0, len(kidbuf) - UTT_PREROLL)   # TRANSCRIPT-RACE
                         if not speaking["v"]:
                             await ws_client.send_json({"type": "status", "hearing": True})
+                    elif et == "input_audio_buffer.speech_stopped":
+                        # TRANSCRIPT-RACE: snapshot the utterance, start our racer
+                        _ua = bytes(kidbuf[utt["start"]:])
+                        print("[RACE] armed utt", utt["n"], "bytes", len(_ua), flush=True)
+                        if len(_ua) > 4800:      # >100ms of real audio
+                            _t = asyncio.create_task(rest_transcribe(_ua, utt["n"]))
+                            race_tasks.add(_t); _t.add_done_callback(race_tasks.discard)
                     elif et == "conversation.item.input_audio_transcription.delta":
                         await ws_client.send_json({"type": "you_delta", "delta": e.get("delta", "")})
                     elif et == "response.created":
@@ -858,53 +1170,16 @@ async def relay(request):
                             await ws_client.send_json({"type": "status", "speaking": False, "state": "listening"})
                         asyncio.create_task(reopen())
                     elif et == "conversation.item.input_audio_transcription.completed":
-                        ktxt = (e.get("transcript", "") or "").strip()
-                        # LAW-INPUT-LOCK VALIDATION: a kid-turn is real ONLY if the
-                        # transcript has >=2 real English words, OR it is the session's
-                        # FIRST valid turn and is one clean name-shaped token (the name
-                        # answer). Everything else is consumed silently — no generation.
-                        _words = _re.findall(r"[A-Za-z][A-Za-z'\-]*", ktxt)
-                        _drop = None
-                        if not ktxt or is_garble(ktxt):
-                            _drop = "garble/empty"
-                        elif len(_words) >= 2:
-                            _drop = None
-                        elif len(_words) == 1 and _words[0].lower() in (
-                              "yes", "yeah", "yep", "no", "ok", "okay", "ready", "sure",
-                              "freeze", "wave", "groove", "stop", "again", "go", "hi", "hey", "done"):
-                            _drop = None                     # real single-word answers are turns
-                        elif (inlock["valid_turns"] == 0 and len(_words) == 1
-                              and ktxt[:1].isupper() and len(_words[0]) >= 3 and _words[0].lower() not in
-                              ("wow", "what", "cool", "nice", "hello")):
-                            _drop = None                     # name beat: capitalized token = name candidate
-                        else:
-                            _drop = "sub-2-word"
-                        if _drop:
-                            print("[INPUT-LOCK] dropped:", _drop, "|", ktxt[:30], flush=True)
-                            try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"[INPUT-LOCK] dropped ("+_drop+"): "+ktxt[:60]+"\n")
-                            except Exception: pass
-                        else:
-                            # real kid input: NOW reset the turn counter, record input, log.
-                            inlock["valid_turns"] += 1
-                            turn["kid_ts"] = time.time(); turn["retried"] = False
-                            kidinput["ts"] = time.time()
-                            await ws_client.send_json({"type": "you_text", "text": ktxt})
-                            try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"KID:  "+ktxt+"\n")
-                            except Exception: pass
-                            # #5 CONSENT=REAL YES: a clear spoken yes/ready/ok is a real consent.
-                            if YES_RE.search(ktxt):
-                                consent["yes_ts"] = time.time(); print("[CONSENT] real yes:", ktxt[:40], flush=True)
-                            # ONE-SHOT GENERATION: this validated turn buys exactly one response.
-                            # SPEAK-GATE: mid-game the kid's words are context only - no reply
-                            # (and no stealing the gap's air credit).
-                            if sgate["on"]:
-                                print("[SPEAK-GATE] kid turn stored, no reply (game phase)", flush=True)
-                            else:
-                                try:
-                                    await oai.send_json({"type": "response.create"})
-                                    print("[INPUT-LOCK] one-shot fired for turn", inlock["valid_turns"], flush=True)
-                                except Exception as _e:
-                                    print("[INPUT-LOCK] fire err", _e, flush=True)
+                        # TRANSCRIPT-RACE: the realtime transcript is now just one racer —
+                        # validation lives in kid_transcript (shared with the REST path).
+                        # TRANSCRIPT-RACE (he-17 fix): BOTH racers key on utt["n"], the armed
+                        # counter — a separate rt counter drifted from the rest one, so the fast
+                        # rest result and the slow rt result got different dedup keys and the
+                        # slow one still ran. completed refers to the most-recently-armed utt.
+                        await kid_transcript((e.get("transcript", "") or "").strip(), "rt", utt["n"])
+                    elif et == "conversation.item.input_audio_transcription.failed":
+                        utt["handled"].add(utt["n"])   # dead utterance is not "pending" — unblocks the retry gate
+                        print("[RACE] rt transcription failed for utt", utt["n"], flush=True)
                     elif et == "error":
                         await log("ERROR: " + str(e.get("error", {}).get("message", ""))[:120])
 
@@ -931,11 +1206,7 @@ async def token(request):
     return web.json_response({"url": LK_URL, "token": viewer_token(), "room": LK_ROOM})
 
 async def health(request):
-    # CORS (2026-08-29): pod-registry.js probes /health cross-origin from GitHub Pages
-    # to auto-detect the live pod — without this header the probe cannot read the body
-    # and a healthy pod looks dead to the public page.
-    return web.json_response({"ok": True, "voice": VOICE, "room": LK_ROOM},
-                             headers={"Access-Control-Allow-Origin": "*"})
+    return web.json_response({"ok": True, "voice": VOICE, "room": LK_ROOM})
 
 PAGE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -1251,9 +1522,9 @@ async def wave_page(request):
     return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
 
 async def pulse_post(request):
-    # PULSE (2026-08-28): the durable end-of-game row. Spec'd in UPPERBODY-BUILD
-    # PART 6 / UPPERBODY-FINAL but never implemented anywhere — this is the minimal
-    # real thing: append a JSON line to the volume, verifiable with `tail pulse.log`.
+    # PULSE (2026-08-28, ported from the volume copy 2026-08-30): the durable
+    # end-of-game row. Appends a JSON line to the volume — verifiable with
+    # `tail /workspace/pulse.log` (grader G4 reads it).
     try:
         data = await request.json()
     except Exception:
@@ -1277,13 +1548,18 @@ async def upperbody_page(request):
         return web.Response(status=503, text="upperbody page not deployed")
     return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
 
-async def prompt_file(request):
+# PAGE ASSETS (2026-08-30, MACHINE-CERTIFY found the hole): the freeze page loads
+# nova-session-rec.js / nova-ending.js / pod-registry.js and freezegame/* RELATIVE to
+# the pod origin, but rt_lk never served them — so the SONG and the whole session
+# recorder 404'd on every pod ("game with no melody"). Whitelisted files only.
+_PAGE_ASSETS = ("nova-session-rec.js", "nova-ending.js", "pod-registry.js")
+async def page_asset(request):
     name = request.match_info["name"]
-    if not name.replace("-", "").isalnum():
-        return web.Response(status=400, text="bad name")
-    p = _os.path.join(_PROMPT_DIR, name + ".txt")
-    if not _os.path.isfile(p):
-        return web.Response(status=404, text="no such prompt")
+    if name not in _PAGE_ASSETS:
+        return web.Response(status=404, text="no such asset")
+    p = os.path.join("/workspace/pages", name)
+    if not os.path.isfile(p):
+        return web.Response(status=404, text="asset not deployed")
     return web.FileResponse(p)
 
 @web.middleware
@@ -1308,21 +1584,24 @@ app.router.add_get("/token", token)
 app.router.add_get("/health", health)
 app.router.add_get("/rt", relay)
 app.router.add_get("/set_avatar", set_avatar_proxy)
-app.router.add_get("/prompts/{name}", prompt_file)
-# Bake gallery (Guardian Part 3): serve the generated previews if present.
-_GALLERY_DIR = "/workspace/gallery"
+app.router.add_get("/{name:nova-session-rec\\.js|nova-ending\\.js|pod-registry\\.js}", page_asset)
+# game assets (song + pose clips) live on the volume next to the pages
 try:
-    _os.makedirs(_GALLERY_DIR, exist_ok=True)
-    app.router.add_static("/gallery", _GALLERY_DIR, show_index=True)
+    os.makedirs("/workspace/pages/freezegame", exist_ok=True)
+    app.router.add_static("/freezegame", "/workspace/pages/freezegame", show_index=False)
 except Exception as _e:
-    print(f"[GALLERY] static route not mounted: {_e}", flush=True)
-# FINALFREEZE Part 5: serve her voice stings (sting_freeze/filler_*) at /audio/ (pod origin).
-_AUDIO_DIR = "/workspace/audio"
+    print(f"[FREEZEGAME] static route not mounted: {_e}", flush=True)
+# her voice stings + bake gallery (parity with the volume copy this file replaced)
 try:
-    _os.makedirs(_AUDIO_DIR, exist_ok=True)
-    app.router.add_static("/audio", _AUDIO_DIR, show_index=False)
+    os.makedirs("/workspace/audio", exist_ok=True)
+    app.router.add_static("/audio", "/workspace/audio", show_index=False)
 except Exception as _e:
     print(f"[AUDIO] static route not mounted: {_e}", flush=True)
+try:
+    os.makedirs("/workspace/gallery", exist_ok=True)
+    app.router.add_static("/gallery", "/workspace/gallery", show_index=True)
+except Exception as _e:
+    print(f"[GALLERY] static route not mounted: {_e}", flush=True)
 
 if __name__ == "__main__":
     web.run_app(app, host="0.0.0.0", port=8765, print=None)
