@@ -956,10 +956,31 @@ class FacebookChat(Platform):
             time.sleep(3)
 
     def reply(self, ev: ChatEvent, text: str) -> bool:
-        r = requests.post(f"{self.G}/{ev.reply_target}/comments", data={"message": text[:1000], "access_token": self.token}, timeout=10)
-        if r.status_code >= 300:
-            log.error("facebook reply %s: %s", r.status_code, r.text[:300]); return False
-        return True
+        # TOP-LEVEL comment on the live video (visible in the main chat panel, refreshes live),
+        # addressed "@Name —". Falls back to a nested reply only if the top-level post fails.
+        name = (ev.name or "").strip()
+        body = text[:1000]
+        if name and not body.lower().startswith("@"):
+            body = f"@{name} — {body}"[:1000]
+        try:
+            tgt = self.live_id or self.discover_live()
+        except Exception:
+            tgt = self.live_id
+        if tgt:
+            r = requests.post(f"{self.G}/{tgt}/comments",
+                              data={"message": body, "access_token": self.token}, timeout=10)
+            if r.status_code < 300:
+                return True
+            log.warning("facebook top-level reply %s: %s — falling back to nested",
+                        r.status_code, r.text[:200])
+        # fallback: nested reply under the viewer's comment
+        if ev.reply_target:
+            r = requests.post(f"{self.G}/{ev.reply_target}/comments",
+                              data={"message": text[:1000], "access_token": self.token}, timeout=10)
+            if r.status_code >= 300:
+                log.error("facebook nested reply %s: %s", r.status_code, r.text[:300]); return False
+            return True
+        return False
 
 
 def _iso_ts(s: Optional[str]) -> float:

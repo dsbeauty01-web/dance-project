@@ -99,15 +99,26 @@ class Replier:
             return r.ok
         except Exception:
             return False
-    def facebook(self, comment_id: str, text: str) -> bool:
+    def facebook(self, comment_id: str, text: str, live_video_id: str = "") -> bool:
+        """Post a TOP-LEVEL comment on the live video (visible in the main chat panel,
+        refreshes live). Falls back to a nested reply under the viewer's comment."""
         tok = chat_ears.fb_page_token()
-        if not tok or not comment_id:
+        if not tok:
             return False
         try:
             import requests
-            r = requests.post(f"{chat_ears.FB_GRAPH}/{comment_id}/comments",
-                              params={"access_token": tok, "message": text[:200]}, timeout=8)
-            return r.ok
+            # top-level on the live video (reply_text should already be "@Name — ...")
+            if live_video_id:
+                r = requests.post(f"{chat_ears.FB_GRAPH}/{live_video_id}/comments",
+                                  params={"access_token": tok, "message": text[:1000]}, timeout=8)
+                if r.ok:
+                    return True
+            # fallback: nested reply
+            if comment_id:
+                r = requests.post(f"{chat_ears.FB_GRAPH}/{comment_id}/comments",
+                                  params={"access_token": tok, "message": text[:1000]}, timeout=8)
+                return r.ok
+            return False
         except Exception:
             return False
 
@@ -128,7 +139,8 @@ class Leads:
 
 # ---- the loop -----------------------------------------------------------------
 def run(catalog: dict, ears=None, speaker=None, replier=None, leads=None,
-        dry_run=False, max_ticks=None, live_chat_id=None, on_plan=None, clock=time.time):
+        dry_run=False, max_ticks=None, live_chat_id=None, on_plan=None, clock=time.time,
+        fb_live_video_id=""):
     brain = ChatBrain(catalog, AnswerGate())
     ears = ears or chat_ears.ChatEars()
     speaker = speaker or (None if dry_run else Speaker())
@@ -173,7 +185,7 @@ def run(catalog: dict, ears=None, speaker=None, replier=None, leads=None,
                 if plan["platform"] == "youtube":
                     replier.youtube(live_chat_id, plan["chat_reply"])
                 elif plan["platform"] == "facebook":
-                    replier.facebook(plan.get("comment_id", ""), plan["chat_reply"])
+                    replier.facebook(plan.get("comment_id", ""), plan["chat_reply"], fb_live_video_id)
                 if plan.get("lead_row"):
                     leads.add(plan["lead_row"])
                 if not spoke:
