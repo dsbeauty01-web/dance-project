@@ -26,7 +26,7 @@
   /* ── SET THIS ─────────────────────────────────────────────────────────────
      The pod id of the CURRENTLY RUNNING pod. null = no known-live pod, so
      call sites use their legacy fallback. */
-  var ACTIVE = 'ahpn3b9rl1tqrl';
+  var ACTIVE = '7fr8qobn46tuk1';
 
   /* ── LIVE-POD AUTO-DETECTION (2026-08-29, founder: "yes build it") ────────
      THE PROBLEM THIS KILLS: pods die (suicide timers, founder closes them) and
@@ -43,7 +43,8 @@
      is no worse than today. Sessions should append fresh pod ids here. */
   var CANDIDATES = [
     ACTIVE,
-    'ahpn3b9rl1tqrl',   // nova-tester — persistent tester pod (2026-09-03), locked URL target
+    '7fr8qobn46tuk1',  // nova-tester (2026-09-05)
+    'ahpn3b9rl1tqrl',
     'gtdmu76ocpjjmu',   // nova-certify-2      (2026-08-30, MACHINE-CERTIFY)
     'qfe21r86dqilms',   // nova-freeze-fresh3  (2026-08-29)
     'fh9v6w92vlcdhl',   // nova-freeze-final2  (2026-08-29)
