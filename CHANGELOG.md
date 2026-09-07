@@ -8,4 +8,6 @@ Format: one line per beta version + every promotion to main.
 - 2026-09-03 — RELEASE: Freeze game machine-certified EN + HE (3 clean sessions/lang). PR #39.
 
 ## beta
-- b0.1 — beta track opened from main; skills installed; guardian + rollback in place. (this session)
+- b0.3 — game-cues-lights B5: Freeze's punishing RED moving-ring → soft warm amber (never red).
+- b0.2 — performance-feedback-ai C1/C2/C3 + B3: feedback-law block into both game brains (4:1 encourage:correct, specific/malleable praise not trait, external-focus target cues not body parts, future-tense corrections).
+- b0.1 — beta track opened from main; skills installed; guardian + rollback in place.

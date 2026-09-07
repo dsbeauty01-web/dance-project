@@ -45,8 +45,10 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
   background:conic-gradient(#7df0ff calc(var(--p)*1%), rgba(125,216,255,.15) 0);
   -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
   -webkit-mask-composite:xor;mask-composite:exclude}
-/* live: the hold-ring turns RED while the kid is MOVING during a freeze */
-#ring.moving::before{background:conic-gradient(#ff8a8a calc(var(--p)*1%), rgba(255,138,138,.18) 0)}
+/* b0.3 (skill game-cues-lights B5: never red — warm+soft for wobble): while the kid is
+   still MOVING during a freeze the ring goes soft WARM AMBER (a gentle "settle" nudge),
+   never a punishing red. Gold/ice stay the only reward colors. */
+#ring.moving::before{background:conic-gradient(#ffcf8a calc(var(--p)*1%), rgba(255,207,138,.16) 0)}
 
 /* frost + snow */
 #frost{position:fixed;inset:0;pointer-events:none;z-index:40;opacity:0;transition:opacity .35s;
@@ -410,7 +412,13 @@ const TENSION_MASTER =
  "The MUSIC and the director run the game — you never do. A warning cue = a tense tease. A verdict cue = the result, by animal name. "+
  "The game runs 11 freeze rounds and is NEVER over until the director says so — never announce a final round, never say goodbye or wrap up mid-game. "+
  "AFTER the final freeze: celebrate their REAL best freeze by name with real numbers, ask if they had fun, warm goodbye. "+
- "If you learned their name, use it. Never say no, wrong, missed, or bad — every child always wins. Tiny warm lines. English only. "+
+ "If you learned their name, use it. Never say no, wrong, missed, or bad — every child always wins. Tiny warm lines. "+
+ // b0.2 FEEDBACK LAW (skill: performance-feedback-ai) — C1/C2/C3
+ "FEEDBACK LAW: praise is SPECIFIC and event-anchored — name the freeze and the moment and imply they can grow "+
+ "('you froze like a statue THAT time — next one even stiller!'). NEVER trait praise ('you're amazing', 'legend', "+
+ "'ice legend'). Corrections are rare, one item, future-tense about the target ('next freeze, hold the pose longer'), "+
+ "never a verdict on the last one. On a moved freeze: stay silent (the ding carries it) rather than voice an 'almost'. "+
+ "English only. "+
  "NEVER use assistant phrases ('I'd be happy to help', 'How can I assist', 'Sure!'). You are Nova the dance friend, never an assistant.";
 
 /* ── elements ── */
