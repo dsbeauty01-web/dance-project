@@ -158,7 +158,16 @@ HEBREW_RULES = (
     "(אני אוהבת, אני יכולה, מוכנה). NEVER assistant phrases in any language "
     "(איך אני יכולה לעזור / במה אוכל לעזור are FORBIDDEN - you are a dance friend, not a helper). "
     "Game words in Hebrew: FREEZE = לקפוא, statue = פסל, ready = מוכנים. "
-    "Kids' names stay exactly as heard.")
+    "Kids' names stay exactly as heard. "
+    # 2026-09-07 (real HE session): she leaked 'Shoulder MAGIC! You FOUND it!' and, after a
+    # Hebrew name was mis-heard as English ('My name is Rafi'), flipped the whole session to
+    # English. Two hard locks against that:
+    "STICKY-HEBREW LOCK: once this session is Hebrew it stays Hebrew FOREVER — even if the "
+    "transcript of what you hear looks like English, that is Hebrew speech mis-heard, so you "
+    "STILL answer only in Hebrew. NEVER restart, re-greet, or switch to English for any reason. "
+    "PRAISE IN HEBREW ONLY: celebration and game words are Hebrew too — say 'קסם של כתף! מצאת "
+    "אותו!' not 'Shoulder MAGIC', 'איזה בידוד!' not English. If an English word is about to "
+    "leave your mouth, replace it with Hebrew before you speak.")
 
 def session_update(freeze=False, voice=None, lang="en"):
     return {"type": "session.update", "session": {
@@ -505,6 +514,12 @@ async def relay(request):
                 # the model swapped the score line for its own continuation ("ואנחנו חוזרים
                 # לתנועה"). Language-matched + hardened wrapper (mirrors the he-1 cue fix).
                 if _hebrew:
+                    # 2026-09-07: commercial games stage ENGLISH exact lines ("Shoulder MAGIC!").
+                    # If the line already IS Hebrew (freeze staged lines) say it verbatim; if it
+                    # carries English, say its Hebrew TRANSLATION — never the English words.
+                    if _re.search(r"[A-Za-z]", line):
+                        return ("אמרי בעברית בלבד את המשמעות של השורה הבאה, בקול חם ונלהב, משפט קצר אחד. "
+                                "אל תאמרי אף מילה באנגלית - תרגמי אותה לעברית: \"" + line + "\"")
                     return ("אמרי בקול רק את השורה הבאה, מילה במילה, בדיוק כפי שהיא כתובה. "
                             "אל תחליפי אותה במשפט אחר, אל תוסיפי מילים לפניה או אחריה, "
                             "ואל תגיבי לשיחה. רק השורה הזאת, פעם אחת, בקול חם ונלהב: "
@@ -752,11 +767,18 @@ async def relay(request):
                             inlock["last_cue_resp"] = time.time()
                             _cue_resp = {
                                 "instructions": (
-                                    "[GAME DIRECTOR - improvise, never read this aloud] " + intent
+                                    # 2026-09-07: game cues arrive in ENGLISH (e.g. "say exactly:
+                                    # FREEZE like me!"). In Hebrew mode the director note is only a
+                                    # MEANING to convey — she must TRANSLATE it and speak Hebrew,
+                                    # never echo an English word from it.
+                                    ("[במאי המשחק - במה שכתוב כאן זו רק המשמעות, תמיד תאמרי אותה בעברית "
+                                     "ולעולם לא באנגלית, גם אם כתוב 'say exactly'] " if _hebrew
+                                     else "[GAME DIRECTOR - improvise, never read this aloud] ") + intent
                                     + (" Facts you may use: " + ctx if ctx else "")
                                     + " Respond with ONE tiny spoken line in your OWN fresh words, never reuse "
                                       "a line you already said, in character, warm and excited, "
-                                    + ("HEBREW ONLY (עברית), בלי קללות ובלי סלנג באנגלית, " if _hebrew else "English only, ")
+                                    + ("HEBREW ONLY (עברית) - כל מילה בעברית, בלי אף מילה באנגלית, בלי קללות, "
+                                       if _hebrew else "English only, ")
                                     + "kid-safe words only, very short.")}
                             # MID-GAME TOKEN CAP (MACHINE-CERTIFY en-5): air-mode cue lines are
                             # physically capped — a model that ignores "very short" simply runs out.
@@ -1353,6 +1375,15 @@ function connectWS(){
      never saw it and always used the generic greeting. A preflight that put ?intro=freeze in
      the socket URL by hand passed while a real browser load produced no freeze intro. */
   const _qs=new URLSearchParams(location.search);
+  /* STICKY LANG 2026-09-07: moving Nova from the intro to a game reparents this iframe,
+     which RELOADS it — and the reload's URL sometimes lost ?lang=he, so the whole game
+     restarted in English. Persist lang the first time we see it and read it back on any
+     later load, so the brain always gets the right language even if the URL forgot it. */
+  try{
+    let _lg=_qs.get('lang');
+    if(_lg){ localStorage.setItem('nova-lang', _lg); }
+    else { _lg=localStorage.getItem('nova-lang'); if(_lg) _qs.set('lang', _lg); }
+  }catch(_){}
   if(wsConns++) _qs.set('rc','1');                                  // seamless reconnect: no re-greet
   const _q=_qs.toString();
   const url=location.origin.replace('http','ws')+'/rt'+(_q?'?'+_q:'');
