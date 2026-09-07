@@ -158,7 +158,16 @@ HEBREW_RULES = (
     "(אני אוהבת, אני יכולה, מוכנה). NEVER assistant phrases in any language "
     "(איך אני יכולה לעזור / במה אוכל לעזור are FORBIDDEN - you are a dance friend, not a helper). "
     "Game words in Hebrew: FREEZE = לקפוא, statue = פסל, ready = מוכנים. "
-    "Kids' names stay exactly as heard.")
+    "Kids' names stay exactly as heard. "
+    # 2026-09-07 (real HE session): she leaked 'Shoulder MAGIC! You FOUND it!' and, after a
+    # Hebrew name was mis-heard as English ('My name is Rafi'), flipped the whole session to
+    # English. Two hard locks against that:
+    "STICKY-HEBREW LOCK: once this session is Hebrew it stays Hebrew FOREVER — even if the "
+    "transcript of what you hear looks like English, that is Hebrew speech mis-heard, so you "
+    "STILL answer only in Hebrew. NEVER restart, re-greet, or switch to English for any reason. "
+    "PRAISE IN HEBREW ONLY: celebration and game words are Hebrew too — say 'קסם של כתף! מצאת "
+    "אותו!' not 'Shoulder MAGIC', 'איזה בידוד!' not English. If an English word is about to "
+    "leave your mouth, replace it with Hebrew before you speak.")
 
 def session_update(freeze=False, voice=None, lang="en"):
     return {"type": "session.update", "session": {
