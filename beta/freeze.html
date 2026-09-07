@@ -1276,6 +1276,7 @@ const AirVoice = {
 /* ═══ Pose: stillness only — this game tracks ONE thing ═══ */
 const Pose = {
   det:null, ok:false, lastKp:null, still:true, motion:0,
+  present:true, emaMotion:0, calibrating:true, calSamples:[], stillThr:0.045,  // b0.5 A3/A4
   async init(){
     try{
       await tf.setBackend('webgl');
@@ -1288,21 +1289,42 @@ const Pose = {
   async loop(){
     try{
       const poses=await this.det.estimatePoses(camEl,{flipHorizontal:false});
-      const kp=poses[0]?.keypoints?.filter(p=>p.score>0.3);
-      if(kp && kp.length>=4){
+      // b0.5 (skill movement-tracking A4): gate ≥0.35, need ≥8 confident joints.
+      const kp=poses[0]?.keypoints?.filter(p=>p.score>0.35);
+      if(kp && kp.length>=8){
+        this.present=true;
         if(this.lastKp){
           const prev=Object.fromEntries(this.lastKp.map(p=>[p.name,p]));
           let d=0,n=0, sw=1;
           const ls=kp.find(p=>p.name==='left_shoulder'), rs=kp.find(p=>p.name==='right_shoulder');
           if(ls&&rs) sw=Math.max(30,Math.hypot(ls.x-rs.x,ls.y-rs.y));
           for(const p of kp){ const q=prev[p.name]; if(q){ d+=Math.hypot(p.x-q.x,p.y-q.y); n++; } }
-          this.motion = n? (d/n)/sw : 0;                 // shoulder-normalized: age-fair
-          this.still = this.motion < 0.045;
+          const raw = n? (d/n)/sw : 0;                    // shoulder-normalized: age-fair
+          this.emaMotion = this.emaMotion*0.6 + raw*0.4;  // A4 EMA smoothing
+          this.motion = this.emaMotion;
+          // A3 calibrate per kid: during the pre-game no-score window collect the kid's own
+          // motion; finishCal() sets stillThr as a fraction of THEIR range, floored to the
+          // certified 0.045 (a naturally-still kid is never judged harder than certified).
+          if(this.calibrating){ this.calSamples.push(raw); if(this.calSamples.length>240) this.calSamples.shift(); }
+          this.still = this.motion < this.stillThr;
         }
         this.lastKp=kp;
+      } else {
+        // A4: not enough confident joints = kid absent/occluded → NOSHOW, never a "moved" miss.
+        this.present=false; this.lastKp=null;
       }
     }catch(e){}
     requestAnimationFrame(()=>this.loop());
+  },
+  finishCal(){
+    // stillThr from the kid's own baseline (median), never below the certified floor.
+    this.calibrating=false;
+    const s=this.calSamples.slice().sort((a,b)=>a-b);
+    if(s.length>=30){
+      const med=s[Math.floor(s.length*0.5)];
+      this.stillThr=Math.min(0.09, Math.max(0.045, med*1.6));
+      try{ console.log('[CAL] freeze stillThr='+this.stillThr.toFixed(3)+' from '+s.length+' samples'); }catch(_){}
+    }
   },
 };
 
@@ -1509,7 +1531,7 @@ function tick(){
     const dt=(now-f.lastT)*1000; f.lastT=now;
     if((now - f.def.at) >= FREEZE_GRACE){              // past the reaction grace → the scoring window
       f.winMs += dt;
-      const still = !Pose.ok || Pose.still;            // no tracking → full credit (soft)
+      const still = !Pose.ok || !Pose.present || Pose.still;   // b0.5: no tracking OR absent kid → NOSHOW (soft credit, never a "moved" miss)
       if(still) f.stillMs += dt; else f.moved = true;
       ring.classList.toggle('moving', Pose.ok && !still);   // live RED tint while moving
     }
@@ -1697,6 +1719,7 @@ $('start-btn').addEventListener('click', async ()=>{
      · freeze poses ready as page clips · groove loop clock stamped for neutral swaps ═══ */
   if(Live.on){ try{ PoseClip.init(); }catch(_){}
     try{ Live.setAvatar('nova_idlegroove_v2'); NEUTRAL.setT=performance.now(); }catch(_){} }   // matches founder's reference video (ruling 2026-08-29)
+  try{ Pose.finishCal(); }catch(_){}                 // b0.5 A3: lock the per-kid still-threshold as the game begins
   Music.start();                                     // schedules EVERY strip/sting/slam on the audio clock, sample-accurate
   setPhase(PH.GAME);
   try{ Live.post({type:'game-start'}); }catch(_){}   // V2: she learns the music is RUNNING at this exact moment

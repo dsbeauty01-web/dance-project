@@ -540,13 +540,16 @@ const Game={
     const w=ROUNDS[this.round].win;
     if(nxt.dir==='FREEZE')return;                       // handled in tick (stillness)
     if(t<nxt.t-w)return;
+    // b0.6 (skill movement-tracking A1): front/back = DEPTH, unjudgeable by a 2D camera.
+    // F/B is an unscored "vibe" beat — auto-advance softly at its time, never a miss, no
+    // points invented for a move the camera cannot measure.
+    if(nxt.dir==='F'||nxt.dir==='B'){ nxt.hit=true; nxt.vibe=true; this.ti++; clearCue(); return; }
     if(t>nxt.t+w){if(!this.graceUsed&&!nxt.missed){this.graceUsed=true;nxt.grace=true;}
       nxt.missed=true;this.ti++;clearCue();return;}
     let got=null;
     if(nxt.dir==='R'&&(dev> slideThr||(dev> slideThr*.6&&vel> .004)))got='R';
     if(nxt.dir==='L'&&(dev<-slideThr||(dev<-slideThr*.6&&vel<-.004)))got='L';
-    if(nxt.dir==='F'&&wr>CAL.front)got='F';
-    if(nxt.dir==='B'&&wr<CAL.back)got='B';
+    // (F/B removed — handled above as unscored vibe; wr/CAL.front/back no longer score depth)
     if(got){this.hit(nxt,hip<hipThr,false);}
     else{const any=dev>slideThr?'R':dev<-slideThr?'L':null;
       if(any&&(nxt.dir==='R'||nxt.dir==='L')&&Math.abs(t-nxt.t)<w*.5)this.hit(nxt,hip<hipThr,true);}

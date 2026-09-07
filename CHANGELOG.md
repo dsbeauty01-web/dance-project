@@ -8,6 +8,8 @@ Format: one line per beta version + every promotion to main.
 - 2026-09-03 — RELEASE: Freeze game machine-certified EN + HE (3 clean sessions/lang). PR #39.
 
 ## beta
+- b0.6 — movement-tracking A1: Upper Body stops SCORING front/back (depth, unjudgeable in 2D) — F/B is now an unscored vibe beat, never a miss.
+- b0.5 — movement-tracking A3/A4: Freeze per-kid calibration window + stronger gate (0.35, 8 joints, EMA) + absent kid = NOSHOW not a miss.
 - b0.1/S1 gap-fill (DEPLOY-TEST-ORDER) — movement-tracking skill → v2 (MediaPipe map, v1 kept as SKILL-v1.bak); `shared/pose-adapter.js` (skill §2 verbatim); `tools/beta-init.sh` recorded + run (new beta copies: wave, hello, upgroove); deploy-test docs → docs/; rollback.sh tested on beta-b0.1 in a clean clone (exit 0).
 - b0.4 — game-cues-lights B3/B6: Upper Body cue TEXT chases the gold (not "hands on your waist"); Freeze gains an always-visible Exit button.
 - b0.3 — game-cues-lights B5: Freeze's punishing RED moving-ring → soft warm amber (never red).
