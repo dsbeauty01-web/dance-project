@@ -7939,7 +7939,15 @@ function initSarayWidget(q){
     if(mounted||dead) return; mounted=true;
     const f=document.createElement('iframe');
     f.id='saray-frame';
-    f.src=SARAY;
+    // LANGUAGE HANDOFF (2026-09-07): the pod page forwards its OWN query string to the
+    // /rt brain WS, so the avatar iframe must carry lang=he — without it Nova's brain
+    // ran the English persona and mixed languages on the Hebrew intro. Also pass
+    // ?intro so freeze framing stays full-body.
+    let _saraySrc = SARAY;
+    if (window.NOVA_HE && !/[?&]lang=/.test(_saraySrc)) {
+      _saraySrc += (_saraySrc.indexOf('?') >= 0 ? '&' : '?') + 'lang=he';
+    }
+    f.src=_saraySrc;
     f.allow='microphone; camera; autoplay; fullscreen';   // iframe owns the mic (delegated)
     f.setAttribute('allowfullscreen','');
     f.style.cssText='width:100%;height:100%;border:0;display:block;background:#150a24';

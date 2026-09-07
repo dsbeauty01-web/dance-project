@@ -420,6 +420,13 @@ async def relay(request):
                               "After their name or two exchanges, explain: when the music plays DANCE - "
                               "when it stops... FREEZE! Then ask: Ready? Do NOT offer any other game. "
                               "Do NOT start counting down - the game begins only when they say yes.")
+                elif _hebrew:
+                    # HEBREW regular intro (2026-09-07): the generic greet was English-only,
+                    # so the commercial Hebrew intro opened in English and mixed languages.
+                    _greet = ("Speak HEBREW ONLY, and keep speaking Hebrew for the whole "
+                              "conversation — never switch to English. Greet the kid in ONE "
+                              "short excited line and say exactly: "
+                              "היי! אני נובה, מורת הריקוד הקסומה שלך! איך קוראים לך?")
                 else:
                     _greet = ("Greet the kid in ONE short excited line and say exactly: "
                               "Hi! I'm Nova, your magical AI dance teacher! What's your name?")
