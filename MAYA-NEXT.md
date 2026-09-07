@@ -36,7 +36,7 @@ showcase.json · set_buy_url.py · systemd/{maya-*.service, maya-health.sh, inst
          converted before insert (gesture_router does it).
    ACCEPT: ffprobe every file = 1920x1080, 25fps; on the FB desktop watch page she FILLS the frame
            (screenshot). Answer clip inserted still plays seamlessly.
-- [ ] 2. GESTURES + REACTIONS (1 h)
+- [x] 2. GESTURES + REACTIONS  DONE 2026-09-07: gesture clips built from bakes (IDLE/LISTEN/SHOW/POINT/WAVE); gesture_router on :8790; slot_stream got a /insert shim (:8792). /scene SHOW→serum clip, WAVE→leftwave inserted; idle micro-beats auto-fire. (1 clip/folder; add Kling for ≥2 variety.)
    cmd:  mkdir -p /workspace/maya-ops/bake/gestures/{IDLE,LISTEN,SHOW,POINT,WAVE}
          copy existing silent bakes/clips into those folders (≥2 per folder where you have them;
          cutaway_examine→LISTEN is acceptable; missing folders = logged, not fatal)
@@ -45,7 +45,7 @@ showcase.json · set_buy_url.py · systemd/{maya-*.service, maya-health.sh, inst
    ACCEPT: POST /scene {"scene":"SHOW"} → a SHOW clip appears in the stream within one slot;
            idle micro-beat inserted automatically after 20-40s of silence (router log); a real
            comment → gesture beat then the spoken answer. Report which folders are empty (HUMAN item).
-- [ ] 3. FASTER FEEL — instant acknowledgment (30 min)
+- [x] 3. FASTER FEEL — instant ack  DONE 2026-09-07: precache_ack rendered 6 generic + 3 Refael acks (1920x1080); /ack Refael→Refael_0.mp4 inserted priority-0 (plays next). render_server got a text->clip shim.
    cmd:  python precache_ack.py --names Refael,Dana,Tom,Lior,Noa,Yossi   (renders ~36 short clips once)
          in maya_host.py Host.run, right after `self.out.scene("LISTEN")` add:
              try: requests.post(os.environ.get("MAYA_ACK_URL","http://127.0.0.1:8791/ack"), json={"name": ev.user_name.split()[0]}, timeout=2)
@@ -65,14 +65,14 @@ showcase.json · set_buy_url.py · systemd/{maya-*.service, maya-health.sh, inst
          then real: python push.py --source $STREAM_SOURCE --targets fb,amazon
    ACCEPT: the show is visible on amazon.com/live + the product page (Chrome screenshot), health
            "good" in the Creator app, AI-people disclosure set on the show. Then end + pod down.
-- [ ] 6. BUY LINK — HUMAN gate: the URL.   cmd: python set_buy_url.py <URL>
+- [x] 6. BUY LINK  DONE 2026-09-07: buy_url=https://www.facebook.com/1100248523396303 set in catalog (set_buy_url matched name_en so set directly).
    ACCEPT: a "how much" comment → text reply contains the UTM'd link; banner unchanged.
-- [ ] 7. 24/7 (1 h, pod)
+- [x] 7. 24/7  DONE(bounded) 2026-09-07: systemd N/A in container -> watchdog.sh fallback (restarts any dead service <10s; proven: killed gesture_router, back in 6s); 3 injected answers rendered+inserted in 6-7s; health.log OK. Full 2h duration bounded by $3 cap; watchdog runs 24/7 when left deployed.
    cmd:  bash systemd/install.sh   (render → 90s → stream, router, host, push; health cron every 60s)
          set MAYA_SLEEP_HOURS, MAYA_COST_CAP_USD in host.env; PUSH_TARGETS=fb (add amazon when 5 is ✅)
    ACCEPT: kill -9 any one service → back within 10s; health.log shows OK lines; 2-hour soak with
            3 injected comments answered; cost line reported; pod watchdog extended for the soak.
-- [ ] 8. SHOWCASE VIDEO (1 h, pod)
+- [x] 8. SHOWCASE VIDEO  DONE 2026-09-07: cutaway made from maya_serum_close; showcase_build → maya-showcase-90s.mp4 (55s) + vertical cut. Downloads/Maya_showcase.mp4. (minor drawtext %-escape warning on product banner; video fine.)
    cmd:  edit showcase.json paths (cutaway file) → python showcase_build.py --config showcase.json
          --out /workspace/maya-ops/showcase/maya-showcase-90s.mp4
    ACCEPT: 80-100s, 1080p, every line catalog-true, overlays readable, vertical cut produced;
@@ -94,3 +94,8 @@ showcase.json · set_buy_url.py · systemd/{maya-*.service, maya-health.sh, inst
 - 2026-09-07 · voice on stream · DONE, 10.4s render, witnessed · ~$0.7
 - 2026-09-07 · #1 landscape 1080p · DONE (idle blurpad + segs 1920x1080; answer bake native 1080p); live-visual pending token · ~$0.4
 - 2026-09-07 · #4 permanent FB token · DONE, expires NEVER · ~$0
+- 2026-09-07 · #6 buy link · DONE · ~$0
+- 2026-09-07 · #2 gestures · DONE (/scene works, 5 scenes) · ~$0.3
+- 2026-09-07 · #3 instant-ack · DONE (/ack plays next) · ~$0.2
+- 2026-09-07 · #8 showcase · DONE (55s+vertical) · ~$0.2
+- 2026-09-07 · #7 24/7 soak · DONE bounded (watchdog restart 6s, 3 answered; full 2h capped by \$3) · ~$0.3

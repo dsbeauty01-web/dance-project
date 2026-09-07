@@ -65,6 +65,18 @@ def render(wav, out, audio=None):
     return proc.wait()
 
 
+_OUT_SEQ = [0]
+def _coral(text, wav):
+    import requests as _rq
+    mp3 = wav[:-4] + ".mp3"
+    key = os.environ.get("OPENAI_API_KEY", "")
+    r = _rq.post("https://api.openai.com/v1/audio/speech", headers={"Authorization": "Bearer " + key},
+        json={"model": "gpt-4o-mini-tts", "voice": "coral", "input": text,
+              "instructions": "Warm upbeat live-show host, smiling voice, natural pace.", "response_format": "mp3"}, timeout=60)
+    r.raise_for_status(); open(mp3, "wb").write(r.content)
+    subprocess.run(["/usr/bin/ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-i", mp3, "-ar", "16000", "-ac", "1", wav], check=True)
+    return mp3
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200); self.send_header("content-type", "application/json"); self.end_headers()
@@ -74,6 +86,17 @@ class Handler(BaseHTTPRequestHandler):
         d = json.loads(self.rfile.read(n) or b"{}")
         t0 = time.time()
         try:
+            # text->clip mode (gesture_router/speak, precache_ack, showcase): {"text"} -> {"clip"}
+            if "text" in d and "wav" not in d:
+                _OUT_SEQ[0] += 1
+                base = f"/workspace/vd/srv_{_OUT_SEQ[0]}"
+                wav = base + ".wav"; out = d.get("out", base + ".mp4")
+                mp3 = _coral(d["text"], wav)
+                with _lock:
+                    rc = render(wav, out, mp3)
+                body = json.dumps({"clip": out, "rc": rc, "sec": round(time.time() - t0, 1)}).encode()
+                self.send_response(200 if rc == 0 else 500)
+                self.send_header("content-type", "application/json"); self.end_headers(); self.wfile.write(body); return
             with _lock:
                 rc = render(d["wav"], d["out"], d.get("audio"))
             body = json.dumps({"rc": rc, "sec": round(time.time() - t0, 1)}).encode()

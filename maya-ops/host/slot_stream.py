@@ -92,5 +92,28 @@ def poll():
             time.sleep(2)
         except Exception as e: log("poll err:"+repr(e)[:120]); time.sleep(3)
 
+# ---- /insert HTTP shim (port 8792) so gesture_router/other tools can inject clips ----
+def insert_clip(clip):
+    slot=current_slot()+2
+    dst=f"{SLOTS}/s{slot%NSLOTS:03d}.mp4"
+    subprocess.run(["/usr/bin/ffmpeg","-nostdin","-y","-loglevel","error","-i",clip,"-c","copy",dst],check=True)
+    log(f"INSERT {clip} -> slot {slot%NSLOTS}")
+    return slot%NSLOTS
+
+def start_insert_server():
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self): self.send_response(200); self.send_header('content-type','application/json'); self.end_headers(); self.wfile.write(b'{"ok":true}')
+        def do_POST(self):
+            n=int(self.headers.get('content-length',0)); d=json.loads(self.rfile.read(n) or b'{}')
+            try:
+                s=insert_clip(d['clip']); body=json.dumps({"ok":True,"slot":s}).encode(); self.send_response(200)
+            except Exception as e:
+                body=json.dumps({"error":repr(e)[:150]}).encode(); self.send_response(500)
+            self.send_header('content-type','application/json'); self.end_headers(); self.wfile.write(body)
+        def log_message(self,*a): pass
+    threading.Thread(target=lambda: HTTPServer(("127.0.0.1",8792),H).serve_forever(),daemon=True).start()
+    log("insert server on :8792 (/insert)")
+
 if __name__=="__main__":
-    build_and_stream(); time.sleep(4); poll()
+    build_and_stream(); time.sleep(4); start_insert_server(); poll()
