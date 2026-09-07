@@ -53,7 +53,7 @@ showcase.json · set_buy_url.py · systemd/{maya-*.service, maya-health.sh, inst
          host.env: MAYA_ACK_URL=http://127.0.0.1:8791/ack
    ACCEPT: comment → an ack clip ("Refael — great question, one sec") plays within ≤5s, the full
            answer follows ~10s later. Log both timestamps.
-- [ ] 4. PERMANENT FB TOKEN (15 min)
+- [x] 4. PERMANENT FB TOKEN (15 min)  DONE 2026-09-07: exchanged app secret + user token -> page token expires_at=0 (NEVER), reply-capable. In host.env.
    cmd:  app secret: Chrome → developers.facebook.com/apps/1335138022110608/settings/basic → App Secret
          → Show (if a password wall appears: print ONE line "enter FB password in Chrome, then say
          go" and continue other items). Put FB_APP_SECRET in ~/.maya/host.env.
@@ -93,3 +93,4 @@ showcase.json · set_buy_url.py · systemd/{maya-*.service, maya-health.sh, inst
 ## LOG (one line per session: date · item · result · cost)
 - 2026-09-07 · voice on stream · DONE, 10.4s render, witnessed · ~$0.7
 - 2026-09-07 · #1 landscape 1080p · DONE (idle blurpad + segs 1920x1080; answer bake native 1080p); live-visual pending token · ~$0.4
+- 2026-09-07 · #4 permanent FB token · DONE, expires NEVER · ~$0
