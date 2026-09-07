@@ -1,0 +1,11 @@
+[Unit]
+Description=Maya warm MuseTalk render server
+After=network.target
+[Service]
+WorkingDirectory=/workspace/maya-ops/host
+EnvironmentFile=/root/.maya/host.env
+ExecStart=/usr/bin/python3 render_server.py
+Restart=always
+RestartSec=5
+[Install]
+WantedBy=multi-user.target

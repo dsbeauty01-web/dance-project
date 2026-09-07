@@ -1,0 +1,12 @@
+[Unit]
+Description=Maya slot stream (gapless idle + inserted answers)
+After=maya-render.service
+Requires=maya-render.service
+[Service]
+WorkingDirectory=/workspace/maya-ops/host
+EnvironmentFile=/root/.maya/host.env
+ExecStart=/usr/bin/python3 slot_stream.py
+Restart=always
+RestartSec=5
+[Install]
+WantedBy=multi-user.target

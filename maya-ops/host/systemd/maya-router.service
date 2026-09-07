@@ -1,0 +1,11 @@
+[Unit]
+Description=Maya gesture router + acks (MAYA_SCENE_URL / speak)
+After=maya-stream.service
+[Service]
+WorkingDirectory=/workspace/maya-ops/host
+EnvironmentFile=/root/.maya/host.env
+ExecStart=/usr/bin/python3 gesture_router.py
+Restart=always
+RestartSec=5
+[Install]
+WantedBy=multi-user.target

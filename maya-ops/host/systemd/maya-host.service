@@ -1,0 +1,11 @@
+[Unit]
+Description=Maya brain (maya_host.py)
+After=maya-router.service
+[Service]
+WorkingDirectory=/workspace/maya-ops/host
+EnvironmentFile=/root/.maya/host.env
+ExecStart=/usr/bin/python3 maya_host.py --platform facebook
+Restart=always
+RestartSec=5
+[Install]
+WantedBy=multi-user.target

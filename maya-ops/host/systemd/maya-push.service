@@ -1,0 +1,12 @@
+[Unit]
+Description=Maya RTMP push (fb[,amazon,yt])
+After=maya-stream.service
+[Service]
+WorkingDirectory=/workspace/maya-ops/host
+EnvironmentFile=/root/.maya/host.env
+Environment=PUSH_TARGETS=fb
+ExecStart=/usr/bin/python3 push.py --source ${STREAM_SOURCE} --targets ${PUSH_TARGETS}
+Restart=always
+RestartSec=5
+[Install]
+WantedBy=multi-user.target

@@ -28,7 +28,10 @@ _lock = threading.Lock()
 print(f"[render_server] READY {W}x{H} cyclelen={length}", flush=True)
 
 
-def render(wav, out):
+def render(wav, out, audio=None):
+    # `wav` = 16kHz mono (for lip-sync analysis only). `audio` = full-quality source
+    # (24kHz coral mp3) used for the OUTPUT sound so the voice isn't thin/robotic.
+    mux_audio = audio if (audio and os.path.exists(audio)) else wav
     wav_data, sr = sf.read(wav, dtype="float32")
     if wav_data.ndim > 1:
         wav_data = wav_data.mean(axis=1)
@@ -40,10 +43,11 @@ def render(wav, out):
         chunks.extend(audio_processor.feature2chunks(feature_array=feat, fps=FPS, batch_size=seg_frames))
         seg += WIN
     ff = ["/usr/bin/ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "bgr24",
-          "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-", "-i", wav,
+          "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-", "-i", mux_audio,
           "-map", "0:v:0", "-map", "1:a:0", "-shortest",
+          "-af", "loudnorm=I=-16:TP=-1.5:LRA=11",   # BOOST voice to clearly-audible -16 LUFS
           "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
-          "-c:a", "aac", "-b:a", "128k", "-ar", "16000", "-movflags", "+faststart", out]
+          "-c:a", "aac", "-b:a", "160k", "-ar", "44100", "-ac", "2", "-movflags", "+faststart", out]
     proc = subprocess.Popen(ff, stdin=subprocess.PIPE)
     index = 0; i = 0
     while i < len(chunks):
@@ -71,7 +75,7 @@ class Handler(BaseHTTPRequestHandler):
         t0 = time.time()
         try:
             with _lock:
-                rc = render(d["wav"], d["out"])
+                rc = render(d["wav"], d["out"], d.get("audio"))
             body = json.dumps({"rc": rc, "sec": round(time.time() - t0, 1)}).encode()
             self.send_response(200)
         except Exception as e:
