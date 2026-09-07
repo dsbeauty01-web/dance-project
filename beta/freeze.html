@@ -105,6 +105,11 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
   border:2px solid rgba(125,240,255,.55);background:rgba(8,20,40,.8);color:#eaf7ff;
   font-family:'Fredoka';font-weight:700;font-size:16px;cursor:pointer;display:flex;align-items:center;gap:7px}
 #pausebtn:active{transform:scale(.95)}
+/* b0.4 (skill game-cues-lights B6: pause AND exit always visible) */
+#exitbtn{position:fixed;top:30px;left:12px;z-index:90;padding:9px 16px;border-radius:24px;
+  border:2px solid rgba(255,255,255,.35);background:rgba(8,20,40,.8);color:#eaf7ff;
+  font-family:'Fredoka';font-weight:700;font-size:16px;cursor:pointer;display:flex;align-items:center;gap:6px}
+#exitbtn:active{transform:scale(.95)}
 #status{position:fixed;bottom:8px;left:10px;z-index:90;font-size:11px;color:rgba(255,255,255,.35)}
 /* LAW-CONSENT footer + modals (ported from nova-commercial) */
 #legal-foot{margin-top:14px;font-size:11px;color:rgba(255,255,255,.5);line-height:1.7}
@@ -242,6 +247,7 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
 
 <div id="kid-bubble"></div>
 <div id="hud"><div id="score">0</div><div id="stamps"></div></div>
+<button id="exitbtn" title="exit the game">✕ Exit</button>
 <button id="pausebtn" title="pause (or say 'stop')">⏸ Pause</button>
 <div id="frost"></div>
 <div id="badge"><div class="emo"></div><div class="nm"></div></div>
@@ -1717,6 +1723,11 @@ function doPause(){
 }
 function voiceStop(){ doPause(); }
 $('pausebtn').addEventListener('click', doPause);
+/* b0.4 exit: tell a parent (commercial page) to exit if embedded, else go home. */
+$('exitbtn').addEventListener('click', ()=>{
+  try{ if(window.parent && window.parent!==window){ window.parent.postMessage({type:'nova-exit'},'*'); return; } }catch(_){}
+  try{ location.href='nova-commercial.html'+location.search; }catch(_){ location.reload(); }
+});
 $('resume-btn').addEventListener('click', async ()=>{
   $('pause-screen').style.display='none';
   if(Live.on) Live.hold(false);                                      // ears back on (speak-gate still holds her voice)
