@@ -1578,6 +1578,17 @@ async def pulse_post(request):
     print("[PULSE]", row, flush=True)
     return web.json_response({"ok": True, "row": row})
 
+async def beta_freeze_page(request):
+    # BETA-TRACK STEP 2: the pod serves beta pages at /beta/... — same stack, separate
+    # page. Deploy step copies beta/freeze.html from the repo to /workspace/pages/beta/.
+    try:
+        with open("/workspace/pages/beta/freeze.html", encoding="utf-8") as f:
+            html = f.read()
+    except FileNotFoundError:
+        return web.Response(status=503, text="beta freeze page not deployed")
+    return web.Response(text=html, content_type="text/html",
+                        headers={"Cache-Control": "no-store"})
+
 async def upperbody_page(request):
     # UPPER BODY ISOLATION game (2026-08-27), first-party from the pod (mirrors freeze_page).
     try:
@@ -1617,6 +1628,7 @@ app.router.add_get("/freeze", freeze_page)
 app.router.add_get("/wave", wave_page)
 app.router.add_get("/upgroove", upgroove_page)
 app.router.add_get("/upperbody", upperbody_page)
+app.router.add_get("/beta/freeze", beta_freeze_page)
 app.router.add_post("/pulse", pulse_post)
 app.router.add_get("/token", token)
 app.router.add_get("/health", health)
@@ -1640,6 +1652,18 @@ try:
     app.router.add_static("/gallery", "/workspace/gallery", show_index=True)
 except Exception as _e:
     print(f"[GALLERY] static route not mounted: {_e}", flush=True)
+# DETECTION (b0.10): pose engine modules + the self-hosted MediaPipe model. Deploy step
+# copies repo shared/ and models/ next to the pages.
+try:
+    os.makedirs("/workspace/pages/shared", exist_ok=True)
+    app.router.add_static("/shared", "/workspace/pages/shared", show_index=False)
+except Exception as _e:
+    print(f"[SHARED] static route not mounted: {_e}", flush=True)
+try:
+    os.makedirs("/workspace/pages/models", exist_ok=True)
+    app.router.add_static("/models", "/workspace/pages/models", show_index=False)
+except Exception as _e:
+    print(f"[MODELS] static route not mounted: {_e}", flush=True)
 
 if __name__ == "__main__":
     web.run_app(app, host="0.0.0.0", port=8765, print=None)

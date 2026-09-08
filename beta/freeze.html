@@ -289,8 +289,8 @@ html,body{height:100%;overflow:hidden;font-family:'Quicksand',sans-serif;color:#
   <button class="bigbtn" id="ready-btn" style="padding:12px 34px;font-size:18px">✋ I'm ready!</button>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<!-- DETECTION (b0.10): pose engine is ../shared/pose-engine.js (MediaPipe, MoveNet fallback).
+     Loaded lazily by Pose.init() — no TensorFlow bundles unless MediaPipe itself fails. -->
 <script>
 'use strict';
 // SESSION RECORDING (2026-07-27): start the visit's record. Fire-and-forget.
@@ -832,9 +832,9 @@ const Live = {
        pointer-events:none) and we simply notice it happened. */
     novaStage.addEventListener('pointerdown', clearHint, {once:true});
     window.addEventListener('blur', clearHint, {once:true});   // focus moved INTO the iframe
-    /* Pose detection starts only NOW. It downloads two TensorFlow bundles and then runs
+    /* Pose detection starts only NOW. It downloads the pose model + runtime and then runs
        inference every frame, competing with video decode for CPU. Starting it during
-       connect is what made her black and late while Maya (no camera, no TF) looked fine. */
+       connect is what made her black and late while Maya (no camera, no pose) looked fine. */
     try{ if(window.Pose && !Pose.ok && !Pose._started){ Pose._started=true; Pose.init(); } }catch(_){}
   },
   /* ONE-ORIGIN post(): the old iframe bridge translated postMessage types into brain
@@ -1273,48 +1273,55 @@ const AirVoice = {
   busy(){ return Music.ctx && this.playhead > Music.ctx.currentTime + 0.3; },
 };
 
-/* ═══ Pose: stillness only — this game tracks ONE thing ═══ */
+/* ═══ Pose: stillness only — this game tracks ONE thing ═══
+   b0.10 DETECTION-MIGRATE: engine lives in ../shared/pose-engine.js (MediaPipe Pose
+   Landmarker, GPU→CPU→MoveNet fallback). Frames arrive here as toNova() named joints —
+   the detector below never touches raw engine keypoints. */
 const Pose = {
-  det:null, ok:false, lastKp:null, still:true, motion:0,
+  engine:null, ok:false, lastJ:null, still:true, motion:0,
   present:true, emaMotion:0, calibrating:true, calSamples:[], stillThr:0.045,  // b0.5 A3/A4
+  visGate(){ return this.engine==='movenet' ? 0.35 : 0.5; },   // skill §5 law 4
   async init(){
     try{
-      await tf.setBackend('webgl');
-      this.det=await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,
-        { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING });
+      // resolve against the REAL location, not the <base> tag (which pins relative URLs
+      // to the GitHub-Pages origin): the engine ships with the page's own origin —
+      // pod /shared route, localhost harness, or Pages itself.
+      const mod=await import(new URL('../shared/pose-engine.js', location.href).href);
+      await mod.PoseEngine.start(camEl,(nova,engine)=>{ this.engine=engine; this.ingest(nova); });
       this.ok=true; statusEl.textContent='✓ Nova sees you';
-      this.loop();
     }catch(e){ statusEl.textContent='playing without tracking'; /* soft: game still works */ }
   },
-  async loop(){
-    try{
-      const poses=await this.det.estimatePoses(camEl,{flipHorizontal:false});
-      // b0.5 (skill movement-tracking A4): gate ≥0.35, need ≥8 confident joints.
-      const kp=poses[0]?.keypoints?.filter(p=>p.score>0.35);
-      if(kp && kp.length>=8){
-        this.present=true;
-        if(this.lastKp){
-          const prev=Object.fromEntries(this.lastKp.map(p=>[p.name,p]));
-          let d=0,n=0, sw=1;
-          const ls=kp.find(p=>p.name==='left_shoulder'), rs=kp.find(p=>p.name==='right_shoulder');
-          if(ls&&rs) sw=Math.max(30,Math.hypot(ls.x-rs.x,ls.y-rs.y));
-          for(const p of kp){ const q=prev[p.name]; if(q){ d+=Math.hypot(p.x-q.x,p.y-q.y); n++; } }
-          const raw = n? (d/n)/sw : 0;                    // shoulder-normalized: age-fair
-          this.emaMotion = this.emaMotion*0.6 + raw*0.4;  // A4 EMA smoothing
-          this.motion = this.emaMotion;
-          // A3 calibrate per kid: during the pre-game no-score window collect the kid's own
-          // motion; finishCal() sets stillThr as a fraction of THEIR range, floored to the
-          // certified 0.045 (a naturally-still kid is never judged harder than certified).
-          if(this.calibrating){ this.calSamples.push(raw); if(this.calSamples.length>240) this.calSamples.shift(); }
-          this.still = this.motion < this.stillThr;
-        }
-        this.lastKp=kp;
-      } else {
-        // A4: not enough confident joints = kid absent/occluded → NOSHOW, never a "moved" miss.
-        this.present=false; this.lastKp=null;
+  /* ingest(nova): one toNova() frame → stillness. Also fed synthetic frames by the
+     ?test=1 harness (poseFrame) so recalibration exercises this exact math. */
+  ingest(nova){
+    const gate=this.visGate(), j={}; let n=0;
+    for(const k in nova){ if(k==='world'||k==='mask') continue;
+      const p=nova[k]; if(p && p.vis>gate){ j[k]=p; n++; } }
+    if(n>=8){                                            // A4: need ≥8 confident joints
+      this.present=true;
+      if(this.lastJ){
+        let d=0,m=0, sw;
+        // shoulder width normalizes motion (age-fair); floor guards a degenerate frame.
+        // MediaPipe coords are 0..1 normalized, MoveNet is pixels — hence the two floors.
+        const ls=j.lShoulder, rs=j.rShoulder;
+        const swFloor = this.engine==='movenet' ? 30 : 0.04;
+        sw=(ls&&rs)?Math.max(swFloor,Math.hypot(ls.x-rs.x,ls.y-rs.y)):swFloor;
+        for(const k in j){ const q=this.lastJ[k]; if(q){ d+=Math.hypot(j[k].x-q.x,j[k].y-q.y); m++; } }
+        const raw = m? (d/m)/sw : 0;                    // shoulder-normalized: age-fair
+        this.emaMotion = this.emaMotion*0.6 + raw*0.4;  // A4 EMA smoothing
+        this.motion = this.emaMotion;
+        // A3 calibrate per kid: during the pre-game no-score window collect the kid's own
+        // motion; finishCal() sets stillThr as a fraction of THEIR range, floored to the
+        // certified 0.045 (a naturally-still kid is never judged harder than certified).
+        if(this.calibrating){ this.calSamples.push(raw); if(this.calSamples.length>240) this.calSamples.shift(); }
+        this.still = this.motion < this.stillThr;
       }
-    }catch(e){}
-    requestAnimationFrame(()=>this.loop());
+      this.lastJ=j;
+    } else {
+      // A4: not enough confident joints = kid absent/occluded → NOSHOW, never a "moved" miss.
+      this.present=false; this.lastJ=null;
+    }
+    if(DEBUG_POSE) drawPoseDebug(j, this.engine);
   },
   finishCal(){
     // stillThr from the kid's own baseline (median), never below the certified floor.
@@ -1327,6 +1334,29 @@ const Pose = {
     }
   },
 };
+/* b0.10 BUGFIX: the two Pose.init() call sites gate on `window.Pose`, but a top-level
+   `const` never becomes a window property — so the REAL-camera detector never started
+   from the live/offline paths (machine sessions masked it via __test.pose()). Expose it.
+   NOTE: the same dead guard exists on main's animal-freeze.html — report, don't touch. */
+window.Pose = Pose;
+/* ?pose=1 debug overlay (DETECTION-MIGRATE evidence): joint dots over the camera. */
+const DEBUG_POSE = /[?&]pose=1/.test(location.search);
+let _poseCv=null;
+function drawPoseDebug(j, engine){
+  try{
+    if(!_poseCv){ _poseCv=document.createElement('canvas'); _poseCv.id='pose-debug';
+      _poseCv.style.cssText='position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6';
+      (camEl.parentElement||document.body).appendChild(_poseCv); }
+    const w=_poseCv.width=camEl.clientWidth||320, h=_poseCv.height=camEl.clientHeight||240;
+    const sx = engine==='movenet' ? w/(camEl.videoWidth||w)  : w;
+    const sy = engine==='movenet' ? h/(camEl.videoHeight||h) : h;
+    const ctx=_poseCv.getContext('2d'); ctx.clearRect(0,0,w,h);
+    ctx.fillStyle='#7CFC00';
+    for(const k in j){ const p=j[k]; ctx.beginPath(); ctx.arc(p.x*sx,p.y*sy,4,0,6.28); ctx.fill(); }
+    ctx.fillStyle='#ffe27d'; ctx.font='12px monospace';
+    ctx.fillText(engine+' m='+Pose.motion.toFixed(3)+' thr='+Pose.stillThr.toFixed(3)+(Pose.still?' STILL':' MOVING'),6,14);
+  }catch(_){}
+}
 
 /* ═══ FX: frost, snow, shatter, badge, fly-ups ═══ */
 const FX = {
@@ -1697,10 +1727,10 @@ $('start-btn').addEventListener('click', async ()=>{
         o.textContent=msg; cp.appendChild(o); }
     }catch(_){}
   }
-  /* Pose.init() is NOT called here any more. It downloads two TensorFlow bundles from a
-     third-party CDN and then runs inference every frame, competing with LiveKit video
+  /* Pose.init() is NOT called here any more. It downloads the pose model + runtime and
+     then runs inference every frame, competing with LiveKit video
      decode for CPU in the same tab. Doing that DURING connect is why Nova arrived black
-     and late while Maya — same pod, same bridge, no camera, no TF — looked fine.
+     and late while Maya — same pod, same bridge, no camera, no pose engine — looked fine.
      Live.reveal() starts it once she is actually on screen. If the pod is down, the
      clip-fallback path starts it instead, so tracking still works offline. */
   Music.init();                                                      // creates the ctx + starts buffer decode
@@ -1885,6 +1915,15 @@ if(TEST_MODE){
     /* synthetic kid body: no camera in test Chrome, so the detector loop never overwrites these */
     pose: still=>{ Pose.ok=true; Pose.still=!!still; Pose.motion=still?0.01:0.30; return {ok:true,still:Pose.still}; },
     poseOff: ()=>{ Pose.ok=false; return true; },
+    /* b0.10 DETECTION-MIGRATE: feed ONE toNova()-shaped frame through the real stillness
+       math (Pose.ingest) — the recalibration harness uses this, not the bool shortcut. */
+    poseFrame: (nova, engine)=>{ Pose.ok=true; Pose.engine=engine||'mediapipe'; Pose.ingest(nova);
+      return { motion:+Pose.motion.toFixed(4), still:Pose.still, present:Pose.present }; },
+    poseStats: ()=>({ engine:Pose.engine, motion:+Pose.motion.toFixed(4), emaMotion:+Pose.emaMotion.toFixed(4),
+      still:Pose.still, present:Pose.present, calibrating:Pose.calibrating, stillThr:Pose.stillThr,
+      calSamples:Pose.calSamples.length }),
+    poseCal: on=>{ Pose.calibrating=!!on; if(on){ Pose.calSamples.length=0; Pose.emaMotion=0; Pose.lastJ=null; }
+      else Pose.finishCal(); return Pose.stillThr; },
   };
   /* G3 evidence: HER-VOICE energy meter. Samples the RMS of BOTH of her audio paths
      (air voice → Music.gVoice, engine voice → Live.voiceGain) every 100ms, tagged with
