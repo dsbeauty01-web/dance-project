@@ -1291,6 +1291,12 @@ const Pose = {
     requestAnimationFrame(()=>this.loop());
   },
 };
+/* v1.0.1 HOTFIX (camera detector guard): both Pose.init() call sites gate on
+   `window.Pose`, but a top-level `const Pose` is never a window property — so the guard
+   was always false and the real-camera detector never started (machine certification
+   masked it via __test.pose(), which sets stillness directly). Expose it so reveal() and
+   the offline path start MoveNet as intended. Ported from beta-b0.10 (DETECTION-MIGRATE). */
+window.Pose = Pose;
 
 /* ═══ FX: frost, snow, shatter, badge, fly-ups ═══ */
 const FX = {
