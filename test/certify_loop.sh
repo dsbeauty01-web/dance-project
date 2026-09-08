@@ -5,15 +5,16 @@
 # WHY the script owns the browser: node-spawned Chrome dies instantly (exit 21) on this
 # machine, while Edge launched detached from bash is 100% reliable. Edge = same Chromium
 # engine + CDP; it also never collides with the founder's own Chrome windows.
-#   bash test/certify_loop.sh <lang> <n> [podid] [ssh_host] [ssh_port]
+#   bash test/certify_loop.sh <lang> <n> [podid] [ssh_host] [ssh_port] [page]
+#   page defaults to /freeze; pass /beta/freeze to certify the beta track (b0.10+).
 set -u
 LANG_ARG="${1:?lang}"; N="${2:?n}"; POD="${3:-gtdmu76ocpjjmu}"
-HOST="${4:-213.173.110.106}"; PORT_SSH="${5:-11207}"
+HOST="${4:-213.173.110.106}"; PORT_SSH="${5:-11207}"; PAGE="${6:-/freeze}"
 DIR="test/sessions/${LANG_ARG}-${N}"
 CDP_PORT=$((9400 + (RANDOM % 100)))
 EDGE="/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
 [ -f "$EDGE" ] || EDGE="/c/Program Files/Microsoft/Edge/Application/msedge.exe"
-URL="https://${POD}-8765.proxy.runpod.net/freeze?test=1&nolog=1"
+URL="https://${POD}-8765.proxy.runpod.net${PAGE}?test=1&nolog=1"
 [ "$LANG_ARG" = "he" ] && URL="${URL}&lang=he"
 SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $HOME/.ssh/id_ed25519"
 
@@ -30,7 +31,7 @@ EDGE_PID=$!
 for i in $(seq 1 30); do curl -s -m 2 "http://127.0.0.1:$CDP_PORT/json/version" >/dev/null 2>&1 && break; sleep 1; done
 echo "browser up (pid $EDGE_PID)"
 
-node test/run_session.js --lang "$LANG_ARG" --n "$N" --pod "$POD" --out "$DIR" --attach --port "$CDP_PORT"
+node test/run_session.js --lang "$LANG_ARG" --n "$N" --pod "$POD" --out "$DIR" --attach --port "$CDP_PORT" --path "$PAGE"
 RC=$?
 
 # kill the whole Edge tree for this profile (bash $! is just the launcher process)
