@@ -1,0 +1,90 @@
+{
+  "thrAfterCal": 0.045,
+  "stats": {
+    "engine": "mediapipe",
+    "motion": 0.0243,
+    "emaMotion": 0.0243,
+    "still": true,
+    "present": true,
+    "calibrating": false,
+    "stillThr": 0.045,
+    "calSamples": 240
+  },
+  "calLog": [
+    "[CAL] freeze stillThr=0.045 from 240 samples"
+  ],
+  "rows": [
+    {
+      "scenario": "still-noise (MP)",
+      "engine": "mediapipe",
+      "present": 1,
+      "p10": 0.02,
+      "p50": 0.0217,
+      "p90": 0.0238,
+      "absentExpected": false
+    },
+    {
+      "scenario": "breath-sway (MP)",
+      "engine": "mediapipe",
+      "present": 1,
+      "p10": 0.0199,
+      "p50": 0.022,
+      "p90": 0.0242,
+      "absentExpected": false
+    },
+    {
+      "scenario": "fidgety-still (MP)",
+      "engine": "mediapipe",
+      "present": 1,
+      "p10": 0.0539,
+      "p50": 0.0593,
+      "p90": 0.0644,
+      "absentExpected": false
+    },
+    {
+      "scenario": "dance (MP)",
+      "engine": "mediapipe",
+      "present": 1,
+      "p10": 0.0596,
+      "p50": 0.0894,
+      "p90": 0.1152,
+      "absentExpected": false
+    },
+    {
+      "scenario": "big-dance (MP)",
+      "engine": "mediapipe",
+      "present": 1,
+      "p10": 0.0954,
+      "p50": 0.1554,
+      "p90": 0.2023,
+      "absentExpected": false
+    },
+    {
+      "scenario": "absent-5joints (MP)",
+      "engine": "mediapipe",
+      "present": 0,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "absentExpected": true
+    },
+    {
+      "scenario": "still-noise (MoveNet px)",
+      "engine": "movenet",
+      "present": 1,
+      "p10": 0.0178,
+      "p50": 0.0192,
+      "p90": 0.0208,
+      "absentExpected": false
+    },
+    {
+      "scenario": "dance (MoveNet px)",
+      "engine": "movenet",
+      "present": 1,
+      "p10": 0.058,
+      "p50": 0.0928,
+      "p90": 0.1202,
+      "absentExpected": false
+    }
+  ]
+}

@@ -26,7 +26,10 @@ const POD  = arg('pod', 'gtdmu76ocpjjmu');
 const OUT  = arg('out', path.join(__dirname, 'sessions', LANG + '-' + arg('n', '0')));
 const PORT = +arg('port', 9333);
 const RECORD = process.argv.includes('--record');   // delivery video: screencast + audio tap
-const PAGE = arg('path', '/freeze');                // /beta/freeze certifies the beta track
+// MSYS may rewrite a leading-slash CLI arg into a Windows path; normalize back to the
+// URL path (…/Git/beta/freeze → /beta/freeze, plain "freeze" → /freeze).
+let PAGE = arg('path', '/freeze');
+{ const m = PAGE.match(/(?:^|[\\/])((?:beta[\\/])?freeze)$/i); PAGE = '/' + (m ? m[1].replace(/\\/g, '/') : PAGE.replace(/^\/+/, '')); }
 const URL0 = `https://${POD}-8765.proxy.runpod.net${PAGE}?test=1&nolog=1` + (LANG === 'he' ? '&lang=he' : '');
 fs.mkdirSync(OUT, { recursive: true });
 

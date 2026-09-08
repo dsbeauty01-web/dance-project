@@ -9,7 +9,10 @@
 #   page defaults to /freeze; pass /beta/freeze to certify the beta track (b0.10+).
 set -u
 LANG_ARG="${1:?lang}"; N="${2:?n}"; POD="${3:-gtdmu76ocpjjmu}"
-HOST="${4:-213.173.110.106}"; PORT_SSH="${5:-11207}"; PAGE="${6:-/freeze}"
+HOST="${4:-213.173.110.106}"; PORT_SSH="${5:-11207}"; PAGE="${6:-freeze}"
+# MSYS/Git-Bash rewrites a leading-slash arg into a Windows path (…/Git/beta/freeze),
+# so callers pass the page WITHOUT a leading slash; we add it back here.
+PAGE="/${PAGE#/}"
 DIR="test/sessions/${LANG_ARG}-${N}"
 CDP_PORT=$((9400 + (RANDOM % 100)))
 EDGE="/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"

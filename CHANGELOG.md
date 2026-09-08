@@ -8,6 +8,7 @@ Format: one line per beta version + every promotion to main.
 - 2026-09-03 — RELEASE: Freeze game machine-certified EN + HE (3 clean sessions/lang). PR #39.
 
 ## beta
+- b0.10 — DETECTION: MediaPipe Pose Landmarker engine + adapter on Freeze beta (shared/pose-engine.js, GPU→CPU→MoveNet fallback, self-hosted model). Stillness detector reads named joints via toNova only (grep-proof). Recal harness: certified 0.045 still-threshold holds (MoveNet→MediaPipe shift +14%, within skill's 10-20%). Real-engine fake-camera run + ?pose=1 overlay captured. Fixed two latent bugs (dead window.Pose guard — also on main animal-freeze.html, reported; <base>-tag import mis-resolution). G6 body-map grader PASS on the live pod; G1/G4/G5 remain the pre-existing brain-tuning failures (out of scope for a detection session).
 - b0.9 — Wave switched to the ADULT coach tier (calm/precise, ≤10 words, technical praise, external corrections) — was wrongly on the kids voice.
 - b0.8 — Up Groove feedback-law block (4:1 ratio, external corrections, no trait praise).
 - b0.7 — shared tier config (beta/tiers.js); real Up Groove/Wave synced into beta.
