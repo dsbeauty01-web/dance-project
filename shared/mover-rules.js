@@ -38,6 +38,8 @@ export class WaveRule {
     const gaps = peaks.slice(1).map((p, i) => p - peaks[i]); if (!gaps.every(g => g > 40 && g < 400)) return null;
     const spread = Math.max(...gaps) - Math.min(...gaps); this.lastT = t;
     const other = this.chain[0] === 'rShoulder' ? 'lWrist' : 'rWrist';
-    return { hit: true, quality: spread < 90 ? 'smooth' : spread < 180 ? 'good' : 'rough', gaps, iso: this.E.still(other, 0.2) };
+    const result = { hit: true, quality: spread < 90 ? 'smooth' : spread < 180 ? 'good' : 'rough', gaps, iso: this.E.still(other, 0.2) };
+    this.lastResult = result;   // b0.13: the page uses r === waveR.lastResult to name the arm
+    return result;
   }
 }

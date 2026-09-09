@@ -1589,6 +1589,16 @@ async def beta_freeze_page(request):
     return web.Response(text=html, content_type="text/html",
                         headers={"Cache-Control": "no-store"})
 
+async def beta_wave_page(request):
+    # b0.13 WAVE-FULL: the beta Wave game, first-party from the pod (mirrors beta_freeze_page).
+    try:
+        with open("/workspace/pages/beta/wave.html", encoding="utf-8") as f:
+            html = f.read()
+    except FileNotFoundError:
+        return web.Response(status=503, text="beta wave page not deployed")
+    return web.Response(text=html, content_type="text/html",
+                        headers={"Cache-Control": "no-store"})
+
 async def upperbody_page(request):
     # UPPER BODY ISOLATION game (2026-08-27), first-party from the pod (mirrors freeze_page).
     try:
@@ -1629,6 +1639,7 @@ app.router.add_get("/wave", wave_page)
 app.router.add_get("/upgroove", upgroove_page)
 app.router.add_get("/upperbody", upperbody_page)
 app.router.add_get("/beta/freeze", beta_freeze_page)
+app.router.add_get("/beta/wave", beta_wave_page)
 app.router.add_post("/pulse", pulse_post)
 app.router.add_get("/token", token)
 app.router.add_get("/health", health)
@@ -1664,6 +1675,12 @@ try:
     app.router.add_static("/models", "/workspace/pages/models", show_index=False)
 except Exception as _e:
     print(f"[MODELS] static route not mounted: {_e}", flush=True)
+# b0.13 WAVE: the game-clock videos (handywave.mp4 etc.) live on the volume under /media.
+try:
+    os.makedirs("/workspace/media", exist_ok=True)
+    app.router.add_static("/media", "/workspace/media", show_index=False)
+except Exception as _e:
+    print(f"[MEDIA] static route not mounted: {_e}", flush=True)
 
 if __name__ == "__main__":
     web.run_app(app, host="0.0.0.0", port=8765, print=None)

@@ -88,3 +88,9 @@ export const PoseEngine = {
 
   stop() { this._running = false; },
 };
+
+// startPose(video, cb) — the per-game entry the pages use: start the engine and hand each
+// frame's toNova() named-joints object to cb. (Wrapper over PoseEngine.start; b0.13.)
+export function startPose(video, cb) {
+  return PoseEngine.start(video, (nova /*, engine */) => cb(nova));
+}
