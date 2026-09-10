@@ -3,36 +3,53 @@
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Nunito:wght@600;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
 <style>
-:root{--room:#f4d9ea;--hoodie:#7c5cbf;--amber:#e6a93a;--amber-hot:#f2c66d;--ice:#aee8ff;--ink:#2a2140}
-html,body{margin:0;height:100%;background:var(--room);font-family:Nunito,system-ui;color:var(--ink);overflow:hidden}
-#stage{position:fixed;inset:0;display:flex}
-#novaWrap,#camWrap{position:relative;width:50vw;height:100vh;overflow:hidden}
-#stage[data-phase=intro] #novaWrap,#stage[data-phase=ending] #novaWrap{width:62vw}#stage[data-phase=intro] #camWrap,#stage[data-phase=ending] #camWrap{width:38vw}
-#novaWrap,#camWrap{transition:width .5s ease}
-#novaMain{position:absolute;left:50%;top:0;height:100vh;width:auto;transform:translateX(-50%);z-index:2}
-#novaAmbient{position:absolute;left:50%;top:50%;height:120vh;transform:translate(-50%,-50%) scaleX(2.2);filter:blur(28px) saturate(1.1);opacity:.9;z-index:1}
+:root{--amber:#f2c66d;--amber-hot:#ffe0a3;--hoodie:#7c5cbf;--ice:#aee8ff;--ink:#f3eefb}
+html,body{margin:0;height:100%;background:radial-gradient(130% 130% at 50% 12%,#241046 0%,#140a2c 55%,#080513 100%);font-family:Nunito,system-ui;color:var(--ink);overflow:hidden}
+#stage{position:fixed;inset:0}
+/* the KID is the hero: their camera fills the whole stage */
+#camWrap{position:absolute;inset:0;overflow:hidden}
 #usercam{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
-/* the wave DEMO: no nova_wave_a bake on this volume, so during the game the Nova panel shows
-   handywave.mp4 — the actual wave performance (and the clock/audio). Idle avatar hides then. */
-#clock{display:none}
-#stage[data-phase=game] #clock,#stage[data-phase=hold] #clock{display:block;position:absolute;left:50%;top:0;height:100vh;width:auto;max-width:100%;transform:translateX(-50%);z-index:3;background:#000}
-#stage[data-phase=game] #novaMain,#stage[data-phase=hold] #novaMain,#stage[data-phase=game] #novaAmbient,#stage[data-phase=hold] #novaAmbient{opacity:0}
 #fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6}
-#badge{position:absolute;left:14px;bottom:14px;z-index:4;background:rgba(42,33,64,.6);color:#fff;padding:5px 14px;border-radius:999px;font-weight:800;font-size:13px}
-#hud{position:fixed;top:1.6vh;left:0;right:0;display:flex;gap:16px;justify-content:center;align-items:center;z-index:50}
-#score{font-family:'Baloo 2';font-size:40px;font-weight:800;color:var(--amber);font-variant-numeric:tabular-nums}
-#flow{display:flex;gap:6px}#flow i{width:28px;height:8px;border-radius:4px;background:rgba(124,92,191,.25)}#flow i.on{background:var(--amber)}
+/* a soft dark vignette so the gold comet + ice glow read against a bright room */
+#camWrap::after{content:"";position:absolute;inset:0;z-index:5;pointer-events:none;background:radial-gradient(120% 120% at 50% 45%,transparent 55%,rgba(8,5,19,.55) 100%)}
+/* NOVA = a small rounded coach panel (bigger while she talks in intro/ending) */
+#novaWrap{position:absolute;right:16px;bottom:16px;width:min(26vw,220px);aspect-ratio:3/4;border-radius:20px;overflow:hidden;z-index:9;background:#0c0720;box-shadow:0 10px 34px rgba(0,0,0,.55);border:2px solid rgba(242,198,109,.5);transition:width .45s ease,opacity .3s}
+#stage[data-phase=intro] #novaWrap,#stage[data-phase=ending] #novaWrap{width:min(46vw,380px)}
+#stage[data-phase=game] #novaWrap,#stage[data-phase=hold] #novaWrap{opacity:0;pointer-events:none}   /* no wave bake → hide her mid-game, no black box */
+#novaMain{position:absolute;left:50%;top:0;height:100%;width:auto;transform:translateX(-50%);z-index:2}
+#novaAmbient{display:none}
+/* handywave.mp4 is ONLY the hidden audio + timeline clock now (never shown). */
+#clock{display:none!important}
+/* the visible "copy me" reference = an ACTUAL arm-wave (maya leftwave), a small thumbnail during play */
+#ref{position:absolute;left:16px;bottom:16px;width:min(24vw,160px);aspect-ratio:9/16;object-fit:cover;border-radius:16px;z-index:9;display:none;box-shadow:0 10px 30px rgba(0,0,0,.55);border:2px solid rgba(174,232,255,.6);background:#0c0720}
+#stage[data-phase=game] #ref,#stage[data-phase=hold] #ref{display:block}
+#refTag{position:absolute;left:16px;bottom:calc(16px + min(24vw,160px)*16/9 + 6px);z-index:9;color:var(--ice);font-weight:800;font-size:12px;background:rgba(8,5,19,.6);padding:3px 9px;border-radius:8px;display:none}
+#stage[data-phase=game] #refTag,#stage[data-phase=hold] #refTag{display:block}
+/* PRESENCE GATE — shown after the camera opens, until arms are in frame */
+#presence{position:fixed;inset:0;z-index:80;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:rgba(8,5,19,.62);backdrop-filter:blur(3px)}
+#presence .pring{width:132px;height:132px;border-radius:50%;background:conic-gradient(var(--ice) calc(var(--p,0)*360deg),rgba(255,255,255,.14) 0);-webkit-mask:radial-gradient(circle,transparent 56px,#000 57px);mask:radial-gradient(circle,transparent 56px,#000 57px);transition:background .2s}
+#presence.ok .pring{background:conic-gradient(#7CFFB2 calc(var(--p,0)*360deg),rgba(124,255,178,.18) 0)}
+#presence .ptxt{font-family:'Baloo 2';font-weight:800;font-size:clamp(22px,4.4vw,34px);text-align:center;text-shadow:0 2px 16px rgba(0,0,0,.6);max-width:80vw}
+#presence .psub{font-weight:700;font-size:15px;color:#c7bde6}
+#presence.ok .ptxt::after{content:" ✅"}
+#badge{position:absolute;left:14px;top:14px;z-index:8;background:rgba(12,7,32,.6);color:#fff;padding:5px 14px;border-radius:999px;font-weight:800;font-size:13px}
+#hud{position:fixed;top:2vh;left:0;right:0;display:flex;gap:16px;justify-content:center;align-items:center;z-index:50}
+#score{font-family:'Baloo 2';font-size:44px;font-weight:800;color:var(--amber);font-variant-numeric:tabular-nums;text-shadow:0 2px 16px rgba(0,0,0,.6)}
+#flow{display:flex;gap:6px}#flow i{width:26px;height:8px;border-radius:4px;background:rgba(255,255,255,.18)}#flow i.on{background:var(--amber);box-shadow:0 0 10px var(--amber)}
 #phaseTag{background:var(--hoodie);color:#fff;border-radius:999px;padding:5px 16px;font-weight:800}
-#gate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(42,33,64,.55);z-index:90}
-#gate button{font:800 26px 'Baloo 2';padding:18px 40px;border:0;border-radius:18px;background:var(--amber);color:var(--ink)}
-#pause,#exit{position:fixed;top:1.6vh;z-index:60;background:rgba(42,33,64,.55);color:#fff;border:0;border-radius:12px;padding:8px 12px;font-size:16px}#pause{right:64px}#exit{right:14px}
+#gate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,5,19,.66);z-index:90}
+#gate button{font:800 26px 'Baloo 2';padding:18px 44px;border:0;border-radius:18px;background:var(--amber);color:#2a2140;box-shadow:0 10px 30px rgba(242,198,109,.4)}
+#pause,#exit{position:fixed;top:2vh;z-index:60;background:rgba(12,7,32,.55);color:#fff;border:0;border-radius:12px;padding:8px 12px;font-size:16px}#pause{right:64px}#exit{right:14px}
 .hidden{display:none!important}
 </style></head><body>
 <div id="stage" data-phase="intro">
   <div id="novaWrap"><video id="novaAmbient" autoplay muted playsinline></video><video id="novaMain" autoplay muted playsinline></video><video id="clock" playsinline preload="auto" src="/media/handywave.mp4"></video><div id="badge">Watching</div></div>
   <div id="camWrap"><video id="usercam" autoplay muted playsinline></video><canvas id="fx"></canvas></div>
+  <video id="ref" muted loop playsinline autoplay preload="auto" src="/gallery/preview_maya_leftwave.mp4"></video>
+  <div id="refTag">👋 copy this ↓</div>
   <div id="hud"><div id="phaseTag">WAVE</div><div id="score">0</div><div id="flow"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
   <button id="pause">⏸</button><button id="exit">✕</button>
+  <div id="presence" class="hidden"><div class="pring" style="--p:0"></div><div class="ptxt">Step back — I need to see your arms 🙆</div><div class="psub"></div></div>
   <div id="gate"><button id="start">▶ Let's wave</button></div>
 </div>
 <script type="module">
@@ -48,6 +65,8 @@ const HE = /[?&]lang=he/.test(location.search);
 const BODY = { talk:'nova_idle2', game:'nova_wave_a' };
 const clock = document.getElementById('clock'), stage = document.getElementById('stage');
 const E = new MoverEngine(), L = new LightEngine(document.getElementById('fx'), { tier:TIER, mirror:MIRROR });
+L.fit = () => { L.cv.width = innerWidth; L.cv.height = innerHeight; };   // full-window buffer, 1:1 with the stage
+L.fit(); addEventListener('resize', () => L.fit());
 const waveR = new WaveRule(E,'R'), waveL = new WaveRule(E,'L');
 
 // WAVE GUIDE (b0.15 fix): a wave cue must LOOK like a wave — a light traveling down the arm
@@ -93,12 +112,35 @@ document.getElementById('start').onclick = async () => {
   // game — the camera + pose + comet + clock still run, only the Nova panel stays blank.
   try { await attachNova({ intro:'wave', onVideo: v => { document.getElementById('novaMain').srcObject = v; document.getElementById('novaAmbient').srcObject = v; } }); }
   catch (e) { document.getElementById('badge').textContent = 'no pod: lights-only'; }
-  setPhase('intro'); E.startCal();                                                       // intro doubles as calibration (no score)
-  note('intro-adult: greet + name; then say exactly "'+INTRO_LINE+'" and wait for a real yes.');
-  // NEVER-HANG SAFETY (freeze-style): if no validated "yes" reaches us within 12s (e.g. the
-  // live-voice bridge is still warming), start anyway so the wave/detection is always watchable.
-  setTimeout(()=>{ if(phase==='intro') startGame(); }, (parseInt(new URLSearchParams(location.search).get('auto'),10)||12)*1000);
+  E.startCal();                                                                          // calibrate while they get in frame
+  awaitingPresence = true; document.getElementById('presence').classList.remove('hidden');   // PRESENCE GATE first
 };
+// once arms are in frame ≥1s, run the normal intro → consent/safety → game
+let _introStarted = false;
+function proceedToIntro(){
+  if (_introStarted) return; _introStarted = true;
+  document.getElementById('presence').classList.add('hidden');
+  setPhase('intro');
+  note('intro-adult: greet + name; then say exactly "'+INTRO_LINE+'" and wait for a real yes.');
+  setTimeout(()=>{ if(phase==='intro') startGame(); }, (parseInt(new URLSearchParams(location.search).get('auto'),10)||12)*1000);
+}
+// ── PRESENCE detector: shoulders + elbows + wrists all visible ──
+let awaitingPresence = false, _presT0 = 0;
+function updatePresence(k){
+  const need = ['lShoulder','rShoulder','lElbow','rElbow','lWrist','rWrist'];
+  const seen = need.filter(n => k[n] && (k[n].vis ?? k[n].score ?? 0) > 0.4).length;
+  const el = document.getElementById('presence'), now = performance.now();
+  if (seen >= 6) {
+    if (!_presT0) _presT0 = now; const held = now - _presT0;
+    el.classList.add('ok'); el.querySelector('.pring').style.setProperty('--p', Math.min(1, held/1000));
+    el.querySelector('.ptxt').textContent = 'Perfect — hold it'; el.querySelector('.psub').textContent = '';
+    if (held >= 1000) { awaitingPresence = false; proceedToIntro(); }
+  } else {
+    _presT0 = 0; el.classList.remove('ok'); el.querySelector('.pring').style.setProperty('--p', 0);
+    el.querySelector('.ptxt').textContent = 'Step back — I need to see your arms 🙆';
+    el.querySelector('.psub').textContent = 'I can see ' + seen + '/6 (shoulders · elbows · wrists)';
+  }
+}
 onHerAudio({ playing: ()=>{ if(phase==='game') duck(true); }, ended: ()=>duck(false) });
 // consent arrives from the bridge as a validated turn:
 window.addEventListener('nova:consent', startGame, { once:true });
@@ -108,8 +150,23 @@ function startGame(){ if(phase!=='intro') return;   // idempotent: consent OR th
   clock.currentTime=0; clock.play(); requestAnimationFrame(tick); }
 
 // ── POSE ──
+// ALIGN THE LIGHTS: the webcam is object-fit:cover (cropped) + CSS-mirrored, but pose joints are in
+// raw video space. Remap them through the SAME cover transform so the comet lands on the real arm.
+const _cam = document.getElementById('usercam');
+function coverRemap(out){
+  const vw = _cam.videoWidth || 640, vh = _cam.videoHeight || 480, cw = innerWidth, ch = innerHeight;
+  const s = Math.max(cw / vw, ch / vh), dw = vw * s, dh = vh * s, ox = (cw - dw) / 2, oy = (ch - dh) / 2;
+  const o = {};
+  for (const [n, j] of Object.entries(out)) {
+    if (!j || typeof j.x !== 'number') continue;
+    const nx = j.x > 2 ? j.x / vw : j.x, ny = j.y > 2 ? j.y / vh : j.y;   // movenet=px, mediapipe=0..1
+    o[n] = { x: (ox + nx * dw) / cw, y: (oy + ny * dh) / ch, dir: j.dir };
+  }
+  return o;
+}
 startPose(document.getElementById('usercam'), k => {
-  const out = E.update(k); L.setJoints(out);
+  const out = E.update(k); L.setJoints(coverRemap(out));
+  if (awaitingPresence) { updatePresence(k); return; }   // gate the game until arms are in frame
   // feed BOTH wave rules EVERY frame — they build the peak history that phase() (the comet) reads,
   // and a detected wave adds the fingertip overshoot on the arm that actually waved.
   const rR = waveR.check(), rL = waveL.check();
