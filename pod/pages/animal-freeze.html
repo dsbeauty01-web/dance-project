@@ -952,6 +952,9 @@ let CUR_TIER = 'calm';
    Bake verified present on volume 1ditrne6cb (ls avatars/ 2026-08-30) before switching —
    after the body-identity saga, no body name changes without checking the volume. */
 const TALK_BODY = 'nova_idle2';
+/* FREEZE-FIX-GROOVE-START (2026-09-10): the GAME body, named once — same volume-verified
+   bake the switch point already used (idlegroove_v2, founder ruling 2026-08-29). */
+const GROOVE_BODY = 'nova_idlegroove_v2';
 
 /* ═══ THE PHASE MACHINE (READY.md PART 0, 2026-08-27) — the spine ═══
    INTRO/ENDING → voice through the ENGINE (lips ON, calm body nova_idle)
@@ -969,7 +972,13 @@ function routeVoice(r){
 function setPhase(p){
   PHASE=p; try{ console.log('[PHASE]', p); }catch(_){}
   if(p===PH.INTRO || p===PH.ENDING) routeVoice('engine');
-  else if(p===PH.GAME)              routeVoice('air');
+  else if(p===PH.GAME){             routeVoice('air');
+    /* FREEZE-FIX-GROOVE-START: ANY path into GAME guarantees the groove body — round 1
+       must never run on the calm idle (founder-observed, last playthrough). No-op when
+       the body is already groove, so the per-round endFreeze→GAME hop never re-sends
+       /set_avatar and the NEUTRAL loop clock only re-stamps on a real switch. */
+    if(Live.on && Live._body!==GROOVE_BODY){
+      try{ Live.setAvatar(GROOVE_BODY); NEUTRAL.setT=performance.now(); }catch(_){} } }
   else                              routeVoice('mute');
 }
 /* ═══ Nova facade — the game calls these; they route live-avatar vs clip-bank.
@@ -1666,14 +1675,17 @@ $('start-btn').addEventListener('click', async ()=>{
   await Music.whenReady();                                           // song+beat buffers must be decoded before the clock starts
   await countdown();                                                 // countdown GATES play — the law
   try{ await Music.ctx.resume(); }catch(e){}
-  /* ═══ THE SWITCH POINT (READY.md): music start =
-     · engine body → nova_idlegroove_v2 (the bouncy groove, for the WHOLE game)
-     · setPhase(GAME): voice routes to AIR — engine gets NO audio until the ending
+  /* ═══ THE SWITCH POINT (FREEZE-FIX-GROOVE-START — she grooves from beat ONE): music start =
+     · setPhase(GAME) FIRST — voice routes to AIR AND the phase guard sets the groove body
+       NOW, so `[BODY] nova_idlegroove_v2 phase=game` logs BEFORE the first [FREEZE]
+     · /set_avatar is async (engine → bridge → LiveKit → browser): give it 300ms of lead
+       before Music.start() so the body is dancing ON beat one, not a frame late — the
+       ice-flash masks the idle→groove cut (same mask idiom as the pose swaps)
      · freeze poses ready as page clips · groove loop clock stamped for neutral swaps ═══ */
-  if(Live.on){ try{ PoseClip.init(); }catch(_){}
-    try{ Live.setAvatar('nova_idlegroove_v2'); NEUTRAL.setT=performance.now(); }catch(_){} }   // matches founder's reference video (ruling 2026-08-29)
+  if(Live.on){ try{ PoseClip.init(); }catch(_){} }
+  setPhase(PH.GAME);                                 // → groove body via the phase guard (matches founder's reference video, ruling 2026-08-29)
+  if(Live.on){ try{ Flash.fire(); }catch(_){} await new Promise(r=>setTimeout(r,300)); }   // 300ms body lead — FREEZE-FIX-GROOVE-START
   Music.start();                                     // schedules EVERY strip/sting/slam on the audio clock, sample-accurate
-  setPhase(PH.GAME);
   try{ Live.post({type:'game-start'}); }catch(_){}   // V2: she learns the music is RUNNING at this exact moment
   G.running=true; requestAnimationFrame(tick);
 });
