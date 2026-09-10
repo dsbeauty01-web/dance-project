@@ -24,7 +24,7 @@ export class LightEngine {
     this.pf = this.tier === 'kids' ? 1 : 0.4;                          // particle factor (adult ×0.4)
     this.joints = {}; this.cues = []; this.parts = []; this.rings = []; this.comets = []; this.snaps = [];
     this.freeze = null; this.maskCanvas = null; this._tc = {}; this.fire = false;
-    this.streak = 0; this._last = performance.now();
+    this.streak = 0; this._last = performance.now(); this.boost = 1;   // boost>1 = brighter bloom on a bright/daylight frame
     this.fit(); addEventListener('resize', () => this.fit()); this.audio = new LightAudio();
     requestAnimationFrame(() => this.draw());
   }
@@ -46,7 +46,16 @@ export class LightEngine {
   bloom(x, y, r, col = this.col.main, a = 1, spread = 2) {
     const cx = this.cx, rr = Math.max(1, r * spread), g = cx.createRadialGradient(x, y, 0, x, y, rr);
     g.addColorStop(0, hexA(col, 1)); g.addColorStop(1, hexA(col, 0));
-    cx.save(); cx.globalCompositeOperation = 'lighter'; cx.globalAlpha = a; cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, rr, 0, 7); cx.fill(); cx.restore();
+    cx.save(); cx.globalCompositeOperation = 'lighter'; cx.globalAlpha = Math.min(1, a * this.boost); cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, rr, 0, 7); cx.fill(); cx.restore();
+  }
+  // is any light currently on screen? (the page dims the webcam while this is true)
+  active() {
+    const now = performance.now();
+    if (this.cues.length || this.snaps.length || this.freeze || this.cometCueState) return true;
+    for (const s of (this.cometLiveStates || [])) { if (s.lastActive != null && now - s.lastActive < 900) return true; if (s.hitT != null && now - s.hitT < 700) return true; }
+    if (this.rings.some(r => now - r.born < r.life)) return true;
+    if (this.parts.some(q => q.big && now - q.born < q.life)) return true;   // a grade label is up
+    return false;
   }
   roundBand(x, y, hw, h, col, a, blur) { const c = this.cx; c.save(); c.globalAlpha = a; c.fillStyle = col; c.shadowBlur = blur; c.shadowColor = col; c.beginPath(); c.roundRect(x - hw, y - h, hw * 2, h * 2, h); c.fill(); c.restore(); }
   _dust(x, y, { vx = 0, vy = 0, r = 4, col = this.col.main, life = 500, grav = false, spark = false, frost = false }) {
@@ -87,6 +96,23 @@ export class LightEngine {
     this.parts.push({ x, y, vx: 0, vy: -size * .04, born: performance.now(), life: 900, text, big: true, size, col: this.col.hot });
   }
 
+  // ── NOVA-SAYS additions (spec §3/§5) ──
+  // GOTCHA = a playful purple ring (#b98cff) expanding from the chest, 500ms.
+  // Purple on purpose: gold means "you did well", and this is never red.
+  gotchaRipple() {
+    const s = this.P('shoulderC'), h = this.P('hipC'), sw = this.sw();
+    const p = (s && h) ? { x: (s.x + h.x) / 2, y: (s.y + h.y) / 2 } : s; if (!p) return;
+    this._ring(p.x, p.y, { r0: sw * 0.2, rate: sw * 2.4, life: 500, col: '#b98cff', soft: true });
+  }
+  // miss = everything live eases out quietly — no sound, no flash (silence on misses)
+  softFade() {
+    const now = performance.now();
+    for (const c of this.cues) c.born = Math.min(c.born, now - (c.leadMs + c.windowMs));   // → the draw loop's 400ms fade
+    if (this.freeze) this.freezeBreak();                                                    // ice melts over its 600ms break path
+  }
+  // hard reset between commands/rounds (bursts and rings finish their own short lifetimes)
+  clearAll() { this.cues = []; this.cometCueState = null; this.cometLiveStates = []; this.snaps = []; this.freeze = null; }
+
   // ── A · COMET (wave) — phase-driven, rides the REAL wave (b0.18 WAVE-COMET-ACCURATE) ──
   // geometry helpers
   catmull(pts, n = 32) { if (pts.length < 2) return pts.slice(); const out = []; const P = [pts[0], ...pts, pts[pts.length - 1]], per = Math.max(2, Math.floor(n / (pts.length - 1)));
@@ -115,21 +141,26 @@ export class LightEngine {
     const draw = (chainNames, uHead, strength, quality) => {
       const raw = chainNames.map(n => this.P(n)).filter(Boolean); if (raw.length < 3) return;
       if (this.pathLen(raw) < 1.2 * sw) { const w = this.P(chainNames[2]); if (w) this.bloom(w.x, w.y, sw * 0.08, this.col.main, 0.5 * strength, 2); return; }   // PATH GUARD: arm not extended → soft wrist pulse only (no comet, no ball)
-      const pts = this.catmull(raw, 32), headR = Math.min(sw * 0.16, 26 * devicePixelRatio), col = quality === 'smooth' ? this.col.hot : this.col.main;
+      const pts = this.catmull(raw, 32), headR = Math.max(18, Math.min(sw * 0.22, 48)), col = quality === 'smooth' ? this.col.hot : this.col.main;   // head ≥18px floor
       cx.globalCompositeOperation = 'lighter';
-      this.ribbon(pts, uHead, sw * 0.18, sw * 0.06, col, 0.55 * strength);        // the sleeve of light on the bones
+      this.ribbon(pts, uHead, Math.max(10, sw * 0.18), Math.max(6, sw * 0.06), col, 0.55 * strength);   // sleeve of light; width ≥10px floor
       const h = this.at(pts, uHead);
       this.bloom(h.x, h.y, headR, col, 0.35 * strength, 2.2); this.bloom(h.x, h.y, headR * 0.55, col, 0.7 * strength, 1.4); this.bloom(h.x, h.y, headR * 0.3, '#ffffff', strength, 1);
+      this._lastComet = { x: h.x, y: h.y, headR, strength, t: performance.now() };   // probe hook for the self-test
       if (strength > 0.8 && Math.random() < 0.5) { const q = this.at(pts, Math.max(0, uHead - Math.random() * 0.4)), g1 = this.gauss(), g2 = this.gauss();
         this._dust(q.x + g1 * sw * 0.06, q.y + g2 * sw * 0.06, { vx: g1 * 0.8, vy: -Math.abs(g2) * 1.2, r: 2, col: this.col.hot, life: 550, spark: true }); }
       cx.globalCompositeOperation = 'source-over'; cx.globalAlpha = 1;
     };
     const c = this.cometCueState; if (c) { const u = Math.min(1, (now - c.t0) / c.dur), e = 1 - Math.pow(1 - u, 3); draw(c.chain, e, c.bright ? 0.9 : 0.55, c.quality || 'cue'); if (u >= 1) this.cometCueState = null; }
-    for (const s of (this.cometLiveStates || [])) { const ph = s.rule.phase(now);
-      s.glow += ((ph.active ? 1 : 0) - s.glow) * 0.25;                            // eases in when a wave is happening, out when not
-      if (s.glow > 0.05) { let u = ph.head;
-        if (s.hitT && now - s.hitT < 260) u = Math.min(1.12, ph.head + 0.12 * (1 - (now - s.hitT) / 260));   // FOLLOW-THROUGH: overshoot the fingertip, then settle
-        draw(s.chain, Math.min(1, u), s.glow * (s.hitT && now - s.hitT < 260 ? 1 : 0.8), s.quality || 'good'); }
+    for (const s of (this.cometLiveStates || [])) {
+      const ph = s.rule.phase(now); if (ph.active) s.lastActive = now;
+      const sinceActive = s.lastActive != null ? now - s.lastActive : 1e9, sinceHit = s.hitT != null ? now - s.hitT : 1e9;
+      const alive = ph.active ? 1 : Math.max(0, 1 - sinceActive / 900);          // ribbon fades over 900ms after the wave stops
+      const strength = Math.max(alive, sinceHit < 700 ? 0.9 : 0);                // a hit keeps the comet lit for 700ms
+      if (strength <= 0.03) continue;
+      let u = ph.head;
+      if (sinceHit < 700) u = Math.min(1.12, ph.head + 0.12 * (1 - sinceHit / 700));   // 700ms fingertip follow-through/overshoot
+      draw(s.chain, Math.min(1, u), strength, s.quality || 'good');
     }
     cx.globalAlpha = 1;
   }
@@ -205,7 +236,7 @@ export class LightEngine {
     const cx = this.cx, now = performance.now(), sw = this.sw();
     const df = Math.max(0.3, Math.min(3, (now - this._last) / 16.67)); this._last = now;
     cx.clearRect(0, 0, this.cv.width, this.cv.height);
-    const lw = k => Math.max(2, k * (sw / 200));
+    const lw = k => Math.max(4, k * (sw / 200));   // ring/line stroke floor ≥4px
     this.cues = this.cues.filter(c => (now - c.born) < c.leadMs + c.windowMs + 400);
     for (const c of this.cues) {
       if (c.type === 'hoop') { this.drawHoopCue(c, now); cx.globalAlpha = 1; continue; }
@@ -213,7 +244,7 @@ export class LightEngine {
       const p = this.P(c.joint); if (!p) continue;                    // MOVE cue (orb)
       const age = (now - c.born), total = c.leadMs + c.windowMs, over = age - total;
       const fade = over > 0 ? Math.max(0, 1 - over / 400) : 1; cx.globalAlpha = fade;
-      const orbR = sw * .30 * (this.fire ? 1.15 : 1) * (1 + .06 * Math.sin(age / 160)), ringMax = orbR * 2.0;
+      const orbR = Math.max(22, sw * .30 * (this.fire ? 1.15 : 1)) * (1 + .06 * Math.sin(age / 160)), ringMax = orbR * 2.0;   // orb core ≥22px floor
       const oc = this.fire ? this.col.hot : this.col.main;
       this.bloom(p.x, p.y, orbR * .8, oc, .35 * fade, 4); this.bloom(p.x, p.y, orbR * .5, oc, .6 * fade, 2); this.bloom(p.x, p.y, orbR * .3, this.col.hot, .95 * fade, 1);
       for (let i = 0; i < 7; i++) { const ang = now / 520 + i * (6.283 / 7), rr = orbR * 1.5; this.bloom(p.x + Math.cos(ang) * rr, p.y + Math.sin(ang) * rr, orbR * .12, this.col.hot, .8 * fade, 1); }
@@ -222,7 +253,7 @@ export class LightEngine {
       cx.save(); cx.shadowColor = hexA(this.col.hot, 1); cx.shadowBlur = 22; cx.globalAlpha = fade;
       cx.strokeStyle = inPerfect ? hexA(this.col.hot, 1) : hexA(this.col.main, .95); cx.lineWidth = inPerfect ? lw(9) : lw(6);
       cx.beginPath(); cx.arc(p.x, p.y, orbR + (ringMax - orbR) * frac, 0, 7); cx.stroke(); cx.restore();
-      cx.save(); cx.shadowColor = hexA(this.col.main, 1); cx.shadowBlur = 16; cx.strokeStyle = hexA(this.col.main, .85); cx.lineWidth = lw(8); cx.lineCap = 'round';
+      cx.save(); cx.shadowColor = hexA(this.col.main, 1); cx.shadowBlur = 16; cx.strokeStyle = hexA(this.col.main, .85); cx.lineWidth = Math.max(10, lw(8)); cx.lineCap = 'round';   // direction ribbon ≥10px
       if (c.dir === 'L' || c.dir === 'R') { const s = (c.dir === 'R') ^ this.mirror ? -1 : 1; cx.beginPath(); cx.moveTo(p.x, p.y); cx.quadraticCurveTo(p.x + s * sw * .5, p.y - sw * .1, p.x + s * sw * .9, p.y - sw * .02); cx.stroke(); }
       if (c.dir === 'UP' || c.dir === 'DOWN') { const s = c.dir === 'UP' ? -1 : 1; cx.beginPath(); cx.moveTo(p.x, p.y); cx.quadraticCurveTo(p.x + sw * .08, p.y + s * sw * .5, p.x + sw * .02, p.y + s * sw * .9); cx.stroke(); }
       cx.restore();

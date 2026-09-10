@@ -24,6 +24,10 @@ export const RULES = {
                        const fused = audioOnsetMs != null && Math.abs(t - audioOnsetMs) < 120; return { hit: true, confidence: fused ? 1 : 0.6 }; },
   // JUMP — both hips rise fast together
   jump:         E => (E.last?.hipC?.dir === 'UP' && E.last.hipC.mag > 1.2) ? { hit: true } : null,
+  // NOVA-SAYS §1 — touch rules (wrist-to-target proximity in normalized units)
+  handsOnHead: E => { const l = E.dist('lWrist', 'head'), r = E.dist('rWrist', 'head'); return (l != null && r != null && l < 0.18 && r < 0.18) ? { hit: true } : null; },
+  handsOnHips: E => { const l = E.dist('lWrist', 'lHip'), r = E.dist('rWrist', 'rHip'); return (l != null && r != null && l < 0.14 && r < 0.14) ? { hit: true } : null; },
+  touchKnees:  E => { const l = E.dist('lWrist', 'lKnee'), r = E.dist('rWrist', 'rKnee'); return (l != null && r != null && l < 0.16 && r < 0.16) ? { hit: true } : null; },
 };
 
 // WAVE — traveling peak along the arm chain (order + even spacing = smooth). Stateful.

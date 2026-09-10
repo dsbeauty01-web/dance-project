@@ -10,8 +10,12 @@ html,body{margin:0;height:100%;background:radial-gradient(130% 130% at 50% 12%,#
 #camWrap{position:absolute;inset:0;overflow:hidden}
 #usercam{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
 #fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6}
-/* a soft dark vignette so the gold comet + ice glow read against a bright room */
-#camWrap::after{content:"";position:absolute;inset:0;z-index:5;pointer-events:none;background:radial-gradient(120% 120% at 50% 45%,transparent 55%,rgba(8,5,19,.55) 100%)}
+/* a soft always-on vignette so the gold comet + ice glow read against a bright room */
+#camWrap::after{content:"";position:absolute;inset:0;z-index:5;pointer-events:none;background:radial-gradient(120% 120% at 50% 45%,transparent 60%,rgba(8,5,19,.45) 100%)}
+/* DARK STAGE FOR GOLD: a 35% dim + vignette that fades in (200ms) only while a light is live */
+#dim{position:absolute;inset:0;z-index:4;pointer-events:none;opacity:0;transition:opacity .2s ease;
+  background:linear-gradient(rgba(8,5,19,.35),rgba(8,5,19,.35)),radial-gradient(120% 120% at 50% 45%,transparent 42%,rgba(8,5,19,.62) 100%)}
+#stage.lit #dim{opacity:1}
 /* NOVA = a small rounded coach panel (bigger while she talks in intro/ending) */
 #novaWrap{position:absolute;right:16px;bottom:16px;width:min(26vw,220px);aspect-ratio:3/4;border-radius:20px;overflow:hidden;z-index:9;background:#0c0720;box-shadow:0 10px 34px rgba(0,0,0,.55);border:2px solid rgba(242,198,109,.5);transition:width .45s ease,opacity .3s}
 #stage[data-phase=intro] #novaWrap,#stage[data-phase=ending] #novaWrap{width:min(46vw,380px)}
@@ -44,7 +48,7 @@ html,body{margin:0;height:100%;background:radial-gradient(130% 130% at 50% 12%,#
 </style></head><body>
 <div id="stage" data-phase="intro">
   <div id="novaWrap"><video id="novaAmbient" autoplay muted playsinline></video><video id="novaMain" autoplay muted playsinline></video><video id="clock" playsinline preload="auto" src="/media/handywave.mp4"></video><div id="badge">Watching</div></div>
-  <div id="camWrap"><video id="usercam" autoplay muted playsinline></video><canvas id="fx"></canvas></div>
+  <div id="camWrap"><video id="usercam" autoplay muted playsinline></video><div id="dim"></div><canvas id="fx"></canvas></div>
   <video id="ref" muted loop playsinline autoplay preload="auto" src="/gallery/preview_maya_leftwave.mp4"></video>
   <div id="refTag">👋 copy this ↓</div>
   <div id="hud"><div id="phaseTag">WAVE</div><div id="score">0</div><div id="flow"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
@@ -164,6 +168,14 @@ function coverRemap(out){
   }
   return o;
 }
+// DARK STAGE: dim the webcam under the lights only while something is glowing (CSS fades it 200ms)
+(function litLoop(){ stage.classList.toggle('lit', L.active()); requestAnimationFrame(litLoop); })();
+// BLOOM BOOST: once/sec, measure the webcam's mean luminance; on a bright/daylight frame boost bloom ×1.5
+const _lumC = document.createElement('canvas'); _lumC.width = 16; _lumC.height = 16;
+const _lumX = _lumC.getContext('2d', { willReadFrequently: true });
+setInterval(() => { try { if (_cam.readyState < 2) return; _lumX.drawImage(_cam, 0, 0, 16, 16);
+  const d = _lumX.getImageData(0, 0, 16, 16).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += 0.2126*d[i] + 0.7152*d[i+1] + 0.0722*d[i+2];
+  L.boost = (s / (d.length/4) / 255) > 0.55 ? 1.5 : 1; } catch (e) {} }, 1000);
 startPose(document.getElementById('usercam'), k => {
   const out = E.update(k); L.setJoints(coverRemap(out));
   if (awaitingPresence) { updatePresence(k); return; }   // gate the game until arms are in frame
