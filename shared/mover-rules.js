@@ -29,7 +29,7 @@ export const RULES = {
 // WAVE — traveling peak along the arm chain (order + even spacing = smooth). Stateful.
 export class WaveRule {
   constructor(E, arm) { this.E = E; this.chain = arm === 'R' ? ['rShoulder', 'rElbow', 'rWrist', 'rIndex'] : ['lShoulder', 'lElbow', 'lWrist', 'lIndex']; this.h = {}; this.lastT = 0; }
-  push(t) { for (const n of this.chain) { const j = this.E.last?.[n]; if (!j) continue; (this.h[n] ||= []).push({ t, y: j.y }); this.h[n] = this.h[n].filter(p => t - p.t < 1200); } }
+  push(t) { for (const n of this.chain) { const j = this.E.last?.[n]; if (!j) continue; const arr = (this.h[n] ||= []); if (arr.length && arr[arr.length - 1].t === t) continue; arr.push({ t, y: j.y }); this.h[n] = arr.filter(p => t - p.t < 1200); } }   // dedupe same-t (check+phase both push)
   peakT(n) { const h = this.h[n]; if (!h || h.length < 5) return null; for (let i = h.length - 3; i > 1; i--) if (h[i].y < h[i - 1].y && h[i].y < h[i + 1].y && (h[i - 1].y - h[i].y) > 0.02) return h[i].t; return null; }
   check(t = (typeof performance !== 'undefined' ? performance.now() : Date.now())) {
     this.push(t); if (t - this.lastT < 600) return null;
@@ -41,5 +41,18 @@ export class WaveRule {
     const result = { hit: true, quality: spread < 90 ? 'smooth' : spread < 180 ? 'good' : 'rough', gaps, iso: this.E.still(other, 0.2) };
     this.lastResult = result;   // b0.13: the page uses r === waveR.lastResult to name the arm
     return result;
+  }
+  // b0.18: expose the live wave PHASE so the comet light rides the detected human wave, not a timer.
+  // head = 0..1 along the chain, following the most recent joint peak and gliding toward the next.
+  phase(t = (typeof performance !== 'undefined' ? performance.now() : Date.now())) {
+    this.push(t);
+    const chain = this.chain.filter(n => this.E.last?.[n]);
+    const peaks = chain.map(n => this.peakT(n));
+    let last = -1; for (let i = 0; i < peaks.length; i++) if (peaks[i] != null && t - peaks[i] < 700) last = i;   // most recent joint that peaked within 700ms
+    if (last < 0) return { head: 0, active: false, peaks, links: chain.length };
+    const since = t - peaks[last], glide = Math.min(1, since / 220);                                             // ~220ms per link, eased
+    const eased = 1 - Math.pow(1 - glide, 3);                                                                    // easeOutCubic
+    const head = Math.min(1, (last + eased) / Math.max(1, chain.length - 1));
+    return { head, active: true, peaks, links: chain.length };
   }
 }

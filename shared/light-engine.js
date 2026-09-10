@@ -87,23 +87,51 @@ export class LightEngine {
     this.parts.push({ x, y, vx: 0, vy: -size * .04, born: performance.now(), life: 900, text, big: true, size, col: this.col.hot });
   }
 
-  // ── A · COMET (wave) ──
-  comet(chain, quality = 'good', asCue = false) {
-    const pts = chain.map(n => this.P(n)).filter(Boolean); if (pts.length < 3) return; const sw = this.sw();
-    this.comets.push({ pts, t0: performance.now(), dur: asCue ? 1400 : (quality === 'smooth' ? 550 : quality === 'good' ? 700 : 900),
-      headR: (asCue ? 0.14 : 0.22) * sw, tail: asCue ? 14 : 22, alpha: asCue ? 0.55 : 1, col: (quality === 'smooth' || asCue) ? this.col.hot : this.col.main, sparks: !asCue });
-  }
-  cometCue(chain) { this.comet(chain, 'good', true); }
-  drawComets(now) { const cx = this.cx;
-    for (const m of this.comets) { const u = Math.min(1, (now - m.t0) / m.dur), head = pathPoint(m.pts, u);
-      for (let k = 0; k < 40; k++) { const q = pathPoint(m.pts, k / 39); cx.globalAlpha = (k / 39 > u ? 0.28 : 0.10) * m.alpha; cx.fillStyle = this.col.main; cx.beginPath(); cx.arc(q.x, q.y, 3, 0, 7); cx.fill(); }
-      cx.globalAlpha = 1;
-      for (let k = 0; k < m.tail; k++) { const q = pathPoint(m.pts, Math.max(0, u - k * 0.03)), a = (1 - k / m.tail) * m.alpha;
-        this.bloom(q.x, q.y, m.headR * 0.8, m.col, a * 0.35, 4); this.bloom(q.x, q.y, m.headR * 0.5, m.col, a * 0.6, 2); this.bloom(q.x, q.y, m.headR * 0.28, this.col.hot, a, 1); }
-      this.bloom(head.x, head.y, m.headR, this.col.hot, m.alpha, 2.5); this.bloom(head.x, head.y, m.headR * 0.42, '#ffffff', m.alpha, 1);
-      if (m.sparks && Math.random() < 0.6) { const q = pathPoint(m.pts, Math.random() * u), sw = this.sw(); this._dust(q.x + (Math.random() - .5) * sw * .15, q.y + (Math.random() - .5) * sw * .18, { vx: (Math.random() - .5) * sw * .02, vy: -Math.random() * sw * .02, r: sw * .018, col: this.col.hot, life: 350, spark: true }); }
-      if (u >= 1) m.done = true; }
-    this.comets = this.comets.filter(m => !m.done); cx.globalAlpha = 1;
+  // ── A · COMET (wave) — phase-driven, rides the REAL wave (b0.18 WAVE-COMET-ACCURATE) ──
+  // geometry helpers
+  catmull(pts, n = 32) { if (pts.length < 2) return pts.slice(); const out = []; const P = [pts[0], ...pts, pts[pts.length - 1]], per = Math.max(2, Math.floor(n / (pts.length - 1)));
+    for (let i = 1; i < P.length - 2; i++) { for (let s = 0; s < per; s++) { const t = s / per, t2 = t * t, t3 = t2 * t, p0 = P[i - 1], p1 = P[i], p2 = P[i + 1], p3 = P[i + 2];
+      out.push({ x: 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+                 y: 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3) }); } }
+    out.push(pts[pts.length - 1]); return out; }
+  pathLen(pts) { let L = 0; for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y); return L; }
+  at(pts, u) { const n = pts.length - 1, i = Math.min(n - 1, Math.max(0, Math.floor(u * n))), f = u * n - i, a = pts[i], b = pts[i + 1]; return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, ang: Math.atan2(b.y - a.y, b.x - a.x) }; }
+  ribbon(pts, uHead, w0, w1, col, alpha) {                                       // tapered "sleeve of light" back along the path
+    const cx = this.cx, N = 24, left = [], right = [];
+    for (let k = 0; k <= N; k++) { const u = uHead - k * (0.55 / N); if (u < 0) break; const p = this.at(pts, u), w = (w0 + (w1 - w0) * (k / N)) * 0.5;
+      const nx = -Math.sin(p.ang) * w, ny = Math.cos(p.ang) * w; left.push({ x: p.x + nx, y: p.y + ny }); right.push({ x: p.x - nx, y: p.y - ny }); }
+    if (left.length < 2) return;
+    const g = cx.createLinearGradient(left[0].x, left[0].y, left[left.length - 1].x, left[left.length - 1].y); g.addColorStop(0, col); g.addColorStop(1, hexA(col, 0));
+    cx.globalAlpha = alpha; cx.fillStyle = g; cx.beginPath(); cx.moveTo(left[0].x, left[0].y); for (const p of left) cx.lineTo(p.x, p.y); for (let i = right.length - 1; i >= 0; i--) cx.lineTo(right[i].x, right[i].y); cx.closePath(); cx.fill(); }
+  gauss() { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v) * 0.5; }
+  // comet state
+  cometCue(chain) { this.cometCueState = { chain, t0: performance.now(), dur: 1400 }; }
+  comet(chain, quality = 'good') { this.cometCueState = { chain, t0: performance.now(), dur: 650, quality, bright: true }; }   // legacy one-shot sweep
+  cometLive(waveRule, chain) { (this.cometLiveStates ||= []).push({ rule: waveRule, chain, glow: 0 }); }
+  cometHit(quality, rule) { const arr = this.cometLiveStates || []; const s = rule ? arr.find(x => x.rule === rule) : arr[arr.length - 1]; if (s) { s.hitT = performance.now(); s.quality = quality; } }
+  cometStop() { this.cometLiveStates = []; }
+  drawComets(now) {
+    const cx = this.cx, sw = this.sw();
+    const draw = (chainNames, uHead, strength, quality) => {
+      const raw = chainNames.map(n => this.P(n)).filter(Boolean); if (raw.length < 3) return;
+      if (this.pathLen(raw) < 1.2 * sw) { const w = this.P(chainNames[2]); if (w) this.bloom(w.x, w.y, sw * 0.08, this.col.main, 0.5 * strength, 2); return; }   // PATH GUARD: arm not extended → soft wrist pulse only (no comet, no ball)
+      const pts = this.catmull(raw, 32), headR = Math.min(sw * 0.16, 26 * devicePixelRatio), col = quality === 'smooth' ? this.col.hot : this.col.main;
+      cx.globalCompositeOperation = 'lighter';
+      this.ribbon(pts, uHead, sw * 0.18, sw * 0.06, col, 0.55 * strength);        // the sleeve of light on the bones
+      const h = this.at(pts, uHead);
+      this.bloom(h.x, h.y, headR, col, 0.35 * strength, 2.2); this.bloom(h.x, h.y, headR * 0.55, col, 0.7 * strength, 1.4); this.bloom(h.x, h.y, headR * 0.3, '#ffffff', strength, 1);
+      if (strength > 0.8 && Math.random() < 0.5) { const q = this.at(pts, Math.max(0, uHead - Math.random() * 0.4)), g1 = this.gauss(), g2 = this.gauss();
+        this._dust(q.x + g1 * sw * 0.06, q.y + g2 * sw * 0.06, { vx: g1 * 0.8, vy: -Math.abs(g2) * 1.2, r: 2, col: this.col.hot, life: 550, spark: true }); }
+      cx.globalCompositeOperation = 'source-over'; cx.globalAlpha = 1;
+    };
+    const c = this.cometCueState; if (c) { const u = Math.min(1, (now - c.t0) / c.dur), e = 1 - Math.pow(1 - u, 3); draw(c.chain, e, c.bright ? 0.9 : 0.55, c.quality || 'cue'); if (u >= 1) this.cometCueState = null; }
+    for (const s of (this.cometLiveStates || [])) { const ph = s.rule.phase(now);
+      s.glow += ((ph.active ? 1 : 0) - s.glow) * 0.25;                            // eases in when a wave is happening, out when not
+      if (s.glow > 0.05) { let u = ph.head;
+        if (s.hitT && now - s.hitT < 260) u = Math.min(1.12, ph.head + 0.12 * (1 - (now - s.hitT) / 260));   // FOLLOW-THROUGH: overshoot the fingertip, then settle
+        draw(s.chain, Math.min(1, u), s.glow * (s.hitT && now - s.hitT < 260 ? 1 : 0.8), s.quality || 'good'); }
+    }
+    cx.globalAlpha = 1;
   }
 
   // ── B · HOOP (ribs / torso / hips) ──
