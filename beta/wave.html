@@ -54,10 +54,10 @@ const waveR = new WaveRule(E,'R'), waveL = new WaveRule(E,'L');
 // chain, not a static circle. Repeat the comet along the arm while the cue is active so the
 // kid sees the motion to mirror. (The ring/orb is right for freeze/hold, wrong for a wave.)
 const CHAIN = { R:['rShoulder','rElbow','rWrist','rIndex'], L:['lShoulder','lElbow','lWrist','lIndex'] };
-let _guide=null;
-function startGuide(arm){ stopGuide(); const chain = CHAIN[arm==='L'?'L':'R'];
-  const fire=()=>{ L.comet(chain,'good'); }; fire(); _guide=setInterval(fire,600); }
-function stopGuide(){ if(_guide){ clearInterval(_guide); _guide=null; } }
+// b0.18 (WAVE-COMET-ACCURATE): the wave light is the PHASE-DRIVEN comet. cometLive (started at game
+// start) rides whichever arm actually waves; the cue just previews the path once with a slow sweep.
+function startGuide(arm){ L.cometCue(CHAIN[arm==='L'?'L':'R']); }
+function stopGuide(){ /* the comet self-expires; nothing to tear down */ }
 
 // ── CUES (the WAVE-FULL timeline) ──
 const CUES = [
@@ -89,7 +89,10 @@ document.getElementById('start').onclick = async () => {
     cam.srcObject = await navigator.mediaDevices.getUserMedia({ video:{ width:960, height:720 }, audio:false });
     await cam.play().catch(()=>{});
   } catch (e) { document.getElementById('badge').textContent = 'camera blocked: ' + (e && e.name || 'error'); }
-  await attachNova({ intro:'wave', onVideo: v => { document.getElementById('novaMain').srcObject = v; document.getElementById('novaAmbient').srcObject = v; } });
+  // the avatar/voice come from the pod; if it isn't up (e.g. a headless lights test) don't block the
+  // game — the camera + pose + comet + clock still run, only the Nova panel stays blank.
+  try { await attachNova({ intro:'wave', onVideo: v => { document.getElementById('novaMain').srcObject = v; document.getElementById('novaAmbient').srcObject = v; } }); }
+  catch (e) { document.getElementById('badge').textContent = 'no pod: lights-only'; }
   setPhase('intro'); E.startCal();                                                       // intro doubles as calibration (no score)
   note('intro-adult: greet + name; then say exactly "'+INTRO_LINE+'" and wait for a real yes.');
   // NEVER-HANG SAFETY (freeze-style): if no validated "yes" reaches us within 12s (e.g. the
@@ -100,24 +103,30 @@ onHerAudio({ playing: ()=>{ if(phase==='game') duck(true); }, ended: ()=>duck(fa
 // consent arrives from the bridge as a validated turn:
 window.addEventListener('nova:consent', startGame, { once:true });
 function startGame(){ if(phase!=='intro') return;   // idempotent: consent OR the 12s safety, whichever first
-  E.finishCal(); setPhase('game'); clock.currentTime=0; clock.play(); requestAnimationFrame(tick); }
+  E.finishCal(); setPhase('game');
+  L.cometLive(waveR, CHAIN.R); L.cometLive(waveL, CHAIN.L);   // b0.18: the comet now rides the real detected wave
+  clock.currentTime=0; clock.play(); requestAnimationFrame(tick); }
 
 // ── POSE ──
 startPose(document.getElementById('usercam'), k => {
   const out = E.update(k); L.setJoints(out);
+  // feed BOTH wave rules EVERY frame — they build the peak history that phase() (the comet) reads,
+  // and a detected wave adds the fingertip overshoot on the arm that actually waved.
+  const rR = waveR.check(), rL = waveL.check();
+  if (rR?.hit) L.cometHit(rR.quality, waveR);
+  if (rL?.hit) L.cometHit(rL.quality, waveL);
   if (phase!=='game' && phase!=='hold') return;
   const t = clock.currentTime, c = CUES[ci];
-  if (phase==='hold' && holdWin){ const f = RULES.freeze(E, 0.12); holdWin.samples++; if(!f.still) holdWin.broke = holdWin.broke || (performance.now()-holdWin.t0); return; }
+  if (phase==='hold' && holdWin){ const f = RULES.freeze(E, 0.12); holdWin.samples++; if(!f.still){ if(!holdWin.broke) L.freezeBreak(); holdWin.broke = holdWin.broke || (performance.now()-holdWin.t0); } return; }
   if (!c || c.hold) return;
-  const r = (c.arm==='R') ? waveR.check() : (c.arm==='L') ? waveL.check() : (waveR.check() || waveL.check());
+  const r = c.arm==='R' ? rR : c.arm==='L' ? rL : (rR || rL);
   if (r?.hit && t >= c.t - WIN_BEFORE && t <= c.t + WIN_AFTER){
     const arm = r===waveR.lastResult ? 'R' : 'L';
     const base = r.quality==='smooth'?160 : r.quality==='good'?140 : 120;
     const pts = base + (r.iso ? 20 : 0);
     streak = r.quality==='smooth' ? streak+1 : 0; const mult = streak>=3 ? 2 : 1;
-    score += pts*mult; stats[arm].push(r.quality); ci++; stopGuide();
-    L.comet(CHAIN[arm], r.quality);   // the SUCCESS wave: a brighter comet down the arm
-    L.hit(arm==='R'?'rWrist':'lWrist', r.iso?'iso':'good', pts*mult); if(mult>1) flyText('×2');
+    score += pts*mult; stats[arm].push(r.quality); ci++;
+    L.hit(arm==='R'?'rWrist':'lWrist', r.iso?'iso':'good', pts*mult); if(mult>1) flyText('×2');   // the comet overshoot already fired via cometHit
     document.getElementById('score').textContent = score; flowBar(ci);
     note(`fact: wave ${arm} ${r.quality}${r.iso?' isolated':''} streak ${streak}`);   // facts only — adult tier says nothing mid-run
   }
@@ -129,9 +138,9 @@ function tick(){
   if (li < LINES.length && t >= LINES[li][0]){ note(`say exactly: "${LINES[li][1]}"`); li++; }
   if (c && !c.hold && !c.lit && t >= c.t - LEAD){ c.lit = true; startGuide(c.arm); }   // wave guide = comet flowing down the arm
   if (c && !c.hold && t > c.t + WIN_AFTER){ stopGuide(); ci++; }   // missed: comet stops, no punishment
-  if (c && c.hold && phase==='game' && t >= c.t){ setPhase('hold'); stopGuide(); holdWin={t0:performance.now(),broke:0,samples:0}; L.ice(); L.cue({ joint:'shoulderC', dir:null, windowMs:c.hold*1000, leadMs:0, still:['lWrist','rWrist'] }); }
-  if (phase==='hold' && holdWin && performance.now()-holdWin.t0 >= c.hold*1000){ const held = !holdWin.broke && holdWin.samples>5; if(held){ score+=50; L.hit('shoulderC','iso',50); flyText('FROZEN!'); } else L.warm('shoulderC');
-    holdWin=null; ci++; setPhase('game'); note(`fact: hold ${held?'held':'broke'}`); }
+  if (c && c.hold && phase==='game' && t >= c.t){ setPhase('hold'); stopGuide(); holdWin={t0:performance.now(),broke:0,samples:0}; L.cometStop(); L.freezeStart(c.hold*1000); }   // b0.18: hold = the ice glow (no ring/orb)
+  if (phase==='hold' && holdWin && performance.now()-holdWin.t0 >= c.hold*1000){ const held = !holdWin.broke && holdWin.samples>5; L.freezeEnd(held); if(held){ score+=50; L.hit('shoulderC','iso',50); flyText('FROZEN!'); }
+    holdWin=null; ci++; setPhase('game'); L.cometLive(waveR,CHAIN.R); L.cometLive(waveL,CHAIN.L); note(`fact: hold ${held?'held':'broke'}`); }
   if (!done && t >= 28.0){ done=true; clock.pause(); ending(); return; }
   if (!done) requestAnimationFrame(tick);
 }
