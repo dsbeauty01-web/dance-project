@@ -1599,6 +1599,15 @@ async def beta_wave_page(request):
     return web.Response(text=html, content_type="text/html",
                         headers={"Cache-Control": "no-store"})
 
+async def beta_upperbody_page(request):
+    # b0.19 GAMES-3: beta Upper Body re-based on the shared engines (mirrors beta_wave_page).
+    try:
+        with open("/workspace/pages/beta/upperbody.html", encoding="utf-8") as f:
+            html = f.read()
+    except FileNotFoundError:
+        return web.Response(status=503, text="beta upperbody page not deployed")
+    return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
+
 async def upperbody_page(request):
     # UPPER BODY ISOLATION game (2026-08-27), first-party from the pod (mirrors freeze_page).
     try:
@@ -1640,6 +1649,7 @@ app.router.add_get("/upgroove", upgroove_page)
 app.router.add_get("/upperbody", upperbody_page)
 app.router.add_get("/beta/freeze", beta_freeze_page)
 app.router.add_get("/beta/wave", beta_wave_page)
+app.router.add_get("/beta/upperbody", beta_upperbody_page)
 app.router.add_post("/pulse", pulse_post)
 app.router.add_get("/token", token)
 app.router.add_get("/health", health)
