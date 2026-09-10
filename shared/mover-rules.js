@@ -45,7 +45,8 @@ export class WaveRule {
   // b0.18: expose the live wave PHASE so the comet light rides the detected human wave, not a timer.
   // head = 0..1 along the chain, following the most recent joint peak and gliding toward the next.
   phase(t = (typeof performance !== 'undefined' ? performance.now() : Date.now())) {
-    this.push(t);
+    // READS ONLY — check() is the sole feeder (called once per pose frame). If phase() also pushed,
+    // callers running it at 60fps rAF would densify the history and starve peakT's adjacent-drop test.
     const chain = this.chain.filter(n => this.E.last?.[n]);
     const peaks = chain.map(n => this.peakT(n));
     let last = -1; for (let i = 0; i < peaks.length; i++) if (peaks[i] != null && t - peaks[i] < 700) last = i;   // most recent joint that peaked within 700ms
