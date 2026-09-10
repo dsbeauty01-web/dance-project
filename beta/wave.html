@@ -12,6 +12,11 @@ html,body{margin:0;height:100%;background:var(--room);font-family:Nunito,system-
 #novaMain{position:absolute;left:50%;top:0;height:100vh;width:auto;transform:translateX(-50%);z-index:2}
 #novaAmbient{position:absolute;left:50%;top:50%;height:120vh;transform:translate(-50%,-50%) scaleX(2.2);filter:blur(28px) saturate(1.1);opacity:.9;z-index:1}
 #usercam{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+/* the wave DEMO: no nova_wave_a bake on this volume, so during the game the Nova panel shows
+   handywave.mp4 — the actual wave performance (and the clock/audio). Idle avatar hides then. */
+#clock{display:none}
+#stage[data-phase=game] #clock,#stage[data-phase=hold] #clock{display:block;position:absolute;left:50%;top:0;height:100vh;width:auto;max-width:100%;transform:translateX(-50%);z-index:3;background:#000}
+#stage[data-phase=game] #novaMain,#stage[data-phase=hold] #novaMain,#stage[data-phase=game] #novaAmbient,#stage[data-phase=hold] #novaAmbient{opacity:0}
 #fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6}
 #badge{position:absolute;left:14px;bottom:14px;z-index:4;background:rgba(42,33,64,.6);color:#fff;padding:5px 14px;border-radius:999px;font-weight:800;font-size:13px}
 #hud{position:fixed;top:1.6vh;left:0;right:0;display:flex;gap:16px;justify-content:center;align-items:center;z-index:50}
@@ -24,12 +29,11 @@ html,body{margin:0;height:100%;background:var(--room);font-family:Nunito,system-
 .hidden{display:none!important}
 </style></head><body>
 <div id="stage" data-phase="intro">
-  <div id="novaWrap"><video id="novaAmbient" autoplay muted playsinline></video><video id="novaMain" autoplay muted playsinline></video><div id="badge">Watching</div></div>
+  <div id="novaWrap"><video id="novaAmbient" autoplay muted playsinline></video><video id="novaMain" autoplay muted playsinline></video><video id="clock" playsinline preload="auto" src="/media/handywave.mp4"></video><div id="badge">Watching</div></div>
   <div id="camWrap"><video id="usercam" autoplay muted playsinline></video><canvas id="fx"></canvas></div>
   <div id="hud"><div id="phaseTag">WAVE</div><div id="score">0</div><div id="flow"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
   <button id="pause">⏸</button><button id="exit">✕</button>
   <div id="gate"><button id="start">▶ Let's wave</button></div>
-  <video id="clock" playsinline preload="auto" src="/media/handywave.mp4" class="hidden"></video>
 </div>
 <script type="module">
 import { MoverEngine } from '/shared/mover-engine.js';
@@ -45,6 +49,15 @@ const BODY = { talk:'nova_idle2', game:'nova_wave_a' };
 const clock = document.getElementById('clock'), stage = document.getElementById('stage');
 const E = new MoverEngine(), L = new LightEngine(document.getElementById('fx'), { tier:TIER, mirror:MIRROR });
 const waveR = new WaveRule(E,'R'), waveL = new WaveRule(E,'L');
+
+// WAVE GUIDE (b0.15 fix): a wave cue must LOOK like a wave — a light traveling down the arm
+// chain, not a static circle. Repeat the comet along the arm while the cue is active so the
+// kid sees the motion to mirror. (The ring/orb is right for freeze/hold, wrong for a wave.)
+const CHAIN = { R:['rShoulder','rElbow','rWrist','rIndex'], L:['lShoulder','lElbow','lWrist','lIndex'] };
+let _guide=null;
+function startGuide(arm){ stopGuide(); const chain = CHAIN[arm==='L'?'L':'R'];
+  const fire=()=>{ L.comet(chain,'good'); }; fire(); _guide=setInterval(fire,600); }
+function stopGuide(){ if(_guide){ clearInterval(_guide); _guide=null; } }
 
 // ── CUES (the WAVE-FULL timeline) ──
 const CUES = [
@@ -69,14 +82,25 @@ function setPhase(p){ phase=p; stage.dataset.phase=p; document.getElementById('b
 // ── INTRO (engine path, lips): conversation → consent → start ──
 document.getElementById('start').onclick = async () => {
   document.getElementById('gate').classList.add('hidden');
+  // CAMERA: acquire the kid's camera and feed the <video> that startPose reads (pose-engine
+  // only reads frames — it never opens the camera itself). Without this the panel is black.
+  try {
+    const cam = document.getElementById('usercam');
+    cam.srcObject = await navigator.mediaDevices.getUserMedia({ video:{ width:960, height:720 }, audio:false });
+    await cam.play().catch(()=>{});
+  } catch (e) { document.getElementById('badge').textContent = 'camera blocked: ' + (e && e.name || 'error'); }
   await attachNova({ intro:'wave', onVideo: v => { document.getElementById('novaMain').srcObject = v; document.getElementById('novaAmbient').srcObject = v; } });
   setPhase('intro'); E.startCal();                                                       // intro doubles as calibration (no score)
   note('intro-adult: greet + name; then say exactly "'+INTRO_LINE+'" and wait for a real yes.');
+  // NEVER-HANG SAFETY (freeze-style): if no validated "yes" reaches us within 12s (e.g. the
+  // live-voice bridge is still warming), start anyway so the wave/detection is always watchable.
+  setTimeout(()=>{ if(phase==='intro') startGame(); }, (parseInt(new URLSearchParams(location.search).get('auto'),10)||12)*1000);
 };
 onHerAudio({ playing: ()=>{ if(phase==='game') duck(true); }, ended: ()=>duck(false) });
 // consent arrives from the bridge as a validated turn:
 window.addEventListener('nova:consent', startGame, { once:true });
-function startGame(){ E.finishCal(); setPhase('game'); clock.currentTime=0; clock.play(); requestAnimationFrame(tick); }
+function startGame(){ if(phase!=='intro') return;   // idempotent: consent OR the 12s safety, whichever first
+  E.finishCal(); setPhase('game'); clock.currentTime=0; clock.play(); requestAnimationFrame(tick); }
 
 // ── POSE ──
 startPose(document.getElementById('usercam'), k => {
@@ -91,8 +115,8 @@ startPose(document.getElementById('usercam'), k => {
     const base = r.quality==='smooth'?160 : r.quality==='good'?140 : 120;
     const pts = base + (r.iso ? 20 : 0);
     streak = r.quality==='smooth' ? streak+1 : 0; const mult = streak>=3 ? 2 : 1;
-    score += pts*mult; stats[arm].push(r.quality); ci++;
-    L.comet(arm==='R' ? ['rShoulder','rElbow','rWrist','rIndex'] : ['lShoulder','lElbow','lWrist','lIndex'], r.quality);
+    score += pts*mult; stats[arm].push(r.quality); ci++; stopGuide();
+    L.comet(CHAIN[arm], r.quality);   // the SUCCESS wave: a brighter comet down the arm
     L.hit(arm==='R'?'rWrist':'lWrist', r.iso?'iso':'good', pts*mult); if(mult>1) flyText('×2');
     document.getElementById('score').textContent = score; flowBar(ci);
     note(`fact: wave ${arm} ${r.quality}${r.iso?' isolated':''} streak ${streak}`);   // facts only — adult tier says nothing mid-run
@@ -103,12 +127,9 @@ startPose(document.getElementById('usercam'), k => {
 function tick(){
   const t = clock.currentTime, c = CUES[ci];
   if (li < LINES.length && t >= LINES[li][0]){ note(`say exactly: "${LINES[li][1]}"`); li++; }
-  if (c && !c.hold && !c.lit && t >= c.t - LEAD){ c.lit = true;
-    const j = c.arm==='L' ? 'lWrist' : 'rWrist';
-    L.cue({ joint:j, dir:'UP', windowMs:(WIN_BEFORE+WIN_AFTER)*1000, leadMs:LEAD*1000, still: c.arm==='R' ? ['lWrist'] : c.arm==='L' ? ['rWrist'] : [] });
-    if (c.arm==='ANY') L.cue({ joint:'lWrist', dir:'UP', windowMs:(WIN_BEFORE+WIN_AFTER)*1000, leadMs:LEAD*1000, still:[] }); }
-  if (c && !c.hold && t > c.t + WIN_AFTER){ L.clearCue('rWrist'); L.clearCue('lWrist'); ci++; }   // missed: soft fade, no punishment
-  if (c && c.hold && phase==='game' && t >= c.t){ setPhase('hold'); holdWin={t0:performance.now(),broke:0,samples:0}; L.ice(); L.cue({ joint:'shoulderC', dir:null, windowMs:c.hold*1000, leadMs:0, still:['lWrist','rWrist'] }); }
+  if (c && !c.hold && !c.lit && t >= c.t - LEAD){ c.lit = true; startGuide(c.arm); }   // wave guide = comet flowing down the arm
+  if (c && !c.hold && t > c.t + WIN_AFTER){ stopGuide(); ci++; }   // missed: comet stops, no punishment
+  if (c && c.hold && phase==='game' && t >= c.t){ setPhase('hold'); stopGuide(); holdWin={t0:performance.now(),broke:0,samples:0}; L.ice(); L.cue({ joint:'shoulderC', dir:null, windowMs:c.hold*1000, leadMs:0, still:['lWrist','rWrist'] }); }
   if (phase==='hold' && holdWin && performance.now()-holdWin.t0 >= c.hold*1000){ const held = !holdWin.broke && holdWin.samples>5; if(held){ score+=50; L.hit('shoulderC','iso',50); flyText('FROZEN!'); } else L.warm('shoulderC');
     holdWin=null; ci++; setPhase('game'); note(`fact: hold ${held?'held':'broke'}`); }
   if (!done && t >= 28.0){ done=true; clock.pause(); ending(); return; }
