@@ -1,0 +1,374 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nova · Nova Says</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Nunito:wght@600;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+<style>
+:root{--gold:#ffc23e;--gold-hot:#ffe27e;--hoodie:#7c5cbf;--gotcha:#b98cff;--ice:#aee8ff;--ink:#f3eefb}
+html,body{margin:0;height:100%;background:radial-gradient(130% 130% at 50% 12%,#241046 0%,#140a2c 55%,#080513 100%);font-family:Nunito,system-ui;color:var(--ink);overflow:hidden}
+#stage{position:fixed;inset:0;display:flex}
+/* HER 60 / KID 40 (NOVA-SAYS §7); talking phases she widens to 66 (game-cues-lights layout law) */
+#novaWrap{position:relative;flex:0 0 60%;overflow:hidden;background:#0c0720;transition:flex-basis .5s ease}
+#stage[data-phase=intro] #novaWrap,#stage[data-phase=between] #novaWrap,#stage[data-phase=ending] #novaWrap{flex-basis:66%}
+#novaMain{position:absolute;left:50%;top:0;height:100%;width:auto;transform:translateX(-50%);z-index:2}
+/* room-stretch: blurred self-copy fills the margins — zero black bars (LAW-FRAME-FULL) */
+#novaAmbient{position:absolute;left:50%;top:50%;height:110%;width:auto;transform:translate(-50%,-50%) scaleX(2.2);filter:blur(28px) brightness(.55);z-index:1}
+#camWrap{position:relative;flex:1 1 40%;overflow:hidden;background:#0c0720}
+#usercam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6}
+#camWrap::after{content:"";position:absolute;inset:0;z-index:5;pointer-events:none;background:radial-gradient(120% 120% at 50% 45%,transparent 62%,rgba(8,5,19,.4) 100%)}
+#badge{position:absolute;left:14px;top:14px;z-index:8;background:rgba(12,7,32,.6);color:#fff;padding:5px 14px;border-radius:999px;font-weight:800;font-size:13px}
+#banner{position:fixed;top:0;left:0;right:0;z-index:99;background:#8d2f4b;color:#fff;font-weight:800;text-align:center;padding:10px;display:none}
+#hud{position:fixed;top:2vh;left:0;right:0;display:flex;gap:16px;justify-content:center;align-items:center;z-index:50}
+#phaseTag{background:var(--hoodie);color:#fff;border-radius:999px;padding:5px 16px;font-weight:800}
+#score{font-family:'Baloo 2';font-size:44px;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums;text-shadow:0 2px 16px rgba(0,0,0,.6)}
+#tricks{font-weight:800;font-size:18px;background:rgba(12,7,32,.55);border-radius:999px;padding:6px 14px;color:var(--gotcha)}
+#dots{display:flex;gap:8px}#dots i{width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.18)}#dots i.on{background:var(--gold);box-shadow:0 0 10px var(--gold)}#dots i.now{outline:2px solid var(--gold-hot)}
+#pause,#exit{position:fixed;top:2vh;z-index:60;background:rgba(12,7,32,.55);color:#fff;border:0;border-radius:12px;padding:8px 12px;font-size:16px}#pause{right:64px}#exit{right:14px}
+#gate,#card,#finale{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:rgba(8,5,19,.7);z-index:90;backdrop-filter:blur(3px)}
+#gate button,#card button,#finale button{font:800 26px 'Baloo 2';padding:18px 44px;border:0;border-radius:18px;background:var(--gold);color:#2a2140;box-shadow:0 10px 30px rgba(255,194,62,.4);cursor:pointer}
+.cardTitle{font-family:'Baloo 2';font-weight:800;font-size:clamp(26px,5vw,44px);text-align:center;text-shadow:0 2px 16px rgba(0,0,0,.6)}
+.stars{font-size:44px;letter-spacing:8px;color:var(--gold)}
+.roundRow{display:flex;gap:14px}.roundCard{background:rgba(12,7,32,.7);border:2px solid rgba(255,194,62,.4);border-radius:16px;padding:12px 18px;text-align:center;font-weight:800}
+#presence{position:fixed;inset:0;z-index:80;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:rgba(8,5,19,.62);backdrop-filter:blur(3px)}
+#presence .pring{width:132px;height:132px;border-radius:50%;background:conic-gradient(var(--ice) calc(var(--p,0)*360deg),rgba(255,255,255,.14) 0);-webkit-mask:radial-gradient(circle,transparent 56px,#000 57px);mask:radial-gradient(circle,transparent 56px,#000 57px);transition:background .2s}
+#presence.ok .pring{background:conic-gradient(#7CFFB2 calc(var(--p,0)*360deg),rgba(124,255,178,.18) 0)}
+#presence .ptxt{font-family:'Baloo 2';font-weight:800;font-size:clamp(22px,4.4vw,34px);text-align:center;text-shadow:0 2px 16px rgba(0,0,0,.6);max-width:80vw}
+#presence .psub{font-weight:700;font-size:15px;color:#c7bde6}
+.hidden{display:none!important}
+</style></head><body>
+<div id="banner"></div>
+<div id="stage" data-phase="intro">
+  <div id="novaWrap"><video id="novaAmbient" autoplay muted playsinline></video><video id="novaMain" autoplay muted playsinline></video><div id="badge">Talking</div></div>
+  <div id="camWrap"><video id="usercam" autoplay muted playsinline></video><canvas id="fx"></canvas></div>
+</div>
+<div id="hud"><div id="phaseTag">NOVA SAYS</div><div id="score">0</div><div id="tricks">🕵️ 0</div><div id="dots"><i></i><i></i><i></i><i></i></div></div>
+<button id="pause">⏸</button><button id="exit">✕</button>
+<div id="presence" class="hidden"><div class="pring" style="--p:0"></div><div class="ptxt">Step back — I need to see your arms 🙆</div><div class="psub"></div></div>
+<div id="card" class="hidden"></div>
+<div id="finale" class="hidden"></div>
+<div id="gate"><button id="start">▶ Let's play</button></div>
+<audio id="bed" loop preload="auto" src="/freezegame/animal-freeze-song.mp3"></audio>
+<script type="module">
+import { MoverEngine } from '/shared/mover-engine.js';
+import { RULES, WaveRule } from '/shared/mover-rules.js';
+import { LightEngine } from '/shared/light-engine.js';
+import { startPose } from '/shared/pose-engine.js';
+import { attachNova, setBody, routeVoice, note, onHerAudio } from '/shared/nova-bridge.js';
+import { pulseSend } from '/shared/pulse.js';
+import { CMDS, ROUNDS, buildRound, scoreStep, starsFor, parseCommand, makeArmGate } from '/beta/novasays.js';
+
+const MIRROR = true, TIER = 'kids';                                 // kids tier (NOVA-SAYS)
+const HE = /[?&]lang=he/.test(location.search);
+const TEST = /[?&]test=1/.test(location.search);                    // machine harness mode
+const BODY = { talk:'nova_idle2' };                                 // body map: talk = nova_idle2
+const CHAIN = { R:['rShoulder','rElbow','rWrist','rIndex'], L:['lShoulder','lElbow','lWrist','lIndex'] };
+const stage = document.getElementById('stage'), bed = document.getElementById('bed');
+const E = new MoverEngine(), L = new LightEngine(document.getElementById('fx'), { tier:TIER, mirror:MIRROR });
+const waveR = new WaveRule(E,'R'), waveL = new WaveRule(E,'L');
+const audio = { lastOnset:null };                                   // [CLI-FILL] no page-side mic onset detector yet — clap scores visual-only (confidence .6)
+const ctx = { audio, waveR, waveL };
+
+// test harness — hands + eyes for the machine self-test (mirrors freeze's ?test=1 contract)
+const T = { log:[], poseQueue:null };
+if (TEST) window.__test = {
+  log: T.log,
+  pose: k => { onFrame(k); },
+  kid: text => window.dispatchEvent(new CustomEvent('nova:kid', { detail:text })),
+  consent: () => window.dispatchEvent(new Event('nova:consent')),
+  state: () => ({ phase, round: R0?.n, score, streak, tricksCaught, cmdId: curCmd?.id, trick: curTrick, inWindow, lightsActive: L.active() }),
+  start: () => document.getElementById('start').click(),
+};
+const tlog = (ev, d) => { if (TEST) T.log.push({ t: Date.now(), ev, d }); };
+
+// ── voice plumbing ──────────────────────────────────────────────────────────
+// sayLive: her live V2V line in the air — note("say exactly") → wait for the line to land.
+// One-shot per gap (LAW-INPUT-LOCK: the page cue engine is this loop — one line per gap).
+function sayLive(line) {
+  tlog('say', line); note(`say exactly: "${line}"`);
+  return new Promise(res => {
+    let done = false; const fin = () => { if (!done) { done = true; removeEventListener('nova:said', fin); res(); } };
+    addEventListener('nova:said', fin, { once:true });
+    setTimeout(fin, TEST ? 60 : 5000);                              // no-pod / harness: don't stall the game
+  });
+}
+function waitKidCommand(ms) {
+  return new Promise(res => {
+    let done = false;
+    const h = e => { if (!done) { done = true; removeEventListener('nova:kid', h); res({ text: e.detail || '' }); } };
+    addEventListener('nova:kid', h);
+    setTimeout(() => { if (!done) { done = true; removeEventListener('nova:kid', h); res(null); } }, TEST ? 120 : ms);
+  });
+}
+const sleep = ms => new Promise(r => setTimeout(r, TEST ? Math.min(ms, 40) : ms));
+let _frameWaiters = [];
+const nextPoseFrame = () => new Promise(r => _frameWaiters.push(r));
+
+// ── phase machine (routeVoice is the only voice router) ─────────────────────
+let phase = 'intro';
+function setPhase(p) {
+  phase = p; stage.dataset.phase = (p === 'boss') ? 'game' : p;
+  document.getElementById('badge').textContent = p === 'game' ? 'Watching' : p === 'hold' ? 'FREEZE!' : p === 'boss' ? 'Boss: YOU' : 'Talking';
+  if (p === 'intro' || p === 'between' || p === 'ending' || p === 'boss') { routeVoice('engine'); setBody(BODY.talk); }   // engine path, lips on the calm body
+  if (p === 'game') { routeVoice('air'); }                          // her voice IN THE AIR; engine gets no audio (lips never attempt gesture bodies)
+  if (p === 'hold') { routeVoice('mute'); }                         // holds = hard mute
+  tlog('phase', p);
+}
+function playGesture(id) { if (!id) return; setBody(id); tlog('body', id); }
+function returnToTalkBody() { setBody(BODY.talk); tlog('body', BODY.talk); }
+async function playGestureFull(id) { playGesture(id); await sleep(4000); returnToTalkBody(); }   // freeze-pose bakes ≈4s (NOVA-GAMES-BAKE-AND-TIMING)
+
+// ── lights (spec §5) — tricks get NO light: listen, don't watch ─────────────
+function lightFor(c, winS) {
+  tlog('light', c.id);
+  if (c.light === 'clap') { L.clapCue({ windowMs: winS * 1000, leadMs: 200 }); return; }
+  if (c.light === 'ice')  { L.freezeStart((winS + (c.hold || 0)) * 1000); return; }
+  if (c.light === 'comet'){ L.cometCue(CHAIN.R); return; }
+  for (const j of c.light.joints) L.cue({ joint: j, dir: c.light.dir, windowMs: winS * 1000, leadMs: 200 });
+}
+function lightHit(c, pts) {
+  if (c.light === 'clap') { L.clapHit(); return; }
+  if (c.light === 'ice')  { L.freezeEnd(true); return; }
+  if (c.light === 'comet'){ L.comet(CHAIN.R, 'smooth'); L.hit('rWrist', 'good', pts); return; }
+  L.hit(c.light.joints[0], 'good', pts);
+}
+
+// giggle sfx on GOTCHA — short, warm ([CLI-FILL] synthesized: no giggle asset in the repo)
+function giggle() { try { const a = L.audio; a.blip(520, 90, .12); setTimeout(() => a.blip(430, 90, .12), 110); setTimeout(() => a.blip(360, 120, .10), 230); } catch (_) {} }
+
+// ── HUD ─────────────────────────────────────────────────────────────────────
+let score = 0, streak = 0, tricksCaught = 0, roundStats = null, R0 = null, curCmd = null, curTrick = false, inWindow = false;
+const roundResults = [];
+const hud = {
+  score: v => document.getElementById('score').textContent = v,
+  tricks: v => document.getElementById('tricks').textContent = '🕵️ ' + v,
+  tag: t => document.getElementById('phaseTag').textContent = t,
+  dots: n => document.querySelectorAll('#dots i').forEach((el, i) => { el.classList.toggle('on', i < n - 1); el.classList.toggle('now', i === n - 1); }),
+};
+
+// ── §2 the loop — one command at a time, command-driven clock (no music timeline) ──
+async function playRound(R) {
+  R0 = R; hud.tag(R.label); hud.dots(R.n); roundStats = { hits:0, trickHeld:0, gotcha:0, perfect:0 };
+  if (R.boss) return bossRound(R);
+  setPhase('game');
+  const seq = buildRound(R);
+  for (const step of seq) {
+    const c = step.cmd; curCmd = c; curTrick = step.trick;
+    const say = HE ? c.sayHe : c.say;
+    const line = step.trick ? say : (HE ? `נובה אומרת... ${say}` : `Nova says... ${say}`);
+    await sayLive(line);
+    if (!step.trick) { if (c.demo) playGesture(c.demo); lightFor(c, R.win); }   // real: she DEMOS + the light shows the target — tricks stay dark + still
+    const t0 = performance.now(); let result = null;
+    const armed = makeArmGate(c);                                   // truth-gate: proximity rules need one frame of real motion first
+    inWindow = true;
+    while (performance.now() - t0 < R.win * 1000) {
+      await nextPoseFrame();
+      const live = armed(E), r = c.rule(E, ctx);
+      if (live && r?.hit) { result = { hit:true, ms: performance.now() - t0 }; break; }
+    }
+    inWindow = false;
+    if (c.hold && result?.hit) result.held = await holdStill(c.hold);
+    resolve(step, result, R); L.clearAll(); if (c.demo) returnToTalkBody();
+    curCmd = null; curTrick = false;
+    await sleep(R.gap * 1000);
+  }
+  await endRound(R);
+}
+async function holdStill(seconds) {                                  // freeze command: stay a statue
+  setPhase('hold');                                                  // hard mute during the hold
+  const t0 = performance.now(); let broke = false, samples = 0;
+  while (performance.now() - t0 < seconds * 1000) {
+    await nextPoseFrame(); samples++;
+    if (!RULES.freeze(E, 0.12).still) { broke = true; L.freezeBreak(); break; }
+  }
+  setPhase('game');
+  return !broke && samples > (TEST ? 1 : 5);
+}
+
+// ── §3 resolution — never negative; misses = silence; GOTCHA = a laugh WITH the kid ──
+function resolve(step, result, R) {
+  const c = step.cmd;
+  const out = scoreStep(step, result, R, streak); streak = out.streak;
+  tlog('resolve', { cmd: c.id, trick: step.trick, event: out.event, pts: out.pts });
+  if (out.event === 'hit') {
+    score += out.pts; roundStats.hits++; if (out.fast) roundStats.perfect++;
+    lightHit(c, out.pts); L.audio.tick(streak);
+    note(`fact: ${c.id} hit ${out.fast ? 'fast' : 'ok'} streak ${streak}`);
+  } else if (out.event === 'miss') {
+    L.softFade(); note(`fact: ${c.id} missed`);                      // silence — no words on a miss
+  } else if (out.event === 'gotcha') {
+    roundStats.gotcha++; L.gotchaRipple(); giggle();
+    sayLive(HE ? 'תפסתי אותך! לא אמרתי נובה אומרת!' : "GOTCHA! I didn't say Nova says!");
+  } else {                                                           // trickHeld — SNEAKY!
+    score += out.pts; roundStats.trickHeld++; tricksCaught++;
+    const h = L.P('head'); if (h) L.flyUp(h, 'SNEAKY!'); L.audio.tick(streak);
+    hud.tricks(tricksCaught);
+    note(`fact: trick held streak ${streak}`);
+  }
+  hud.score(score);
+}
+
+// ── §4 ROUND 3 — YOU'RE THE BOSS (the kid calls, Nova performs) ─────────────
+async function bossRound(R) {
+  setPhase('boss');                                                  // engine path, lips ON — she's the performer now
+  await sayLive(HE ? 'עכשיו התור שלך להיות הבוס! תגידו לי מה לעשות — עם נובה אומרת אם אתם מתכוונים!'
+                   : "YOUR turn to be the boss! Tell ME what to do — say 'Nova says' if you mean it!");
+  let reinvited = false;
+  for (let i = 0; i < R.count; i++) {
+    const turn = await waitKidCommand(8000);
+    if (!turn) {                                                     // one-attempt law: ONE re-invite then quiet
+      if (!reinvited) { reinvited = true; await sayLive(HE ? 'קחו את הזמן, בוס.' : 'Take your time, boss.'); }
+      continue;
+    }
+    reinvited = false;
+    const parsed = parseCommand(turn.text);
+    tlog('boss', { text: turn.text, parsed: parsed && { id: parsed.cmd.id, novaSays: parsed.novaSays } });
+    if (!parsed) { await sayLive(HE ? 'אוו, את זה אני לא מכירה — נסו נובה אומרת לקפוץ!' : "Ooh, I don't know that one — try 'Nova says jump'!"); continue; }
+    if (parsed.novaSays) {
+      await sayLive(HE ? `נובה אומרת ${parsed.cmd.sayHe} — אוקיי!` : `Nova says ${parsed.cmd.say} — okay!`);
+      if (parsed.cmd.demo) await playGestureFull(parsed.cmd.demo);
+      score += 10; L.hit('shoulderC', 'good', 10); roundStats.hits++;
+    } else {                                                         // the kid tricked HER → she stays still → the kid wins
+      await sayLive(HE ? 'לא אמרתם נובה אומרת — אני לא זזה! חה!' : "You didn't say Nova says — I'm NOT moving! Ha!");
+      L.gotchaRipple(); score += 15; roundStats.trickHeld++;
+      const h = L.P('head'); if (h) L.flyUp(h, 'BOSS!');
+    }
+    hud.score(score);
+  }
+  await endRound(R);
+}
+
+// ── between rounds: stars + real-number coaching + consent gate (choice at every edge) ──
+async function endRound(R) {
+  const stars = starsFor(roundStats, R.count);
+  roundResults.push({ n: R.n, label: R.label, stars, ...roundStats });
+  L.audio.ding(); tlog('endRound', { n: R.n, stars, ...roundStats });
+  if (R.n === ROUNDS.length) return;                                 // finale handles the last card
+  setPhase('between');
+  const next = ROUNDS[R.n];                                          // coaching from real numbers only (truth-gate)
+  note(`ending-round facts: round=${R.n} hits=${roundStats.hits} tricksHeld=${roundStats.trickHeld} gotchas=${roundStats.gotcha} stars=${stars}. ` +
+       `Say: one fact from these numbers (e.g. "you caught ${roundStats.trickHeld} of my tricks!"), one next-cue for "${next.label}", then "ready for round ${next.n}?" and WAIT.`);
+  await choiceGate(`${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}`, `Round ${R.n} done!`, `▶ Round ${next.n}!`);
+}
+function choiceGate(stars, title, btnLabel) {                        // consent gate: she never self-advances — tap OR a validated "yes"
+  return new Promise(res => {
+    const card = document.getElementById('card');
+    card.innerHTML = `<div class="cardTitle">${title}</div><div class="stars">${stars}</div><button id="go">${btnLabel}</button>`;
+    card.classList.remove('hidden');
+    const fin = () => { card.classList.add('hidden'); removeEventListener('nova:consent', fin); res(); };
+    card.querySelector('#go').onclick = fin;
+    addEventListener('nova:consent', fin, { once:true });
+    if (TEST) setTimeout(fin, 100);
+  });
+}
+
+// ── finale: scorecard + PLAY AGAIN + her ending from real numbers + PULSE ───
+async function finale() {
+  setPhase('ending'); hud.tag('NOVA SAYS');
+  const best = roundResults.reduce((a, b) => (b.stars > a.stars ? b : a), roundResults[0]);
+  note(`ending facts: score=${score} tricksCaught=${tricksCaught} bestRound="${best.label}" stars=${JSON.stringify(roundResults.map(r => r.stars))}. ` +
+       `Say the trio from these real numbers, then "did you have fun? tell me anything!", then a named goodbye.`);
+  pulseSend({ game:'novasays', score, tricksCaught, rounds: roundResults });
+  tlog('pulse', { score, tricksCaught });
+  const rows = roundResults.map(r => `<div class="roundCard">R${r.n}<br><span class="stars" style="font-size:22px;letter-spacing:2px">${'★'.repeat(r.stars)}${'☆'.repeat(3 - r.stars)}</span></div>`).join('');
+  const f = document.getElementById('finale');
+  f.innerHTML = `<div class="cardTitle">You played NOVA SAYS!</div><div style="font-family:'Baloo 2';font-size:44px;font-weight:800;color:var(--gold)">${score}</div>
+    <div class="roundRow">${rows}</div><div style="font-weight:800">🕵️ tricks caught: ${tricksCaught}</div><button onclick="location.reload()">🔁 PLAY AGAIN</button>`;
+  f.classList.remove('hidden');
+}
+
+// ── session flow ────────────────────────────────────────────────────────────
+async function runGame() {
+  for (const R of ROUNDS) await playRound(R);
+  await finale();
+}
+
+// intro → presence gate → consent → rounds
+const banner = m => { const b = document.getElementById('banner'); b.textContent = m; b.style.display = 'block'; };
+let podUp = false;
+document.getElementById('start').onclick = async () => {
+  document.getElementById('gate').classList.add('hidden');
+  if (!TEST) try {
+    const cam = document.getElementById('usercam');
+    cam.srcObject = await navigator.mediaDevices.getUserMedia({ video:{ width:960, height:720 }, audio:false });
+    await cam.play().catch(() => {});
+  } catch (e) { document.getElementById('badge').textContent = 'camera blocked: ' + (e && e.name || 'error'); }
+  try {
+    const h = await fetch('/health', { cache:'no-store' }); podUp = h.ok;
+  } catch (_) { podUp = false; }
+  if (podUp) {
+    // NO SILENT FALLBACKS: every demo bake must exist or we refuse to start (body-map law).
+    // POD-VERIFY: gallery previews are named preview_<id>.mp4 (wave.html uses the same pattern).
+    const need = ['nova_idle2', ...CMDS.filter(c => c.demo).map(c => c.demo)];
+    const missing = [];
+    for (const id of need) { try { const r = await fetch(`/gallery/preview_${id}.mp4`, { method:'HEAD', cache:'no-store' }); if (!r.ok) missing.push(id); } catch (_) { missing.push(id); } }
+    if (missing.length) { banner(`⛔ missing avatar bake${missing.length > 1 ? 's' : ''}: ${missing.join(', ')} — cannot start`); return; }
+    try { await attachNova({ intro:'novasays', onVideo: v => { document.getElementById('novaMain').srcObject = v; document.getElementById('novaAmbient').srcObject = v; } }); }
+    catch (e) { banner('⛔ pod attach failed: ' + (e && e.message || 'error')); return; }
+  } else if (!TEST) {
+    document.getElementById('badge').textContent = 'no pod: lights-only';       // headless lights test only — voice/avatar off
+  }
+  E.startCal();
+  awaitingPresence = true; document.getElementById('presence').classList.remove('hidden');
+};
+let _introStarted = false;
+function proceedToIntro() {
+  if (_introStarted) return; _introStarted = true;
+  document.getElementById('presence').classList.add('hidden');
+  setPhase('intro');
+  // §6 persona + intro (kids tier prompt block staged as silent context, then the intro line)
+  note('fact: persona: NOVA SAYS game. You are SNEAKY and delighted. Say exactly the command lines you are given — ' +
+       "'Nova says…' for real ones, bare commands for tricks, same cheeky energy for both so nobody can tell. " +
+       'GOTCHA is a laugh WITH the kid, never a scold. Between rounds: one fact, one next-cue, one "ready?". Max 8 words mid-round.');
+  note('say exactly: "' + (HE ? 'אני נובה, ואני שובבה — לזוז רק כשאני אומרת נובה אומרת! מוכנים?'
+                              : "I'm Nova, and I'm SNEAKY — only move when I say NOVA SAYS! Ready?") + '"');
+  const safety = (parseInt(new URLSearchParams(location.search).get('auto'), 10) || 12) * 1000;
+  setTimeout(() => { if (phase === 'intro') begin(); }, TEST ? 150 : safety);   // safety start (wave.html template)
+}
+addEventListener('nova:consent', () => { if (phase === 'intro') begin(); }, { once:false });
+let _begun = false;
+function begin() { if (_begun) return; _begun = true; E.finishCal(); bed.volume = 0.35; bed.play().catch(() => {}); runGame(); }
+
+// presence gate — shoulders + wrists visible ≥1s (NOVA-SAYS §5)
+let awaitingPresence = false, _presT0 = 0;
+function updatePresence(k) {
+  const need = ['lShoulder','rShoulder','lWrist','rWrist'];
+  const seen = need.filter(n => k[n] && (k[n].vis ?? 0) > 0.4).length;
+  const el = document.getElementById('presence'), now = performance.now();
+  if (seen >= 4) {
+    if (!_presT0) _presT0 = now; const held = now - _presT0;
+    el.classList.add('ok'); el.querySelector('.pring').style.setProperty('--p', Math.min(1, held / 1000));
+    el.querySelector('.ptxt').textContent = 'Perfect — hold it';
+    if (held >= (TEST ? 60 : 1000)) { awaitingPresence = false; proceedToIntro(); }
+  } else {
+    _presT0 = 0; el.classList.remove('ok'); el.querySelector('.pring').style.setProperty('--p', 0);
+    el.querySelector('.ptxt').textContent = 'Step back — I need to see your arms 🙆';
+    el.querySelector('.psub').textContent = 'I can see ' + seen + '/4 (shoulders · wrists)';
+  }
+}
+
+// music ducking: bed 0.35 → 0.2 while she speaks (NOVA-SAYS §5)
+onHerAudio({ playing: () => { bed.volume = 0.2; }, ended: () => { bed.volume = 0.35; } });
+
+// ── pose loop — cover-remap so lights sit ON the kid's body in the 40% panel ──
+const _cam = document.getElementById('usercam'), _panel = document.getElementById('camWrap');
+function coverRemap(out) {
+  const vw = _cam.videoWidth || 640, vh = _cam.videoHeight || 480, cw = _panel.clientWidth || 1, ch = _panel.clientHeight || 1;
+  const s = Math.max(cw / vw, ch / vh), dw = vw * s, dh = vh * s, ox = (cw - dw) / 2, oy = (ch - dh) / 2;
+  const o = {};
+  for (const [n, j] of Object.entries(out)) {
+    if (!j || typeof j.x !== 'number') continue;
+    const nx = j.x > 2 ? j.x / vw : j.x, ny = j.y > 2 ? j.y / vh : j.y;
+    o[n] = { x: (ox + nx * dw) / cw, y: (oy + ny * dh) / ch, dir: j.dir };
+  }
+  return o;
+}
+function onFrame(k) {
+  const out = E.update(k); L.setJoints(coverRemap(out));
+  if (awaitingPresence) { updatePresence(k); return; }
+  waveR.check(); waveL.check();                                      // keep the wave histories warm for the wave command
+  const ws = _frameWaiters; _frameWaiters = []; for (const r of ws) r();
+}
+if (!TEST) startPose(_cam, onFrame);
+document.getElementById('pause').onclick = () => { bed.paused ? bed.play() : bed.pause(); };
+document.getElementById('exit').onclick = () => location.href = '/';
+</script></body></html>

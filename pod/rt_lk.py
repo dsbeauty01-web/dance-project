@@ -1608,6 +1608,24 @@ async def beta_upperbody_page(request):
         return web.Response(status=503, text="beta upperbody page not deployed")
     return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
 
+async def beta_novasays_page(request):
+    # b0.21 NOVA-SAYS: beta Nova Says on the shared engines (mirrors beta_wave_page).
+    try:
+        with open("/workspace/pages/beta/novasays.html", encoding="utf-8") as f:
+            html = f.read()
+    except FileNotFoundError:
+        return web.Response(status=503, text="beta novasays page not deployed")
+    return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
+
+async def beta_novasays_lib(request):
+    # the page imports /beta/novasays.js (the game library) — served like the page, not silently
+    try:
+        with open("/workspace/pages/beta/novasays.js", encoding="utf-8") as f:
+            js = f.read()
+    except FileNotFoundError:
+        return web.Response(status=503, text="beta novasays.js not deployed")
+    return web.Response(text=js, content_type="application/javascript", headers={"Cache-Control": "no-store"})
+
 async def upperbody_page(request):
     # UPPER BODY ISOLATION game (2026-08-27), first-party from the pod (mirrors freeze_page).
     try:
@@ -1650,6 +1668,8 @@ app.router.add_get("/upperbody", upperbody_page)
 app.router.add_get("/beta/freeze", beta_freeze_page)
 app.router.add_get("/beta/wave", beta_wave_page)
 app.router.add_get("/beta/upperbody", beta_upperbody_page)
+app.router.add_get("/beta/novasays", beta_novasays_page)
+app.router.add_get("/beta/novasays.js", beta_novasays_lib)
 app.router.add_post("/pulse", pulse_post)
 app.router.add_get("/token", token)
 app.router.add_get("/health", health)
