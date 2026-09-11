@@ -297,10 +297,10 @@ document.getElementById('start').onclick = async () => {
   } catch (_) { podUp = false; }
   if (podUp) {
     // NO SILENT FALLBACKS: every demo bake must exist or we refuse to start (body-map law).
-    // POD-VERIFY: gallery previews are named preview_<id>.mp4 (wave.html uses the same pattern).
+    // /avatar_check looks straight at /workspace/data/avatars — deterministic, no name guessing.
     const need = ['nova_idle2', ...CMDS.filter(c => c.demo).map(c => c.demo)];
-    const missing = [];
-    for (const id of need) { try { const r = await fetch(`/gallery/preview_${id}.mp4`, { method:'HEAD', cache:'no-store' }); if (!r.ok) missing.push(id); } catch (_) { missing.push(id); } }
+    let missing = need;
+    try { const r = await fetch(`/avatar_check?ids=${need.join(',')}`, { cache:'no-store' }); if (r.ok) missing = (await r.json()).missing; } catch (_) {}
     if (missing.length) { banner(`⛔ missing avatar bake${missing.length > 1 ? 's' : ''}: ${missing.join(', ')} — cannot start`); return; }
     try { await attachNova({ intro:'novasays', onVideo: v => { document.getElementById('novaMain').srcObject = v; document.getElementById('novaAmbient').srcObject = v; } }); }
     catch (e) { banner('⛔ pod attach failed: ' + (e && e.message || 'error')); return; }
@@ -315,12 +315,11 @@ function proceedToIntro() {
   if (_introStarted) return; _introStarted = true;
   document.getElementById('presence').classList.add('hidden');
   setPhase('intro');
-  // §6 persona + intro (kids tier prompt block staged as silent context, then the intro line)
+  // §6 persona staged as silent context — the GREET itself is rt_lk's ?intro=novasays branch
+  // (greet + name + the sneaky rule + Ready?), so the page never double-speaks the intro.
   note('fact: persona: NOVA SAYS game. You are SNEAKY and delighted. Say exactly the command lines you are given — ' +
        "'Nova says…' for real ones, bare commands for tricks, same cheeky energy for both so nobody can tell. " +
        'GOTCHA is a laugh WITH the kid, never a scold. Between rounds: one fact, one next-cue, one "ready?". Max 8 words mid-round.');
-  note('say exactly: "' + (HE ? 'אני נובה, ואני שובבה — לזוז רק כשאני אומרת נובה אומרת! מוכנים?'
-                              : "I'm Nova, and I'm SNEAKY — only move when I say NOVA SAYS! Ready?") + '"');
   const safety = (parseInt(new URLSearchParams(location.search).get('auto'), 10) || 12) * 1000;
   setTimeout(() => { if (phase === 'intro') begin(); }, TEST ? 150 : safety);   // safety start (wave.html template)
 }

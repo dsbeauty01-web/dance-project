@@ -429,6 +429,25 @@ async def relay(request):
                               "After their name or two exchanges, explain: when the music plays DANCE - "
                               "when it stops... FREEZE! Then ask: Ready? Do NOT offer any other game. "
                               "Do NOT start counting down - the game begins only when they say yes.")
+                elif _intro == "novasays" and _hebrew:
+                    # NOVA SAYS Hebrew greet (b0.21-novasays): same conversation contract —
+                    # greet + name, echo the transcript name, then the SNEAKY rule + ready.
+                    _greet = ("Speak HEBREW ONLY. Say EXACTLY these words and NOTHING more: "
+                              "היי! אני נובה, ואני שובבה! איך קוראים לך? "
+                              "Then STOP and wait. When they answer, echo the exact name you heard "
+                              "warmly, then explain in Hebrew: we play NOVA SAYS (נובה אומרת) - move "
+                              "ONLY when I say נובה אומרת! If I don't say it - DON'T move! Then ask: "
+                              "מוכנים? Do NOT offer any other game. The game begins only when they say yes.")
+                elif _intro == "novasays":
+                    # NOVA SAYS greet (b0.21-novasays, NOVA-SAYS.md §6): she is SNEAKY and
+                    # delighted; greet + name ask, the one rule, then wait for a real yes.
+                    _greet = ("Say EXACTLY these words and NOTHING more: "
+                              "Hi! I'm Nova, and I'm SNEAKY! What's your name? "
+                              "Then STOP and wait. When they answer, echo the exact name you heard "
+                              "warmly and keep it short. Then explain: we play NOVA SAYS - move ONLY "
+                              "when I say NOVA SAYS! If I don't say it... DON'T move! Then ask: Ready? "
+                              "Do NOT offer any other game. Do NOT start counting down - the game "
+                              "begins only when they say yes.")
                 elif _hebrew:
                     # HEBREW regular intro (2026-09-07): the generic greet was English-only,
                     # so the commercial Hebrew intro opened in English and mixed languages.
@@ -1617,6 +1636,15 @@ async def beta_novasays_page(request):
         return web.Response(status=503, text="beta novasays page not deployed")
     return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
 
+async def avatar_check(request):
+    # b0.21-novasays preflight: which of these bakes actually exist on the volume?
+    # (Deterministic — replaces gallery-preview filename guessing. No silent fallbacks:
+    # the page red-banners + refuses to start on any missing id.)
+    ids = [i for i in (request.query.get("ids") or "").split(",") if i]
+    root = "/workspace/data/avatars"
+    missing = [i for i in ids if not os.path.isdir(os.path.join(root, i))]
+    return web.json_response({"ok": not missing, "missing": missing})
+
 async def beta_novasays_lib(request):
     # the page imports /beta/novasays.js (the game library) — served like the page, not silently
     try:
@@ -1670,6 +1698,7 @@ app.router.add_get("/beta/wave", beta_wave_page)
 app.router.add_get("/beta/upperbody", beta_upperbody_page)
 app.router.add_get("/beta/novasays", beta_novasays_page)
 app.router.add_get("/beta/novasays.js", beta_novasays_lib)
+app.router.add_get("/avatar_check", avatar_check)
 app.router.add_post("/pulse", pulse_post)
 app.router.add_get("/token", token)
 app.router.add_get("/health", health)
