@@ -142,7 +142,7 @@ console.log('\n── 4 · boss round — typed commands EN + HE ──');
 
 console.log('\n── 5 · STEP-0 gesture map — demos only from VERIFIED bakes ──');
 {
-  const VERIFIED = ['gest_star','gest_lefthand','gest_righthand','gest_clap','gest_bear','nova_wave_a'];   // 2026-08-18 avatar audit
+  const VERIFIED = ['gest_star','gest_lefthand','gest_righthand','gest_clap','gest_bear'];   // 2026-09-11 LIVE volume ls (nova_wave_a purged since the 08-18 audit)
   const used = CMDS.filter(c => c.demo).map(c => c.demo);
   ok(used.every(d => VERIFIED.includes(d)), 'every demo id is a verified bake', used.join(','));
   ok(CMDS.filter(c => ['head','hips','knees','jump','headSide','shoulders'].includes(c.id)).every(c => !c.demo), 'unbaked commands are spoken+lit only (demo:null)');

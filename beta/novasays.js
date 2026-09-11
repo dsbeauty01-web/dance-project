@@ -24,7 +24,9 @@ export const CMDS = [
   { id:'jump',      say:'JUMP!',                 sayHe:'לקפוץ!',              keys:['jump','לקפוץ','קפצי','קפוץ','קפיצה'],   rule:(E)=>RULES.jump(E),                                                    light:{joints:['hipC'],dir:'UP'},                  demo:null },
   { id:'headSide',  say:'head side to side!',    sayHe:'ראש מצד לצד!',        keys:['side','מצד'],                           rule:(E)=>RULES.headSlide(E),                                               light:{joints:['head'],dir:'L'},                   demo:null },
   { id:'shoulders', say:'pop your SHOULDERS!',   sayHe:'להקפיץ כתפיים!',      keys:['shoulder','shoulders','כתפיים','כתף'],  rule:(E)=>RULES.shoulderPop(E),                                             light:{joints:['lShoulder','rShoulder'],dir:'UP'}, demo:null },
-  { id:'wave',      say:'WAVE your arm!',        sayHe:'לנופף ביד!',          keys:['wave','לנופף','נפנוף'],                 rule:(E,ctx)=>(ctx?.waveR?.check()||ctx?.waveL?.check())?{hit:true}:null,   light:'comet',                                     demo:'nova_wave_a' },
+  // wave demo WAS nova_wave_a (valid 1.8GB bake per the 2026-08-18 audit) — GONE from the
+  // volume at the 2026-09-11 live ls (quota purge?). Spec STEP 0: missing → spoken + lit only.
+  { id:'wave',      say:'WAVE your arm!',        sayHe:'לנופף ביד!',          keys:['wave','לנופף','נפנוף'],                 rule:(E,ctx)=>(ctx?.waveR?.check()||ctx?.waveL?.check())?{hit:true}:null,   light:'comet',                                     demo:null },
 ];
 
 // ── §2 ROUNDS + THE SEQUENCER ───────────────────────────────────────────────
