@@ -33,6 +33,7 @@ html,body{margin:0;height:100%;background:#1a0f2e;font-family:Nunito,system-ui;c
   <div id="camWrap"><video id="usercam" autoplay muted playsinline></video><canvas id="fx"></canvas><div class="tag" id="youTag">YOU</div></div>
   <div id="hud"><div id="score">0</div><div id="flow"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
   <div id="cap"></div>
+  <div id="dbg" style="position:fixed;left:8px;bottom:8px;z-index:99;font:600 12px monospace;background:rgba(0,0,0,.6);color:#9f9;padding:6px 10px;border-radius:8px;white-space:pre"></div>
   <div id="gate"><button id="start">▶ Let's wave</button></div>
   <div id="gateArms" class="hidden"><div style="font:800 30px 'Baloo 2'">Step back — I need to see your arms</div><div id="ring"></div></div>
   <div id="banner" class="hidden"></div>
@@ -48,8 +49,9 @@ import { PoseLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@m
 
 const $ = id => document.getElementById(id);
 const novaVid=$('novaVid'), amb=$('novaAmbient'), cam=$('usercam'), cap=$('cap');
-const REF_CANDIDATES = ['/media/wave-ref.mp4','/media/preview_maya_leftwave.mp4','/media/pre-wave.mp4','/media/handywave-full.mp4'];   // DEPLOY.md: the first that truly WAVES is copied to /media/wave-ref.mp4
+const REF_CANDIDATES = ['/media/wave-ref.mp4','/media/handywave.mp4','/handywave.mp4'];   // handywave.mp4 = THE wave (Nova on the bridge, arm wave). Never pre-wave, never maya.   // DEPLOY.md: the first that truly WAVES is copied to /media/wave-ref.mp4
 const NOTE = '/nova/note';                                                                 // optional live voice; the game never depends on it
+window.addEventListener('error', e=>{ try{ DBG.err='global:'+e.message; dbg(); }catch(_){} });
 const banner = msg => { $('banner').textContent = msg; $('banner').classList.remove('hidden'); };
 
 // ── 1 · assets: the wave video must exist ──
@@ -80,17 +82,19 @@ let li=0;
 function say(t){ cap.textContent=t; fetch(NOTE,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({say:t})}).catch(()=>{}); }
 
 // ── 5 · loops ──
-function loopNova(){ if(!running) return;
-  if (!novaVid.paused && pmNova){ const r=pmNova.detectForVideo(novaVid, performance.now()); const k=toNova(r);
-    if (k){ const out=EN.update(k); LN.setJoints(out);
+const DBG={nova:0,kid:0,novaJ:0,kidJ:0,cues:0,hits:0,err:''}; const dbgEl=document.getElementById('dbg');
+function dbg(){ dbgEl.textContent=`nova frames ${DBG.nova} joints ${DBG.novaJ} | kid frames ${DBG.kid} joints ${DBG.kidJ} | cues ${DBG.cues} hits ${DBG.hits}${DBG.err?' | ERR '+DBG.err:''}`; }
+function loopNova(){ if(!running) return; try{
+  if (!novaVid.paused && pmNova){ const r=pmNova.detectForVideo(novaVid, performance.now()); const k=toNova(r); DBG.nova++;
+    if (k){ DBG.novaJ=Object.keys(k).length; const out=EN.update(k); LN.setJoints(out);
       for (const arm of ['R','L']){ const w=wN[arm].check(); if (w?.hit && performance.now()-lastCueT>900){ lastCueT=performance.now();
-        pending.push({ arm, t0:lastCueT }); LN.comet(CH[arm], 'smooth'); LK.cometCue(CH[arm]); } } } }
-  requestAnimationFrame(loopNova); }
-function loopKid(){ if(!running) return;
-  if (pmKid){ const r=pmKid.detectForVideo(cam, performance.now()); const k=toNova(r);
-    if (k){ const out=EK.update(k); LK.setJoints(out);
+        pending.push({ arm, t0:lastCueT }); DBG.cues++; LN.comet(CH[arm], 'smooth'); LK.cometCue(CH[arm]); } } } }
+  }catch(e){ DBG.err='nova:'+e.message; } dbg(); requestAnimationFrame(loopNova); }
+function loopKid(){ if(!running) return; try{
+  if (pmKid && cam.videoWidth>0){ const r=pmKid.detectForVideo(cam, performance.now()); const k=toNova(r); DBG.kid++;
+    if (k){ DBG.kidJ=Object.keys(k).length; const out=EK.update(k); LK.setJoints(out);
       for (const arm of ['R','L']){ const w=wK[arm].check(); if (w?.hit && performance.now()-lastKidWave>600){ lastKidWave=performance.now(); onKidWave(arm, w); } } } }
-  requestAnimationFrame(loopKid); }
+  }catch(e){ DBG.err='kid:'+e.message; } dbg(); requestAnimationFrame(loopKid); }
 function onKidWave(arm, w){
   const now=performance.now(); const i=pending.findIndex(p=>now-p.t0<=WINDOW_MS);
   const matched = i>=0; if (matched) pending.splice(i,1);
@@ -101,11 +105,11 @@ function onKidWave(arm, w){
   LK.comet(CH[arm], w.quality); LK.hit(arm==='R'?'rWrist':'lWrist', w.iso?'iso':'good', pts);
   $('score').textContent=score; document.querySelectorAll('#flow i').forEach((el,n)=>el.classList.toggle('on', n<Math.min(8,hits)));
 }
-function loopClock(){ if(!running) return; const t=novaVid.currentTime;
+function loopClock(){ if(!running) return; try{ const t=novaVid.currentTime;
   if (li<LINES.length && t>=LINES[li][0]){ say(LINES[li][1]); li++; }
   pending = pending.filter(p=>performance.now()-p.t0<=WINDOW_MS);
   if (novaVid.ended || t>=novaVid.duration-0.05) return finish();
-  requestAnimationFrame(loopClock); }
+  }catch(e){ DBG.err='clock:'+e.message; dbg(); } requestAnimationFrame(loopClock); }
 
 // ── 6 · flow ──
 $('start').onclick = async () => {
@@ -120,6 +124,7 @@ $('start').onclick = async () => {
     const ok = k && ['lShoulder','rShoulder','lElbow','rElbow','lWrist','rWrist'].every(n=>k[n]?.vis>0.5);
     $('ring').classList.toggle('ok', !!ok); if (ok){ okSince ??= performance.now(); if (performance.now()-okSince>1000) return res(); } else okSince=null; requestAnimationFrame(tick); }; tick(); });
   $('gateArms').classList.add('hidden');
+  await new Promise(r=>{ if(cam.videoWidth>0) r(); else cam.onloadedmetadata=()=>r(); });
   say('Watch Nova — copy every wave.'); running=true; novaVid.volume=0.6; await novaVid.play();
   loopNova(); loopKid(); loopClock();
 };
