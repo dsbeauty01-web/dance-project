@@ -1,221 +1,134 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Nova · Wave</title>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Nunito:wght@600;800&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
 <style>
-:root{--amber:#f2c66d;--amber-hot:#ffe0a3;--hoodie:#7c5cbf;--ice:#aee8ff;--ink:#f3eefb}
-html,body{margin:0;height:100%;background:radial-gradient(130% 130% at 50% 12%,#241046 0%,#140a2c 55%,#080513 100%);font-family:Nunito,system-ui;color:var(--ink);overflow:hidden}
-/* MATCH THE ESTABLISHED GAME LAYOUT (freeze): a grid — Nova bigger on the left, camera on the right */
-#stage{position:fixed;inset:0;display:grid;grid-template-columns:1.5fr 1fr;gap:10px;padding:10px;box-sizing:border-box}
-@media (max-aspect-ratio:1/1){#stage{grid-template-columns:1fr;grid-template-rows:1.4fr 1fr}}
-/* NOVA — the big left panel (she demonstrates + coaches) */
-#novaWrap{position:relative;border-radius:20px;overflow:hidden;background:#0c0720;box-shadow:0 10px 34px rgba(0,0,0,.5);border:2px solid rgba(242,198,109,.35)}
-#novaMain{position:absolute;left:50%;top:0;height:100%;width:auto;transform:translateX(-50%);z-index:2}
-#novaAmbient{display:none}
-/* CAMERA — the kid's panel (right), with the comet overlay */
-#camWrap{position:relative;border-radius:20px;overflow:hidden;background:#0c0720}
-#usercam{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+:root{--room:#f4d9ea;--hoodie:#7c5cbf;--amber:#e6a93a;--amber-hot:#f2c66d;--ice:#aee8ff;--ink:#2a2140}
+html,body{margin:0;height:100%;background:#1a0f2e;font-family:Nunito,system-ui;color:#fff;overflow:hidden}
+#stage{position:fixed;inset:0;display:flex}
+#novaWrap,#camWrap{position:relative;width:50vw;height:100vh;overflow:hidden;background:#1a0f2e}
+#novaVid{position:absolute;left:50%;top:0;height:100vh;width:auto;transform:translateX(-50%);z-index:2}
+#novaAmbient{position:absolute;left:50%;top:50%;height:120vh;width:auto;transform:translate(-50%,-50%) scaleX(2.4);filter:blur(30px) saturate(1.1);opacity:.85;z-index:1}
+#fxNova{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6}
+#usercam{width:100%;height:100%;object-fit:contain;transform:scaleX(-1);background:#120a22}
 #fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6}
-#camWrap::after{content:"";position:absolute;inset:0;z-index:5;pointer-events:none;background:radial-gradient(120% 120% at 50% 45%,transparent 62%,rgba(8,5,19,.4) 100%)}
-/* DARK STAGE FOR GOLD: a 35% dim over the camera panel that fades in (200ms) while a light is live */
-#dim{position:absolute;inset:0;z-index:4;pointer-events:none;opacity:0;transition:opacity .2s ease;
-  background:linear-gradient(rgba(8,5,19,.35),rgba(8,5,19,.35)),radial-gradient(120% 120% at 50% 45%,transparent 42%,rgba(8,5,19,.62) 100%)}
-#stage.lit #dim{opacity:1}
-#clock{display:none!important}                     /* handywave = hidden audio/timeline clock only */
-#ref,#refTag{display:none!important}                /* Nova (left panel) IS the reference now */
-/* PRESENCE GATE — shown after the camera opens, until arms are in frame */
-#presence{position:fixed;inset:0;z-index:80;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:rgba(8,5,19,.62);backdrop-filter:blur(3px)}
-#presence .pring{width:132px;height:132px;border-radius:50%;background:conic-gradient(var(--ice) calc(var(--p,0)*360deg),rgba(255,255,255,.14) 0);-webkit-mask:radial-gradient(circle,transparent 56px,#000 57px);mask:radial-gradient(circle,transparent 56px,#000 57px);transition:background .2s}
-#presence.ok .pring{background:conic-gradient(#7CFFB2 calc(var(--p,0)*360deg),rgba(124,255,178,.18) 0)}
-#presence .ptxt{font-family:'Baloo 2';font-weight:800;font-size:clamp(22px,4.4vw,34px);text-align:center;text-shadow:0 2px 16px rgba(0,0,0,.6);max-width:80vw}
-#presence .psub{font-weight:700;font-size:15px;color:#c7bde6}
-#presence.ok .ptxt::after{content:" ✅"}
-#badge{position:absolute;left:12px;bottom:12px;z-index:8;background:rgba(12,7,32,.6);color:#fff;padding:5px 14px;border-radius:999px;font-weight:800;font-size:13px}
-#hud{position:fixed;top:2vh;left:0;right:0;display:flex;gap:16px;justify-content:center;align-items:center;z-index:50}
-#score{font-family:'Baloo 2';font-size:44px;font-weight:800;color:var(--amber);font-variant-numeric:tabular-nums;text-shadow:0 2px 16px rgba(0,0,0,.6)}
-#flow{display:flex;gap:6px}#flow i{width:26px;height:8px;border-radius:4px;background:rgba(255,255,255,.18)}#flow i.on{background:var(--amber);box-shadow:0 0 10px var(--amber)}
-#phaseTag{background:var(--hoodie);color:#fff;border-radius:999px;padding:5px 16px;font-weight:800}
-#gate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,5,19,.66);z-index:90}
-#gate button{font:800 26px 'Baloo 2';padding:18px 44px;border:0;border-radius:18px;background:var(--amber);color:#2a2140;box-shadow:0 10px 30px rgba(242,198,109,.4)}
-#pause,#exit{position:fixed;top:2vh;z-index:60;background:rgba(12,7,32,.55);color:#fff;border:0;border-radius:12px;padding:8px 12px;font-size:16px}#pause{right:64px}#exit{right:14px}
+.tag{position:absolute;left:14px;top:14px;z-index:8;background:rgba(0,0,0,.45);padding:5px 14px;border-radius:999px;font-weight:800;font-size:13px}
+#hud{position:fixed;top:1.6vh;left:0;right:0;display:flex;gap:16px;justify-content:center;align-items:center;z-index:50}
+#score{font-family:'Baloo 2';font-size:44px;font-weight:800;color:var(--amber);font-variant-numeric:tabular-nums;text-shadow:0 2px 12px rgba(0,0,0,.5)}
+#flow{display:flex;gap:6px}#flow i{width:28px;height:8px;border-radius:4px;background:rgba(255,255,255,.18)}#flow i.on{background:var(--amber)}
+#cap{position:fixed;left:0;right:0;bottom:5vh;text-align:center;z-index:50;font-family:'Baloo 2';font-weight:800;font-size:clamp(22px,3.4vw,40px);text-shadow:0 2px 18px rgba(0,0,0,.7)}
+#gate,#banner,#gateArms{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(26,15,46,.86);z-index:90;text-align:center;padding:24px}
+#gate button{font:800 28px 'Baloo 2';padding:18px 44px;border:0;border-radius:18px;background:var(--amber);color:var(--ink);cursor:pointer}
+#banner{background:#3a0d0d;color:#ffb3b3;font-weight:800;font-size:22px}
+#ring{width:120px;height:120px;border-radius:50%;border:6px solid rgba(255,255,255,.25);border-top-color:var(--amber);margin-top:18px;transition:border-color .2s}
+#ring.ok{border-color:#7ddba3}
+#scorecard{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(26,15,46,.9);z-index:95;font-family:'Baloo 2'}
+#scorecard h1{font-size:64px;color:var(--amber);margin:0}
+#scorecard p{font-size:24px;margin:8px 0}
+#scorecard button{font:800 24px 'Baloo 2';padding:14px 36px;border:0;border-radius:16px;background:var(--amber);color:var(--ink);margin-top:20px;cursor:pointer}
 .hidden{display:none!important}
 </style></head><body>
-<div id="stage" data-phase="intro">
-  <div id="novaWrap"><video id="novaAmbient" autoplay muted playsinline></video><video id="novaMain" autoplay muted playsinline></video><video id="clock" playsinline preload="auto" src="/media/handywave.mp4"></video><div id="badge">Watching</div></div>
-  <div id="camWrap"><video id="usercam" autoplay muted playsinline></video><div id="dim"></div><canvas id="fx"></canvas></div>
-  <video id="ref" muted loop playsinline autoplay preload="auto" src="/gallery/preview_maya_leftwave.mp4"></video>
-  <div id="refTag">👋 copy this ↓</div>
-  <div id="hud"><div id="phaseTag">WAVE</div><div id="score">0</div><div id="flow"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
-  <button id="pause">⏸</button><button id="exit">✕</button>
-  <div id="presence" class="hidden"><div class="pring" style="--p:0"></div><div class="ptxt">Step back — I need to see your arms 🙆</div><div class="psub"></div></div>
+<div id="stage">
+  <div id="novaWrap"><video id="novaAmbient" muted playsinline loop></video><video id="novaVid" playsinline preload="auto"></video><canvas id="fxNova"></canvas><div class="tag">NOVA — copy her wave</div></div>
+  <div id="camWrap"><video id="usercam" autoplay muted playsinline></video><canvas id="fx"></canvas><div class="tag" id="youTag">YOU</div></div>
+  <div id="hud"><div id="score">0</div><div id="flow"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+  <div id="cap"></div>
   <div id="gate"><button id="start">▶ Let's wave</button></div>
+  <div id="gateArms" class="hidden"><div style="font:800 30px 'Baloo 2'">Step back — I need to see your arms</div><div id="ring"></div></div>
+  <div id="banner" class="hidden"></div>
+  <div id="scorecard"><h1 id="finalScore">0</h1><p id="finalLine"></p><button id="again">PLAY AGAIN</button></div>
 </div>
 <script type="module">
+/* ── WAVE — video-led, detection on BOTH sides. Nova's own waves are the cues; the kid's waves are the hits.
+   Depends only on the shared engines already on beta. No bake. No silent fallback. ── */
 import { MoverEngine } from '/shared/mover-engine.js';
-import { WaveRule, RULES } from '/shared/mover-rules.js';
+import { WaveRule } from '/shared/mover-rules.js';
 import { LightEngine } from '/shared/light-engine.js';
-import { startPose } from '/shared/pose-engine.js';            // b0.10: emits toNova() frames (MediaPipe → MoveNet fallback)
-import { attachNova, setBody, routeVoice, note, onHerAudio } from '/shared/nova-bridge.js';   // the page↔pod bridge (b0.13)
-import { pulseSend } from '/shared/pulse.js';
+import { PoseLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
 
-const MIRROR = true, TIER = 'adult';
-const HE = /[?&]lang=he/.test(location.search);
-const BODY = { talk:'nova_idle2', game:'nova_wave_a' };
-const clock = document.getElementById('clock'), stage = document.getElementById('stage');
-const E = new MoverEngine(), L = new LightEngine(document.getElementById('fx'), { tier:TIER, mirror:MIRROR });
-const camWrap = document.getElementById('camWrap');
-L.fit = () => { L.cv.width = camWrap.clientWidth || innerWidth; L.cv.height = camWrap.clientHeight || innerHeight; };   // buffer = the CAMERA panel, 1:1
-L.fit(); addEventListener('resize', () => L.fit());
-setTimeout(() => L.fit(), 400);   // re-fit after grid layout settles
-const waveR = new WaveRule(E,'R'), waveL = new WaveRule(E,'L');
+const $ = id => document.getElementById(id);
+const novaVid=$('novaVid'), amb=$('novaAmbient'), cam=$('usercam'), cap=$('cap');
+const REF_CANDIDATES = ['/media/wave-ref.mp4','/media/preview_maya_leftwave.mp4','/media/pre-wave.mp4','/media/handywave-full.mp4'];   // DEPLOY.md: the first that truly WAVES is copied to /media/wave-ref.mp4
+const NOTE = '/nova/note';                                                                 // optional live voice; the game never depends on it
+const banner = msg => { $('banner').textContent = msg; $('banner').classList.remove('hidden'); };
 
-// WAVE GUIDE (b0.15 fix): a wave cue must LOOK like a wave — a light traveling down the arm
-// chain, not a static circle. Repeat the comet along the arm while the cue is active so the
-// kid sees the motion to mirror. (The ring/orb is right for freeze/hold, wrong for a wave.)
-const CHAIN = { R:['rShoulder','rElbow','rWrist','rIndex'], L:['lShoulder','lElbow','lWrist','lIndex'] };
-// b0.18 (WAVE-COMET-ACCURATE): the wave light is the PHASE-DRIVEN comet. cometLive (started at game
-// start) rides whichever arm actually waves; the cue just previews the path once with a slow sweep.
-function startGuide(arm){ L.cometCue(CHAIN[arm==='L'?'L':'R']); }
-function stopGuide(){ /* the comet self-expires; nothing to tear down */ }
+// ── 1 · assets: the wave video must exist ──
+async function pickRef(){ for (const u of REF_CANDIDATES){ try{ const r=await fetch(u,{method:'HEAD'}); if(r.ok) return u; }catch(e){} } return null; }
 
-// ── CUES (the WAVE-FULL timeline) ──
-const CUES = [
-  { t:5.0,  arm:'R' }, { t:8.0,  arm:'R' }, { t:11.0, arm:'R' },
-  { t:14.0, arm:'L' }, { t:17.0, arm:'L' }, { t:20.0, arm:'L' },
-  { t:23.0, arm:'ANY' }, { t:25.0, arm:'ANY' },
-  { t:26.0, hold:1.5 },
-];
-// lines: EN default; HE via ?lang=he (founder-approved strings, WAVE-FULL note c)
-const LINES_EN = [ [0.5,'Right arm — let it travel: fingers, wrist, elbow.'], [13.0,'Now the left — pass it across.'], [22.0,'Both arms — keep it flowing.'], [26.0,'Hold the wave... freeze it.'] ];
-const LINES_HE = [ [0.5,'יד ימין — תני לה לזרום: אצבעות, שורש כף היד, מרפק.'], [13.0,'עכשיו שמאל — תעבירי את זה.'], [22.0,'שתי הידיים — שמרי על הזרימה.'], [26.0,'החזיקי את הגל... תקפאי.'] ];
-const LINES = HE ? LINES_HE : LINES_EN;
-const INTRO_LINE = HE ? 'גל — ידיים כמו מים. מוכנה?' : 'Wave — arms like water. Ready?';
-const WIN_BEFORE = 0.3, WIN_AFTER = 1.4, LEAD = 1.0;
+// ── 2 · pose: two MediaPipe instances (Nova's video + the kid) ──
+let pmNova, pmKid;
+async function initPose(){
+  const vision = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
+  const make = async delegate => PoseLandmarker.createFromOptions(vision, { baseOptions:{ modelAssetPath:'/models/pose_landmarker_lite.task', delegate }, runningMode:'VIDEO', numPoses:1 });
+  try { pmKid = await make('GPU'); pmNova = await make('GPU'); } catch(e){ pmKid = await make('CPU'); pmNova = await make('CPU'); }
+}
+const MP={nose:0,lShoulder:11,rShoulder:12,lElbow:13,rElbow:14,lWrist:15,rWrist:16,lIndex:19,rIndex:20,lHip:23,rHip:24};
+function toNova(res){ const lm=res.landmarks?.[0]; if(!lm) return null; const out={}; for (const [n,i] of Object.entries(MP)){ const p=lm[i]; if(p) out[n]={x:p.x,y:p.y,z:p.z,vis:p.visibility??1}; } return out; }
 
-let phase='intro', score=0, streak=0, stats={R:[],L:[]}, ci=0, li=0, holdWin=null, done=false;
-function setPhase(p){ phase=p; stage.dataset.phase=p; document.getElementById('badge').textContent = p==='intro'||p==='ending' ? 'Talking' : p==='hold' ? 'FREEZE!' : 'Watching';
-  if (p==='intro'||p==='ending'){ routeVoice('engine'); setBody(BODY.talk); }
-  if (p==='game'){ routeVoice('air'); setBody(BODY.game); }
-  if (p==='hold'){ routeVoice('mute'); } }
+// ── 3 · engines: one per side ──
+const EN = new MoverEngine(), EK = new MoverEngine();
+const LN = new LightEngine($('fxNova'), { tier:'adult', mirror:false });   // lights on Nova's video (the cue side)
+const LK = new LightEngine($('fx'),     { tier:'adult', mirror:true  });   // lights on the kid (the hit side)
+const CH = { R:['rShoulder','rElbow','rWrist','rIndex'], L:['lShoulder','lElbow','lWrist','lIndex'] };
+const wN = { R:new WaveRule(EN,'R'), L:new WaveRule(EN,'L') }, wK = { R:new WaveRule(EK,'R'), L:new WaveRule(EK,'L') };
 
-// ── INTRO (engine path, lips): conversation → consent → start ──
-document.getElementById('start').onclick = async () => {
-  document.getElementById('gate').classList.add('hidden');
-  // CAMERA: acquire the kid's camera and feed the <video> that startPose reads (pose-engine
-  // only reads frames — it never opens the camera itself). Without this the panel is black.
-  try {
-    const cam = document.getElementById('usercam');
-    cam.srcObject = await navigator.mediaDevices.getUserMedia({ video:{ width:960, height:720 }, audio:false });
-    await cam.play().catch(()=>{});
-  } catch (e) { document.getElementById('badge').textContent = 'camera blocked: ' + (e && e.name || 'error'); }
-  // the avatar/voice come from the pod; if it isn't up (e.g. a headless lights test) don't block the
-  // game — the camera + pose + comet + clock still run, only the Nova panel stays blank.
-  try { await attachNova({ intro:'wave', onVideo: v => { document.getElementById('novaMain').srcObject = v; document.getElementById('novaAmbient').srcObject = v; } }); }
-  catch (e) { document.getElementById('badge').textContent = 'no pod: lights-only'; }
-  E.startCal();                                                                          // calibrate while they get in frame
-  awaitingPresence = true; document.getElementById('presence').classList.remove('hidden');   // PRESENCE GATE first
+// ── 4 · game state ──
+let score=0, streak=0, hits=0, pending=[], stats={R:[],L:[]}, running=false, ended=false, lastCueT=0, lastKidWave=0;
+const WINDOW_MS = 1800;                                                                     // copy her within 1.8s
+const LINES = [[0.5,'Copy her wave — let it travel: fingers, wrist, elbow.'],[13,'Other arm too — pass it across.'],[24,'Last one — make it smooth.']];
+let li=0;
+function say(t){ cap.textContent=t; fetch(NOTE,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({say:t})}).catch(()=>{}); }
+
+// ── 5 · loops ──
+function loopNova(){ if(!running) return;
+  if (!novaVid.paused && pmNova){ const r=pmNova.detectForVideo(novaVid, performance.now()); const k=toNova(r);
+    if (k){ const out=EN.update(k); LN.setJoints(out);
+      for (const arm of ['R','L']){ const w=wN[arm].check(); if (w?.hit && performance.now()-lastCueT>900){ lastCueT=performance.now();
+        pending.push({ arm, t0:lastCueT }); LN.comet(CH[arm], 'smooth'); LK.cometCue(CH[arm]); } } } }
+  requestAnimationFrame(loopNova); }
+function loopKid(){ if(!running) return;
+  if (pmKid){ const r=pmKid.detectForVideo(cam, performance.now()); const k=toNova(r);
+    if (k){ const out=EK.update(k); LK.setJoints(out);
+      for (const arm of ['R','L']){ const w=wK[arm].check(); if (w?.hit && performance.now()-lastKidWave>600){ lastKidWave=performance.now(); onKidWave(arm, w); } } } }
+  requestAnimationFrame(loopKid); }
+function onKidWave(arm, w){
+  const now=performance.now(); const i=pending.findIndex(p=>now-p.t0<=WINDOW_MS);
+  const matched = i>=0; if (matched) pending.splice(i,1);
+  const base = w.quality==='smooth'?160 : w.quality==='good'?140 : 120;
+  let pts = matched ? base : Math.round(base*0.5);                                           // a wave outside the copy window still earns half — never nothing
+  if (w.iso) pts+=20; streak = w.quality==='smooth' ? streak+1 : 0; if (streak>=3) pts*=2;
+  score+=pts; hits++; stats[arm].push(w.quality);
+  LK.comet(CH[arm], w.quality); LK.hit(arm==='R'?'rWrist':'lWrist', w.iso?'iso':'good', pts);
+  $('score').textContent=score; document.querySelectorAll('#flow i').forEach((el,n)=>el.classList.toggle('on', n<Math.min(8,hits)));
+}
+function loopClock(){ if(!running) return; const t=novaVid.currentTime;
+  if (li<LINES.length && t>=LINES[li][0]){ say(LINES[li][1]); li++; }
+  pending = pending.filter(p=>performance.now()-p.t0<=WINDOW_MS);
+  if (novaVid.ended || t>=novaVid.duration-0.05) return finish();
+  requestAnimationFrame(loopClock); }
+
+// ── 6 · flow ──
+$('start').onclick = async () => {
+  $('gate').classList.add('hidden');
+  const ref = await pickRef(); if (!ref) return banner('No wave video found in /media (need wave-ref.mp4). Ask the CLI to place a real arm-wave clip there.');
+  try { const s = await navigator.mediaDevices.getUserMedia({ video:{ width:{ideal:1280}, height:{ideal:720} }, audio:false }); cam.srcObject=s; } catch(e){ return banner('Camera blocked — allow the camera and reload.'); }
+  novaVid.src=ref; amb.src=ref; amb.play().catch(()=>{});
+  try { await initPose(); } catch(e){ return banner('Pose engine failed to load: '+e.message); }
+  // presence gate: shoulders + elbows + wrists visible ≥1s
+  $('gateArms').classList.remove('hidden'); let okSince=null;
+  await new Promise(res=>{ const tick=()=>{ const r=pmKid.detectForVideo(cam, performance.now()); const k=toNova(r);
+    const ok = k && ['lShoulder','rShoulder','lElbow','rElbow','lWrist','rWrist'].every(n=>k[n]?.vis>0.5);
+    $('ring').classList.toggle('ok', !!ok); if (ok){ okSince ??= performance.now(); if (performance.now()-okSince>1000) return res(); } else okSince=null; requestAnimationFrame(tick); }; tick(); });
+  $('gateArms').classList.add('hidden');
+  say('Watch Nova — copy every wave.'); running=true; novaVid.volume=0.6; await novaVid.play();
+  loopNova(); loopKid(); loopClock();
 };
-// once arms are in frame ≥1s, run the normal intro → consent/safety → game
-let _introStarted = false;
-function proceedToIntro(){
-  if (_introStarted) return; _introStarted = true;
-  document.getElementById('presence').classList.add('hidden');
-  setPhase('intro');
-  note('intro-adult: greet + name; then say exactly "'+INTRO_LINE+'" and wait for a real yes.');
-  setTimeout(()=>{ if(phase==='intro') startGame(); }, (parseInt(new URLSearchParams(location.search).get('auto'),10)||12)*1000);
+function finish(){ if (ended) return; ended=true; running=false; novaVid.pause();
+  const q=a=>({smooth:a.filter(x=>x==='smooth').length,good:a.filter(x=>x==='good').length,rough:a.filter(x=>x==='rough').length});
+  const weak = stats.L.length<stats.R.length ? 'left' : 'right';
+  $('finalScore').textContent=score; $('finalLine').textContent = hits ? `${hits} waves · smoother on the ${weak==='left'?'right':'left'} — next time lead the ${weak} with the wrist.` : 'Next time — let the wave travel from your fingers.';
+  $('scorecard').style.display='flex'; say(`${score} points.`);
+  fetch('/pulse',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({game:'wave',score,hits,stats,at:Date.now()})}).catch(()=>{});
 }
-// ── PRESENCE detector: shoulders + elbows + wrists all visible ──
-let awaitingPresence = false, _presT0 = 0;
-function updatePresence(k){
-  const need = ['lShoulder','rShoulder','lElbow','rElbow','lWrist','rWrist'];
-  const seen = need.filter(n => k[n] && (k[n].vis ?? k[n].score ?? 0) > 0.4).length;
-  const el = document.getElementById('presence'), now = performance.now();
-  if (seen >= 6) {
-    if (!_presT0) _presT0 = now; const held = now - _presT0;
-    el.classList.add('ok'); el.querySelector('.pring').style.setProperty('--p', Math.min(1, held/1000));
-    el.querySelector('.ptxt').textContent = 'Perfect — hold it'; el.querySelector('.psub').textContent = '';
-    if (held >= 1000) { awaitingPresence = false; proceedToIntro(); }
-  } else {
-    _presT0 = 0; el.classList.remove('ok'); el.querySelector('.pring').style.setProperty('--p', 0);
-    el.querySelector('.ptxt').textContent = 'Step back — I need to see your arms 🙆';
-    el.querySelector('.psub').textContent = 'I can see ' + seen + '/6 (shoulders · elbows · wrists)';
-  }
-}
-onHerAudio({ playing: ()=>{ if(phase==='game') duck(true); }, ended: ()=>duck(false) });
-// consent arrives from the bridge as a validated turn:
-window.addEventListener('nova:consent', startGame, { once:true });
-function startGame(){ if(phase!=='intro') return;   // idempotent: consent OR the 12s safety, whichever first
-  E.finishCal(); setPhase('game');
-  L.cometLive(waveR, CHAIN.R); L.cometLive(waveL, CHAIN.L);   // b0.18: the comet now rides the real detected wave
-  clock.currentTime=0; clock.play(); requestAnimationFrame(tick); }
-
-// ── POSE ──
-// ALIGN THE LIGHTS: the webcam is object-fit:cover (cropped) + CSS-mirrored, but pose joints are in
-// raw video space. Remap them through the SAME cover transform so the comet lands on the real arm.
-const _cam = document.getElementById('usercam');
-function coverRemap(out){
-  const vw = _cam.videoWidth || 640, vh = _cam.videoHeight || 480, cw = L.cv.width, ch = L.cv.height;   // map into the CAMERA panel
-  const s = Math.max(cw / vw, ch / vh), dw = vw * s, dh = vh * s, ox = (cw - dw) / 2, oy = (ch - dh) / 2;
-  const o = {};
-  for (const [n, j] of Object.entries(out)) {
-    if (!j || typeof j.x !== 'number') continue;
-    const nx = j.x > 2 ? j.x / vw : j.x, ny = j.y > 2 ? j.y / vh : j.y;   // movenet=px, mediapipe=0..1
-    o[n] = { x: (ox + nx * dw) / cw, y: (oy + ny * dh) / ch, dir: j.dir };
-  }
-  return o;
-}
-// DARK STAGE: dim the webcam under the lights only while something is glowing (CSS fades it 200ms)
-(function litLoop(){ stage.classList.toggle('lit', L.active()); requestAnimationFrame(litLoop); })();
-// BLOOM BOOST: once/sec, measure the webcam's mean luminance; on a bright/daylight frame boost bloom ×1.5
-const _lumC = document.createElement('canvas'); _lumC.width = 16; _lumC.height = 16;
-const _lumX = _lumC.getContext('2d', { willReadFrequently: true });
-setInterval(() => { try { if (_cam.readyState < 2) return; _lumX.drawImage(_cam, 0, 0, 16, 16);
-  const d = _lumX.getImageData(0, 0, 16, 16).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += 0.2126*d[i] + 0.7152*d[i+1] + 0.0722*d[i+2];
-  L.boost = (s / (d.length/4) / 255) > 0.55 ? 1.5 : 1; } catch (e) {} }, 1000);
-startPose(document.getElementById('usercam'), k => {
-  const out = E.update(k); L.setJoints(coverRemap(out));
-  if (awaitingPresence) { updatePresence(k); return; }   // gate the game until arms are in frame
-  // feed BOTH wave rules EVERY frame — they build the peak history that phase() (the comet) reads,
-  // and a detected wave adds the fingertip overshoot on the arm that actually waved.
-  const rR = waveR.check(), rL = waveL.check();
-  if (rR?.hit) L.cometHit(rR.quality, waveR);
-  if (rL?.hit) L.cometHit(rL.quality, waveL);
-  if (phase!=='game' && phase!=='hold') return;
-  const t = clock.currentTime, c = CUES[ci];
-  if (phase==='hold' && holdWin){ const f = RULES.freeze(E, 0.12); holdWin.samples++; if(!f.still){ if(!holdWin.broke) L.freezeBreak(); holdWin.broke = holdWin.broke || (performance.now()-holdWin.t0); } return; }
-  if (!c || c.hold) return;
-  const r = c.arm==='R' ? rR : c.arm==='L' ? rL : (rR || rL);
-  if (r?.hit && t >= c.t - WIN_BEFORE && t <= c.t + WIN_AFTER){
-    const arm = r===waveR.lastResult ? 'R' : 'L';
-    const base = r.quality==='smooth'?160 : r.quality==='good'?140 : 120;
-    const pts = base + (r.iso ? 20 : 0);
-    streak = r.quality==='smooth' ? streak+1 : 0; const mult = streak>=3 ? 2 : 1;
-    score += pts*mult; stats[arm].push(r.quality); ci++;
-    L.hit(arm==='R'?'rWrist':'lWrist', r.iso?'iso':'good', pts*mult); if(mult>1) flyText('×2');   // the comet overshoot already fired via cometHit
-    document.getElementById('score').textContent = score; flowBar(ci);
-    note(`fact: wave ${arm} ${r.quality}${r.iso?' isolated':''} streak ${streak}`);   // facts only — adult tier says nothing mid-run
-  }
-});
-
-// ── CLOCK: cues, lights, lines, hold, end ──
-function tick(){
-  const t = clock.currentTime, c = CUES[ci];
-  if (li < LINES.length && t >= LINES[li][0]){ note(`say exactly: "${LINES[li][1]}"`); li++; }
-  if (c && !c.hold && !c.lit && t >= c.t - LEAD){ c.lit = true; startGuide(c.arm); }   // wave guide = comet flowing down the arm
-  if (c && !c.hold && t > c.t + WIN_AFTER){ stopGuide(); ci++; }   // missed: comet stops, no punishment
-  if (c && c.hold && phase==='game' && t >= c.t){ setPhase('hold'); stopGuide(); holdWin={t0:performance.now(),broke:0,samples:0}; L.cometStop(); L.freezeStart(c.hold*1000); }   // b0.18: hold = the ice glow (no ring/orb)
-  if (phase==='hold' && holdWin && performance.now()-holdWin.t0 >= c.hold*1000){ const held = !holdWin.broke && holdWin.samples>5; L.freezeEnd(held); if(held){ score+=50; L.hit('shoulderC','iso',50); flyText('FROZEN!'); }
-    holdWin=null; ci++; setPhase('game'); L.cometLive(waveR,CHAIN.R); L.cometLive(waveL,CHAIN.L); note(`fact: hold ${held?'held':'broke'}`); }
-  if (!done && t >= 28.0){ done=true; clock.pause(); ending(); return; }
-  if (!done) requestAnimationFrame(tick);
-}
-function ending(){ setPhase('ending'); const q = a => ({ smooth:a.filter(x=>x==='smooth').length, good:a.filter(x=>x==='good').length, rough:a.filter(x=>x==='rough').length });
-  note(`ending-adult: score=${score} right=${JSON.stringify(q(stats.R))} left=${JSON.stringify(q(stats.L))} streakMax=${streak}. Say: ONE quality note (external focus, e.g. "smoother on the left — lead with the wrist"), then the real score, then goodbye with the name.`);
-  pulseSend({ game:'wave', score, stats }); }
-function flowBar(n){ document.querySelectorAll('#flow i').forEach((el,i)=>el.classList.toggle('on', i<n)); }
-function flyText(s){ const p = L.P('shoulderC'); if(p) L.flyUp(p, s); }
-function duck(on){ clock.volume = on ? 0.35 : 0.6; }
-document.getElementById('pause').onclick = ()=>{ clock.paused ? clock.play() : clock.pause(); };
-document.getElementById('exit').onclick = ()=>location.href='/';
-clock.volume = 0.6;
+$('again').onclick=()=>location.reload();
 </script></body></html>
