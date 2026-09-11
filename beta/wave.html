@@ -64,7 +64,8 @@ function loadScript(src){ return new Promise((res,rej)=>{ const s=document.creat
 async function initPose(){
   if(!window.tf) await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js');
   if(!window.poseDetection) await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js');
-  await tf.setBackend('webgl'); await tf.ready();
+  try { if(!(await tf.setBackend('webgl'))) await tf.setBackend('cpu'); } catch(_){ try{ await tf.setBackend('cpu'); }catch(__){} }
+  await tf.ready();
   const mk = () => poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING });
   pmKid = await mk(); pmNova = await mk();
 }
