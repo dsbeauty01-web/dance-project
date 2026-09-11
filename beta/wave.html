@@ -33,7 +33,7 @@ html,body{margin:0;height:100%;background:#1a0f2e;font-family:Nunito,system-ui;c
   <div id="camWrap"><video id="usercam" autoplay muted playsinline></video><canvas id="fx"></canvas><div class="tag" id="youTag">YOU</div></div>
   <div id="hud"><div id="score">0</div><div id="flow"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
   <div id="cap"></div>
-  <div id="dbg" style="position:fixed;left:8px;bottom:8px;z-index:99;font:600 12px monospace;background:rgba(0,0,0,.6);color:#9f9;padding:6px 10px;border-radius:8px;white-space:pre"></div>
+  <div id="dbgHud" style="position:fixed;left:8px;bottom:8px;z-index:99;font:600 12px monospace;background:rgba(0,0,0,.6);color:#9f9;padding:6px 10px;border-radius:8px;white-space:pre"></div>
   <div id="gate"><button id="start">▶ Let's wave</button></div>
   <div id="gateArms" class="hidden"><div style="font:800 30px 'Baloo 2'">Step back — I need to see your arms</div><div id="ring"></div></div>
   <div id="banner" class="hidden"></div>
@@ -82,7 +82,7 @@ let li=0;
 function say(t){ cap.textContent=t; fetch(NOTE,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({say:t})}).catch(()=>{}); }
 
 // ── 5 · loops ──
-const DBG={nova:0,kid:0,novaJ:0,kidJ:0,cues:0,hits:0,err:''}; const dbgEl=document.getElementById('dbg');
+const DBG={nova:0,kid:0,novaJ:0,kidJ:0,cues:0,hits:0,err:''}; const dbgEl=document.getElementById('dbgHud');   // id must NOT be "dbg": a named element global window.dbg makes MediaPipe's wasm glue (custom_emscripten_dbgn: typeof dbg!=="undefined") call the div → "dbg is not a function" kills initPose
 function dbg(){ dbgEl.textContent=`nova frames ${DBG.nova} joints ${DBG.novaJ} | kid frames ${DBG.kid} joints ${DBG.kidJ} | cues ${DBG.cues} hits ${DBG.hits}${DBG.err?' | ERR '+DBG.err:''}`; }
 function loopNova(){ if(!running) return; try{
   if (!novaVid.paused && pmNova){ const r=pmNova.detectForVideo(novaVid, performance.now()); const k=toNova(r); DBG.nova++;
