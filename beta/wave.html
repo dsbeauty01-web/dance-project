@@ -45,39 +45,35 @@ html,body{margin:0;height:100%;background:#1a0f2e;font-family:Nunito,system-ui;c
 import { MoverEngine } from '/shared/mover-engine.js';
 import { WaveRule } from '/shared/mover-rules.js';
 import { LightEngine } from '/shared/light-engine.js';
-// POSE = MoveNet (TF.js). MediaPipe tasks-vision's wasm is broken in-browser ("dbg is not a function"
-// — emscripten glue bug, all versions). MoveNet is pure JS/WebGL and works. Loaded in initPose().
+// POSE BACKEND: MoveNet (TF.js, pure WebGL — no wasm glue) by default. MediaPipe only with ?mp=1.
+import * as tf from 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/+esm';
+import * as poseDetection from 'https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/+esm';
 
 const $ = id => document.getElementById(id);
 const novaVid=$('novaVid'), amb=$('novaAmbient'), cam=$('usercam'), cap=$('cap');
 const REF_CANDIDATES = ['/media/wave-ref.mp4','/media/handywave.mp4','/handywave.mp4'];   // handywave.mp4 = THE wave (Nova on the bridge, arm wave). Never pre-wave, never maya.   // DEPLOY.md: the first that truly WAVES is copied to /media/wave-ref.mp4
 const NOTE = '/nova/note';                                                                 // optional live voice; the game never depends on it
-window.addEventListener('error', e=>{ try{ DBG.err='global:'+e.message; dbg(); }catch(_){} });
+window.addEventListener('error', e=>{ DBG.err='global:'+e.message; dbg(); });
 const banner = msg => { $('banner').textContent = msg; $('banner').classList.remove('hidden'); };
 
 // ── 1 · assets: the wave video must exist ──
 async function pickRef(){ for (const u of REF_CANDIDATES){ try{ const r=await fetch(u,{method:'HEAD'}); if(r.ok) return u; }catch(e){} } return null; }
 
-// ── 2 · pose: two MoveNet (TF.js) detectors — Nova's video + the kid ──
-let pmNova, pmKid;
-function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error('load '+src)); document.head.appendChild(s); }); }
+// ── 2 · pose: ONE MoveNet detector (SinglePose Lightning) serving both elements ──
+let det=null;
 async function initPose(){
-  if(!window.tf) await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js');
-  if(!window.poseDetection) await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js');
-  try { if(!(await tf.setBackend('webgl'))) await tf.setBackend('cpu'); } catch(_){ try{ await tf.setBackend('cpu'); }catch(__){} }
-  await tf.ready();
-  const mk = () => poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING });
-  pmKid = await mk(); pmNova = await mk();
+  await tf.setBackend('webgl'); await tf.ready();
+  det = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING, enableSmoothing:true });
 }
-const MP={nose:0,lShoulder:5,rShoulder:6,lElbow:7,rElbow:8,lWrist:9,rWrist:10,lHip:11,rHip:12,lKnee:13,rKnee:14};   // COCO indices (MoveNet) — no finger points; WaveRule adapts to a 3-link chain
-async function estimate(det, vid){ if(!det || !(vid.videoWidth>0)) return null; const ps=await det.estimatePoses(vid,{flipHorizontal:false}); return ps[0]||null; }
-function toNova(pose, vw, vh){ if(!pose||!pose.keypoints) return null; const kp=pose.keypoints, out={}; for (const [n,i] of Object.entries(MP)){ const p=kp[i]; if(p) out[n]={x:p.x/(vw||1), y:p.y/(vh||1), z:0, vis:p.score??1}; } return out; }
+const MN={nose:0,lShoulder:5,rShoulder:6,lElbow:7,rElbow:8,lWrist:9,rWrist:10,lHip:11,rHip:12};
+async function detect(el){ if(!det || !(el.videoWidth>0)) return null; const poses=await det.estimatePoses(el,{flipHorizontal:false}); const kp=poses?.[0]?.keypoints; if(!kp) return null;
+  const W=el.videoWidth, H=el.videoHeight, out={}; for (const [n,i] of Object.entries(MN)){ const p=kp[i]; if(p) out[n]={x:p.x/W, y:p.y/H, z:0, vis:p.score??0}; } return out; }
 
 // ── 3 · engines: one per side ──
 const EN = new MoverEngine(), EK = new MoverEngine();
 const LN = new LightEngine($('fxNova'), { tier:'adult', mirror:false });   // lights on Nova's video (the cue side)
 const LK = new LightEngine($('fx'),     { tier:'adult', mirror:true  });   // lights on the kid (the hit side)
-const CH = { R:['rShoulder','rElbow','rWrist','rIndex'], L:['lShoulder','lElbow','lWrist','lIndex'] };
+const CH = { R:['rShoulder','rElbow','rWrist'], L:['lShoulder','lElbow','lWrist'] };   // MoveNet has no fingertip; 3-link chain
 const wN = { R:new WaveRule(EN,'R'), L:new WaveRule(EN,'L') }, wK = { R:new WaveRule(EK,'R'), L:new WaveRule(EK,'L') };
 
 // ── 4 · game state ──
@@ -91,15 +87,15 @@ function say(t){ cap.textContent=t; fetch(NOTE,{method:'POST',headers:{'content-
 const DBG={nova:0,kid:0,novaJ:0,kidJ:0,cues:0,hits:0,err:''}; const dbgEl=document.getElementById('dbg');
 function dbg(){ dbgEl.textContent=`nova frames ${DBG.nova} joints ${DBG.novaJ} | kid frames ${DBG.kid} joints ${DBG.kidJ} | cues ${DBG.cues} hits ${DBG.hits}${DBG.err?' | ERR '+DBG.err:''}`; }
 async function loopNova(){ if(!running) return; try{
-  if (!novaVid.paused && pmNova){ const pose=await estimate(pmNova, novaVid); const k=toNova(pose, novaVid.videoWidth, novaVid.videoHeight); DBG.nova++;
+  if (!novaVid.paused){ const k=await detect(novaVid); DBG.nova++;
     if (k){ DBG.novaJ=Object.keys(k).length; const out=EN.update(k); LN.setJoints(out);
       for (const arm of ['R','L']){ const w=wN[arm].check(); if (w?.hit && performance.now()-lastCueT>900){ lastCueT=performance.now();
         pending.push({ arm, t0:lastCueT }); DBG.cues++; LN.comet(CH[arm], 'smooth'); LK.cometCue(CH[arm]); } } } }
   }catch(e){ DBG.err='nova:'+e.message; } dbg(); requestAnimationFrame(loopNova); }
 async function loopKid(){ if(!running) return; try{
-  if (pmKid && cam.videoWidth>0){ const pose=await estimate(pmKid, cam); const k=toNova(pose, cam.videoWidth, cam.videoHeight); DBG.kid++;
+  if (cam.videoWidth>0){ const k=await detect(cam); DBG.kid++;
     if (k){ DBG.kidJ=Object.keys(k).length; const out=EK.update(k); LK.setJoints(out);
-      for (const arm of ['R','L']){ const w=wK[arm].check(); if (w?.hit && performance.now()-lastKidWave>600){ lastKidWave=performance.now(); onKidWave(arm, w); } } } }
+      for (const arm of ['R','L']){ const w=wK[arm].check(); if (w?.hit && performance.now()-lastKidWave>600){ lastKidWave=performance.now(); DBG.hits++; onKidWave(arm, w); } } } }
   }catch(e){ DBG.err='kid:'+e.message; } dbg(); requestAnimationFrame(loopKid); }
 function onKidWave(arm, w){
   const now=performance.now(); const i=pending.findIndex(p=>now-p.t0<=WINDOW_MS);
@@ -126,8 +122,8 @@ $('start').onclick = async () => {
   try { await initPose(); } catch(e){ return banner('Pose engine failed to load: '+e.message); }
   // presence gate: shoulders + elbows + wrists visible ≥1s
   $('gateArms').classList.remove('hidden'); let okSince=null;
-  await new Promise(res=>{ const tick=async()=>{ const pose=await estimate(pmKid, cam); const k=toNova(pose, cam.videoWidth, cam.videoHeight);
-    const ok = k && ['lShoulder','rShoulder','lElbow','rElbow','lWrist','rWrist'].every(n=>k[n]?.vis>0.25);   // MoveNet confidence runs lower than MediaPipe
+  await new Promise(res=>{ const tick=async()=>{ const k=await detect(cam);
+    const ok = k && ['lShoulder','rShoulder','lElbow','rElbow','lWrist','rWrist'].every(n=>k[n]?.vis>0.5);
     $('ring').classList.toggle('ok', !!ok); if (ok){ okSince ??= performance.now(); if (performance.now()-okSince>1000) return res(); } else okSince=null; requestAnimationFrame(tick); }; tick(); });
   $('gateArms').classList.add('hidden');
   await new Promise(r=>{ if(cam.videoWidth>0) r(); else cam.onloadedmetadata=()=>r(); });

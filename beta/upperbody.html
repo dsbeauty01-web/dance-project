@@ -1,584 +1,120 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Upper Body! · Nova</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%83%3C/text%3E%3C/svg%3E">
-<!-- UPPERBODY b0.19 (GAMES-3 / UPPERBODY-SMART) — re-based on the shared engines.
-     KEPT: layout, 4 rounds, measured targets, demo calibration, grace miss, wobble warm,
-     sideStats coaching, scorecard, tiers, the proven Live one-origin bridge.
-     REPLACED (the 5 blocks): DETECTION → mover-engine + RULES.ribSlide + cue-window.grade;
-     TARGETS → sides-only (F/B removed, now unscored FLOW pulses); SCORING → graded;
-     LIGHTS → shared light-engine (isolation pair: shoulders gold, hips+head "stay still");
-     BRAIN → the adult-coach block. main frozen; beta only. -->
-<script src="https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.umd.min.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nova · Upper Body Isolation</title>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Nunito:wght@600;800&display=swap" rel="stylesheet">
 <style>
-  /* §0 DESIGN TOKENS — from HER world */
-  :root{
-    --room-pink:#f4d9ea; --room-lilac:#cbb7e8;
-    --hoodie:#7c5cbf;
-    --gold:#ffc23e; --gold-hot:#ffdf7e;
-    --ice:#aee8ff;
-    --ink:#2a2140;
-    --ok-green:#7ddba3;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%;overflow:hidden}
-  body{font-family:'Nunito',system-ui;color:var(--ink)}
-  #stage{position:fixed;inset:0;display:flex;background:var(--room-pink);font-family:'Nunito',system-ui}
-  #novaWrap{position:relative;height:100vh;overflow:hidden;transition:width .5s ease;width:60vw;background:var(--room-lilac)}
-  #camWrap{position:relative;height:100vh;overflow:hidden;transition:width .5s ease;width:40vw;background:#2a2140}
-  /* ADAPTIVE (Lexi law) */
-  #stage[data-phase="intro"] #novaWrap,#stage[data-phase="between"] #novaWrap,#stage[data-phase="ending"] #novaWrap{width:66vw}
-  #stage[data-phase="intro"] #camWrap, #stage[data-phase="between"] #camWrap, #stage[data-phase="ending"] #camWrap{width:34vw}
-  #routine,#novaMain{position:absolute;left:50%;top:0;height:100vh;width:auto;transform:translateX(-50%);z-index:2}
-  #routine{display:none}
-  #stage[data-phase="round"] #routine{display:block}
-  #stage[data-phase="round"] #novaMain{display:none}
-  #novaAmbient{position:absolute;left:50%;top:50%;height:120vh;transform:translate(-50%,-50%) scaleX(2.2);filter:blur(28px) saturate(1.12);opacity:.9;z-index:1}
-  #usercam{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
-  #fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6}
-  #scorePop{position:absolute;inset:0;pointer-events:none;z-index:7}
-  .pop{position:absolute;font-family:'Baloo 2';font-weight:800;font-size:30px;color:var(--gold);
-    text-shadow:0 2px 8px rgba(42,33,64,.5);animation:flyup .7s ease-out forwards}
-  @keyframes flyup{to{transform:translateY(-70px);opacity:0}}
-  #stateBadge{position:absolute;left:14px;bottom:14px;z-index:4;background:rgba(42,33,64,.6);color:#fff;padding:5px 14px;border-radius:999px;font-weight:700;font-size:13px}
-  #hud{position:fixed;top:1.6vh;left:0;right:0;display:flex;gap:16px;justify-content:center;align-items:center;z-index:50;pointer-events:none}
-  #score{font-family:'Baloo 2';font-size:44px;font-weight:800;color:var(--gold);text-shadow:0 2px 10px rgba(124,92,191,.35);font-variant-numeric:tabular-nums}
-  #fire{font-family:'Baloo 2';font-size:26px;color:var(--gold-hot);animation:firePulse .5s infinite alternate}
-  @keyframes firePulse{to{transform:scale(1.12);filter:brightness(1.2)}}
-  #roundTag{background:var(--hoodie);color:#fff;border-radius:999px;padding:5px 16px;font-weight:800}
-  #roundDots i{display:inline-block;width:10px;height:10px;border-radius:50%;background:rgba(124,92,191,.3);margin:0 3px}
-  #roundDots i.on{background:var(--gold)}
-  #countdown{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Baloo 2';font-size:20vw;color:var(--gold);text-shadow:0 6px 40px rgba(255,194,62,.5);z-index:70;pointer-events:none}
-  #verdictCard{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(42,33,64,.55);z-index:75;color:#fff;font-family:'Baloo 2';pointer-events:none}
-  #verdictCard .word{font-size:clamp(50px,9vw,110px);color:var(--gold-hot)}
-  #verdictCard .stars{font-size:clamp(26px,4vw,44px)}
-  #verdictCard .iso{font-family:'Nunito';font-size:clamp(15px,2vw,20px);color:var(--ice)}
-  #scorecard{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(42,33,64,.85);z-index:80;color:#fff}
-  #scorecard h2{font-family:'Baloo 2';font-size:clamp(26px,4.4vw,42px);color:var(--gold);margin-bottom:14px}
-  #scorecard .row{font-size:clamp(16px,2.4vw,21px);font-weight:800;margin:5px 0;display:flex;gap:26px;justify-content:space-between;min-width:min(420px,80vw)}
-  #scorecard .row .stars{color:var(--gold-hot)}
-  #scorecard .total{font-family:'Baloo 2';font-size:clamp(24px,3.6vw,32px);color:var(--gold);margin-top:14px}
-  #scorecard button{margin-top:20px;font-family:'Baloo 2';font-size:clamp(17px,2.6vw,23px);font-weight:800;color:#fff;border:0;
-    cursor:pointer;padding:14px 36px;border-radius:999px;background:var(--hoodie);box-shadow:0 8px 30px rgba(124,92,191,.5)}
-  #pauseBtn,#exitBtn{position:fixed;top:1.6vh;z-index:60;background:rgba(42,33,64,.55);color:#fff;border:0;border-radius:12px;padding:8px 12px;font-size:16px;cursor:pointer}
-  #pauseBtn{right:64px}#exitBtn{right:14px}
-  .hidden{display:none!important}
-  /* wake / ready chrome (kept from the working flow) */
-  #nova-wait{position:absolute;inset:0;z-index:8;display:flex;flex-direction:column;align-items:center;
-    justify-content:center;gap:10px;background:rgba(42,33,64,.92);color:#fff;transition:opacity .5s}
-  #nova-wait.gone{opacity:0;pointer-events:none}
-  #wait-title{font-family:'Baloo 2';font-size:clamp(22px,3.4vw,34px);font-weight:800}
-  #wait-sub{font-size:15px;color:rgba(255,255,255,.7)}
-  #status{position:absolute;bottom:14px;right:14px;z-index:8;font-size:12px;color:rgba(255,255,255,.85);
-    background:rgba(42,33,64,.5);padding:4px 10px;border-radius:999px}
-  #nova-say{position:absolute;bottom:52px;left:50%;transform:translateX(-50%);z-index:8;max-width:86%;
-    font-size:16px;font-weight:600;color:#fff;background:rgba(124,92,191,.9);padding:8px 16px;border-radius:14px;
-    opacity:0;transition:opacity .3s;pointer-events:none}
-  #nova-say.show{opacity:1}
-  #kid-bubble{position:absolute;bottom:14px;left:12px;z-index:8;max-width:80%;font-size:14px;color:#fff;
-    background:rgba(42,33,64,.8);padding:7px 12px;border-radius:12px;opacity:0;transition:opacity .3s}
-  #kid-bubble.show{opacity:1}
-  #ready-btn{position:fixed;left:50%;bottom:8%;transform:translateX(-50%);z-index:70;display:none;
-    font-family:'Baloo 2';font-size:clamp(20px,3.2vw,28px);font-weight:800;color:var(--ink);border:0;cursor:pointer;
-    padding:18px 50px;border-radius:999px;background:linear-gradient(135deg,var(--gold),var(--gold-hot));
-    box-shadow:0 10px 40px rgba(255,194,62,.5);animation:breathe 2.2s ease-in-out infinite}
-  #ready-btn.on{display:block}
-  @keyframes breathe{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.05)}}
-</style>
-</head>
-<body>
-<div id="stage" data-phase="intro">
-  <div id="novaWrap">
-    <video id="novaAmbient" autoplay muted playsinline></video>
-    <video id="routine" playsinline preload="auto" src="/gallery/upperbody-routine.mp4"></video>
-    <video id="novaMain" autoplay muted playsinline></video>
-    <div id="stateBadge">Waking…</div>
-    <div id="nova-say"></div>
-    <div id="status">connecting…</div>
-    <div id="nova-wait">
-      <div id="wait-title">👆 Tap to wake Nova!</div>
-      <div id="wait-sub">one tap and she says hi ✨</div>
-    </div>
-  </div>
-  <div id="camWrap">
-    <video id="usercam" autoplay playsinline muted></video>
-    <canvas id="fx"></canvas>
-    <div id="scorePop"></div>
-    <div id="kid-bubble"></div>
-  </div>
-  <div id="hud">
-    <div id="roundDots"><i class="on"></i><i></i><i></i><i></i></div>
-    <div id="score">0</div><div id="fire" class="hidden">🔥×2</div>
-    <div id="roundTag" class="hidden">ROUND 1 · SLOW</div>
-  </div>
-  <div id="countdown" class="hidden"></div>
-  <div id="verdictCard" class="hidden"><div class="word"></div><div class="stars"></div><div class="iso"></div></div>
-  <div id="scorecard" class="hidden"><h2></h2><div id="sc-rows"></div><div class="total" id="sc-total"></div><button id="sc-btn"></button></div>
-  <button id="pauseBtn">⏸</button><button id="exitBtn">✕</button>
+:root{--amber:#e6a93a;--amber-hot:#f2c66d;--ink:#2a2140;--stage:#1a0f2e}
+html,body{margin:0;height:100%;background:var(--stage);font-family:Nunito,system-ui;color:#fff;overflow:hidden}
+#stage{position:fixed;inset:0;display:flex}
+#refWrap,#camWrap{position:relative;width:50vw;height:100vh;overflow:hidden;background:var(--stage)}
+body[data-phase=intro] #refWrap,body[data-phase=between] #refWrap,body[data-phase=ending] #refWrap{width:62vw}
+body[data-phase=intro] #camWrap,body[data-phase=between] #camWrap,body[data-phase=ending] #camWrap{width:38vw}
+#refWrap,#camWrap{transition:width .5s ease}
+#refVid{position:absolute;left:50%;top:0;height:100vh;width:auto;transform:translateX(-50%);z-index:2}
+#refAmbient{position:absolute;left:50%;top:50%;height:120vh;width:auto;transform:translate(-50%,-50%) scaleX(2.4);filter:blur(30px) saturate(1.1);opacity:.85;z-index:1}
+#usercam{width:100%;height:100%;object-fit:contain;transform:scaleX(-1);background:#120a22}
+#fx,#fxRef{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6}
+.tagc{position:absolute;left:14px;top:14px;z-index:8;background:rgba(0,0,0,.45);padding:5px 14px;border-radius:999px;font-weight:800;font-size:13px}
+#hud{position:fixed;top:1.6vh;left:0;right:0;display:flex;gap:16px;justify-content:center;align-items:center;z-index:50}
+#score{font-family:'Baloo 2';font-size:44px;font-weight:800;color:var(--amber);font-variant-numeric:tabular-nums;text-shadow:0 2px 12px rgba(0,0,0,.5)}
+#tag{background:rgba(124,92,191,.85);color:#fff;border-radius:999px;padding:5px 16px;font-weight:800}
+#dots i{display:inline-block;width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.2);margin:0 3px}#dots i.on{background:var(--amber)}
+#cap{position:fixed;left:0;right:0;bottom:5vh;text-align:center;z-index:50;font-family:'Baloo 2';font-weight:800;font-size:clamp(20px,3vw,36px);text-shadow:0 2px 18px rgba(0,0,0,.7)}
+#dbg{position:fixed;left:8px;bottom:8px;z-index:99;font:600 12px monospace;background:rgba(0,0,0,.6);color:#9f9;padding:6px 10px;border-radius:8px;white-space:pre}
+#gate,#banner,#gateArms,#card{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(26,15,46,.86);z-index:90;text-align:center;padding:24px}
+#gate button,#card button{font:800 26px 'Baloo 2';padding:16px 40px;border:0;border-radius:18px;background:var(--amber);color:var(--ink);cursor:pointer;margin-top:18px}
+#banner{background:#3a0d0d;color:#ffb3b3;font-weight:800;font-size:22px}
+#ring{width:120px;height:120px;border-radius:50%;border:6px solid rgba(255,255,255,.25);border-top-color:var(--amber);margin-top:18px}#ring.ok{border-color:#7ddba3}
+#card h2{font-family:'Baloo 2';font-size:56px;margin:0;color:var(--amber)}#card p{font-size:22px;margin:6px 0}
+#scorecard{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(26,15,46,.9);z-index:95;font-family:'Baloo 2'}
+#scorecard h1{font-size:64px;color:var(--amber);margin:0}#scorecard p{font-size:24px;margin:8px 0}#scorecard button{font:800 24px 'Baloo 2';padding:14px 36px;border:0;border-radius:16px;background:var(--amber);color:var(--ink);margin-top:20px;cursor:pointer}
+.hidden{display:none!important}
+</style></head><body data-phase="intro">
+<div id="stage">
+  <div id="refWrap"><video id="refAmbient" muted playsinline loop></video><video id="refVid" playsinline preload="auto"></video><canvas id="fxRef"></canvas><div class="tagc">NOVA — copy the torso slides · hips frozen</div></div>
+  <div id="camWrap"><video id="usercam" autoplay muted playsinline></video><canvas id="fx"></canvas><div class="tagc">YOU</div></div>
+  <div id="hud"><div id="dots"></div><div id="score">0</div><div id="tag">UPPER BODY</div></div>
+  <div id="cap"></div><div id="dbg"></div>
+  <div id="gate"><div style="font:800 34px 'Baloo 2'">Upper Body Isolation</div><div style="opacity:.8;margin-top:6px">hands on your waist — the torso slides, the hips freeze</div><button id="start">▶ Start</button></div>
+  <div id="gateArms" class="hidden"><div style="font:800 30px 'Baloo 2'">Step back — I need to see your arms and hips</div><div id="ring"></div></div>
+  <div id="banner" class="hidden"></div>
+  <div id="card" class="hidden"><h2 id="cardTitle"></h2><p id="cardLine"></p><button id="cardBtn">Ready</button></div>
+  <div id="scorecard"><h1 id="finalScore">0</h1><p id="finalLine"></p><button id="again">PLAY AGAIN</button></div>
 </div>
-<button id="ready-btn">💃 I'M READY!</button>
-
 <script type="module">
-'use strict';
-import { MoverEngine } from '/shared/mover-engine.js';
-import { RULES } from '/shared/mover-rules.js';
-import { grade } from '/shared/cue-window.js';
-import { startPose } from '/shared/pose-engine.js';          // b0.10 — toNova() frames, MediaPipe→MoveNet fallback
-import { LightEngine } from '/shared/light-engine.js';       // b0.17 — the approved light language
+/* UPPER BODY — adult tier · video-led (her 38s routine) · rib slide with true isolation · hoop lights · 4 rounds (slow, slow, fast, fast) */
+import { createKit, RULES, grade } from '/shared/game-kit.js';
+const $ = id => document.getElementById(id);
+const K = await createKit({ tier:'adult', mirror:true, game:'upperbody', detectRef:false, refCandidates:['/media/upperbody-ref.mp4','/media/rapa_src.mp4','/media/rapa.mp4'] });
 
-const $=id=>document.getElementById(id);
-const stage=$('stage'), camEl=$('usercam'), statusEl=$('status'), routine=$('routine');
-const Q=new URLSearchParams(location.search);
-const SARAY_BASE=location.origin+'/';
-const LIVE_OFF=Q.get('nolive')==='1';
+// ── the measured map (frame-verified, sides = screen-space of the kid's mirrored camera) ──
+const DEMO_END = 13.5, FINISH_AT = 35.2;
+const TARGETS = [ {t:16.10,dir:'R'},{t:17.37,dir:'L'},{t:23.00,dir:'R'},{t:24.30,dir:'L'},{t:28.07,dir:'R'},{t:29.37,dir:'L'},
+                  {t:31.90,dir:'R'},{t:32.50,dir:'L'},{t:33.27,dir:'R'},{t:34.33,dir:'L'} ];
+const FLOW = [19.55, 21.20, 25.55, 26.80];                         // the old front/back beats — shown as soft pulses, never scored
+const ROUNDS = [ {n:1,rate:1.0,label:'ROUND 1 · SLOW',win:0.9,lead:1.1}, {n:2,rate:1.0,label:'ROUND 2 · SLOW',win:0.8,lead:1.0},
+                 {n:3,rate:1.25,label:'ROUND 3 · FAST',win:0.65,lead:0.85}, {n:4,rate:1.25,label:'ROUND 4 · FAST',win:0.55,lead:0.75} ];
 const MIRROR=true;
-const log=(...a)=>console.log(...a);
-function setPhase(p){stage.dataset.phase=p;
-  $('stateBadge').textContent=p==='intro'?'Say hi!':p==='round'?'Copy her!':p==='between'?'Nova is watching':'Party!';}
+let round=0, targets=[], ti=0, flows=[], score=0, streak=0, hits={}, iso={}, side={R:0,L:0}, calDone=false, holdWin=null, done=false, lastCue=null, wob=0, hipLineSaid=false;
 
-/* §DETECTION — the shared engine (block 1) */
-const E=new MoverEngine();
-const L=new LightEngine($('fx'), { tier:'adult', mirror:MIRROR });   // adult = cool amber, particles ×0.4
+function hoopCue(dir, winMs, leadMs){ if (K.L.hoopCue) K.L.hoopCue({ mover:'ribs', dir, windowMs:winMs, leadMs }); else K.L.cue({ joint:'shoulderC', dir, windowMs:winMs, leadMs, still:['hipC','head'] }); }
+function hoopHit(quality, pts){ if (K.L.hoopHit) K.L.hoopHit(); K.L.hit('shoulderC', quality, pts); }
+function flowPulse(){ if (K.L.hoopCue) K.L.hoopCue({ mover:'ribs', dir:'F', windowMs:500, leadMs:350 }); }
 
-/* §2 THE MEASURED CUE MAP — sides only (block 2). F/B removed; their old slots are FLOW pulses. */
-const DEMO_END=13.5;
-const TARGETS=[
-  {t:16.10,dir:'R'},{t:17.37,dir:'L'},
-  {t:23.00,dir:'R'},{t:24.30,dir:'L'},
-  {t:28.07,dir:'R'},{t:29.37,dir:'L'},
-  {t:31.90,dir:'R'},{t:32.50,dir:'L'},{t:33.27,dir:'R'},{t:34.33,dir:'L'},
-  {t:35.20,dir:'FREEZE',hold:1.0},
-];
-const FLOW=[19.55,21.20,25.55,26.80];   // former B/F beats → soft unscored pulses
-const ROUNDS=[
-  {n:1,rate:1.00,label:'ROUND 1 · SLOW',win:1.0,lead:1.2},
-  {n:2,rate:1.00,label:'ROUND 2 · SLOW',win:0.9,lead:1.1},
-  {n:3,rate:1.25,label:'ROUND 3 · FAST',win:0.75,lead:0.9},
-  {n:4,rate:1.25,label:'ROUND 4 · FAST',win:0.65,lead:0.8},
-];
+function startRound(i){ round=i; const R=ROUNDS[i]; K.hud.tag(R.label); K.hud.dots(i+1,4);
+  targets = TARGETS.map(x=>({ ...x, hit:false, missed:false, lit:false })); flows = FLOW.map(t=>({t,lit:false})); ti=0; holdWin=null; hits[i]=0; iso[i]=0; wob=0;
+  K.refVid.playbackRate=R.rate; K.refVid.currentTime = i===0 ? 0 : DEMO_END; K.setPhase('game'); document.body.dataset.phase='game';
+  if (i===0) K.E.startCal();
+  K.say(i===0 ? 'Hands on your waist. Watch first — then copy.' : R.rate>1 ? 'Faster now. Same slides, hips frozen.' : 'Again — cleaner. Ribs only.');
+  K.refVid.play().catch(()=>{}); }
 
-/* ═══ HER BRAIN — adult-coach block (block 5) ═══ */
-const UB_COACH=
- "[GAME-MODE] "+
- "You are Nova — a calm, confident coach for UPPER BODY ISOLATION, dancing WHILE you coach. "+
- "THIS IS THE UPPER BODY GAME ONLY — no intro to run, no name to collect, no other games. "+
- "The move: hands on the waist, the torso slides RIGHT and LEFT while the hips and head stay FROZEN — "+
- "that isolation is the whole art. A golden light on the body shows where to go; you may say "+
- "'chase the gold!' once. FOUR rounds: two SLOW (stretch, call the sides softly), two FASTER "+
- "(short sounds, no sentences). Mid-round: max ONE line, 6 words max, ONLY from the camera facts I hand "+
- "you. Between rounds: one strength + one correction (external focus: 'reach the light further next round') "+
- "+ 'ready?'. At the FREEZE pose: total silence until I give the verdict. Never say wrong, no, miss, or "+
- "fail — every child wins. FEEDBACK LAW: ~4 encourages to 1 correction; praise is SPECIFIC (name the move "+
- "and moment, imply growth), never trait praise; a correction is future-tense about the TARGET only. Cue the "+
- "GOLD/target, never a body part. English only. Reply only with what Nova says.";
+K.onClock = (t) => { if (done) return; const R=ROUNDS[round];
+  if (round===0 && !calDone && t>=DEMO_END){ K.E.finishCal(); calDone=true; K.say('Now you — slide RIGHT... LEFT... hips frozen.'); }
+  const vt = t;                                                                                    // targets are in VIDEO time (playbackRate handled by the video itself)
+  const nxt = targets[ti];
+  if (nxt && !nxt.lit && vt >= nxt.t - R.lead){ nxt.lit=true; hoopCue(nxt.dir, R.win*2000, R.lead*1000); K.DBG.cues++; }
+  if (nxt && !nxt.hit && vt > nxt.t + R.win){ nxt.missed=true; ti++; if(K.L.clearCue) K.L.clearCue('shoulderC'); }
+  for (const f of flows){ if(!f.lit && vt >= f.t-0.35){ f.lit=true; flowPulse(); } }
+  if (vt >= FINISH_AT && !holdWin){ holdWin={ t0:performance.now(), broke:false, samples:0 }; K.setPhase('hold'); if (K.L.freezeStart) K.L.freezeStart(1000); K.say('Freeze the pose.'); }
+  if (holdWin && performance.now()-holdWin.t0 >= 1000){ const held = !holdWin.broke && holdWin.samples>5; if (held){ score+=50; K.flyText('FROZEN!'); K.ding(); } if (K.L.freezeEnd) K.L.freezeEnd(held); holdWin=null; K.refVid.pause(); endRound(); }
+  if (K.refVid.ended && !holdWin) endRound(); };
 
-/* ═══ Speech log ═══ */
-const KidBubble={el:$('kid-bubble'),_t:null,
-  show(t){if(!t)return;this.el.textContent=t;this.el.classList.add('show');
-    clearTimeout(this._t);this._t=setTimeout(()=>this.el.classList.remove('show'),3600);}};
-const NovaSay={el:$('nova-say'),_t:null,
-  log(t){if(!t)return;this.el.textContent=t;this.el.classList.add('show');
-    clearTimeout(this._t);this._t=setTimeout(()=>this.el.classList.remove('show'),5200);}};
+K.onKid = (out) => { if (done || K.phase==='hold' && holdWin){ if(holdWin){ const f=RULES.freeze(K.E,0.12); holdWin.samples++; if(!f.still) holdWin.broke=true; } return; }
+  if (K.phase!=='game' || !calDone) return;
+  const R=ROUNDS[round], vt=K.refVid.currentTime, nxt=targets[ti];
+  // hip wobble (sustained only) → warm light + one line per game
+  const stillHips = K.E.isolated('shoulderC',['hipC'],0.12); wob = stillHips ? 0 : wob+16;
+  if (wob>400){ if (K.L.warm) K.L.warm('hipC'); wob=0; if(!hipLineSaid){ hipLineSaid=true; K.say('Hips frozen — only the ribs travel.'); } }
+  if (!nxt || nxt.hit || vt < nxt.t - R.win) return;
+  const r = RULES.ribSlide(K.E); if (!r) return;
+  const s = MIRROR ? (r.side==='L'?'R':'L') : r.side;            // engine works in camera space
+  const g = grade(vt, nxt.t, R.win); if (g===null) return;
+  const wrong = s!==nxt.dir; if (wrong && Math.abs(vt-nxt.t) > R.win*0.5) return;
+  nxt.hit=true; ti++; if(K.L.clearCue) K.L.clearCue('shoulderC');
+  let pts = R.rate===1 ? 15 : 10; pts = Math.round(pts*({PERFECT:1.5,GOOD:1.2,OK:1}[g]));
+  if (wrong) pts=Math.round(pts/2);
+  if (r.iso && R.rate===1){ pts+=10; iso[round]++; if (K.L.isoShimmer) K.L.isoShimmer(); }
+  if (R.rate>1){ streak++; if(streak>=3) pts*=2; } else streak=0;
+  if (round===3) pts+=5;
+  score+=pts; hits[round]++; if(!wrong) side[nxt.dir]++; K.DBG.hits++;
+  hoopHit(r.iso?'iso':wrong?'wrong':'good', pts); if (g==='PERFECT') K.flyText('PERFECT'); K.tick(streak); K.hud.score(score);
+  K.note(`ub_hit round=${round+1} dir=${nxt.dir} grade=${g} iso=${!!r.iso} wrong=${wrong} streak=${streak}`); };
 
-/* ═══ LIVE Nova — proven one-origin connection (lips on nova_idle2 only) ═══ */
-const Live={
-  on:false,dead:false,alive:false,video:null,audioEl:null,ws:null,room:null,
-  init(){
-    if(LIVE_OFF){this.fail('forced offline (?nolive=1)');return;}
-    const attempt=(n)=>{
-      if(this.dead)return;
-      const ctl=('AbortController' in window)?new AbortController():null;
-      const to=setTimeout(()=>{try{ctl&&ctl.abort();}catch(_){}},8000);
-      fetch(SARAY_BASE,{mode:'no-cors',cache:'no-store',signal:ctl?ctl.signal:undefined})
-        .then(()=>{if(this.dead)return;clearTimeout(to);this.mount();})
-        .catch(()=>{clearTimeout(to);
-          if(n<3)attempt(n+1);
-          else this.fail('pod not reachable after 3 probes');});
-    };
-    attempt(1);
-  },
-  mount(){
-    if(this.on||this.dead)return;this.on=true;
-    this.video=$('novaMain');
-    this._connect();
-    statusEl.textContent='waking Nova…';
-    const gateMs=(parseInt(Q.get('gate'),10)||45)*1000;
-    this._aliveTimer=setTimeout(()=>{
-      if(!this.alive)this.fail('no session after '+(gateMs/1000)+'s');},gateMs);
-  },
-  async _connect(){
-    const self=this;
-    try{
-      const LK=window.LivekitClient||window.LiveKitClient;
-      const r=await(await fetch(SARAY_BASE+'token')).json();
-      const room=new LK.Room({adaptiveStream:false,dynacast:false});
-      this.room=room;
-      room.on(LK.RoomEvent.TrackSubscribed,(track,pub,p)=>{
-        if(p.identity!=='nova-avatar')return;
-        if(track.kind==='video'){track.attach(self.video);
-          try{track.attach($('novaAmbient'));}catch(_){}}
-        if(track.kind==='audio'){
-          const a=track.attach();
-          a.autoplay=true;a.muted=false;a.playsInline=true;
-          document.body.appendChild(a);self.audioEl=a;
-          let ok=false;
-          const tryPlay=()=>a.play().then(()=>{ok=true;
-              const b=$('unmute-btn');if(b)b.remove();
-            }).catch(e=>console.warn('[AUDIO] blocked:',e.name));
-          tryPlay();
-          ['pointerdown','touchstart','keydown'].forEach(ev=>document.addEventListener(ev,tryPlay,{passive:true}));
-          setTimeout(()=>{if(ok||$('unmute-btn'))return;
-            const b=document.createElement('button');b.id='unmute-btn';
-            b.textContent='🔊  TAP TO HEAR NOVA';
-            b.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:99999;'+
-              'font:700 22px system-ui,sans-serif;color:#2a2140;background:#ffc23e;border:0;'+
-              'padding:20px 34px;border-radius:999px;box-shadow:0 10px 40px rgba(0,0,0,.5);cursor:pointer';
-            b.onclick=()=>{a.muted=false;a.volume=1.0;tryPlay();setTimeout(()=>{if(ok&&b.parentNode)b.remove();},400);};
-            document.body.appendChild(b);
-          },1500);
-        }
-      });
-      let rc=2000;
-      const resub=async()=>{try{const r2=await(await fetch(SARAY_BASE+'token')).json();
-          await room.connect(r2.url,r2.token);rc=2000;}
-        catch(_){rc=Math.min(30000,Math.round(rc*1.8));setTimeout(resub,rc);}};
-      room.on(LK.RoomEvent.Disconnected,()=>setTimeout(resub,rc));
-      await room.connect(r.url,r.token);
-      log('[ONE-ORIGIN] LiveKit joined',r.room);
-    }catch(e){console.warn('[ONE-ORIGIN] room err',e&&e.message);}
-    this._connectWS();
-    try{await this._startMic();}catch(e){console.warn('[ONE-ORIGIN] MIC BLOCKED',e&&e.message);}
-    this.setAvatar('nova_idle2');            // LAW: lips only on nova_idle2
-  },
-  _wsConns:0,_wsDelay:1500,_micGated:false,
-  _connectWS(){
-    const self=this;
-    const qs=new URLSearchParams(location.search);
-    qs.set('intro','upperbody');
-    if(this._wsConns++)qs.set('rc','1');
-    const ws=new WebSocket(SARAY_BASE.replace('http','ws')+'rt?'+qs.toString());
-    this.ws=ws;
-    ws.onopen=()=>{self._wsDelay=1500;Intro.arm();};
-    ws.onclose=()=>{self._wsDelay=Math.min(30000,Math.round((self._wsDelay||1500)*1.8));
-      setTimeout(()=>{if(!self.dead)self._connectWS();},self._wsDelay);};
-    ws.onmessage=(ev)=>{const m=JSON.parse(ev.data);
-      if(m.type==='ack'){Intro.ack(m.of);return;}
-      if(m.type==='you_text'){KidBubble.show(m.text||'');return;}
-      if(m.type==='nova_done'){self.alive=true;self.reveal('she spoke');NovaSay.log(m.text||'');return;}
-      if(m.type==='status'){
-        if(m.speaking===true){self._micGated=true;Music.duck(true);}
-        else if(m.speaking===false){self._micGated=false;Music.duck(false);}
-      }
-    };
-  },
-  async _startMic(){
-    const self=this;
-    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
-    const ctx=new AudioContext();if(ctx.state==='suspended')await ctx.resume();
-    const src=ctx.createMediaStreamSource(stream);
-    const proc=ctx.createScriptProcessor(4096,1,1);
-    const ratio=ctx.sampleRate/24000;
-    proc.onaudioprocess=(e)=>{
-      if(self._micGated)return;
-      const ch=e.inputBuffer.getChannelData(0);
-      const n=Math.floor(ch.length/ratio),b=new Int16Array(n);
-      for(let i=0;i<n;i++){let s=ch[Math.floor(i*ratio)];if(s>1)s=1;if(s<-1)s=-1;b[i]=s*0x7fff;}
-      const u=new Uint8Array(b.buffer);let x='';for(let i=0;i<u.length;i++)x+=String.fromCharCode(u[i]);
-      if(self.ws&&self.ws.readyState===1)self.ws.send(JSON.stringify({type:'audio',data:btoa(x)}));
-    };
-    src.connect(proc);proc.connect(ctx.destination);
-  },
-  fail(reason){
-    if(this.dead)return;this.dead=true;this.on=false;
-    try{clearTimeout(this._aliveTimer);}catch(_){}
-    const w=$('nova-wait');if(w)w.classList.add('gone');
-    statusEl.textContent='playing without her voice';
-    console.warn('[LIVE] off — silent mode:',reason);
-    Game.readyGate();
-  },
-  _revealed:false,
-  reveal(why){
-    if(this._revealed)return;this._revealed=true;
-    log('[REVEAL]',why);
-    const w=$('nova-wait');if(w)w.classList.add('gone');
-    statusEl.textContent='✓ live Nova';
-    Game.readyGate();
-  },
-  post(msg){try{
-    const t=(msg&&msg.type)||'';
-    if(t==='set-avatar'){if(msg.id)fetch(SARAY_BASE+'set_avatar?id='+encodeURIComponent(msg.id)).catch(()=>{});return;}
-    const map={
-      'nova-say':m=>({type:'nova-say',text:m.text}),
-      'nova-cue':m=>({type:'nova-cue',intent:m.intent,ctx:m.ctx||''}),
-      'nova-persona':m=>({type:'persona',text:m.text}),
-      'nova-fact':m=>({type:'nova-fact',move:m.move}),
-      'nova-pick':m=>({type:'nova-pick',game:m.game}),
-      'hold':m=>({type:'hold',on:!!m.on}),
-      'game-start':m=>({type:'game-start'}),
-    };
-    const mk=map[t];if(!mk)return;
-    if(this.ws&&this.ws.readyState===1)this.ws.send(JSON.stringify(mk(msg)));
-  }catch(_){}},
-  setAvatar(id){
-    if(!this.on)return;
-    try{fetch(SARAY_BASE+'set_avatar?id='+encodeURIComponent(id),{mode:'no-cors',cache:'no-store'}).catch(()=>{});}catch(_){}
-  },
-  cue(intent,ctx){this.post({type:'nova-cue',intent,ctx:ctx||''});},
-  fact(move){this.post({type:'nova-fact',move});},
-  hold(on){this.post({type:'hold',on:!!on});},
-};
+function endRound(){ if (done) return; const R=ROUNDS[round], h=hits[round]||0, v = h>=8?'NAILED':h>=5?'GOOD':'TRIED';
+  if (v==='NAILED') score+=30; K.hud.score(score);
+  if (round<3){ K.setPhase('between'); document.body.dataset.phase='between';
+    const weak = side.R<side.L ? 'right' : 'left';
+    $('cardTitle').textContent=`${v} · ${h}/10`; $('cardLine').textContent = `${iso[round]||0} true isolations. Next round: reach the light further on the ${weak}.`;
+    $('cardBtn').textContent = `Ready for round ${round+2}`; $('card').classList.remove('hidden');
+    K.say(`${v}. ${h} of ten. Reach further on the ${weak} next round. Ready?`);
+    $('cardBtn').onclick = () => { $('card').classList.add('hidden'); startRound(round+1); };
+  } else { done=true; K.stop(); K.setPhase('ending'); document.body.dataset.phase='ending';
+    const total = Object.values(hits).reduce((a,b)=>a+b,0), allNailed = [0,1,2,3].every(i=>(hits[i]||0)>=8); if (allNailed) score+=100;
+    const weak = side.R<side.L ? 'right' : 'left';
+    K.scorecard(score, `${total} slides · ${Object.values(iso).reduce((a,b)=>a+b,0)} true isolations · next time lead the ${weak} side from the ribs, not the shoulders.`);
+    K.say(`${score} points. Lead the ${weak} side from the ribs next time. Good work.`);
+    K.pulse({ score, hits, iso, side, allNailed }); } }
 
-/* ═══ INTRO ARMING ═══ */
-const Intro={
-  _ackPersona:false,_ackPick:false,_tries:0,_timer:null,
-  arm(){
-    if(this._timer)return;
-    const send=()=>{
-      if(this._ackPersona&&this._ackPick){clearInterval(this._timer);this._timer=null;return;}
-      if(this._tries>=10){clearInterval(this._timer);this._timer=null;return;}
-      this._tries++;
-      if(!this._ackPersona)Live.post({type:'nova-persona',text:UB_COACH});
-      if(!this._ackPick)Live.post({type:'nova-pick',game:'upperbody'});
-    };
-    send();this._timer=setInterval(send,2500);
-  },
-  ack(of){
-    if(of==='persona')this._ackPersona=true;
-    if(of==='nova-pick')this._ackPick=true;
-  },
-};
-
-const Music={base:0.65,ducked:0.30,
-  duck(on){try{routine.volume=on?this.ducked:this.base;}catch(_){}}};
-
-/* §LIGHTS — shared engine helpers (block 4): the ISOLATION PAIR — shoulders gold, hips+head dashed */
-function cueTarget(nxt,R){ L.cue({ joint:'shoulderC', dir:nxt.dir, windowMs:R.win*2000, leadMs:R.lead*1000, still:['hipC','head'] }); }
-function cueFreeze(){ L.ice(); L.cue({ joint:'shoulderC', dir:null, windowMs:1000, leadMs:0, still:['lWrist','rWrist','hipC'] }); }
-
-/* mid-round + demo director cues (ONE line law mid-round). Cue the GOLD/target, never a body part. */
-const CUES_R1=[
-  [0.5 ,'Demo begins. Coach the kid to CHASE THE GOLDEN LIGHT side to side. Two tiny lines only — cue the light/target, never a body part.'],
-  [7.2 ,'One tiny line: chase the gold to the side!'],
-  [22.0,'ONE tiny line only, from the facts if any came. Otherwise: reach the gold — keep going!'],
-  [35.2,'Finish pose NOW. Say exactly: FREEZE like me! Then total silence until I give the verdict.'],
-];
-const CUES_LATER=[
-  [22.0,'ONE tiny line only, breathless if the round is fast — cue the gold, not a body part.'],
-  [35.2,'Finish pose NOW. Say exactly: FREEZE like me! Then silence until the verdict.'],
-];
-
-/* §5 + game flow */
-let fire=false;
-const Game={
-  phase:'connect',round:0,targets:[],ti:0,cueIdx:0,
-  score:0,streak:0,facts:0,roundHits:0,roundIso:0,graceUsed:false,
-  roundVerdict:[],sideStats:{R:0,L:0},wob:0,_cd:new Set(),_flow:new Set(),
-
-  /* block 1 — the new core. `out` = mover-engine named joints (normalized). */
-  onPose(out){
-    if(this.phase!=='round')return;
-    const t=routine.currentTime;
-    if(this.round===0 && t<DEMO_END) return;                       // calibrating (E collects)
-    const nxt=this.targets[this.ti]; if(!nxt||nxt.hit) return this.trackWobble();
-    const R=ROUNDS[this.round], w=R.win;
-    if(nxt.dir==='FREEZE') return;                                 // handled in tick (stillness)
-    if(t<nxt.t-w) return;
-    if(t>nxt.t+w){ if(!this.graceUsed&&!nxt.missed){this.graceUsed=true;nxt.grace=true;} nxt.missed=true; this.ti++; L.clearCue('shoulderC'); return; }
-    const r=RULES.ribSlide(E); if(!r) return;                      // shoulderC moved on x; iso = hipC AND head still
-    const side = MIRROR ? (r.side==='L'?'R':'L') : r.side;         // engine works in camera space
-    const g=grade(t,nxt.t,w);
-    const wrong=side!==nxt.dir;
-    if(!wrong || Math.abs(t-nxt.t) < w*.5) this.hit(nxt, r.iso, wrong, g);
-  },
-  trackWobble(){
-    const still=E.isolated('shoulderC',['hipC'],0.12); this.wob = still ? 0 : this.wob+16;
-    if(this.wob>400){ L.warm('hipC'); this.wob=0;
-      if(!this._hipLine){ this._hipLine=true; Live.cue('Their hips are wobbling. ONE playful line: freeze those hips!'); } }
-  },
-  /* block 3 — graded scoring */
-  hit(tg, iso, wrong, g){
-    tg.hit=true; this.ti++; L.clearCue('shoulderC');
-    const R=ROUNDS[this.round]; let pts = R.rate===1 ? 15 : 10;
-    pts = Math.round(pts * ({PERFECT:1.5,GOOD:1.2,OK:1}[g] || 1));
-    if(wrong) pts=Math.round(pts/2);
-    if(iso && R.rate===1){ pts+=10; L.isoShimmer(); this.roundIso++; }
-    if(R.rate>1){ this.streak++; fire=this.streak>=3; L.setFire(fire); $('fire').classList.toggle('hidden',!fire); if(fire) pts*=2; }
-    else { this.streak=0; fire=false; L.setFire(false); $('fire').classList.add('hidden'); }
-    if(this.round===3) pts+=5;
-    this.score+=pts; this.roundHits++; if(!wrong) this.sideStats[tg.dir]++;
-    L.hit('shoulderC', iso?'iso':wrong?'wrong':'good', pts); if(g==='PERFECT') L.flyUp(L.P('shoulderC'),'PERFECT');
-    $('score').textContent=this.score;
-    if(iso && this.facts<4){ this.facts++; Live.fact('torso slide with hips frozen'); }
-  },
-  readyGate(){
-    if(this.phase!=='connect')return;
-    this.phase='ready';$('ready-btn').classList.add('on');
-  },
-  start(){
-    if(this.phase!=='ready')return;
-    $('ready-btn').classList.remove('on');
-    this.startRound(0);
-  },
-  countdown(done){
-    let n=3;const c=$('countdown');c.classList.remove('hidden');c.textContent=n;
-    const t=setInterval(()=>{n--;
-      if(n>0){c.textContent=n;return;}
-      clearInterval(t);c.classList.add('hidden');done();
-    },850);
-  },
-  startRound(i){
-    const go=()=>{
-      this.round=i;this.ti=0;this.cueIdx=0;this.roundHits=0;this.roundIso=0;
-      this.graceUsed=false;this._hipLine=false;this._cd=new Set();this._flow=new Set();
-      this.streak=0;fire=false;L.setFire(false);$('fire').classList.add('hidden');
-      this.sideStats={R:0,L:0};
-      this.targets=TARGETS.map(x=>({...x,hit:false,missed:false,lit:false}));
-      const R=ROUNDS[i];
-      document.querySelectorAll('#roundDots i').forEach((d,j)=>d.classList.toggle('on',j<=i));
-      $('roundTag').textContent=R.label;$('roundTag').classList.remove('hidden');
-      routine.playbackRate=R.rate;try{routine.preservesPitch=true;}catch(_){}
-      routine.currentTime=i===0?0:DEMO_END;
-      routine.volume=Music.base;
-      if(i===0) E.startCal();                                       // round-1 demo doubles as calibration
-      setPhase('round');this.phase='round';
-      if(i===0)Live.post({type:'game-start'});
-      else Live.cue(R.rate>1?'Round '+R.n+' — FASTER! One breathless line.':'Round '+R.n+', slow and stretchy. One tiny line.');
-      routine.play().catch(e=>console.warn('[ROUTINE] play blocked',e));
-      requestAnimationFrame(()=>this.tick());
-    };
-    i===0?go():this.countdown(go);
-  },
-  tick(){
-    if(this.phase!=='round')return;
-    const t=routine.currentTime;
-    const CU=this.round===0?CUES_R1:CUES_LATER;
-    while(this.cueIdx<CU.length&&t>=CU[this.cueIdx][0]){Live.cue(CU[this.cueIdx][1],this._coachCtx());this.cueIdx++;}
-    if(this.round===0 && E.calibrating && t>=DEMO_END) E.finishCal();
-    /* round-1 countdown rides the video clock 12.5→13.5 */
-    if(this.round===0&&t>=12.5&&t<13.6){const n=Math.max(1,Math.ceil(13.5-t));
-      if(!this._cd.has(n)){this._cd.add(n);const c=$('countdown');
-        c.classList.remove('hidden');c.textContent=n;
-        clearTimeout(this._cdT);this._cdT=setTimeout(()=>c.classList.add('hidden'),420);}}
-    /* FLOW beats (former F/B) — a soft unscored pulse, no target advance */
-    for(const ft of FLOW){ if(t>=ft && t<ft+0.2 && !this._flow.has(ft)){ this._flow.add(ft);
-      L.cue({joint:'shoulderC',dir:null,windowMs:600,leadMs:400,still:[]}); } }
-    /* light the NEXT target one lead early */
-    const R=ROUNDS[this.round];
-    const nxt=this.targets[this.ti];
-    if(nxt&&nxt.dir!=='FREEZE'&&!nxt.lit&&t>=nxt.t-R.lead){ nxt.lit=true; cueTarget(nxt,R); }
-    /* FREEZE: ice cue + 1s stillness (RULES.freeze) → +50 */
-    if(nxt&&nxt.dir==='FREEZE'){
-      if(!nxt.lit&&t>=nxt.t-0.5){nxt.lit=true;cueFreeze();}
-      if(t>=nxt.t&&!nxt.hit){
-        const moving = !RULES.freeze(E,0.12).still;
-        if(moving) this._stillT0=performance.now();
-        if(!this._stillT0)this._stillT0=performance.now();
-        if(performance.now()-this._stillT0>=1000*(nxt.hold||1)){
-          nxt.hit=true;this.ti++;L.clearCue('shoulderC');
-          this.score+=50;$('score').textContent=this.score;
-          L.hit('shoulderC','iso',50); L.isoShimmer(); L.flyUp(L.P('shoulderC'),'FROZEN!');
-        }
-      }
-    }
-    if(t>=(routine.duration||38)-0.05)this.endRound();
-    else requestAnimationFrame(()=>this.tick());
-  },
-  endRound(){
-    routine.pause();L.clearCue('shoulderC');
-    const hits=this.roundHits,v=hits>=8?'NAILED':hits>=5?'GOOD':'TRIED';   // rescaled: 10 slide targets
-    this.roundVerdict[this.round]=v;
-    if(v==='NAILED'){this.score+=30;$('score').textContent=this.score;}
-    const vc=$('verdictCard');
-    vc.querySelector('.word').textContent=v+'!';
-    vc.querySelector('.stars').textContent=v==='NAILED'?'⭐⭐⭐':v==='GOOD'?'⭐⭐':'⭐';
-    vc.querySelector('.iso').textContent=this.roundIso?('🧊 hips frozen ×'+this.roundIso):'';
-    vc.classList.remove('hidden');
-    setTimeout(()=>{vc.classList.add('hidden');
-      this.round<3?this.between(v,hits):this.finale();},2200);
-  },
-  stars(v){return v==='NAILED'?'⭐⭐⭐':v==='GOOD'?'⭐⭐':'⭐';},
-  _coachCtx(){
-    const s=this.sideStats||{};
-    const sides=[['right',s.R||0],['left',s.L||0]];
-    sides.sort((a,b)=>b[1]-a[1]);
-    return 'best side '+sides[0][0]+' ('+sides[0][1]+'), needs love '+sides[1][0]+
-      ' ('+sides[1][1]+'), hips-frozen count '+(this.roundIso||0);
-  },
-  between(v,hits){
-    this.phase='between';setPhase('between');
-    $('roundTag').classList.add('hidden');
-    const nextR=ROUNDS[this.round+1];
-    Live.cue('Round '+(this.round+1)+' done: '+v+', '+hits+' of 10 slides. Coach from these facts, two tiny '+
-      'lines: praise the best side, wake the weakest ("reach the light further next round"). Then ask: ready for '+nextR.label+'?',
-      this._coachCtx());
-    this._card('🌟 '+ROUNDS[this.round].label+' — '+v+'!','▶ '+nextR.label+'!');
-  },
-  _card(title,btnText){
-    const sc=$('scorecard');
-    sc.querySelector('h2').textContent=title;
-    const rows=$('sc-rows');rows.innerHTML='';
-    for(let i=0;i<4;i++){
-      if(this.roundVerdict[i]==null)continue;
-      rows.insertAdjacentHTML('beforeend',
-        '<div class="row"><span>'+ROUNDS[i].label+'</span><span class="stars">'+
-        this.stars(this.roundVerdict[i])+'</span></div>');
-    }
-    $('sc-total').textContent='⭐ '+this.score+' points';
-    $('sc-btn').textContent=btnText;
-    sc.classList.remove('hidden');
-  },
-  nextRound(){
-    $('scorecard').classList.add('hidden');
-    this.startRound(this.round+1);
-  },
-  finale(){
-    this.phase='ending';setPhase('ending');
-    $('roundTag').classList.add('hidden');
-    const allNailed=this.roundVerdict.length===4&&this.roundVerdict.every(x=>x==='NAILED');
-    if(allNailed){this.score+=100;$('score').textContent=this.score;}
-    try{fetch('/pulse',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({game:'upperbody',score:this.score,verdicts:this.roundVerdict})})
-      .then(r=>r.json()).then(d=>log('[PULSE] row:',JSON.stringify(d.row)))
-      .catch(e=>console.warn('[PULSE] failed',e));}catch(_){}
-    Live.cue('GAME OVER! Total '+this.score+' points, rounds: '+this.roundVerdict.join('/')+
-      (allNailed?' — ALL FOUR NAILED!':'')+'. Celebrate with the real number: your torso dances ALONE — '+
-      this.score+' points! Then ask: did you have fun? Then a warm goodbye — same time tomorrow?');
-    this._card(allNailed?'🏆 PERFECT — ALL 4 NAILED!':'🏆 Final score!','🔁 PLAY AGAIN');
-  },
-  paused:false,
-  togglePause(){
-    if(this.phase!=='round')return;
-    this.paused=!this.paused;
-    if(this.paused){routine.pause();Live.hold(true);$('pauseBtn').textContent='▶';}
-    else{Live.hold(false);$('pauseBtn').textContent='⏸';
-      this.countdown(()=>{routine.play().catch(()=>{});requestAnimationFrame(()=>this.tick());});}
-  },
-};
-
-/* ═══ boot ═══ */
-$('ready-btn').addEventListener('click',()=>Game.start());
-$('sc-btn').addEventListener('click',()=>{
-  if(Game.phase==='between')Game.nextRound();
-  else location.reload();
-});
-$('pauseBtn').addEventListener('click',()=>Game.togglePause());
-$('exitBtn').addEventListener('click',()=>{try{Live.hold(true);}catch(_){}location.href='/';});
-(async()=>{
-  setPhase('intro');
-  try{
-    camEl.srcObject=await navigator.mediaDevices.getUserMedia({video:{width:960,height:720},audio:false});
-    await camEl.play().catch(()=>{});
-  }catch(e){statusEl.textContent='camera blocked — she can\'t see you';}
-  // pose runs from boot: each frame → mover-engine → light joints → the game core
-  try{ await startPose(camEl, k => { const out=E.update(k); L.setJoints(out); Game.onPose(out); }); }
-  catch(e){ statusEl.textContent='playing without tracking'; }
-  Live.init();
-})();
-</script>
-</body>
-</html>
+$('again').onclick=()=>location.reload();
+K.boot((ref)=>{ K.start(); startRound(0); });
+</script></body></html>
