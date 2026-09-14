@@ -376,6 +376,23 @@ const DANCE_CUES = [
   { at:119.0, text:'LAST DANCE — everything! 🔥' },
   { at:131.2, text:'YOU DID IT! 🎉' },
 ];
+/* HEBREW GAME TEXT (nephew test 2026-09-13): the ?lang=he dict below translated only the
+   start/pause/ready SCREENS — every in-game cue stayed English, so a Hebrew session showed
+   "So close to stone!" over a Hebrew-speaking Nova (founder saw it on video). Same cue
+   times, Hebrew words. */
+const DANCE_CUES_HE = [
+  { at: 2.0,  text:'רוקדים רוקדים רוקדים! 💃' },
+  { at: 17.0, text:'מתנערים! ✨' },
+  { at: 29.0, text:'שוב רוקדים! 🎵' },
+  { at: 43.0, text:'זמן להתפתל! 🌀' },
+  { at: 55.0, text:'בקצב! 🕺' },
+  { at: 71.0, text:'שרדתם את התרגיל! 😜' },
+  { at: 84.0, text:'בקצב! 🕺' },
+  { at: 96.0, text:'מתנדנדים! ✨' },
+  { at:108.0, text:'עוד קצת — רוקדים! 🔥' },
+  { at:119.0, text:'הריקוד האחרון — הכול! 🔥' },
+  { at:131.2, text:'הצלחתם! 🎉' },
+];
 const SONG_END = 131.6;
 
 /* ENERGY LADDER (2026-07-27) map: dance1=sub · dance2-3=active · dance4+=hype(→nova_active) */
@@ -593,7 +610,7 @@ const Live = {
       inp.placeholder='type to Nova…';
       inp.style.cssText='width:180px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);'+
         'color:#fff;border-radius:8px;padding:8px;font-family:inherit';
-      const btn=document.createElement('button'); btn.textContent='Send';
+      const btn=document.createElement('button'); btn.textContent=LANG_HE?'שלח':'Send';
       btn.style.cssText='background:#5aa2ff;color:#fff;border:0;border-radius:8px;padding:8px 14px;cursor:pointer';
       const sendTxt=()=>{ const t=inp.value.trim(); if(!t) return; inp.value='';
         try{ if(this.ws&&this.ws.readyState===1) this.ws.send(JSON.stringify({type:'text',text:t})); }catch(_){} };
@@ -768,7 +785,7 @@ const Live = {
        audio bug that was actually this fallback. The kid still gets a friendly line; an
        adult can now tell the difference at a glance. */
     $('nova-tag').textContent='🌟 Nova · 💤 voice napping';
-    statusEl.textContent='Nova is dancing quietly (voice offline)';
+    statusEl.textContent=LANG_HE?'נובה רוקדת בשקט (הקול לא זמין)':'Nova is dancing quietly (voice offline)';
     try{ console.warn('[LIVE] off → clip-bank fallback (SILENT MODE):', reason); }catch(_){}
   },
   /* ═══ REVEAL GATE (2026-08-05) ═══════════════════════════════════════════════
@@ -1422,7 +1439,16 @@ const Flash = {
    data + memory; goodbye names the best animal. Pod-down: varied local pools (no repeats). */
 const Fallback = {
   used:new Set(),
-  pools:{
+  /* pod-down pools — shown on screen, so they follow ?lang=he too (nephew test 2026-09-13) */
+  pools: LANG_HE ? {
+    warn:['שששש… מתכוננים…','עוד רגע קופאים…','הקיפאון מתקרב…','תכף לא זזים…'],
+    warnHard:['מהר — קופאים עוד רגע!','קיפאון פתאומי מתקרב!','פסל מהיר בדרך!'],
+    boom:['יש! קפאת לגמרי!','וואו! פסל מושלם!','קיפאון מדהים!','אלוף הקרח!','קפאת!','מדהים!'],
+    fake:['סתם צחקתי — זזים!','עבדתי עליכם — רוקדים!','תפסתי אתכם — ממשיכים!'],
+    moved:['זזת! בפעם הבאה קופאים ❄️','כמעט — בסיבוב הבא בלי לזוז! 💙','בפעם הבאה קופאים חזק! 🧊'],
+    ready:['מוכנים? יוצאים לדרך!','מתכוננים לקפוא!','מוכנים לקסם?'],
+    bye:['ריקוד מדהים היום!','הייתם מדהימים!','נתראה בפעם הבאה!'],
+  } : {
     warn:['shhh… get ready…','statue time soon…','freeze coming…','hold still soon…'],
     warnHard:['quick — freeze incoming!','snap-freeze soon!','fast statue coming!'],
     boom:['YES! Frozen solid!','WOW! Perfect statue!','Amazing freeze!','Ice legend!','You froze it!','Incredible!'],
@@ -1466,7 +1492,7 @@ function tick(){
   const t=Music.t();
 
   if(!G.freeze){
-    DANCE_CUES.forEach((c,i)=>{ if(t>=c.at && !G.fired.c.has(i)){ G.fired.c.add(i); FX.cue(c.text); }});
+    (LANG_HE?DANCE_CUES_HE:DANCE_CUES).forEach((c,i)=>{ if(t>=c.at && !G.fired.c.has(i)){ G.fired.c.add(i); FX.cue(c.text); }});
     tickTier(t);                                   // ENERGY LADDER: she escalates with the game
     /* ═══ READY.md SCHEDULER (2026-08-27) ═════════════════════════════════════════
        AUDIO already carries the whole round (strip/sting/slam — scheduled sample-exact
@@ -1531,7 +1557,8 @@ function startFreeze(def,idx){
   setPhase(PH.HOLD);                                   // absolute silence: no generations
   AirVoice.cut();                                      // and nothing mid-air spills into the hold
   FX.frostOn(); FX.badge(c.emo, def.final?('BIG '+c.name+'!'):(c.name+'!'));
-  FX.cue(def.stab?'AGAIN?! FREEZE! 🧊':'FREEZE! 🧊',false,def.hold*1000);
+  FX.cue(LANG_HE ? (def.stab?'שוב?! קופאים! 🧊':'קופאים! 🧊')
+                 : (def.stab?'AGAIN?! FREEZE! 🧊':'FREEZE! 🧊'), false, def.hold*1000);
   ring.classList.add('show'); ring.style.setProperty('--p',0);
 }
 
@@ -1574,17 +1601,21 @@ function endFreeze(){
   if(!G.best || f.stillMs>G.best.heldMs) G.best={name, heldMs:f.stillMs, frac};   // best = stillest freeze
   FX.frostOff(); FX.badgeOff(); ring.classList.remove('show');
   if(pts>0){ FX.shatter(); G.addScore(pts); FX.fly('+'+pts); $('stamp'+f.idx).classList.add('got'); G.stamps.push(f.idx); }
-  else { FX.fly('MOVED!'); }                            // danced through it → no points, no stamp
-  const lines= froze ? ['PERFECT STATUE! 🌟','FROZEN SOLID! ❄️','ICE LEGEND! 💎']
-             : !moved ? ['Almost! Tiny wiggle ✨','So close to stone! 🧊']
-                      : ['You moved! Freeze next time ❄️','Keep dancing… then FREEZE! 💃'];
+  else { FX.fly(LANG_HE?'זזת!':'MOVED!'); }             // danced through it → no points, no stamp
+  const lines= LANG_HE
+       ? (froze ? ['פסל מושלם! 🌟','קפאת לגמרי! ❄️','אלוף הקרח! 💎']
+        : !moved ? ['כמעט! רק רעד קטן ✨','עוד רגע והיית פסל! 🧊']
+                 : ['זזת! בפעם הבאה קופאים ❄️','ממשיכים לרקוד… ואז קופאים! 💃'])
+       : (froze ? ['PERFECT STATUE! 🌟','FROZEN SOLID! ❄️','ICE LEGEND! 💎']
+        : !moved ? ['Almost! Tiny wiggle ✨','So close to stone! 🧊']
+                 : ['You moved! Freeze next time ❄️','Keep dancing… then FREEZE! 💃']);
   FX.cue(lines[Math.floor(Math.random()*lines.length)]);
 }
 
 /* ═══ flow: start → countdown → play · pause → countdown → resume ═══ */
 async function countdown(){
   countEl.style.display='flex';
-  for(const n of ['3','2','1','GO!']){ countEl.textContent=n; await new Promise(r=>setTimeout(r,700)); }
+  for(const n of ['3','2','1',LANG_HE?'קדימה!':'GO!']){ countEl.textContent=n; await new Promise(r=>setTimeout(r,700)); }
   countEl.style.display='none';
 }
 /* ═══ PRE-GAME READY GATE — Nova loads + greets, asks "ready?", and the MUSIC only
@@ -1628,7 +1659,7 @@ async function runReadyGate(){
   while(!Live.alive && !Live.dead && Date.now()-t0<60000){ await new Promise(r=>setTimeout(r,250)); }
   if(!Live.alive && !Live.dead){
     console.warn('[GATE] Nova never spoke in 60s — offering manual start instead of a silent countdown');
-    statusEl.textContent='Nova is quiet — tap PLAY ANYWAY to start';
+    statusEl.textContent=LANG_HE?'נובה שקטה — לחצו כדי להתחיל בכל זאת':'Nova is quiet — tap PLAY ANYWAY to start';
     const b=document.createElement('button'); b.id='play-anyway';
     b.textContent='▶ PLAY ANYWAY (no voice)';
     b.style.cssText='position:fixed;left:50%;bottom:16%;transform:translateX(-50%);z-index:120;'+

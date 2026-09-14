@@ -11,7 +11,20 @@
 <!-- LAW-DIRECT-VOICE: ?voiceonly&direct=1 → browser↔OpenAI Realtime WebRTC, worker never touches audio -->
 <script src="nova-direct-voice.js"></script>
 <script src="nova-ending.js"></script>
+<!-- F2/F3 (nephew test 2026-09-13): language + gender persist once and ride on EVERY launch
+     URL. Deferred (module), so the lang IIFE below has already written localStorage
+     'nova-lang' when it reads — the two agree by construction, same key. -->
+<script type="module" src="shared/nova-lang.js"></script>
 <script>
+/* F3 (nephew test 2026-09-13): ONE way to leave this page for a game. The old
+   `href + location.search` only carried the language when it happened to be in the URL —
+   a kid whose parent picked Hebrew in-app launched an ENGLISH game. novaGo() routes through
+   NovaLang.url() (lang + gender from localStorage) and falls back to the old behaviour. */
+function novaGo(href){
+  try { if (window.NovaLang && window.NovaLang.url) { window.location.href = window.NovaLang.url(href); return; } }
+  catch(_){}
+  window.location.href = href + location.search;
+}
 /* ═══ HEBREW LAYER (2026-07-15) — ?lang=he · persisted to localStorage nova-lang ═══
    English is the default and renders EXACTLY as before (en pack = the page's original
    strings; the DOM applier only runs for he). All UI text lives here — L[key].{en,he}. */
@@ -1566,25 +1579,34 @@ if (/[?&]debug\b/.test(location.search)) document.documentElement.classList.add(
         <div class="picker-emoji">👋</div>
         <div class="picker-name" data-l="songHello">Hello Hello!</div>
       </button>
-      <button class="picker-card joined-card" onclick="pickGame('joined')">
+      <!-- UP GROOVE PULLED (F4, nephew test 2026-09-13): the kid picked Up Groove and got
+           FREEZE gameplay — up-groove.html on main is still the old freeze-clone build (the
+           movement rewrite lives unmerged on `master-fix`), and its greet came out in English.
+           A fake game must not be reachable by a kid. Card only: pickGame('joined'), the
+           choreo JSON and every string stay put, so ?game=joined still runs it and restoring
+           is a one-block paste (same precedent as Bounce Groove below). -->
+      <!-- <button class="picker-card joined-card" onclick="pickGame('joined')">
         <div class="picker-emoji">🕺</div>
         <div class="picker-name" data-l="songJoined">Up Groove!</div>
-      </button>
+      </button> -->
       <!-- FREEZE: SONGS.freeze has existed with freeze.mp3 + TIMELINE_FREEZE_RAW,
            but never had a picker button — the game was unreachable until now. -->
-      <button class="picker-card freeze-card" onclick="window.location.href='animal-freeze.html'+location.search">
+      <button class="picker-card freeze-card" onclick="novaGo('animal-freeze.html')">
         <div class="picker-emoji">🧊</div>
         <div class="picker-name" data-l="songFreeze">Freeze Dance!</div>
       </button>
       <!-- UPPERBODY (2026-08-28): first-party pod game, Freeze pattern (launcher upperbody.html). -->
-      <button class="picker-card upperbody-card" onclick="window.location.href='upperbody.html'+location.search">
+      <button class="picker-card upperbody-card" onclick="novaGo('upperbody.html')">
         <div class="picker-emoji">💃</div>
         <div class="picker-name" data-l="songUpperbody">Upper Body!</div>
       </button>
-      <button class="picker-card wave-card" onclick="pickGame('wave')">
+      <!-- WAVE PULLED (F4, nephew test 2026-09-13): same freeze-clone problem as Up Groove,
+           and the founder rejected the beta Wave's look ("black void, silent, no shell") on
+           the same day. Card only — ?game=wave still runs it. -->
+      <!-- <button class="picker-card wave-card" onclick="pickGame('wave')">
         <div class="picker-emoji">🌊</div>
         <div class="picker-name" data-l="songWave">Wave!</div>
-      </button>
+      </button> -->
       <!-- PREGAMES-V1 (2026-07-17): video-led session games — the committed session
            recordings ARE the game (video = clock, cues ride video.currentTime). -->
       <button class="picker-card wavemagic-card" onclick="pickGame('wavemagic')">
@@ -1968,7 +1990,9 @@ function goToPicker(){
     c.classList.remove('recommended');
     c.removeAttribute('data-pick-label');
   });
-  const rec = (age && age <= 6) ? '.hello-card' : '.joined-card';   // younger kids → simpler arm moves
+  // F4 (2026-09-13): was '.joined-card' — Up Groove is pulled from the picker, so the
+  // recommendation for older kids now points at the certified game.
+  const rec = (age && age <= 6) ? '.hello-card' : '.freeze-card';   // younger kids → simpler arm moves
   const recCard = document.querySelector(rec);
   if (recCard) {
     recCard.classList.add('recommended');
@@ -2044,7 +2068,7 @@ function pickGame(songId){
   // from BOTH the card tap and the voice pick (both funnel through here). Freeze keeps its
   // own card redirect too; this is belt-and-braces for its voice pick.
   const DEDICATED_PAGE = { joined: 'up-groove.html', freeze: 'animal-freeze.html' };
-  if (DEDICATED_PAGE[songId]) { window.location.href = DEDICATED_PAGE[songId] + location.search; return; }
+  if (DEDICATED_PAGE[songId]) { novaGo(DEDICATED_PAGE[songId]); return; }
   if(typeof markUserInteraction === 'function') markUserInteraction();
   // GAME-MATCHED WARMUP (2026-07-27): her mini-challenge fits the picked game — never a
   // freeze cue for Up Groove. One line, then the transition carries on.

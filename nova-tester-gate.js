@@ -95,27 +95,36 @@
     if (consentEl) { consentEl.hidden = false; return; }
     consentEl = document.createElement('div'); consentEl.className = 'ntg'; consentEl.id = 'ntg-consent';
     if (HE) consentEl.dir = 'rtl';
+    // F2 (nephew test 2026-09-13): the card carries id="consentGate" + id="consentStart"
+    // so shared/nova-lang.js can mount the בן/בת picker here — Hebrew is gendered and she
+    // addressed a boy in the feminine all session.
     consentEl.innerHTML =
-      '<div class="ntg-card">' +
+      '<div class="ntg-card" id="consentGate">' +
       '<h2></h2><p></p>' +
       '<label class="ntg-check"><input type="checkbox" id="ntg-cb"><span></span></label>' +
-      '<button class="ntg-btn" id="ntg-go" disabled></button>' +
+      '<button class="ntg-btn start" id="consentStart" disabled></button>' +
       '<div class="ntg-lock">🔒 <span id="ntg-lk"></span></div>' +
       '</div>';
     consentEl.querySelector('h2').textContent = T.cTitle;
     consentEl.querySelector('p').textContent = T.cBody;
     consentEl.querySelector('.ntg-check span').textContent = T.cCheck;
-    var btn = consentEl.querySelector('#ntg-go'); btn.textContent = T.cBtn;
+    var btn = consentEl.querySelector('#consentStart'); btn.textContent = T.cBtn;
     consentEl.querySelector('#ntg-lk').textContent = HE ? 'ללא הקלטה · ללא אחסון' : 'no recording · no storage';
     var cb = consentEl.querySelector('#ntg-cb');
     cb.addEventListener('change', function () { btn.disabled = !cb.checked; });
     btn.addEventListener('click', function () {
       if (!cb.checked) return;
+      // F2: a gender must be picked before we start — nova-lang.js renders the prompt and
+      // colours it red on a bare click. (Its own .onclick wrapper cannot block this
+      // listener, which was registered first, so the check lives here too.)
+      try { if (window.NovaLang && !localStorage.getItem('nova-gender')) return; } catch (_) {}
       consentGranted = true;
       consentEl.hidden = true;
       try { consentResolve(); } catch (_) {}
     });
     document.body.appendChild(consentEl);
+    // F2: the gate exists now — let nova-lang.js add the בן/בת picker (no-op if absent)
+    try { if (window.NovaLang && window.NovaLang.mountGender) window.NovaLang.mountGender(); } catch (_) {}
   }
 
   /* ── boot: waking until a pod is live ────────────────────────────────────── */
