@@ -71,12 +71,15 @@ black margins) for intro/end, `full` (full body) for the play corner.
 · **Files:** nova-commercial.html · **Added:** 2026-07-27 · **Why:** wrong
 framing = black margins or a cropped kid. See also `law-ambient` (pod-side).
 
-### law-shoulder — intro chit-chat gate
-On intro, Nova chit-chats first and does not fire the shoulder challenge for 25s;
-a 35s fallback fires it if the natural moment never comes. **Marker:**
-`__introChatT0`, `35s fallback` · **Files:** nova-commercial.html · **Added:**
-2026-07-27 · **Why:** firing too early skips the warm-up; never firing strands
-the intro.
+### law-shoulder — the shoulder beat is name-gated, never clock-gated
+Nothing reaches the brain before the child's name is captured. The beat arms on
+that event; the only clock left is one 45s no-name safety. A timeout never counts
+as a win — it releases, and she never claims she saw a shrug. **Marker:**
+`__introChatT0`, `nova-name-captured`, `45s no-name safety` · **Files:**
+nova-commercial.html · **Added:** 2026-07-27 · **Rewritten:** 2026-09-14
+(INTRO-V2V) · **Why:** the old 25s gate and 35s fallback fired on a clock, over a
+child who was still answering — and the third trigger was an English-only regex on
+her own transcript, so a Hebrew session could only ever reach the shoulder blind.
 
 ### law-mp4leads — Wave MP4 leads
 The `__mp4Leads` gate decides whether the live pitch-plan or the baked MP4 owns
@@ -237,7 +240,7 @@ law-autoplay   | active | nova-commercial.html,animal-freeze.html               
 law-truth      | active | nova-commercial.html                                    | TRUTH GATE
 law-transcript | active | nova-commercial.html                                    | nova-said ;; HEARD ;; tapLogBuffer
 law-frames     | active | nova-commercial.html                                    | __sarayFrameMode ;; __sarayFrameMode('full ;; __sarayFrameMode('closeup
-law-shoulder   | active | nova-commercial.html                                    | __introChatT0 ;; 35s fallback
+law-shoulder   | active | nova-commercial.html                                    | __introChatT0 ;; nova-name-captured
 law-mp4leads   | active | nova-commercial.html                                    | __mp4Leads ;; MP4_LEADS
 law-endings    | active | nova-commercial.html,animal-freeze.html,nova-ending.js  | nova-ending ;; NEVER a zero
 law-mirror     | active | nova-commercial.html                                    | MIRROR_MAP
