@@ -444,7 +444,7 @@ async def relay(request):
                         f = aiohttp.FormData()
                         f.add_field("file", _wb, filename="w.wav", content_type="audio/wav")
                         f.add_field("model", "gpt-4o-transcribe")
-                        f.add_field("prompt", "ילד או ילדה בני שש מדברים עברית במשחק ריקוד. מילים נפוצות: כן, לא, מוכן, מוכנה, נובה, קופאים, דוב, כוכב, פלמינגו, צפרדע, פסל."); f.add_field("language", "he")
+                        f.add_field("language", "he")
                         async with aiohttp.ClientSession() as _ws_:
                             async with _ws_.post("https://api.openai.com/v1/audio/transcriptions",
                                                  headers={"Authorization": "Bearer " + KEY},
@@ -774,8 +774,13 @@ async def relay(request):
                     def _form():
                         f = aiohttp.FormData()
                         f.add_field("file", bio.getvalue(), filename="utt.wav", content_type="audio/wav")
+                        # NO transcription `prompt` hint here, ever. A vocabulary hint was added
+                        # 2026-09-14 to help with Hebrew kid speech; on near-silent audio the
+                        # model does not transcribe, it PARROTS THE PROMPT BACK — the founder's
+                        # log shows two of his turns returning the word list verbatim, which then
+                        # validated as real kid turns. A quiet mic must produce silence, not a
+                        # sentence. (The model upgrade mini -> full stays; only the hint is gone.)
                         f.add_field("model", "gpt-4o-transcribe")
-                        f.add_field("prompt", "ילד או ילדה בני שש מדברים עברית במשחק ריקוד. מילים נפוצות: כן, לא, מוכן, מוכנה, נובה, קופאים, דוב, כוכב, פלמינגו, צפרדע, פסל.")
                         f.add_field("language", "he" if _hebrew else "en")
                         return f
                     async with aiohttp.ClientSession() as _s:

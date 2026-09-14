@@ -26,7 +26,7 @@
   /* ── SET THIS ─────────────────────────────────────────────────────────────
      The pod id of the CURRENTLY RUNNING pod. null = no known-live pod, so
      call sites use their legacy fallback. */
-  var ACTIVE = '7fr8qobn46tuk1';
+  var ACTIVE = '99ndd4y5dj4hou';
 
   /* ── LIVE-POD AUTO-DETECTION (2026-08-29, founder: "yes build it") ────────
      THE PROBLEM THIS KILLS: pods die (suicide timers, founder closes them) and
