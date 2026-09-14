@@ -930,30 +930,33 @@ const Live = {
      only when readyState===1 — so both were dropped SILENTLY. No error, no ack, and
      a preflight that opened its own socket with ?intro=freeze passed happily while a
      real browser load produced no freeze intro at all.
-     NOW: fire only on the pod page's ws-open signal, and retry every 1s until the
-     brain ACKs, max 10 tries. Every try and every ack is logged to the console. */
-  _ackPersona:false, _ackPick:false, _introTries:0, _introTimer:null,
+     NOW: fire only on the pod page's ws-open signal.
+     INTRO-V2V (2026-09-14, founder spec §5): this used to re-send persona + pick EVERY
+     SECOND for up to 10 tries. The brain ACKs on the first one, so tries 2-10 were pure
+     spam — the server logged `[PICK] duplicate ignored` over and over, and every resend
+     is another session.update racing the intro. Once on ws-open, then 2s and 5s only if
+     no ACK, then stop. Three sends per session, maximum. */
+  _ackPersona:false, _ackPick:false, _introTries:0, _introTimers:[],
+  RETRY_AT:[2000, 5000],                               // ms after the first send; that is all
   armIntro(){
-    if(this._introTimer) return;                       // already arming
+    if(this._introTries) return;                       // already armed this session
     const send = ()=>{
       if(this._ackPersona && this._ackPick){
-        console.log('[INTRO] ACKed by brain after '+this._introTries+' try(s) — done');
-        clearInterval(this._introTimer); this._introTimer=null; return;
-      }
-      if(this._introTries >= 10){
-        console.warn('[INTRO] GAVE UP after 10 tries — persona ack='+this._ackPersona+' pick ack='+this._ackPick);
-        clearInterval(this._introTimer); this._introTimer=null; return;
+        console.log('[INTRO] ACKed by brain after '+this._introTries+' send(s) — done');
+        this._introTimers.forEach(clearTimeout); this._introTimers.length=0; return;
       }
       this._introTries++;
-      console.log('[INTRO] try '+this._introTries+'/10 — sending persona + nova-pick');
+      console.log('[INTRO] send '+this._introTries+'/'+(this.RETRY_AT.length+1)+' — persona + nova-pick');
       if(!this._ackPersona){
         this.post({type:'nova-persona', text:TENSION_MASTER});
         this.post({type:'set_persona',  text:TENSION_MASTER});
       }
       if(!this._ackPick) this.post({type:'nova-pick', game:'freeze'});
+      if(this._introTries > this.RETRY_AT.length)
+        console.warn('[INTRO] no ACK after '+this._introTries+' sends — persona ack='+this._ackPersona+' pick ack='+this._ackPick);
     };
-    send();                                            // immediate first try on ws-open
-    this._introTimer = setInterval(send, 1000);
+    send();                                            // immediate first send on ws-open
+    this._introTimers = this.RETRY_AT.map(ms => setTimeout(send, ms));
   },
   onAck(of){
     if(of==='persona')   { this._ackPersona=true; console.log('[INTRO] ACK persona'); }

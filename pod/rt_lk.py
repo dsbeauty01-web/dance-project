@@ -47,15 +47,16 @@ PROMPT = (
     "2. NAME ECHO: ONE warm line, 12 words max, repeating their EXACT name. No name heard = say 'nice to meet you!' — never invent one. Then never mention the name again; in the SAME beat, move to the light.\n"
     "3. THE MAGIC LIGHT (fires ONCE per session): say — 'A magic light — do you SEE it on your shoulder?' Invite ONE little shrug. When your notes confirm the shoulder moved, celebrate THAT shrug ONCE by name (an isolation), then move on. NO move reported = ONE gentle re-invite, then move on warmly to the games — never nag, never ask twice, zero fail-feel.\n"
     "INTRO TEMPO: every intro line 12 words max; keep the WHOLE intro under 40 seconds, always moving toward the dance.\n"
-    "4. OFFER THE GAMES: right after the shrug win, in ONE line say exactly the spirit of: "
-    "'Want to dance?! We've got Freeze, Wave, and Up Groove — which one do you like?'\n"
+    "4. OFFER THE GAME: right after the shrug win, in ONE line say exactly the spirit of: "
+    "'Want to dance?! Let's play Freeze!' Freeze is the ONLY game available right now — "
+    "Up Groove and Wave were pulled from the picker on 2026-09-13, so never offer them; if a "
+    "kid asks for one, say warmly that it is resting today and bring them to Freeze.\n"
     "5. READINESS (after they pick, ONE short line):\n"
     "   - FREEZE: ask 'can you show me a FREEZE?'. If a freeze demo is playing on you right now, say 'like this!'; "
     "if it is not, describe it in words only ('like a statue — don't move!'). Never claim to show what you can't.\n"
-    "   - WAVE or UP GROOVE: ask 'can you lift a hand UP?' and wait for them to do it.\n"
     "6. START: when your notes say they lifted a hand or froze, or they say 'start', jump straight into the "
     "game with ONE quick go-line.\n"
-    "Follow the flow: greet -> name -> shoulder light -> offer Freeze, Wave, Up Groove -> readiness action -> play. "
+    "Follow the flow: greet -> name -> shoulder light -> offer Freeze -> readiness action -> play. "
     "Short lines. Never name or praise a move your notes did not report. If the kid is silent, one gentle try, "
     "then wait quietly.\n"
     "NAME LAW: repeat the kid's name EXACTLY as you heard it, sound for sound — never 'correct' or "
@@ -69,9 +70,8 @@ PROMPT = (
     "move. Silence, mumbles, or your own question do NOT count as yes.\n"
     "FRESH LAW: never say the exact same sentence twice in one session — word every line, especially "
     "deflections, freshly.\n"
-    "SIMPLE-FLOW LAW (follow exactly): light shrug -> offer the 3 games -> they PICK -> ONE short "
-    "game-matched challenge (Freeze='show me a FREEZE, hold still!'; Wave='lift a hand and wave!'; "
-    "Up Groove='bounce your knees!') -> then PLAY. ONE challenge per game, then play. Never pile on "
+    "SIMPLE-FLOW LAW (follow exactly): light shrug -> invite them to Freeze -> ONE short "
+    "challenge ('show me a FREEZE, hold still!') -> then PLAY. ONE challenge, then play. Never pile on "
     "extra moves, extra challenges, or extra questions.\n"
     "DUAL-INPUT LAW: the kid can answer you TWO ways — by talking OR by DOING the move (a magic sensor "
     "sees their body, so a real shrug / freeze / hand-up counts as a 'yes' even with no words). Only "
@@ -209,7 +209,7 @@ def session_update(freeze=False, voice=None, lang="en", gender=""):
                                          # behind Nova's re-invite (he-17). 600 threads both.
                                          "prefix_padding_ms": 300, "silence_duration_ms": 600,
                                          "create_response": False, "interrupt_response": False},
-                      "transcription": {"model": "gpt-4o-mini-transcribe", "language": lang}},
+                      "transcription": {"model": "gpt-4o-transcribe", "language": lang}},
             "output": {"format": {"type": "audio/pcm", "rate": 24000}, "voice": (voice or VOICE)}},
         "max_output_tokens": "inf"}}
 
@@ -308,6 +308,38 @@ async def relay(request):
         # can/ken = Whisper's English spelling of כן, learned in he-2)
         YES_RE = _re.compile(r"(\b(yes|yeah|yep|ready|ok|okay|can|ken)\b|כן|קן|יאללה|מוכן|מוכנה|בטח|סבבה|אוקיי|קדימה)", _re.I)
     hidx = {"i": 0}
+    # ═══ INTRO-V2V (founder spec 2026-09-14) ═══════════════════════════════════════════
+    # ASK-LOCK — the WAIT LAW, enforced in code rather than requested in a prompt.
+    # The founder watched her ask "what's your name?" and then talk straight over the child
+    # while he was answering: a page cue or a timer fired into the gap her own question had
+    # opened. From the moment she finishes asking something until the child actually answers,
+    # this lock holds every producer send. Page cues are QUEUED (never dropped — she still
+    # gets told, just after he has had his turn); the 13s re-invite is the single exception,
+    # and it re-locks so it can only ever fire once per silence.
+    ask_lock = {"on": False, "since": 0.0}
+    ASK_RE = _re.compile(r"[?？؟]\s*$", _re.M)
+    cue_queue = []          # [(kind, payload)] held while she waits for an answer
+    def _instr(en, he):
+        """Every automatic instruction in two languages. Until now silence_watch() spoke only
+           English, so in a Hebrew session she was translating her own orders mid-beat while
+           the persona simultaneously ordered 'English only'."""
+        return he if _hebrew else en
+    def ask_lock_set(why=""):
+        if not ask_lock["on"]:
+            ask_lock["on"] = True; ask_lock["since"] = time.time()
+            print("[ASK-LOCK] set" + ((" (" + why + ")") if why else ""), flush=True)
+    async def ask_lock_clear(by):
+        if not ask_lock["on"]:
+            return
+        ask_lock["on"] = False
+        print("[ASK-LOCK] cleared-by=" + by, flush=True)
+        while cue_queue:                      # nothing is lost — the held cues land now
+            kind, payload = cue_queue.pop(0)
+            try:
+                await oai.send_json(payload)
+                print("[ASK-LOCK] flushed " + kind, flush=True)
+            except Exception as _e:
+                print("[ASK-LOCK] flush err", _e, flush=True)
     # #4 GARBLE-IGNORE: <3 chars or mostly-non-latin nonsense = not real input.
     def is_garble(t):
         t = (t or "").strip()
@@ -340,7 +372,6 @@ async def relay(request):
     # the engine NEVER gets it, so lips never move on the groove body.
     sgate = {"on": False, "mode": "hard", "credit": 0}
     LIGHT_WAIT = 10.0
-    LIGHT_INVITE_RE = _re.compile(r"(magic light|on your shoulder|little shrug|shoulder.*(shrug|wiggle|lift))", _re.I)
     # #5 STATUE SILENCE: from her freeze call-out until a hold-fact/move-on, her mouth is CLOSED
     # (one optional whisper allowed). #3 FREEZE = REAL HOLD: praise only on a 'freeze_held' fact.
     statue = {"active": False, "ts": 0.0, "whispered": False, "allow": False}
@@ -412,7 +443,8 @@ async def relay(request):
                         with open("/workspace/warmup_he.wav", "rb") as _f: _wb = _f.read()
                         f = aiohttp.FormData()
                         f.add_field("file", _wb, filename="w.wav", content_type="audio/wav")
-                        f.add_field("model", "gpt-4o-mini-transcribe"); f.add_field("language", "he")
+                        f.add_field("model", "gpt-4o-transcribe")
+                        f.add_field("prompt", "ילד או ילדה בני שש מדברים עברית במשחק ריקוד. מילים נפוצות: כן, לא, מוכן, מוכנה, נובה, קופאים, דוב, כוכב, פלמינגו, צפרדע, פסל."); f.add_field("language", "he")
                         async with aiohttp.ClientSession() as _ws_:
                             async with _ws_.post("https://api.openai.com/v1/audio/transcriptions",
                                                  headers={"Authorization": "Bearer " + KEY},
@@ -497,13 +529,20 @@ async def relay(request):
                         continue     # game phase: the page owns every beat, brain never self-fires
                     if speaking["v"] or speaking["resp_active"]:
                         continue
+                    # WAIT LAW (INTRO-V2V): she asked the child something. Nothing fires into
+                    # that gap except the one re-invite below, which re-locks after it speaks.
+                    if ask_lock["on"] and not (time.time() - turn["kid_ts"] >= SILENCE_RETRY_S
+                                               and not turn["retried"]):
+                        continue
                     # #5 STATUE: ONE quick whisper fills the hold naturally (~1.5s in), then silence.
                     if statue["active"] and not statue["whispered"] and time.time() - statue["ts"] > 1.5:
                         statue["whispered"] = True; statue["allow"] = True
                         print("[STATUE] whisper", flush=True)
                         try: await oai.send_json({"type": "response.create", "response": {"instructions":
-                            "Whisper ONE short quiet suspenseful line to help them hold still — like "
-                            "'shhh… hold it… hold it…'. Nothing else, no praise."}})
+                            _instr("Whisper ONE short quiet suspenseful line to help them hold still — like "
+                                   "'shhh… hold it… hold it…'. Nothing else, no praise.",
+                                   "לחשי משפט אחד קצר ומותח שיעזור להם לא לזוז — כמו "
+                                   "'ששש… מחזיקים… מחזיקים…'. שום דבר אחר, בלי מחמאות.")}})
                         except Exception: pass
                         continue
                     # #5 STATUE timeout: no hold-fact within the window -> warm move-on (one-attempt law).
@@ -511,38 +550,33 @@ async def relay(request):
                         statue["active"] = False
                         print("[STATUE] timeout -> warm move-on", flush=True)
                         try: await oai.send_json({"type": "response.create", "response": {"instructions":
-                            "The freeze hold is over. Warmly and with ZERO fail-feel, cheer them on and keep the "
-                            "game moving — do NOT claim how well they froze."}})
+                            _instr("The freeze hold is over. Warmly and with ZERO fail-feel, cheer them on and keep the "
+                                   "game moving — do NOT claim how well they froze.",
+                                   "הקיפאון נגמר. בחום ובלי שום תחושת כישלון, עודדי אותם והמשיכי את המשחק — "
+                                   "אל תגידי כמה טוב הם קפאו.")}})
                         except Exception: pass
                         continue
-                    # #1 LIGHT BEAT = ONE ATTEMPT: invited --10s no fact--> ONE re-invite --10s--> warm move-on.
-                    if light["state"] == "invited" and time.time() - light["ts"] > LIGHT_WAIT:
-                        light["state"] = "reinvited"; light["ts"] = time.time()
-                        print("[LIGHT] no shrug -> ONE re-invite", flush=True)
-                        try: await oai.send_json({"type": "response.create", "response": {"instructions":
-                            "Gently invite the shoulder shrug ONE more time — one short warm line, zero pressure."}})
-                        except Exception: pass
-                        continue
-                    if light["state"] == "reinvited" and time.time() - light["ts"] > LIGHT_WAIT:
-                        light["state"] = "done"; light["ever"] = True    # #4 lock the light for the session
-                        print("[LIGHT] invited -> moved-on", flush=True)
-                        try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"[LIGHT] moved-on\n")
-                        except Exception: pass
-                        try: await oai.send_json({"type": "response.create", "response": {"instructions":
-                            "Warmly move on with ZERO fail-feel: say something like 'You've got star energy — let's just DANCE!' "
-                            "then offer the games: Freeze, Wave, or Up Groove."}})
-                        except Exception: pass
-                        continue
+                    # INTRO-V2V (2026-09-14): the two light re-invite timers that used to live
+                    # here are DELETED. The page owns the light beat now — it arms on the name
+                    # event and ends in a real FACT or a RELEASE cue — so the brain firing its
+                    # own 10s and 20s re-invites on top meant three producers talking at once,
+                    # in English, over a child who was still answering.
                     quiet = time.time() - turn["kid_ts"]
                     if quiet >= SILENCE_RETRY_S and not turn["retried"]:
                         turn["retried"] = True
                         print("[TURN-GATE] silence %.0fs -> ONE gentle retry" % quiet, flush=True)
                         try:
                             await oai.send_json({"type": "response.create", "response": {
-                                "instructions": ("The kid has been quiet for a bit. Say ONE tiny warm line "
-                                                 "that you're here whenever they're ready — under 8 words. "
-                                                 "NEVER use a name unless they already gave one, NEVER invite "
-                                                 "a move or warm-up, never repeat a line you already said.")}})
+                                "instructions": _instr(
+                                  "The kid has been quiet for a bit. Say ONE tiny warm line "
+                                  "that you're here whenever they're ready — under 8 words. "
+                                  "NEVER use a name unless they already gave one, NEVER invite "
+                                  "a move or warm-up, never repeat a line you already said.",
+                                  "הילד שקט כבר קצת. אמרי משפט אחד קטן וחם שאת כאן מתי שהוא מוכן — "
+                                  "עד 8 מילים. אל תשתמשי בשם אלא אם כבר אמר אותו, אל תזמיני שום "
+                                  "תנועה או חימום, ואל תחזרי על משפט שכבר אמרת.")}})
+                            # this IS her asking again — re-lock so it can fire only once per silence
+                            ask_lock_set("re-invite")
                         except Exception as e:
                             print("[TURN-GATE] retry err", e, flush=True)
             silwatch = asyncio.create_task(silence_watch())
@@ -587,6 +621,7 @@ async def relay(request):
                     if not saylater: continue
                     if hold["on"]: saylater.clear(); continue          # paused game: staged lines die
                     if sgate["on"]: continue   # mid-game (air OR hold): staged lines wait for the ending
+                    if ask_lock["on"]: continue   # WAIT LAW: she asked — nothing airs until he answers
                     # kid just spoke: HER REPLY airs first. 2.5s (was 5.0, he-7): with the
                     # transcript race her one-shot goes resp_active well inside 2.5s, and the
                     # 5s pause starved the ending trio out of the session's final window.
@@ -681,6 +716,7 @@ async def relay(request):
                     inlock["valid_turns"] += 1
                     turn["kid_ts"] = time.time(); turn["retried"] = False
                     kidinput["ts"] = time.time()
+                    await ask_lock_clear("turn")      # he answered — the producer may speak again
                     # KID OUTRANKS THE QUEUE (en-10, refined he-3): clearing the
                     # queue killed the trio's score line when the kid answered fast.
                     # Now the flush just PAUSES around a kid turn (say_flush skips
@@ -710,6 +746,27 @@ async def relay(request):
                 print("[RACE] rest start utt", n, flush=True)
                 try:
                     import io as _io
+                    # MIC LEVEL + BOOST (nephew test round 3, 2026-09-13). The transcriber
+                    # returned EMPTY for 8 of 9 real utterances (0.9-3.7s of audio each) and
+                    # answered the rest with stock hallucinations — "Oh, I'm really quiet.",
+                    # "Hi, this is the", はい。, พอแอมเมลทา. That is the signature of audio that
+                    # is too QUIET, not of a language problem: Whisper-family models return
+                    # nothing or invent filler when the speech sits near the noise floor. A kid
+                    # dancing two metres from a laptop mic, over music, lands exactly there.
+                    # Normalize quiet utterances up before transcribing, and always log the peak
+                    # so the room itself can be judged from the evidence.
+                    import array as _array
+                    _pcm = _array.array("h"); _pcm.frombytes(audio[:len(audio) // 2 * 2])
+                    _peak = max((abs(v) for v in _pcm), default=0)
+                    _gain = 1.0
+                    if 0 < _peak < 22000:
+                        _gain = min(8.0, 22000.0 / _peak)
+                        for _i in range(len(_pcm)):
+                            _v = int(_pcm[_i] * _gain)
+                            _pcm[_i] = 32767 if _v > 32767 else (-32768 if _v < -32768 else _v)
+                        audio = _pcm.tobytes()
+                    print("[MIC-LEVEL] utt %d peak %d (%.0f%% full scale) boost x%.1f" %
+                          (n, _peak, _peak / 327.67, _gain), flush=True)
                     bio = _io.BytesIO()
                     with wave.open(bio, "wb") as w:
                         w.setnchannels(1); w.setsampwidth(2); w.setframerate(24000)
@@ -717,7 +774,8 @@ async def relay(request):
                     def _form():
                         f = aiohttp.FormData()
                         f.add_field("file", bio.getvalue(), filename="utt.wav", content_type="audio/wav")
-                        f.add_field("model", "gpt-4o-mini-transcribe")
+                        f.add_field("model", "gpt-4o-transcribe")
+                        f.add_field("prompt", "ילד או ילדה בני שש מדברים עברית במשחק ריקוד. מילים נפוצות: כן, לא, מוכן, מוכנה, נובה, קופאים, דוב, כוכב, פלמינגו, צפרדע, פסל.")
                         f.add_field("language", "he" if _hebrew else "en")
                         return f
                     async with aiohttp.ClientSession() as _s:
@@ -776,6 +834,7 @@ async def relay(request):
                             print("[GARBLE] ignored (typed):", (m.get("text","")[:20]), flush=True); continue
                         turn["kid_ts"] = time.time(); turn["retried"] = False   # TURN-GATE: real input
                         kidinput["ts"] = time.time()
+                        await ask_lock_clear("tap")             # typing IS answering — WAIT LAW satisfied
                         if YES_RE.search(m.get("text", "")):                     # #5 CONSENT: typed yes counts
                             consent["yes_ts"] = time.time(); print("[CONSENT] real yes (typed)", flush=True)
                         await oai.send_json({"type": "conversation.item.create", "item": {
@@ -785,6 +844,10 @@ async def relay(request):
                         await ws_client.send_json({"type": "you_text", "text": m["text"]})
                     elif t == "nova-say":
                         line = (m.get("text") or "").strip()
+                        if ask_lock["on"] and line and not sgate["on"]:
+                            saylater.append(line)                # WAIT LAW: stage it, say_flush airs it after his turn
+                            print("[ASK-LOCK] queued nova-say:", line[:50], flush=True)
+                            continue
                         if line and line.lower() in spoken:      # #6 DE-CAN: never the same line twice
                             print("[DE-CAN] dropped duplicate staged line:", line[:50], flush=True)
                         elif (line and not speaking["resp_active"] and not speaking["v"]
@@ -815,6 +878,14 @@ async def relay(request):
                     elif t == "nova-cue":
                         intent = (m.get("intent") or "").strip()
                         ctx = (m.get("ctx") or "").strip()
+                        # WAIT LAW (INTRO-V2V): she is waiting for the child's answer. Hold the
+                        # cue rather than drop it — she still gets told, just after his turn.
+                        if ask_lock["on"] and intent and not sgate["on"]:
+                            cue_queue.append(("nova-cue", {"type": "conversation.item.create", "item": {
+                                "type": "message", "role": "system",
+                                "content": [{"type": "input_text", "text": "[context] " + intent + ((" " + ctx) if ctx else "")}]}}))
+                            print("[ASK-LOCK] queued nova-cue:", intent[:50], flush=True)
+                            continue
                         # #5 CONSENT=REAL YES: an ADVANCE cue (countdown/start/next round) only fires
                         # after a real yes (voice) or a detected move in the last 8s; else HOLD + log.
                         _is_adv = bool(_re.search(r"countdown|3.?2.?1|\bstart\b|\bbegin\b|next round|let'?s play|here we go|freeze dance|go time|are you ready", (intent + " " + ctx), _re.I))
@@ -961,6 +1032,7 @@ async def relay(request):
                         # Readiness beat for the chosen game (a real tap = real kid input).
                         game = (m.get("game") or "").strip().lower().replace("-", " ")
                         turn["kid_ts"] = time.time(); turn["retried"] = False; kidinput["ts"] = time.time()
+                        await ask_lock_clear("tap")             # picking a game IS answering
                         print("[PICK]", game, flush=True)
                         # ACK 2026-08-05: the page retries until it hears this. Without an ack a
                         # dropped message is indistinguishable from a delivered one.
@@ -1105,7 +1177,7 @@ async def relay(request):
                             try:
                                 await oai.send_json({"type": "response.cancel"})
                                 await oai.send_json({"type": "response.create", "response": {"instructions":
-                                    "Do NOT pick a game yourself. Ask ONE short line: which game do you want — Freeze, Wave, or Up Groove? — then wait."}})
+                                    "Do NOT pick a game yourself. Ask ONE short line: do you want to play Freeze? — then wait."}})
                             except Exception: pass
                         # #1 TRUTH-GATE PRE-SYNTH (tightened 2026-08-11): praise-OPENING with no
                         # fact dies immediately — waiting for the move word lost the audio race
@@ -1150,6 +1222,11 @@ async def relay(request):
                         _org = resp["origin"] or "auto"
                         resp["origin"] = None
                         print("[ORIGIN]", _org, "|", txt[:60], flush=True)
+                        # WAIT LAW: she just asked something -> nobody may speak into the gap
+                        # until the child answers. (Game phase runs on the director's clock,
+                        # where her cue lines are statements, so the lock is intro-only.)
+                        if not sgate["on"] and ASK_RE.search(txt.strip()):
+                            ask_lock_set("she asked")
                         # SAY-ENFORCE (he-9): staged exact line paraphrased -> requeue ONCE
                         # (intro/ending only: an extra ending line is legal, a gap line is not).
                         if _org == "say" and sayenf["line"]:
@@ -1189,12 +1266,13 @@ async def relay(request):
                         if low and low in spoken:
                             print("[DE-CAN] she repeated a line verbatim:", txt[:50], flush=True)
                         if low: spoken.add(low)
-                        # #1/#4 LIGHT: invite starts the clock — but ONCE per session, hard.
-                        if LIGHT_INVITE_RE.search(txt):
-                            if light["ever"]:
-                                print("[LIGHT] already-done (blocked re-trigger)", flush=True)
-                            elif light["state"] == "idle":
-                                light["state"] = "invited"; light["ts"] = time.time(); print("[LIGHT] invited", flush=True)
+                        # INTRO-V2V (2026-09-14): she used to ARM HER OWN TIMERS by speaking —
+                        # LIGHT_INVITE_RE matched her transcript and started the 10s/20s
+                        # re-invite clocks. The regex was English-only, so in a Hebrew session
+                        # it could never match and the beat could only ever come from a blind
+                        # 35s fallback in the page. The page owns the light beat entirely now
+                        # (ARM on the name, then a real FACT or a RELEASE), so the trigger and
+                        # its regex are gone.
                         # #5 STATUE: her freeze call-out closes her mouth until a hold-fact / move-on.
                         if FREEZE_CALL_RE.search(txt) and not statue["active"] and not _freeze_mode:
                             statue["active"] = True; statue["ts"] = time.time(); statue["whispered"] = False
