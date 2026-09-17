@@ -6,6 +6,12 @@
 #    and the SAME audio is what the engine publishes to LiveKit (synced).
 # The avatar NEVER sits between mic and brain; it only renders the reply.
 import os, json, base64, asyncio, tempfile, subprocess, wave, time
+try:
+    import audioop as _audioop          # C-speed PCM math — this runs on every 40ms mic chunk
+except Exception:
+    _audioop = None                     # no gain, unchanged behaviour (never break the mic path)
+MIC_TARGET   = float(os.environ.get("MIC_TARGET", "24000"))   # aim peaks here (~73% of full scale)
+MIC_GAIN_MAX = float(os.environ.get("MIC_GAIN_MAX", "8"))
 import aiohttp
 from aiohttp import web
 from livekit import api
@@ -266,6 +272,7 @@ async def relay(request):
                           # warnings the mic was closed most of the time; 0.6s keeps just enough
                           # anti-echo while letting the kid answer right after her line
     mic_stats = {"n": 0, "bytes": 0}
+    micgain = {"env": 0.0, "g": 1.0, "n": 0}   # live mic gain envelope — see the audio handler
     # HEBREW MODE (?lang=he, MACHINE-CERTIFY 2026-08-30): flips transcription language,
     # the garble filter's alphabet, the yes-words and the greet. EN behavior is untouched.
     _hebrew = (request.query.get("lang") or "en").strip().lower().startswith("he")
@@ -522,13 +529,25 @@ async def relay(request):
                 elif _hebrew:
                     # HEBREW regular intro (2026-09-07): the generic greet was English-only,
                     # so the commercial Hebrew intro opened in English and mixed languages.
+                    # 2026-09-15: this greet asked the name and then said nothing about waiting,
+                    # so she rolled straight on. The freeze greets have carried "Then STOP and
+                    # wait" since 2026-08-27; the generic one — the greet the whole commercial
+                    # intro uses — never got it. That is the founder's "she asks my name and
+                    # doesn't wait to listen".
                     _greet = ("Speak HEBREW ONLY, and keep speaking Hebrew for the whole "
                               "conversation — never switch to English. Greet the kid in ONE "
-                              "short excited line and say exactly: "
-                              "היי! אני נובה, מורת הריקוד הקסומה שלך! איך קוראים לך?")
+                              "short excited line and say exactly these words and NOTHING more: "
+                              "היי! אני נובה, מורת הריקוד הקסומה שלך! איך קוראים לך? "
+                              "Then STOP. Say nothing at all until the child answers — no second "
+                              "line, no encouragement, no explaining, no light, no game. Their "
+                              "answer is the only thing that lets you speak again.")
                 else:
-                    _greet = ("Greet the kid in ONE short excited line and say exactly: "
-                              "Hi! I'm Nova, your magical AI dance teacher! What's your name?")
+                    _greet = ("Greet the kid in ONE short excited line and say exactly these words "
+                              "and NOTHING more: "
+                              "Hi! I'm Nova, your magical AI dance teacher! What's your name? "
+                              "Then STOP. Say nothing at all until the child answers — no second "
+                              "line, no encouragement, no explaining, no light, no game. Their "
+                              "answer is the only thing that lets you speak again.")
                 await oai.send_json({"type": "response.create", "response": {
                     "instructions": _greet}})
 
@@ -847,9 +866,35 @@ async def relay(request):
                             continue
                         if hold["on"]:      # PAUSE (2026-08-04): game is paused — she must not hear
                             continue
-                        try: kidbuf.extend(base64.b64decode(m["data"]))   # TRANSCRIPT-RACE tap
+                        # LIVE MIC GAIN (2026-09-15). The 2026-09-14 boost only lifted the REST
+                        # racer's private copy; the stream that reaches OpenAI — the one its VAD
+                        # listens to, and the one that decides whether the child is speaking at
+                        # all — was still raw. The founder's room measures 8-16% of full scale,
+                        # so speech_started fired ONCE in a whole session: she genuinely could
+                        # not tell he was talking. Lift the live stream by the same envelope,
+                        # then the VAD threshold (0.35) means what it was tuned to mean.
+                        _b64 = m["data"]
+                        try:
+                            _raw = base64.b64decode(_b64)
+                            _p = _audioop.max(_raw, 2) if _audioop else 0
+                            if _p:
+                                # slow-decaying peak envelope: tracks the room, ignores one loud thump
+                                micgain["env"] = max(micgain["env"] * 0.97, _p)
+                                _g = min(MIC_GAIN_MAX, MIC_TARGET / max(micgain["env"], 400))
+                                if _g > 1.15:
+                                    _raw = _audioop.mul(_raw, 2, _g)
+                                    _b64 = base64.b64encode(_raw).decode()
+                                micgain["g"] = _g
+                            micgain["n"] += 1
+                            if micgain["n"] % 100 == 0:
+                                print("[MIC-GAIN] envelope %d (%.0f%% full scale) live boost x%.1f"
+                                      % (micgain["env"], micgain["env"] / 327.67, micgain["g"]), flush=True)
+                        except Exception as _e:
+                            _raw = None
+                            if micgain["n"] < 3: print("[MIC-GAIN] err", str(_e)[:60], flush=True)
+                        try: kidbuf.extend(_raw if _raw is not None else base64.b64decode(_b64))
                         except Exception: pass
-                        await oai.send_json({"type": "input_audio_buffer.append", "audio": m["data"]})
+                        await oai.send_json({"type": "input_audio_buffer.append", "audio": _b64})
                     elif t == "text":
                         if is_garble(m.get("text", "")):                        # #4 GARBLE: ignore typed nonsense too
                             print("[GARBLE] ignored (typed):", (m.get("text","")[:20]), flush=True); continue
