@@ -288,8 +288,19 @@ async def relay(request):
     FACT_WINDOW = 6.0   # PART2 #1/#2: a move-claim is legit only within 6s of a real detection fact
     # TURN-GATE: one response per kid turn (+ the existing single-active guard),
     # and at most ONE gentle silence-retry, then quiet until real kid input.
-    turn = {"kid_ts": time.time(), "retried": False}
+    turn = {"kid_ts": time.time(), "retried": False, "reinvite_i": 0}
     SILENCE_RETRY_S = 13.0
+    # TURN-GATE RE-INVITE LINES (2026-09-17). Said VERBATIM — see the fix note at the
+    # call site in silence_watch(). Rotated so a second silence in one session never
+    # repeats the first line (it fired twice in the 2026-09-17 session, 14s then 13s).
+    # ALL THREE ARE FIRST-PERSON ON PURPOSE: a verbatim Hebrew line cannot carry the
+    # ?g=m|f binyan rule, so any second-person verb ("when you're ready" -> שתרצה/שתרצי)
+    # would hard-code one gender. Saying only what SHE does keeps them gender-safe.
+    REINVITE_LINES = (
+        ("I'm right here, no rush at all.", "אני כאן, אין שום לחץ."),
+        ("Still right here.",               "אני עדיין כאן."),
+        ("I'm not going anywhere.",         "אני לא הולכת לשום מקום."),
+    )
     # Freeze demo: fire the baked freeze gesture on the engine if one exists on
     # the volume (env FREEZE_GESTURE_ID). Empty -> honest words-only fallback.
     gesture = {"freeze_id": os.environ.get("FREEZE_GESTURE_ID", "").strip(), "freeze_fired": False}
@@ -599,17 +610,32 @@ async def relay(request):
                     quiet = time.time() - turn["kid_ts"]
                     if quiet >= SILENCE_RETRY_S and not turn["retried"]:
                         turn["retried"] = True
-                        print("[TURN-GATE] silence %.0fs -> ONE gentle retry" % quiet, flush=True)
+                        # FALSE-PRAISE FIX (2026-09-17). This used to describe a line and let
+                        # her improvise it. On the founder's session she improvised
+                        # "יופי, תחזיק רגע ככה" — "Great, hold it like that" — praising a
+                        # shoulder raise that never happened, and the page had to send a
+                        # correction ("nobody raised the shoulder"). [ORIGIN] auto: her own
+                        # words. INTRO-V2V hardened success() and the 20s release() so neither
+                        # can claim a win, but this third path was still free improvisation and
+                        # the persona's TRUTH LAW alone did not hold it.
+                        # Now she says a PRODUCER-WORDED line verbatim — there is no room left
+                        # to invent a thing she saw — plus the release path's explicit ban.
+                        _re_en, _re_he = REINVITE_LINES[turn["reinvite_i"] % len(REINVITE_LINES)]
+                        turn["reinvite_i"] += 1
+                        print("[TURN-GATE] silence %.0fs -> ONE gentle retry (verbatim): %s"
+                              % (quiet, _re_he if _hebrew else _re_en), flush=True)
                         try:
                             await oai.send_json({"type": "response.create", "response": {
                                 "instructions": _instr(
-                                  "The kid has been quiet for a bit. Say ONE tiny warm line "
-                                  "that you're here whenever they're ready — under 8 words. "
-                                  "NEVER use a name unless they already gave one, NEVER invite "
-                                  "a move or warm-up, never repeat a line you already said.",
-                                  "הילד שקט כבר קצת. אמרי משפט אחד קטן וחם שאת כאן מתי שהוא מוכן — "
-                                  "עד 8 מילים. אל תשתמשי בשם אלא אם כבר אמר אותו, אל תזמיני שום "
-                                  "תנועה או חימום, ואל תחזרי על משפט שכבר אמרת.")}})
+                                  "Say EXACTLY these words and NOTHING else: \"" + _re_en + "\" "
+                                  "Do not add one word. You have NOT seen the child do anything: "
+                                  "never praise, never say you saw or noticed something, never "
+                                  "say to hold or keep going, never mention a shoulder, a light "
+                                  "or a game, and never use a name.",
+                                  "אמרי בדיוק את המילים האלה ושום דבר אחר: \"" + _re_he + "\" "
+                                  "אל תוסיפי אף מילה. לא ראית את הילד עושה שום דבר: אף פעם אל "
+                                  "תחמיאי, אל תגידי שראית או שמת לב למשהו, אל תגידי להחזיק או "
+                                  "להמשיך, אל תזכירי כתף, אור או משחק, ואל תשתמשי בשם.")}})
                             # this IS her asking again — re-lock so it can fire only once per silence
                             ask_lock_set("re-invite")
                         except Exception as e:
@@ -908,6 +934,17 @@ async def relay(request):
                             "content": [{"type": "input_text", "text": m["text"]}]}})
                         await oai.send_json({"type": "response.create"})
                         await ws_client.send_json({"type": "you_text", "text": m["text"]})
+                        # TYPED-INPUT EVIDENCE (2026-09-17). The voice path has logged its
+                        # transcript to convo.log since forever; the TYPED path logged nothing.
+                        # So when the founder typed his name and she answered "רפחי" instead of
+                        # "רפי", there was no way to tell whether the text arrived mangled or she
+                        # mis-rendered it — the text is forwarded verbatim above, so nothing in
+                        # this file can corrupt it, and the log was the only missing witness.
+                        # Now a typed turn leaves the same trail a spoken one does.
+                        try: open("/workspace/convo.log","a",encoding="utf-8").write(
+                            time.strftime("%H:%M:%S ")+"KID:  "+m["text"]+"   [typed]\n")
+                        except Exception: pass
+                        print("[TYPED] kid text:", m["text"][:60], flush=True)
                     elif t == "nova-say":
                         line = (m.get("text") or "").strip()
                         if ask_lock["on"] and line and not sgate["on"]:
