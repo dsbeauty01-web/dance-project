@@ -54,7 +54,11 @@ git -C "$REPO" reset --hard "origin/${BRANCH}" >/dev/null 2>&1
 SHA="$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 
 # ---------------------------------------------------------------- 2) pages + static
-mkdir -p "$WS/pages" "$WS/shared" "$WS/models"
+# LAYOUT (measured on the live pod 2026-09-18, NOT guessed): rt_lk.py mounts
+#   /shared -> /workspace/pages/shared   and   /models -> /workspace/pages/models
+# so the static files live UNDER pages/. Copying them to /workspace/shared looked fine
+# and served nothing.
+mkdir -p "$WS/pages" "$WS/pages/shared" "$WS/pages/models"
 copied=""
 for f in "$REPO"/pod/pages/*.html; do
   [ -f "$f" ] && { cp -f "$f" "$WS/pages/" && copied="$copied $(basename "$f")"; }
@@ -62,9 +66,9 @@ done
 say "pages synced from ${BRANCH}@${SHA}:${copied:- none}"
 # (explicit loops, not colon-packed pairs — a ":" splitter silently ate the drive letter
 #  when this was sandbox-tested on Windows paths)
-for f in "$REPO"/shared/*.js;    do [ -f "$f" ] && cp -f "$f" "$WS/shared/"; done
-for f in "$REPO"/models/*.task;  do [ -f "$f" ] && cp -f "$f" "$WS/models/"; done
-if [ -d "$REPO/beta" ]; then mkdir -p "$WS/beta"; cp -rf "$REPO"/beta/* "$WS/beta/" 2>/dev/null; fi
+for f in "$REPO"/shared/*.js;    do [ -f "$f" ] && cp -f "$f" "$WS/pages/shared/"; done
+for f in "$REPO"/models/*.task;  do [ -f "$f" ] && cp -f "$f" "$WS/pages/models/"; done
+if [ -d "$REPO/beta" ]; then mkdir -p "$WS/pages/beta"; cp -rf "$REPO"/beta/* "$WS/pages/beta/" 2>/dev/null; fi
 
 # ---------------------------------------------------------------- 3) the brain (the gap)
 SRC="$REPO/pod/rt_lk.py"
