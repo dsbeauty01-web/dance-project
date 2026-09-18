@@ -112,6 +112,27 @@ letterbox → ambient fix is authored in `rt_lk.py` by the intro-brain session
 and deploys at the next pod restart. The nova-commercial frontend is already
 zero-black in all states (room-fill insurance + static Nova — verified headless).
 
+### law-producer-silent — the producer writes to her memory, never to her mouth
+Every producer input — cues, facts, picks, phase changes, corrections — enters her
+**context** silently (`remember` → `conversation.item.create`). Speech happens only
+through `speak_now` (`response.create`) and only at a **boundary**: a validated kid
+turn just ended · the page reported a hold/round/section END · a consent/tap arrived ·
+the greet at connect · 13s of silence with no turn. Mid-line, mid-wait, mid-hold:
+never. One line per boundary (the ending is the single exception — it drains its
+staged group, the en-4 lesson). `response.cancel` lives in one helper and fires for
+the child barging in, a pause, or a birth-gate — never to interrupt a legitimate line;
+the refusal / mid-game-ban / self-answer / truth-gate paths now KILL the line instead
+(`resp["killed"]`, which blocks the audio before synthesis, so the child hears
+nothing). **Marker:** `PRODUCER-SILENT`, `async def remember(`, `async def speak_now(`,
+`[BOUNDARY]`, `[REMEMBER]`, `you were told, you did not guess` · **Files:**
+pod/rt_lk.py · **Added:** 2026-09-18 · **Why:** the audit counted 14 speak-now sends
+against 3 remembers — every producer path forced speech into the middle of her flow,
+and mid-game a detected move was dropped entirely and never reached her at all, so she
+did not stay quiet about the move, she never learned it happened and invented one.
+The founder heard it on 2026-09-17: "hold it like that" to a child who had not moved.
+**The wall is a COUNT** (`tools/laws/law-producersilent.js`): a 15th `response.create`
+outside `_speak_send` turns the build red.
+
 ---
 
 ## Standing project laws (pre-Guardian, now registered)
@@ -251,6 +272,7 @@ law-consent    | active | nova-commercial.html                                  
 law-pods       | active | tools/pod/launch_pod.sh,tools/pod/boot.sh               | "cloudType": "SECURE" ;; runpodctl stop pod ;; nohup sleep 6h ;; git -C /workspace/repo pull ;; NO-PKILL-WINDOW ;; LAW-PODS-7-TMUX ;; LAW-PODS-8-BRACKET ;; LAW-PODS-9-COLDLOAD
 law-direct-voice | active | nova-commercial.html,nova-direct-voice.js             | LAW-DIRECT-VOICE ;; oai-events ;; response.cancel
 law-inputlock  | active | pod/rt_lk.py                                            | LAW-INPUT-LOCK ;; [INPUT-LOCK] ;; one-shot fired for turn
+law-producer-silent | active | pod/rt_lk.py                                       | PRODUCER-SILENT ;; async def remember( ;; async def speak_now( ;; async def cancel_speech( ;; [BOUNDARY] ;; [REMEMBER] ;; you were told, you did not guess
 law-ambient    | lost   | -                                                       | nova-ambient
 law-v2v        | policy | -                                                       | -
 law-treaty     | policy | -                                                       | -
