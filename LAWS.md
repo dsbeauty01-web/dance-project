@@ -157,6 +157,26 @@ as a name. **Marker:** `def join_fragment(`, `def name_candidate(`, `NAME_JOIN_S
 **Added:** 2026-09-20 · **Why:** the live session dropped `קוראים.` as sub-2-word — the
 first word of "קוראים לי <name>" — so the child gave his name and she never got it.
 
+### law-shoulderbeat — the light speaks, the pop rewards, the retry is 8s
+SHOULDER-BEAT §4b. **(1)** The light appearing is a **boundary**: the page reports
+`section-start` and hands her the EXACT line, so she speaks within 2s instead of waiting
+for the child to talk first — and the latency is *measured* (`[SECTION] spoke Xs after`).
+A section-start outranks the ask-lock (the page only arms after the child answered);
+nothing else gains that privilege. **(2)** The instant reaction is **page-side**: a
+detected lift pops the glow (bloom + ring) and fires a 300ms "YES!!"/"יש!!" in her own
+voice the same frame — no brain in that path, because a round trip is not instant and she
+must not be the one claiming the lift. Her words still come from the FACT afterwards.
+**(3)** The retry is **this window's own, at 8s**, read exactly, and it states what she has
+NOT seen; the brain stands its generic 13s timer down for the whole section, so a child
+never gets two producers counting to two different numbers. RELEASE stays at 20s.
+**Marker:** `window.novaSection = function`, `window.novaSayNow = function`,
+`novaSayNow(T('sayLightArm'), 'section-start')`, `classList.add('pop')`,
+`audio/says/sting_yes_`, `age > 8000`, `no shrug seen in 20s`, `[SECTION] spoke %.2fs after`
+· **Files:** nova-commercial.html, pod/rt_lk.py · **Added:** 2026-09-20 · **Why:**
+PRODUCER-SILENT correctly made every producer note silent, and that left the light beat
+mute — the page armed the light and she said nothing until the child happened to speak.
+**Proof:** `test/shoulder_beat_bench.py`.
+
 ---
 
 ## Standing project laws (pre-Guardian, now registered)
@@ -299,6 +319,7 @@ law-inputlock  | active | pod/rt_lk.py                                          
 law-producer-silent | active | pod/rt_lk.py                                       | PRODUCER-SILENT ;; async def remember( ;; async def speak_now( ;; async def cancel_speech( ;; [BOUNDARY] ;; [REMEMBER] ;; you were told, you did not guess
 law-moveclaim  | active | pod/rt_lk.py                                            | def truthgate_blocks( ;; MOVE_FACT_WINDOW = 30.0 ;; MOVE_WORD_RE ;; CLAIM_SHAPE_RE ;; INVITE_HE_RE ;; INVITE_ASK_RE
 law-namebeat   | active | pod/rt_lk.py                                            | def join_fragment( ;; def name_candidate( ;; NAME_JOIN_S = 1.5 ;; [NAME-JOIN] ;; [NAME-BEAT] name candidate accepted
+law-shoulderbeat | active | nova-commercial.html,pod/rt_lk.py                     | window.novaSection = function ;; window.novaSayNow = function ;; classList.add('pop') ;; audio/says/sting_yes_ ;; age > 8000 ;; no shrug seen in 20s
 law-ambient    | lost   | -                                                       | nova-ambient
 law-v2v        | policy | -                                                       | -
 law-treaty     | policy | -                                                       | -

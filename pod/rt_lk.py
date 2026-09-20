@@ -454,8 +454,12 @@ async def relay(request):
     #   cancel_speech(w) -> response.cancel            the only cancel site in this file
     #
     # Nothing else in this file may touch the socket with those three verbs.
-    boundary = {"on": False, "why": ""}
+    boundary = {"on": False, "why": "", "ts": 0.0}
     speak_q = []            # [(instructions, verbatim, origin, extra, bare)] awaiting a boundary
+    # SHOULDER-BEAT §4b: while a page SECTION owns the beat (the light window), the brain's
+    # own silence timer stands down — the page runs that window's retry on its own clock
+    # (8s), and two producers counting to different numbers is how you get two lines.
+    section = {"on": False, "name": "", "ts": 0.0}
     async def remember(text, role="system"):
         """Silent context. Never triggers speech. EVERY producer input lands here:
            cues, facts, picks, phase changes, corrections."""
@@ -476,10 +480,15 @@ async def relay(request):
            her answer to that child, not to a producer line that queued up earlier)."""
         # WAIT LAW still outranks a boundary: if she asked something, only the child's own
         # answer (or the 13s re-invite, which re-locks) may open her mouth again.
-        if ask_lock["on"] and why not in ("kid-turn", "tap", "13s-silence"):
+        # SHOULDER-BEAT §4b (2026-09-20): the LIGHT APPEARING is a boundary. The page only
+        # arms it after the child has answered (the name event), so a section-start is not
+        # a producer talking over a child — it is the next section beginning, and it must
+        # open her mouth within 2s even if her last line happened to end in a question.
+        if ask_lock["on"] and why not in ("kid-turn", "tap", "13s-silence",
+                                          "section-start", "section-retry"):
             print("[BOUNDARY] refused (" + why + ") — she asked, still waiting", flush=True)
             return False
-        boundary["on"] = True; boundary["why"] = why
+        boundary["on"] = True; boundary["why"] = why; boundary["ts"] = time.time()
         print("[BOUNDARY] " + why, flush=True)
         if pump: await speak_pump()
         return True
@@ -510,6 +519,11 @@ async def relay(request):
                 await oai.send_json({"type": "response.create"})
             print("[SPEAK] (" + (boundary["why"] or "?") + ") "
                   + (verbatim or instructions or "bare")[:80], flush=True)
+            # SHOULDER-BEAT §4b asks for "within 2s of the light". Measure it, every time,
+            # so the claim is evidence and not a hope.
+            if boundary["why"] in ("section-start", "section-retry") and boundary["ts"]:
+                print("[SECTION] spoke %.2fs after %s"
+                      % (time.time() - boundary["ts"], boundary["why"]), flush=True)
             return True
         except Exception as _e:
             print("[SPEAK] err", str(_e)[:80], flush=True)
@@ -775,6 +789,11 @@ async def relay(request):
                     if _freeze_mode and sgate["on"]:
                         continue     # game phase: the page owns every beat, brain never self-fires
                     if speaking["v"] or speaking["resp_active"]:
+                        continue
+                    # SHOULDER-BEAT §4b: a page section owns its own silence. The light
+                    # window retries at 8s from the PAGE; the brain's 13s timer must not
+                    # fire a second, different line into the same gap.
+                    if section["on"]:
                         continue
                     # WAIT LAW (INTRO-V2V): she asked the child something. Nothing fires into
                     # that gap except the one re-invite below, which re-locks after it speaks.
@@ -1201,6 +1220,15 @@ async def relay(request):
                         print("[TYPED] kid text:", m["text"][:60], flush=True)
                     elif t == "nova-say":
                         line = (m.get("text") or "").strip()
+                        # SHOULDER-BEAT §4b: a staged line may carry the BOUNDARY it belongs
+                        # to ("the light just appeared", "the window's retry"). The page owns
+                        # those moments; it says so, and the line goes out at once instead of
+                        # waiting for the child to speak first.
+                        _b = (m.get("boundary") or "").strip()
+                        if _b and line:
+                            if await boundary_open(_b):
+                                await speak_now(verbatim=line, origin="say")
+                                continue
                         if ask_lock["on"] and line and not sgate["on"]:
                             saylater.append(line)                # WAIT LAW: stage it, say_flush airs it after his turn
                             print("[ASK-LOCK] queued nova-say:", line[:50], flush=True)
@@ -1445,6 +1473,20 @@ async def relay(request):
                                 "can you lift a hand UP? Then wait for them to do it."))
                         else:
                             print("[PICK] unknown game, ignored:", game, flush=True)
+                    elif t == "section":
+                        # SHOULDER-BEAT §4b: the page declares when a section owns the beat.
+                        # start -> the brain's 13s silence timer stands down (the page runs
+                        # this window's 8s retry itself); end -> the brain takes the floor back.
+                        _st = (m.get("state") or "").strip().lower()
+                        _nm = (m.get("name") or "").strip().lower()
+                        if _st == "start":
+                            section["on"] = True; section["name"] = _nm; section["ts"] = time.time()
+                            turn["kid_ts"] = time.time(); turn["retried"] = False
+                            print("[SECTION] start:", _nm, "— brain silence timer stands down", flush=True)
+                        else:
+                            section["on"] = False; section["name"] = ""
+                            turn["kid_ts"] = time.time(); turn["retried"] = False
+                            print("[SECTION] end:", _nm, flush=True)
                     elif t == "game-start":
                         # V2 2026-08-07: the page reports the EXACT music-start moment. One 3-word
                         # burst, then in-game silence until cued. Skip the line if she's mid-speech.
@@ -1947,7 +1989,7 @@ function connectWS(){
 document.getElementById('send').onclick=()=>{const t=document.getElementById('txt');const m=t.value.trim();if(m&&ws&&ws.readyState===1){t.value='';bubble('u',m);ws.send(JSON.stringify({type:'text',text:m}));}};
 document.getElementById('txt').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('send').click();});
 document.getElementById('ttog').onclick=()=>document.getElementById('textlane').classList.toggle('open');
-window.addEventListener('message',(e)=>{try{const d=e.data;if(d&&d.type==='nova-say'&&d.text&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-say',text:d.text}));}if(d&&d.type==='nova-cue'&&d.intent&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-cue',intent:d.intent,ctx:d.ctx||''}));}if(d&&d.type==='set-avatar'&&d.id){fetch('/set_avatar?id='+encodeURIComponent(d.id)).catch(()=>{});}if(d&&(d.type==='nova-persona'||d.type==='set_persona')&&d.text&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'persona',text:d.text}));}if(d&&d.type==='nova-fact'&&d.move&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-fact',move:d.move}));}if(d&&d.type==='nova-pick'&&d.game&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-pick',game:d.game}));}if(d&&d.type==='hold'&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'hold',on:!!d.on}));}if(d&&d.type==='game-start'&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'game-start'}));}}catch(_){}}); /* pitch-plan + intro brain: parent tells live Nova a detected move (nova-fact) or the chosen game (nova-pick) */
+window.addEventListener('message',(e)=>{try{const d=e.data;if(d&&d.type==='nova-say'&&d.text&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-say',text:d.text,boundary:d.boundary||''}));}if(d&&d.type==='section'&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'section',name:d.name||'',state:d.state||''}));}if(d&&d.type==='nova-cue'&&d.intent&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-cue',intent:d.intent,ctx:d.ctx||''}));}if(d&&d.type==='set-avatar'&&d.id){fetch('/set_avatar?id='+encodeURIComponent(d.id)).catch(()=>{});}if(d&&(d.type==='nova-persona'||d.type==='set_persona')&&d.text&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'persona',text:d.text}));}if(d&&d.type==='nova-fact'&&d.move&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-fact',move:d.move}));}if(d&&d.type==='nova-pick'&&d.game&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'nova-pick',game:d.game}));}if(d&&d.type==='hold'&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'hold',on:!!d.on}));}if(d&&d.type==='game-start'&&ws&&ws.readyState===1){ws.send(JSON.stringify({type:'game-start'}));}}catch(_){}}); /* pitch-plan + intro brain: parent tells live Nova a detected move (nova-fact) or the chosen game (nova-pick) */
 /* ---- mic capture ---- */
 let ctx,micOn=false,micGated=false;
 async function startMic(){
