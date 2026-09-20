@@ -321,6 +321,93 @@ async def relay(request):
     PRAISE_RE = _re.compile(r"(crushed|nailed|rocked|killed it|you (did it|got it|totally|really|just)|perfect|awesome|amazing|great|incredible|on point|that was (a|so|an)|so good|love (it|that)|way to go|you found it|epic|fantastic|beautiful|wonderful)", _re.I)
     INVITE_RE = _re.compile(r"(can you|could you|show me|let'?s|try|give (me|it|that|your|a)|want to|wanna|how about|ready to|do a|go for|lift|shrug your|hold (it|still)|don'?t move|like a statue|show off|when you|check (this|it) out|check out|here'?s|discover|glow|magic light|see (the|that|it)|add a|next|other shoulder|come on|pick a game)", _re.I)
     # #6 NO-SELF-ANSWER: she cannot pick/confirm FOR the kid — blocked unless real kid input is recent.
+    # ═══ TRUTH-GATE, THE FOURTH PATH (founder ruling 2026-09-20) ═══════════════════════
+    # Live session 2026-09-20: ZERO [FACT] lines all session, and she still said
+    # "איזה יופי של הרמה עם הכתף הזאת!" — "what a beautiful lift with that shoulder".
+    # Three paths were already closed (success() and the 20s release in v1.0.4, the 13s
+    # re-invite in v1.0.7). This is the fourth: praise riding on a GENUINE kid turn, which
+    # the gate deliberately exempts (praise within 6s of a real turn is a legit reaction —
+    # torture-1 proved that killing it also kills her honest name-echo).
+    # THE RULE: keep that exemption for warmth, but a line that CLAIMS A MOVE needs a real
+    # detection fact within 30s — inside the exemption window too.
+    # ═══ HEBREW NAME BEAT — FRAGMENT JOIN (founder ruling 2026-09-20) ══════════════════
+    # Live session 2026-09-20: the transcriber chopped the child's sentence and the pieces
+    # died one by one — "[INPUT-LOCK] dropped: sub-2-word | קוראים." where קוראים is the
+    # FIRST WORD of "קוראים לי <name>" ("my name is ..."). The name was lost, and because
+    # the single-token name branch only fires on the session's FIRST valid turn, by then it
+    # could not rescue anything either. So: while the name beat is open, in Hebrew, fragments
+    # that arrive within 1.5s of each other are JOINED and re-validated, and a 1-2 token
+    # Hebrew turn counts as a name candidate.
+    NAME_JOIN_S = 1.5
+    namebeat = {"open": True}                       # closed once a name candidate lands
+    frag = {"txt": "", "ts": 0.0}                   # the piece waiting for its other half
+    NAME_LEAD_RE = _re.compile(r"(קוראים לי|שמי|אני קוראים|קורים לי|השם שלי)")
+    def join_fragment(prev_txt, prev_ts, new_txt, now, window=NAME_JOIN_S):
+        """PURE. A fragment joins the one before it only if it arrived inside the window.
+           Returns the text to validate (joined or not)."""
+        if prev_txt and (now - prev_ts) <= window:
+            return (prev_txt.rstrip(" .,!?") + " " + new_txt).strip()
+        return new_txt
+    def name_candidate(ktxt, hebrew):
+        """PURE. Is this a name answer? Either it carries the Hebrew lead-in
+           ("קוראים לי נועם") or it is a bare 1-2 token Hebrew turn that is not a game word."""
+        if not hebrew or not ktxt:
+            return False
+        toks = _re.findall(r"[א-ת][א-ת'\-]*", ktxt)
+        if not toks:
+            return False
+        if NAME_LEAD_RE.search(ktxt):
+            return True
+        _BAN = ("דוב", "כוכב", "פלמינגו", "צפרדע", "פסל", "קפוא", "נובה", "גל", "פריז",
+                "מוזיקה", "ריקוד", "משחק", "כן", "לא", "אוקיי", "סבבה", "מוכן", "מוכנה",
+                "היי", "ביי", "עוד", "די", "יאללה", "קן", "כתף", "הרמה")
+        return 1 <= len(toks) <= 2 and all(len(t) >= 2 and t not in _BAN for t in toks)
+    MOVE_FACT_WINDOW = 30.0
+    # Nouns/verbs that name a move. EN + HE, because the whole gate was English-only: the
+    # founder's Hebrew praise could never have matched PRAISE_RE even outside the window.
+    MOVE_WORD_RE = _re.compile(
+        r"(shoulder|shrug|lift(ed|ing)?|freeze|froze|frozen|statue|isolation|that move"
+        r"|כתף|כתפיים|הרמה|הרמת|הרים|הרמתָ|קיפאון|קפאת|קפא|קפאנו|פסל|תזוזה|זזת|התנועה)", _re.I)
+    # A CLAIM is a move word carried by praise or by "you did it" in either language.
+    # Naming a move is not enough on its own: the freeze RULE ("when the music stops we
+    # FREEZE like a statue") names a move and must stay sayable, as must every invite.
+    CLAIM_SHAPE_RE = _re.compile(
+        r"(you (did|got|nailed|crushed|found|made|held|froze|lifted)"
+        r"|nailed|perfect|amazing|awesome|great|beautiful|wonderful|incredible|so good|love (it|that)"
+        r"|i saw|that was"
+        r"|יופי|מעולה|כל הכבוד|וואו|מדהים|אלוף|אלופה|סחתיין|גאה|יפה מאוד|ראיתי|שמתי לב"
+        r"|הרמת|קפאת|זזת|עשית|הצלחת|החזקת)", _re.I)
+    # Hebrew invites/rules — INVITE_RE is English-only, so without these every Hebrew
+    # invitation to move ("בוא ננסה הרמה קטנה של הכתף") would be killed as a claim.
+    INVITE_HE_RE = _re.compile(
+        r"(בוא|בואי|בואו|ננסה|תנסה|תנסי|נסה|נסי|תרים|תרימי|הרם|הרימי|תראה לי|תראי לי|מוכן|מוכנה"
+        r"|מה אתה אומר|מה את אומרת|רוצה|רוצים|אפשר|כשהמוזיקה|כשהיא נעצרת|קופאים|בוא נראה|יאללה"
+        r"|אתה מוכן|את מוכנה|נשחק|בואו נראה)")
+    # The gate needs a STRICTER English invite test than INVITE_RE, which lists the bare
+    # verb "lift" — so "Perfect shoulder lift — you did it!" read as an invitation and
+    # sailed through (caught by test/truthgate_bench.py, run 3, before this ever shipped).
+    # An invitation asks; a claim tells.
+    INVITE_ASK_RE = _re.compile(
+        r"(can you|could you|would you|will you|show me|let'?s|let us|try |give (me|it|that|your|a)"
+        r"|want to|wanna|how about|ready to|go for|when you|come on|do a |see (the|that|it)"
+        r"|check (this|it) out|magic light|pick a game|\?)", _re.I)
+    def truthgate_blocks(buf, since_fact, since_kid):
+        """PURE — the whole pre-synth verdict, so it can be proven offline (test/
+           truthgate_bench.py) instead of only in a live session.
+           Returns (blocked: bool, why: str)."""
+        if not buf:
+            return (False, "")
+        # An invitation asks; a claim tells. Only a real ASK is exempt here.
+        _asking = bool(INVITE_ASK_RE.search(buf) or INVITE_HE_RE.search(buf))
+        # THE FOURTH PATH: a move-claim needs a fact within 30s, even right after a turn.
+        if (not _asking) and MOVE_WORD_RE.search(buf) and CLAIM_SHAPE_RE.search(buf) \
+           and since_fact > MOVE_FACT_WINDOW:
+            return (True, "move-claim, no fact in %.0fs" % MOVE_FACT_WINDOW)
+        # The original gate, byte-for-byte unchanged: a praise OPENING into silence.
+        if since_fact > FACT_WINDOW and since_kid > 6.0 \
+           and PRAISE_RE.search(buf[:40]) and not INVITE_RE.search(buf):
+            return (True, "praise into silence, no fact")
+        return (False, "")
     SELFANSWER_RE = _re.compile(r"(awesome choice|great choice|good (pick|choice)|nice pick|let'?s do (freeze|wave|up ?groove|animal)|you picked|you chose|i'?ll pick|we'?ll (do|play) (freeze|wave|up ?groove)|great, (freeze|wave)|perfect, let'?s)", _re.I)
     resp = {"buf": "", "killed": False, "origin": None}   # per-response transcript accumulator + origin tag
     # SAY-ENFORCE (he-9): staged exact lines get verified against her actual transcript;
@@ -834,6 +921,16 @@ async def relay(request):
                 # HEBREW MODE (MACHINE-CERTIFY he-1): the Latin-only word regex saw
                 # ZERO words in perfect Hebrew transcripts ("קוראים לי שוקי") and the
                 # lock silently ate every kid turn — in HE mode Hebrew letters are words.
+                # NAME-BEAT FRAGMENT JOIN (2026-09-20): in Hebrew, while the name beat is
+                # still open, a piece that arrives within 1.5s of the last orphaned piece is
+                # glued to it before anything is judged — "קוראים לי" + "נועם" is ONE answer
+                # that the transcriber happened to cut in half.
+                if _hebrew and namebeat["open"] and frag["txt"]:
+                    _joined = join_fragment(frag["txt"], frag["ts"], ktxt, time.time())
+                    if _joined != ktxt:
+                        print("[NAME-JOIN] joined:", frag["txt"][:24], "+", ktxt[:24], flush=True)
+                        ktxt = _joined
+                    frag["txt"] = ""; frag["ts"] = 0.0
                 _words = _re.findall(r"[A-Za-zא-ת][A-Za-zא-ת'\-]*" if _hebrew else r"[A-Za-z][A-Za-z'\-]*", ktxt)
                 _drop = None
                 if not ktxt or is_garble(ktxt):
@@ -858,6 +955,13 @@ async def relay(request):
                        "דוב", "כוכב", "פלמינגו", "צפרדע", "פסל", "קפוא", "נובה", "גל",
                        "פריז", "מוזיקה", "ריקוד", "משחק")):
                     _drop = None                     # name beat: name-shaped token (Hebrew has no case)
+                elif _hebrew and namebeat["open"] and name_candidate(ktxt, True):
+                    # NAME BEAT, HEBREW (2026-09-20): a 1-2 token Hebrew turn is a NAME
+                    # CANDIDATE for as long as the beat is open — not only on turn 0. The
+                    # founder's session reached turn 2 before he ever got to say his name,
+                    # so the old turn-0-only rule could not catch it.
+                    _drop = None
+                    print("[NAME-BEAT] name candidate accepted:", ktxt[:30], flush=True)
                 else:
                     _drop = "sub-2-word"
                 # F1-ADAPT (nephew hotfix 2026-09-13): HEBREW SCRIPT GATE. The language pin
@@ -884,6 +988,13 @@ async def relay(request):
                     print("[RACE] rest transcript won utt", n, ":", ktxt[:40], flush=True)
                 if _drop:
                     print("[INPUT-LOCK] dropped:", _drop, "|", ktxt[:30], flush=True)
+                    # ...but in Hebrew, while the name beat is open, a sub-2-word piece is
+                    # HELD for 1.5s instead of being forgotten: the next piece may complete
+                    # it ("קוראים לי" -> + "נועם"). It is still dropped as a turn — nothing
+                    # generates — it is only kept as glue.
+                    if _hebrew and namebeat["open"] and _drop == "sub-2-word":
+                        frag["txt"] = ktxt; frag["ts"] = time.time()
+                        print("[NAME-JOIN] holding fragment %.1fs:" % NAME_JOIN_S, ktxt[:30], flush=True)
                     # Nephew test 2026-09-13: a DROPPED turn still sat in the conversation
                     # history (the API commits the audio item regardless), so a later auto
                     # line answered it — in Russian. Purge the item so dropped noise can
@@ -898,6 +1009,12 @@ async def relay(request):
                 else:
                     # real kid input: NOW reset the turn counter, record input, log.
                     inlock["valid_turns"] += 1
+                    # The name beat closes the moment a name actually lands (or after 6 real
+                    # turns, so a session that never gives a name stops gluing fragments).
+                    if namebeat["open"] and (name_candidate(ktxt, _hebrew) or inlock["valid_turns"] >= 6):
+                        namebeat["open"] = False
+                        frag["txt"] = ""; frag["ts"] = 0.0
+                        print("[NAME-BEAT] closed after:", ktxt[:30], flush=True)
                     turn["kid_ts"] = time.time(); turn["retried"] = False
                     kidinput["ts"] = time.time()
                     await ask_lock_clear("turn")      # he answered — the producer may speak again
@@ -1439,14 +1556,18 @@ async def relay(request):
                         # #1 TRUTH-GATE PRE-SYNTH (tightened 2026-08-11): praise-OPENING with no
                         # fact dies immediately — waiting for the move word lost the audio race
                         # (founder log: "You nailed that freeze" fully audible despite the block).
-                        elif (not resp["killed"]) and (time.time() - facts["last_ts"] > FACT_WINDOW) \
-                           and (time.time() - kidinput["ts"] > 6.0) \
-                           and PRAISE_RE.search(resp["buf"][:40]) and not INVITE_RE.search(resp["buf"]):
-                            # (praise within 6s of a REAL kid turn is a legit reaction —
+                        elif (not resp["killed"]) and truthgate_blocks(
+                                resp["buf"], time.time() - facts["last_ts"],
+                                time.time() - kidinput["ts"])[0]:
+                            # (praise within 6s of a REAL kid turn is still a legit reaction —
                             #  the disease was praise into silence; torture-1 killed her
-                            #  honest name-echo and glued "Let's GO!" on top)
+                            #  honest name-echo and glued "Let's GO!" on top. What is NO LONGER
+                            #  exempt inside that window is a MOVE-CLAIM with no fact: the
+                            #  fourth path, 2026-09-20.)
                             resp["killed"] = True
-                            print("[TRUTH-GATE] pre-synth blocked (no fact):", resp["buf"][:70], flush=True)
+                            _tg_why = truthgate_blocks(resp["buf"], time.time() - facts["last_ts"],
+                                                       time.time() - kidinput["ts"])[1]
+                            print("[TRUTH-GATE] pre-synth blocked (" + _tg_why + "):", resp["buf"][:70], flush=True)
                             try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"[TRUTH-GATE] pre-synth blocked: "+resp["buf"]+"\n")
                             except Exception: pass
                             # PRODUCER-SILENT: the invented claim is killed before synthesis (the

@@ -133,6 +133,30 @@ The founder heard it on 2026-09-17: "hold it like that" to a child who had not m
 **The wall is a COUNT** (`tools/laws/law-producersilent.js`): a 15th `response.create`
 outside `_speak_send` turns the build red.
 
+### law-moveclaim — a move-claim needs a real fact, even right after a kid turn
+The truth-gate's **fourth path**. Praise within 6s of a real kid turn stays exempt (killing
+it also kills her honest name-echo — torture-1), **but a line that CLAIMS A MOVE requires a
+detection fact within 30s, inside that window too**, and the test is bilingual: `PRAISE_RE`
+is English-only, so a Hebrew claim could never match it in any window. An invitation asks
+(`INVITE_ASK_RE` / `INVITE_HE_RE`) and is never a claim; the freeze RULE and every invite
+stay sayable. The verdict lives in one pure function so it is provable offline.
+**Marker:** `def truthgate_blocks(`, `MOVE_FACT_WINDOW = 30.0`, `MOVE_WORD_RE`,
+`CLAIM_SHAPE_RE`, `INVITE_HE_RE`, `INVITE_ASK_RE` · **Files:** pod/rt_lk.py ·
+**Added:** 2026-09-20 · **Why:** the live session that day had **zero `[FACT]` lines** and
+she still said "איזה יופי של הרמה עם הכתף הזאת!". v1.0.4 closed `success()` and the 20s
+release, v1.0.7 closed the 13s re-invite; this was the path nobody had closed.
+**Proof:** `test/truthgate_bench.py` — three no-lift runs, zero move-praise.
+
+### law-namebeat — a chopped Hebrew name is rejoined, not lost
+While the name beat is open, in Hebrew, transcript fragments arriving within **1.5s** are
+joined and re-judged, and a **1-2 token Hebrew turn** counts as a name candidate (not only
+on the session's first valid turn). The INPUT LOCK is not weakened: a joined fragment runs
+the same validation, a held fragment generates nothing, and game words can never be taken
+as a name. **Marker:** `def join_fragment(`, `def name_candidate(`, `NAME_JOIN_S = 1.5`,
+`[NAME-JOIN]`, `[NAME-BEAT] name candidate accepted` · **Files:** pod/rt_lk.py ·
+**Added:** 2026-09-20 · **Why:** the live session dropped `קוראים.` as sub-2-word — the
+first word of "קוראים לי <name>" — so the child gave his name and she never got it.
+
 ---
 
 ## Standing project laws (pre-Guardian, now registered)
@@ -273,6 +297,8 @@ law-pods       | active | tools/pod/launch_pod.sh,tools/pod/boot.sh             
 law-direct-voice | active | nova-commercial.html,nova-direct-voice.js             | LAW-DIRECT-VOICE ;; oai-events ;; response.cancel
 law-inputlock  | active | pod/rt_lk.py                                            | LAW-INPUT-LOCK ;; [INPUT-LOCK] ;; one-shot fired for turn
 law-producer-silent | active | pod/rt_lk.py                                       | PRODUCER-SILENT ;; async def remember( ;; async def speak_now( ;; async def cancel_speech( ;; [BOUNDARY] ;; [REMEMBER] ;; you were told, you did not guess
+law-moveclaim  | active | pod/rt_lk.py                                            | def truthgate_blocks( ;; MOVE_FACT_WINDOW = 30.0 ;; MOVE_WORD_RE ;; CLAIM_SHAPE_RE ;; INVITE_HE_RE ;; INVITE_ASK_RE
+law-namebeat   | active | pod/rt_lk.py                                            | def join_fragment( ;; def name_candidate( ;; NAME_JOIN_S = 1.5 ;; [NAME-JOIN] ;; [NAME-BEAT] name candidate accepted
 law-ambient    | lost   | -                                                       | nova-ambient
 law-v2v        | policy | -                                                       | -
 law-treaty     | policy | -                                                       | -
