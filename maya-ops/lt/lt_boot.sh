@@ -68,7 +68,7 @@ vhost __defaultVhost__ { rtc { enabled on; rtmp_to_rtc off; rtc_to_rtmp on; } ht
 EOF
   down srs; up srs "cd $SRS/trunk && ./objs/srs -c conf/maya_rtc2rtmp.conf"; wait_http http://127.0.0.1:1985/api/v1/versions SRS 20 || die "SRS not up"
   down engine
-  up engine "cd $LT && $PY app.py --transport rtcpush --push_url 'http://127.0.0.1:1985/rtc/v1/whip/?app=live&stream=livestream' --model musetalk --avatar_id $AVATAR --customvideo_config data/custom_config.json --tts ${LT_TTS:-elevenlabs} --listenport 8010 ${LT_EXTRA_ARGS:-}"
+  up engine "cd $LT && $PY app.py --transport rtcpush --push_url 'http://127.0.0.1:1985/rtc/v1/whip/?app=live&stream=livestream' --model musetalk --avatar_id $AVATAR --customvideo_config data/custom_config.json --tts ${LT_TTS:-openaitts} --REF_FILE ${LT_REF_FILE:-coral} --listenport 8010 ${LT_EXTRA_ARGS:-}"
   wait_http http://127.0.0.1:8010/ engine 120 || { tail -30 "$LOG/engine.log"; die "engine not up"; }
   sleep 8
   # ---- HOUR-ONE GATE ----
@@ -81,7 +81,7 @@ EOF
   say "· local RTMP: fps=$FPS  audio mean=${LVL} dBFS  (need fps>=24, dBFS>-40)"
   ENGFPS=$(grep -oiE "(infer|final)[ _]?fps[^0-9]*[0-9.]+" "$LOG/engine.log" | tail -2 | tr '\n' ' '); say "· engine log: ${ENGFPS:-no fps line yet}"
   awk -v f="$FPS" 'BEGIN{exit !(f>=24)}' || die "video below 24 fps — lower --batch_size / check GPU util (nvidia-smi)"
-  awk -v l="$LVL" 'BEGIN{exit !(l>-40)}' || die "audio silent (${LVL} dBFS) — TTS module not producing: check ELEVENLABS_API_KEY/VOICE_ID and engine.log"
+  awk -v l="$LVL" 'BEGIN{exit !(l>-40)}' || die "audio silent (${LVL} dBFS) — TTS module not producing: check OPENAI_API_KEY (voice is openaitts/coral) and engine.log"
   say "GATE PASSED — she renders and speaks on the local RTMP"
   [ "$MODE" = "check" ] && { say "check complete (no Facebook). Next: bash lt_boot.sh live 15"; exit 0; }
   # ---- FACEBOOK ----
