@@ -138,12 +138,18 @@ ok(ev('realign').length <= 3, 'grid realigns rare (≤3, freeze holds only)', ev
 ok(resolves.every(r => r.pts >= 0), 'GOTCHA (and everything) never negative');
 ok(resolves.some(r => r.event === 'hit'), 'real commands were hit', resolves.filter(r => r.event === 'hit').length + ' hits');
 ok(resolves.some(r => r.event === 'trickHeld'), 'tricks were held');
-// tricks unlit: no light event between a trick cmd and its resolve
-let trickLit = 0;
+// TRICK TELL (founder ruling 2026-09-23): a trick must be indistinguishable from a real command
+// except for the words. This check used to demand the OPPOSITE — zero lights on a trick — which
+// is precisely what let a child win by watching instead of listening. Inverted, not deleted:
+// tricks must now light like real commands do.
+let trickLit = 0, trickCmds = 0;
 for (let i = 0; i < log.length; i++) if (log[i].ev === 'cmd' && log[i].d.trick) {
-  for (let j = i + 1; j < log.length && log[j].ev !== 'resolve'; j++) if (log[j].ev === 'light') trickLit++;
+  trickCmds++;
+  for (let j = i + 1; j < log.length && log[j].ev !== 'resolve'; j++) if (log[j].ev === 'light') { trickLit++; break; }
 }
-ok(trickLit === 0, 'tricks never lit a cue', trickLit + ' violations');
+ok(trickCmds > 0 && trickLit === trickCmds,
+   'TRICK TELL: every trick lit its cue, exactly like a real command',
+   trickLit + '/' + trickCmds + ' tricks lit');
 // she grooves: every round starts on the groove body
 const bodies = log.filter(e => e.ev === 'body').map(e => e.d);
 ok(bodies.includes('nova_idlegroove_v2'), 'she grooves the rounds (nova_idlegroove_v2 set)');

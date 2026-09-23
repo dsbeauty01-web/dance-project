@@ -1646,12 +1646,16 @@ async def avatar_check(request):
     return web.json_response({"ok": not missing, "missing": missing})
 
 async def beta_novasays_lib(request):
-    # the page imports /beta/novasays.js (the game library) — served like the page, not silently
+    # The page imports /beta/novasays.js AND /beta/novasays-music.js (the SneakyBed). Only the
+    # first had a route, so V2 loaded its game library, 404'd on the music, and died before the
+    # first bar — found 2026-09-23 with the console attached. One handler now serves both by
+    # name, so adding a beta module never needs a matching route again.
+    name = request.match_info.get("name", "novasays.js")
     try:
-        with open("/workspace/pages/beta/novasays.js", encoding="utf-8") as f:
+        with open("/workspace/pages/beta/" + name, encoding="utf-8") as f:
             js = f.read()
     except FileNotFoundError:
-        return web.Response(status=503, text="beta novasays.js not deployed")
+        return web.Response(status=503, text="beta " + name + " not deployed")
     return web.Response(text=js, content_type="application/javascript", headers={"Cache-Control": "no-store"})
 
 async def upperbody_page(request):
@@ -1697,7 +1701,7 @@ app.router.add_get("/beta/freeze", beta_freeze_page)
 app.router.add_get("/beta/wave", beta_wave_page)
 app.router.add_get("/beta/upperbody", beta_upperbody_page)
 app.router.add_get("/beta/novasays", beta_novasays_page)
-app.router.add_get("/beta/novasays.js", beta_novasays_lib)
+app.router.add_get(r"/beta/{name:[A-Za-z0-9_.-]+\.js}", beta_novasays_lib)
 app.router.add_get("/avatar_check", avatar_check)
 app.router.add_post("/pulse", pulse_post)
 app.router.add_get("/token", token)

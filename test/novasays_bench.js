@@ -149,8 +149,14 @@ console.log('\n── 6 · static graders over the page (v2 identity + kids law)
   ok(!page.includes('/freezegame/'), 'IDENTITY §8: zero /freezegame/ references (grep-proof)');
   ok(page.includes('SneakyBed') && page.includes('bed.nextBarStart'), 'commands ride the SneakyBed bar grid');
   ok(page.includes('actx.currentTime'), 'clock law: scheduling off the WebAudio clock');
-  ok(page.includes('if (!step.trick && c.demo) playGesture(c.demo'), 'demo fires only on real commands');
-  ok(page.includes('if (!step.trick) scheduleAt(at + bed.beat, () => lightFor('), 'tricks are UNLIT (light behind !trick guard)');
+  // TRICK TELL (founder ruling 2026-09-23) — these two assertions used to lock in the OPPOSITE
+  // rule: demo on real commands only, tricks unlit. That made her BODY the tell, so a child could
+  // win by watching and never listening. Per the project's law convention the tests are not
+  // deleted, they are inverted: the old guards are now forbidden, the new rule asserted.
+  ok(!page.includes('if (!step.trick && c.demo) playGesture(c.demo'), 'TRICK TELL: the real-only demo guard is GONE');
+  ok(page.includes('if (c.demo) playGesture(c.demo'), 'TRICK TELL: she demos on EVERY command — identical body');
+  ok(page.includes('if (!step.trick || TRICK_LIGHT) scheduleAt(at + bed.beat, () => lightFor('), 'TRICK TELL: tricks light too (words are the only tell)');
+  ok(page.includes('const TRICK_LIGHT'), 'TRICK TELL: ?tricklight=0 can restore the old real-only light');
   ok(page.includes('gotchaRipple') && page.includes("play(clips['giggle.mp3'])"), 'GOTCHA = purple ripple + pre-recorded giggle+line');
   ok(page.includes("setBody(BODY.groove)") && page.includes("groove:'nova_idlegroove_v2'"), '§5: she GROOVES the whole round (never a statue)');
   ok(page.includes('missing voice clip') && page.includes('missing avatar bake'), 'red banners: missing clip OR bake = refuse to start');

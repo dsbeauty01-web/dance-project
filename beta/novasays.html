@@ -67,6 +67,8 @@ import { SneakyBed } from '/beta/novasays-music.js';
 const MIRROR = true, TIER = 'kids';
 const HE = /[?&]lang=he/.test(location.search), LANG = HE ? 'he' : 'en';
 const TEST = /[?&]test=1/.test(location.search);
+// TRICK TELL: the guide light glows on tricks too, so the words stay the only tell. ?tricklight=0 reverts.
+const TRICK_LIGHT = !/[?&]tricklight=0/.test(location.search);
 const BODY = { talk:'nova_idle2', groove:'nova_idlegroove_v2' };    // §5: she GROOVES the whole round
 const stage = document.getElementById('stage');
 const E = new MoverEngine(), L = new LightEngine(document.getElementById('fx'), { tier:TIER, mirror:MIRROR });
@@ -190,9 +192,18 @@ async function playRound(R) {
   for (const step of seq) {
     const c = step.cmd; curCmd = c; curTrick = step.trick;
     const line = clips[clipName(step, LANG)];
-    // BAR A — the call: line on the downbeat, demo on the same beat (real only), light one beat later
-    scheduleAt(at, (now) => { play(line, at); tlog('cmd', { id: c.id, trick: step.trick, chain: step.chain?.id || null, at, fired: now }); if (!step.trick && c.demo) playGesture(c.demo, bar * 0.9); }, 'cmd');
-    if (!step.trick) scheduleAt(at + bed.beat, () => lightFor(c, (R.barsPerCmd - 0.5) * bar * 1000, step.chain));
+    // BAR A — the call: line on the downbeat, demo on the same beat, light one beat later.
+    // TRICK TELL (founder ruling 2026-09-23). The spec had tricks skip the gesture swap, arguing
+    // "the groove continues — identical look to the second BEFORE a real command". In play that
+    // reasoning breaks: DURING the call a real command means she moves and a trick means she
+    // grooves, so a child wins by watching her body and never has to listen. The game stops
+    // being Nova Says. She now performs the demo on EVERY command — identical body, the words
+    // are the only tell, exactly as the clips were recorded (real and trick share one delivery).
+    // The guide light was the same class of tell, and worse: it fired real-only ~0.5s BEFORE the
+    // scoring window even opened, so waiting for the light beat listening outright. It now lights
+    // on tricks too. ?tricklight=0 restores the old real-only light if the founder's eye prefers it.
+    scheduleAt(at, (now) => { play(line, at); tlog('cmd', { id: c.id, trick: step.trick, chain: step.chain?.id || null, at, fired: now }); if (c.demo) playGesture(c.demo, bar * 0.9); }, 'cmd');
+    if (!step.trick || TRICK_LIGHT) scheduleAt(at + bed.beat, () => lightFor(c, (R.barsPerCmd - 0.5) * bar * 1000, step.chain));
     const winStart = at + Math.min(1.4, line.duration), winEnd = at + R.barsPerCmd * bar;
     inWindow = false;
     const result = await detectWindow(step, winStart, winEnd);
