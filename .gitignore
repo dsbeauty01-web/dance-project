@@ -1,1 +1,12 @@
 maya-ops/lt/gesture_mode/
+
+# secrets — never commit (repo is public)
+*.env
+!*.env.example
+host.env
+keys.env
+.env.*
+!.env.example
+*.pem
+*.p12
+id_rsa*
