@@ -1,0 +1,220 @@
+{
+ "version": "3.2",
+ "capSeconds": 180,
+ "lipMode": "engine",
+ "talkBody": "nova_idle2",
+ "bakeMs": {
+  "gest_star": 1300,
+  "gest_lefthand": 1300,
+  "gest_righthand": 1300,
+  "gest_clap": 1200,
+  "gest_bear": 1400
+ },
+ "streakBonusAt": 5,
+ "handoffStartTimeoutMs": 3000,
+ "handoffMaxMs": 12000,
+ "gapAfterFeedbackMs": 300,
+ "commands": {
+  "armsUp": {
+   "demo": "gest_star",
+   "judge": "armsUp",
+   "light": "bothWrists",
+   "trickable": true
+  },
+  "leftArm": {
+   "demo": "gest_lefthand",
+   "judge": "leftArm",
+   "light": "leftWrist",
+   "trickable": true
+  },
+  "rightArm": {
+   "demo": "gest_righthand",
+   "judge": "rightArm",
+   "light": "rightWrist",
+   "trickable": true
+  },
+  "clap": {
+   "demo": "gest_clap",
+   "judge": "clap",
+   "light": "clap",
+   "trickable": true
+  },
+  "freeze": {
+   "demo": "gest_bear",
+   "judge": "freeze",
+   "light": "ice",
+   "trickable": false,
+   "holdMs": 1000
+  }
+ },
+ "practice": {
+  "win": 3.0,
+  "steps": [
+   [
+    "armsUp",
+    "real"
+   ],
+   [
+    "clap",
+    "trick"
+   ]
+  ]
+ },
+ "rounds": [
+  {
+   "n": 1,
+   "intro": "tr.round1",
+   "win": 2.4,
+   "exactSides": false,
+   "steps": [
+    [
+     "armsUp",
+     "real"
+    ],
+    [
+     "clap",
+     "real"
+    ],
+    [
+     "rightArm",
+     "real"
+    ],
+    [
+     "freeze",
+     "real"
+    ],
+    [
+     "armsUp",
+     "trick"
+    ],
+    [
+     "clap",
+     "real"
+    ]
+   ]
+  },
+  {
+   "n": 2,
+   "intro": "tr.round2",
+   "win": 2.0,
+   "exactSides": false,
+   "steps": [
+    [
+     "clap",
+     "real"
+    ],
+    [
+     "armsUp",
+     "real"
+    ],
+    [
+     "clap",
+     "trick"
+    ],
+    [
+     "leftArm",
+     "real"
+    ],
+    [
+     "rightArm",
+     "real"
+    ],
+    [
+     "armsUp",
+     "trick"
+    ],
+    [
+     "freeze",
+     "real"
+    ],
+    [
+     "clap",
+     "trick"
+    ]
+   ]
+  },
+  {
+   "n": 3,
+   "intro": "tr.round3",
+   "win": 1.6,
+   "exactSides": false,
+   "steps": [
+    [
+     "armsUp",
+     "real"
+    ],
+    [
+     "clap",
+     "real"
+    ],
+    [
+     "armsUp",
+     "real"
+    ],
+    [
+     "armsUp",
+     "trick"
+    ],
+    [
+     "rightArm",
+     "real"
+    ],
+    [
+     "leftArm",
+     "real"
+    ],
+    [
+     "clap",
+     "trick"
+    ],
+    [
+     "clap",
+     "real"
+    ],
+    [
+     "rightArm",
+     "trick"
+    ],
+    [
+     "clap",
+     "trick"
+    ],
+    [
+     "freeze",
+     "real"
+    ]
+   ]
+  }
+ ],
+ "medals": {
+  "bronzeBelow": 0.5,
+  "goldFrom": 0.8
+ },
+ "tune": {
+  "_note": "Fractions of the CHILD'S OWN range (still level → moving level from the practice). Set by harness runs (still kid vs moving kid) — the CLI replaces these with the values that separate them, and logs old→new with the numbers.",
+  "moveFrac": 0.3,
+  "freezeFrac": 0.15,
+  "reachFrac": 0.5,
+  "reachFloorSW": 0.15,
+  "clapCloseFrac": 0.45,
+  "clapOpenFrac": 0.85,
+  "settleMaxMs": 1000,
+  "trickIgnoreMs": 300,
+  "gotchaHoldMs": 250,
+  "hitHoldMs": 200,
+  "stillSeconds": 2.0
+ },
+ "adaptive": {
+  "missesForTogether": 3,
+  "togetherWindowMult": 1.5,
+  "gotchasForCoach": 2,
+  "round2TricksIfCaught": 2,
+  "effortStarRound": 1
+ },
+ "presence": {
+  "lostPauseMs": 1500,
+  "returnHoldMs": 800,
+  "lightHintAfterMs": 8000
+ },
+ "reconnectGiveUpMs": 20000
+}

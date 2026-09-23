@@ -210,10 +210,23 @@ GENDER_HE = {
 def gender_line(g):
     return " " + GENDER_HE.get(g or "", GENDER_HE[""])
 
-def session_update(freeze=False, voice=None, lang="en", gender=""):
+# NOVA SAYS v3 (2026-09-23, founder spec). Who she is in THIS game, at session level — the greet
+# alone could not hold it, because after the greet the page takes over and she only returns at the
+# handoffs, where the producer gives her facts but not a character. "Sneaky" is banned outright:
+# V1/V2 opened with "I'm SNEAKY!", which frames her as playing against the child. She tricks him
+# because it is funny and she is delighted when he catches her.
+NOVASAYS_PERSONA = (
+    "\n\nNOVA SAYS GAME: you are a playful, silly game leader who loves to trick the child in a "
+    "FUN way - warm, giggly, you laugh WITH them and never at them. When they catch your trick you "
+    "are thrilled; when they fall for one you laugh together and move on instantly. NEVER negative, "
+    "never 'wrong', never 'no'. NEVER use the word sneaky (or שובבה) about yourself. "
+    "During the rounds you are silent - the game runs itself and you will be told when to speak.")
+
+def session_update(freeze=False, voice=None, lang="en", gender="", intro=""):
     return {"type": "session.update", "session": {
         "type": "realtime", "output_modalities": ["audio"],
         "instructions": PROMPT + (FREEZE_RULES if freeze else "")
+                        + (NOVASAYS_PERSONA if intro == "novasays" else "")
                         + ((HEBREW_RULES + gender_line(gender)) if lang == "he" else ""),
         "audio": {
             "input": {"format": {"type": "audio/pcm", "rate": 24000},
@@ -577,7 +590,8 @@ async def relay(request):
             _voice = (request.query.get("voice") or "").strip() or None   # V2: ?voice=coral etc. for instant A/B
             _freeze_mode = (_intro == "freeze")   # V2.1: page owns the game -> brain self-triggers OFF
             await oai.send_json(session_update(freeze=_freeze_mode, voice=_voice,
-                                               lang=("he" if _hebrew else "en"), gender=_gender))
+                                               lang=("he" if _hebrew else "en"), gender=_gender,
+                                               intro=_intro))
             await log("connected to " + MODEL + " (voice " + VOICE + ")")
             # TRANSCRIPTION WARM-UP (he-17): the session's FIRST Hebrew transcription
             # keeps costing 12-14s — a cold path on the provider side that hits the name
@@ -630,25 +644,32 @@ async def relay(request):
                               "After their name or two exchanges, explain: when the music plays DANCE - "
                               "when it stops... FREEZE! Then ask: Ready? Do NOT offer any other game. "
                               "Do NOT start counting down - the game begins only when they say yes.")
+                # NOVA SAYS v3 (2026-09-23). Two changes from V1/V2's greet. The word "sneaky"
+                # is gone in both languages — the founder's word for what she is now is playful,
+                # silly, laughing WITH the child, never at them; "sneaky" made her sound like she
+                # was against him. And the rule is one breath, not a paragraph, because the very
+                # next thing that happens is the page taking over for a practice round that shows
+                # the rule better than any explanation can. After the yes she goes offstage until
+                # the page reports a section-end, so this is the last thing her brain drives.
                 elif _intro == "novasays" and _hebrew:
-                    # NOVA SAYS Hebrew greet (b0.21-novasays): same conversation contract —
-                    # greet + name, echo the transcript name, then the SNEAKY rule + ready.
                     _greet = ("Speak HEBREW ONLY. Say EXACTLY these words and NOTHING more: "
-                              "היי! אני נובה, ואני שובבה! איך קוראים לך? "
-                              "Then STOP and wait. When they answer, echo the exact name you heard "
-                              "warmly, then explain in Hebrew: we play NOVA SAYS (נובה אומרת) - move "
-                              "ONLY when I say נובה אומרת! If I don't say it - DON'T move! Then ask: "
-                              "מוכנים? Do NOT offer any other game. The game begins only when they say yes.")
+                              "היי! אני נובה! איך קוראים לך? "
+                              "Then STOP and say NOTHING until the child answers. When they answer, "
+                              "say their exact name warmly and then, in ONE breath in kid Hebrew: "
+                              "כשאני אומרת 'נובה אומרת' - עושים! כשאני לא אומרת - לא זזים! "
+                              "Then ask: מוכנים? and STOP again. "
+                              + gender_line(_gender) +
+                              " Do NOT offer any other game. Do NOT explain more, do NOT give "
+                              "examples, do NOT count down - the game starts only when they say yes.")
                 elif _intro == "novasays":
-                    # NOVA SAYS greet (b0.21-novasays, NOVA-SAYS.md §6): she is SNEAKY and
-                    # delighted; greet + name ask, the one rule, then wait for a real yes.
                     _greet = ("Say EXACTLY these words and NOTHING more: "
-                              "Hi! I'm Nova, and I'm SNEAKY! What's your name? "
-                              "Then STOP and wait. When they answer, echo the exact name you heard "
-                              "warmly and keep it short. Then explain: we play NOVA SAYS - move ONLY "
-                              "when I say NOVA SAYS! If I don't say it... DON'T move! Then ask: Ready? "
-                              "Do NOT offer any other game. Do NOT start counting down - the game "
-                              "begins only when they say yes.")
+                              "Hi! I'm Nova! What's your name? "
+                              "Then STOP and say NOTHING until the child answers. When they answer, "
+                              "say their exact name warmly and then, in ONE breath: "
+                              "When I say 'Nova says' - you do it! When I DON'T say it - you don't move! "
+                              "Then ask: Ready? and STOP again. "
+                              "Do NOT offer any other game. Do NOT explain more, do NOT give examples, "
+                              "do NOT count down - the game starts only when they say yes.")
                 elif _hebrew:
                     # HEBREW regular intro (2026-09-07): the generic greet was English-only,
                     # so the commercial Hebrew intro opened in English and mixed languages.
@@ -1260,6 +1281,24 @@ async def relay(request):
                             turn["kid_ts"] = time.time(); turn["retried"] = False
                             print("[HOLD] OFF — listening again", flush=True)
                         await ws_client.send_json({"type": "status", "state": "paused" if on else "listening"})
+                    elif t == "remember":
+                        # NOVA SAYS v3 (2026-09-23). The PRODUCER-SILENT verbs existed inside this
+                        # file since v1.0.8 but no page could reach them — the ws vocabulary still
+                        # only had nova-cue/nova-say, both of which MAKE HER TALK. A game that
+                        # wants to feed her facts all round without a word coming out had no way
+                        # to say so. This is that way: pure context, never speech.
+                        await remember((m.get("text") or "").strip())
+                    elif t == "section-end":
+                        # The v3 handoff. The page owns the round; when it ends, it says so. That
+                        # is a boundary — the one moment speech is allowed — and it carries the
+                        # facts she should react to. speak=False reports the boundary only.
+                        _txt = (m.get("text") or "").strip()
+                        if _txt and not m.get("speak"):
+                            await remember(_txt)
+                        await boundary_open("phase-end" if m.get("phase_end") else "section-end")
+                        if _txt and m.get("speak"):
+                            await speak_now(instructions=_txt, origin="section-end",
+                                            cap=m.get("cap") or 60)
                     elif t == "speak_gate":
                         # SPEAK-GATE (2026-08-26): the game phase's structural mute. on=True from
                         # music-start, off at the final verdict. Mic stays open the whole time.
