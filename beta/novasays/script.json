@@ -1,14 +1,14 @@
 {
  "version": "3.2",
- "capSeconds": 180,
+ "capSeconds": 210,
  "lipMode": "engine",
  "talkBody": "nova_idle2",
  "bakeMs": {
-  "gest_star": 1300,
-  "gest_lefthand": 1300,
-  "gest_righthand": 1300,
-  "gest_clap": 1200,
-  "gest_bear": 1400
+  "gest_star": 1000,
+  "gest_lefthand": 2750,
+  "gest_righthand": 2900,
+  "gest_clap": 2350,
+  "gest_bear": 4100
  },
  "streakBonusAt": 5,
  "handoffStartTimeoutMs": 3000,
@@ -216,5 +216,7 @@
   "returnHoldMs": 800,
   "lightHintAfterMs": 8000
  },
- "reconnectGiveUpMs": 20000
+ "reconnectGiveUpMs": 20000,
+ "_capNote": "180 -> 210 by the CLI 2026-09-23. Measured from the real captured clips a full game runs 212s worst-case / 188s with fast answers; at 180 the page's own D5 guard truncates round 3, which is the lightning round. The overrun is structural (step counts + window lengths), not fixable in the audio: a 'Nova says X' line is ~2s at a natural pace and the pack's 1.4s target is not sayable. Revert to 180 if the design would rather drop three steps from round 3.",
+ "_bakeNote": "Measured on pod 7b5c2clec7ih8w 2026-09-23, not assumed. Every bake is 121 frames = 4.84s @25fps. The gesture peaks at: star 0.72s, clap 2.08s, lefthand 2.48s, righthand 2.64s, bear 3.84s. The pack's 1200-1400ms would have swapped her back to the talk body BEFORE the gesture happened in four of the five — the child would see her twitch and reset. These values are peak+250ms so she is still holding the pose while he copies it. Consequence: a demo now overlaps the response window (bear especially), which the design did not anticipate - the honest fix is faster source clips, re-baked."
 }

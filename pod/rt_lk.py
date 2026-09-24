@@ -2073,14 +2073,25 @@ async def avatar_check(request):
     missing = [i for i in ids if not os.path.isdir(os.path.join(root, i))]
     return web.json_response({"ok": not missing, "missing": missing})
 
-async def beta_novasays_lib(request):
-    # the page imports /beta/novasays.js (the game library) — served like the page, not silently
+async def beta_asset(request):
+    # NOVA SAYS v3 (2026-09-23). v3 deleted novasays.js and reads its data instead:
+    #   /beta/novasays/script.json · /beta/novasays/lines-en.json · lines-he-m · lines-he-f
+    # Those live UNDER the page route, which matched nothing, so the game 404'd on its own
+    # script before it drew a frame. One handler serves any beta .js or .json by name, so the
+    # next module a game adds never needs a matching route either. Path is name-only — no
+    # slashes, no traversal.
+    name = request.match_info.get("name", "")
+    sub  = request.match_info.get("sub", "")
+    rel  = (sub + "/" + name) if sub else name
+    if ".." in rel or rel.startswith("/"):
+        return web.Response(status=400, text="bad path")
     try:
-        with open("/workspace/pages/beta/novasays.js", encoding="utf-8") as f:
-            js = f.read()
+        with open("/workspace/pages/beta/" + rel, encoding="utf-8") as f:
+            body = f.read()
     except FileNotFoundError:
-        return web.Response(status=503, text="beta novasays.js not deployed")
-    return web.Response(text=js, content_type="application/javascript", headers={"Cache-Control": "no-store"})
+        return web.Response(status=503, text="beta " + rel + " not deployed")
+    ctype = "application/json" if rel.endswith(".json") else "application/javascript"
+    return web.Response(text=body, content_type=ctype, headers={"Cache-Control": "no-store"})
 
 async def upperbody_page(request):
     # UPPER BODY ISOLATION game (2026-08-27), first-party from the pod (mirrors freeze_page).
@@ -2125,7 +2136,8 @@ app.router.add_get("/beta/freeze", beta_freeze_page)
 app.router.add_get("/beta/wave", beta_wave_page)
 app.router.add_get("/beta/upperbody", beta_upperbody_page)
 app.router.add_get("/beta/novasays", beta_novasays_page)
-app.router.add_get("/beta/novasays.js", beta_novasays_lib)
+app.router.add_get(r"/beta/{name:[A-Za-z0-9_.-]+\.(?:js|json)}", beta_asset)
+app.router.add_get(r"/beta/{sub:[A-Za-z0-9_-]+}/{name:[A-Za-z0-9_.-]+\.(?:js|json)}", beta_asset)
 app.router.add_get("/avatar_check", avatar_check)
 app.router.add_post("/pulse", pulse_post)
 app.router.add_get("/token", token)

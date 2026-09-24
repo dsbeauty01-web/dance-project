@@ -1,8 +1,17 @@
 /* shared/game-kit.js — the common foundation every Nova game page stands on.
    MoveNet (TF.js, WebGL) only. Video-led. Guarded loops. Debug strip. No silent fallbacks.
    Written by the architect; parse-checked. Pages import { createKit } and write only game logic. */
-import * as tf from 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/+esm';
-import * as poseDetection from 'https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/+esm';
+/* [ADAPT 2026-09-23] The +esm CDN wrapper for pose-detection re-exports @mediapipe/pose, whose
+   ESM build has no named 'Pose' export — the module throws before the kit runs a single line, so
+   the page died at import with an empty console. Exactly the failure the shipped beta kit hit on
+   2026-09-13; this is that same proven fix, ported: load both as UMD classic scripts and read
+   them off window. old→new: +esm module imports → _cdn() UMD bundles. */
+const _cdn = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('script load failed: ' + src)); document.head.appendChild(s); });
+const _tfReady = (async () => {
+  await _cdn('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js');
+  await _cdn('https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js');
+  return { tf: window.tf, poseDetection: window.poseDetection };
+})();
 import { MoverEngine } from '/shared/mover-engine.js';
 import { RULES, WaveRule } from '/shared/mover-rules.js';
 import { grade } from '/shared/cue-window.js';
@@ -40,7 +49,7 @@ export async function createKit(opts){
 
   // ── pose ──
   K.det=null;
-  K.initPose = async () => { await tf.setBackend('webgl'); await tf.ready();
+  K.initPose = async () => { const { tf, poseDetection } = await _tfReady; await tf.setBackend('webgl'); await tf.ready();
     K.det = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING, enableSmoothing:true }); };
   K.detect = async (el) => { if(!K.det || !(el?.videoWidth>0)) return null; const poses=await K.det.estimatePoses(el,{flipHorizontal:false}); const kp=poses?.[0]?.keypoints; if(!kp) return null;
     const W=el.videoWidth, H=el.videoHeight, out={}; for (const [n,i] of Object.entries(MN)){ const p=kp[i]; if(p) out[n]={x:p.x/W, y:p.y/H, z:0, vis:p.score??0}; } return out; };

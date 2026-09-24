@@ -113,7 +113,13 @@ function sfx(kind){ const m = { pop:[880,90], twinkle:[1320,140], boing:[220,220
 
 // ───────────────── body ─────────────────
 function setBody(id){ try { K.bridge?.setBody?.(id); } catch(e){} dbgNote('body ' + id); }
-function demo(cmdId){ const c = S.commands[cmdId]; setBody(c.demo); setTimeout(() => setBody(S.talkBody), S.bakeMs[c.demo] || 1300); }
+/* [ADAPT 2026-09-23] the swap-back is now cancellable. The pack assumed ~1.3s gestures; the real
+   bakes peak at 0.7-3.8s (measured), so a demo can still be running when the next command fires.
+   Without this guard the previous gesture's timer lands mid-way through the new one and snaps her
+   to the talk body while she is supposed to be demonstrating. */
+let _demoT = null;
+function demo(cmdId){ const c = S.commands[cmdId]; if (_demoT) clearTimeout(_demoT);
+  setBody(c.demo); _demoT = setTimeout(() => { _demoT = null; setBody(S.talkBody); }, S.bakeMs[c.demo] || 1300); }
 function badge(t){ $('badge').textContent = t; }
 
 // ───────────────── the brain's two states ─────────────────
