@@ -228,7 +228,9 @@
  "presence": {
   "lostPauseMs": 1500,
   "returnHoldMs": 800,
-  "lightHintAfterMs": 8000
+  "lightHintAfterMs": 8000,
+  "maxWaitMs": 12000,
+  "_qaNote": "maxWaitMs added 2026-09-26 (QA Q2 follow-up): the presence gate had no escape. A founder test stuck on 'I can't see your wrists - step back' because the all-six-joints rule demanded more than the judge needs. The gate now asks for both shoulders + one joint per arm, and continues anyway after this many ms - the spec's own rule is that the game is never stuck."
  },
  "reconnectGiveUpMs": 20000,
  "_capNote": "180 -> 210 by the CLI 2026-09-23. Measured from the real captured clips a full game runs 212s worst-case / 188s with fast answers; at 180 the page's own D5 guard truncates round 3, which is the lightning round. The overrun is structural (step counts + window lengths), not fixable in the audio: a 'Nova says X' line is ~2s at a natural pace and the pack's 1.4s target is not sayable. Revert to 180 if the design would rather drop three steps from round 3.",

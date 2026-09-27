@@ -268,6 +268,52 @@ async def feed_engine(sess, wav_bytes):
     except Exception as e:
         print("feed_engine err", e, flush=True)
 
+async def humanaudio_proxy(request):
+    """[QA 2026-09-26] NOVA SAYS v3 plays PRE-RECORDED lines, and wants her LIPS to move on them.
+    The page's speakClip() posts here because :8765 is the only publicly exposed port — the engine's
+    own /humanaudio lives on :8010 and is unreachable from a browser, so the page was getting a flat
+    404 and the game died with 'humanaudio 404'. The 2026-09-23 session flagged speakClip as
+    'unverified until a pod answers'; this is what the pod answered.
+
+    Resolve the clip on disk, convert once to the 16k mono wav the engine wants (cached next to the
+    mp3 — 222 clips are converted on first play, not every play), and feed it through the same
+    feed_engine() path her live voice uses."""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "bad json"}, status=400)
+    url = (body or {}).get("url") or ""
+    rel = url.split("?")[0].split("#")[0].lstrip("/")
+    src = None
+    for root, prefix in (("/workspace/audio", "audio/"), ("/workspace/pages", "")):
+        if not rel.startswith(prefix):
+            continue
+        p = os.path.normpath(os.path.join(root, rel[len(prefix):]))
+        if p.startswith(root + os.sep) and os.path.isfile(p):     # no traversal out of the tree
+            src = p
+            break
+    if not src:
+        print("[HUMANAUDIO] clip not found:", url, flush=True)
+        return web.json_response({"error": "clip not found", "url": url}, status=404)
+    dst = src + ".16k.wav"
+    if not os.path.isfile(dst):
+        try:
+            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", src,
+                            "-ar", "16000", "-ac", "1", dst], check=True)
+        except Exception as e:
+            print("[HUMANAUDIO] convert failed:", e, flush=True)
+            return web.json_response({"error": "convert failed"}, status=500)
+    try:
+        with open(dst, "rb") as f:
+            wav = f.read()
+    except Exception as e:
+        return web.json_response({"error": "read failed"}, status=500)
+    async with aiohttp.ClientSession() as s:
+        await feed_engine(s, wav)
+    print("[HUMANAUDIO] fed %d bytes for %s" % (len(wav), rel), flush=True)
+    return web.json_response({"ok": True, "bytes": len(wav)})
+
+
 async def relay(request):
     ws_client = web.WebSocketResponse(max_msg_size=16*1024*1024)
     await ws_client.prepare(request)
@@ -2139,6 +2185,7 @@ app.router.add_get("/beta/novasays", beta_novasays_page)
 app.router.add_get(r"/beta/{name:[A-Za-z0-9_.-]+\.(?:js|json)}", beta_asset)
 app.router.add_get(r"/beta/{sub:[A-Za-z0-9_-]+}/{name:[A-Za-z0-9_.-]+\.(?:js|json)}", beta_asset)
 app.router.add_get("/avatar_check", avatar_check)
+app.router.add_post("/humanaudio", humanaudio_proxy)
 app.router.add_post("/pulse", pulse_post)
 app.router.add_get("/token", token)
 app.router.add_get("/health", health)

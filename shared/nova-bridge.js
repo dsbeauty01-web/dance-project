@@ -80,19 +80,23 @@ export function mic(on) {
 // Resolves when the clip ends. LiveTalking exposes an audio-file endpoint for exactly this; if
 // the pod answers anything but 200 we reject, and the page's own fallback plays the clip from
 // the page instead (script.json "lipMode":"air") — the game keeps running either way.
+/* [QA 2026-09-26] Returns false when the lip-sync path is unavailable instead of throwing. It used
+   to throw, and the page's only catch was the top-level one — so a single failed clip ended the whole
+   game with "Game error: humanaudio 404" in front of the child. The caller falls back to playing the
+   clip through the page (lipMode 'air'): she still speaks, her lips just don't move. */
 export async function speakClip(url) {
   const r = await fetch(BASE + 'humanaudio', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url, interrupt: false })
-  }).catch(e => { throw new Error('humanaudio unreachable: ' + (e && e.message)); });
-  if (!r.ok) throw new Error('humanaudio ' + r.status);
+  }).catch(() => null);
+  if (!r || !r.ok) { console.warn('[bridge] humanaudio ' + (r ? r.status : 'unreachable') + ' — falling back to page playback'); return false; }
   // her audio arrives over LiveKit like any other line — resolve on the level meter going quiet
   return new Promise(resolve => {
     let started = false;
     const t0 = Date.now();
     const iv = setInterval(() => {
       if (herSpeaking) started = true;
-      if ((started && !herSpeaking) || Date.now() - t0 > 12000) { clearInterval(iv); resolve(); }
+      if ((started && !herSpeaking) || Date.now() - t0 > 12000) { clearInterval(iv); resolve(true); }
     }, 80);
   });
 }

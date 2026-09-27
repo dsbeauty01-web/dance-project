@@ -100,8 +100,12 @@ async function speakLine(id, onLastWord){
   const c = pick(id); caption(LINES[id]); K.bed.duck(true); dbgNote('line ' + id);
   const lead = Math.max(0, c.buf.duration - 0.15) * 1000;
   const cue = onLastWord ? setTimeout(onLastWord, lead) : null;
-  if (LIP === 'engine' && K.bridge?.speakClip){ await K.bridge.speakClip(c.url); }   // [ADAPT] the pod endpoint that lip-syncs a pre-recorded clip
-  else await playBuf(c.buf);
+  /* [QA 2026-09-26] speakClip returns false when the lip-sync path is unavailable — then the page
+     plays the clip itself. She still speaks; only her lips stop moving. A missing engine must never
+     cost a child the line, and before this it cost them the whole game. */
+  let lipped = false;
+  if (LIP === 'engine' && K.bridge?.speakClip){ try { lipped = await K.bridge.speakClip(c.url); } catch(e){ lipped = false; } }
+  if (!lipped) await playBuf(c.buf);
   if (cue) clearTimeout(cue); if (onLastWord && !cue) onLastWord();
   K.bed.duck(false); caption('');
 }
@@ -304,12 +308,18 @@ function setTricks(){ $('tricks').textContent = `🎯 ${tricksHeld}/${tricksTota
 function wobble(){ $('stage').classList.remove('wobble'); void $('stage').offsetWidth; $('stage').classList.add('wobble'); }
 
 // ───────────────── presence (C1-C3) ─────────────────
+/* [QA Q2 · 2026-09-26] Same relaxation as the gate: this ran BETWEEN EVERY COMMAND, so with the old
+   all-six-joints rule a child who was fractionally too close got the "step back" screen thrown up
+   after every single call, and the game stalled. It asks for what the judge needs, and gives up
+   waiting after presence.maxWaitMs rather than trapping the child. */
 async function ensurePresence(withClips){
-  if (last && K.armsVisible(last)) return;
+  const trackable = k => (K.bodyTrackable ? K.bodyTrackable(k) : K.armsVisible(k));
+  if (last && trackable(last)) return;
   const g = $('gateArms'); g.classList.remove('hidden'); badge('📷'); const t0 = performance.now();
   if (withClips) await speakLine('fb.comeback');   // [QA Q10] awaited: in engine lipMode an un-awaited clip overlaps the fb.welcome clip below
   await new Promise(res => { let okSince = null; const t = setInterval(() => {
-    const ok = last && K.armsVisible(last);
+    if (performance.now() - t0 > (S.presence.maxWaitMs ?? 12000)){ dbgNote('presence: gave up waiting, continuing'); clearInterval(t); return res(); }
+    const ok = last && trackable(last);
     if (!ok && performance.now() - t0 > S.presence.lightHintAfterMs) $('gateMsg').textContent = UI.gate + (LANG === 'he' ? ' · ותדליקו אור' : ' · and turn on a light');
     if (ok){ okSince ??= performance.now(); if (performance.now() - okSince > S.presence.returnHoldMs){ clearInterval(t); res(); } } else okSince = null; }, 100); });
   g.classList.add('hidden'); $('gateMsg').textContent = UI.gate; badge('👀');

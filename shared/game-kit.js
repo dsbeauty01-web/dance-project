@@ -59,29 +59,48 @@ export async function createKit(opts){
   K.startCamera = async () => { try { const s=await navigator.mediaDevices.getUserMedia({ video:{ width:{ideal:1280}, height:{ideal:720} }, audio:false }); K.cam.srcObject=s; await new Promise(r=>{ if(K.cam.videoWidth>0) r(); else K.cam.onloadedmetadata=()=>r(); }); return true; } catch(e){ K.banner('Camera blocked — allow the camera and reload.'); return false; } };
 
   // ── presence gate: shoulders + elbows + wrists visible (vis ≥0.6) AND inside the frame ≥1s; draws live joint dots; names what's missing ──
+  /* [QA Q2 · 2026-09-26] The gate used to demand ALL SIX joints at vis>0.6 and inside the frame, with
+     NO way out — a child standing slightly too close (wrists or elbows out of shot) was locked out of
+     the game forever, staring at "step back". That is the same wrong assumption Q2 fixed in the judge:
+     the judge degrades (wrist -> elbow -> last verdict), so the gate must not demand more than the
+     judge needs. It now asks for both SHOULDERS plus ONE arm joint per side, and — because the spec's
+     own rule is "the game is never stuck" — it lets you in anyway after gateMaxMs and says so. */
   K.presenceGate = async () => { const g=$('gateArms'), ring=$('ring'), msg=$('gateMsg'); if(g) g.classList.remove('hidden'); let okSince=null;
     const need=['lShoulder','rShoulder','lElbow','rElbow','lWrist','rWrist'], cv=$('fx'), cx=cv?.getContext('2d');
+    const VIS = 0.5, GATE_MAX = o.gateMaxMs ?? 12000, t0 = performance.now();
     await new Promise(res=>{ const tick=async()=>{ try{ const k=await K.detect(K.cam);
         const inFrame = p => p && p.x>0.04 && p.x<0.96 && p.y>0.04 && p.y<0.96;
-        const seen = need.filter(n=>k?.[n]?.vis>0.6 && inFrame(k[n]));
-        const ok = seen.length===need.length;
+        const good = n => k?.[n]?.vis>VIS && inFrame(k[n]);
+        const seen = need.filter(good);
+        const arm = side => good(side+'Wrist') || good(side+'Elbow');      // one joint per arm is enough
+        const ok = good('lShoulder') && good('rShoulder') && arm('l') && arm('r');
+        if (!ok && performance.now() - t0 > GATE_MAX){                     // never stuck
+          K.DBG.err = 'gate: let in degraded after ' + Math.round((performance.now()-t0)/1000) + 's';
+          if (msg) msg.textContent = o.lang === 'he' ? 'בסדר, מתחילים!' : "OK — let's go!";
+          if (cx&&cv) cx.clearRect(0,0,cv.width,cv.height);
+          return setTimeout(res, 700);
+        }
         if (cx&&cv&&k){ cv.width=cv.clientWidth*devicePixelRatio; cv.height=cv.clientHeight*devicePixelRatio; cx.clearRect(0,0,cv.width,cv.height);
-          for (const n of need){ const p=k[n]; if(!p) continue; const x=(K.o.mirror?1-p.x:p.x)*cv.width, y=p.y*cv.height; cx.fillStyle = (p.vis>0.6&&inFrame(p)) ? '#7ddba3' : '#ffb27d'; cx.shadowBlur=18; cx.shadowColor=cx.fillStyle; cx.beginPath(); cx.arc(x,y,10*devicePixelRatio,0,7); cx.fill(); cx.shadowBlur=0; } }
+          for (const n of need){ const p=k[n]; if(!p) continue; const x=(K.o.mirror?1-p.x:p.x)*cv.width, y=p.y*cv.height; cx.fillStyle = good(n) ? '#7ddba3' : '#ffb27d'; cx.shadowBlur=18; cx.shadowColor=cx.fillStyle; cx.beginPath(); cx.arc(x,y,10*devicePixelRatio,0,7); cx.fill(); cx.shadowBlur=0; } }
         // [ADAPT 2026-09-23] the gate spoke English at a Hebrew-speaking child — the first thing
         // a kid sees, in the wrong language, before anyone has said a word. Keyed on o.lang.
-        if (msg){ const miss=need.filter(n=>!seen.includes(n));
-          const HEB = o.lang === 'he';
+        if (msg){ const HEB = o.lang === 'he';
+          /* name the thing that is ACTUALLY blocking, in the order the rule checks it — the old
+             message said "wrists" whenever any wrist was missing, even when a visible elbow already
+             satisfied the rule, so it asked people to fix something that was not the problem. */
           msg.textContent = ok
             ? (HEB ? 'אני רואה אותך — קדימה!' : 'I see you — go!')
-            : miss.some(n=>/Wrist/.test(n))
-              ? (HEB ? 'אני לא רואה את כפות הידיים — תתרחק/י קצת' : "I can't see your wrists — step back")
-              : miss.some(n=>/Elbow/.test(n))
-                ? (HEB ? 'אני לא רואה את המרפקים — תתרחק/י קצת' : "I can't see your elbows — step back")
-                : (HEB ? 'תתרחק/י קצת שאראה את הכתפיים' : 'Step back so I can see your shoulders'); }
+            : !(good('lShoulder') && good('rShoulder'))
+              ? (HEB ? 'תתרחק/י קצת שאראה את הכתפיים' : 'Step back so I can see your shoulders')
+              : (HEB ? 'תתרחק/י שאראה את הידיים' : 'Step back so I can see your arms'); }
         if(ring) ring.classList.toggle('ok', !!ok); if(ok){ okSince ??= performance.now(); if(performance.now()-okSince>1000){ if(cx) cx.clearRect(0,0,cv.width,cv.height); return res(); } } else okSince=null; }catch(e){ K.DBG.err='gate:'+e.message; K.dbg(); } requestAnimationFrame(tick); }; tick(); });
     if(g) g.classList.add('hidden'); };
   // arms currently trackable? (vis ≥0.6 on the whole chain) — pages must gate scoring on this
   K.armsVisible = (k) => ['lShoulder','rShoulder','lElbow','rElbow','lWrist','rWrist'].every(n=>k?.[n]?.vis>0.6);
+  /* [QA Q2] What the judge actually needs: both shoulders, and one joint per arm. armsVisible above is
+     left untouched because the older pages gate scoring on it; new callers should use this. */
+  K.bodyTrackable = (k) => { const v = n => k?.[n]?.vis > 0.5;
+    return v('lShoulder') && v('rShoulder') && (v('lWrist') || v('lElbow')) && (v('rWrist') || v('rElbow')); };
 
   // ── loops (guarded) ──
   K.onKid=null; K.onRef=null; K.onClock=null;
