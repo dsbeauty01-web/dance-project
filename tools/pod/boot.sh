@@ -20,13 +20,16 @@ echo "===== BOOT $(date -u) ====="
 export DEBIAN_FRONTEND=noninteractive
 export PYTHONPATH=/workspace/_sys/pylibs311_good/dist-packages
 
-# 0) POD-LAW: git-pull first — refresh the repo on the pod so boot uses latest code.
-#    (repo lives at /workspace/repo on the pod; secrets stay in /workspace/.env, uncommitted)
-if [ -d /workspace/repo/.git ]; then
-  git -C /workspace/repo pull --ff-only 2>&1 | tail -2 || echo "git pull skipped"
-  # sync the live brain from the pulled repo if present
-  [ -f /workspace/repo/pod/rt_lk.py ] && cp /workspace/repo/pod/rt_lk.py /workspace/rt_lk.py
-fi
+# 0) POD-LAW: git-pull first — refresh the repo on the pod so boot uses latest code, then
+#    DEPLOY: pages + shared + models + beta + the BRAIN (pod/rt_lk.py). A merge to main is
+#    the deploy, brain included. The deploy step itself lives in git
+#    (tools/pod/deploy_from_git.sh) so changing it never means hand-editing a volume again.
+#    Secrets stay in /workspace/.env (uncommitted).
+for d in /workspace/_repo /workspace/repo; do
+  [ -d "$d/.git" ] || continue
+  NOVA_REPO_DIR="$d" bash "$d/tools/pod/deploy_from_git.sh" || echo "[DEPLOY] step failed"
+  break
+done
 
 # 1) secrets from an uncommitted env file (NEVER hardcode keys in the repo)
 [ -f /workspace/.env ] && set -a && . /workspace/.env && set +a

@@ -205,6 +205,19 @@ now rules, walled by `law-pods.js` over `tools/pod/launch_pod.sh` + `tools/pod/b
 10. **Verify progress, not vibes.** A boot is "progressing" only if `boot.log`
     grows **or** `nvidia-smi` memory climbs — checked **read-only**. Absence of
     output alone is never a death verdict inside the cold-load window.
+11. **A merge to main deploys the BRAIN too** (LAW-PODS-10-BRAINDEPLOY, 2026-09-18).
+    The volume's `deploy_from_git()` copied pages/shared/models/beta but **not**
+    `pod/rt_lk.py`, so "merge = deploy" was true for the pages and silently false
+    for the brain — every brain fix needed a manual scp, and the volume drifted.
+    The deploy step now lives in git (`tools/pod/deploy_from_git.sh`); boot.sh only
+    calls it, so changing the deploy never means hand-editing a volume again.
+    The step must: pull, copy the brain, keep `rt_lk.py.bak-predeploy`, back up (never
+    overwrite in silence) a hand-edited volume brain, log the md5 transition + write a
+    real diff to `/root/deploy-rtlk.diff`, and — if the brain is already running —
+    restart it with a health check and **roll back** if the new brain does not answer
+    `:8765`. **Marker:** `# LAW-PODS-10-BRAINDEPLOY` + `deploy_from_git.sh` called
+    from boot.sh. The old marker (`git -C /workspace/repo pull` in boot.sh) was not
+    deleted — the pull moved into the deploy step and is asserted there.
 
 **Queued (doc-only, no test — next session, NOT today):** `POD-IMAGE.md` — bake a
 Docker image with torch + CUDA + MuseTalk deps preinstalled; pods launch from the
@@ -269,7 +282,7 @@ law-onevoice   | active | nova-commercial.html                                  
 law-soft       | active | nova-commercial.html                                    | Never say wrong
 law-storage    | active | nova-commercial.html,nova-session-rec.js                | NovaRec
 law-consent    | active | nova-commercial.html                                    | A grown-up should read ;; תנאי שימוש
-law-pods       | active | tools/pod/launch_pod.sh,tools/pod/boot.sh               | "cloudType": "SECURE" ;; runpodctl stop pod ;; nohup sleep 6h ;; git -C /workspace/repo pull ;; NO-PKILL-WINDOW ;; LAW-PODS-7-TMUX ;; LAW-PODS-8-BRACKET ;; LAW-PODS-9-COLDLOAD
+law-pods       | active | tools/pod/launch_pod.sh,tools/pod/boot.sh,tools/pod/deploy_from_git.sh | "cloudType": "SECURE" ;; runpodctl stop pod ;; nohup sleep 6h ;; deploy_from_git.sh ;; NO-PKILL-WINDOW ;; LAW-PODS-7-TMUX ;; LAW-PODS-8-BRACKET ;; LAW-PODS-9-COLDLOAD ;; LAW-PODS-10-BRAINDEPLOY
 law-direct-voice | active | nova-commercial.html,nova-direct-voice.js             | LAW-DIRECT-VOICE ;; oai-events ;; response.cancel
 law-inputlock  | active | pod/rt_lk.py                                            | LAW-INPUT-LOCK ;; [INPUT-LOCK] ;; one-shot fired for turn
 law-producer-silent | active | pod/rt_lk.py                                       | PRODUCER-SILENT ;; async def remember( ;; async def speak_now( ;; async def cancel_speech( ;; [BOUNDARY] ;; [REMEMBER] ;; you were told, you did not guess
