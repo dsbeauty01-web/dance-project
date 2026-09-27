@@ -54,6 +54,11 @@ body[data-debug="0"] #dbg{display:none}
 <div id="card" class="hidden"><h2 id="cardStars"></h2><p id="cardLine"></p></div>
 <div id="scorecard"><div id="medal"></div><h1 id="finalScore">0</h1><p id="finalLine"></p><button id="again">↻</button></div>
 <div id="banner" class="hidden"></div>
+<!-- [FIX 2026-09-27] Her avatar never appeared: this page was the ONLY Nova page without the
+     LiveKit UMD client. nova-bridge's joinLiveKit() reads window.LivekitClient and, finding
+     nothing, warns to console and RETURNS — so attachNova() resolved, nothing threw, no banner
+     fired, and the stage just stayed empty. Same tag, same pin as nova-commercial.html. -->
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.13.3/dist/livekit-client.umd.min.js"></script>
 <script type="module">
 /* NOVA SAYS v3.1 — two engines take turns: LIVE (her brain, V2V, lips) at intro / 2 cards / ending,
    SHOW (this sequencer: her captured lines + gesture bakes + lights + camera judges) during practice and the 3 rounds.
