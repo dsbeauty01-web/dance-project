@@ -56,6 +56,11 @@ export function note(arg) {
     const k = arg.kind;
     if (k === 'speak-gate') { routeVoice(arg.on ? 'mute' : 'engine'); return; }
     if (k === 'remember')   { send({ type: 'remember', text: arg.text || '' }); return; }
+    // [ADAPT 2026-09-27 · NOVA SAYS FAST] 'show' is speak-gate's harder sibling. speak-gate
+    // only mutes her voice; show tells the brain to start nothing at all for the length of a
+    // round — no 13s timer, no transcript turned into a turn, no response created. The FAST
+    // pack asks for it because all three were caught leaking into a round on 2026-09-27.
+    if (k === 'show')       { send({ type: 'show', on: !!arg.on }); return; }
     if (k === 'section-end') {
       send({ type: 'section-end', text: arg.text || '', speak: !!arg.speak,
              phase_end: !!arg.phaseEnd, cap: arg.cap || 0 });

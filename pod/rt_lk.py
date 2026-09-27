@@ -456,6 +456,13 @@ async def relay(request):
         if pump: await speak_pump()
         return True
     async def _speak_send(instructions, verbatim, origin, extra, bare, cap=None):
+        # SHOW MODE: the single site every response.create passes through (LAW-PRODUCERSILENT
+        # counts it). Refusing here means no response is ever CREATED during a round, so there
+        # is nothing to cancel — which is what produced the response_cancel_not_active error
+        # and the "Ooh, sounds likeI'm right here..." concatenation on 2026-09-27.
+        if show["on"]:
+            print("[SHOW] speech refused (%s): %s" % (origin, (verbatim or instructions or "bare")[:50]), flush=True)
+            return None
         if verbatim:
             payload = say_resp(verbatim)                 # the exact-line path (conversation:"none")
             if extra: payload["instructions"] = payload["instructions"] + " " + extra
@@ -576,6 +583,14 @@ async def relay(request):
     # granted by its nova-say/cue) and her audio is sent to the BROWSER as voice_air -
     # the engine NEVER gets it, so lips never move on the groove body.
     sgate = {"on": False, "mode": "hard", "credit": 0}
+    # SHOW MODE (NOVA SAYS FAST, 2026-09-27) — the page owns the rounds completely.
+    # sgate already muted her AUDIO, but the 2026-09-27 play log proved three things still
+    # leaked into a round: the 13s TURN-GATE fired mid-game, a transcript was still turned
+    # into a kid turn, and a response was still created (then cancelled, producing an
+    # OpenAI response_cancel_not_active error and a mangled concatenation). show is the
+    # harder switch the FAST pack asks for: while it is on, nothing may start at all.
+    # Three enforcement points, all one-liners: silence_watch, kid_transcript, _speak_send.
+    show = {"on": False}
     LIGHT_WAIT = 10.0
     # #5 STATUE SILENCE: from her freeze call-out until a hold-fact/move-on, her mouth is CLOSED
     # (one optional whisper allowed). #3 FREEZE = REAL HOLD: praise only on a 'freeze_held' fact.
@@ -749,6 +764,12 @@ async def relay(request):
                 # a response is active, so it can never self-chain or nag.
                 while True:
                     await asyncio.sleep(1.0)
+                    # SHOW MODE: the page owns every beat of a round. The 2026-09-27 log caught
+                    # this timer firing at 14s mid-round ("I'm right here, no rush at all") and
+                    # colliding with the page's own line. While show is on, this timer does not
+                    # count — it resumes from the kid's next real turn once the round ends.
+                    if show["on"]:
+                        continue
                     # V2.1 2026-08-07: in freeze mode the PAGE owns every beat — the brain
                     # never self-fires (the V2 greet says "you FREEZE!" which tripped the
                     # statue regex on her OWN words -> whisper + invented praise pre-yes).
@@ -891,6 +912,12 @@ async def relay(request):
             sayflush_task = asyncio.create_task(say_flush())
 
             async def kid_transcript(ktxt, src, n, item_id=None):
+                # SHOW MODE: during a round the camera is the judge and her brain is offstage.
+                # Dropped HERE because this is the one choke point both racers share — a child
+                # shouting at the screen must never become a turn she answers.
+                if show["on"]:
+                    print("[SHOW] transcript dropped (%s): %s" % (src, (ktxt or "")[:40]), flush=True)
+                    return
                 # TRANSCRIPT-RACE: first transcript per utterance wins; the loser is a no-op.
                 if n in utt["handled"]:
                     return
@@ -1327,6 +1354,15 @@ async def relay(request):
                             turn["kid_ts"] = time.time(); turn["retried"] = False
                             print("[HOLD] OFF — listening again", flush=True)
                         await ws_client.send_json({"type": "status", "state": "paused" if on else "listening"})
+                    elif t == "show":
+                        # NOVA SAYS FAST (2026-09-27). speak-gate muted her; show takes her off
+                        # the stage entirely for the length of a round: no timer, no transcript,
+                        # no response. The page turns it off again for the cards and the ending.
+                        show["on"] = bool(m.get("on"))
+                        if show["on"]:
+                            turn["retried"] = False            # the round is not a silence to retry
+                        turn["kid_ts"] = time.time()           # silence is counted from the round's end
+                        print("[SHOW] %s" % ("ON — brain offstage" if show["on"] else "OFF — brain back"), flush=True)
                     elif t == "remember":
                         # NOVA SAYS v3 (2026-09-23). The PRODUCER-SILENT verbs existed inside this
                         # file since v1.0.8 but no page could reach them — the ws vocabulary still
@@ -2110,6 +2146,17 @@ async def beta_novasays_page(request):
         return web.Response(status=503, text="beta novasays page not deployed")
     return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
 
+async def novasays_fast_page(request):
+    # NOVA SAYS FAST (2026-09-27). Served at BOTH /beta/novasays-fast.html (the pack's route,
+    # and what the founder's link says) and /beta/novasays-fast, because every other beta page
+    # here is extensionless and a link that 404s costs a whole pod session.
+    try:
+        with open("/workspace/pages/beta/novasays-fast.html", encoding="utf-8") as f:
+            html = f.read()
+    except FileNotFoundError:
+        return web.Response(status=503, text="beta novasays-fast page not deployed")
+    return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
+
 async def avatar_check(request):
     # b0.21-novasays preflight: which of these bakes actually exist on the volume?
     # (Deterministic — replaces gallery-preview filename guessing. No silent fallbacks:
@@ -2182,6 +2229,8 @@ app.router.add_get("/beta/freeze", beta_freeze_page)
 app.router.add_get("/beta/wave", beta_wave_page)
 app.router.add_get("/beta/upperbody", beta_upperbody_page)
 app.router.add_get("/beta/novasays", beta_novasays_page)
+app.router.add_get("/beta/novasays-fast.html", novasays_fast_page)
+app.router.add_get("/beta/novasays-fast", novasays_fast_page)
 app.router.add_get(r"/beta/{name:[A-Za-z0-9_.-]+\.(?:js|json)}", beta_asset)
 app.router.add_get(r"/beta/{sub:[A-Za-z0-9_-]+}/{name:[A-Za-z0-9_.-]+\.(?:js|json)}", beta_asset)
 app.router.add_get("/avatar_check", avatar_check)
