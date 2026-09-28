@@ -115,6 +115,15 @@ export function onHerAudio({ playing, ended } = {}) {
   if (ended) herAudio.ended = ended;
 }
 
+// [ADAPT 2026-09-28 · STAGE MANAGER §3] The KID's voice edges, relayed from rt_lk's VAD
+// (input_audio_buffer.speech_started / speech_stopped → {type:'status', hearing:bool}). The stage
+// manager needs both to know when the room is quiet; the page previously had no way to hear them.
+const kidSpeech = { started: () => {}, stopped: () => {} };
+export function onSpeech({ started, stopped } = {}) {
+  if (started) kidSpeech.started = started;
+  if (stopped) kidSpeech.stopped = stopped;
+}
+
 // ── internals (faithful to beta/freeze.html Live) ────────────────────────────
 async function joinLiveKit(onVideo) {
   try {
@@ -184,7 +193,10 @@ function connectWS(intro) {
         window.dispatchEvent(new Event('nova:consent'));
       return;
     }
-    if (m.type === 'status') { if (m.speaking === true) micGated = true; else if (m.speaking === false) micGated = false; }
+    if (m.type === 'status') {
+      if (m.speaking === true) micGated = true; else if (m.speaking === false) micGated = false;
+      if (m.hearing === true) kidSpeech.started(); else if (m.hearing === false) kidSpeech.stopped();
+    }
   };
 }
 

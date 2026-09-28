@@ -69,6 +69,7 @@ button.big{font:800 30px 'Baloo 2';padding:16px 46px;border:0;border-radius:18px
 import { createKit } from '/shared/game-kit.js';
 import { createJudges } from '/beta/freeze2/judges.js';
 import { Hold } from '/beta/freeze2/hold.js';
+import { Stage } from '/shared/stage.js';
 const $ = id => document.getElementById(id);
 const Q = new URLSearchParams(location.search);
 const LANG = (Q.get('lang') || localStorage.getItem('nova-lang') || 'en') === 'he' ? 'he' : 'en';
@@ -86,6 +87,7 @@ $('gateSub').textContent = UI.sub; $('gateMsg').textContent = UI.gate;
 const S = await (await fetch('/beta/freeze2/script.json')).json();
 const LINES = await (await fetch(`/beta/freeze2/lines-${LKEY}.json`)).json();
 let MANIFEST = {}; try { MANIFEST = await (await fetch(`/audio/freeze2/${LKEY}/manifest.json`)).json(); } catch(e){}
+let GESTURES = {}; try { GESTURES = await (await fetch('/data/gestures.json')).json(); } catch(e){ console.warn('[STAGE] no gesture library'); }
 const K = await createKit({ tier:'kids', mirror:true, game:'freeze2', lang:LANG, refCandidates:[] });
 const J = createJudges(S.tune);
 const now = () => performance.now() / 1000;
@@ -169,20 +171,43 @@ function herVideo(playing){ for (const id of ['novaMain','novaAmbient']){ const 
    FAST session either way — but the order should not depend on that. */
 function brainOffstage(){ K.setPhase('game'); try { K.bridge?.mic?.(false); K.bridge?.note?.({ kind:'speak-gate', on:true }); K.bridge?.note?.({ kind:'show', on:true }); } catch(e){} document.body.dataset.phase = 'game'; }
 function brainOnstage(phase){ try { K.bridge?.note?.({ kind:'show', on:false }); K.bridge?.note?.({ kind:'speak-gate', on:false }); K.bridge?.mic?.(true); } catch(e){} K.setPhase(phase); document.body.dataset.phase = phase; }
-function remember(text){ try { K.bridge?.note?.({ kind:'remember', text }); } catch(e){} }
-function brainSpeak(text){
-  return new Promise(res => { if (!K.bridge?.note || !K.bridge?.onHerAudio) return res(false);
-    let started = false, done = false; const fin = v => { if (!done){ done = true; res(v); } };
-    try { K.bridge.onHerAudio({ playing: () => { started = true; }, ended: () => { if (started) fin(true); } }); } catch(e){ return res(false); }
-    K.bridge.note({ kind:'section-end', speak:true, text });
-    setTimeout(() => { if (!started) fin(false); }, S.breather.startTimeoutMs); setTimeout(() => fin(started), S.breather.maxMs); });
-}
+/* ───────── THE STAGE MANAGER (docs/STAGE-MANAGER.md §9.1 migration) ─────────
+   Every live line, every fact and every praise decision now goes through ONE owner. The page no
+   longer calls the brain to speak: it asks the stage, and the stage speaks only in a phase marked
+   live, only when nobody has talked for 600ms, and falls back to a recording after 3s rather than
+   arriving late. Facts go in silently, tagged with the camera's own confidence, so a line can only
+   be as specific as what was actually seen. */
+const stage = new Stage({
+  now: () => performance.now(),
+  remember: text => { try { K.bridge?.note?.({ kind:'remember', text }); } catch(e){} },
+  speakNow: text => { try { K.bridge?.note?.({ kind:'section-end', speak:true, text }); } catch(e){} },
+  playClip: id => play(id),
+  setBody: id => setBody(id),
+  light:   cmd => { try { K.L?.[cmd]?.(); } catch(e){} },
+  log:     s => console.log(s),
+  cfg: { restBody: S.talkBody },
+});
+stage.loadGestures(GESTURES.current || {});   // only MEASURED bakes; the fast ones (§4) are not baked yet
+/* Memory is per DEVICE, not per child: the page never learns the name (the brain does), so keying
+   by name would silently store nothing. One honest list, loaded before her greeting. */
+const MEMKEY = 'nova-mem-freeze2';
+try { stage.loadMemory(JSON.parse(localStorage.getItem(MEMKEY) || '[]')); } catch(e){}
+const saveMemory = () => { try { localStorage.setItem(MEMKEY, JSON.stringify(stage.facts)); } catch(e){} };
+setInterval(() => stage.tick(), 100);                                   // the heartbeat
+// turn state: BOTH voices. Her audio the bridge already reported; the child's arrives from rt_lk's
+// VAD as status.hearing (added this session) — without it the room never counts as quiet again.
+try { K.bridge?.onSpeech?.({ started: () => stage.setKidSpeaking(true), stopped: () => stage.setKidSpeaking(false) }); } catch(e){}
+try { K.bridge?.onHerAudio?.({ playing: () => stage.setNovaSpeaking(true), ended: () => stage.setNovaSpeaking(false) }); } catch(e){}
+/* §6 praise templates — recorded clips only, chosen by the judge's confidence. HIGH names the
+   animal ("Perfect flamingo!"), MID stays generic ("STATUE!"), LOW says nothing at all rather than
+   praise a hold the camera could barely see. This is the false-praise fix in data form. */
+const PRAISE = { freeze: { high:['held.flamingo','held.frog','held.bear','held.star'], mid:['held.statue'], low:[] } };
 
 // ───────── the REFEREE ─────────
-let hold = null, holdResolve = null, last = null, paused = false;
+let hold = null, lastHold = null, holdResolve = null, last = null, paused = false;   // lastHold survives endHold so react() can ask it how SURE it was
 K.onKid = (out, k) => { if (!k) return; last = k; const t = now(); J.update(k, t);
   if (hold && !paused){ const r = hold.feed(k, t); if (r) endHold(r); } dbg(); };
-function beginHold(dur){ return new Promise(res => { hold = new Hold(J, now(), dur, S.tune); holdResolve = res; bar(dur); }); }
+function beginHold(dur){ return new Promise(res => { hold = lastHold = new Hold(J, now(), dur, S.tune); holdResolve = res; bar(dur); }); }
 function endHold(r){ if (!hold) return; hold = null; $('holdbar').style.width = '0'; const f = holdResolve; holdResolve = null; f?.(r); }
 setInterval(() => { if (hold && !paused && now() >= hold.t0 + hold.dur + 0.4) endHold(hold.finish()); }, 150);   // frames stopped → finish with what we saw
 function bar(sec){ const b = $('holdbar'); b.style.transition = 'none'; b.style.width = '100%'; void b.offsetWidth; b.style.transition = `width ${sec}s linear`; b.style.width = '0'; }
@@ -210,7 +235,9 @@ function hideAnimal(){ $('animal').classList.remove('on'); }
 // ───────── one round, fully scheduled on the audio clock ─────────
 async function round(R, idx){
   await whilePaused(); await presence();
-  brainOffstage(); setBody(S.gameBody); herVideo(true); K.hud.dots(idx + 1, S.rounds.length);
+  /* A round is a SHOW phase: the stage refuses live speech in it outright, and any request still
+     pending from the breather can now only fall back to a recording — never arrive mid-round. */
+  brainOffstage(); stage.phase(`round${R.n}`, { live:false }); setBody(S.gameBody); herVideo(true); K.hud.dots(idx + 1, S.rounds.length);
   if (R.intro) await play(R.intro);
   const beat = 60 / S.music.bpm, off = S.music.beatOffsetS;
   /* [FIX 2026-09-27] start ON a beat — but never before the file starts. With the measured
@@ -255,48 +282,76 @@ async function round(R, idx){
 }
 async function react(r, F, rs){
   total++; rs[r]++;
+  const conf = lastHold?.confidence?.() ?? 1;          // how sure the camera is — decides how specific praise may be
   await sleep(S.verdictDelayMs);
   if (r === 'held'){
     heldN++; streak++; bestStreak = Math.max(bestStreak, streak); animalsHeld[F.animal] = (animalsHeld[F.animal] || 0) + 1;
     let n = S.points.held * (streak >= S.points.streakFrom ? S.points.streakMult : 1) + (F.final ? S.points.starBonus : 0);
-    addPts(n); pop(`+${n}`, '#ffc23e');                                              // [ADAPT #7] K.L.freezeEnd(true) already dings (light-engine.js:195) — one ding, not two $('streak').textContent = streak >= 2 ? `🔥x${streak}` : '';
-    play(Math.random() < .5 ? 'held.statue' : `held.${F.animal}`);
+    // [FIX 2026-09-28] the 🔥 streak text was swallowed into an earlier comment on this line and had
+    // stopped updating on a held freeze. K.L.freezeEnd(true) still owns the ding (light-engine.js:195).
+    addPts(n); pop(`+${n}`, '#ffc23e');
+    $('streak').textContent = streak >= 2 ? `🔥x${streak}` : '';
+    /* §6 PRAISE BY CONFIDENCE — this is the false-praise fix made structural. A clip that NAMES the
+       animal only plays when the judge saw the whole hold and it was clearly still; a borderline
+       hold gets the generic "STATUE!"; a hold the camera barely saw gets NOTHING said about it. */
+    const clip = stage.praise(PRAISE.freeze, conf,
+      list => list.includes(`held.${F.animal}`) ? `held.${F.animal}` : list[0]);   // the HIGH list is per-animal: pick THIS animal, never a random one
+    if (clip) play(clip); else console.log(`[STAGE] praise withheld (conf ${conf.toFixed(2)})`);
   } else if (r === 'almost'){
     streak = 0; $('streak').textContent = ''; addPts(S.points.almost); sfx('soft'); pop(`+${S.points.almost}`, '#aee8ff');
     play(F.fakeout ? 'fakeout' : 'almost');
   } else if (r === 'missed'){
     streak = 0; $('streak').textContent = ''; play(F.fakeout ? 'fakeout' : 'missed');
   }                                                                                  // noshow: silent — never judged
-  remember(`freeze ${total} (${F.animal}${F.fakeout ? ', fake-out' : ''}) → ${r}. points ${pts}, streak ${streak}`);
+  /* The fact goes to the stage, not to the brain: time-stamped, confidence-tagged, coalesced under
+     one key and expiring after 2.5s, so a line she says later can only describe what was just seen. */
+  stage.event('freeze_result', { n: total, animal: F.animal, result: r, fakeout: !!F.fakeout, points: pts, streak },
+              { key: 'freeze', conf });
+  console.log(`[STAGE] fact freeze#${total} ${F.animal} → ${r} conf ${conf.toFixed(2)}`);
 }
 
 // ───────── breathers + ending (the TALKER) ─────────
 async function breather(rs, idx){
-  brainOnstage('between'); setBody(S.talkBody); herVideo(true);
+  brainOnstage('between'); stage.phase(`breather${idx+1}`, { live:true }); setBody(S.talkBody); herVideo(true);
   $('cardPts').textContent = `+${rs.pts}`; $('cardLine').textContent = `❄ ${rs.held}/${rs.held + rs.almost + rs.missed} ${UI.froze}`; $('card').classList.remove('hidden');
   const best = Object.entries(animalsHeld).sort((a,b) => b[1]-a[1])[0]?.[0];
-  const spoke = await brainSpeak(`Round ${rs.n} of the Freeze game just ended. Real facts: held ${rs.held}, almost ${rs.almost}, missed ${rs.missed}` +
-    (best ? `, best animal so far: ${best}` : '') + `, total points ${pts}. Say ONE excited, specific line to the child by name (max 10 words), then stop. Never negative.`);
-  if (!spoke) await play(idx === 0 ? 'fallback.card1' : 'fallback.card2');
+  /* THE STAGE owns this line now: it waits for 600ms of real quiet (her audio ended AND the child
+     isn't mid-sentence), writes the fresh facts in first so the line is true, and if no quiet
+     moment appears within 3s it plays the recorded card line instead of speaking late over the kid. */
+  const how = await stage.requestSpeak(
+    `Round ${rs.n} of the Freeze game just ended. Real facts: held ${rs.held}, almost ${rs.almost}, missed ${rs.missed}` +
+    (best ? `, best animal so far: ${best}` : '') + `, total points ${pts}. Say ONE excited, specific line to the child (max 10 words), then stop. Never negative. Do NOT use a name unless the child told you one.`,
+    { fallbackClip: idx === 0 ? 'fallback.card1' : 'fallback.card2' });
+  console.log(`[STAGE] breather${idx+1} → ${how}`);
   await sleep(S.breather.afterLineMs);                                               // a beat for the child to answer (a real turn → she may answer once)
   $('card').classList.add('hidden');
 }
 async function ending(){
-  brainOnstage('ending'); setBody(S.talkBody); herVideo(true);
+  brainOnstage('ending'); stage.phase('ending', { live:true }); setBody(S.talkBody); herVideo(true);
   const pct = pts / Math.max(1, maxPts), medal = pct >= S.medals.goldFrom ? '🥇' : pct >= S.medals.silverFrom ? '🥈' : '🥉';
   const best = Object.entries(animalsHeld).sort((a,b) => b[1]-a[1])[0]?.[0];
   $('medal').textContent = medal; $('finalScore').textContent = pts; $('finalLine').textContent = `❄ ${heldN}/${total} ${UI.froze} · 🔥x${bestStreak}`;
   $('scorecard').style.display = 'flex';
-  const spoke = await brainSpeak(`The Freeze game is over. Real facts: ${pts} points, medal ${medal}, held ${heldN} of ${total} freezes, best streak ${bestStreak}` +
-    (best ? `, best animal ${best}` : '') + `. Celebrate with the child by name using ONLY these facts, ask "Did you have fun?" and wait. After the answer, say goodbye by name.`);
-  if (!spoke) await play('fallback.end');
-  K.pulse({ game:'freeze2', pts, heldN, total, bestStreak, rounds:roundLog, seconds:Math.round(now() - T0) });
+  const how = await stage.requestSpeak(
+    `The Freeze game is over. Real facts: ${pts} points, medal ${medal}, held ${heldN} of ${total} freezes, best streak ${bestStreak}` +
+    (best ? `, best animal ${best}` : '') + `. Celebrate using ONLY these facts, ask "Did you have fun?" and wait. Do NOT use a name unless the child told you one.`,
+    { fallbackClip: 'fallback.end' });
+  console.log(`[STAGE] ending → ${how}`);
+  /* §7 memory: what she may truthfully remember next time. Device-level, game facts only. */
+  if (best) stage.addFact(`best freeze animal: ${best}`);
+  stage.addFact(`last Freeze score: ${pts} (held ${heldN}/${total})`);
+  saveMemory();
+  K.pulse({ game:'freeze2', pts, heldN, total, bestStreak, rounds:roundLog, seconds:Math.round(now() - T0), stage:{ spoke: how, facts: stage.facts.length } });
 }
 function maxFor(){ let m = 0, s = 0; for (const R of S.rounds) for (const F of R.freezes){ s++; m += S.points.held * (s >= S.points.streakFrom ? S.points.streakMult : 1) + (F.final ? S.points.starBonus : 0); } return m; }
 
 async function main(){
   // TALKER: the live intro (?intro=freeze) — greet, name, rule, wait for a yes (consent event or ✓)
-  brainOnstage('intro'); setBody(S.talkBody);
+  brainOnstage('intro'); stage.phase('intro', { live:true }); setBody(S.talkBody);
+  /* §7 memory, BEFORE her greeting: what she is allowed to remember from earlier plays on this
+     device. It is a silent note — it can never make her speak, it only makes a later line true. */
+  const memo = stage.memoryNote();
+  if (memo){ stage.a.remember(memo); console.log('[STAGE] memory loaded: ' + stage.facts.length + ' fact(s)'); }
   await new Promise(res => { const b = document.createElement('button'); b.id = 'okBtn'; b.className = 'big'; b.textContent = '✓';
     /* [FIX 2026-09-27 · found on a pod] Tell the brain the child answered. Her greet ends with a
        question, which sets the ask-lock (the WAIT LAW); a tap that never reaches the brain leaves it

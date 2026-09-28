@@ -1691,6 +1691,14 @@ async def relay(request):
                         if not speaking["v"]:
                             await ws_client.send_json({"type": "status", "hearing": True})
                     elif et == "input_audio_buffer.speech_stopped":
+                        # [ADAPT 2026-09-28 · STAGE MANAGER §3] The stage decides when she may speak
+                        # from "nobody has talked for 600ms", so it needs BOTH edges of the child's
+                        # voice. speech_started already told the page (status.hearing True, above);
+                        # the stop edge was never sent, so a page could see speech begin and never
+                        # end. Without this the stage's quiet rule can never become true after a
+                        # child speaks, and every live line would fall back to a recording.
+                        try: await ws_client.send_json({"type": "status", "hearing": False})
+                        except Exception: pass
                         # TRANSCRIPT-RACE: snapshot the utterance, start our racer
                         _ua = bytes(kidbuf[utt["start"]:])
                         print("[RACE] armed utt", utt["n"], "bytes", len(_ua), flush=True)
@@ -2298,7 +2306,16 @@ try:
     os.makedirs("/workspace/pages/models", exist_ok=True)
     app.router.add_static("/models", "/workspace/pages/models", show_index=False)
 except Exception as _e:
-    print(f"[MODELS] static route not mounted: {_e}", flush=True)
+    print("[ROUTES] models mount failed:", _e, flush=True)
+
+try:
+    # STAGE MANAGER (2026-09-28): data/gestures.json — the measured gesture library every staged
+    # game loads. Same shape as the /shared and /models mounts, so the deploy script's copy table
+    # reaches it the same way.
+    os.makedirs("/workspace/pages/data", exist_ok=True)
+    app.router.add_static("/data", "/workspace/pages/data", show_index=False)
+except Exception as _e:
+    print(f"[DATA] static route not mounted: {_e}", flush=True)
 # b0.13 WAVE: the game-clock videos (handywave.mp4 etc.) live on the volume under /media.
 try:
     os.makedirs("/workspace/media", exist_ok=True)

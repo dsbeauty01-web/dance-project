@@ -40,4 +40,11 @@ check('star freeze 5s, still → held', 60, () => run(tr => ({ dancing: tr < 0.4
 check('star freeze 5s, breaks at 3.5s → almost', 60, () => run(tr => ({ dancing: tr < 0.4 || tr > 3.5 }), 5.0), 'almost');
 check('slow laptop 8fps, still → held', 60, () => run(tr => ({ dancing: tr < 0.4 }), 2.5, 8), 'held');
 check('fidgets a little while frozen (wobbly kid) → held', 80, () => run(tr => ({ dancing: tr < 0.4 ? true : 'fidget' })), 'held');
+// confidence for praise specificity
+{ let hi=0,n=60; for(let i=0;i<n;i++){ const J=createJudges(T); let t=0; J.startSample('still'); for(let f=0;f<30;f++){t+=1/15;J.update(frame(false,t),t);} J.stopSample(); J.finishCalibration();
+    const H=new Hold(J,t,2.5,T); for(let f=0;f<=45;f++){t+=1/15;const k=frame(false,t);J.update(k,t);H.feed(k,t);} H.finish(); if(H.confidence()>=0.8) hi++; }
+  const ok=hi/n>=0.9; ok?pass++:fail++; out.push(`${ok?'PASS':'FAIL'}  still child → high confidence (specific praise)          ${hi}/${n}`); }
+{ const J=createJudges(T); let t=0; J.startSample('still'); for(let f=0;f<30;f++){t+=1/15;J.update(frame(false,t),t);} J.stopSample(); J.finishCalibration();
+  const H=new Hold(J,t,2.5,T); for(let f=0;f<=45;f++){t+=1/15;const k=frame(false,t,0.004,0.02,false);J.update(k,t);H.feed(k,t);} H.finish();
+  const ok=H.confidence()<=0.3; ok?pass++:fail++; out.push(`${ok?'PASS':'FAIL'}  out of frame → low confidence (stay quiet)`); }
 console.log(out.join('\n')); console.log(`\n${pass} pass · ${fail} fail`); process.exit(fail ? 1 : 0);
