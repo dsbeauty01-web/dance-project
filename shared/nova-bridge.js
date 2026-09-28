@@ -61,6 +61,10 @@ export function note(arg) {
     // round — no 13s timer, no transcript turned into a turn, no response created. The FAST
     // pack asks for it because all three were caught leaking into a round on 2026-09-27.
     if (k === 'show')       { send({ type: 'show', on: !!arg.on }); return; }
+    // [ADAPT 2026-09-27 · FREEZE v2] 'tap' = the child answered by tapping instead of speaking.
+    // It only satisfies the brain's WAIT LAW (ask-lock); it never makes her say anything. Without
+    // it, a greet that ends in a question keeps every later boundary shut for the whole game.
+    if (k === 'tap')        { send({ type: 'tap' }); return; }
     if (k === 'section-end') {
       send({ type: 'section-end', text: arg.text || '', speak: !!arg.speak,
              phase_end: !!arg.phaseEnd, cap: arg.cap || 0 });
@@ -166,7 +170,7 @@ function connectWS(intro) {
   if (intro) qs.set('intro', intro);
   if (wsConns++) qs.set('rc', '1');                 // seamless reconnect: no re-greet
   ws = new WebSocket(WSBASE + 'rt?' + qs.toString());
-  ws.onopen = () => { wsDelay = 1500; };
+  ws.onopen = () => { wsDelay = 1500; flushPreOpen(); };
   ws.onclose = () => { wsDelay = Math.min(30000, Math.round((wsDelay || 1500) * 1.8)); setTimeout(() => connectWS(intro), wsDelay); };
   ws.onmessage = (ev) => {
     let m; try { m = JSON.parse(ev.data); } catch (_) { return; }
@@ -201,4 +205,20 @@ async function startMic() {
   src.connect(proc); proc.connect(mctx.destination);
 }
 
-function send(obj) { try { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); } catch (_) {} }
+/* [FIX 2026-09-27 · caught on a pod] Anything sent before the socket finishes opening used to be
+   dropped on the floor, silently. Freeze v2's consent tap lost that race by ~100ms — the brain never
+   learned the child had answered, the WAIT LAW held every later boundary shut, and she said nothing
+   live for the rest of the game while recorded fallbacks covered the hole. Pre-open messages are now
+   queued and flushed on open (capped, so a pod that never answers cannot grow this without bound). */
+const preOpen = [];
+function send(obj) {
+  try {
+    if (ws && ws.readyState === 1) { ws.send(JSON.stringify(obj)); return; }
+    if (ws && ws.readyState === 0 && preOpen.length < 32) preOpen.push(obj);
+  } catch (_) {}
+}
+function flushPreOpen() {
+  while (preOpen.length && ws && ws.readyState === 1) {
+    try { ws.send(JSON.stringify(preOpen.shift())); } catch (_) { break; }
+  }
+}

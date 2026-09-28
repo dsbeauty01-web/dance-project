@@ -1401,6 +1401,20 @@ async def relay(request):
                             await boundary_open("phase-end")
                         try: await ws_client.send_json({"type": "ack", "of": "speak_gate"})
                         except Exception: pass
+                    elif t == "tap":
+                        # [2026-09-27 · FREEZE v2, found on a pod] A kit page's consent tap (the ✓,
+                        # or a `nova:consent` event) is the child ANSWERING — the same act the brain
+                        # already accepts from typing (L1159) and from picking a game (L1408). Without
+                        # it the WAIT LAW held every later boundary shut: her greet ends in a question,
+                        # so a child who taps instead of speaking left the ask-lock set for the whole
+                        # game and she never spoke at a breather or the ending — the page fell back to
+                        # recorded lines every time and the TALKER layer was silently dead.
+                        # This ONLY clears the wait; it starts no speech of its own.
+                        turn["kid_ts"] = time.time(); turn["retried"] = False; kidinput["ts"] = time.time()
+                        await ask_lock_clear("tap")
+                        print("[TAP] consent — wait law satisfied", flush=True)
+                        try: await ws_client.send_json({"type": "ack", "of": "tap"})
+                        except Exception: pass
                     elif t == "nova-pick":
                         # Readiness beat for the chosen game (a real tap = real kid input).
                         game = (m.get("game") or "").strip().lower().replace("-", " ")

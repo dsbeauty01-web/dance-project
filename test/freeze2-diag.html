@@ -1,0 +1,49 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>freeze2 diag</title>
+<style>body{margin:0;background:#120a22;color:#9f9;font:13px monospace}#out{padding:10px;white-space:pre}video{width:30vw}</style>
+</head><body>
+<video id="usercam" autoplay muted playsinline></video><canvas id="fx"></canvas>
+<div id="dbg"></div><div id="banner"></div><div id="gateArms"><div id="gateMsg"></div><div id="ring"></div></div>
+<div id="cap"></div><div id="out">diag…</div>
+<script type="module">
+/* test/freeze2-diag.html — walks beta/freeze2.html's OWN startup sequence one step at a time and
+   reports each step the moment it finishes. Written because three runs died between "gate open" and
+   the first game log with no error anywhere: page console capture through an iframe proved unreliable
+   and Chrome no longer writes console to chrome_debug.log, so the page has to report on itself. */
+const marks = [], t0 = performance.now();
+const out = document.getElementById('out');
+const mark = s => { const m = `${((performance.now()-t0)/1000).toFixed(1)}s ${s}`; marks.push(m);
+  out.textContent = marks.join('\n'); console.log('[DIAG]', m);
+  fetch('/probe-result', { method:'POST', headers:{'content-type':'application/json'},
+    body: JSON.stringify({ tag:'diag', lines:marks }) }).catch(()=>{}); };
+addEventListener('error', e => mark('WINDOW-ERROR ' + e.message));
+addEventListener('unhandledrejection', e => mark('REJECTION ' + (e.reason?.message || e.reason)));
+try {
+  mark('start');
+  const { createKit } = await import('/shared/game-kit.js'); mark('imported game-kit');
+  const { createJudges } = await import('/beta/freeze2/judges.js'); mark('imported judges');
+  const S = await (await fetch('/beta/freeze2/script.json')).json(); mark('script.json');
+  const LINES = await (await fetch('/beta/freeze2/lines-en.json')).json(); mark('lines-en');
+  const MANIFEST = await (await fetch('/audio/freeze2/en/manifest.json')).json(); mark('manifest ' + Object.keys(MANIFEST).length + ' ids');
+  const K = await createKit({ tier:'kids', mirror:true, game:'diag', lang:'en', refCandidates:[] }); mark('createKit');
+  createJudges(S.tune); mark('createJudges');
+  mark('camera: ' + await K.startCamera());
+  await K.initPose(); mark('initPose (MoveNet ready)');
+  await K.presenceGate(); mark('presenceGate passed');
+  const AC = new AudioContext(); await AC.resume(); mark('audiocontext ' + AC.state);
+  // the exact preload the game uses
+  const loadBuf = async url => { const r = await fetch(url); if (!r.ok) throw new Error('missing ' + url); return AC.decodeAudioData(await r.arrayBuffer()); };
+  const BEATLEN = 60 / S.music.bpm, sr = 44100;
+  const oc = new OfflineAudioContext(1, Math.round(BEATLEN*sr), sr);
+  const o = oc.createOscillator(), g = oc.createGain();
+  o.frequency.setValueAtTime(155,0); o.frequency.exponentialRampToValueAtTime(45,0.16);
+  g.gain.setValueAtTime(0.9,0); g.gain.exponentialRampToValueAtTime(0.001,0.16);
+  o.connect(g); g.connect(oc.destination); o.start(0); o.stop(0.17);
+  await oc.startRendering(); mark('bare beat synthesized');
+  const ids = Object.keys(LINES).filter(k => !k.startsWith('_'));
+  const song = loadBuf(S.music.song).then(() => mark('song decoded'));
+  const first = ids.map(id => loadBuf(`/audio/freeze2/en/${(MANIFEST[id]||[])[0]}`));
+  await Promise.all([song, ...first]); mark('all ' + ids.length + ' first takes decoded');
+  mark('DONE — the game would start here');
+} catch (e) { mark('THREW: ' + (e && e.message || e)); }
+</script></body></html>

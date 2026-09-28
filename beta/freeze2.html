@@ -57,7 +57,7 @@ button.big{font:800 30px 'Baloo 2';padding:16px 46px;border:0;border-radius:18px
 <div id="hud"><div id="dots"></div><div class="pill"><span id="pts">0</span></div><div id="streak"></div><div id="score"></div><div id="tag"></div></div>
 <div id="pop"></div><div id="cap"></div><div id="dbg"></div>
 <button id="pause">⏸</button><button id="exit">✕</button>
-<div id="gate"><div style="font:800 48px 'Baloo 2'">❄ Freeze</div><div id="gateSub" style="opacity:.85;margin-top:6px;max-width:560px;font-size:20px"></div><button id="start" class="big">▶</button></div>
+<div id="gate"><div style="font:800 48px 'Baloo 2'">❄ Freeze</div><div id="gateSub" style="opacity:.85;margin-top:6px;max-width:560px;font-size:20px"></div><button id="start" class="big" disabled>▶</button></div>
 <div id="gateArms" class="hidden"><div id="gateMsg"></div><div id="ring"></div></div>
 <div id="card" class="hidden"><h2 id="cardPts"></h2><p id="cardLine"></p></div>
 <div id="scorecard"><div id="medal"></div><h1 id="finalScore">0</h1><p id="finalLine"></p><button id="again" class="big">↻</button></div>
@@ -117,11 +117,20 @@ async function makeBeat(){
   return await oc.startRendering();
 }
 async function preload(){
-  SONG = await loadBuf(S.music.song); BEAT = await makeBeat();
+  /* [FIX 2026-09-27] the song used to be fetched BEFORE the clips; over the pod proxy that serialised
+     4.5MB in front of everything else. All of it now loads at once, and only ONE take per line is
+     required to start — the spare takes (the variety that stops her sounding like a recording) fill
+     in behind the game and are used as soon as they land. Measured 85s -> the game starts as soon as
+     the song and 17 first takes are in. A missing LINE is still fatal; a missing spare take is not. */
   const ids = Object.keys(LINES).filter(k => !k.startsWith('_')), missing = [];
-  await Promise.all(ids.map(async id => { const files = MANIFEST[id] || []; if (!files.length){ missing.push(id); return; }
-    CLIPS[id] = await Promise.all(files.map(f => loadBuf(`/audio/freeze2/${LKEY}/${f}`))); }));
+  const first = ids.map(async id => { const files = MANIFEST[id] || []; if (!files.length){ missing.push(id); return; }
+    CLIPS[id] = [await loadBuf(`/audio/freeze2/${LKEY}/${files[0]}`)]; });
+  const song = loadBuf(S.music.song).then(b => { SONG = b; });
+  BEAT = await makeBeat();
+  await Promise.all([song, ...first]);
   if (missing.length) throw new Error('missing clips: ' + missing.join(', '));
+  for (const id of ids) for (const f of (MANIFEST[id] || []).slice(1))
+    loadBuf(`/audio/freeze2/${LKEY}/${f}`).then(b => CLIPS[id].push(b)).catch(()=>{});
 }
 const pickBuf = id => { const t = CLIPS[id]; return t ? t[Math.floor(Math.random() * t.length)] : null; };
 function playAt(id, when, caption = true){                   // schedule a recorded line on the audio clock
@@ -289,7 +298,12 @@ async function main(){
   // TALKER: the live intro (?intro=freeze) — greet, name, rule, wait for a yes (consent event or ✓)
   brainOnstage('intro'); setBody(S.talkBody);
   await new Promise(res => { const b = document.createElement('button'); b.id = 'okBtn'; b.className = 'big'; b.textContent = '✓';
-    const go = () => { b.remove(); res(); }; b.onclick = go; document.body.appendChild(b); window.addEventListener('nova:consent', go, { once:true }); });
+    /* [FIX 2026-09-27 · found on a pod] Tell the brain the child answered. Her greet ends with a
+       question, which sets the ask-lock (the WAIT LAW); a tap that never reaches the brain leaves it
+       set for the whole game, so both breathers AND the ending log "queued (not a boundary)" and she
+       speaks no live line at all — the recorded fallbacks cover for her and the failure is invisible. */
+    const go = () => { try { K.bridge?.note?.({ kind:'tap' }); } catch(e){} b.remove(); res(); };
+    b.onclick = go; document.body.appendChild(b); window.addEventListener('nova:consent', go, { once:true }); });
   maxPts = maxFor();
   // calibration during the countdown: the child stands ready → their still level
   brainOffstage(); J.startSample('still'); const cd = play('go.countdown'); await sleep(S.calibrationS * 1000); J.stopSample(); dbgNote('[CAL] ' + JSON.stringify(J.finishCalibration())); await cd;
@@ -303,16 +317,35 @@ function dbg(){ const el = $('dbg'); if (!el || document.body.dataset.debug === 
   el.textContent = `t ${(now()-T0).toFixed(1)}s | AC ${AC.currentTime.toFixed(2)} | E ${J.st.energy.toFixed(3)} move>${J.st.thr.move.toFixed(2)} | hold ${hold ? (now()-hold.t0).toFixed(1)+'s' : '-'} | pts ${pts} 🔥${streak} | ${DBGN}`; }
 $('exit').onclick = () => location.href = '/';
 $('again').onclick = () => location.reload();
+/* [FIX 2026-09-27 · found by three dead runs] ▶ ships DISABLED and is enabled here, the line before
+   K.boot wires its handler. The button was on screen from the first paint while the module was still
+   loading its data and the pose kit, so a tap in that window hit a button with no listener: nothing
+   happened, ever, with no error and no message. A 6-year-old taps the moment they see it. */
+$('start').disabled = false;
 K.boot(async () => {
-  try { await AC.resume(); await preload(); } catch(e){ return K.banner('Freeze cannot start: ' + e.message); }
+  /* [FIX 2026-09-27 · measured on a pod] ORDER. preload() pulls the 4.5MB song plus 51 clips, and
+     over the RunPod proxy that measured 85 SECONDS — during which the pack's order left her panel
+     black and nothing on screen explained it. Her video attaches FIRST now (she is on screen in a
+     few seconds, which is the whole point of the avatar), the audio loads after with a caption
+     saying so, and main() still does not start until every clip is in memory — a missing clip must
+     stop the game before a child plays it, not surprise them mid-round. */
   if (!(window.LivekitClient || window.LiveKitClient)) return K.banner('LiveKit client missing — her video cannot attach');
   /* [ADAPT 2026-09-27 · #5] intro:'freeze' is passed explicitly, not left to the URL. rt_lk keys
      two things on it: the Freeze greet (rt_lk.py:697 / :687 for Hebrew — the wait law, gender and
      the one-line rule are already right there) and `_freeze_mode` (rt_lk.py:652) = "the page owns
      the game, the brain self-triggers OFF" — exactly this game's contract. A founder who drops
      ?intro= from the link must not silently get the generic greet and a self-triggering brain. */
-  if (K.bridge?.attachNova){ try { await K.bridge.attachNova({ intro:'freeze', onVideo: v => { $('novaMain').srcObject = v; $('novaAmbient').srcObject = v; } }); } catch(e){ return K.banner('Nova is not connected: ' + e.message); } }
-  else return K.banner('Nova bridge missing (/shared/nova-bridge.js)');
+  if (!K.bridge?.attachNova) return K.banner('Nova bridge missing (/shared/nova-bridge.js)');
+  /* [FIX 2026-09-27 · run 3 on a pod] NOT awaited. The pack awaited the attach, and on a run where
+     the LiveKit join hung the whole page stopped there: no music, no game, no message — a child
+     staring at nothing. That breaks the skill's own rules 7 and 9 (the game never waits for the AI;
+     it must work with the avatar OFF). Her video now arrives whenever it arrives, the game does not
+     depend on it, and a failed attach banners instead of hanging. */
+  K.bridge.attachNova({ intro:'freeze', onVideo: v => { $('novaMain').srcObject = v; $('novaAmbient').srcObject = v; console.log('[NOVA] video attached'); } })
+    .catch(e => K.banner('Nova is not connected (the game still runs): ' + e.message));
+  $('cap').textContent = LANG === 'he' ? 'רגע, מביאה את המוזיקה…' : 'One second — getting the music…';
+  try { await AC.resume(); await preload(); } catch(e){ return K.banner('Freeze cannot start: ' + e.message); }
+  $('cap').textContent = '';
   K.start(); main().catch(e => K.banner('Game error: ' + e.message));
 });
 </script></body></html>

@@ -28,16 +28,36 @@ f.onload = () => {
   w.addEventListener('unhandledrejection', e => put('REJECT', e.reason?.message || e.reason));
   const start = d.getElementById('start');
   if (!start) return put('FATAL', 'no #start button');
-  setTimeout(() => { put('ACT', 'click ▶'); start.click(); }, 800);
+  /* Keep pressing ▶ until the gate actually closes. A single timed click raced the page's own
+     start-up three times and each dead run looked like a hung game rather than a missed click. */
+  let tries = 0;
+  const clicker = setInterval(() => {
+    const gate = d.getElementById('gate');
+    if (!gate || gate.classList.contains('hidden')) { clearInterval(clicker); put('ACT', `gate open after ${tries} click(s)`); return; }
+    if (start.disabled) return;                       // not wired yet — the page says so now
+    tries++; if (tries === 1 || tries % 5 === 0) put('ACT', `click ▶ (#${tries})`);
+    start.click();
+    if (tries > 60) { clearInterval(clicker); put('FATAL', 'gate never opened'); }
+  }, 700);
   // the game waits for a consent event or the ✓ button before round 1 — no child here, so press ✓
   const iv = setInterval(() => { const ok = d.getElementById('okBtn'); if (ok){ clearInterval(iv); put('ACT', 'click ✓ (stands in for the child\'s yes)'); ok.click(); } }, 500);
   setInterval(() => { const b = d.getElementById('banner');
     if (b && !b.classList.contains('hidden') && b.textContent) put('BANNER', b.textContent); }, 1000);
+  /* HER VIDEO — the check that must pass BEFORE any link is handed to a child: a live track,
+     real dimensions, not a black panel. This is the exact failure that wasted three plays on
+     2026-09-26, and it was invisible because the page looked fine until the game gave up. */
+  let vlogged = 0;
+  setInterval(() => { const v = d.getElementById('novaMain'); if (!v) return;
+    const tr = v.srcObject?.getVideoTracks?.()[0];
+    const state = tr ? `${v.videoWidth}x${v.videoHeight} track=${tr.readyState} muted=${tr.muted}` : 'NO TRACK';
+    if (vlogged++ < 3 || vlogged % 20 === 0) put('HER-VIDEO', state); }, 3000);
   setTimeout(async () => {
     const sc = d.getElementById('scorecard');
     put('END', `scorecard ${sc && sc.style.display === 'flex' ? 'SHOWN pts=' + d.getElementById('finalScore').textContent : 'NOT shown'}`);
-    await fetch('/probe-result', { method:'POST', headers:{'content-type':'application/json'},
-      body: JSON.stringify({ tag:'selftest-' + LANG, lines }) }).catch(()=>{});
+    const body = JSON.stringify({ game:'freeze2-selftest', tag:'selftest-' + LANG, lines });
+    // local run → the probe server writes a file; on the POD → /pulse appends to /workspace/pulse.log
+    for (const url of ['/probe-result', '/pulse'])
+      await fetch(url, { method:'POST', headers:{'content-type':'application/json'}, body }).catch(()=>{});
     document.title = 'SELFTEST-DONE';
   }, SECS * 1000);
 };
