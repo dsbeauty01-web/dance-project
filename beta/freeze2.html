@@ -350,6 +350,7 @@ async function main(){
   brainOnstage('intro'); stage.phase('intro', { live:true }); setBody(S.talkBody);
   /* §7 memory, BEFORE her greeting: what she is allowed to remember from earlier plays on this
      device. It is a silent note — it can never make her speak, it only makes a later line true. */
+  bootMark('intro-waiting-for-yes');
   const memo = stage.memoryNote();
   if (memo){ stage.a.remember(memo); console.log('[STAGE] memory loaded: ' + stage.facts.length + ' fact(s)'); }
   await new Promise(res => { const b = document.createElement('button'); b.id = 'okBtn'; b.className = 'big'; b.textContent = '✓';
@@ -377,7 +378,36 @@ $('again').onclick = () => location.reload();
    loading its data and the pose kit, so a tap in that window hit a button with no listener: nothing
    happened, ever, with no error and no message. A 6-year-old taps the moment they see it. */
 $('start').disabled = false;
-K.boot(async () => {
+/* [2026-09-28] A DOM-visible boot marker. Console logs from this page proved unreadable from a test
+   harness (and Chrome no longer writes console to its debug log), so three separate stalls looked
+   identical: a game that opened its gate and then did nothing, with nothing anywhere to say where it
+   stopped. body[data-boot] always says which step is running — for a test, and for anyone asking
+   "why is the screen black". */
+const bootMark = s => { document.body.dataset.boot = s; console.log('[BOOT]', s); };
+/* The kit owns the three slowest startup steps (camera, MoveNet, presence gate) and reports none of
+   them. Wrapped — not edited — so a stall says WHICH one. This is how the "gate opens and then
+   nothing happens for ever" stall was finally localised. */
+for (const [name, fn] of [['camera','startCamera'], ['pose','initPose'], ['presence','presenceGate']]){
+  const orig = K[fn].bind(K);
+  K[fn] = async (...a) => { bootMark(name + '-start'); const r = await orig(...a); bootMark(name + '-done' + (r === false ? '-FAILED' : '')); return r; };
+}
+bootMark('wired');
+/* [FIX 2026-09-28] The kit's K.boot runs its OWN presence gate before handing over, and on two pods
+   and this laptop it never returned: its loop is driven by requestAnimationFrame inside an async
+   tick, and once a frame is missed or an inference stalls there is no timer to recover — the game
+   sat at "presence-start" for ever with nothing on screen. This page does not need it: it runs its
+   own presence check (presence(), on the judge's own shoulder-width read) before EVERY round, which
+   is stricter and recovers by itself. So the boot sequence is driven here instead of by K.boot —
+   same three steps, same order, no second gate. */
+$('start').onclick = async () => {
+  $('gate')?.classList.add('hidden');
+  bootMark('gate-open');
+  if (!(await K.startCamera())) return;                      // banners on its own
+  try { await K.initPose(); } catch(e){ return K.banner('Pose engine (MoveNet) failed: ' + e.message); }
+  bootMark('kit-ready');
+  await go();
+};
+async function go(){
   /* [FIX 2026-09-27 · measured on a pod] ORDER. preload() pulls the 4.5MB song plus 51 clips, and
      over the RunPod proxy that measured 85 SECONDS — during which the pack's order left her panel
      black and nothing on screen explained it. Her video attaches FIRST now (she is on screen in a
@@ -398,9 +428,11 @@ K.boot(async () => {
      depend on it, and a failed attach banners instead of hanging. */
   K.bridge.attachNova({ intro:'freeze', onVideo: v => { $('novaMain').srcObject = v; $('novaAmbient').srcObject = v; console.log('[NOVA] video attached'); } })
     .catch(e => K.banner('Nova is not connected (the game still runs): ' + e.message));
+  bootMark('attaching');
   $('cap').textContent = LANG === 'he' ? 'רגע, מביאה את המוזיקה…' : 'One second — getting the music…';
-  try { await AC.resume(); await preload(); } catch(e){ return K.banner('Freeze cannot start: ' + e.message); }
+  try { await AC.resume(); bootMark('audio-ctx'); await preload(); } catch(e){ return K.banner('Freeze cannot start: ' + e.message); }
+  bootMark('preloaded');
   $('cap').textContent = '';
-  K.start(); main().catch(e => K.banner('Game error: ' + e.message));
-});
+  K.start(); bootMark('running'); main().catch(e => { bootMark('game-error'); K.banner('Game error: ' + e.message); });
+}
 </script></body></html>

@@ -43,6 +43,9 @@ f.onload = () => {
   const iv = setInterval(() => { const ok = d.getElementById('okBtn'); if (ok){ clearInterval(iv); put('ACT', 'click ✓ (stands in for the child\'s yes)'); ok.click(); } }, 500);
   setInterval(() => { const b = d.getElementById('banner');
     if (b && !b.classList.contains('hidden') && b.textContent) put('BANNER', b.textContent); }, 1000);
+  // body[data-boot] — DOM, not console, so it is actually readable from here
+  let lastBoot = '';
+  setInterval(() => { const s = d.body?.dataset?.boot || ''; if (s && s !== lastBoot){ lastBoot = s; put('BOOT', s); } }, 300);
   /* HER VIDEO — the check that must pass BEFORE any link is handed to a child: a live track,
      real dimensions, not a black panel. This is the exact failure that wasted three plays on
      2026-09-26, and it was invisible because the page looked fine until the game gave up. */
