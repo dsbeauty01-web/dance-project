@@ -30,9 +30,18 @@ STYLE = {
  "en": "You are Nova, a bright, playful dance friend. Speak like a RAPID-FIRE game-show host calling out a move to a 6-year-old: maximum speed, urgent and excited, NO pause anywhere in the line, no breath between words, clipped and punchy. Say ONLY the exact line, once. Never add words.",
  "he": "את נובה, חברת ריקוד שמחה. דברי כמו מנחת שעשועון שצועקת פקודה לילד בן 6: מהר מאוד, נמרץ ונלהב, בלי שום הפסקה באמצע המשפט, בלי נשימה בין המילים, קצר וחד. אמרי רק את המשפט המדויק, פעם אחת. בלי מילים נוספות.",
 }
+# [ADAPT 2026-09-27 · FREEZE v2] The rapid-fire style above exists because a Simon-Says COMMAND has
+# a 1.4s budget. Freeze v2's lines are verdicts and praise ("Almost! So close!", "Perfect flamingo!")
+# and one hush ("Get ready…"); read at maximum speed with no breath they sound frantic at a child who
+# just held still. `--style warm` is excited but human. nsfast keeps the default, unchanged.
+STYLE_WARM = {
+ "en": "You are Nova, a bright, warm dance friend talking to a 6-year-old who is dancing with you. Excited and lively but natural — real delight, not shouting, no rushing. Say ONLY the exact line, once. Never add words.",
+ "he": "את נובה, חברת ריקוד חמה ושמחה שמדברת לילד בן 6 שרוקד איתך. נלהבת וחיה אבל טבעית — שמחה אמיתית, בלי לצעוק ובלי למהר. אמרי רק את המשפט המדויק, פעם אחת. בלי מילים נוספות.",
+}
+STYLES = {"fast": STYLE, "warm": STYLE_WARM}
 LIMIT = {"real": 1.4, "bare": 0.8}
 
-async def speak(line, lang):
+async def speak(line, lang, style="fast"):
     # [ADAPT 2026-09-27] The pack shipped the BETA realtime shape (OpenAI-Beta header,
     # session.modalities, output_audio_format, response.modalities). Against rt_lk's real model
     # every single line failed with `invalid_request_error.beta_api_shape_disabled` — 0 of 46
@@ -43,14 +52,17 @@ async def speak(line, lang):
     #   exact line       rt_lk.py say_resp() — conversation:"none" + a "repeat after me" user
     #                    message, which is how the live brain stops her paraphrasing a staged line.
     hdrs = {"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"}
-    ask = ("חזרי אחריי מילה במילה, פעם אחת, מהר ובהתלהבות: " if lang == "he"
-           else "Repeat after me word for word, once, fast and excited: ")
+    sty = STYLES[style][lang]
+    ask = (("חזרי אחריי מילה במילה, פעם אחת, מהר ובהתלהבות: " if style == "fast"
+            else "חזרי אחריי מילה במילה, פעם אחת, בהתלהבות וחום: ") if lang == "he"
+           else ("Repeat after me word for word, once, fast and excited: " if style == "fast"
+                 else "Repeat after me word for word, once, excited and warm: "))
     async with websockets.connect(URL, additional_headers=hdrs, max_size=None) as ws:
         await ws.send(json.dumps({"type":"session.update","session":{
-            "type":"realtime","output_modalities":["audio"],"instructions":STYLE[lang],
+            "type":"realtime","output_modalities":["audio"],"instructions":sty,
             "audio":{"output":{"format":{"type":"audio/pcm","rate":24000},"voice":VOICE}}}}))
         await ws.send(json.dumps({"type":"response.create","response":{"conversation":"none",
-            "instructions":STYLE[lang],
+            "instructions":sty,
             "input":[{"type":"message","role":"user","content":[{"type":"input_text","text":ask + line}]}]}}))
         pcm = bytearray()
         async for msg in ws:
@@ -77,7 +89,8 @@ def dur(path):
 
 async def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--lines", required=True); ap.add_argument("--out", required=True)
-    ap.add_argument("--lang", default="en"); ap.add_argument("--takes", type=int, default=2); a = ap.parse_args()
+    ap.add_argument("--lang", default="en"); ap.add_argument("--takes", type=int, default=2)
+    ap.add_argument("--style", default="fast", choices=sorted(STYLES)); a = ap.parse_args()
     lines = {k:v for k,v in json.load(open(a.lines, encoding="utf-8")).items() if not k.startswith("_")}
     os.makedirs(a.out, exist_ok=True); manifest, durs, slow = {}, {}, []
     for lid, text in lines.items():
@@ -85,7 +98,7 @@ async def main():
         for t in range(1, a.takes+1):
             fn = f"{lid}.{t}.mp3"; path = os.path.join(a.out, fn)
             try:
-                to_mp3(await speak(text, a.lang), path); d = dur(path); durs[fn] = d; manifest[lid].append(fn)
+                to_mp3(await speak(text, a.lang, a.style), path); d = dur(path); durs[fn] = d; manifest[lid].append(fn)
                 kind = "real" if lid.endswith(".real") else "bare" if lid.endswith(".bare") else None
                 if kind and d and d > LIMIT[kind]: slow.append(f"{fn} {d:.2f}s > {LIMIT[kind]}s")
                 print("ok", fn, f"{d:.2f}s" if d else "")

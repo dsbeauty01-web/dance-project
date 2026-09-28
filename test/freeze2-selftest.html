@@ -1,0 +1,44 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>freeze2 self-test</title>
+<style>body{margin:0;background:#0b0718;color:#9f9;font:12px monospace;display:flex}
+iframe{width:70vw;height:100vh;border:0}#log{width:30vw;height:100vh;overflow:auto;padding:8px;white-space:pre-wrap}</style>
+</head><body>
+<iframe id="game"></iframe><div id="log">self-test starting…</div>
+<script>
+/* test/freeze2-selftest.html — drives beta/freeze2.html for real, locally, BEFORE any pod time.
+   Chrome plays a dance clip as the camera (--use-file-for-fake-video-capture), this page loads the
+   game same-origin, clicks its start button, and records everything the game logs — including the
+   [STOP] lines that carry the audio-clock accuracy the founder's step 6 asks for.
+   Without a pod there is no LiveKit token, so her video never attaches: that path is proven on the
+   pod, this proves the GAME (music clock, stops, judging, verdicts, lines, score, ending).
+   Usage: /test/freeze2-selftest.html?lang=en&secs=260 */
+const Q = new URLSearchParams(location.search);
+const LANG = Q.get('lang') || 'en', SECS = parseFloat(Q.get('secs') || '260');
+const lines = [], t0 = Date.now();
+const el = document.getElementById('log');
+const put = (tag, s) => { const L = `${((Date.now()-t0)/1000).toFixed(1)}s ${tag} ${s}`; lines.push(L);
+  el.textContent = lines.slice(-120).join('\n'); el.scrollTop = el.scrollHeight; };
+const f = document.getElementById('game');
+f.src = `/beta/freeze2.html?lang=${LANG}&g=m&debug=1`;
+f.onload = () => {
+  const w = f.contentWindow, d = f.contentDocument;
+  for (const m of ['log','warn','error']){ const o = w.console[m].bind(w.console);
+    w.console[m] = (...a) => { put(m === 'log' ? '·' : m.toUpperCase(), a.map(x => typeof x === 'object' ? JSON.stringify(x) : String(x)).join(' ')); o(...a); }; }
+  w.addEventListener('error', e => put('PAGE-ERR', e.message));
+  w.addEventListener('unhandledrejection', e => put('REJECT', e.reason?.message || e.reason));
+  const start = d.getElementById('start');
+  if (!start) return put('FATAL', 'no #start button');
+  setTimeout(() => { put('ACT', 'click ▶'); start.click(); }, 800);
+  // the game waits for a consent event or the ✓ button before round 1 — no child here, so press ✓
+  const iv = setInterval(() => { const ok = d.getElementById('okBtn'); if (ok){ clearInterval(iv); put('ACT', 'click ✓ (stands in for the child\'s yes)'); ok.click(); } }, 500);
+  setInterval(() => { const b = d.getElementById('banner');
+    if (b && !b.classList.contains('hidden') && b.textContent) put('BANNER', b.textContent); }, 1000);
+  setTimeout(async () => {
+    const sc = d.getElementById('scorecard');
+    put('END', `scorecard ${sc && sc.style.display === 'flex' ? 'SHOWN pts=' + d.getElementById('finalScore').textContent : 'NOT shown'}`);
+    await fetch('/probe-result', { method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ tag:'selftest-' + LANG, lines }) }).catch(()=>{});
+    document.title = 'SELFTEST-DONE';
+  }, SECS * 1000);
+};
+</script></body></html>

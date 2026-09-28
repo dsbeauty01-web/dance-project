@@ -1,0 +1,53 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Nova · energy probe</title>
+<style>body{margin:0;background:#120a22;color:#9f9;font:14px monospace}#usercam{width:40vw}#fx{display:none}#out{padding:12px;white-space:pre}</style>
+</head><body>
+<video id="usercam" autoplay muted playsinline></video><canvas id="fx"></canvas>
+<div id="dbg"></div><div id="banner"></div><div id="out">starting…</div>
+<script type="module">
+/* test/energy-probe.html — MEASURES the motion energy the game actually judges on.
+   Runs the SHIPPED pipeline: game-kit's MoveNet (SINGLEPOSE_LIGHTNING, the same detector, the same
+   normalized keypoints) into beta/freeze2/judges.js update(). Chrome plays a video file as the
+   camera (--use-file-for-fake-video-capture), so the numbers come from a real body through the real
+   detector at real frame rates — not from synthetic frames.
+   Why it exists: BOTH 2026-09-27 reports flagged a calibration reading (still 0.43 / 0.239) that sits
+   at or above the shipped move threshold, with no measurement of what a DANCING body actually reads.
+   Until that gap is closed nobody can say whether breaking a freeze is detectable at all.
+   Usage: /test/energy-probe.html?tag=dance&secs=20  (the server writes the JSON result). */
+import { createKit } from '/shared/game-kit.js';
+import { createJudges } from '/beta/freeze2/judges.js';
+const Q = new URLSearchParams(location.search);
+const TAG = Q.get('tag') || 'run', SECS = parseFloat(Q.get('secs') || '20');
+const out = document.getElementById('out');
+const log = s => { out.textContent = s; console.log('[PROBE]', s); };
+
+const S = await (await fetch('/beta/freeze2/script.json')).json();
+const K = await createKit({ tier:'kids', mirror:true, game:'probe', refCandidates:[] });
+const J = createJudges(S.tune);
+if (!(await K.startCamera())) { log('camera failed'); throw new Error('camera'); }
+await K.initPose();
+
+const t0 = performance.now() / 1000;
+const E = [], seenJ = [];
+let frames = 0, lost = 0;
+while (performance.now() / 1000 - t0 < SECS){
+  const k = await K.detect(K.cam);
+  const t = performance.now() / 1000;
+  frames++;
+  if (!k || !J.sw(k)) { lost++; continue; }
+  J.update(k, t);
+  if (t - t0 > 1.0) { E.push(J.st.energy); seenJ.push(Object.values(k).filter(p => p.vis > S.tune.visMin).length); }   // 1s warm-up: the first frames have no previous frame
+  if (frames % 15 === 0) log(`${TAG}: ${frames}f · energy ${J.st.energy.toFixed(3)} · samples ${E.length}`);
+}
+const pct = (a, p) => { const s = [...a].sort((x,y) => x-y); return s[Math.min(s.length-1, Math.floor(s.length*p))]; };
+const secs = performance.now()/1000 - t0;
+const R = { tag:TAG, frames, lost, fps:+(frames/secs).toFixed(1), samples:E.length,
+  p10:+pct(E,0.1).toFixed(3), p50:+pct(E,0.5).toFixed(3), p90:+pct(E,0.9).toFixed(3), max:+Math.max(...E).toFixed(3),
+  meanJoints:+(seenJ.reduce((a,b)=>a+b,0)/Math.max(1,seenJ.length)).toFixed(1),
+  series:E.map(v => +v.toFixed(3)),        // the raw trace — test/freeze2_realdata_test.mjs replays it through the shipped Hold judge
+  dt:+(secs/Math.max(1,frames)).toFixed(4),
+  tune:{ stillDefault:S.tune.stillDefault, moveFloor:S.tune.moveFloor, moveK:S.tune.moveK, stillFloor:S.tune.stillFloor, stillK:S.tune.stillK } };
+log(JSON.stringify(R, null, 1));
+await fetch('/probe-result', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(R) }).catch(()=>{});
+document.title = 'PROBE-DONE ' + TAG;
+</script></body></html>

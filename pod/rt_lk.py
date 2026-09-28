@@ -2157,6 +2157,19 @@ async def novasays_fast_page(request):
         return web.Response(status=503, text="beta novasays-fast page not deployed")
     return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
 
+async def freeze2_page(request):
+    # FREEZE v2 (2026-09-27, live-ai-game-architecture pack). Same two routes as novasays-fast:
+    # the pack's /beta/freeze2.html and the extensionless /beta/freeze2 every other beta page uses.
+    # Its data (script.json, lines-*.json, judges.js, hold.js) is served by beta_asset under
+    # /beta/freeze2/, and its recorded lines by the /audio static mount (/audio/freeze2/<set>/).
+    # The LIVE Freeze (/freeze -> pages/animal-freeze.html) is untouched by all of this.
+    try:
+        with open("/workspace/pages/beta/freeze2.html", encoding="utf-8") as f:
+            html = f.read()
+    except FileNotFoundError:
+        return web.Response(status=503, text="beta freeze2 page not deployed")
+    return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
+
 async def avatar_check(request):
     # b0.21-novasays preflight: which of these bakes actually exist on the volume?
     # (Deterministic — replaces gallery-preview filename guessing. No silent fallbacks:
@@ -2231,6 +2244,8 @@ app.router.add_get("/beta/upperbody", beta_upperbody_page)
 app.router.add_get("/beta/novasays", beta_novasays_page)
 app.router.add_get("/beta/novasays-fast.html", novasays_fast_page)
 app.router.add_get("/beta/novasays-fast", novasays_fast_page)
+app.router.add_get("/beta/freeze2.html", freeze2_page)
+app.router.add_get("/beta/freeze2", freeze2_page)
 app.router.add_get(r"/beta/{name:[A-Za-z0-9_.-]+\.(?:js|json)}", beta_asset)
 app.router.add_get(r"/beta/{sub:[A-Za-z0-9_-]+}/{name:[A-Za-z0-9_.-]+\.(?:js|json)}", beta_asset)
 app.router.add_get("/avatar_check", avatar_check)
