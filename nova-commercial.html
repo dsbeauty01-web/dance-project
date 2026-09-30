@@ -4735,8 +4735,16 @@ const ISO = {
   thr: { headbob:0.22, shrug:0.15, ribslide:0.18, hipbounce:0.18 },
 };
 const isoBuf = { headbob:[], shrug:[], ribslide:[], hipbounce:[] };
+/* [FIX 2026-09-30] isoBuf had no 'introShrug' key, so the intro's shoulder beat called this with a key
+   that does not exist and `b.push` threw a TypeError on EVERY frame. The caller wraps its loop in a bare
+   `catch(_){}` (nova-commercial.html ~4072), so the throw was silent and the loop kept spinning — which
+   means the shoulder beat's camera detection has never once run: `sig` was never computed, `hits` never
+   incremented, success() was unreachable, and every child who actually lifted a shoulder got nothing
+   while the beat quietly ended at its 20s release. Buckets are created on demand now.
+   THIS ACTIVATES DORMANT DETECTION — same class as the v1.0.1 window.Pose fix, and it needs a real
+   camera to confirm the threshold (ISO.thr.shrug = 0.15) is right for a child. */
 function isoPulse(key, value, now, scaleNorm) {
-  const b = isoBuf[key];
+  const b = isoBuf[key] || (isoBuf[key] = []);
   b.push({ t: now, v: value });
   while (b.length && now - b[0].t > ISO.win) b.shift();
   if (b.length < 5 || scaleNorm <= 0) return 0;
@@ -7917,6 +7925,93 @@ window.__initRunwayNova = initDID;
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 })();
+</script>
+<!-- ═══ INTRO MOVE RECIPES (nova-moves-v4, WIRING-ALL-GAMES.md) ═══════════════════════════════════
+     The intro gets the same light layer as the games: the step-back gate becomes intro.presence
+     (arrows, no words) and the shoulder beat becomes intro.shoulderL/R (a meter that fills on the
+     shoulder, then a burst).
+
+     This block is READ-ONLY about the beat itself. introShoulderChallenge (module scope, ~line 4010)
+     still arms, judges and resolves exactly as before; this layer only mirrors the globals it already
+     publishes — __introCuePart / __introCueJoint / __introCuePartAt / __introShoulderDone — into the
+     recipe. Nothing here can make her speak or change a verdict.
+
+     Three adaptations this page forces, none of which the other games needed:
+       · it has NO canvas over the intro camera (only the #rec-cam-glow div), so this creates one;
+       · window.__lastPoseKeypoints is PIXELS with COCO names (left_shoulder…), while the recipes want
+         normalized 0..1 with kit names (lShoulder…) — toKit() below is that adapter;
+       · the page's main code is a module but the glow layer is a classic script, so this is its own
+         module block and talks to the rest only through window.* , exactly as the file already does. -->
+<style>
+/* the old amber blob said "shoulder" and so does the new meter — one signal, not two.
+   Kept in the DOM (the 20s-freshness glow loop still writes to it) but never painted. */
+body.nova-moves-intro #rec-cam-glow{ display:none !important; }
+</style>
+<script type="module">
+import { createLights } from '/shared/nova-lights.js';
+import { createMoves }  from '/shared/move-recipes.js';
+
+const COCO = { nose:'nose', left_shoulder:'lShoulder', right_shoulder:'rShoulder',
+  left_elbow:'lElbow', right_elbow:'rElbow', left_wrist:'lWrist', right_wrist:'rWrist',
+  left_hip:'lHip', right_hip:'rHip', left_knee:'lKnee', right_knee:'rKnee',
+  left_ankle:'lAnkle', right_ankle:'rAnkle' };
+/* pixels + COCO names → normalized + kit names. MoveNet's left_* is the child's own left, which is
+   what the kit calls lShoulder, so the sides need no flip here — the mirror is the lights' job. */
+function toKit(kps, vw, vh){
+  if (!kps || !kps.length || !vw || !vh) return null;
+  const k = {}; for (const p of kps){ const n = COCO[p.name]; if (n) k[n] = { x:p.x/vw, y:p.y/vh, vis:p.score ?? 0 }; }
+  return k.lShoulder && k.rShoulder ? k : null;
+}
+
+function init(){
+  const wrap = document.getElementById('rec-cam-wrap');
+  const cam  = document.getElementById('rec-webcam');
+  if (!wrap || !cam) return setTimeout(init, 800);
+
+  const host = document.createElement('canvas');
+  host.id = 'rec-moves-canvas';
+  host.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5';
+  wrap.appendChild(host);
+  const lights = createLights(host, { video: cam, debug: new URLSearchParams(location.search).get('dots') === '1' });
+  const moves  = createMoves(lights, { mirror: true });          // #rec-webcam is CSS-mirrored, keypoints are not
+  document.body.classList.add('nova-moves-intro');
+  try { console.log('[MOVES-INTRO] light layer up over the intro camera'); } catch(_){}
+
+  let open = null, shoulderDone = false;
+  const inIntro = () => { try { return (window.memory && window.memory.phase) === 'recognition'; } catch(_){ return false; } };
+
+  function frame(){
+    const k = toKit(window.__lastPoseKeypoints, cam.videoWidth, cam.videoHeight);
+    if (k) lights.feed(k);
+
+    if (!inIntro()){ if (open){ moves.clear(); open = null; } return requestAnimationFrame(frame); }
+
+    /* the shoulder beat owns itself; this only follows it */
+    const cueFresh = window.__introCuePart === 'shoulder'
+      && (Date.now() - (window.__introCuePartAt || 0) < 20000)
+      && !window.__introShoulderDone;
+    const want = cueFresh
+      ? (window.__introCueJoint === 'left_shoulder' ? 'intro.shoulderL' : 'intro.shoulderR')
+      : (k ? 'intro.presence' : null);
+
+    if (want !== open){
+      if (open) moves.clear(open);
+      open = want; shoulderDone = false;
+      if (open) moves.cue(open);
+    }
+    if (open && k) moves.live(open, k);
+
+    /* she confirmed the shrug → the recipe's own burst, once */
+    if (open && open.startsWith('intro.shoulder') && window.__introShoulderDone && !shoulderDone){
+      shoulderDone = true; moves.result(open, 'ok', null);
+      try { console.log('[MOVES-INTRO] shoulder confirmed → burst'); } catch(_){}
+      setTimeout(() => { if (open){ moves.clear(open); open = null; } }, 900);
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 </script>
 <!-- ═══ FULL-BODY NOVA — THE FLOOR WIDGET (2026-07-11) ═══
      Self-hosted animated Nova (LiveTalking on the RunPod engine) standing on a

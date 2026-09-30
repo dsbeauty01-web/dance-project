@@ -46,6 +46,21 @@ const GAMES = {
     { id:'freeze.stop',   name:'Freeze — hold',  pose:() => REST, still:true },
     { id:'says.trick',    name:'Trick — do not move', pose:() => REST, still:true },
   ],
+  freeze2: [
+    { id:'freeze.dance',          name:'Music on — dancing', pose:u => ({ lArm:10+70*Math.sin(u*Math.PI*4), rArm:10+70*Math.cos(u*Math.PI*4), squat:0.12*Math.abs(Math.sin(u*Math.PI*3)) }), moving:true },
+    { id:'freeze.stop',           name:'The stop — hold',    pose:() => REST, still:true },
+    { id:'freeze.shape.star',     name:'Star',               pose:u => ({ lArm:lerp(10,165,u), rArm:lerp(10,165,u), feet:lerp(0.7,1.9,u) }) },
+    { id:'freeze.shape.flamingo', name:'Flamingo',           pose:u => ({ lKnee:lerp(0,75,u) }) },
+    { id:'freeze.shape.frog',     name:'Frog',               pose:u => ({ squat:lerp(0,0.95,u), lKnee:lerp(0,40,u), rKnee:lerp(0,40,u) }) },
+    { id:'freeze.shape.bear',     name:'Bear',               pose:u => ({ lArm:lerp(10,90,u), rArm:lerp(10,90,u) }) },
+  ],
+  upgroove:  [ { id:'groove.bounce', name:'Bounce on the beat', pose:u => ({ squat:0.30*Math.pow(Math.sin(u*Math.PI),2) }), beat:true } ],
+  wave:      [ { id:'wave.arm',      name:'One-arm wave',       pose:u => ({ rArm:10 }), wave:'right' } ],
+  upperbody: [
+    { id:'upper.slide',  name:'Rib slide — hips frozen', pose:u => ({ slide: 0.45*Math.sin(u*Math.PI) }) },
+    { id:'freeze.dance', name:'Flow pulse',              pose:u => ({ lArm:10+60*Math.sin(u*Math.PI*4), rArm:10+60*Math.cos(u*Math.PI*4) }), moving:true },
+    { id:'freeze.stop',  name:'The finish — hold',       pose:() => REST, still:true },
+  ],
 };
 let SEQ = GAMES[Q.get('game') || 'nsfast'] || GAMES.nsfast;
 if (Q.get('only')) SEQ = SEQ.filter(s => s.id === Q.get('only'));
@@ -72,9 +87,19 @@ function loop(){
     i = (i + 1) % SEQ.length; t0 = now; cued = false; resulted = false;
   }
   const s = SEQ[i], e = now - t0;
-  if (!cued){ cued = true; moves.cue(s.id); console.log(`[MOVES] cue ${s.id}`); }
+  if (!cued){ cued = true;
+    /* two recipes need options at cue time: the beat ring needs to know when the next beat lands, and the
+       wave needs which arm and which way. Everything else cues bare. */
+    const opts = s.beat ? { nextBeatAt: t => t0 / 1000 + (CUE_MS + RISE_MS) / 1000 + 0.0, lead: 0.6 }
+               : s.wave ? { arm: s.wave, dir: 'out', ms: RISE_MS } : undefined;
+    moves.cue(s.id, opts); console.log(`[MOVES] cue ${s.id}`); }
   const u = s.still ? 0 : Math.max(0, Math.min(1, (e - CUE_MS) / RISE_MS));
   const k = kid({ ...REST, ...s.pose(u), jit: s.still ? 0.0015 : 0.003 });
+  if (s.wave && u > 0 && u <= 1){                                  // a bump travelling shoulder → elbow → wrist
+    const CH = s.wave === 'left' ? ['lShoulder','lElbow','lWrist'] : ['rShoulder','rElbow','rWrist'];
+    const sw = Math.abs(k.lShoulder.x - k.rShoulder.x), pos = u * 2, AMPS = [0.15, 0.30, 0.35];
+    CH.forEach((n, ix) => { k[n] = { ...k[n], y: k[n].y - AMPS[ix] * Math.exp(-Math.pow(ix - pos, 2) / 0.35) * sw }; });
+  }
   drawBody(k); lights.feed(k);
   const j = moves.live(s.id, k);                                   // the recipe's own judge drives the light
   if (!resulted && e >= CUE_MS + RISE_MS + HOLD_MS){
