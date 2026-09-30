@@ -65,6 +65,8 @@ button.big{font:800 30px 'Baloo 2';padding:16px 46px;border:0;border-radius:18px
    Her brain is live only at the intro and the ending; the rounds are all page + camera. Judges = beta/nsfast/judges.js (tested). */
 import { createKit } from '/shared/game-kit.js';
 import { createJudges } from '/beta/nsfast/judges.js';
+import { createLights } from '/shared/nova-lights.js';
+import { createMoves } from '/shared/move-recipes.js';
 const $ = id => document.getElementById(id);
 const Q = new URLSearchParams(location.search);
 const LANG = (Q.get('lang') || localStorage.getItem('nova-lang') || 'en') === 'he' ? 'he' : 'en';
@@ -87,6 +89,24 @@ const K = await createKit({ tier:'kids', mirror:true, game:'novasays', lang:LANG
 const J = createJudges(S.tune);
 const now = () => performance.now() / 1000;
 const T0 = now();
+
+/* ───────── the light layer + the move recipes (nova-moves-v4, WIRING-ALL-GAMES.md) ─────────
+   The recipes only SHOW. beta/nsfast/judges.js still decides every star — nothing below reads a result
+   the judge did not produce. #usercam here is object-fit:cover, which the module now reads off the CSS
+   itself, so this page passes no `fit`. */
+const lights = createLights($('fx'), { video: $('usercam'), debug: Q.get('dots') === '1' });
+const moves  = createMoves(lights, { mirror: true });                      // [ADAPT] = createKit's mirror:true above
+/* [ADAPT] the game's command ids are not the recipe ids:
+     handsOnHead → says.handsHead   (same move, different spelling)
+     oneArm      → says.rightUp     (WIRING-ALL-GAMES.md: FAST's "one arm up" is side-free, so cue the
+                                     right arm but let the judge accept either — the recipe only draws)
+     freeze      → freeze.stop      (FAST has a hold-still command and there is no says.freeze; freeze.stop
+                                     is exactly this moment — ice, the wobbling part, STATUE!/ALMOST!)
+   A trick is the same picture with no "Nova says", so every trick uses says.trick whatever the pose is. */
+const MOVE_ID = { armsUp:'says.armsUp', armsOut:'says.armsOut', handsOnHead:'says.handsHead',
+                  oneArm:'says.rightUp', freeze:'freeze.stop' };
+const moveFor = (cmd, kind) => kind === 'trick' ? 'says.trick' : (MOVE_ID[cmd] || null);
+let OPEN = null;                                                           // the one open action, or null
 
 // ───────── the pose pictures (simple, bold, readable by a 5-year-old) ─────────
 const FIG = (arms) => `<svg viewBox="0 0 120 150"><g stroke="#ffdf7e" stroke-width="9" stroke-linecap="round" fill="none">
@@ -128,8 +148,16 @@ function wobble(){ $('stage').classList.remove('wobble'); void $('stage').offset
 // ───────── body + brain ─────────
 function setBody(id){ try { K.bridge?.setBody?.(id); } catch(e){} dbgNote('body ' + id); }
 // [ADAPT] map to the bridge the CLI built on novasays-v3: mic(bool), note({kind}) — 'show' must ALSO stop the 13s silence timer and drop transcripts in rt_lk
-function brainOffstage(){ try { K.bridge?.mic?.(false); K.bridge?.note?.({ kind:'speak-gate', on:true }); K.bridge?.note?.({ kind:'show', on:true }); } catch(e){} K.setPhase('game'); document.body.dataset.phase = 'game'; }
-function brainOnstage(phase){ try { K.bridge?.note?.({ kind:'show', on:false }); K.bridge?.note?.({ kind:'speak-gate', on:false }); K.bridge?.mic?.(true); } catch(e){} K.setPhase(phase); document.body.dataset.phase = phase; }
+/* [FIX 2026-09-30, same bug I found in Up Groove] K.setPhase routes the bridge voice by phase
+   (game-kit.js:47): any phase that is not intro/between/ending/hold calls routeVoice('air'), which puts
+   the gain back to 1. This file closed the gates and THEN called setPhase('game'), so setPhase silently
+   reopened the gate it had just shut and she could talk over a round. freeze2.html:167-173 documents the
+   order: muting → setPhase FIRST, then the gates; un-muting → gates first, then setPhase. */
+function brainOffstage(){ K.setPhase('game');
+  try { K.bridge?.mic?.(false); K.bridge?.note?.({ kind:'speak-gate', on:true }); K.bridge?.note?.({ kind:'show', on:true }); } catch(e){}
+  document.body.dataset.phase = 'game'; OPEN = null; moves.clear(); }
+function brainOnstage(phase){ try { K.bridge?.note?.({ kind:'show', on:false }); K.bridge?.note?.({ kind:'speak-gate', on:false }); K.bridge?.mic?.(true); } catch(e){}
+  K.setPhase(phase); document.body.dataset.phase = phase; OPEN = null; moves.clear(); }
 function remember(text){ try { K.bridge?.note?.({ kind:'remember', text }); } catch(e){} }
 function brainSpeak(text, startMs = 3000, maxMs = 14000){
   return new Promise(res => { if (!K.bridge?.note || !K.bridge?.onHerAudio) return res(false);
@@ -141,7 +169,10 @@ function brainSpeak(text, startMs = 3000, maxMs = 14000){
 
 // ───────── camera loop → judges ─────────
 let last = null, win = null, paused = false, over = false;
-K.onKid = (out, k) => { if (!k) return; last = k; const t = now(); J.update(k, t); if (win && !paused){ const r = win.feed(k, t); if (r) resolveWin(r); } dbg(); };
+K.onKid = (out, k) => { if (!k) return; last = k; const t = now(); J.update(k, t);
+  lights.feed(k, t);                                                        // every frame, open action or not
+  if (OPEN && !paused) moves.live(OPEN, k, t);                              // only while an action is open
+  if (win && !paused){ const r = win.feed(k, t); if (r) resolveWin(r); } dbg(); };
 let winResolve = null;
 function openWin(kind, cmd, dur){ return new Promise(res => { win = new J.Window(kind, cmd, now(), dur); winResolve = res; timerBar(dur); dbgNote(`win ${kind} ${cmd} ${dur.toFixed(2)}s`); }); }
 function resolveWin(r){ if (!win) return; win = null; $('timer').style.width = '0'; const f = winResolve; winResolve = null; f?.(r); }
@@ -176,15 +207,21 @@ async function command(cmd, kind, dur, rs){
   await whilePaused(); if (over) return 'void';
   await presence();
   showPose(cmd);                                                       // the picture shows on real AND trick — only the words differ
+  OPEN = moveFor(cmd, kind); if (OPEN) moves.cue(OPEN);                // the ghost of the pose lands ON him as she speaks
   await play(kind === 'real' ? `cmd.${cmd}.real` : `cmd.${cmd}.bare`);
   const effective = cmd === 'freeze' ? Math.max(dur, S.tune.freezeHoldS + 1.0) : dur;
   const r = await openWin(kind, cmd, effective);
   hidePose();
+  /* The judge above has already decided. The recipe is told what IT decided — never the other way round.
+     'hit' = a real command done · 'held' = a trick survived · 'gotcha' = moved on a trick · anything else = missed. */
+  if (OPEN){ const id = OPEN; OPEN = null;
+    if (r === 'void') moves.clear(id);
+    else { moves.result(id, (r === 'hit' || r === 'held') ? 'ok' : 'miss', null); setTimeout(() => moves.clear(id), 900); } }
   if (r === 'void') return r;
   if (kind === 'trick'){ tricksTotal++; setTricks(); }
   if (r === 'hit'){ rs.hits++; await right(1, false); if (cmd === 'freeze') sfx('ding'); }
   else if (r === 'held'){ tricksHeld++; rs.held++; setTricks(); await right(2, true); }
-  else if (r === 'gotcha'){ combo = 0; setCombo(); rs.gotcha++; decisions++; sfx('boing'); wobble(); pop(UI.gotcha, '#b98cff'); try { K.L.gotchaRipple?.(); } catch(e){} }
+  else if (r === 'gotcha'){ combo = 0; setCombo(); rs.gotcha++; decisions++; sfx('boing'); wobble(); pop(UI.gotcha, '#b98cff'); }   // [ADAPT] the kit's gotchaRipple is gone: says.trick's miss already writes GOTCHA! on him
   else { combo = 0; setCombo(); decisions++; }                         // a missed real command: silence, the combo resets
   remember(`${cmd} ${kind} → ${r} · stars ${stars} · combo ${combo}`);
   return r;

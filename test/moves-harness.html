@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Nova moves — scripted-body harness</title>
+<!-- Replays every action a game uses, through the REAL modules: shared/nova-lights.js +
+     shared/move-recipes.js, driven by test/kid.mjs (the pack's simulated child).
+     No camera, no pod. Each action runs cue → live frames → result, and every recipe call is logged,
+     so the console IS the list of recipe calls.
+       ?game=nsfast   which game's action list to replay (default nsfast)
+       ?only=<id>     replay a single recipe id, looping
+       ?dots=1        white dots on the joints (they must sit ON the body)
+       ?miss=1        end every action with 'miss' instead of 'ok'  -->
+<style>
+html,body{margin:0;height:100%;background:#1a0f2e;font-family:Nunito,system-ui;color:#fff;overflow:hidden}
+/* 4:3 on purpose. With no <video>, nova-lights maps a virtual 640x480 frame with object-fit:cover; only
+   in a 4:3 box does that reduce to x*W, y*H — the same mapping drawBody() uses. In a square box the two
+   disagree and every light sits left of the body, which is a fault of THIS PAGE, not the lights. */
+#wrap{position:relative;width:min(640px,94vw);aspect-ratio:4/3;max-height:78vh;margin:2vh auto;background:#120a22;border-radius:14px;overflow:hidden}
+#body{position:absolute;inset:0;width:100%;height:100%}
+#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6}
+#label{position:absolute;left:0;right:0;top:10px;text-align:center;z-index:9;font:800 22px 'Baloo 2',system-ui;color:#ffd65a;text-shadow:0 2px 10px #000}
+#state{position:absolute;left:10px;bottom:10px;z-index:9;font:600 12px monospace;background:rgba(0,0,0,.6);padding:5px 9px;border-radius:7px;color:#9f9}
+#note{text-align:center;font-weight:800;font-size:14px;opacity:.75;padding:0 20px}
+</style></head><body>
+<div id="wrap"><canvas id="body"></canvas><canvas id="fx"></canvas><div id="label"></div><div id="state"></div></div>
+<div id="note">SCRIPTED BODY, REAL LIGHTS, REAL RECIPES — each action: cue &rarr; live &rarr; result. Every recipe call is logged.</div>
+<script type="module">
+import { createLights } from '/shared/nova-lights.js';
+import { createMoves } from '/shared/move-recipes.js';
+import { kid } from '/test/kid.mjs';
+
+const Q = new URLSearchParams(location.search);
+const wrap = document.getElementById('wrap'), bodyCv = document.getElementById('body');
+const label = document.getElementById('label'), st = document.getElementById('state');
+const lights = createLights(document.getElementById('fx'), { debug: Q.get('dots') === '1' });   // no <video> → 'cover', s=1 in this square box
+const moves  = createMoves(lights, { mirror: false });                                          // un-mirrored: this body is drawn as-is
+const OUTCOME = Q.get('miss') === '1' ? 'miss' : 'ok';
+
+/* pose(u) returns the kid() args at progress u (0 = resting, 1 = the pose). */
+const REST = { lArm: 10, rArm: 10 };
+const lerp = (a, b, u) => a + (b - a) * u;
+const GAMES = {
+  nsfast: [
+    { id:'says.armsUp',   name:'Arms up',        pose:u => ({ lArm:lerp(10,170,u), rArm:lerp(10,170,u) }) },
+    { id:'says.armsOut',  name:'Arms out',       pose:u => ({ lArm:lerp(10,90,u),  rArm:lerp(10,90,u)  }) },
+    { id:'says.handsHead',name:'Hands on head',  pose:u => (u > 0.55 ? { hands:'head' } : { lArm:lerp(10,120,u), rArm:lerp(10,120,u) }) },
+    { id:'says.rightUp',  name:'One arm up',     pose:u => ({ lArm:10, rArm:lerp(10,170,u) }) },
+    { id:'freeze.stop',   name:'Freeze — hold',  pose:() => REST, still:true },
+    { id:'says.trick',    name:'Trick — do not move', pose:() => REST, still:true },
+  ],
+};
+let SEQ = GAMES[Q.get('game') || 'nsfast'] || GAMES.nsfast;
+if (Q.get('only')) SEQ = SEQ.filter(s => s.id === Q.get('only'));
+
+const CUE_MS = 700, RISE_MS = 1100, HOLD_MS = 1300, AFTER_MS = 900;
+const STEP = CUE_MS + RISE_MS + HOLD_MS + AFTER_MS;
+
+function drawBody(k){
+  const W = bodyCv.width = wrap.clientWidth, H = bodyCv.height = wrap.clientHeight, c = bodyCv.getContext('2d');
+  c.clearRect(0,0,W,H); const P = n => k[n] && ({ x:k[n].x*W, y:k[n].y*H });
+  c.strokeStyle = 'rgba(255,255,255,.28)'; c.lineWidth = Math.max(6, W*0.017); c.lineCap = 'round';
+  const link = (a,b) => { const p=P(a), q=P(b); if(!p||!q) return; c.beginPath(); c.moveTo(p.x,p.y); c.lineTo(q.x,q.y); c.stroke(); };
+  link('lWrist','lElbow'); link('lElbow','lShoulder'); link('lShoulder','rShoulder'); link('rShoulder','rElbow'); link('rElbow','rWrist');
+  link('lShoulder','lHip'); link('rShoulder','rHip'); link('lHip','rHip');
+  link('lHip','lKnee'); link('lKnee','lAnkle'); link('rHip','rKnee'); link('rKnee','rAnkle');
+  const h = P('nose'); if (h){ c.fillStyle='rgba(255,255,255,.28)'; c.beginPath(); c.arc(h.x, h.y-W*0.02, W*0.033, 0, 7); c.fill(); }
+}
+
+let i = -1, t0 = 0, phase = '', cued = false, resulted = false;
+function loop(){
+  const now = performance.now();
+  if (i < 0 || now - t0 >= STEP){                                  // next action
+    if (i >= 0){ const s = SEQ[i]; moves.clear(s.id); console.log(`[MOVES] clear ${s.id}`); }
+    i = (i + 1) % SEQ.length; t0 = now; cued = false; resulted = false;
+  }
+  const s = SEQ[i], e = now - t0;
+  if (!cued){ cued = true; moves.cue(s.id); console.log(`[MOVES] cue ${s.id}`); }
+  const u = s.still ? 0 : Math.max(0, Math.min(1, (e - CUE_MS) / RISE_MS));
+  const k = kid({ ...REST, ...s.pose(u), jit: s.still ? 0.0015 : 0.003 });
+  drawBody(k); lights.feed(k);
+  const j = moves.live(s.id, k);                                   // the recipe's own judge drives the light
+  if (!resulted && e >= CUE_MS + RISE_MS + HOLD_MS){
+    resulted = true; moves.result(s.id, OUTCOME, j);
+    console.log(`[MOVES] result ${s.id} ${OUTCOME}` + (j && j.progress != null ? ` progress=${j.progress.toFixed(2)}` : ''));
+  }
+  phase = e < CUE_MS ? 'cue' : u < 1 ? 'moving' : resulted ? OUTCOME : 'holding';
+  label.textContent = `${s.name}  —  ${s.id}`;
+  st.textContent = `${phase}  u=${u.toFixed(2)}` + (j && j.progress != null ? `  progress=${j.progress.toFixed(2)}` : '') + (j && j.ok != null ? `  judgeOk=${j.ok}` : '');
+  requestAnimationFrame(loop);
+}
+console.log(`[MOVES] harness: ${SEQ.length} action(s) — ${SEQ.map(s => s.id).join(', ')}`);
+requestAnimationFrame(loop);
+</script></body></html>
