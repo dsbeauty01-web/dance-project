@@ -48,6 +48,12 @@ export function createLights(host, opts = {}){
   let W = 0, H = 0, DPR = 1;
   function resize(){ DPR = Math.min(2, devicePixelRatio || 1); W = canvas.clientWidth; H = canvas.clientHeight; canvas.width = W * DPR; canvas.height = H * DPR; cx.setTransform(DPR, 0, 0, DPR, 0, 0); }
   addEventListener('resize', resize); resize();
+  /* [ADAPT 2026-09-30] The window is not the only thing that resizes the overlay. Up Groove animates the
+     camera panel's width on every phase change (`transition: width .45s`), which fires no window resize —
+     so the backing store kept its intro size and the browser stretched it horizontally over the new box:
+     circles drew as ellipses and every light sat off-centre, worst at the edges where the wrists are.
+     Measured 1.024x on a 1600px window, and the CSS asks for 36vw→50vw, so it is viewport-dependent. */
+  let ro = null; try { ro = new ResizeObserver(resize); ro.observe(canvas); } catch(e){}
 
   // normalized video coords → canvas pixels, matching the displayed video's object-fit
   function map(x, y){
@@ -145,6 +151,6 @@ export function createLights(host, opts = {}){
       if (grade === 'on'){ if (c) burst(c, 'gold', 60, 380); if (foot) S.ripples.push({ ...foot, t: 0, gold: true }); if (c) word('+100', c); }
       else if (grade === 'near'){ if (foot) S.ripples.push({ ...foot, t: 0, gold: false }); if (c) S.rings.push({ x: c.x, y: c.y, t: 0, kind: 'cyan' }); } },
     debug(on){ o.debug = !!on; },
-    destroy(){ cancelAnimationFrame(raf); removeEventListener('resize', resize); cx.clearRect(0, 0, W, H); if (canvas !== host) canvas.remove?.(); },
+    destroy(){ cancelAnimationFrame(raf); removeEventListener('resize', resize); ro?.disconnect(); cx.clearRect(0, 0, W, H); if (canvas !== host) canvas.remove?.(); },
   };
 }
