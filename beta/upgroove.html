@@ -61,6 +61,7 @@ import { createKit } from '/shared/game-kit.js';
 import { Stage } from '/shared/stage.js';
 import { BounceDetector, scoreHit } from '/shared/motion-detect.js';
 import { createLights } from '/shared/nova-lights.js';
+import { createMoves } from '/shared/move-recipes.js';
 const $ = id => document.getElementById(id);
 const Q = new URLSearchParams(location.search);
 const LANG = (Q.get('lang') || localStorage.getItem('nova-lang') || 'en') === 'he' ? 'he' : 'en';
@@ -78,6 +79,10 @@ const K = await createKit({ tier:'kids', mirror:true, game:'upgroove', lang:LANG
 const now = () => performance.now() / 1000;
 const T0 = now();
 const lights = createLights($('fx'), { video: $('usercam'), mirror: S.lights.mirror, debug: Q.get('dots') === '1' });   // ?dots=1 → white dots must sit ON the child's joints; if on the wrong side, flip lights.mirror in script.json
+/* [MIGRATED to nova-moves-v4] the ring and the hit used to be direct lights calls; they are the
+   groove.bounce recipe now, so every game speaks to the light layer the same way. The referee is
+   untouched — BounceDetector + scoreHit still grade every bounce and the recipe is only told the grade. */
+const moves = createMoves(lights, { mirror: S.lights.mirror });
 const bounce = new BounceDetector(S.bounce);
 
 // ───────── audio: song + recorded lines on one clock ─────────
@@ -143,7 +148,7 @@ const offStat = () => OFF.length ? `offMs mean ${Math.round(OFF.reduce((a,b)=>a+
 function onHit(g, hit){
   if (round.graded.has(g.beat)) return; round.graded.add(g.beat);                        // one grade per beat
   OFF.push(g.offMs); round.off.push(g.offMs);
-  lights.hit(g.grade);
+  moves.result('groove.bounce', g.grade === 'on' ? 'ok' : g.grade === 'near' ? 'near' : 'miss', g);
   if (g.grade === 'on'){ onN++; round.on++; streak++; bestStreak = Math.max(bestStreak, streak); addPts(S.points.on * (streak >= S.points.streakFrom ? S.points.streakMult : 1)); sinceLine++;
     if (streak === S.praise.streakAt) play('fb.streak'); else if (sinceLine >= S.praise.every){ sinceLine = 0; play(Math.random() < .5 ? 'fb.yes' : 'fb.groovy'); } }
   else if (g.grade === 'near'){ nearN++; round.near++; streak = 0; addPts(S.points.near); }
@@ -178,10 +183,11 @@ async function playRound(R, idx){
   const period = beat * S.everyBeats, lead = (R.watchBeats || 0) * beat + period;     // first target after the watch beats
   const firstAC = t0 + lead;
   round = { n: R.bounces, period, firstAC, get firstPerf(){ return acToPerf(this.firstAC) + outLat(); }, graded: new Set(), on: 0, near: 0, off: [], R: R.n };   // recomputed each use → survives pause
-  lights.beatRing(true, t => { const k = Math.ceil((t - round.firstPerf - 0.05) / period); if (k >= round.n) return null; return round.firstPerf + Math.max(0, k) * period; }, S.lights.ringLeadS);
+  moves.cue('groove.bounce', { nextBeatAt: t => { const k = Math.ceil((t - round.firstPerf - 0.05) / period); if (k >= round.n) return null; return round.firstPerf + Math.max(0, k) * period; },
+                               lead: S.lights.ringLeadS });
   if (R.watchBeats){ play('intro.watch'); setTimeout(() => play('go.join'), Math.max(0, (lead - 1.4)) * 1000); }
   while (AC.currentTime < firstAC + R.bounces * period + 0.4) await sleep(50);
-  lights.beatRing(false); total += R.bounces;
+  moves.clear('groove.bounce'); total += R.bounces;
   const rs = { n: R.n, on: round.on, near: round.near, of: R.bounces, off: round.off.slice() }; roundLog.push(rs);
   dbgNote(`round ${R.n} offMs [${rs.off.join(', ')}]`);                                 // §6: paste these lists
   round = null;

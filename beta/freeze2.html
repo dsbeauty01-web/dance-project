@@ -70,6 +70,8 @@ import { createKit } from '/shared/game-kit.js';
 import { createJudges } from '/beta/freeze2/judges.js';
 import { Hold } from '/beta/freeze2/hold.js';
 import { Stage } from '/shared/stage.js';
+import { createLights } from '/shared/nova-lights.js';
+import { createMoves } from '/shared/move-recipes.js';
 const $ = id => document.getElementById(id);
 const Q = new URLSearchParams(location.search);
 const LANG = (Q.get('lang') || localStorage.getItem('nova-lang') || 'en') === 'he' ? 'he' : 'en';
@@ -170,7 +172,8 @@ function herVideo(playing){ for (const id of ['novaMain','novaAmbient']){ const 
    undoes the hard gate one line above it. Show-mode is the real wall, so nothing leaked in the
    FAST session either way — but the order should not depend on that. */
 function brainOffstage(){ K.setPhase('game'); try { K.bridge?.mic?.(false); K.bridge?.note?.({ kind:'speak-gate', on:true }); K.bridge?.note?.({ kind:'show', on:true }); } catch(e){} document.body.dataset.phase = 'game'; }
-function brainOnstage(phase){ try { K.bridge?.note?.({ kind:'show', on:false }); K.bridge?.note?.({ kind:'speak-gate', on:false }); K.bridge?.mic?.(true); } catch(e){} K.setPhase(phase); document.body.dataset.phase = phase; }
+function brainOnstage(phase){ try { K.bridge?.note?.({ kind:'show', on:false }); K.bridge?.note?.({ kind:'speak-gate', on:false }); K.bridge?.mic?.(true); } catch(e){} K.setPhase(phase); document.body.dataset.phase = phase;
+  OPEN = null; moves.clear(); }                                          // a breather or the ending: no action is open, drop every light
 /* ───────── THE STAGE MANAGER (docs/STAGE-MANAGER.md §9.1 migration) ─────────
    Every live line, every fact and every praise decision now goes through ONE owner. The page no
    longer calls the brain to speak: it asks the stage, and the stage speaks only in a phase marked
@@ -205,7 +208,18 @@ const PRAISE = { freeze: { high:['held.flamingo','held.frog','held.bear','held.s
 
 // ───────── the REFEREE ─────────
 let hold = null, lastHold = null, holdResolve = null, last = null, paused = false;   // lastHold survives endHold so react() can ask it how SURE it was
+
+/* ───────── the light layer + the move recipes (nova-moves-v4, WIRING-ALL-GAMES.md) ─────────
+   #usercam here is object-fit:cover, which the module reads off the CSS itself, so no `fit` is passed.
+   The recipes only SHOW: beta/freeze2/judges.js and hold.js still decide every verdict. */
+const lights = createLights($('fx'), { video: $('usercam'), debug: Q.get('dots') === '1' });
+const moves  = createMoves(lights, { mirror: true });                    // [ADAPT] = createKit's mirror:true
+let OPEN = null;                                                         // the one open action, or null
+const SHAPE_BONUS = ['star', 'flamingo', 'frog', 'bear'];                // every animal this script uses has a shape recipe
+
 K.onKid = (out, k) => { if (!k) return; last = k; const t = now(); J.update(k, t);
+  lights.feed(k, t);
+  if (OPEN && !paused) moves.live(OPEN, k, t);
   if (hold && !paused){ const r = hold.feed(k, t); if (r) endHold(r); } dbg(); };
 function beginHold(dur){ return new Promise(res => { hold = lastHold = new Hold(J, now(), dur, S.tune); holdResolve = res; bar(dur); }); }
 function endHold(r){ if (!hold) return; hold = null; $('holdbar').style.width = '0'; const f = holdResolve; holdResolve = null; f?.(r); }
@@ -246,6 +260,7 @@ async function round(R, idx){
   let songPos = off + Math.round((R.songStartS - off) / beat) * beat;
   while (songPos < 0) songPos += beat;
   const t0 = AC.currentTime + 0.25; startMusic(songPos, t0);
+  OPEN = 'freeze.dance'; moves.cue(OPEN);                                // music on → every moving joint glows with its speed
   // build the freeze times
   const stops = []; let b = 0;
   for (const F of R.freezes){ b += F.beatsAfterPrev ?? R.beatsBetween; stops.push({ ...F, at: t0 + b * beat }); b += Math.round(F.hold / beat); }
@@ -269,10 +284,23 @@ async function round(R, idx){
     /* [PROOF 2026-09-27] the founder's step-6 evidence, measured by the page itself: the audio-clock
        time of every stop against its schedule, and whether her video really stopped on this frame. */
     console.log(`[STOP] r${R.n} #${i+1} ${F.animal}${F.fakeout ? ' FAKEOUT' : ''} sched ${F.at.toFixed(3)} actual ${AC.currentTime.toFixed(3)} delta ${((AC.currentTime - F.at)*1000).toFixed(0)}ms · herVideo paused=${$('novaMain').paused} · hold ${F.hold}s`);
-    try { K.L.freezeStart?.(F.hold * 1000); } catch(e){}
+    /* [ADAPT] the kit's freezeStart/freezeEnd drew the OLD ice overlay; freeze.stop owns that picture now
+       (frost climbing, the wobbling part in soft orange, STATUE!/ALMOST!). The one thing freezeEnd also did
+       was ring the ding on a held freeze (light-engine.js:195) — kept explicitly below so the sound survives. */
+    moves.clear('freeze.dance'); OPEN = 'freeze.stop'; moves.cue(OPEN);
     const r = await beginHold(F.hold);
     document.body.classList.remove('frozen'); herVideo(true); hideAnimal();
-    try { K.L.freezeEnd?.(r === 'held'); } catch(e){}
+    OPEN = null;
+    moves.result('freeze.stop', r === 'held' ? 'ok' : r === 'almost' ? 'near' : 'miss', lastHold);
+    if (r === 'held') try { K.L.audio?.ding?.(); } catch(e){}
+    /* the animal shape as a BONUS flourish — judged once from the last frame of the hold, never a second
+       live action (WIRING-ALL-GAMES.md: one open action at a time), and it changes no score. */
+    if (r === 'held' && last && SHAPE_BONUS.includes(F.animal)){
+      const sid = 'freeze.shape.' + F.animal;
+      moves.cue(sid); const sj = moves.live(sid, last);
+      moves.result(sid, sj?.ok ? 'ok' : 'miss', sj); setTimeout(() => moves.clear(sid), 900);
+    }
+    setTimeout(() => { moves.clear('freeze.stop'); if (!OPEN){ OPEN = 'freeze.dance'; moves.cue(OPEN); } }, 900);
     console.log(`[VERDICT] r${R.n} #${i+1} ${F.animal} → ${r} · herVideo resumed=${!$('novaMain').paused} · thr.move ${J.st.thr.move.toFixed(2)} · energy ${J.st.energy.toFixed(2)}`);
     await react(r, F, rs);
   }
@@ -288,7 +316,8 @@ async function react(r, F, rs){
     heldN++; streak++; bestStreak = Math.max(bestStreak, streak); animalsHeld[F.animal] = (animalsHeld[F.animal] || 0) + 1;
     let n = S.points.held * (streak >= S.points.streakFrom ? S.points.streakMult : 1) + (F.final ? S.points.starBonus : 0);
     // [FIX 2026-09-28] the 🔥 streak text was swallowed into an earlier comment on this line and had
-    // stopped updating on a held freeze. K.L.freezeEnd(true) still owns the ding (light-engine.js:195).
+    // stopped updating on a held freeze. (The ding used to ride on K.L.freezeEnd(true); since the
+    // freeze.stop recipe took over that picture it is rung explicitly at the verdict instead.)
     addPts(n); pop(`+${n}`, '#ffc23e');
     $('streak').textContent = streak >= 2 ? `🔥x${streak}` : '';
     /* §6 PRAISE BY CONFIDENCE — this is the false-praise fix made structural. A clip that NAMES the
