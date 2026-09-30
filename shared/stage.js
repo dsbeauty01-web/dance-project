@@ -26,6 +26,7 @@ export class Stage {
     this.spoken = 0; this.lastFlush = -1e9;
     this.gestures = {}; this.gestureUntil = 0; this.restBody = this.cfg.restBody;
     this.facts = [];
+    this.awaiting = null;               // a speak request waiting for her audio to actually start
   }
   static DEFAULTS = {
     idleGapMs: 600,          // silence after the last speech before the stage may speak (kids pause mid-thought)
@@ -35,6 +36,7 @@ export class Stage {
     highConf: 0.8, midConf: 0.5,
     restBody: 'nova_idle2',
     maxFacts: 12,            // long-term memory size per child
+    confirmMs: 3000,         // after asking her to speak: if her audio hasn't started by then, the brain is silent → play the backup
   };
   now(){ return this.a.now(); }
 
@@ -46,7 +48,9 @@ export class Stage {
 
   // ───────── turn state (fed by the bridge: mic VAD + her audio playing/ended) ─────────
   setKidSpeaking(on){ if (this.kidSpeaking && !on) this.lastSpeechEnd = this.now(); this.kidSpeaking = on; }
-  setNovaSpeaking(on){ if (this.novaSpeaking && !on) this.lastSpeechEnd = this.now(); this.novaSpeaking = on; }
+  setNovaSpeaking(on){
+    if (on && this.awaiting){ const w = this.awaiting; this.awaiting = null; w.res('spoken'); }   // confirmed: she really started
+    if (this.novaSpeaking && !on) this.lastSpeechEnd = this.now(); this.novaSpeaking = on; }
   get quiet(){ return !this.kidSpeaking && !this.novaSpeaking && (this.now() - this.lastSpeechEnd) >= this.cfg.idleGapMs; }
 
   // ───────── facts: time-stamped, confidence-tagged, coalesced by key, expiring ─────────
@@ -78,14 +82,21 @@ export class Stage {
   /* call every frame / every 100ms */
   tick(){
     this.flush();
+    if (this.awaiting && this.now() >= this.awaiting.until){           // the brain never answered
+      const w = this.awaiting; this.awaiting = null; this.novaSpeaking = false; this.lastSpeechEnd = this.now();
+      if (w.fallbackClip){ this.a.log(`[STAGE] brain silent → backup ${w.fallbackClip}`); this.a.playClip(w.fallbackClip); w.res('fallback'); }
+      else { this.a.log('[STAGE] brain silent → nothing said'); w.res('silent'); }
+    }
     if (this.gestureUntil && this.now() >= this.gestureUntil){ this.gestureUntil = 0; this.a.setBody(this.restBody); }
     if (!this.speakQueue.length) return;
     const r = this.speakQueue[0];
+    if (this.awaiting) return;                                          // one line at a time: wait for the last one to start or time out
     if (this.live && this.quiet){
       this.speakQueue.shift();
       if (r.withFacts){ const n = this.factsNote(); if (n) this.a.remember(n); }
       this.novaSpeaking = true; this.spoken++; this.a.log(`[STAGE] speak "${r.text.slice(0,50)}"`);
-      this.a.speakNow(r.text); r.res('spoken'); return;
+      this.awaiting = { res: r.res, until: this.now() + this.cfg.confirmMs, fallbackClip: r.fallbackClip };
+      this.a.speakNow(r.text); return;
     }
     if (this.now() >= r.deadline){
       this.speakQueue.shift();

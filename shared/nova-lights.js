@@ -6,7 +6,7 @@
      import { createLights } from '/shared/nova-lights.js';
      const L = createLights(document.getElementById('fx'), { video: $('usercam') });   // mirror defaults to the kit's (true)
      K.onKid = (out, k) => { L.feed(k); ... }                       // normalized keypoints from the kit
-     L.speedGlow(true); L.waveCue('L→R', 1200); L.comet.follow(front); L.burst('lWrist', 'gold'); ...
+     L.speedGlow(true); L.waveCue(['rShoulder','rElbow','rWrist'], 1200); L.comet.start(); L.comet.follow(r.front, r.chain); L.burst('rWrist', 'gold'); ...
    Written by the architect. */
 
 const NAMES = ['nose','lShoulder','rShoulder','lElbow','rElbow','lWrist','rWrist','lHip','rHip','lKnee','rKnee','lAnkle','rAnkle'];
@@ -29,8 +29,10 @@ export function createLights(host, opts = {}){
   /* host = the page's camera overlay canvas (#fx). The kit's own LightEngine already draws on it, so we draw on
      OUR OWN canvas stacked exactly on top of it (same parent, same box) — the two never clear each other. */
   const o = Object.assign({ video: null, mirror: true, debug: false, fit: 'cover' }, opts);   // mirror:true = same as the kit (keypoints come un-mirrored)
-  /* fit MUST match the displayed video's object-fit, or every light sits off the body.
-     'cover' (default, unchanged) · 'contain' (letterboxed panels, e.g. beta/wave.html) · 'fill' (stretched). */
+  /* [KEPT over pack v3, 2026-09-30] fit MUST match the displayed video's object-fit or every light sits off the
+     body. v3 reverted map() to cover-only; beta/wave.html's #usercam is object-fit:CONTAIN (a 16:9 camera in a
+     tall panel letterboxes hard), so without this the whole light layer misses the child.
+     'cover' (default, unchanged for every other page) · 'contain' · 'fill'. */
   let canvas = host;
   if (host?.parentNode && typeof document !== 'undefined' && document.createElement){
     canvas = document.createElement('canvas'); canvas.className = 'nova-lights';
@@ -48,14 +50,9 @@ export function createLights(host, opts = {}){
   let W = 0, H = 0, DPR = 1;
   function resize(){ DPR = Math.min(2, devicePixelRatio || 1); W = canvas.clientWidth; H = canvas.clientHeight; canvas.width = W * DPR; canvas.height = H * DPR; cx.setTransform(DPR, 0, 0, DPR, 0, 0); }
   addEventListener('resize', resize); resize();
-  /* [ADAPT 2026-09-30] The window is not the only thing that resizes the overlay. Up Groove animates the
-     camera panel's width on every phase change (`transition: width .45s`), which fires no window resize —
-     so the backing store kept its intro size and the browser stretched it horizontally over the new box:
-     circles drew as ellipses and every light sat off-centre, worst at the edges where the wrists are.
-     Measured 1.024x on a 1600px window, and the CSS asks for 36vw→50vw, so it is viewport-dependent. */
-  let ro = null; try { ro = new ResizeObserver(resize); ro.observe(canvas); } catch(e){}
+  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(resize) : null; ro?.observe?.(canvas);   // panels resize between phases
 
-  // normalized video coords → canvas pixels, matching the displayed video's object-fit
+  // normalized video coords → canvas pixels, matching the displayed video's object-fit   [KEPT over pack v3]
   function map(x, y){
     const vw = o.video?.videoWidth || 640, vh = o.video?.videoHeight || 480;
     let sx, sy;
@@ -70,7 +67,7 @@ export function createLights(host, opts = {}){
   function bodyScale(t){ const a = pos('lShoulder', t), b = pos('rShoulder', t); return a && b ? Math.max(40, Math.hypot(a.x - b.x, a.y - b.y)) : 120; }
 
   // ───── state of each effect ─────
-  const S = { speed: false, cue: null, comet: { on: false, f: null, tail: [], seen: 0 }, parts: [], rings: [], words: [], beat: { on: false, next: null, period: 1, lead: 0.6 }, ripples: [] };
+  const S = { speed: false, cue: null, comet: { on: false, f: null, tail: [], seen: 0, chain: CHAIN }, parts: [], rings: [], words: [], beat: { on: false, next: null, period: 1, lead: 0.6 }, ripples: [] };
 
   function feed(k, t = now()){ for (const n of NAMES){ const p = k?.[n]; if (p) J[n].feed(p.x, p.y, p.vis ?? p.score ?? 1, t); } }
 
@@ -92,15 +89,15 @@ export function createLights(host, opts = {}){
     if (S.speed) for (const n of NAMES){ const p = pos(n, t); if (!p) continue; const e = Math.min(1, p.speed / (sc * 6)); if (e > 0.05) glow(SP.gold, p.x, p.y, sc * (0.35 + 1.1 * e), 0.15 + 0.8 * e); }
 
     // 2 · wave cue: dots light up along the child's own arm chain, in wave order
-    if (S.cue){ const k = (t - S.cue.t0) / S.cue.dur, order = S.cue.dir === 'R→L' ? [...CHAIN].reverse() : CHAIN;
+    if (S.cue){ const k = (t - S.cue.t0) / S.cue.dur, order = S.cue.chain || (S.cue.dir === 'R→L' ? [...CHAIN].reverse() : CHAIN);
       order.forEach((n, i) => { const p = pos(n, t); if (!p) return; const lit = k * (order.length + 1) - i; const a = lit > 0 ? Math.max(0.35, 1 - (lit - 1) * 0.5) : 0.25;
         glow(SP.halo, p.x, p.y, sc * (lit > 0 && lit < 1.2 ? 1.6 : 0.9), a * 0.8); glow(SP.cyan, p.x, p.y, sc * 0.45, a); });
       if (k >= 1.25) S.cue = null; }
 
     // 3 · comet: rides the arm chain at the detected wave front, smooth, tapered fading tail (Snap trails)
     if (S.comet.on && S.comet.f != null && t - S.comet.seen < 0.4){   // the front vanished > 0.4s ago → no head where the child isn't
-      const f = Math.max(0, Math.min(CHAIN.length - 1, S.comet.f)), i = Math.floor(f), u = f - i;
-      const a = pos(CHAIN[i], t), b = pos(CHAIN[Math.min(i + 1, CHAIN.length - 1)], t);
+      const C = S.comet.chain, f = Math.max(0, Math.min(C.length - 1, S.comet.f)), i = Math.floor(f), u = f - i;
+      const a = pos(C[i], t), b = pos(C[Math.min(i + 1, C.length - 1)], t);
       if (a && b){ const h = { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u, t };
         S.comet.tail.push(h); while (S.comet.tail.length && t - S.comet.tail[0].t > 0.35) S.comet.tail.shift();
         const T = S.comet.tail; cx.lineCap = 'round';
@@ -143,8 +140,14 @@ export function createLights(host, opts = {}){
   return {
     feed, burst, word,
     speedGlow(on){ S.speed = !!on; },
-    waveCue(dir = 'L→R', durMs = 1200){ S.cue = { dir, t0: now(), dur: durMs / 1000 }; },
-    comet: { start(){ S.comet.on = true; S.comet.f = null; S.comet.tail.length = 0; }, follow(f){ if (f != null){ S.comet.f = S.comet.f == null ? f : S.comet.f + (f - S.comet.f) * 0.35; S.comet.seen = now(); } }, end(){ S.comet.on = false; } },
+    /* waveCue(chain, durMs): dots light up along `chain` in order — e.g. ['rShoulder','rElbow','rWrist'] for a one-arm wave.
+       (legacy: waveCue('L→R'|'R→L', durMs) = the whole-body chain) */
+    waveCue(chainOrDir = 'L→R', durMs = 1200){ const chain = Array.isArray(chainOrDir) ? chainOrDir : null; S.cue = { dir: chain ? null : chainOrDir, chain, t0: now(), dur: durMs / 1000 }; },
+    /* comet.start(chain) → comet.follow(front index along that chain) → comet.end(). The chain can change mid-wave (the detector reports which arm). */
+    comet: { start(chain){ S.comet.on = true; S.comet.f = null; S.comet.tail.length = 0; if (chain) S.comet.chain = chain; },
+             follow(f, chain){ if (chain && chain !== S.comet.chain && chain.join() !== S.comet.chain.join()){ S.comet.chain = chain; S.comet.f = null; S.comet.tail.length = 0; }
+                               if (f != null){ S.comet.f = S.comet.f == null ? f : S.comet.f + (f - S.comet.f) * 0.35; S.comet.seen = now(); } },
+             end(){ S.comet.on = false; } },
     /* beat: nextBeatAt(tPerfSec) → the next target beat time (performance seconds) or null; lead = seconds the ring takes to close */
     beatRing(on, nextBeatAt = null, lead = 0.6){ S.beat.on = !!on; S.beat.next = nextBeatAt; S.beat.lead = lead; },
     hit(grade){ const c = S.beat.center; const la = pos('lAnkle', now()), ra = pos('rAnkle', now()); const foot = la && ra ? { x: (la.x + ra.x) / 2, y: Math.max(la.y, ra.y) } : c ? { x: c.x, y: c.y + bodyScale(now()) * 2.2 } : null;

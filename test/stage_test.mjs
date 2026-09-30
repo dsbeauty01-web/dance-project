@@ -91,4 +91,26 @@ function run(s, ms, step = 50){ for (let i = 0; i < ms; i += step){ adv(step); s
   s.phase('round', { live:false }); s.setKidSpeaking(false); run(s, 800);
   ok('entering a round drops live-only speech, keeps the recorded fallback', log.spoke.length === 0 && log.clips.includes('fallback.card1')); }
 
+
+// 15 · the brain ANSWERS: the request resolves 'spoken' only once her audio really starts
+{ T = 0; const { s, log } = mk(); s.phase('between', { live:true }); let res; s.requestSpeak('Great round!', { fallbackClip:'fallback.card1' }).then(r => res = r); run(s, 200);
+  await Promise.resolve(); const before = res; s.setNovaSpeaking(true); await Promise.resolve();
+  ok('spoken only when her audio starts (not when asked)', before === undefined && res === 'spoken' && log.clips.length === 0); }
+
+// 16 · the brain is SILENT: after 3s the backup plays, she is not "speaking", the next line can go
+{ T = 0; const { s, log } = mk(); s.phase('between', { live:true }); let res; s.requestSpeak('Round over!', { fallbackClip:'fallback.card1' }).then(r => res = r); run(s, 3200); await Promise.resolve();
+  ok('silent brain → backup clip after ~3s', res === 'fallback' && log.clips.includes('fallback.card1'));
+  ok('silent brain → she is no longer marked as speaking', s.novaSpeaking === false);
+  run(s, 700); let r2; s.requestSpeak('Next line'); run(s, 200);
+  ok('silent brain → the NEXT live line is still allowed (not stuck forever)', log.spoke.length === 2); }
+
+// 17 · silent brain, no backup → 'silent', never hangs
+{ T = 0; const { s } = mk(); s.phase('between', { live:true }); let res; s.requestSpeak('x').then(r => res = r); run(s, 3200); await Promise.resolve();
+  ok('silent brain with no backup → resolves "silent" (no hang)', res === 'silent'); }
+
+// 18 · one line at a time: a second request waits until the first has started or timed out
+{ T = 0; const { s, log } = mk(); s.phase('between', { live:true }); s.requestSpeak('one'); s.requestSpeak('two', { maxWaitMs: 10000 }); run(s, 500);
+  ok('second line waits while the first is unconfirmed', log.spoke.length === 1); s.setNovaSpeaking(true); run(s, 300); s.setNovaSpeaking(false); run(s, 800);
+  ok('second line goes after the first finished + the quiet gap', log.spoke.length === 2); }
+
 console.log(out.join('\n')); console.log(`\n${pass} pass · ${fail} fail`); process.exit(fail ? 1 : 0);
