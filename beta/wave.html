@@ -45,6 +45,8 @@ html,body{margin:0;height:100%;background:#1a0f2e;font-family:Nunito,system-ui;c
 import { MoverEngine } from '/shared/mover-engine.js';
 import { WaveRule } from '/shared/mover-rules.js';
 import { LightEngine } from '/shared/light-engine.js';
+import { WaveDetector } from '/shared/motion-detect.js';
+import { createLights } from '/shared/nova-lights.js';
 // POSE BACKEND: MoveNet (TF.js, pure WebGL — no wasm glue) by default. MediaPipe only with ?mp=1.
 /* [FIX 2026-09-13] console-named (same as game-kit.js): pose-detection +esm wrapper throws
    "SyntaxError: '/npm/@mediapipe/pose/+esm' does not provide an export named 'Pose'".
@@ -57,6 +59,7 @@ const _tfReady = (async () => {
 })();
 
 const $ = id => document.getElementById(id);
+const Q = new URLSearchParams(location.search);
 const novaVid=$('novaVid'), amb=$('novaAmbient'), cam=$('usercam'), cap=$('cap');
 const REF_CANDIDATES = ['/media/wave-ref.mp4','/media/handywave.mp4','/handywave.mp4'];   // handywave.mp4 = THE wave (Nova on the bridge, arm wave). Never pre-wave, never maya.   // DEPLOY.md: the first that truly WAVES is copied to /media/wave-ref.mp4
 const NOTE = '/nova/note';                                                                 // optional live voice; the game never depends on it
@@ -79,30 +82,105 @@ async function detect(el){ if(!det || !(el.videoWidth>0)) return null; const pos
 
 // ── 3 · engines: one per side ──
 const EN = new MoverEngine(), EK = new MoverEngine();
-const LN = new LightEngine($('fxNova'), { tier:'adult', mirror:false });   // lights on Nova's video (the cue side)
-const LK = new LightEngine($('fx'),     { tier:'adult', mirror:true  });   // lights on the kid (the hit side)
-const CH = { R:['rShoulder','rElbow','rWrist'], L:['lShoulder','lElbow','lWrist'] };   // MoveNet has no fingertip; 3-link chain
+/* [ADAPT] WAVE-LIGHTS §2 "delete the old comet drawing code (the rejected look)": both LightEngine
+   instances drew the rejected comet — LN.comet on Nova, LK.cometCue/LK.comet/LK.hit on the kid. The kid's
+   lights are now the new layer below; LK stays only for its instant sounds and because its draw loop keeps
+   the old #fx canvas blank. Nova's LN is gone: the cue is no longer painted on her arm, it is painted on
+   HIS (WAVE-LIGHTS §0), so #fxNova has nothing left to draw. */
+const LK = new LightEngine($('fx'), { tier:'adult', mirror:true });
 const wN = { R:new WaveRule(EN,'R'), L:new WaveRule(EN,'L') }, wK = { R:new WaveRule(EK,'R'), L:new WaveRule(EK,'L') };
+
+// ── 3b · the new light layer + the new (non-scoring) wave judge ──
+/* [ADAPT] #usercam is object-fit:CONTAIN (a 16:9 camera in a 50vw×100vh panel letterboxes hard).
+   nova-lights.js mapped for 'cover' only, so every light would have sat off the body — added a `fit`
+   option to the module (default 'cover', unchanged for every other page) and pass 'contain' here. */
+const lights = createLights($('fx'), {
+  video: cam,
+  fit: Q.get('fit') || 'contain',
+  mirror: Q.get('mirror') !== '0',        // #usercam is CSS-mirrored, keypoints are not → mirror:true, per §2
+  debug: Q.get('dots') === '1',
+});
+const wave = new WaveDetector();
+const FAR = { 'L→R':'rWrist', 'R→L':'lWrist' };
 
 // ── 4 · game state ──
 let score=0, streak=0, hits=0, pending=[], stats={R:[],L:[]}, running=false, ended=false, lastCueT=0, lastKidWave=0;
 const WINDOW_MS = 1800;                                                                     // copy her within 1.8s
+
+/* ── 4b · ONE TURN = one cue of hers + the child's answer ─────────────────────────────────────────
+   WAVE-LIGHTS §3: for the first 20 turns BOTH judges run and neither replaces the other — the old
+   per-arm WaveRule still scores (certified), the new cross-body WaveDetector only drives the lights.
+   [ADAPT] this page had no "turn": it is video-led and continuous. A turn opens when one of HER waves
+   is detected (the cue) and closes TURN_MS later. The old judge keeps its own untouched WINDOW_MS
+   matching window for scoring; TURN_MS is longer only because the new judge watches a wave travel the
+   whole 6-joint chain (its own window is 3.0s) where the old one watches 3 joints of one arm. */
+const TURN_MS = 2600;
+let turn=null, turnOn=false, turnEnd=0, turnNo=0;
+const AGREE=[];
+function turnStart(dir, demoMs){
+  if (turn) turnClose();                                   // a fresh cue supersedes an unanswered one
+  turn = { n:++turnNo, t0:performance.now(), dir, demoMs, old:null, neu:null };
+  wave.reset(); lights.comet.start(); turnOn=true; turnEnd=performance.now()+TURN_MS;
+}
+function turnClose(){
+  if (!turn) return;
+  lights.comet.end(); turnOn=false;
+  const t=turn; turn=null;
+  const o=t.old, n=t.neu;
+  AGREE.push({ turn:t.n, old:!!o, neu:!!n, cue:t.dir });
+  console.log(`[WAVE] turn=${t.n} old=${o?'pass':'fail'} new=${n?'pass':'fail'}`
+    + ` cue=${t.dir} demoMs=${t.demoMs}`
+    + (o?` | old: arm=${o.arm} quality=${o.quality} at=${o.at}ms`:'')
+    + (n?` | new: dir=${n.dir} ms=${n.ms} joints=${n.joints} at=${n.at}ms`:''));
+  if (AGREE.length===20) agreeTable();
+}
+function agreeTable(){
+  const both=AGREE.filter(a=>a.old&&a.neu).length, oldOnly=AGREE.filter(a=>a.old&&!a.neu).length,
+        newOnly=AGREE.filter(a=>!a.old&&a.neu).length, neither=AGREE.filter(a=>!a.old&&!a.neu).length;
+  console.log(`[WAVE-AGREE] turns=${AGREE.length} both=${both} oldOnly=${oldOnly} newOnly=${newOnly}`
+    + ` neither=${neither} agreement=${Math.round((both+neither)/AGREE.length*100)}%`);
+  console.table?.(AGREE);
+}
 const LINES = [[0.5,'Copy her wave — let it travel: fingers, wrist, elbow.'],[13,'Other arm too — pass it across.'],[24,'Last one — make it smooth.']];
 let li=0;
 function say(t){ cap.textContent=t; fetch(NOTE,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({say:t})}).catch(()=>{}); }
 
 // ── 5 · loops ──
-const DBG={nova:0,kid:0,novaJ:0,kidJ:0,cues:0,hits:0,err:''}; const dbgEl=document.getElementById('dbg');
-function dbg(){ dbgEl.textContent=`nova frames ${DBG.nova} joints ${DBG.novaJ} | kid frames ${DBG.kid} joints ${DBG.kidJ} | cues ${DBG.cues} hits ${DBG.hits}${DBG.err?' | ERR '+DBG.err:''}`; }
+const DBG={nova:0,kid:0,novaJ:0,kidJ:0,cues:0,hits:0,neu:0,err:''}; const dbgEl=document.getElementById('dbg');
+function dbg(){ dbgEl.textContent=`nova frames ${DBG.nova} joints ${DBG.novaJ} | kid frames ${DBG.kid} joints ${DBG.kidJ} | cues ${DBG.cues} old-hits ${DBG.hits} new-waves ${DBG.neu} | turn ${turn?turn.n:'-'}${DBG.err?' | ERR '+DBG.err:''}`; }
 async function loopNova(){ if(!running) return; try{
   if (!novaVid.paused){ const k=await detect(novaVid); DBG.nova++;
-    if (k){ DBG.novaJ=Object.keys(k).length; const out=EN.update(k); LN.setJoints(out);
+    if (k){ DBG.novaJ=Object.keys(k).length; EN.update(k);
       for (const arm of ['R','L']){ const w=wN[arm].check(); if (w?.hit && performance.now()-lastCueT>900){ lastCueT=performance.now();
-        pending.push({ arm, t0:lastCueT }); DBG.cues++; LN.comet(CH[arm], 'smooth'); LK.cometCue(CH[arm]); } } } }
+        pending.push({ arm, t0:lastCueT }); DBG.cues++;
+        /* [ADAPT] direction, mirrored to the child's view: her panel is NOT mirrored, so her right arm
+           appears on the LEFT of the screen; his panel IS mirrored, so the hand he sees on the left is his
+           anatomical left → her 'R' starts the path at his lWrist = 'L→R'. `?mirror=0` flips the lights if
+           a real body says otherwise. */
+        const dir = arm==='R' ? 'L→R' : 'R→L';
+        /* [ADAPT] DEMO_MS: WAVE-LIGHTS §2 wants the demo clip's wave duration; nothing declares it — her
+           waves are found live in the video. WaveRule hands back `gaps` (ms between her joint peaks), so
+           the cue is paced at her own per-link speed stretched over the 6-joint path she is asking for. */
+        const gaps = w.gaps||[], per = gaps.length ? gaps.reduce((a,b)=>a+b,0)/gaps.length : 240;
+        const demoMs = Math.max(900, Math.min(2000, Math.round(per*5)));
+        lights.waveCue(dir, demoMs);
+        turnStart(dir, demoMs); } } } }
   }catch(e){ DBG.err='nova:'+e.message; } dbg(); requestAnimationFrame(loopNova); }
 async function loopKid(){ if(!running) return; try{
   if (cam.videoWidth>0){ const k=await detect(cam); DBG.kid++;
     if (k){ DBG.kidJ=Object.keys(k).length; const out=EK.update(k); LK.setJoints(out);
+      lights.feed(k);
+      if (turnOn){
+        const r = wave.update(k, performance.now()/1000);
+        lights.comet.follow(r.front);                                                        // the light rides the real wave
+        if (r.done){                                                                         // reached the far end, in order
+          const far = FAR[r.done.dir];
+          lights.comet.end(); lights.burst(far,'gold'); lights.word('YES!', far); LK.audio.ding();
+          if (turn && !turn.neu) turn.neu = { ...r.done, at:Math.round(performance.now()-turn.t0) };
+          DBG.neu++;
+          // §3: the new judge does NOT score yet — no success path from here until the founder picks a judge.
+        }
+      }
       for (const arm of ['R','L']){ const w=wK[arm].check(); if (w?.hit && performance.now()-lastKidWave>600){ lastKidWave=performance.now(); DBG.hits++; onKidWave(arm, w); } } } }
   }catch(e){ DBG.err='kid:'+e.message; } dbg(); requestAnimationFrame(loopKid); }
 function onKidWave(arm, w){
@@ -112,12 +190,17 @@ function onKidWave(arm, w){
   let pts = matched ? base : Math.round(base*0.5);                                           // a wave outside the copy window still earns half — never nothing
   if (w.iso) pts+=20; streak = w.quality==='smooth' ? streak+1 : 0; if (streak>=3) pts*=2;
   score+=pts; hits++; stats[arm].push(w.quality);
-  LK.comet(CH[arm], w.quality); LK.hit(arm==='R'?'rWrist':'lWrist', w.iso?'iso':'good', pts);
+  /* [ADAPT] the old comet + the old hit flash are gone (§2). The score still pops, but through the new
+     layer so it lands on the same coordinates as everything else the child sees. */
+  const wrist = arm==='R' ? 'rWrist' : 'lWrist';
+  lights.word('+'+pts, wrist); LK.audio.tick(streak);
+  if (turn && !turn.old) turn.old = { arm, quality:w.quality, iso:!!w.iso, at:Math.round(now-turn.t0) };
   $('score').textContent=score; document.querySelectorAll('#flow i').forEach((el,n)=>el.classList.toggle('on', n<Math.min(8,hits)));
 }
 function loopClock(){ if(!running) return; try{ const t=novaVid.currentTime;
   if (li<LINES.length && t>=LINES[li][0]){ say(LINES[li][1]); li++; }
   pending = pending.filter(p=>performance.now()-p.t0<=WINDOW_MS);
+  if (turn && performance.now()>=turnEnd) turnClose();
   if (novaVid.ended || t>=novaVid.duration-0.05) return finish();
   }catch(e){ DBG.err='clock:'+e.message; dbg(); } requestAnimationFrame(loopClock); }
 
@@ -139,11 +222,12 @@ $('start').onclick = async () => {
   loopNova(); loopKid(); loopClock();
 };
 function finish(){ if (ended) return; ended=true; running=false; novaVid.pause();
+  turnClose(); lights.comet.end(); if (AGREE.length && AGREE.length!==20) agreeTable();     // §3 dual-judge table
   const q=a=>({smooth:a.filter(x=>x==='smooth').length,good:a.filter(x=>x==='good').length,rough:a.filter(x=>x==='rough').length});
   const weak = stats.L.length<stats.R.length ? 'left' : 'right';
   $('finalScore').textContent=score; $('finalLine').textContent = hits ? `${hits} waves · smoother on the ${weak==='left'?'right':'left'} — next time lead the ${weak} with the wrist.` : 'Next time — let the wave travel from your fingers.';
   $('scorecard').style.display='flex'; say(`${score} points.`);
-  fetch('/pulse',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({game:'wave',score,hits,stats,at:Date.now()})}).catch(()=>{});
+  fetch('/pulse',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({game:'wave',score,hits,stats,agree:AGREE,at:Date.now()})}).catch(()=>{});
 }
 $('again').onclick=()=>location.reload();
 </script></body></html>
