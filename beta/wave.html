@@ -45,7 +45,7 @@ html,body{margin:0;height:100%;background:#1a0f2e;font-family:Nunito,system-ui;c
 import { MoverEngine } from '/shared/mover-engine.js';
 import { WaveRule } from '/shared/mover-rules.js';
 import { LightEngine } from '/shared/light-engine.js';
-import { WaveDetector } from '/shared/motion-detect.js';
+import { createMoves } from '/shared/move-recipes.js';
 import { createLights } from '/shared/nova-lights.js';
 // POSE BACKEND: MoveNet (TF.js, pure WebGL — no wasm glue) by default. MediaPipe only with ?mp=1.
 /* [FIX 2026-09-13] console-named (same as game-kit.js): pose-detection +esm wrapper throws
@@ -100,9 +100,11 @@ const lights = createLights($('fx'), {
   mirror: Q.get('mirror') !== '0',        // #usercam is CSS-mirrored, keypoints are not → mirror:true, per §2
   debug: Q.get('dots') === '1',
 });
-/* v3: mode 'arm' is the default — the detector now judges the ONE-ARM wave this game actually asks for,
-   which is what test/wave_onearm_probe.mjs proved the v2 body-wave detector could never score (0/60). */
-const wave = new WaveDetector();
+/* [MIGRATED to nova-moves-v4] the cue, the comet and the burst were direct lights calls and a detector
+   this page owned; they are the wave.arm recipe now, which keeps its own WaveDetector (mode 'arm' — the
+   ONE-ARM wave this game actually asks for, which test/wave_onearm_probe.mjs proved the v2 body-wave
+   detector could never score, 0/60). The certified WaveRule still scores; wave.arm only shows. */
+const moves = createMoves(lights, { mirror: Q.get('mirror') !== '0' });
 const ARM_CUE = { R:['lShoulder','lElbow','lWrist'], L:['rShoulder','rElbow','rWrist'] };   // her arm → HIS, mirrored
 
 // ── 4 · game state ──
@@ -121,11 +123,12 @@ const AGREE=[];
 function turnStart(cueArm, demoMs){
   if (turn) turnClose();                                   // a fresh cue supersedes an unanswered one
   turn = { n:++turnNo, t0:performance.now(), cueArm, demoMs, old:null, neu:null };
-  wave.reset(); lights.comet.start(ARM_CUE[cueArm]); turnOn=true; turnEnd=performance.now()+TURN_MS;
+  moves.cue('wave.arm', { chain: ARM_CUE[cueArm], ms: demoMs });   // cue() paints the dots, start() resets the detector + comet
+  turnOn=true; turnEnd=performance.now()+TURN_MS;
 }
 function turnClose(){
   if (!turn) return;
-  lights.comet.end(); turnOn=false;
+  moves.clear('wave.arm'); turnOn=false;
   const t=turn; turn=null;
   const o=t.old, n=t.neu;
   AGREE.push({ turn:t.n, old:!!o, neu:!!n, cueArm:t.cueArm, newArm:n?.arm ?? null, newDir:n?.dir ?? null });
@@ -164,22 +167,18 @@ async function loopNova(){ if(!running) return; try{
            the cue is paced at her own per-link speed stretched over the 6-joint path she is asking for. */
         const gaps = w.gaps||[], per = gaps.length ? gaps.reduce((a,b)=>a+b,0)/gaps.length : 240;
         const demoMs = Math.max(900, Math.min(2000, Math.round(per*2)));      // v3: the cue path is 3 joints, not 6
-        lights.waveCue(ARM_CUE[arm], demoMs);
-        turnStart(arm, demoMs); } } } }
+        turnStart(arm, demoMs); } } } }      // turnStart cues wave.arm, which paints the dots itself
   }catch(e){ DBG.err='nova:'+e.message; } dbg(); requestAnimationFrame(loopNova); }
 async function loopKid(){ if(!running) return; try{
   if (cam.videoWidth>0){ const k=await detect(cam); DBG.kid++;
     if (k){ DBG.kidJ=Object.keys(k).length; const out=EK.update(k); LK.setJoints(out);
       lights.feed(k);
       if (turnOn){
-        const r = wave.update(k, performance.now()/1000);
-        lights.comet.follow(r.front, r.chain);                          // rides whichever arm is actually moving
-        if (r.done){                                                    // the wave reached the end of that arm, in order
-          /* v3 result: {arm:'left'|'right', dir:'out'|'in'}. 'out' ends at the hand, 'in' ends at the shoulder —
-             the burst has to land where the wave actually finished, not always on a wrist. */
-          const hand = r.done.arm === 'left' ? 'lWrist' : 'rWrist';
-          const end  = r.done.dir === 'out' ? hand : (r.done.arm === 'left' ? 'lShoulder' : 'rShoulder');
-          lights.comet.end(); lights.burst(end,'gold'); lights.word('YES!', end); LK.audio.ding();
+        const r = moves.live('wave.arm', k, performance.now()/1000);    // the recipe rides whichever arm is moving
+        if (r?.done){                                                   // the wave reached the end of that arm, in order
+          /* the recipe's ok() puts the burst where the wave ENDED — the hand for dir 'out', the shoulder
+             for 'in' — so the page no longer has to work that out itself. */
+          moves.result('wave.arm', 'ok', r); LK.audio.ding();
           if (turn && !turn.neu) turn.neu = { ...r.done, at:Math.round(performance.now()-turn.t0) };
           DBG.neu++;
           // §3: the new judge does NOT score yet — no success path from here until the founder picks a judge.
@@ -226,7 +225,7 @@ $('start').onclick = async () => {
   loopNova(); loopKid(); loopClock();
 };
 function finish(){ if (ended) return; ended=true; running=false; novaVid.pause();
-  turnClose(); lights.comet.end(); if (AGREE.length && AGREE.length!==20) agreeTable();     // §3 dual-judge table
+  turnClose(); moves.clear(); if (AGREE.length && AGREE.length!==20) agreeTable();          // §3 dual-judge table
   const q=a=>({smooth:a.filter(x=>x==='smooth').length,good:a.filter(x=>x==='good').length,rough:a.filter(x=>x==='rough').length});
   const weak = stats.L.length<stats.R.length ? 'left' : 'right';
   $('finalScore').textContent=score; $('finalLine').textContent = hits ? `${hits} waves · smoother on the ${weak==='left'?'right':'left'} — next time lead the ${weak} with the wrist.` : 'Next time — let the wave travel from your fingers.';
