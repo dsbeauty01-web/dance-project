@@ -1,10 +1,11 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>Nova lights — look harness</title>
-<!-- WHY: the new look (cue dots → comet → gold burst → "YES!") cannot be filmed on beta/wave.html,
-     because WaveDetector only fires on a CROSS-BODY wave and that game's move is a one-arm wave
-     (test/wave_onearm_probe.mjs → 0/60). This harness drives the REAL modules — shared/nova-lights.js
-     and the REAL WaveDetector out of shared/motion-detect.js — with a scripted body, so the founder can
-     judge the look itself. No camera, no pod, no server state. Synthetic body, real lights, real judge. -->
+<html lang="en"><head><meta charset="utf-8"><title>Nova lights — look harness (one-arm wave, v3)</title>
+<!-- WHY: drives the REAL modules — shared/nova-lights.js and the REAL WaveDetector out of
+     shared/motion-detect.js — with a scripted body, so the look can be judged without a camera or a pod.
+     v3: the body now waves ONE ARM (shoulder→elbow→wrist), which is the wave the game actually asks for and
+     the wave the v3 detector judges. Under v2 this same motion scored 0/60 (test/wave_onearm_probe.mjs);
+     the gold burst firing here is the fix, shown end to end.
+     Synthetic body, real lights, real judge. ?arm=left|right, ?dir=out|in -->
 <style>
 html,body{margin:0;height:100%;background:#1a0f2e;font-family:Nunito,system-ui;color:#fff;overflow:hidden}
 #wrap{position:relative;width:min(640px,100vw);height:min(480px,75vh);margin:3vh auto;background:#120a22;border-radius:14px;overflow:hidden}
@@ -12,33 +13,47 @@ html,body{margin:0;height:100%;background:#1a0f2e;font-family:Nunito,system-ui;c
 #fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6}
 #note{text-align:center;font-weight:800;font-size:15px;opacity:.8;padding:0 20px;line-height:1.5}
 #state{position:absolute;left:10px;top:10px;z-index:9;font:600 12px monospace;background:rgba(0,0,0,.55);padding:5px 9px;border-radius:7px;color:#9f9}
+#tally{position:absolute;right:10px;top:10px;z-index:9;font:700 12px monospace;background:rgba(0,0,0,.55);padding:5px 9px;border-radius:7px;color:#ffd65a}
 </style></head><body>
-<div id="wrap"><canvas id="body"></canvas><canvas id="fx"></canvas><div id="state"></div></div>
-<div id="note">SYNTHETIC BODY, REAL LIGHTS, REAL JUDGE — the cue dots run the arm chain, the comet rides the
-wave front the detector actually reports, and the gold burst + "YES!" fire only when WaveDetector confirms
-the wave reached the far hand. This is a cross-body wave, which is what the new judge requires.</div>
+<div id="wrap"><canvas id="body"></canvas><canvas id="fx"></canvas><div id="state"></div><div id="tally"></div></div>
+<div id="note">SYNTHETIC BODY, REAL LIGHTS, REAL JUDGE — one arm waves shoulder&rarr;elbow&rarr;wrist. The cue dots
+run that arm, the comet rides the front the detector reports, and the gold burst + &ldquo;YES!&rdquo; fire only when
+WaveDetector confirms the wave. This exact motion scored 0/60 before the v3 detector.</div>
 <script type="module">
 import { createLights } from '/shared/nova-lights.js';
-import { WaveDetector, WAVE_CHAIN } from '/shared/motion-detect.js';
+import { WaveDetector, ARM_CHAINS } from '/shared/motion-detect.js';
 
-const wrap = document.getElementById('wrap'), bodyCv = document.getElementById('body'), st = document.getElementById('state');
+const Q = new URLSearchParams(location.search);
+const ARM = Q.get('arm') === 'left' ? 'left' : 'right';
+const DIR = Q.get('dir') === 'in' ? 'in' : 'out';
+const CH  = ARM_CHAINS[ARM];                                           // [shoulder, elbow, wrist]
+/* Same wave profile the detector's own suite uses (test/motion_detect_test.mjs runArm): per-joint
+   amplitudes rather than one amplitude with the shoulder damped, and the same narrow bump. Keeping these
+   equal is what makes a miss here mean something. ?spop= scales the shoulder alone. */
+const AMPS = [0.15, 0.30, 0.35].map((a,i) => i === 0 ? a * (Q.has('spop') ? Number(Q.get('spop')) : 1) : a);
+const SPREAD = 0.35;
+
+const wrap = document.getElementById('wrap'), bodyCv = document.getElementById('body');
+const st = document.getElementById('state'), tally = document.getElementById('tally');
 const lights = createLights(document.getElementById('fx'), { mirror:false, fit:'fill' });   // no <video>: draw in the box itself
-const wave = new WaveDetector();
+const wave = new WaveDetector();                                       // mode 'arm' is the v3 default
 
-/* a standing child, arms out — same pose the detector suite uses (normalized 0..1, y down) */
+/* a standing child, arms out — the same pose the detector suite uses (normalized 0..1, y down) */
 const SW = 0.17, CX = 0.5, Y = 0.40;
 const BASE = { lShoulder:{x:CX+SW/2,y:Y}, rShoulder:{x:CX-SW/2,y:Y}, lElbow:{x:CX+SW*1.2,y:Y}, rElbow:{x:CX-SW*1.2,y:Y},
                lWrist:{x:CX+SW*1.9,y:Y}, rWrist:{x:CX-SW*1.9,y:Y}, lHip:{x:CX+SW*0.35,y:Y+SW*1.6}, rHip:{x:CX-SW*0.35,y:Y+SW*1.6},
                nose:{x:CX,y:Y-SW*0.8}, lAnkle:{x:CX+SW*0.3,y:Y+SW*3.4}, rAnkle:{x:CX-SW*0.3,y:Y+SW*3.4} };
 
-const CYCLE = 4.2, CUE_AT = 0.6, WAVE_AT = 1.9, WAVE_DUR = 1.4, AMP = 0.38;
-let t0 = performance.now()/1000, cued = false, phase = 'idle';
+const CYCLE = 4.2, CUE_AT = 0.6, WAVE_AT = 1.9, WAVE_DUR = 0.9;        // 0.9s = the suite's default durS
+let t0 = performance.now()/1000, cued = false, phase = 'idle', fired = 0, cycles = 0;
 
 function poseAt(u){                                                    // u = 0..1 through the wave, <0 = resting
   const k = {};
   for (const [n,p] of Object.entries(BASE)) k[n] = { x:p.x, y:p.y, vis:0.9 };
-  if (u >= 0 && u <= 1){ const pos = u * (WAVE_CHAIN.length - 1);
-    WAVE_CHAIN.forEach((n,i) => { k[n].y -= AMP * Math.exp(-Math.pow(i-pos,2)/0.8) * (i===2||i===3 ? 0.5 : 1) * SW; }); }
+  if (u >= 0 && u <= 1){
+    const pos = (DIR === 'out' ? u : 1 - u) * (CH.length - 1);         // the bump travels along the arm
+    CH.forEach((n,i) => { k[n].y -= AMPS[i] * Math.exp(-Math.pow(i-pos,2)/SPREAD) * SW; });
+  }
   return k;
 }
 function drawBody(k){
@@ -52,17 +67,25 @@ function drawBody(k){
 }
 function tick(){
   const now = performance.now()/1000, e = (now - t0) % CYCLE;
-  if (e < 0.05){ cued = false; wave.reset(); lights.comet.end(); phase='idle'; }
-  if (!cued && e >= CUE_AT){ cued = true; lights.waveCue('L→R', (WAVE_AT-CUE_AT+WAVE_DUR)*1000); lights.comet.start(); phase='cue'; }
+  if (e < 0.05 && cued){ cued = false; cycles++; wave.reset(); lights.comet.end(); phase = 'idle'; }
+  if (!cued && e >= CUE_AT){ cued = true;
+    lights.waveCue(DIR === 'out' ? CH : [...CH].reverse(), (WAVE_AT-CUE_AT+WAVE_DUR)*1000);
+    lights.comet.start(CH); phase = 'cue'; }
   const u = e >= WAVE_AT ? (e - WAVE_AT) / WAVE_DUR : -1;
   if (u >= 0 && u <= 1) phase = 'wave';
   const k = poseAt(u);
   drawBody(k); lights.feed(k, now);
   const r = wave.update(k, now);
-  lights.comet.follow(r.front);
-  if (r.done){ const far = r.done.dir === 'L→R' ? 'rWrist' : 'lWrist';
-    lights.comet.end(); lights.burst(far, 'gold'); lights.word('YES!', far); phase = 'YES ' + r.done.dir + ' ' + r.done.ms + 'ms'; }
-  st.textContent = `t=${e.toFixed(1)}s  ${phase}  front=${r.front==null?'-':r.front.toFixed(2)}`;
+  lights.comet.follow(r.front, r.chain);
+  if (r.done){
+    const hand = r.done.arm === 'left' ? 'lWrist' : 'rWrist';
+    const end  = r.done.dir === 'out' ? hand : (r.done.arm === 'left' ? 'lShoulder' : 'rShoulder');
+    lights.comet.end(); lights.burst(end, 'gold'); lights.word('YES!', end);
+    fired++; phase = `YES ${r.done.arm} ${r.done.dir} ${r.done.ms}ms`;
+    console.log(`[LOOK] burst arm=${r.done.arm} dir=${r.done.dir} ms=${r.done.ms}${r.done.joints?' joints='+r.done.joints:''} at=${end}`);
+  }
+  st.textContent = `t=${e.toFixed(1)}s  ${phase}  front=${r.front==null?'-':r.front.toFixed(2)} chain=${r.arm ?? '-'}`;
+  tally.textContent = `waves ${cycles}  bursts ${fired}`;
   requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);

@@ -100,8 +100,10 @@ const lights = createLights($('fx'), {
   mirror: Q.get('mirror') !== '0',        // #usercam is CSS-mirrored, keypoints are not → mirror:true, per §2
   debug: Q.get('dots') === '1',
 });
+/* v3: mode 'arm' is the default — the detector now judges the ONE-ARM wave this game actually asks for,
+   which is what test/wave_onearm_probe.mjs proved the v2 body-wave detector could never score (0/60). */
 const wave = new WaveDetector();
-const FAR = { 'L→R':'rWrist', 'R→L':'lWrist' };
+const ARM_CUE = { R:['lShoulder','lElbow','lWrist'], L:['rShoulder','rElbow','rWrist'] };   // her arm → HIS, mirrored
 
 // ── 4 · game state ──
 let score=0, streak=0, hits=0, pending=[], stats={R:[],L:[]}, running=false, ended=false, lastCueT=0, lastKidWave=0;
@@ -109,29 +111,28 @@ const WINDOW_MS = 1800;                                                         
 
 /* ── 4b · ONE TURN = one cue of hers + the child's answer ─────────────────────────────────────────
    WAVE-LIGHTS §3: for the first 20 turns BOTH judges run and neither replaces the other — the old
-   per-arm WaveRule still scores (certified), the new cross-body WaveDetector only drives the lights.
+   per-arm WaveRule still scores (certified), the new WaveDetector only drives the lights.
    [ADAPT] this page had no "turn": it is video-led and continuous. A turn opens when one of HER waves
    is detected (the cue) and closes TURN_MS later. The old judge keeps its own untouched WINDOW_MS
-   matching window for scoring; TURN_MS is longer only because the new judge watches a wave travel the
-   whole 6-joint chain (its own window is 3.0s) where the old one watches 3 joints of one arm. */
+   matching window for scoring; TURN_MS is a little longer so a slow arm wave (tested to 1.8s) fits. */
 const TURN_MS = 2600;
 let turn=null, turnOn=false, turnEnd=0, turnNo=0;
 const AGREE=[];
-function turnStart(dir, demoMs){
+function turnStart(cueArm, demoMs){
   if (turn) turnClose();                                   // a fresh cue supersedes an unanswered one
-  turn = { n:++turnNo, t0:performance.now(), dir, demoMs, old:null, neu:null };
-  wave.reset(); lights.comet.start(); turnOn=true; turnEnd=performance.now()+TURN_MS;
+  turn = { n:++turnNo, t0:performance.now(), cueArm, demoMs, old:null, neu:null };
+  wave.reset(); lights.comet.start(ARM_CUE[cueArm]); turnOn=true; turnEnd=performance.now()+TURN_MS;
 }
 function turnClose(){
   if (!turn) return;
   lights.comet.end(); turnOn=false;
   const t=turn; turn=null;
   const o=t.old, n=t.neu;
-  AGREE.push({ turn:t.n, old:!!o, neu:!!n, cue:t.dir });
+  AGREE.push({ turn:t.n, old:!!o, neu:!!n, cueArm:t.cueArm, newArm:n?.arm ?? null, newDir:n?.dir ?? null });
   console.log(`[WAVE] turn=${t.n} old=${o?'pass':'fail'} new=${n?'pass':'fail'}`
-    + ` cue=${t.dir} demoMs=${t.demoMs}`
+    + ` herArm=${t.cueArm} demoMs=${t.demoMs}`
     + (o?` | old: arm=${o.arm} quality=${o.quality} at=${o.at}ms`:'')
-    + (n?` | new: dir=${n.dir} ms=${n.ms} joints=${n.joints} at=${n.at}ms`:''));
+    + (n?` | new: arm=${n.arm} dir=${n.dir} ms=${n.ms}${n.joints?' joints='+n.joints:''} at=${n.at}ms`:''));
   if (AGREE.length===20) agreeTable();
 }
 function agreeTable(){
@@ -153,18 +154,18 @@ async function loopNova(){ if(!running) return; try{
     if (k){ DBG.novaJ=Object.keys(k).length; EN.update(k);
       for (const arm of ['R','L']){ const w=wN[arm].check(); if (w?.hit && performance.now()-lastCueT>900){ lastCueT=performance.now();
         pending.push({ arm, t0:lastCueT }); DBG.cues++;
-        /* [ADAPT] direction, mirrored to the child's view: her panel is NOT mirrored, so her right arm
-           appears on the LEFT of the screen; his panel IS mirrored, so the hand he sees on the left is his
-           anatomical left → her 'R' starts the path at his lWrist = 'L→R'. `?mirror=0` flips the lights if
-           a real body says otherwise. */
-        const dir = arm==='R' ? 'L→R' : 'R→L';
+        /* [ADAPT] the cue goes on the child's MATCHING arm, mirrored: her panel is not mirrored, so her right
+           arm appears on the screen's left; his panel IS mirrored, so the arm he sees there is his own left.
+           Her 'R' therefore cues HIS left arm (ARM_CUE). Shoulder→wrist order, because that is the "out" wave
+           the game teaches ("let it travel: fingers, wrist, elbow" is the same path). `?mirror=0` flips the
+           whole light layer if a real body says otherwise. */
         /* [ADAPT] DEMO_MS: WAVE-LIGHTS §2 wants the demo clip's wave duration; nothing declares it — her
            waves are found live in the video. WaveRule hands back `gaps` (ms between her joint peaks), so
            the cue is paced at her own per-link speed stretched over the 6-joint path she is asking for. */
         const gaps = w.gaps||[], per = gaps.length ? gaps.reduce((a,b)=>a+b,0)/gaps.length : 240;
-        const demoMs = Math.max(900, Math.min(2000, Math.round(per*5)));
-        lights.waveCue(dir, demoMs);
-        turnStart(dir, demoMs); } } } }
+        const demoMs = Math.max(900, Math.min(2000, Math.round(per*2)));      // v3: the cue path is 3 joints, not 6
+        lights.waveCue(ARM_CUE[arm], demoMs);
+        turnStart(arm, demoMs); } } } }
   }catch(e){ DBG.err='nova:'+e.message; } dbg(); requestAnimationFrame(loopNova); }
 async function loopKid(){ if(!running) return; try{
   if (cam.videoWidth>0){ const k=await detect(cam); DBG.kid++;
@@ -172,10 +173,13 @@ async function loopKid(){ if(!running) return; try{
       lights.feed(k);
       if (turnOn){
         const r = wave.update(k, performance.now()/1000);
-        lights.comet.follow(r.front);                                                        // the light rides the real wave
-        if (r.done){                                                                         // reached the far end, in order
-          const far = FAR[r.done.dir];
-          lights.comet.end(); lights.burst(far,'gold'); lights.word('YES!', far); LK.audio.ding();
+        lights.comet.follow(r.front, r.chain);                          // rides whichever arm is actually moving
+        if (r.done){                                                    // the wave reached the end of that arm, in order
+          /* v3 result: {arm:'left'|'right', dir:'out'|'in'}. 'out' ends at the hand, 'in' ends at the shoulder —
+             the burst has to land where the wave actually finished, not always on a wrist. */
+          const hand = r.done.arm === 'left' ? 'lWrist' : 'rWrist';
+          const end  = r.done.dir === 'out' ? hand : (r.done.arm === 'left' ? 'lShoulder' : 'rShoulder');
+          lights.comet.end(); lights.burst(end,'gold'); lights.word('YES!', end); LK.audio.ding();
           if (turn && !turn.neu) turn.neu = { ...r.done, at:Math.round(performance.now()-turn.t0) };
           DBG.neu++;
           // §3: the new judge does NOT score yet — no success path from here until the founder picks a judge.
