@@ -217,7 +217,14 @@ $('start').onclick = async () => {
   // presence gate: shoulders + elbows + wrists visible ≥1s
   $('gateArms').classList.remove('hidden'); let okSince=null;
   await new Promise(res=>{ const tick=async()=>{ const k=await detect(cam);
-    const ok = k && ['lShoulder','rShoulder','lElbow','rElbow','lWrist','rWrist'].every(n=>k[n]?.vis>0.5);
+    /* [FIX 2026-09-30] this used to demand ALL SIX arm joints — both wrists, both elbows, both
+       shoulders — above 0.5 for a full second. Sitting at a laptop your wrists are usually below the
+       frame, so the gate never opened and the game looked broken: "Step back — I need to see your arms"
+       and nothing else, for ever. Every other game asks only for shoulders. Now: both shoulders, plus
+       ONE arm traceable (elbow or wrist on either side) — which is all a one-arm wave needs anyway. */
+    const seen = n => k?.[n]?.vis > 0.5;
+    const arm  = s => seen(s+'Elbow') || seen(s+'Wrist');
+    const ok = !!k && seen('lShoulder') && seen('rShoulder') && (arm('l') || arm('r'));
     $('ring').classList.toggle('ok', !!ok); if (ok){ okSince ??= performance.now(); if (performance.now()-okSince>1000) return res(); } else okSince=null; requestAnimationFrame(tick); }; tick(); });
   $('gateArms').classList.add('hidden');
   await new Promise(r=>{ if(cam.videoWidth>0) r(); else cam.onloadedmetadata=()=>r(); });
