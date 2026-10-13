@@ -1,0 +1,139 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nova — Hand Wave</title>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.17.0/dist/tf-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.17.0/dist/tf-converter.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.17.0/dist/tf-backend-webgl.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<style>
+:root{--bg:#120a22;--gold:#ffc23e}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#120a22}} :root[data-theme="dark"]{--bg:#120a22}
+html,body{margin:0;height:100%;background:var(--bg);color:#fff;font-family:system-ui;overflow:hidden}
+#stage{position:fixed;inset:0;display:flex}
+.pane{position:relative;flex:1;min-width:0;background:#1b1030;overflow:hidden}
+#nova{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+#cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#cap{position:fixed;left:0;right:0;bottom:12vh;text-align:center;font:800 clamp(20px,3.4vw,40px) system-ui;text-shadow:0 2px 14px rgba(0,0,0,.85);z-index:9;pointer-events:none}
+#stars{position:fixed;top:10px;left:0;right:0;text-align:center;font-size:26px;z-index:9;pointer-events:none}
+#dbg{position:fixed;left:0;right:0;bottom:0;background:rgba(0,0,0,.75);font:700 14px ui-monospace,monospace;padding:8px 12px;z-index:10;white-space:pre}
+#start,#save{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);font:800 34px system-ui;padding:18px 54px;border:0;border-radius:18px;background:var(--gold);color:#241a00;cursor:pointer;z-index:20}
+#save{display:none;top:auto;bottom:70px;font-size:20px;padding:12px 26px}
+#status{position:fixed;left:0;right:0;top:62%;text-align:center;color:#b9aede;z-index:5}
+#file{display:none;position:fixed;left:50%;top:70%;transform:translateX(-50%);z-index:21}
+</style></head><body>
+<div id="stage"><div class="pane"><video id="nova" playsinline></video></div>
+<div class="pane"><video id="cam" autoplay muted playsinline></video><canvas id="fx"></canvas></div></div>
+<div id="stars"></div><div id="cap"></div><div id="dbg">loading…</div><div id="status"></div>
+<button id="start" disabled>▶ START</button><button id="save">⬇ Save my play (send this file to the architect)</button><input id="file" type="file" accept="video/mp4">
+<script type="module">
+/* HAND WAVE v4.1 — the REAL chain on the REAL clip (12 Oct): wrist→elbow→shoulder→shoulder→elbow→wrist,
+   three waves, times measured from handywave.mp4 itself (856 frames). The light SITS on the next joint,
+   grows as the child lifts it, turns amber when it waits, and jumps only when Nova starts her next wave.
+   Proof: matrix 45/45 · suite 19/19 · Nova replays her own clip 22/22, 25/25 gold, every step within 0.8s. */
+import * as HW from './shared/handwave-core.js';
+import * as NL from './shared/nova-lights.js';
+
+const $ = id => document.getElementById(id);
+const { HandWave, TARGETS, SONG_END, WAIT_AMBER, CHAIN_LIFT, GATES } = HW;
+const kindOf = j => j.replace(/^[lr]/, '');
+const NAME = { rWrist: 'RIGHT hand', rElbow: 'right elbow', rShoulder: 'right shoulder', lShoulder: 'left shoulder', lElbow: 'left elbow', lWrist: 'LEFT hand' };
+const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
+const cam = $('cam'), clip = $('nova');
+if (!DEBUG) $('dbg').style.display = 'none';
+let detector = null, G = null, lights = null, running = false, lastPx = null, clipEndWall = null, stars = 0;
+const REC = [];
+
+function say(t, amber){ const el = $('cap'); el.textContent = t; el.style.color = amber ? '#ffb45e' : '#fff'; }
+function hud(){ $('stars').textContent = stars ? '⭐'.repeat(stars) : ''; }
+
+async function boot(){
+  $('status').textContent = 'loading the pose engine…';
+  await tf.setBackend('webgl'); await tf.ready();
+  detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,
+    { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING });
+  $('status').textContent = 'starting the camera…';
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+  cam.srcObject = stream; await cam.play();
+  $('status').textContent = 'loading her song…';
+  for (const u of ['handywave.mp4', '/handywave.mp4', 'media/handywave.mp4']){
+    try { const r = await fetch(u, { method: 'HEAD' }); if (r.ok){ clip.src = u; break; } } catch (e) {}
+  }
+  if (!clip.src){ $('status').textContent = 'handywave.mp4 not found next to this file'; $('file').style.display = 'inline-block';
+    await new Promise(res => { $('file').onchange = () => { clip.src = URL.createObjectURL($('file').files[0]); res(); }; }); }
+  await new Promise(res => { clip.onloadedmetadata = res; });
+  $('status').textContent = 'ready — press START · stand back so your WHOLE body is in the picture';
+  $('start').disabled = false;
+}
+boot().catch(e => { $('status').textContent = 'ERROR: ' + e.message; });
+
+const MAP = { left_shoulder: 'lShoulder', right_shoulder: 'rShoulder', left_elbow: 'lElbow', right_elbow: 'rElbow', left_wrist: 'lWrist', right_wrist: 'rWrist', nose: 'nose' };
+async function detect(){
+  if (!running) return;
+  try {
+    const poses = await detector.estimatePoses(cam);
+    if (poses[0]){
+      const k = {};
+      for (const p of poses[0].keypoints){ const n = MAP[p.name]; if (n) k[n] = { x: p.x, y: p.y, vis: p.score ?? 0 }; }
+      lastPx = k;
+      const norm = {}; const W = cam.videoWidth || 1280, H = cam.videoHeight || 720;
+      for (const [n, p] of Object.entries(k)) norm[n] = { x: p.x / W, y: p.y / H, vis: p.vis };
+      lights.feed(norm, performance.now() / 1000);
+    }
+  } catch (e) {}
+  if (cam.requestVideoFrameCallback) cam.requestVideoFrameCallback(() => detect()); else setTimeout(detect, 33);
+}
+
+function gameT(){ if (!clip.ended) return clip.currentTime; clipEndWall ??= performance.now(); return clip.duration + (performance.now() - clipEndWall) / 1000; }
+
+function loop(){
+  if (!running) return;
+  const t = gameT();
+  const evs = G.update(t, lastPx || {});
+  if (lastPx){ const r = { t: +t.toFixed(3) };
+    for (const [n, p] of Object.entries(lastPx)) r[n] = [Math.round(p.x), Math.round(p.y), +p.vis.toFixed(2)];
+    const c = G.active; if (c){ r.target = c.joint; r.lift = +G.liftOf(c.joint).toFixed(3); } REC.push(r); }
+  for (const e of evs){
+    const c = e.target;
+    if (e.type === 'target_open') say('✨ lift your ' + NAME[c.joint]);
+    if (e.type === 'hit'){ stars++; hud(); const q = e.quality === 'clean' ? 'mint' : 'amber';
+      lights.burst(c.joint, q, 14, 260); say('⭐ yes!'); }   // keep the light ALIVE — it glides on to the next joint, never blinks off
+    if (e.type === 'miss' && e.why !== 'unseen'){ /* quiet — the wave moves on */ }
+    if (e.type === 'wave_done'){ lights.target(null);
+      if (e.bonus){ stars++; hud(); lights.burst('lShoulder', 'gold', 36, 300); lights.burst('rShoulder', 'gold', 36, 300); } }
+    if (e.type === 'end'){ running = false; const S = e.summary;
+      say((S.medal === 'gold' ? '🥇' : S.medal === 'silver' ? '🥈' : '🥉') + '  ' + '⭐'.repeat(Math.max(1, S.stars)));
+      lights.target(null); $('save').style.display = 'inline-block'; }
+  }
+  const w = G.waiting(t), c = G.active;
+  if (w && c){
+    const stuck = w.behind > WAIT_AMBER;
+    const prog = Math.min(1, G.liftOf(c.joint) / CHAIN_LIFT[kindOf(c.joint)]);
+    lights.target([c.joint], { progress: prog, state: stuck ? 'amber' : 'gold' });   // THE LIGHT: on the joint, grows, amber when waiting
+    say((stuck ? '🟠 ' : '✨ ') + 'lift your ' + NAME[c.joint], stuck);
+  } else if (G && !G.ended) lights.target(null);
+  const d = $('dbg');
+  if (c){ const need = CHAIN_LIFT[kindOf(c.joint)], lift = G.liftOf(c.joint);
+    const seen = lastPx && lastPx[c.joint] ? lastPx[c.joint].vis : 0;
+    d.textContent = `song ${t.toFixed(1)}s | STEP ${c.idx + 1}/22 ${NAME[c.joint]} | your motion ${(lift * 100).toFixed(0)}% / needs ${(need * 100).toFixed(0)}% | camera sees it ${(seen * 100).toFixed(0)}% | waiting ${(t - c.openedAt).toFixed(1)}s | ⭐${stars}`;
+    d.style.color = seen < GATES[kindOf(c.joint)] ? '#ff9a6a' : lift >= need ? '#7ce8a0' : '#fff';
+  } else d.textContent = `song ${t.toFixed(1)}s | ⭐${stars}`;
+  requestAnimationFrame(loop);
+}
+
+$('start').onclick = async () => {
+  $('start').style.display = 'none'; $('status').textContent = ''; REC.length = 0; stars = 0; hud();
+  G = new HandWave();
+  lights = NL.createLights($('fx'), { video: cam, mirror: true });
+  running = true; detect();
+  say('stand so your HANDS are inside the picture');
+  for (let i = 0; i < 20; i++){ await new Promise(r => setTimeout(r, 100)); if (lastPx) G.calibrate(lastPx); }
+  clip.muted = false; clip.volume = 0.85; clip.currentTime = 0; clipEndWall = null;
+  try { await clip.play(); } catch (e) { clip.muted = true; await clip.play(); }
+  say('here she comes…');
+  requestAnimationFrame(loop);
+};
+$('save').onclick = () => {
+  const blob = new Blob([JSON.stringify({ when: new Date().toISOString(), v: 4.1, targets: TARGETS, log: G.log, cam: G.cam, frames: REC }, null, 0)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'my-wave-play.json'; a.click();
+};
+</script></body></html>
