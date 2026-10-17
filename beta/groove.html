@@ -17,6 +17,7 @@ import { createGrooveGame, SONG } from './lib/groove-game.js';
 import { toJudge } from './lib/kp.js';
 import { createLights } from '../shared/nova-lights.js';
 import { Q, getLang, applyLang, COMMON, createHud, caption, card, ring, medalScreen, createSource, createRecorder, guideFor } from './lib/play.js';
+import { createNovaEvents } from './lib/events.js';
 import { runDoctor } from './lib/doctor.js';
 
 const $ = id => document.getElementById(id);
@@ -34,12 +35,13 @@ $('back').onclick = () => location.href = 'index.html' + location.search;
 const fast = Q.get('fast') === '1';
 const lights = createLights($('fx'), { video: $('cam') });
 const rec = createRecorder('groove', lang);
+const brain = createNovaEvents('groove', ev => rec.nova(ev));     // reaction triggers for the avatar: window.novaEvents
 const music = new Audio(SONG.src); music.volume = 0.7;
 let doc = null, game, hud, src, phaseCap = ['', ''], ended = false, lastFrame = null, last = null;
 function say(text, cls = ''){ phaseCap = [text, cls]; if (game?.state.seen !== false) caption(text, cls); }
 
 function onEvent(type, d){
-  const t = performance.now() / 1000; rec.event(type, d, t);
+  const t = performance.now() / 1000; rec.event(type, d, t); brain(type, d);
   if (type === 'phase' && d.phase === 'intro') say(TXT.ready, 'wait');
   if (type === 'phase' && d.phase === 'bar'){ hud.now(d.bar);      // a bar that missed the floor opens the next one with the nudge (amber), else the next prompt
     if (last === 'notyet') say(TXT.notyet, 'wait'); else if (last !== 'skip') say(TXT.prompts[(d.bar - 1) % TXT.prompts.length], 'gold');

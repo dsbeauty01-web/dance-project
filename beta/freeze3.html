@@ -19,6 +19,7 @@ import { createFreezeGame } from './lib/freeze-game.js';
 import { toJudge } from './lib/kp.js';
 import { createLights } from '../shared/nova-lights.js';
 import { Q, getLang, applyLang, COMMON, createHud, caption, card, ring, medalScreen, createSource, createRecorder, audio, guideFor } from './lib/play.js';
+import { createNovaEvents } from './lib/events.js';
 import { runDoctor } from './lib/doctor.js';
 
 const $ = id => document.getElementById(id);
@@ -45,12 +46,13 @@ const music = new Audio('../freezegame/animal-freeze-song.mp3'); music.loop = tr
 
 const lights = createLights($('fx'), { video: $('cam') });
 const rec = createRecorder('freeze', lang);
+const brain = createNovaEvents('freeze', ev => rec.nova(ev));     // reaction triggers for the avatar: window.novaEvents
 let doc = null, game, hud, src, phaseCap = ['', ''], freezeAt = 0, holdS = 2.5, animal = 'statue', ended = false, lastFrame = null;
 
 function say(text, cls = ''){ phaseCap = [text, cls]; if (game?.state.seen !== false) caption(text, cls); }
 
 function onEvent(type, d){
-  const t = performance.now() / 1000; rec.event(type, d, t);
+  const t = performance.now() / 1000; rec.event(type, d, t); brain(type, d);
   if (type === 'phase'){
     if (d.phase === 'calib') say(TXT.calib, 'wait');
     if (d.phase === 'dance'){ card(null); ring(null); lights.ice(false); lights.speedGlow(true); hud.now(d.round); say(TXT.dance, 'gold'); music.play().catch(() => {});

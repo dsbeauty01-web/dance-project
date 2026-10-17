@@ -25,6 +25,7 @@ import { createCopyGame, ROUND_POSES } from './lib/copy-game.js';
 import { toJudge } from './lib/kp.js';
 import { createLights } from '../shared/nova-lights.js';
 import { Q, getLang, applyLang, COMMON, createHud, caption, card, ring, medalScreen, createSource, createRecorder, guideFor } from './lib/play.js';
+import { createNovaEvents } from './lib/events.js';
 import { runDoctor } from './lib/doctor.js';
 
 const $ = id => document.getElementById(id);
@@ -47,13 +48,14 @@ $('back').onclick = () => location.href = 'index.html' + location.search;
 const fast = Q.get('fast') === '1';
 const lights = createLights($('fx'), { video: $('cam') });
 const rec = createRecorder('copy', lang);
+const brain = createNovaEvents('copy', ev => rec.nova(ev));     // reaction triggers for the avatar: window.novaEvents
 let doc = null, game, hud, src, phaseCap = ['', ''], ended = false, lastFrame = null;
 function say(text, cls = ''){ phaseCap = [text, cls]; if (game?.state.seen !== false) caption(text, cls); }
 function demo(pose){ const v = $('nova'); if (!pose || !DEMO[pose]){ v.classList.remove('on'); v.pause(); return; }
   v.src = `../test/clips/src/${DEMO[pose]}.webm`; v.classList.add('on'); v.currentTime = 0; v.play().catch(() => {}); }
 
 function onEvent(type, d){
-  const t = performance.now() / 1000; rec.event(type, d, t);
+  const t = performance.now() / 1000; rec.event(type, d, t); brain(type, d);
   if (type === 'phase'){
     if (d.phase === 'show'){ hud.now(d.round); ring(null); lights.pose(d.pose, { l: 0, r: 0 }); card(TXT.poses[d.pose], EMO[d.pose]); say(TXT.show + ' ' + TXT.poses[d.pose], 'gold'); demo(d.pose);
       if (d.round > 1) src.next(); }
