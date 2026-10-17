@@ -1,0 +1,36 @@
+<!doctype html>
+<!-- test/clips/track.html — turns a video into a play-recording (the replay-test format) with the SAME
+     detector the games use: MoveNet SINGLEPOSE_LIGHTNING via TF.js, enableSmoothing:true (as shared/game-kit.js).
+     Every frame is seeked and detected once — no frame is skipped or duplicated.
+     Driven headless by test/clips/track.mjs; also usable by hand: track.html?src=src/dance-hype.webm -->
+<html><head><meta charset="utf-8"><title>clip tracker</title></head>
+<body style="background:#111;color:#ddd;font:14px system-ui">
+<video id="v" muted playsinline style="width:240px"></video><pre id="log">loading…</pre>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<!-- TRACKING ONLY: the WASM backend (same MoveNet model, same weights) — headless Chromium has no GPU, and WebGL on
+     software rendering took ~1.2 s/frame. ?backend=webgl forces the games' backend. -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.20.0/dist/tf-backend-wasm.min.js"></script>
+<script type="module">
+import { fromMoveNet } from '../../beta/lib/kp.js';
+const q = new URLSearchParams(location.search), v = document.getElementById('v'), log = m => document.getElementById('log').textContent = m;
+window.track = async (src, fps) => {
+  const be = q.get('backend') || 'wasm';
+  if (be === 'wasm') tf.wasm.setWasmPaths('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.20.0/dist/');
+  await tf.setBackend(be); await tf.ready();
+  const det = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,
+    { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING, enableSmoothing: true });
+  v.src = src; await new Promise((ok, no) => { v.onloadeddata = ok; v.onerror = () => no(new Error('video ' + src)); });
+  const n = Math.floor(v.duration * fps + 1e-6), frames = [];
+  for (let i = 0; i < n; i++){
+    const t = i / fps;
+    await new Promise(ok => { v.onseeked = ok; v.currentTime = Math.min(v.duration - 1e-3, t + 0.5 / fps); });
+    const poses = await det.estimatePoses(v, { flipHorizontal: false }, Math.round(t * 1000));
+    frames.push({ t: +t.toFixed(4), ...fromMoveNet(poses?.[0]?.keypoints, v.videoWidth, v.videoHeight) });
+    if (i % 20 === 0) log(`${src} ${i}/${n}`);
+  }
+  return { when: new Date().toISOString(), v: 1, src, w: v.videoWidth, h: v.videoHeight, fps, detector: 'movenet-lightning-tfjs4.20-smooth-' + tf.getBackend(), frames };
+};
+window.trackReady = true; log('ready');
+if (q.get('src')) window.track(q.get('src'), +(q.get('fps') || 24)).then(r => log(JSON.stringify(r).slice(0, 2000)));
+</script></body></html>
