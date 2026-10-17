@@ -96,3 +96,13 @@ match per clip × pose (seconds):
 
 So the confirm is 3 frames **and** ≥ 0.6 s (pass-throughs top out at 0.38 s, real holds start at 2.04 s).
 armsOut has no held clip in the repo, so its star isn't proven yet. `upperbody` only proves "no false star".
+
+## Every video in the repo (night item A, 2026-10-17)
+
+All 24 `.mp4` files in the repo (Maya excluded) are tracked into `test/clips/repo-*.json`. `test/clips/src/REPO-SOURCES.txt`
+lists which video each came from. The converted WebM copies aren't committed (`.gitignore`). To rebuild them, convert
+with ffmpeg (360 px on the short side, VP9) and run `node test/clips/track.mjs repo-…`. The intro videos are wide
+shots where MoveNet finds no body (0/420 frames), so every game skips them, as it should.
+
+`test/replay/edge.mjs` runs all three games on these 24 plus the 42 synthetic edge clips (`test/clips/synth.mjs`):
+**66 clips, all PASS** (the game ends, the truth audit holds, no star from noise).
