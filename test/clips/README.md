@@ -65,3 +65,34 @@ jitters at **0.01 sw/s** (p50), where a real body through a real camera jitters 
 (docs/FREEZE2-MEASURED.md). 212 of the swept parameter sets pass on her clips, so they can't choose between them.
 The shipped tune (`moveFloor 1.1 · moveK 2.5 · moveCeil 1.4`, measured 2026-09-27 on real-body traces) stays,
 and it passes the Nova replay table too (still 100 % · sway 100 % · dance 0 % held).
+
+## Copy Nova targets (measured 2026-10-17, Phase 3)
+
+Per arm, the player's own (`beta/lib/arms.js`): `upper` = shoulder→elbow angle from straight down (0 down, 90 out, 180 up),
+`elbow` = inside elbow angle (180 straight), `wristUp` = wrist height above the shoulder in shoulder-widths.
+Medians over each clip's pose hold:
+
+| pose | clip, hold window | upper | elbow | wristUp |
+|---|---|---|---|---|
+| armsUp | `pose-armsup` 1.0–2.6 s | L149–161 · R161–164 | 138–158 | +1.2 |
+| star | `pose-star` 1.0–3.5 s | L96–107 · R107–123 | 140–170 | +0.27…+0.62 |
+| bear | `pose-bear` 1.5–3.5 s | 116–124 | 124–136 | +0.94…+1.05 |
+| leftUp | `own-left-up` 1.6–2.6 s | raised L172–174, other R4–5 | 147–156 | +1.1 / other −1.4 |
+| rightUp | `own-right-up` 1.6–2.6 s | raised R160–162 | 150–155 | +1.3 |
+| armsOut | `upperbody` 0–6 s (moving, not held) | 78–97 | 157–180 | −0.19…+0.16 |
+| handsHead | no clip | GUESS | GUESS | GUESS |
+
+Hold confirm: 3 frames in a row alone (0.12 s) starred poses the arms only passed through. Longest continuous
+match per clip × pose (seconds):
+
+| clip | armsUp | armsOut | star | bear | leftUp | rightUp | handsHead |
+|---|---|---|---|---|---|---|---|
+| pose-armsup | **2.28** | 0 | 0.12 | 0.20 | 0 | 0 | 0 |
+| pose-star | 0 | 0.04 | **2.38** | 0 | 0 | 0 | 0 |
+| pose-bear | 0.38 | 0.04 | 0.08 | **2.92** | 0 | 0 | 0 |
+| upperbody | 0 | 0.10 | 0 | 0 | 0 | 0 | 0 |
+| own-left-up | 0 | 0 | 0 | 0 | **2.12** | 0 | 0 |
+| own-right-up | 0 | 0 | 0 | 0 | 0 | **2.04** | 0 |
+
+So the confirm is 3 frames **and** ≥ 0.6 s (pass-throughs top out at 0.38 s, real holds start at 2.04 s).
+armsOut has no held clip in the repo, so its star isn't proven yet. `upperbody` only proves "no false star".

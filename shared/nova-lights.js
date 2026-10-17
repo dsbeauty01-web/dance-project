@@ -27,7 +27,9 @@ function sprite(r, stops){ const c = document.createElement('canvas'); c.width =
 
 
 /* the target pose drawn on the child's own body: arms from the child's shoulders, legs from the hips (angles: 0 down · 90 out · 180 up) */
-const GHOST = { armsUp: [170, 170], armsOut: [92, 92], leftUp: [170, 12], rightUp: [12, 170], star: [148, 148], bear: [95, 95], flamingo: [15, 15], frog: [40, 40], handsHead: 'head' };
+/* [6H-P3 2026-10-17] star + bear now drawn as Nova actually does them (measured on freezegame/freeze-star.mp4 and
+   freezebear.mp4 with MoveNet: star upper arm ~107°, bear ~120°; was 148 / 95) — beta/lib/copy-game.js POSES. */
+const GHOST = { armsUp: [170, 170], armsOut: [92, 92], leftUp: [170, 12], rightUp: [12, 170], star: [107, 107], bear: [120, 120], flamingo: [15, 15], frog: [40, 40], handsHead: 'head' };
 function ghostPose(name, ls, rs, lh, rh){
   const sw = Math.hypot(ls.x - rs.x, ls.y - rs.y), U = 0.66 * sw, F = 0.69 * sw, rad = d => d * Math.PI / 180, out = { rings: true };
   const outward = (me, other) => Math.sign(me.x - other.x) || 1;

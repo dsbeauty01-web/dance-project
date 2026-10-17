@@ -1,0 +1,11 @@
+
+COPY NOVA (beta/copy.html) — replay matrix: clip × pose (⭐ star · "·" not yet · skip)
+| clip         | want      | armsUp | armsOut | star | bear | leftUp | rightUp | handsHead | verdict |
+|--------------|-----------|--------|---------|------|------|--------|---------|-----------|---------|
+| pose-armsup  | ⭐ armsUp  | ⭐      | ·       | ·    | ·    | ·      | ·       | ·         | PASS    |
+| pose-star    | ⭐ star    | ·      | ·       | ⭐    | ·    | ·      | ·       | ·         | PASS    |
+| pose-bear    | ⭐ bear    | ·      | ·       | ·    | ⭐    | ·      | ·       | ·         | PASS    |
+| upperbody    | no star   | skip   | skip    | skip | skip | skip   | skip    | skip      | PASS    |
+| own-left-up  | ⭐ leftUp  | ·      | ·       | ·    | ·    | ⭐      | ·       | ·         | PASS    |
+| own-right-up | ⭐ rightUp | ·      | ·       | ·    | ·    | ·      | ⭐       | ·         | PASS    |
+| empty-room   | skip all  | skip   | skip    | skip | skip | skip   | skip    | skip      | PASS    |
