@@ -94,3 +94,9 @@ jobs:
           fi
       - name: Run Nova law-tests (walls)
         run: bash tools/laws/run-all.sh
+      - name: Beta replay tables — Freeze · Copy Nova · Groove (6h mission, 2026-10-17)
+        # Every beta game replayed on the recorded clips in test/clips/ through its own judge. A star where the
+        # table says none, a missing skip, or a game that never ends = RED. See test/clips/README.md.
+        run: node test/replay_all.mjs
+      - name: Kid-screen guard — no +N, score, points, %, or red on a kid screen (6h mission, 2026-10-17)
+        run: node tools/laws/kid-screen-guard.mjs

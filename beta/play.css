@@ -80,6 +80,7 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
   padding:14px 20px;border-radius:var(--radius);background:rgba(20,11,38,.75)}
 #check .go{position:absolute;left:50%;bottom:6vh;transform:translateX(-50%)}
 .bar{position:absolute;left:50%;bottom:calc(6vh + 84px);transform:translateX(-50%);width:min(70vw,360px);height:8px;border-radius:8px;background:rgba(255,255,255,.15);overflow:hidden}
-.bar i{display:block;height:100%;width:0;background:var(--mint);transition:width .25s linear}
+.bar i{display:block;height:100%;width:100%;background:var(--mint);transform:scaleX(0);transform-origin:left;transition:transform .25s linear}
+[dir=rtl] .bar i{transform-origin:right}
 
 @media (max-width:520px){ #ring{top:58px} #card{top:7vh;font-size:30px} }

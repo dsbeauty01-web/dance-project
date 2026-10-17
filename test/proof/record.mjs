@@ -1,5 +1,7 @@
 /* test/proof/record.mjs — the gate videos: a game page running on replay clips in headless Chromium, recorded.
    node test/proof/record.mjs <out-name> <seconds> <page?query> [<seconds> <page?query> …]
+   A page may carry steps: "beta/index.html?x=1|wait:4000|click:#gFreeze|wait:1500|click:#go" — run in order,
+   then the segment records <seconds> more.
    Several segments are recorded one after another and joined (ffmpeg) into docs/evidence/6h/<out-name>.mp4. */
 import { mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -17,7 +19,10 @@ try {
     const ctx = await browser.newContext({ viewport: { width: 432, height: 768 }, deviceScaleFactor: 1, recordVideo: { dir: TMP, size: { width: 432, height: 768 } } });
     const page = await ctx.newPage();
     const logs = []; page.on('console', m => logs.push(`[${m.type()}] ${m.text()}`)); page.on('pageerror', e => logs.push('[pageerror] ' + e.message));
-    await page.goto(`${url}/${s.path}`);
+    const [path, ...steps] = s.path.split('|');
+    await page.goto(`${url}/${path}`);
+    for (const st of steps){ const [verb, arg] = [st.slice(0, st.indexOf(':')), st.slice(st.indexOf(':') + 1)];
+      if (verb === 'wait') await page.waitForTimeout(+arg); else if (verb === 'click') await page.click(arg, { timeout: 15000 }); }
     await page.waitForTimeout(s.secs * 1000);
     const shot = join(OUT, `${out}-${i + 1}.png`); await page.screenshot({ path: shot });
     const v = page.video(); await ctx.close(); const p = await v.path(); files.push(p);
