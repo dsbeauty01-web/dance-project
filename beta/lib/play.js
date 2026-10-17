@@ -8,7 +8,8 @@
                             page moves to the next clip at each new round (proof videos)
      ?detector=fail         a detector that throws on every frame (proves the game skips and still ends)
      ?fast=1                short rounds (proof videos)
-     ?autostart=1           no start button (proof videos)                                                   */
+     ?autostart=1           no start button (proof videos)
+     ?backend=wasm          MoveNet on the CPU instead of WebGL                                                   */
 import { fromMoveNet, frameAt, toJudge } from './kp.js';
 
 export const Q = new URLSearchParams(location.search);
@@ -85,7 +86,11 @@ export async function createSource(video, onFrame, { base = '../' } = {}){
       video.srcObject = stream; video.muted = true; await video.play();
     } catch (e) { S.cameraError = String(e?.message || e); }
     if (!failMode && !S.cameraError){
-      try { await script(TF); await script(PD); await tf.ready();
+      try { await script(TF); await script(PD);
+        if (Q.get('backend') === 'wasm'){   // ?backend=wasm: same model on the CPU (devices or test browsers without a GPU)
+          await script('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.20.0/dist/tf-backend-wasm.min.js');
+          tf.wasm.setWasmPaths('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.20.0/dist/'); await tf.setBackend('wasm'); }
+        await tf.ready();
         det = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING, enableSmoothing: true });
         S.modelOk = true;
       } catch (e) { S.modelError = String(e?.message || e); }      // no model → every frame is null → every round skips
