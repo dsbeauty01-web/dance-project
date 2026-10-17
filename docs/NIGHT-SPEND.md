@@ -39,3 +39,11 @@ RunPod account: balance $10.93 · **current spend $0.165/hr with ZERO pods runni
 | ytt0abrodiggmj | maya-wide-1012-0538-tier2-dryrun | EXITED | 0.89 | Oct 12 12:56 |
 
 No Nova tester pod is listed (the 16:30 tester pod is not on this account's list right now).
+| A–H (all browser-only: headless Chromium, MoveNet WASM, ffmpeg, Node) | 18:43 | 19:30 | 0.00 |
+
+**Total: $0.00 of $6.00.** Pods started by me: 0. Paid API calls: 0. Render: unchanged.
+
+## End-of-run pod listing — 2026-10-17 19:29 UTC
+
+`spend/hr 0.165 · pods 24 · {'EXITED': 24} · running: []`. The same 24 Maya pods as Step 0, all EXITED, none running.
+Pods I started: 0, so 0 are running.
