@@ -71,7 +71,7 @@ export function createFreezeGame({ tune, pace = {}, on = () => {}, rng = Math.ra
     let outcome;
     if (res === 'noshow') { outcome = 'skip'; S.skips++; }                  // not seen ≥ 80% → never judged
     else { S.judged++; if (res === 'held') { outcome = 'star'; S.stars++; } else outcome = 'notyet'; }
-    const r = { round: S.round, outcome, hold: res, seen: +seenFrac.toFixed(3), frames: h.frames, maxE: +h.maxE.toFixed(3), thrMove: +J.st.thr.move.toFixed(3) };
+    const r = { round: S.round, outcome, t0: +h.t0.toFixed(3), t1: +(h.t0 + h.dur).toFixed(3), hold: res, seen: +seenFrac.toFixed(3), frames: h.frames, maxE: +h.maxE.toFixed(3), thrMove: +J.st.thr.move.toFixed(3) };
     S.results.push(r);
     set('result', t + P.resultS);
     emit(outcome, r);

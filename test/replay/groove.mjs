@@ -27,7 +27,7 @@ export function grooveReplay(){
       bonus: ended?.bonus ?? '-', skips: ended?.skips ?? '-', 'energy p50 (sw/s)': med == null ? '-' : med.toFixed(2),
       bounces: ended ? `${ended.onBeat}/${ended.bounces} on-beat` : '-', ends: ended ? 'yes' : 'NO', verdict: ok ? 'PASS' : 'FAIL' });
   }
-  return { name: 'Groove', fail, rows, text: table('GROOVE (beta/groove.html) — replay table · song animal-freeze-song.mp3 129.2 BPM · floor 0.25 sw/s (GUESS until ref-still)',
+  return { name: 'Groove', fail, rows, text: table('GROOVE (beta/groove.html) — replay table · song animal-freeze-song.mp3 129.2 BPM · floor 0.43 sw/s (2 × measured camera-noise stand-in, until ref-still)',
     ['clip', 'want', 'bars', '⭐ bars', '% bars ⭐', 'bonus', 'skips', 'energy p50 (sw/s)', 'bounces', 'ends', 'verdict'], rows) };
 }
 

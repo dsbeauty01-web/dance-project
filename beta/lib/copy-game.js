@@ -51,7 +51,11 @@ export function judgePose(name, k, w, h){
     out[side === 'left' ? 'l' : 'r'] = match ? 1 : Math.max(0, 1 - Math.max(de / (TOL.elbow * 3), du / (TOL.upper * 3)));
     if (!match) all = false;
   }
-  if (P.otherDown){ const o = k ? arm(k, P.otherDown, w, h) : null; if (o && !SIDE.down(o.wristUp)){ all = false; out.wrong = P.otherDown === 'left' ? 'l' : 'r'; } }
+  /* one-arm poses: the OTHER arm must be SEEN down. [NIGHT-A 2026-10-17] it used to pass when that arm was unseen —
+     test/clips/edge/pose-armsup.one-arm-hidden (both arms up, left hidden) then starred rightUp. Unseen = unscoreable. */
+  if (P.otherDown){ const o = k ? arm(k, P.otherDown, w, h) : null;
+    if (!o){ out.unseen = true; all = false; }
+    else if (!SIDE.down(o.wristUp)){ all = false; out.wrong = P.otherDown === 'left' ? 'l' : 'r'; } }
   out.ok = all && !out.unseen;
   return out;
 }
@@ -82,7 +86,7 @@ export function createCopyGame({ poses = ROUND_POSES, pace = {}, on = () => {}, 
   function tick(t){
     seenCheck(t);
     if (S.phase === 'idle' || S.phase === 'end' || t < S.until) return;
-    if (S.phase === 'show'){ set('match', t + P.windowS); return; }
+    if (S.phase === 'show'){ S.winT0 = t; set('match', t + P.windowS); return; }
     if (S.phase === 'match' && !S.done){
       const seenFrac = S.frames ? S.seenFrames / S.frames : 0;
       if (seenFrac < P.seenMin){ S.skips++; result('skip', t, seenFrac); } else { S.judged++; result('notyet', t, seenFrac); }
@@ -91,7 +95,7 @@ export function createCopyGame({ poses = ROUND_POSES, pace = {}, on = () => {}, 
     if (S.phase === 'result'){ if (S.round >= poses.length) finish(); else next(t); }
   }
   function result(outcome, t, seenFrac){
-    const r = { round: S.round, pose: S.pose, outcome, seen: +(seenFrac ?? (S.frames ? S.seenFrames / S.frames : 0)).toFixed(3), frames: S.frames };
+    const r = { round: S.round, pose: S.pose, outcome, t0: +(S.winT0 ?? t).toFixed(3), t1: +t.toFixed(3), seen: +(seenFrac ?? (S.frames ? S.seenFrames / S.frames : 0)).toFixed(3), frames: S.frames };
     S.results.push(r); set('result', t + P.resultS); emit(outcome, r);
   }
   function finish(){

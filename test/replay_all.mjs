@@ -13,7 +13,7 @@ for (const t of ['test/freeze2_hold_test.mjs', 'test/freeze2_realdata_test.mjs']
   catch (e) { fail++; lines.push(`${t}: FAIL\n${e.stdout || ''}${e.stderr || ''}`); }
 }
 
-for (const [file, fn] of [['test/replay/freeze.mjs', 'freezeReplay'], ['test/replay/copy.mjs', 'copyReplay'], ['test/replay/groove.mjs', 'grooveReplay']]){
+for (const [file, fn] of [['test/replay/freeze.mjs', 'freezeReplay'], ['test/replay/copy.mjs', 'copyReplay'], ['test/replay/groove.mjs', 'grooveReplay'], ['test/replay/edge.mjs', 'edgeReplay'], ['test/replay/doctor.mjs', 'doctorReplay']]){
   if (!existsSync(join(ROOT, file))) continue;
   const mod = await import(join(ROOT, file)); const r = mod[fn]();
   lines.push(r.text); if (r.fail){ fail++; lines.push(`${r.name}: ${r.fail} FAIL`); }

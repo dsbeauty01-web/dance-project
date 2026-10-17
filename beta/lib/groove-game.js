@@ -16,8 +16,10 @@ import { toJudge } from './kp.js';
 export const SONG = { src: '../freezegame/animal-freeze-song.mp3', bpm: 129.2, offsetS: 0.151 };
 export const GROOVE = {
   bars: 16, beatsPerBar: 4,
-  // floor = 2 × ref-still noise (Phase 2). Pending Refael's ref-still clip.
-  energyFloor: 0.25,       // GUESS 0.25 sw/s — replace at Phase 2
+  // floor = 2 × still-body noise. [NIGHT-A 2026-10-17] the 0.25 GUESS starred a FROZEN body on a jittery camera:
+  // test/clips/edge/frozen-body.jitter (±3 px noise on a body that cannot move) reads 0.215 sw/s per bar (p50; p90
+  // 0.218) → floor 2 × 0.215 = 0.43. Dancing reads 1.55–4.36 (dance-hype), so dancers are untouched.
+  energyFloor: 0.43,       // STAND-IN measured on synthetic camera noise — replace with 2 × ref-still noise at Phase 2
   onBeatS: 0.15,           // mission: bounce within ±150 ms of a beat
   swayAmp: 0.15,           // mission: sway ≥ 0.15 sw
   bounceAmp: 0.04,         // GUESS — replace at Phase 2 (a dip this deep, in sw, counts as a bounce)
@@ -93,10 +95,14 @@ export function createGrooveGame({ song = SONG, pace = {}, on = () => {}, size =
     let outcome;
     if (seen < P.seenMin){ outcome = 'skip'; S.skips++; }
     else { S.judged++; outcome = energy >= P.energyFloor ? 'star' : 'notyet'; if (outcome === 'star') S.stars++; }
-    const r = { bar: S.bar, outcome, energy: +energy.toFixed(3), seen: +seen.toFixed(3), bounces: bars.length, onBeat: on };
+    const r = { bar: S.bar, outcome, t0: +(t - barS).toFixed(3), t1: +t.toFixed(3), energy: +energy.toFixed(3), seen: +seen.toFixed(3), bounces: bars.length, onBeat: on };
     S.results.push(r); emit(outcome, r);
     if (S.bar % P.bonusEvery === 0){                               // bonus: ≥ 50 % of the last 8 bars' bounces on the beat
-      const B = S.bounces.filter(b => b.bar > S.bar - P.bonusEvery && b.bar <= S.bar), n = B.filter(b => b.onBeat).length;
+      /* [NIGHT-A 2026-10-17] only bounces in bars that cleared the energy floor count: a frozen body on a jittery camera
+         (edge/frozen-body.jitter) "bounced" on noise, and at ±150 ms random dips land on-beat 65 % of the time → 2 bonus
+         stars with no move at all. */
+      const moved = new Set(S.results.filter(x => x.outcome === 'star').map(x => x.bar));
+      const B = S.bounces.filter(b => b.bar > S.bar - P.bonusEvery && b.bar <= S.bar && moved.has(b.bar)), n = B.filter(b => b.onBeat).length;
       const judgedHere = S.results.slice(-P.bonusEvery).some(x => x.outcome !== 'skip');
       if (judgedHere && B.length >= P.bonusMinBounces && n / B.length >= P.bonusOnBeat){ S.bonus++; S.stars++; emit('bonus', { bounces: B.length, onBeat: n }); }
     }
