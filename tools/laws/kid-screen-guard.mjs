@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const FILES = ['beta/index.html', 'beta/freeze3.html', 'beta/copy.html', 'beta/groove.html', 'beta/play.css',
-               'beta/lib/play.js', 'shared/nova-lights.js', ...process.argv.slice(2)];   // extra files: the guard's own self-test
+               'beta/lib/play.js', 'beta/lib/doctor.js', 'shared/nova-lights.js', ...process.argv.slice(2)];   // extra files: the guard's own self-test
 
 const TOKEN = /\/\*[\s\S]*?\*\/|<!--[\s\S]*?-->|\/\/[^\n]*|'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\]|\\.)*`/g;
 function jsStrings(src){ const out = []; for (const m of src.matchAll(TOKEN)){ const s = m[0]; if (s[0] === '/' || s.startsWith('<!--')) continue; out.push({ s: s.slice(1, -1), at: m.index }); } return out; }

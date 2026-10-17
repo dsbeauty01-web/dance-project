@@ -10,7 +10,7 @@ import { serve, launch, ROOT } from '../lib/browser.mjs';
 
 const [out, ...rest] = process.argv.slice(2);
 const segs = []; for (let i = 0; i < rest.length; i += 2) segs.push({ secs: +rest[i], path: rest[i + 1] });
-const OUT = join(ROOT, 'docs/evidence/6h'), TMP = join(OUT, '.tmp-' + out);
+const OUT = join(ROOT, process.env.OUT_DIR || 'docs/evidence/6h'), TMP = join(OUT, '.tmp-' + out);
 mkdirSync(TMP, { recursive: true });
 const { srv, url } = await serve(); const browser = await launch();
 const files = [];

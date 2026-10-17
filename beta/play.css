@@ -74,11 +74,15 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
 .lang{display:flex;gap:6px;background:rgba(255,255,255,.08);border-radius:999px;padding:4px}
 .lang button{padding:6px 14px;border-radius:999px;background:none}
 .lang button[aria-pressed=true]{background:var(--gold);color:#2a1700}
-#check{position:fixed;inset:0;z-index:80;display:none}
-#check.on{display:block}
-#check .msg{position:absolute;left:50%;top:12vh;transform:translateX(-50%);width:min(92vw,640px);text-align:center;font:800 clamp(22px,5.5vw,38px)/1.15 'Baloo 2',Nunito;
+#doctor{position:fixed;inset:0;z-index:80;display:none}
+#doctor.on{display:block}
+#doctor .msg{position:absolute;left:50%;top:12vh;transform:translateX(-50%);width:min(92vw,640px);text-align:center;font:800 clamp(22px,5.5vw,38px)/1.15 'Baloo 2',Nunito;
   padding:14px 20px;border-radius:var(--radius);background:rgba(20,11,38,.75)}
-#check .go{position:absolute;left:50%;bottom:6vh;transform:translateX(-50%)}
+#doctor .msg.good{color:var(--mint)} #doctor .msg.wait{color:var(--amber)}
+#doctor .outline{position:absolute;left:50%;top:50%;transform:translate(-50%,-46%);height:min(70vh,120vw);aspect-ratio:1/2.4;opacity:.22;pointer-events:none;
+  background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 240'%3E%3Cg fill='none' stroke='white' stroke-width='3' stroke-dasharray='6 5'%3E%3Ccircle cx='50' cy='22' r='16'/%3E%3Cpath d='M22 52h56l10 70h-14l-6-48v66l8 96H62l-12-80-12 80H24l8-96V74l-6 48H12z'/%3E%3C/g%3E%3C/svg%3E")}
+#doctor[data-state=ok] .outline{opacity:.5;filter:drop-shadow(0 0 12px var(--mint))}
+#doctor .go{position:absolute;left:50%;bottom:6vh;transform:translateX(-50%)}
 .bar{position:absolute;left:50%;bottom:calc(6vh + 84px);transform:translateX(-50%);width:min(70vw,360px);height:8px;border-radius:8px;background:rgba(255,255,255,.15);overflow:hidden}
 .bar i{display:block;height:100%;width:100%;background:var(--mint);transform:scaleX(0);transform-origin:left;transition:transform .25s linear}
 [dir=rtl] .bar i{transform-origin:right}

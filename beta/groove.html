@@ -7,6 +7,7 @@
 </head><body>
 <div id="stage"><video id="cam" playsinline muted></video><canvas id="fx"></canvas></div>
 <div id="topbar"><button class="back" id="back">←</button><div id="stars"></div><div id="dots"></div></div>
+<div id="doctor"><div class="outline"></div><div class="msg"></div><div class="bar"><i></i></div><button class="big go"></button></div>
 <div id="ring"></div><div id="card"></div><div id="cap"></div>
 <div class="screen on" id="startScr"><h1 id="title">Groove!</h1><p id="howto"></p><button class="big" id="go">▶</button></div>
 <div class="screen" id="end"><div id="medal"></div><div id="medalStars"></div><p id="endLine"></p>
@@ -16,6 +17,7 @@ import { createGrooveGame, SONG } from './lib/groove-game.js';
 import { toJudge } from './lib/kp.js';
 import { createLights } from '../shared/nova-lights.js';
 import { Q, getLang, applyLang, COMMON, createHud, caption, card, ring, medalScreen, createSource, createRecorder, guideFor } from './lib/play.js';
+import { runDoctor } from './lib/doctor.js';
 
 const $ = id => document.getElementById(id);
 const lang = getLang(); applyLang(lang);
@@ -33,7 +35,7 @@ const fast = Q.get('fast') === '1';
 const lights = createLights($('fx'), { video: $('cam') });
 const rec = createRecorder('groove', lang);
 const music = new Audio(SONG.src); music.volume = 0.7;
-let game, hud, src, phaseCap = ['', ''], ended = false, lastFrame = null, last = null;
+let doc = null, game, hud, src, phaseCap = ['', ''], ended = false, lastFrame = null, last = null;
 function say(text, cls = ''){ phaseCap = [text, cls]; if (game?.state.seen !== false) caption(text, cls); }
 
 function onEvent(type, d){
@@ -64,15 +66,18 @@ async function begin(){
   src = await createSource($('cam'), (frame, t) => {
     if (ended) return; lastFrame = frame;
     const k = toJudge(frame); if (k) lights.feed(k);
+    if (doc){ doc(frame); return; }                       // Camera Doctor first — the game isn't running yet
     if (src?.state.w) game.setSize(src.state.w, src.state.h);
     rec.frame(frame, t, src?.state); game.feed(frame, t); game.tick(t);
   });
   if (!src.state.modelOk) caption(src.state.cameraError ? L.noCamera : L.cantSee, 'wait');
+  src.start();
+  if (Q.get('checked') !== '1' && Q.get('doctor') !== '0') await runDoctor({ lights, lang, onFrameHook: h => doc = h });
   // the beat clock = the song's own clock: beat n at song time offset + n·60/BPM
   const now = performance.now() / 1000; let songAt0 = now + game.pace.introS;
   setTimeout(async () => { music.currentTime = 0; try { await music.play(); songAt0 = performance.now() / 1000 - music.currentTime; } catch {}
     game.state.beat0 = songAt0 + SONG.offsetS; }, game.pace.introS * 1000);
-  game.start(now, songAt0 + SONG.offsetS); src.start();
+  game.start(now, songAt0 + SONG.offsetS);
   lights.speedGlow(true); lights.beatRing(true, t => game.state.phase === 'bar' || game.state.phase === 'intro' ? game.nextBeat(t) : null, 0.6);
   setInterval(() => { if (!ended) game.tick(performance.now() / 1000); }, 50);
 }
