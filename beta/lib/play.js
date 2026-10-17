@@ -56,7 +56,7 @@ export function medalScreen({ medal, stars, judged, skips, lang, onAgain, onBack
   document.getElementById('medal').textContent = medal === 'gold' ? '🥇' : medal === 'silver' ? '🥈' : medal === 'bronze' ? '🥉' : '💜';
   document.getElementById('medalStars').textContent = '⭐'.repeat(stars);
   document.getElementById('endLine').textContent = medal ? '' : (judged === 0 && skips > 0 ? L.endUnseen : L.endNone);
-  document.getElementById('again').textContent = L.again; document.getElementById('back2').textContent = L.back; document.getElementById('save').textContent = L.save;
+  document.getElementById('again').textContent = L.again; document.getElementById('back2').textContent = L.back; document.getElementById('save').textContent = '⬇ ' + L.save;
   document.getElementById('again').onclick = onAgain; document.getElementById('back2').onclick = onBack; document.getElementById('save').onclick = onSave;
   el.classList.add('on');
 }
@@ -125,13 +125,14 @@ export async function createSource(video, onFrame, { base = '../' } = {}){
 
 /* ───────── Save my play: everything needed to replay and audit the game ───────── */
 export function createRecorder(game, lang){
-  const R = { when: new Date().toISOString(), v: 1, game, lang, ua: navigator.userAgent, w: 0, h: 0, detector: 'movenet-lightning-tfjs4.20-smooth', frames: [], events: [], summary: null, t0: null };
+  const R = { when: new Date().toISOString(), v: 1, game, lang, ua: navigator.userAgent, w: 0, h: 0, detector: 'movenet-lightning-tfjs4.20-smooth', frames: [], events: [], novaEvents: [], summary: null, t0: null };
   return {
     frame(f, t, src){ if (R.t0 == null) R.t0 = t; R.w = src?.w || R.w; R.h = src?.h || R.h; if (R.frames.length < 30 * 60 * 6) R.frames.push({ t: +(t - R.t0).toFixed(3), ...(f || {}) }); },
     event(type, d, t){ R.events.push({ t: R.t0 == null ? 0 : +(t - R.t0).toFixed(3), type, ...d }); },
+    nova(ev){ R.novaEvents.push(ev); },                 // the brain's events (beta/lib/events.js)
     end(summary, src){ R.summary = summary; R.source = src?.kind; R.modelOk = src?.modelOk; R.failures = src?.failures; },
     save(){ const blob = new Blob([JSON.stringify(R)], { type: 'application/json' }); const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob); a.download = `nova-${game}-${R.when.replace(/[:.]/g, '-')}.json`; document.body.appendChild(a); a.click(); a.remove(); },
+      a.href = URL.createObjectURL(blob); a.download = `${game}-${R.when.replace(/[:.]/g, '-')}-play.json`; document.body.appendChild(a); a.click(); a.remove(); },
     data: R,
   };
 }
