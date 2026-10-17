@@ -14,10 +14,11 @@ import { toJudge, frameAt } from '../../beta/lib/kp.js';
 import { run, clip, json, seeded, table } from './sim.mjs';
 
 const tune = json('beta/freeze2/script.json').tune;
-const T = { ...tune, seenMin: FREEZE_PACE.seenMin };
+const T0 = { ...tune, seenMin: FREEZE_PACE.seenMin };
 
-export function heldPct(rec){
+export function heldPct(rec, tuneOverride){
   if (!rec) return null;
+  const T = tuneOverride ? { ...tuneOverride, seenMin: FREEZE_PACE.seenMin } : T0;
   const dur = rec.frames.length / rec.fps, dt = 1 / rec.fps;
   // calibrate on the first calibS seconds, like the game
   const J = createJudges(T); J.startSample('still');

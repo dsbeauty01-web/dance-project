@@ -57,3 +57,11 @@ Pending. When `ref-still.mp4`, `ref-sway.mp4` and `ref-dance.mp4` arrive: drop t
 (convert to WebM, or track in real Chrome), run `node test/clips/track.mjs ref-still ref-sway ref-dance`, then
 `node test/replay/derive.mjs`. That prints the motion of each clip and the `moveFloor / moveK / moveCeil` that meet
 still ≥ 95 % · sway ≥ 80 % · dance ≤ 15 %.
+
+### Phase 2 run on Nova's clips (2026-10-17): pending clips
+
+`docs/evidence/6h/p2-derive-nova-clips.txt`. Nova's CGI clips are too clean to set the bar. Her held frame
+jitters at **0.01 sw/s** (p50), where a real body through a real camera jitters at **0.43**
+(docs/FREEZE2-MEASURED.md). 212 of the swept parameter sets pass on her clips, so they can't choose between them.
+The shipped tune (`moveFloor 1.1 · moveK 2.5 · moveCeil 1.4`, measured 2026-09-27 on real-body traces) stays,
+and it passes the Nova replay table too (still 100 % · sway 100 % · dance 0 % held).
