@@ -63,7 +63,7 @@ function finish(d){
 
 async function begin(){
   $('startScr').classList.remove('on');
-  game = createGrooveGame({ pace: fast ? { bars: 8 } : {}, on: onEvent });
+  game = createGrooveGame({ pace: +Q.get('bars') > 0 ? { bars: +Q.get('bars') } : fast ? { bars: 8 } : {}, on: onEvent });
   hud = createHud(game.pace.bars);
   src = await createSource($('cam'), (frame, t) => {
     if (ended) return; lastFrame = frame;

@@ -41,6 +41,7 @@ $('back').onclick = () => location.href = 'index.html' + location.search;
 const tune = (await (await fetch('freeze2/script.json')).json()).tune;
 const fast = Q.get('fast') === '1';
 const pace = fast ? { danceS: [2.6, 3.2], resultS: 1.2 } : {};
+if (+Q.get('rounds') > 0) pace.rounds = +Q.get('rounds');        // shorter games for the lobby demo
 const line = id => audio(`../audio/freeze2/${voiceDir}/${id}.${1 + Math.floor(Math.random() * 3)}.mp3`);
 const music = new Audio('../freezegame/animal-freeze-song.mp3'); music.loop = true; music.volume = 0.6;
 
