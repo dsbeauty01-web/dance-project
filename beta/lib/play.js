@@ -97,20 +97,30 @@ export async function createSource(video, onFrame, { base = '../' } = {}){
     }
   }
 
-  let busy = false;
+  /* [NIGHT-F 2026-10-17] frame-skip: MoveNet runs on the page's main thread, so a slow detection also starves the
+     light layer. MEASURED (test/proof/perf.mjs, CPU-only WASM): 17.6 fps at 1×, 5.0 fps at 4× throttle for lights AND
+     judging. When a detection takes > 25 ms (EMA), detect only every 2nd frame — the frames in between go to the
+     lights. Judging is fps-independent (energy per second; holds in seconds) — test/replay/fps.mjs proves the Laws
+     at 30 · 12 · 6 fps. ?skip=1 turns it off. */
+  let busy = false, nFrame = 0, detMs = 0;
+  const allowSkip = Q.get('skip') !== '1';
   async function step(){
     if (!S.running) return;
     const t = performance.now() / 1000;
+    nFrame++;
+    if (S.kind === 'camera' && allowSkip && detMs > 25 && nFrame % 2){ requestAnimationFrame(step); return; }
     if (!busy){
       busy = true;
       let frame = null;
       try {
         if (failMode) throw new Error('detector failed (test mode)');
         if (S.kind === 'replay') frame = frameAt(S.rec, video.currentTime);
-        else if (det && video.videoWidth){ const poses = await det.estimatePoses(video, { flipHorizontal: false }); S.w = video.videoWidth; S.h = video.videoHeight;
+        else if (det && video.videoWidth){ const d0 = performance.now(); const poses = await det.estimatePoses(video, { flipHorizontal: false });
+          detMs = detMs ? detMs * 0.8 + (performance.now() - d0) * 0.2 : performance.now() - d0; S.detMs = detMs; S.w = video.videoWidth; S.h = video.videoHeight;
           frame = fromMoveNet(poses?.[0]?.keypoints, video.videoWidth, video.videoHeight); }
       } catch { S.failures++; frame = null; }
       busy = false;
+      globalThis.__fedFrames = (globalThis.__fedFrames || 0) + 1;     // frames handed to the game (perf probe, night-F)
       onFrame(frame, t);
     }
     requestAnimationFrame(step);
