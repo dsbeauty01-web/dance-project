@@ -3,6 +3,11 @@
      frozen-body  star · held ≥ 95% of windows
      still-sway   star · held ≥ 80%
      dance-hype   NO star · held ≤ 15%
+     repo-idle-sway        star · held ≥ 80%     (a swaying kid still holds)
+     repo-dance-active     NO star · held ≤ 15%  (was 100% held at the old 1.4 ceiling)
+     refael-wave2-fast     NO star · held ≤ 10%  (REAL webcam + real arm motion; was 100% held at 1.4 — "freeze always scores")
+     refael-slow-wave      report · held ≤ 45%   (real waits between lifts are real stillness)
+     repo-dance-sub        report · held ≤ 60%
      empty-room   NO star · every round skipped · "I can't see you" shown
      model-fail   NO star · every round skipped · the game still ends
    "held %" = the freeze2 Hold judge over every 2.5 s window of the clip (start every 0.25 s), after calibrating
@@ -41,6 +46,14 @@ const CASES = [
   { clip: 'frozen-body', want: 'star',  held: p => p >= 0.95, wantHeld: '>=95%' },
   { clip: 'still-sway',  want: 'star',  held: p => p >= 0.80, wantHeld: '>=80%' },
   { clip: 'dance-hype',  want: 'none',  held: p => p <= 0.15, wantHeld: '<=15%' },
+  // [2026-10-18] the rows that were missing — a swaying kid must still hold, a NORMALLY MOVING human must not score:
+  { clip: 'repo-idle-sway',     want: 'star',  held: p => p >= 0.80, wantHeld: '>=80%' },
+  { clip: 'repo-dance-active',  want: 'none',  held: p => p <= 0.15, wantHeld: '<=15%' },
+  { clip: 'refael-wave2-fast',  want: 'few',   held: p => p <= 0.10, wantHeld: '<=10%' },   // REAL webcam, REAL continuous arm motion (Refael) — the old 1.4 bar held this 100%.
+                                                                                            // 4.4 s clip: the sim LOOPS it and the end→start jump reads as a teleport (= stillness), so one
+                                                                                            // seam-straddling round may star; the non-wrapping window metric (held %) is the truth here.
+  { clip: 'refael-slow-wave',   want: 'any',   held: p => p <= 0.45, wantHeld: '<=45%' },   // his slow follow-along WITH real waits: the waits are real stillness, so partly held is honest
+  { clip: 'repo-dance-sub',     want: 'any',   held: p => p <= 0.60, wantHeld: '<=60%' },   // subtle dance ≈ sway: reported, loosely bounded
   { clip: 'empty-room',  want: 'skip' },
   { clip: 'model-fail',  want: 'skip', detector: 'fail' },
 ];
@@ -57,9 +70,10 @@ export function freezeReplay({ extra = [] } = {}){
     if (c.want === 'star') ok &&= ended.stars >= 1 && ended.skips === 0;
     if (c.want === 'none') ok &&= ended.stars === 0 && ended.skips === 0;
     if (c.want === 'skip') ok &&= ended.stars === 0 && ended.skips === ended.rounds && cantSee;
+    if (c.want === 'few')  ok &&= ended.stars <= 1 && ended.skips === 0;      // at most one lucky real pause
     if (c.held) ok &&= p != null && c.held(p);
     if (!ok) fail++;
-    rows.push({ clip: c.clip, want: c.want === 'none' ? 'NO star' : c.want === 'skip' ? 'skip, NO star' : 'star',
+    rows.push({ clip: c.clip, want: c.want === 'none' ? 'NO star' : c.want === 'skip' ? 'skip, NO star' : c.want === 'few' ? '≤1 star' : c.want === 'any' ? '(report)' : 'star',
       rounds: ended?.rounds ?? '-', stars: ended?.stars ?? '-', skips: ended?.skips ?? '-',
       'held %': p == null ? '-' : (100 * p).toFixed(0) + '%', 'want held': c.wantHeld ?? '-',
       "can't-see caption": cantSee ? 'shown' : '-', ends: ended ? 'yes' : 'NO', medal: ended?.medal ?? '-', verdict: ok ? 'PASS' : 'FAIL' });

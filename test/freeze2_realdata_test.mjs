@@ -27,7 +27,7 @@ const TRACES = ['frozen-body', 'still-sway', 'dance-routine', 'dance-hype'];
    stillness (the choreography holds), so a high held% there is partly the correct answer. */
 const BAR = {
   'frozen-body':   { min:95, why:'a motionless child must always be held' },
-  'still-sway':    { min:80, why:'a wobbly standing child must mostly be held' },
+  'still-sway':    { min:30, why:'swaying at 0.80 sw/s is the SAME energy as a human waving his arms (Refael 0.72-0.88, 2026-10-17) — it cannot be mostly held without starring real movement. A gentle wobble (Nova still-sway 0.57) IS held 97%: see test/replay/freeze.mjs. [2026-10-18 architect; was >=80, the root of "freeze always scores"]' },
   'dance-hype':    { max:15, why:'a child who keeps dancing must be caught' },
   'dance-routine': { report:true, why:'slow routine with real holds — reported, not asserted' },
 };
