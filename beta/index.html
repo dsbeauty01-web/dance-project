@@ -37,7 +37,7 @@ function paint(){ applyLang(lang); const t = T[lang];
 $('en').onclick = () => { lang = 'en'; setLang('en'); paint(); };
 $('he').onclick = () => { lang = 'he'; setLang('he'); paint(); };
 const keep = () => { const q = new URLSearchParams(location.search); q.delete('lang'); q.set('lang', lang); q.delete('nocheck'); q.set('checked', '1'); return '?' + q; };
-$('gFreeze').onclick = () => location.href = 'freeze3.html' + keep();
+$('gFreeze').onclick = () => location.href = 'freeze-nova.html' + keep();   // [2026-10-18] Freeze WITH Nova next to the child
 $('gCopy').onclick = () => location.href = 'copy.html' + keep();
 $('gGroove').onclick = () => location.href = 'groove.html' + keep();
 
