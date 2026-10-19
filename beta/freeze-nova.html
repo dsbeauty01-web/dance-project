@@ -15,12 +15,15 @@
 #camPane{position:relative;flex:1 1 50%;min-width:0;overflow:hidden}
 #nova{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#1b1030}
 #camPane #cam,#camPane #fx{position:absolute;inset:0;width:100%;height:100%}
+#novaSay{position:absolute;left:12px;right:12px;top:96px;z-index:8;background:rgba(255,255,255,.93);color:#2a1a4a;border-radius:18px;padding:10px 14px;
+  font:800 clamp(15px,2.2vw,22px)/1.25 'Baloo 2',Nunito,system-ui;text-align:center;opacity:0;transform:translateY(8px);transition:opacity .25s,transform .25s;pointer-events:none}
+#novaSay.on{opacity:1;transform:none}
 #novaTag{position:absolute;left:12px;top:56px;z-index:7;font:800 16px 'Baloo 2',Nunito,system-ui;color:var(--gold);background:rgba(0,0,0,.35);padding:4px 10px;border-radius:999px}
 @media (max-aspect-ratio: 1/1){ #stage{flex-direction:column} #novaPane,#camPane{flex:1 1 50%} }
 </style>
 </head><body>
 <div id="stage">
-  <div id="novaPane"><video id="nova" playsinline muted loop></video><div id="novaTag">Nova</div></div>
+  <div id="novaPane"><video id="nova" playsinline muted loop></video><div id="novaTag">Nova</div><div id="novaSay"></div></div>
   <div id="camPane"><video id="cam" playsinline muted></video><canvas id="fx"></canvas></div>
 </div>
 <div id="topbar"><button class="back" id="back">←</button><div id="stars"></div><div id="dots"></div></div>
@@ -35,6 +38,7 @@ import { toJudge } from './lib/kp.js';
 import { createLights } from '../shared/nova-lights.js';
 import { Q, getLang, applyLang, COMMON, createHud, caption, card, ring, medalScreen, createSource, createRecorder, audio, guideFor } from './lib/play.js';
 import { createNovaEvents } from './lib/events.js';
+import { createLocalBrain } from './lib/brain-local.js';
 import { runDoctor } from './lib/doctor.js';
 
 const $ = id => document.getElementById(id);
@@ -74,12 +78,34 @@ const music = new Audio('../freezegame/animal-freeze-song.mp3'); music.loop = tr
 const lights = createLights($('fx'), { video: $('cam') });
 const rec = createRecorder('freeze-nova', lang);
 const brain = createNovaEvents('freeze', ev => rec.nova(ev));     // reaction triggers for the avatar: window.novaEvents
+/* ── Nova's LOCAL BRAIN: she talks before, between and after — about what the judge actually saw (beta/lib/brain-local.js) ── */
+const mind = createLocalBrain({ lang, g: Q.get('g') === 'm' ? 'm' : 'f' });
+window.novaBrainLog = [];
+const sayEl = $('novaSay'); if (lang === 'he') sayEl.dir = 'rtl';
+let sayTimer = null, voice = null;
+function pickVoice(){ if (!('speechSynthesis' in window)) return null; const vs = speechSynthesis.getVoices(); if (!vs.length) return null;
+  const want = lang === 'he' ? ['he-IL', 'he'] : ['en-US', 'en-GB', 'en'];
+  const pref = lang === 'he' ? /Google עברית|Carmit|Asaf|Hila/i : /Google US English|Samantha|Zira|Jenny|Aria|Female/i;
+  const cand = vs.filter(v => want.some(w => (v.lang || '').toLowerCase().startsWith(w.toLowerCase())));
+  return cand.find(v => pref.test(v.name)) || cand[0] || null; }
+if ('speechSynthesis' in window){ voice = pickVoice(); speechSynthesis.onvoiceschanged = () => { voice = pickVoice(); }; }
+function novaSays(text, delayMs = 0, { cancel = true } = {}){
+  if (!text) return; window.novaBrainLog.push({ t: performance.now() / 1000, text, delayMs });
+  setTimeout(() => {
+    sayEl.textContent = text; sayEl.classList.add('on'); clearTimeout(sayTimer);
+    sayTimer = setTimeout(() => sayEl.classList.remove('on'), Math.max(2600, 120 * text.length));
+    if ('speechSynthesis' in window && Q.get('mute') !== '1'){
+      try { if (cancel) speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = lang === 'he' ? 'he-IL' : 'en-US'; if (voice) u.voice = voice; u.rate = 1.0; u.pitch = 1.12; u.volume = 1; speechSynthesis.speak(u); } catch {}
+    }
+  }, delayMs);
+}
+function mindReact(type, d){ const r = mind.react(type, d); if (r) novaSays(r.text, r.delayMs); }
 let doc = null, game, hud, src, phaseCap = ['', ''], freezeAt = 0, holdS = 2.5, animal = 'statue', ended = false, lastFrame = null;
 
 function say(text, cls = ''){ phaseCap = [text, cls]; if (game?.state.seen !== false) caption(text, cls); }
 
 function onEvent(type, d){
-  const t = performance.now() / 1000; rec.event(type, d, t); brain(type, d);
+  const t = performance.now() / 1000; rec.event(type, d, t); brain(type, d); mindReact(type, d);
   if (type === 'phase'){
     if (d.phase === 'calib') say(TXT.calib, 'wait');
     if (d.phase === 'dance'){ card(null); ring(null); lights.ice(false); lights.speedGlow(true); hud.now(d.round); say(TXT.dance, 'gold'); music.play().catch(() => {});
@@ -99,11 +125,13 @@ function onEvent(type, d){
 function finish(d){
   ended = true; music.pause(); src.stop(); card(null); ring(null); caption(''); lights.clearAll(); novaPlay(NOVA.idle);
   rec.end(d, src.state); if (d.medal) line('fallback.end');
+  const story = mind.recap(d); story.forEach((txt, i) => novaSays(txt, 1400 + i * 3600, { cancel: i === 0 }));   // the after-game story, line by line
   medalScreen({ ...d, lang, onAgain: () => location.reload(), onBack: () => location.href = 'index.html' + location.search, onSave: () => { rec.save(); $('save').textContent = '✓ ' + L.saved; } });
 }
 
 async function begin(){
   $('startScr').classList.remove('on');
+  if (!fast){ mindReact('intro'); await new Promise(r => setTimeout(r, 3400)); }     // she explains the game first (skipped with ?fast=1)
   game = createFreezeGame({ tune, pace, on: onEvent });
   hud = createHud(game.pace.rounds);
   src = await createSource($('cam'), (frame, t) => {
