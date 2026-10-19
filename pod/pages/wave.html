@@ -955,6 +955,8 @@ const Pose = {
     requestAnimationFrame(()=>this.loop());
   },
 };
+window.Pose = Pose;  // v1.0.1 guard fix (F5) — the detector must actually start
+
 
 /* ═══ FX: frost, snow, shatter, badge, fly-ups ═══ */
 const FX = {

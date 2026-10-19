@@ -6,6 +6,12 @@
 #    and the SAME audio is what the engine publishes to LiveKit (synced).
 # The avatar NEVER sits between mic and brain; it only renders the reply.
 import os, json, base64, asyncio, tempfile, subprocess, wave, time
+try:
+    import audioop as _audioop          # C-speed PCM math — this runs on every 40ms mic chunk
+except Exception:
+    _audioop = None                     # no gain, unchanged behaviour (never break the mic path)
+MIC_TARGET   = float(os.environ.get("MIC_TARGET", "24000"))   # aim peaks here (~73% of full scale)
+MIC_GAIN_MAX = float(os.environ.get("MIC_GAIN_MAX", "8"))
 import aiohttp
 from aiohttp import web
 from livekit import api
@@ -23,7 +29,7 @@ RT_URL = f"wss://api.openai.com/v1/realtime?model={MODEL}"
 PROMPT = (
 
     # RESTORED from DIRECTOR-GOLD (novapython/nova_director.py, git-tagged golden) — the proven
-    # kid intro: greet+name -> shoulder magic light -> isolation -> lead to dance. SHORT, not chat.
+    # kid intro: greet+name -> real chat -> (the PAGE opens the light beat) -> lead to dance.
     "You are Nova — a magic movement friend for kids, like a cool older sister (11-12 energy). "
     "You live in the screen. You can SEE the kid and HEAR them.\n"
     "ALWAYS speak English only, no matter what language you hear.\n"
@@ -44,18 +50,31 @@ PROMPT = (
     "game. Offer once, then wait.\n\n"
     "YOUR INTRO — one short beat per turn, in this order, never dump it all at once:\n"
     "1. GREET + NAME: say exactly — Hi! I'm Nova, your magical AI dance teacher! What's your name?\n"
-    "2. NAME ECHO: ONE warm line, 12 words max, repeating their EXACT name. No name heard = say 'nice to meet you!' — never invent one. Then never mention the name again; in the SAME beat, move to the light.\n"
-    "3. THE MAGIC LIGHT (fires ONCE per session): say — 'A magic light — do you SEE it on your shoulder?' Invite ONE little shrug. When your notes confirm the shoulder moved, celebrate THAT shrug ONCE by name (an isolation), then move on. NO move reported = ONE gentle re-invite, then move on warmly to the games — never nag, never ask twice, zero fail-feel.\n"
+    "2. NAME ECHO: ONE warm line, 12 words max, repeating their EXACT name. No name heard = say 'nice to meet you!' — never invent one. Then CHAT with them like a friend — you may ask ONE light question, then STOP and wait for their answer. Do NOT mention a light, a shoulder or a game yet.\n"
+    # INTRO-V2V (founder ruling 2026-09-14, fixed 2026-09-15): step 3 used to tell her to run
+    # the magic-light beat HERSELF, one line after the name. The beat belongs to the PAGE now —
+    # it arms on the captured name and ends in a real detection or a warm release — so she was
+    # front-running her own producer. The founder heard it live at 15:25:12: name captured, and
+    # one beat later, unprompted, "קסם של כתף, אתה רואה אותה על הכתף שלך?".
+    # She may not raise the light until the director tells her it is on.
+    "3. THE MAGIC LIGHT — NOT YOURS TO START. You CANNOT see the light and you do not know when "
+    "it is on. Never mention a light, a shoulder, a shrug or an isolation until the game director "
+    "tells you the light is glowing. When the director says so: invite ONE little shrug, then STOP "
+    "and wait — you cannot see whether they did it. When the director reports a real shrug, "
+    "celebrate THAT shrug once. When the director says move on, move on warmly and never mention "
+    "the shoulder again. Zero fail-feel, never nag, never ask twice.\n"
     "INTRO TEMPO: every intro line 12 words max; keep the WHOLE intro under 40 seconds, always moving toward the dance.\n"
-    "4. OFFER THE GAMES: right after the shrug win, in ONE line say exactly the spirit of: "
-    "'Want to dance?! We've got Freeze, Wave, and Up Groove — which one do you like?'\n"
+    "4. OFFER THE GAME: when the director moves you on, in ONE line say exactly the spirit of: "
+    "'Want to dance?! Let's play Freeze!' Freeze is the ONLY game available right now — "
+    "Up Groove and Wave were pulled from the picker on 2026-09-13, so never offer them; if a "
+    "kid asks for one, say warmly that it is resting today and bring them to Freeze.\n"
     "5. READINESS (after they pick, ONE short line):\n"
     "   - FREEZE: ask 'can you show me a FREEZE?'. If a freeze demo is playing on you right now, say 'like this!'; "
     "if it is not, describe it in words only ('like a statue — don't move!'). Never claim to show what you can't.\n"
-    "   - WAVE or UP GROOVE: ask 'can you lift a hand UP?' and wait for them to do it.\n"
     "6. START: when your notes say they lifted a hand or froze, or they say 'start', jump straight into the "
     "game with ONE quick go-line.\n"
-    "Follow the flow: greet -> name -> shoulder light -> offer Freeze, Wave, Up Groove -> readiness action -> play. "
+    "Follow the flow: greet -> name -> real chat (and WAIT) -> the director opens the light -> "
+    "offer Freeze -> readiness action -> play. You never start the light beat yourself. "
     "Short lines. Never name or praise a move your notes did not report. If the kid is silent, one gentle try, "
     "then wait quietly.\n"
     "NAME LAW: repeat the kid's name EXACTLY as you heard it, sound for sound — never 'correct' or "
@@ -69,9 +88,8 @@ PROMPT = (
     "move. Silence, mumbles, or your own question do NOT count as yes.\n"
     "FRESH LAW: never say the exact same sentence twice in one session — word every line, especially "
     "deflections, freshly.\n"
-    "SIMPLE-FLOW LAW (follow exactly): light shrug -> offer the 3 games -> they PICK -> ONE short "
-    "game-matched challenge (Freeze='show me a FREEZE, hold still!'; Wave='lift a hand and wave!'; "
-    "Up Groove='bounce your knees!') -> then PLAY. ONE challenge per game, then play. Never pile on "
+    "SIMPLE-FLOW LAW (follow exactly): the director opens and closes the light beat -> invite them to Freeze -> ONE short "
+    "challenge ('show me a FREEZE, hold still!') -> then PLAY. ONE challenge, then play. Never pile on "
     "extra moves, extra challenges, or extra questions.\n"
     "DUAL-INPUT LAW: the kid can answer you TWO ways — by talking OR by DOING the move (a magic sensor "
     "sees their body, so a real shrug / freeze / hand-up counts as a 'yes' even with no words). Only "
@@ -165,14 +183,38 @@ HEBREW_RULES = (
     "STICKY-HEBREW LOCK: once this session is Hebrew it stays Hebrew FOREVER — even if the "
     "transcript of what you hear looks like English, that is Hebrew speech mis-heard, so you "
     "STILL answer only in Hebrew. NEVER restart, re-greet, or switch to English for any reason. "
-    "PRAISE IN HEBREW ONLY: celebration and game words are Hebrew too — say 'קסם של כתף! מצאת "
-    "אותו!' not 'Shoulder MAGIC', 'איזה בידוד!' not English. If an English word is about to "
-    "leave your mouth, replace it with Hebrew before you speak.")
+    # 2026-09-15: this used to hand her the exact shoulder-praise sentence as the example of
+    # "praise in Hebrew". Sitting in her context one line after the name, it read as a cue and
+    # she said it unprompted. The rule is about LANGUAGE, so the example is now a neutral one.
+    "PRAISE IN HEBREW ONLY: celebration and game words are Hebrew too — say 'איזה יופי!' or "
+    "'מדהים!', never an English word. (Praise still needs a real reported move behind it — this "
+    "rule only decides the language, never when to speak.) If an English word is about to "
+    "leave your mouth, replace it with Hebrew before you speak. "
+    # F11 (nephew hotfix 2026-09-13): mid-game hard silence read as "broken" to the adults
+    # in the room. When the page grants an air credit, ONE tiny fact-based ack is allowed.
+    "MID-GAME ACK: when you are allowed one line during the game, a fact-only acknowledgment "
+    "of up to THREE words is perfect ('יפה, נועם!', 'איזה פסל!') - never more, never a question. "
+    # Nephew test 2026-09-13: in the regular intro she offered "פריז, גל" — invented
+    # translations of the game names. The app's own Hebrew labels are the ONLY names.
+    "GAME NAMES - the games have EXACT Hebrew names and no others: 'ריקוד הקפאה' (Freeze), "
+    "'הגל' (Wave), 'פלג גוף עליון' (Upper Body). NEVER invent a name like פריז - if you "
+    "offer games, use these exact names.")
 
-def session_update(freeze=False, voice=None, lang="en"):
+# F2 (nephew hotfix 2026-09-13): Hebrew is gendered; wrong-gender address ("בואי" to a boy)
+# breaks the spell instantly. ?g=m|f rides the URL; ''=unknown -> she asks once and locks.
+GENDER_HE = {
+  "m": "הילד הוא בן. דברי אליו בלשון זכר בלבד: בוא, מוכן, רקדת, קפאת, אתה.",
+  "f": "הילדה היא בת. דברי אליה בלשון נקבה בלבד: בואי, מוכנה, רקדת, קפאת, את.",
+  "":  "אם אינך יודעת אם זה בן או בת, שאלי פעם אחת: 'אתה בן או בת?' ואז הישארי עם התשובה לכל השיחה.",
+}
+def gender_line(g):
+    return " " + GENDER_HE.get(g or "", GENDER_HE[""])
+
+def session_update(freeze=False, voice=None, lang="en", gender=""):
     return {"type": "session.update", "session": {
         "type": "realtime", "output_modalities": ["audio"],
-        "instructions": PROMPT + (FREEZE_RULES if freeze else "") + (HEBREW_RULES if lang == "he" else ""),
+        "instructions": PROMPT + (FREEZE_RULES if freeze else "")
+                        + ((HEBREW_RULES + gender_line(gender)) if lang == "he" else ""),
         "audio": {
             "input": {"format": {"type": "audio/pcm", "rate": 24000},
                       "noise_reduction": {"type": "near_field"},
@@ -189,7 +231,7 @@ def session_update(freeze=False, voice=None, lang="en"):
                                          # behind Nova's re-invite (he-17). 600 threads both.
                                          "prefix_padding_ms": 300, "silence_duration_ms": 600,
                                          "create_response": False, "interrupt_response": False},
-                      "transcription": {"model": "gpt-4o-mini-transcribe", "language": lang}},
+                      "transcription": {"model": "gpt-4o-transcribe", "language": lang}},
             "output": {"format": {"type": "audio/pcm", "rate": 24000}, "voice": (voice or VOICE)}},
         "max_output_tokens": "inf"}}
 
@@ -230,9 +272,13 @@ async def relay(request):
                           # warnings the mic was closed most of the time; 0.6s keeps just enough
                           # anti-echo while letting the kid answer right after her line
     mic_stats = {"n": 0, "bytes": 0}
+    micgain = {"env": 0.0, "g": 1.0, "n": 0}   # live mic gain envelope — see the audio handler
     # HEBREW MODE (?lang=he, MACHINE-CERTIFY 2026-08-30): flips transcription language,
     # the garble filter's alphabet, the yes-words and the greet. EN behavior is untouched.
     _hebrew = (request.query.get("lang") or "en").strip().lower().startswith("he")
+    # F2 (nephew hotfix): gender from ?g=m|f — rides every launch URL via nova-lang.js
+    _gender = (request.query.get("g") or "").strip().lower()[:1]
+    if _gender not in ("m", "f"): _gender = ""
     # --- INTRO BRAIN GATES (2026-07-28) -------------------------------------
     # TRUTH-GATE: Nova may only name/praise a move that arrived as a detection
     # FACT. Facts enter via a 'nova-fact' message from the page (real detection)
@@ -242,8 +288,19 @@ async def relay(request):
     FACT_WINDOW = 6.0   # PART2 #1/#2: a move-claim is legit only within 6s of a real detection fact
     # TURN-GATE: one response per kid turn (+ the existing single-active guard),
     # and at most ONE gentle silence-retry, then quiet until real kid input.
-    turn = {"kid_ts": time.time(), "retried": False}
+    turn = {"kid_ts": time.time(), "retried": False, "reinvite_i": 0}
     SILENCE_RETRY_S = 13.0
+    # TURN-GATE RE-INVITE LINES (2026-09-17). Said VERBATIM — see the fix note at the
+    # call site in silence_watch(). Rotated so a second silence in one session never
+    # repeats the first line (it fired twice in the 2026-09-17 session, 14s then 13s).
+    # ALL THREE ARE FIRST-PERSON ON PURPOSE: a verbatim Hebrew line cannot carry the
+    # ?g=m|f binyan rule, so any second-person verb ("when you're ready" -> שתרצה/שתרצי)
+    # would hard-code one gender. Saying only what SHE does keeps them gender-safe.
+    REINVITE_LINES = (
+        ("I'm right here, no rush at all.", "אני כאן, אין שום לחץ."),
+        ("Still right here.",               "אני עדיין כאן."),
+        ("I'm not going anywhere.",         "אני לא הולכת לשום מקום."),
+    )
     # Freeze demo: fire the baked freeze gesture on the engine if one exists on
     # the volume (env FREEZE_GESTURE_ID). Empty -> honest words-only fallback.
     gesture = {"freeze_id": os.environ.get("FREEZE_GESTURE_ID", "").strip(), "freeze_fired": False}
@@ -285,6 +342,150 @@ async def relay(request):
         # can/ken = Whisper's English spelling of כן, learned in he-2)
         YES_RE = _re.compile(r"(\b(yes|yeah|yep|ready|ok|okay|can|ken)\b|כן|קן|יאללה|מוכן|מוכנה|בטח|סבבה|אוקיי|קדימה)", _re.I)
     hidx = {"i": 0}
+    # ═══ INTRO-V2V (founder spec 2026-09-14) ═══════════════════════════════════════════
+    # ASK-LOCK — the WAIT LAW, enforced in code rather than requested in a prompt.
+    # The founder watched her ask "what's your name?" and then talk straight over the child
+    # while he was answering: a page cue or a timer fired into the gap her own question had
+    # opened. From the moment she finishes asking something until the child actually answers,
+    # this lock holds every producer send. Page cues are QUEUED (never dropped — she still
+    # gets told, just after he has had his turn); the 13s re-invite is the single exception,
+    # and it re-locks so it can only ever fire once per silence.
+    ask_lock = {"on": False, "since": 0.0}
+    ASK_RE = _re.compile(r"[?？؟]\s*$", _re.M)
+    # ═══ PRODUCER-SILENT (founder spec 2026-09-18, Downloads/PRODUCER-SILENT.md) ═══════
+    # THE PRODUCER WRITES TO HER MEMORY, NEVER TO HER MOUTH.
+    # The audit that forced this: 14x response.create (speak NOW) against 3x
+    # conversation.item.create (remember silently) — every producer path forced speech
+    # into the middle of her flow, and mid-game facts were dropped at the speak-gate
+    # entirely, so she never learned the move happened and invented one instead.
+    # The shape the industry uses (OpenAI Realtime docs, LiveKit observer pattern):
+    # external events are injected into CONTEXT silently, the agent reflects them on its
+    # next natural turn, and speech is triggered ONLY at turn boundaries.
+    #
+    #   remember(text)   -> conversation.item.create   silent, always allowed
+    #   speak_now(...)   -> response.create            ONLY at a boundary, else queued
+    #   cancel_speech(w) -> response.cancel            the only cancel site in this file
+    #
+    # Nothing else in this file may touch the socket with those three verbs.
+    boundary = {"on": False, "why": ""}
+    speak_q = []            # [(instructions, verbatim, origin, extra, bare)] awaiting a boundary
+    async def remember(text, role="system"):
+        """Silent context. Never triggers speech. EVERY producer input lands here:
+           cues, facts, picks, phase changes, corrections."""
+        if not text:
+            return
+        try:
+            await oai.send_json({"type": "conversation.item.create", "item": {
+                "type": "message", "role": role,
+                "content": [{"type": "input_text", "text": text}]}})
+            print("[REMEMBER] " + role + ": " + text[:80], flush=True)
+        except Exception as _e:
+            print("[REMEMBER] err", str(_e)[:60], flush=True)
+    async def boundary_open(why, pump=True):
+        """The ONLY moments speech may start: a validated kid turn just ended · the page
+           reported a hold/round/section END · a consent/tap arrived · the greet at
+           connect · 13s of silence with no turn. Mid-line, mid-wait, mid-hold: never.
+           pump=False when the CALLER's own line owns this boundary (a kid turn belongs to
+           her answer to that child, not to a producer line that queued up earlier)."""
+        # WAIT LAW still outranks a boundary: if she asked something, only the child's own
+        # answer (or the 13s re-invite, which re-locks) may open her mouth again.
+        if ask_lock["on"] and why not in ("kid-turn", "tap", "13s-silence"):
+            print("[BOUNDARY] refused (" + why + ") — she asked, still waiting", flush=True)
+            return False
+        boundary["on"] = True; boundary["why"] = why
+        print("[BOUNDARY] " + why, flush=True)
+        if pump: await speak_pump()
+        return True
+    async def _speak_send(instructions, verbatim, origin, extra, bare, cap=None):
+        if verbatim:
+            payload = say_resp(verbatim)                 # the exact-line path (conversation:"none")
+            if extra: payload["instructions"] = payload["instructions"] + " " + extra
+            if origin == "say": sayenf["line"] = verbatim
+            spoken.add(verbatim.lower())
+        elif instructions:
+            payload = {"instructions": instructions}
+        else:
+            payload = {}                                  # bare: she answers from context
+        # MID-GAME TOKEN CAP (MACHINE-CERTIFY en-5): a model that ignores "very short"
+        # simply runs out of tokens.
+        if cap and payload: payload["max_output_tokens"] = cap
+        if origin: resp["origin"] = origin
+        # ONE send per boundary — with one exception, and it is an old lesson, not a new
+        # loophole: the ENDING is a section the page stages as a group (score line + fun
+        # question). en-4 showed the tail of that trio silently vanishing. So a phase-end
+        # boundary stays open while lines are still queued for it; every other boundary
+        # closes after exactly one line, which is what stops the 3-line chains.
+        boundary["on"] = (boundary["why"] == "phase-end" and bool(speak_q))
+        try:
+            if payload:
+                await oai.send_json({"type": "response.create", "response": payload})
+            else:
+                await oai.send_json({"type": "response.create"})
+            print("[SPEAK] (" + (boundary["why"] or "?") + ") "
+                  + (verbatim or instructions or "bare")[:80], flush=True)
+            return True
+        except Exception as _e:
+            print("[SPEAK] err", str(_e)[:80], flush=True)
+            return False
+    async def speak_now(instructions=None, verbatim=None, origin=None, extra=None,
+                        bare=False, cap=None):
+        """Speech. ALLOWED ONLY when a boundary is open; otherwise queued until the next one.
+           A busy channel also queues — the boundary stays open and the pump drains it the
+           moment she goes idle, so a line is deferred, never dropped."""
+        _label = (verbatim or instructions or "bare")[:60]
+        if not boundary["on"]:
+            speak_q.append((instructions, verbatim, origin, extra, bare, cap))
+            print("[SPEAK] queued (not a boundary):", _label, flush=True)
+            return False
+        # he-6: "not speaking" is not the same as "quiet". A line sent while the engine is
+        # still draining her last one collided with it and was killed by the overlap guard.
+        # The drain guard belongs on EVERY speech path, not just the pump.
+        if speaking["resp_active"] or speaking["v"] or time.time() - speaking["last_chunk"] < 0.8:
+            speak_q.append((instructions, verbatim, origin, extra, bare, cap))
+            print("[SPEAK] queued (busy):", _label, flush=True)
+            return False
+        return await _speak_send(instructions, verbatim, origin, extra, bare, cap)
+    async def speak_pump():
+        """Drain ONE queued line when a boundary is open and the channel is idle."""
+        if not (boundary["on"] and speak_q):
+            return
+        if speaking["resp_active"] or speaking["v"]:
+            return
+        if time.time() - speaking["last_chunk"] < 0.8:    # engine still draining
+            return
+        i, v, o, x, b, c = speak_q.pop(0)
+        await _speak_send(i, v, o, x, b, c)
+    async def cancel_speech(why):
+        """THE ONLY response.cancel in this file. A started line FINISHES: the refusal /
+           mid-game-ban / self-answer / truth-gate gates no longer cancel — they set
+           resp["killed"], and because every audio delta is buffered pre-synthesis, a
+           killed line never reaches the child's ears at all. What still cancels here is
+           never an interruption of a legitimate line: a child barging in, a pause, a hard
+           speak-gate, an uncredited mid-game generation, a second overlapping response,
+           and the statue hold window."""
+        try:
+            await oai.send_json({"type": "response.cancel"})
+            print("[CANCEL] " + why, flush=True)
+        except Exception:
+            pass
+    def _instr(en, he):
+        """Every automatic instruction in two languages. Until now silence_watch() spoke only
+           English, so in a Hebrew session she was translating her own orders mid-beat while
+           the persona simultaneously ordered 'English only'."""
+        return he if _hebrew else en
+    def ask_lock_set(why=""):
+        if not ask_lock["on"]:
+            ask_lock["on"] = True; ask_lock["since"] = time.time()
+            print("[ASK-LOCK] set" + ((" (" + why + ")") if why else ""), flush=True)
+    async def ask_lock_clear(by):
+        if not ask_lock["on"]:
+            return
+        ask_lock["on"] = False
+        print("[ASK-LOCK] cleared-by=" + by, flush=True)
+        # PRODUCER-SILENT: the cue queue is gone — cues are REMEMBERED the instant they
+        # arrive (silent context can never talk over a child), so nothing waits here any
+        # more. Only SPEECH waits, and it waits for a boundary, not for this lock.
+        await speak_pump()
     # #4 GARBLE-IGNORE: <3 chars or mostly-non-latin nonsense = not real input.
     def is_garble(t):
         t = (t or "").strip()
@@ -317,7 +518,6 @@ async def relay(request):
     # the engine NEVER gets it, so lips never move on the groove body.
     sgate = {"on": False, "mode": "hard", "credit": 0}
     LIGHT_WAIT = 10.0
-    LIGHT_INVITE_RE = _re.compile(r"(magic light|on your shoulder|little shrug|shoulder.*(shrug|wiggle|lift))", _re.I)
     # #5 STATUE SILENCE: from her freeze call-out until a hold-fact/move-on, her mouth is CLOSED
     # (one optional whisper allowed). #3 FREEZE = REAL HOLD: praise only on a 'freeze_held' fact.
     statue = {"active": False, "ts": 0.0, "whispered": False, "allow": False}
@@ -377,7 +577,7 @@ async def relay(request):
             _voice = (request.query.get("voice") or "").strip() or None   # V2: ?voice=coral etc. for instant A/B
             _freeze_mode = (_intro == "freeze")   # V2.1: page owns the game -> brain self-triggers OFF
             await oai.send_json(session_update(freeze=_freeze_mode, voice=_voice,
-                                               lang=("he" if _hebrew else "en")))
+                                               lang=("he" if _hebrew else "en"), gender=_gender))
             await log("connected to " + MODEL + " (voice " + VOICE + ")")
             # TRANSCRIPTION WARM-UP (he-17): the session's FIRST Hebrew transcription
             # keeps costing 12-14s — a cold path on the provider side that hits the name
@@ -389,7 +589,8 @@ async def relay(request):
                         with open("/workspace/warmup_he.wav", "rb") as _f: _wb = _f.read()
                         f = aiohttp.FormData()
                         f.add_field("file", _wb, filename="w.wav", content_type="audio/wav")
-                        f.add_field("model", "gpt-4o-mini-transcribe"); f.add_field("language", "he")
+                        f.add_field("model", "gpt-4o-transcribe")
+                        f.add_field("language", "he")
                         async with aiohttp.ClientSession() as _ws_:
                             async with _ws_.post("https://api.openai.com/v1/audio/transcriptions",
                                                  headers={"Authorization": "Bearer " + KEY},
@@ -451,15 +652,29 @@ async def relay(request):
                 elif _hebrew:
                     # HEBREW regular intro (2026-09-07): the generic greet was English-only,
                     # so the commercial Hebrew intro opened in English and mixed languages.
+                    # 2026-09-15: this greet asked the name and then said nothing about waiting,
+                    # so she rolled straight on. The freeze greets have carried "Then STOP and
+                    # wait" since 2026-08-27; the generic one — the greet the whole commercial
+                    # intro uses — never got it. That is the founder's "she asks my name and
+                    # doesn't wait to listen".
                     _greet = ("Speak HEBREW ONLY, and keep speaking Hebrew for the whole "
                               "conversation — never switch to English. Greet the kid in ONE "
-                              "short excited line and say exactly: "
-                              "היי! אני נובה, מורת הריקוד הקסומה שלך! איך קוראים לך?")
+                              "short excited line and say exactly these words and NOTHING more: "
+                              "היי! אני נובה, מורת הריקוד הקסומה שלך! איך קוראים לך? "
+                              "Then STOP. Say nothing at all until the child answers — no second "
+                              "line, no encouragement, no explaining, no light, no game. Their "
+                              "answer is the only thing that lets you speak again.")
                 else:
-                    _greet = ("Greet the kid in ONE short excited line and say exactly: "
-                              "Hi! I'm Nova, your magical AI dance teacher! What's your name?")
-                await oai.send_json({"type": "response.create", "response": {
-                    "instructions": _greet}})
+                    _greet = ("Greet the kid in ONE short excited line and say exactly these words "
+                              "and NOTHING more: "
+                              "Hi! I'm Nova, your magical AI dance teacher! What's your name? "
+                              "Then STOP. Say nothing at all until the child answers — no second "
+                              "line, no encouragement, no explaining, no light, no game. Their "
+                              "answer is the only thing that lets you speak again.")
+                # PRODUCER-SILENT: the greet is a boundary by definition — the session has
+                # just opened, there is no flow to interrupt and nobody to talk over.
+                await boundary_open("connect")
+                await speak_now(instructions=_greet, origin="greet")
 
             async def silence_watch():
                 # TURN-GATE: after a stretch of kid silence, ONE gentle invite, then
@@ -474,54 +689,78 @@ async def relay(request):
                         continue     # game phase: the page owns every beat, brain never self-fires
                     if speaking["v"] or speaking["resp_active"]:
                         continue
+                    # WAIT LAW (INTRO-V2V): she asked the child something. Nothing fires into
+                    # that gap except the one re-invite below, which re-locks after it speaks.
+                    if ask_lock["on"] and not (time.time() - turn["kid_ts"] >= SILENCE_RETRY_S
+                                               and not turn["retried"]):
+                        continue
                     # #5 STATUE: ONE quick whisper fills the hold naturally (~1.5s in), then silence.
                     if statue["active"] and not statue["whispered"] and time.time() - statue["ts"] > 1.5:
-                        statue["whispered"] = True; statue["allow"] = True
-                        print("[STATUE] whisper", flush=True)
-                        try: await oai.send_json({"type": "response.create", "response": {"instructions":
-                            "Whisper ONE short quiet suspenseful line to help them hold still — like "
-                            "'shhh… hold it… hold it…'. Nothing else, no praise."}})
-                        except Exception: pass
+                        statue["whispered"] = True
+                        # PRODUCER-SILENT: the whisper used to SPEAK into the middle of a hold —
+                        # the one moment the silence itself is the game. It becomes memory: she
+                        # learns a hold is running and stays quiet; the page owns the hold's
+                        # sound. statue["allow"] is deliberately never set now, so the
+                        # mouth-closed gate at response.created has no exception left.
+                        print("[STATUE] whisper -> remembered (hold is silent)", flush=True)
+                        await remember(_instr(
+                            "The child is holding a freeze RIGHT NOW. Say nothing at all until the "
+                            "hold ends. When you next speak, only mention the hold if a fact told "
+                            "you they held it.",
+                            "הילד מחזיק עכשיו קיפאון. אל תגידי כלום עד שהקיפאון נגמר. כשתדברי "
+                            "בפעם הבאה, הזכירי את הקיפאון רק אם עובדה אמרה לך שהם באמת החזיקו."))
                         continue
                     # #5 STATUE timeout: no hold-fact within the window -> warm move-on (one-attempt law).
                     if statue["active"] and time.time() - statue["ts"] > STATUE_MAX:
                         statue["active"] = False
                         print("[STATUE] timeout -> warm move-on", flush=True)
-                        try: await oai.send_json({"type": "response.create", "response": {"instructions":
+                        # PRODUCER-SILENT: the END of a hold IS a boundary — the section she
+                        # would be interrupting has just finished.
+                        await boundary_open("hold-end")
+                        await speak_now(origin="hold-end", instructions=_instr(
                             "The freeze hold is over. Warmly and with ZERO fail-feel, cheer them on and keep the "
-                            "game moving — do NOT claim how well they froze."}})
-                        except Exception: pass
+                            "game moving — do NOT claim how well they froze.",
+                            "הקיפאון נגמר. בחום ובלי שום תחושת כישלון, עודדי אותם והמשיכי את המשחק — "
+                            "אל תגידי כמה טוב הם קפאו."))
                         continue
-                    # #1 LIGHT BEAT = ONE ATTEMPT: invited --10s no fact--> ONE re-invite --10s--> warm move-on.
-                    if light["state"] == "invited" and time.time() - light["ts"] > LIGHT_WAIT:
-                        light["state"] = "reinvited"; light["ts"] = time.time()
-                        print("[LIGHT] no shrug -> ONE re-invite", flush=True)
-                        try: await oai.send_json({"type": "response.create", "response": {"instructions":
-                            "Gently invite the shoulder shrug ONE more time — one short warm line, zero pressure."}})
-                        except Exception: pass
-                        continue
-                    if light["state"] == "reinvited" and time.time() - light["ts"] > LIGHT_WAIT:
-                        light["state"] = "done"; light["ever"] = True    # #4 lock the light for the session
-                        print("[LIGHT] invited -> moved-on", flush=True)
-                        try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"[LIGHT] moved-on\n")
-                        except Exception: pass
-                        try: await oai.send_json({"type": "response.create", "response": {"instructions":
-                            "Warmly move on with ZERO fail-feel: say something like 'You've got star energy — let's just DANCE!' "
-                            "then offer the games: Freeze, Wave, or Up Groove."}})
-                        except Exception: pass
-                        continue
+                    # INTRO-V2V (2026-09-14): the two light re-invite timers that used to live
+                    # here are DELETED. The page owns the light beat now — it arms on the name
+                    # event and ends in a real FACT or a RELEASE cue — so the brain firing its
+                    # own 10s and 20s re-invites on top meant three producers talking at once,
+                    # in English, over a child who was still answering.
                     quiet = time.time() - turn["kid_ts"]
                     if quiet >= SILENCE_RETRY_S and not turn["retried"]:
                         turn["retried"] = True
-                        print("[TURN-GATE] silence %.0fs -> ONE gentle retry" % quiet, flush=True)
-                        try:
-                            await oai.send_json({"type": "response.create", "response": {
-                                "instructions": ("The kid has been quiet for a bit. Say ONE tiny warm line "
-                                                 "that you're here whenever they're ready — under 8 words. "
-                                                 "NEVER use a name unless they already gave one, NEVER invite "
-                                                 "a move or warm-up, never repeat a line you already said.")}})
-                        except Exception as e:
-                            print("[TURN-GATE] retry err", e, flush=True)
+                        # FALSE-PRAISE FIX (2026-09-17). This used to describe a line and let
+                        # her improvise it. On the founder's session she improvised
+                        # "יופי, תחזיק רגע ככה" — "Great, hold it like that" — praising a
+                        # shoulder raise that never happened, and the page had to send a
+                        # correction ("nobody raised the shoulder"). [ORIGIN] auto: her own
+                        # words. INTRO-V2V hardened success() and the 20s release() so neither
+                        # can claim a win, but this third path was still free improvisation and
+                        # the persona's TRUTH LAW alone did not hold it.
+                        # Now she says a PRODUCER-WORDED line verbatim — there is no room left
+                        # to invent a thing she saw — plus the release path's explicit ban.
+                        _re_en, _re_he = REINVITE_LINES[turn["reinvite_i"] % len(REINVITE_LINES)]
+                        turn["reinvite_i"] += 1
+                        print("[TURN-GATE] silence %.0fs -> ONE gentle retry (verbatim): %s"
+                              % (quiet, _re_he if _hebrew else _re_en), flush=True)
+                        # PRODUCER-SILENT: 13s of silence with no turn IS a boundary — there is
+                        # no flow to break — and this is the one path the spec keeps as speech.
+                        # It stays VERBATIM (v1.0.7): the producer's words, not her improvisation.
+                        await boundary_open("13s-silence")
+                        await speak_now(
+                            verbatim=(_re_he if _hebrew else _re_en), origin="reinvite",
+                            extra=_instr(
+                              "Do not add one word. You have NOT seen the child do anything: "
+                              "never praise, never say you saw or noticed something, never "
+                              "say to hold or keep going, never mention a shoulder, a light "
+                              "or a game, and never use a name.",
+                              "אל תוסיפי אף מילה. לא ראית את הילד עושה שום דבר: אף פעם אל "
+                              "תחמיאי, אל תגידי שראית או שמת לב למשהו, אל תגידי להחזיק או "
+                              "להמשיך, אל תזכירי כתף, אור או משחק, ואל תשתמשי בשם."))
+                        # this IS her asking again — re-lock so it can fire only once per silence
+                        ask_lock_set("re-invite")
             silwatch = asyncio.create_task(silence_watch())
 
             # QUEUED STAGED LINES (MACHINE-CERTIFY en-4): nova-say lines that arrived while
@@ -561,9 +800,15 @@ async def relay(request):
             async def say_flush():
                 while True:
                     await asyncio.sleep(0.4)
+                    # PRODUCER-SILENT pump: a boundary that opened while she was mid-line (or
+                    # while the engine was still draining) drains here the moment she idles.
+                    # The boundary stays open until exactly one line has gone out, so a line
+                    # is deferred, never dropped, and never lands on top of her own voice.
+                    await speak_pump()
                     if not saylater: continue
                     if hold["on"]: saylater.clear(); continue          # paused game: staged lines die
                     if sgate["on"]: continue   # mid-game (air OR hold): staged lines wait for the ending
+                    if ask_lock["on"]: continue   # WAIT LAW: she asked — nothing airs until he answers
                     # kid just spoke: HER REPLY airs first. 2.5s (was 5.0, he-7): with the
                     # transcript race her one-shot goes resp_active well inside 2.5s, and the
                     # 5s pause starved the ending trio out of the session's final window.
@@ -572,16 +817,13 @@ async def relay(request):
                     if time.time() - speaking["last_chunk"] < 0.8: continue   # engine still draining
                     line = saylater.pop(0)
                     if line.lower() in spoken: continue
-                    spoken.add(line.lower())
-                    try:
-                        resp["origin"] = "say"; sayenf["line"] = line
-                        await oai.send_json({"type": "response.create", "response": say_resp(line)})
-                        print("PITCH say (flushed):", line[:60], flush=True)
-                    except Exception as e:
-                        print("PITCH flush err", e, flush=True)
+                    # PRODUCER-SILENT: a staged exact line is still speech — it goes out through
+                    # speak_now, so it waits for a boundary like everything else.
+                    print("PITCH say (flushed):", line[:60], flush=True)
+                    await speak_now(verbatim=line, origin="say")
             sayflush_task = asyncio.create_task(say_flush())
 
-            async def kid_transcript(ktxt, src, n):
+            async def kid_transcript(ktxt, src, n, item_id=None):
                 # TRANSCRIPT-RACE: first transcript per utterance wins; the loser is a no-op.
                 if n in utt["handled"]:
                     return
@@ -609,10 +851,27 @@ async def relay(request):
                     _drop = None                     # real single-word answers are turns
                 elif (inlock["valid_turns"] == 0 and len(_words) == 1
                       and (ktxt[:1].isupper() or _hebrew) and len(_words[0]) >= 2 and _words[0].lower() not in
-                      ("wow", "what", "cool", "nice", "hello")):
+                      ("wow", "what", "cool", "nice", "hello",
+                       # Nephew test 2026-09-13: a mis-heard name became "דוב" and she
+                       # anchored on it ("bear! when a bear dances..."). Game/app words are
+                       # far likelier mishears than names — never accept one AS the name.
+                       "דוב", "כוכב", "פלמינגו", "צפרדע", "פסל", "קפוא", "נובה", "גל",
+                       "פריז", "מוזיקה", "ריקוד", "משחק")):
                     _drop = None                     # name beat: name-shaped token (Hebrew has no case)
                 else:
                     _drop = "sub-2-word"
+                # F1-ADAPT (nephew hotfix 2026-09-13): HEBREW SCRIPT GATE. The language pin
+                # was already on BOTH transcribers, yet the live kid test still produced
+                # Chinese/Russian/Arabic/English hallucinations on room noise + game music,
+                # and each one validated a fake turn ("Thank you." = 2 words = a turn).
+                # In Hebrew mode a transcript with ZERO Hebrew letters is mis-heard noise,
+                # not speech (STICKY-HEBREW's own reasoning) — drop it. Single-word
+                # sound-alike yes-words (can/ken/ok...) stay valid: that's a real kid's כן.
+                if _hebrew and _drop is None:
+                    if not _re.search(r"[א-ת]", ktxt) and not (len(_words) == 1 and _words[0].lower() in (
+                            "yes", "yeah", "yep", "no", "ok", "okay", "ready", "sure", "hi", "hey",
+                            "done", "bye", "can", "ken", "cane", "kein")):
+                        _drop = "he-script"
                 # RACE POLICY: the REST racer may only ACCEPT a turn, never reject one.
                 # Its transcript of a VAD slice can be junk (probe: "아." for a half
                 # phrase) — a junk win must NOT consume the utterance; the realtime
@@ -625,6 +884,15 @@ async def relay(request):
                     print("[RACE] rest transcript won utt", n, ":", ktxt[:40], flush=True)
                 if _drop:
                     print("[INPUT-LOCK] dropped:", _drop, "|", ktxt[:30], flush=True)
+                    # Nephew test 2026-09-13: a DROPPED turn still sat in the conversation
+                    # history (the API commits the audio item regardless), so a later auto
+                    # line answered it — in Russian. Purge the item so dropped noise can
+                    # never steer her.
+                    if item_id:
+                        try:
+                            await oai.send_json({"type": "conversation.item.delete", "item_id": item_id})
+                            print("[INPUT-LOCK] context purged:", item_id, flush=True)
+                        except Exception: pass
                     try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"[INPUT-LOCK] dropped ("+_drop+"): "+ktxt[:60]+"\n")
                     except Exception: pass
                 else:
@@ -632,6 +900,7 @@ async def relay(request):
                     inlock["valid_turns"] += 1
                     turn["kid_ts"] = time.time(); turn["retried"] = False
                     kidinput["ts"] = time.time()
+                    await ask_lock_clear("turn")      # he answered — the producer may speak again
                     # KID OUTRANKS THE QUEUE (en-10, refined he-3): clearing the
                     # queue killed the trio's score line when the kid answered fast.
                     # Now the flush just PAUSES around a kid turn (say_flush skips
@@ -649,18 +918,42 @@ async def relay(request):
                     if sgate["on"]:
                         print("[SPEAK-GATE] kid turn stored, no reply (game phase)", flush=True)
                     else:
-                        try:
-                            resp["origin"] = "kid"
-                            await oai.send_json({"type": "response.create"})
-                            print("[INPUT-LOCK] one-shot fired for turn", inlock["valid_turns"], flush=True)
-                        except Exception as _e:
-                            print("[INPUT-LOCK] fire err", _e, flush=True)
+                        # PRODUCER-SILENT: the kid's finished turn IS the boundary — this is the
+                        # natural moment speech belongs to, and everything the producer remembered
+                        # while he was talking (cues, facts) is already in her context, so this
+                        # one bare generation carries it.
+                        # pump=False: this boundary belongs to HER ANSWER TO THIS CHILD. A
+                        # producer line that queued earlier must not jump in front of it.
+                        await boundary_open("kid-turn", pump=False)
+                        print("[INPUT-LOCK] one-shot fired for turn", inlock["valid_turns"], flush=True)
+                        await speak_now(bare=True, origin="kid")
 
             async def rest_transcribe(audio, n):
                 # TRANSCRIPT-RACE: our own transcription of the tapped utterance (same model).
                 print("[RACE] rest start utt", n, flush=True)
                 try:
                     import io as _io
+                    # MIC LEVEL + BOOST (nephew test round 3, 2026-09-13). The transcriber
+                    # returned EMPTY for 8 of 9 real utterances (0.9-3.7s of audio each) and
+                    # answered the rest with stock hallucinations — "Oh, I'm really quiet.",
+                    # "Hi, this is the", はい。, พอแอมเมลทา. That is the signature of audio that
+                    # is too QUIET, not of a language problem: Whisper-family models return
+                    # nothing or invent filler when the speech sits near the noise floor. A kid
+                    # dancing two metres from a laptop mic, over music, lands exactly there.
+                    # Normalize quiet utterances up before transcribing, and always log the peak
+                    # so the room itself can be judged from the evidence.
+                    import array as _array
+                    _pcm = _array.array("h"); _pcm.frombytes(audio[:len(audio) // 2 * 2])
+                    _peak = max((abs(v) for v in _pcm), default=0)
+                    _gain = 1.0
+                    if 0 < _peak < 22000:
+                        _gain = min(8.0, 22000.0 / _peak)
+                        for _i in range(len(_pcm)):
+                            _v = int(_pcm[_i] * _gain)
+                            _pcm[_i] = 32767 if _v > 32767 else (-32768 if _v < -32768 else _v)
+                        audio = _pcm.tobytes()
+                    print("[MIC-LEVEL] utt %d peak %d (%.0f%% full scale) boost x%.1f" %
+                          (n, _peak, _peak / 327.67, _gain), flush=True)
                     bio = _io.BytesIO()
                     with wave.open(bio, "wb") as w:
                         w.setnchannels(1); w.setsampwidth(2); w.setframerate(24000)
@@ -668,7 +961,13 @@ async def relay(request):
                     def _form():
                         f = aiohttp.FormData()
                         f.add_field("file", bio.getvalue(), filename="utt.wav", content_type="audio/wav")
-                        f.add_field("model", "gpt-4o-mini-transcribe")
+                        # NO transcription `prompt` hint here, ever. A vocabulary hint was added
+                        # 2026-09-14 to help with Hebrew kid speech; on near-silent audio the
+                        # model does not transcribe, it PARROTS THE PROMPT BACK — the founder's
+                        # log shows two of his turns returning the word list verbatim, which then
+                        # validated as real kid turns. A quiet mic must produce silence, not a
+                        # sentence. (The model upgrade mini -> full stays; only the hint is gone.)
+                        f.add_field("model", "gpt-4o-transcribe")
                         f.add_field("language", "he" if _hebrew else "en")
                         return f
                     async with aiohttp.ClientSession() as _s:
@@ -696,19 +995,29 @@ async def relay(request):
                     # every one of these paths calls response.create, so a typed message, a queued
                     # cue or a late freeze-fact still made her talk through a paused game. A pause
                     # must silence ALL speech-producing input, not just the microphone.
-                    if hold["on"] and t in ("text", "nova-say", "nova-cue", "nova-fact"):
+                    # PRODUCER-SILENT: a pause silences her MOUTH, not her MEMORY. Cues and facts
+                    # can no longer speak, so there is nothing left to gag — and a fact dropped
+                    # here is a fact she will later be missing. Only speech-buying messages
+                    # (typed input, exact staged lines) are still dropped while paused.
+                    if hold["on"] and t in ("text", "nova-say"):
                         print("[HOLD] dropped while paused:", t, flush=True)
                         continue
-                    # SPEAK-GATE: speech-REQUESTING messages are dropped during the game phase;
-                    # nova-fact deliberately NOT in this list — it is recorded below as silent
-                    # ending-fuel (its response.create is separately blocked at response.created).
-                    if sgate["on"] and t in ("nova-say", "nova-cue"):
+                    # SPEAK-GATE: exact staged lines are the page BUYING one line per gap in air
+                    # mode, and are refused outright in a hard hold. Cues and facts are notes now
+                    # — they always land (a credited cue may ride the gap; see the nova-cue arm).
+                    if sgate["on"] and t == "nova-say":
                         if sgate["mode"] == "air":
                             sgate["credit"] = 1     # this gap's ONE allowed line
                             print("[SPEAK-GATE] air line credited:", t, flush=True)
+                            # The page buying a line for THIS GAP is the page reporting a
+                            # section boundary — that is what a gap is.
+                            await boundary_open("air-credit")
                         else:
                             print("[SPEAK-GATE] dropped speech request:", t, flush=True)
                             continue
+                    if sgate["on"] and t == "nova-cue" and sgate["mode"] == "air":
+                        sgate["credit"] = 1         # this gap's ONE allowed line
+                        print("[SPEAK-GATE] air line credited:", t, flush=True)
                     if t == "audio":
                         mic_stats["n"] += 1; mic_stats["bytes"] += len(m.get("data", ""))
                         if mic_stats["n"] % 50 == 0:
@@ -719,26 +1028,69 @@ async def relay(request):
                             continue
                         if hold["on"]:      # PAUSE (2026-08-04): game is paused — she must not hear
                             continue
-                        try: kidbuf.extend(base64.b64decode(m["data"]))   # TRANSCRIPT-RACE tap
+                        # LIVE MIC GAIN (2026-09-15). The 2026-09-14 boost only lifted the REST
+                        # racer's private copy; the stream that reaches OpenAI — the one its VAD
+                        # listens to, and the one that decides whether the child is speaking at
+                        # all — was still raw. The founder's room measures 8-16% of full scale,
+                        # so speech_started fired ONCE in a whole session: she genuinely could
+                        # not tell he was talking. Lift the live stream by the same envelope,
+                        # then the VAD threshold (0.35) means what it was tuned to mean.
+                        _b64 = m["data"]
+                        try:
+                            _raw = base64.b64decode(_b64)
+                            _p = _audioop.max(_raw, 2) if _audioop else 0
+                            if _p:
+                                # slow-decaying peak envelope: tracks the room, ignores one loud thump
+                                micgain["env"] = max(micgain["env"] * 0.97, _p)
+                                _g = min(MIC_GAIN_MAX, MIC_TARGET / max(micgain["env"], 400))
+                                if _g > 1.15:
+                                    _raw = _audioop.mul(_raw, 2, _g)
+                                    _b64 = base64.b64encode(_raw).decode()
+                                micgain["g"] = _g
+                            micgain["n"] += 1
+                            if micgain["n"] % 100 == 0:
+                                print("[MIC-GAIN] envelope %d (%.0f%% full scale) live boost x%.1f"
+                                      % (micgain["env"], micgain["env"] / 327.67, micgain["g"]), flush=True)
+                        except Exception as _e:
+                            _raw = None
+                            if micgain["n"] < 3: print("[MIC-GAIN] err", str(_e)[:60], flush=True)
+                        try: kidbuf.extend(_raw if _raw is not None else base64.b64decode(_b64))
                         except Exception: pass
-                        await oai.send_json({"type": "input_audio_buffer.append", "audio": m["data"]})
+                        await oai.send_json({"type": "input_audio_buffer.append", "audio": _b64})
                     elif t == "text":
                         if is_garble(m.get("text", "")):                        # #4 GARBLE: ignore typed nonsense too
                             print("[GARBLE] ignored (typed):", (m.get("text","")[:20]), flush=True); continue
                         turn["kid_ts"] = time.time(); turn["retried"] = False   # TURN-GATE: real input
                         kidinput["ts"] = time.time()
+                        await ask_lock_clear("tap")             # typing IS answering — WAIT LAW satisfied
                         if YES_RE.search(m.get("text", "")):                     # #5 CONSENT: typed yes counts
                             consent["yes_ts"] = time.time(); print("[CONSENT] real yes (typed)", flush=True)
-                        await oai.send_json({"type": "conversation.item.create", "item": {
-                            "type": "message", "role": "user",
-                            "content": [{"type": "input_text", "text": m["text"]}]}})
-                        await oai.send_json({"type": "response.create"})
+                        # PRODUCER-SILENT: the typed words are the CHILD's, so they enter memory
+                        # as a user message; the tap itself is the boundary that lets her answer.
+                        await remember(m["text"], role="user")
+                        await boundary_open("tap", pump=False)     # her answer to HIM owns this one
+                        await speak_now(bare=True, origin="kid")
                         await ws_client.send_json({"type": "you_text", "text": m["text"]})
+                        # TYPED-INPUT EVIDENCE (2026-09-17). The voice path has logged its
+                        # transcript to convo.log since forever; the TYPED path logged nothing.
+                        # So when the founder typed his name and she answered "רפחי" instead of
+                        # "רפי", there was no way to tell whether the text arrived mangled or she
+                        # mis-rendered it — the text is forwarded verbatim above, so nothing in
+                        # this file can corrupt it, and the log was the only missing witness.
+                        # Now a typed turn leaves the same trail a spoken one does.
+                        try: open("/workspace/convo.log","a",encoding="utf-8").write(
+                            time.strftime("%H:%M:%S ")+"KID:  "+m["text"]+"   [typed]\n")
+                        except Exception: pass
+                        print("[TYPED] kid text:", m["text"][:60], flush=True)
                     elif t == "nova-say":
                         line = (m.get("text") or "").strip()
+                        if ask_lock["on"] and line and not sgate["on"]:
+                            saylater.append(line)                # WAIT LAW: stage it, say_flush airs it after his turn
+                            print("[ASK-LOCK] queued nova-say:", line[:50], flush=True)
+                            continue
                         if line and line.lower() in spoken:      # #6 DE-CAN: never the same line twice
                             print("[DE-CAN] dropped duplicate staged line:", line[:50], flush=True)
-                        elif (line and not speaking["resp_active"] and not speaking["v"]
+                        elif (line and boundary["on"] and not speaking["resp_active"] and not speaking["v"]
                               and time.time() - kidinput["ts"] > 2.5
                               and time.time() - speaking["last_chunk"] > 0.8):
                             # he-6 guards on the direct path: a staged line sent while the
@@ -748,10 +1100,12 @@ async def relay(request):
                             # a settled channel — recent kid input or a draining engine
                             # queues the line instead. (he-7 proved full queueing starves
                             # the trio and floats air credits — direct stays the fast path.)
-                            spoken.add(line.lower())
-                            resp["origin"] = "say"; sayenf["line"] = line
-                            await oai.send_json({"type": "response.create", "response": say_resp(line)})
+                            # PRODUCER-SILENT: an exact staged line is the page BUYING speech at
+                            # a boundary it owns (a gap, a section end, the ending trio). It goes
+                            # out through the one speech verb; if the boundary closed under it,
+                            # speak_now queues it instead of talking over her.
                             print("PITCH say:", line, flush=True)
+                            await speak_now(verbatim=line, origin="say")
                         elif line:
                             # QUEUE, don't drop (MACHINE-CERTIFY en-4): the ending trio's
                             # score line + fun question arrived while the final verdict was
@@ -766,23 +1120,40 @@ async def relay(request):
                     elif t == "nova-cue":
                         intent = (m.get("intent") or "").strip()
                         ctx = (m.get("ctx") or "").strip()
-                        # #5 CONSENT=REAL YES: an ADVANCE cue (countdown/start/next round) only fires
-                        # after a real yes (voice) or a detected move in the last 8s; else HOLD + log.
+                        if not intent:
+                            continue
+                        # ═══ PRODUCER-SILENT: A CUE IS A NOTE, NOT AN ORDER TO SPEAK ═══
+                        # This was the loudest of the 14 speak-sites: a page cue fired a
+                        # response.create into whatever she was doing — mid-sentence, mid-wait,
+                        # over a child who was still answering — which is why the intro needed an
+                        # ASK-LOCK, a cue rate-limit and a queue just to survive itself. The cue
+                        # text now goes into CONTEXT and she uses it when she next speaks. The
+                        # lock, the limit and the queue all become unnecessary: silent context
+                        # can never talk over anyone.
+                        _note = "[director] " + intent + ((" Facts you may use: " + ctx) if ctx else "")
+                        _note += (" Use this when you NEXT speak — never read it aloud, never "
+                                  "repeat it word for word, and never treat it as something the "
+                                  "child said or did.")
+                        if _hebrew:
+                            # 2026-09-07: cues arrive in ENGLISH even in a Hebrew session — what
+                            # is written is only the MEANING; her spoken words stay Hebrew.
+                            _note += (" מה שכתוב כאן הוא רק המשמעות — כשתדברי, דברי עברית בלבד, "
+                                      "בלי אף מילה באנגלית.")
+                        await remember(_note)
+                        # #5 CONSENT=REAL YES: an ADVANCE cue (countdown/start/next round) still
+                        # may not ADVANCE the game without a real yes or a detected move — but it
+                        # is now a note either way, so the hold costs her nothing.
                         _is_adv = bool(_re.search(r"countdown|3.?2.?1|\bstart\b|\bbegin\b|next round|let'?s play|here we go|freeze dance|go time|are you ready", (intent + " " + ctx), _re.I))
                         _recent_yes = (time.time() - consent["yes_ts"] <= 8.0) or (time.time() - facts["last_ts"] <= 8.0)
                         if _is_adv and not _recent_yes:
                             print("[CONSENT] waiting — advance cue held (no yes/move):", intent[:50], flush=True)
-                        elif intent and (time.time() - inlock.get("last_cue_resp", 0.0) < 8.0) and not (sgate["on"] and sgate["mode"] == "air"):
-                            # CUE RATE-LIMIT (founder 2026-08-11: page cues machine-gunned her
-                            # into 3-line chains): one spoken cue per 6s; extras become
-                            # silent context so she still KNOWS, she just doesn't SPEAK.
-                            print("[CUE-LIMIT] context-only:", intent[:50], flush=True)
-                            try:
-                                await oai.send_json({"type": "conversation.item.create", "item": {
-                                    "type": "message", "role": "system",
-                                    "content": [{"type": "input_text", "text": "[context] " + intent + (" " + ctx if ctx else "")}]}})
-                            except Exception: pass
-                        elif intent and not speaking["resp_active"] and not speaking["v"]:
+                            continue
+                        # MID-GAME EXCEPTION (the one place a cue may still buy a line, flagged in
+                        # the session report): in AIR mode the page has already PAID for exactly one
+                        # line in this gap — that purchase IS the section boundary, and the gap
+                        # lines of the shipped Freeze game are cue-driven. Everywhere else a cue is
+                        # silent. Delete this branch and mid-game cue speech stops entirely.
+                        if sgate["on"] and sgate["mode"] == "air" and sgate["credit"] > 0:
                             inlock["last_cue_resp"] = time.time()
                             _cue_resp = {
                                 "instructions": (
@@ -801,13 +1172,10 @@ async def relay(request):
                                     + "kid-safe words only, very short.")}
                             # MID-GAME TOKEN CAP (MACHINE-CERTIFY en-5): air-mode cue lines are
                             # physically capped — a model that ignores "very short" simply runs out.
-                            if sgate["on"] and sgate["mode"] == "air":
-                                _cue_resp["max_output_tokens"] = 40
-                            resp["origin"] = "cue:" + intent.split(":")[0]
-                            await oai.send_json({"type": "response.create", "response": _cue_resp})
-                            print("PITCH cue:", intent[:70], "| ctx:", ctx[:70], flush=True)
-                        else:
-                            print("PITCH cue skip (busy):", intent[:40], flush=True)
+                            print("PITCH cue (air-credit):", intent[:70], "| ctx:", ctx[:70], flush=True)
+                            await boundary_open("air-credit")
+                            await speak_now(instructions=_cue_resp["instructions"], cap=40,
+                                            origin="cue:" + intent.split(":")[0])
                     elif t == "persona":
                         ptext = (m.get("text") or "").strip()
                         if ptext:
@@ -825,7 +1193,7 @@ async def relay(request):
                                 print("PERSONA append (legacy):", ptext[:60], flush=True)
                             # HEBREW MODE survives every persona swap — without this, the
                             # game-mode replace silently flipped her back to English mid-game.
-                            if _hebrew: instr += HEBREW_RULES
+                            if _hebrew: instr += HEBREW_RULES + gender_line(_gender)
                             # "type": "realtime" is REQUIRED on session.update in this API version.
                             # Omitting it made the update fail silently (logged only as "OAI: error"),
                             # so the persona never applied and she kept answering out of context.
@@ -846,9 +1214,15 @@ async def relay(request):
                                 continue
                             game_mode["applied"] = ptext
                     elif t == "nova-fact":
-                        # TRUTH-GATE: a REAL detected move arrived. Record it (opens the
-                        # window in which move-praise is legitimate) and fire the ONE
-                        # sanctioned praise line. This is the only path that praises a move.
+                        # TRUTH-GATE: a REAL detected move arrived. Record it (opens the window
+                        # in which move-praise is legitimate) and REMEMBER it — always, in every
+                        # phase. PRODUCER-SILENT: this used to fire a praise line straight into
+                        # whatever she was doing, and mid-game (speak-gate on) it did the opposite
+                        # — the fact was dropped on the floor and never reached her at all, so she
+                        # did not merely stay quiet about the move, she never learned it happened.
+                        # That is the gap she filled by inventing one. The page owns the INSTANT
+                        # reaction (the light, the sting); her words come at the next boundary,
+                        # carrying a fact she was actually told.
                         move = (m.get("move") or "").strip().lower()
                         if move:
                             facts["last_ts"] = time.time(); facts["moves"].append(move)
@@ -859,18 +1233,12 @@ async def relay(request):
                             if "freeze" in move or "held" in move or "still" in move:  # #3/#5 real hold arrived
                                 if statue["active"]: statue["active"] = False; print("[STATUE] hold-fact -> celebrate", flush=True)
                             print("[FACT] detected move:", move, flush=True)
-                            if sgate["on"]:
-                                # SPEAK-GATE: fact recorded as silent ending-fuel — no praise line now
-                                print("[SPEAK-GATE] fact stored silently (no praise):", move, flush=True)
-                            elif not speaking["resp_active"] and not speaking["v"]:
-                                await oai.send_json({"type": "response.create", "response": {
-                                    "instructions": (
-                                        "[FACT — this really happened] The kid just did a real move: " + move
-                                        + ". Celebrate THAT exact move ONCE, big, by name, in one short warm "
-                                          "line, then lead straight on. Do not mention any other move.")}})
-                                print("[TRUTH-GATE] sanctioned praise for:", move, flush=True)
-                            else:
-                                print("[TURN-GATE] praise held (busy) for:", move, flush=True)
+                            await remember(
+                                "[FACT — this really happened, you were told, you did not guess] "
+                                "The child just did a real move: " + move + " at "
+                                + time.strftime("%H:%M:%S") + ". Mention THAT exact move by name "
+                                "when you next speak, once, warmly — then lead straight on. Never "
+                                "mention any other move, and never say you saw anything else.")
                     elif t == "hold":
                         # PAUSE (2026-08-04, ERROR 3). Pausing used to dim the screen and stop the
                         # music while Nova kept listening and talking — the page comment even said
@@ -882,10 +1250,7 @@ async def relay(request):
                             # only cancel if something is actually speaking, else the API logs
                             # response_cancel_not_active noise on every pause
                             if speaking["resp_active"] or speaking["v"]:
-                                try:
-                                    await oai.send_json({"type": "response.cancel"})
-                                except Exception:
-                                    pass
+                                await cancel_speech("pause (a paused game must go quiet)")
                             try:    # drop whatever the mic already buffered so it can't fire on resume
                                 await oai.send_json({"type": "input_audio_buffer.clear"})
                             except Exception:
@@ -902,16 +1267,24 @@ async def relay(request):
                         sgate["mode"] = (m.get("mode") or "hard") if sgate["on"] else "hard"
                         sgate["credit"] = 0
                         if sgate["on"] and sgate["mode"] == "hard" and (speaking["resp_active"] or speaking["v"]):
-                            try: await oai.send_json({"type": "response.cancel"})
-                            except Exception: pass
+                            await cancel_speech("hard speak-gate (freeze hold opened)")
                         print("[SPEAK-GATE]", ("ON (" + sgate["mode"] + ") - engine audio blocked") if sgate["on"]
                               else "OFF - voice open (intro/ending)", flush=True)
+                        # PRODUCER-SILENT: the speak-gate going OFF is the page reporting a SECTION
+                        # END (the game is over, the ending has the floor). That is a boundary —
+                        # and the one boundary allowed to drain a whole staged group, so the
+                        # ending trio cannot starve behind the one-line rule.
+                        if not sgate["on"]:
+                            await remember("[phase] The game section just ended. The ending has the "
+                                           "floor now — speak only the lines you are given.")
+                            await boundary_open("phase-end")
                         try: await ws_client.send_json({"type": "ack", "of": "speak_gate"})
                         except Exception: pass
                     elif t == "nova-pick":
                         # Readiness beat for the chosen game (a real tap = real kid input).
                         game = (m.get("game") or "").strip().lower().replace("-", " ")
                         turn["kid_ts"] = time.time(); turn["retried"] = False; kidinput["ts"] = time.time()
+                        await ask_lock_clear("tap")             # picking a game IS answering
                         print("[PICK]", game, flush=True)
                         # ACK 2026-08-05: the page retries until it hears this. Without an ack a
                         # dropped message is indistinguishable from a delivered one.
@@ -935,34 +1308,38 @@ async def relay(request):
                                 await oai.send_json({"type": "session.update", "session": {
                                     "type": "realtime",
                                     "instructions": CORE_LAWS + "\n\n" + game_mode["persona"]
-                                                    + (HEBREW_RULES if _hebrew else "")}})
+                                                    + ((HEBREW_RULES + gender_line(_gender)) if _hebrew else "")}})
                                 print("[PICK] session switched to game-mode persona", flush=True)
                             except Exception as _e:
                                 print("[PICK] session switch failed:", _e, flush=True)
-                        if speaking["resp_active"] or speaking["v"]:
-                            print("[TURN-GATE] readiness held (busy):", game, flush=True)
-                        elif game == "freeze":
+                        # PRODUCER-SILENT: the pick is first a PHASE FACT she must know. The tap
+                        # is also a boundary (the child just acted), so one line may follow it.
+                        await remember("[phase] The child just picked the game: " + game
+                                       + ". That is the game you are in now — never offer another one.")
+                        if game == "freeze":
                             # V2 2026-08-07: mode switch ONLY - no spoken line. The greet already asked
                             # "Ready?"; a second "show me a FREEZE" made the intro long and off-game.
                             # Demo gestures and every round-call belong to the PAGE now.
                             print("[PICK] freeze: silent mode-switch", flush=True)
                         elif game in ("wave", "up groove", "upgroove", "groove"):
-                            await oai.send_json({"type": "response.create", "response": {
-                                "instructions": ("The kid picked " + game + ". In ONE short line ask them: "
-                                                 "can you lift a hand UP? Then wait for them to do it.")}})
+                            await boundary_open("tap")
+                            await speak_now(origin="pick", instructions=(
+                                "The kid picked " + game + ". In ONE short line ask them: "
+                                "can you lift a hand UP? Then wait for them to do it."))
                         else:
                             print("[PICK] unknown game, ignored:", game, flush=True)
                     elif t == "game-start":
                         # V2 2026-08-07: the page reports the EXACT music-start moment. One 3-word
                         # burst, then in-game silence until cued. Skip the line if she's mid-speech.
                         print("[GAME-START] music running - in-game mode", flush=True)
-                        if not (speaking["resp_active"] or speaking["v"]):
-                            try:
-                                await oai.send_json({"type": "response.create", "response": {"instructions":
-                                    "The music just started! Shout ONE excited burst, three words max, "
-                                    "like: Dance dance dance! Then stay silent until told what happens."}})
-                            except Exception as _e:
-                                print("[GAME-START] err", _e, flush=True)
+                        # PRODUCER-SILENT: the phase fact is remembered; the page reporting the
+                        # music start IS the section boundary, so ONE burst may ride on it.
+                        await remember("[phase] The music just started — the game is running. "
+                                       "From now on stay silent unless you are told something.")
+                        await boundary_open("game-start")
+                        await speak_now(origin="game-start", instructions=(
+                            "The music just started! Shout ONE excited burst, three words max, "
+                            "like: Dance dance dance! Then stay silent until told what happens."))
                     elif t == "bye": break
                 try: await oai.close()
                 except Exception: pass
@@ -1025,10 +1402,11 @@ async def relay(request):
                         # the moment it forms, any phase — SAY-ENFORCE then requeues the real line.
                         if (not resp["killed"]) and _re.match(
                                 r"\s*(i'?m sorry|i can'?t|i cannot|sorry,|מצטערת|אני לא יכולה)", resp["buf"], _re.I):
+                            # PRODUCER-SILENT: no cancel here any more — a started line finishes.
+                            # killed=True is what protects the child: every audio delta is buffered
+                            # pre-synthesis, so a killed line never reaches the engine or the page.
                             resp["killed"] = True
-                            print("[REFUSAL-KILL] cancelled:", resp["buf"][:50], flush=True)
-                            try: await oai.send_json({"type": "response.cancel"})
-                            except Exception: pass
+                            print("[REFUSAL-KILL] killed (never aired):", resp["buf"][:50], flush=True)
                             audio_buf.clear()
                         # MIDGAME-BAN WATCHDOG (MACHINE-CERTIFY en-5): instructions alone flake —
                         # one session obeys "6 words, no questions", the next asks "Ready for the
@@ -1043,21 +1421,21 @@ async def relay(request):
                             _toolong = len(_buf.split()) > 6
                             if _banned or _toolong:
                                 resp["killed"] = True
-                                print("[MIDGAME-BAN] cancelled (%s): %s" %
+                                print("[MIDGAME-BAN] killed (%s): %s" %
                                       ("pattern:" + _banned.group(0) if _banned else ">8 words", _buf[:70]), flush=True)
-                                try: await oai.send_json({"type": "response.cancel"})
-                                except Exception: pass
                         # #6 NO-SELF-ANSWER: she is picking/confirming a game FOR the kid with no recent real input.
                         if (not resp["killed"]) and (time.time() - kidinput["ts"] > 6.0) and SELFANSWER_RE.search(resp["buf"]):
                             resp["killed"] = True
                             print("[CONSENT] blocked self-answer:", resp["buf"][:60], flush=True)
                             try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"[CONSENT] blocked self-answer: "+resp["buf"]+"\n")
                             except Exception: pass
-                            try:
-                                await oai.send_json({"type": "response.cancel"})
-                                await oai.send_json({"type": "response.create", "response": {"instructions":
-                                    "Do NOT pick a game yourself. Ask ONE short line: which game do you want — Freeze, Wave, or Up Groove? — then wait."}})
-                            except Exception: pass
+                            # PRODUCER-SILENT: the line is killed (never aired) and the correction
+                            # becomes a NOTE. She does not get re-ordered to speak on the spot —
+                            # she answers on her own next turn, knowing the rule.
+                            await remember(
+                                "[correction] You must never pick or confirm a game for the child. "
+                                "The child has NOT chosen or agreed to anything yet. When you next "
+                                "speak, ask once — do you want to play Freeze? — and then wait.")
                         # #1 TRUTH-GATE PRE-SYNTH (tightened 2026-08-11): praise-OPENING with no
                         # fact dies immediately — waiting for the move word lost the audio race
                         # (founder log: "You nailed that freeze" fully audible despite the block).
@@ -1071,13 +1449,12 @@ async def relay(request):
                             print("[TRUTH-GATE] pre-synth blocked (no fact):", resp["buf"][:70], flush=True)
                             try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"[TRUTH-GATE] pre-synth blocked: "+resp["buf"]+"\n")
                             except Exception: pass
-                            try:
-                                await oai.send_json({"type": "response.cancel"})
-                                hy = NEUTRAL_HYPE[hidx["i"] % len(NEUTRAL_HYPE)]; hidx["i"] += 1
-                                await oai.send_json({"type": "response.create", "response": {"instructions":
-                                    "Say EXACTLY this one short line, nothing else, no move-talk: " + hy}})
-                            except Exception as _e:
-                                print("[TRUTH-GATE] cancel err", _e, flush=True)
+                            # PRODUCER-SILENT: the invented claim is killed before synthesis (the
+                            # child never hears it) and the neutral replacement is a CORRECTION —
+                            # so it goes out verbatim, and only at a boundary. Never mid-line.
+                            hy = NEUTRAL_HYPE[hidx["i"] % len(NEUTRAL_HYPE)]; hidx["i"] += 1
+                            await speak_now(verbatim=hy, origin="truth-gate", extra=(
+                                "Say nothing about any move, and never say you saw anything."))
                         elif (not resp["killed"]) and (not sgate["on"]) and audio_buf and (
                               resp["buf"].rstrip()[-1:] in ".!?"
                               # FIRST-CLAUSE RELEASE (MACHINE-CERTIFY en-13): a fresh direct
@@ -1101,6 +1478,11 @@ async def relay(request):
                         _org = resp["origin"] or "auto"
                         resp["origin"] = None
                         print("[ORIGIN]", _org, "|", txt[:60], flush=True)
+                        # WAIT LAW: she just asked something -> nobody may speak into the gap
+                        # until the child answers. (Game phase runs on the director's clock,
+                        # where her cue lines are statements, so the lock is intro-only.)
+                        if not sgate["on"] and ASK_RE.search(txt.strip()):
+                            ask_lock_set("she asked")
                         # SAY-ENFORCE (he-9): staged exact line paraphrased -> requeue ONCE
                         # (intro/ending only: an extra ending line is legal, a gap line is not).
                         if _org == "say" and sayenf["line"]:
@@ -1140,12 +1522,13 @@ async def relay(request):
                         if low and low in spoken:
                             print("[DE-CAN] she repeated a line verbatim:", txt[:50], flush=True)
                         if low: spoken.add(low)
-                        # #1/#4 LIGHT: invite starts the clock — but ONCE per session, hard.
-                        if LIGHT_INVITE_RE.search(txt):
-                            if light["ever"]:
-                                print("[LIGHT] already-done (blocked re-trigger)", flush=True)
-                            elif light["state"] == "idle":
-                                light["state"] = "invited"; light["ts"] = time.time(); print("[LIGHT] invited", flush=True)
+                        # INTRO-V2V (2026-09-14): she used to ARM HER OWN TIMERS by speaking —
+                        # LIGHT_INVITE_RE matched her transcript and started the 10s/20s
+                        # re-invite clocks. The regex was English-only, so in a Hebrew session
+                        # it could never match and the beat could only ever come from a blind
+                        # 35s fallback in the page. The page owns the light beat entirely now
+                        # (ARM on the name, then a real FACT or a RELEASE), so the trigger and
+                        # its regex are gone.
                         # #5 STATUE: her freeze call-out closes her mouth until a hold-fact / move-on.
                         if FREEZE_CALL_RE.search(txt) and not statue["active"] and not _freeze_mode:
                             statue["active"] = True; statue["ts"] = time.time(); statue["whispered"] = False
@@ -1163,6 +1546,13 @@ async def relay(request):
                     elif et == "input_audio_buffer.speech_started":
                         turn["kid_ts"] = time.time(); turn["retried"] = False   # TURN-GATE: real voice
                         utt["n"] += 1; utt["start"] = max(0, len(kidbuf) - UTT_PREROLL)   # TRANSCRIPT-RACE
+                        # PRODUCER-SILENT: BARGE-IN is the one interruption a child is allowed to
+                        # make. NOTE (flagged for the founder, not a bug in this file): today the
+                        # ANTI-ECHO GATE discards every mic frame while she speaks, so OpenAI's VAD
+                        # cannot see a child talking over her and this branch cannot fire yet. It
+                        # goes live the moment the page sends echo-cancelled mic during her speech.
+                        if speaking["resp_active"] or speaking["v"]:
+                            await cancel_speech("barge-in (the child started speaking)")
                         if not speaking["v"]:
                             await ws_client.send_json({"type": "status", "hearing": True})
                     elif et == "input_audio_buffer.speech_stopped":
@@ -1180,20 +1570,18 @@ async def relay(request):
                             # SPEAK-GATE: uncredited generations die at birth (VAD auto-replies,
                             # late cues, fact praise). Air credit = the page's one line per gap.
                             print("[SPEAK-GATE] cancelled response (game phase)", flush=True)
-                            try: await oai.send_json({"type": "response.cancel"})
-                            except Exception: pass
+                            resp["killed"] = True      # belt: no audio may reach page or engine
+                            await cancel_speech("uncredited mid-game generation")
                         elif speaking["resp_active"]:
                             # single-active-response guard: a second response overlapping
                             # the first would give two voices — cancel the newcomer.
                             print("GATE: suppressed overlapping response", flush=True)
-                            try: await oai.send_json({"type": "response.cancel"})
-                            except Exception: pass
+                            await cancel_speech("second overlapping response (one mouth)")
                         elif statue["active"] and not statue["allow"]:
                             # #5 STATUE SILENCE: mouth CLOSED during the hold window — the silence IS
                             # the game. Cancel every line EXCEPT the one allowed whisper.
                             print("[STATUE] mouth-closed: cancelled a line during the hold window", flush=True)
-                            try: await oai.send_json({"type": "response.cancel"})
-                            except Exception: pass
+                            await cancel_speech("statue hold window (the silence IS the game)")
                         else:
                             if sgate["on"] and sgate["credit"] > 0:
                                 sgate["credit"] -= 1
@@ -1224,7 +1612,8 @@ async def relay(request):
                         # counter — a separate rt counter drifted from the rest one, so the fast
                         # rest result and the slow rt result got different dedup keys and the
                         # slow one still ran. completed refers to the most-recently-armed utt.
-                        await kid_transcript((e.get("transcript", "") or "").strip(), "rt", utt["n"])
+                        await kid_transcript((e.get("transcript", "") or "").strip(), "rt", utt["n"],
+                                             item_id=e.get("item_id"))
                     elif et == "conversation.item.input_audio_transcription.failed":
                         utt["handled"].add(utt["n"])   # dead utterance is not "pending" — unblocks the retry gate
                         print("[RACE] rt transcription failed for utt", utt["n"], flush=True)

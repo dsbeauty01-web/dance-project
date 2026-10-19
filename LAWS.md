@@ -71,12 +71,15 @@ black margins) for intro/end, `full` (full body) for the play corner.
 · **Files:** nova-commercial.html · **Added:** 2026-07-27 · **Why:** wrong
 framing = black margins or a cropped kid. See also `law-ambient` (pod-side).
 
-### law-shoulder — intro chit-chat gate
-On intro, Nova chit-chats first and does not fire the shoulder challenge for 25s;
-a 35s fallback fires it if the natural moment never comes. **Marker:**
-`__introChatT0`, `35s fallback` · **Files:** nova-commercial.html · **Added:**
-2026-07-27 · **Why:** firing too early skips the warm-up; never firing strands
-the intro.
+### law-shoulder — the shoulder beat is name-gated, never clock-gated
+Nothing reaches the brain before the child's name is captured. The beat arms on
+that event; the only clock left is one 45s no-name safety. A timeout never counts
+as a win — it releases, and she never claims she saw a shrug. **Marker:**
+`__introChatT0`, `nova-name-captured`, `45s no-name safety` · **Files:**
+nova-commercial.html · **Added:** 2026-07-27 · **Rewritten:** 2026-09-14
+(INTRO-V2V) · **Why:** the old 25s gate and 35s fallback fired on a clock, over a
+child who was still answering — and the third trigger was an English-only regex on
+her own transcript, so a Hebrew session could only ever reach the shoulder blind.
 
 ### law-mp4leads — Wave MP4 leads
 The `__mp4Leads` gate decides whether the live pitch-plan or the baked MP4 owns
@@ -108,6 +111,27 @@ black avatar panel reads as "broken". **Update (2026-07-28):** the `#v`
 letterbox → ambient fix is authored in `rt_lk.py` by the intro-brain session
 and deploys at the next pod restart. The nova-commercial frontend is already
 zero-black in all states (room-fill insurance + static Nova — verified headless).
+
+### law-producer-silent — the producer writes to her memory, never to her mouth
+Every producer input — cues, facts, picks, phase changes, corrections — enters her
+**context** silently (`remember` → `conversation.item.create`). Speech happens only
+through `speak_now` (`response.create`) and only at a **boundary**: a validated kid
+turn just ended · the page reported a hold/round/section END · a consent/tap arrived ·
+the greet at connect · 13s of silence with no turn. Mid-line, mid-wait, mid-hold:
+never. One line per boundary (the ending is the single exception — it drains its
+staged group, the en-4 lesson). `response.cancel` lives in one helper and fires for
+the child barging in, a pause, or a birth-gate — never to interrupt a legitimate line;
+the refusal / mid-game-ban / self-answer / truth-gate paths now KILL the line instead
+(`resp["killed"]`, which blocks the audio before synthesis, so the child hears
+nothing). **Marker:** `PRODUCER-SILENT`, `async def remember(`, `async def speak_now(`,
+`[BOUNDARY]`, `[REMEMBER]`, `you were told, you did not guess` · **Files:**
+pod/rt_lk.py · **Added:** 2026-09-18 · **Why:** the audit counted 14 speak-now sends
+against 3 remembers — every producer path forced speech into the middle of her flow,
+and mid-game a detected move was dropped entirely and never reached her at all, so she
+did not stay quiet about the move, she never learned it happened and invented one.
+The founder heard it on 2026-09-17: "hold it like that" to a child who had not moved.
+**The wall is a COUNT** (`tools/laws/law-producersilent.js`): a 15th `response.create`
+outside `_speak_send` turns the build red.
 
 ---
 
@@ -181,6 +205,19 @@ now rules, walled by `law-pods.js` over `tools/pod/launch_pod.sh` + `tools/pod/b
 10. **Verify progress, not vibes.** A boot is "progressing" only if `boot.log`
     grows **or** `nvidia-smi` memory climbs — checked **read-only**. Absence of
     output alone is never a death verdict inside the cold-load window.
+11. **A merge to main deploys the BRAIN too** (LAW-PODS-10-BRAINDEPLOY, 2026-09-18).
+    The volume's `deploy_from_git()` copied pages/shared/models/beta but **not**
+    `pod/rt_lk.py`, so "merge = deploy" was true for the pages and silently false
+    for the brain — every brain fix needed a manual scp, and the volume drifted.
+    The deploy step now lives in git (`tools/pod/deploy_from_git.sh`); boot.sh only
+    calls it, so changing the deploy never means hand-editing a volume again.
+    The step must: pull, copy the brain, keep `rt_lk.py.bak-predeploy`, back up (never
+    overwrite in silence) a hand-edited volume brain, log the md5 transition + write a
+    real diff to `/root/deploy-rtlk.diff`, and — if the brain is already running —
+    restart it with a health check and **roll back** if the new brain does not answer
+    `:8765`. **Marker:** `# LAW-PODS-10-BRAINDEPLOY` + `deploy_from_git.sh` called
+    from boot.sh. The old marker (`git -C /workspace/repo pull` in boot.sh) was not
+    deleted — the pull moved into the deploy step and is asserted there.
 
 **Queued (doc-only, no test — next session, NOT today):** `POD-IMAGE.md` — bake a
 Docker image with torch + CUDA + MuseTalk deps preinstalled; pods launch from the
@@ -237,7 +274,7 @@ law-autoplay   | active | nova-commercial.html,animal-freeze.html               
 law-truth      | active | nova-commercial.html                                    | TRUTH GATE
 law-transcript | active | nova-commercial.html                                    | nova-said ;; HEARD ;; tapLogBuffer
 law-frames     | active | nova-commercial.html                                    | __sarayFrameMode ;; __sarayFrameMode('full ;; __sarayFrameMode('closeup
-law-shoulder   | active | nova-commercial.html                                    | __introChatT0 ;; 35s fallback
+law-shoulder   | active | nova-commercial.html                                    | __introChatT0 ;; nova-name-captured
 law-mp4leads   | active | nova-commercial.html                                    | __mp4Leads ;; MP4_LEADS
 law-endings    | active | nova-commercial.html,animal-freeze.html,nova-ending.js  | nova-ending ;; NEVER a zero
 law-mirror     | active | nova-commercial.html                                    | MIRROR_MAP
@@ -245,9 +282,10 @@ law-onevoice   | active | nova-commercial.html                                  
 law-soft       | active | nova-commercial.html                                    | Never say wrong
 law-storage    | active | nova-commercial.html,nova-session-rec.js                | NovaRec
 law-consent    | active | nova-commercial.html                                    | A grown-up should read ;; תנאי שימוש
-law-pods       | active | tools/pod/launch_pod.sh,tools/pod/boot.sh               | "cloudType": "SECURE" ;; runpodctl stop pod ;; nohup sleep 6h ;; git -C /workspace/repo pull ;; NO-PKILL-WINDOW ;; LAW-PODS-7-TMUX ;; LAW-PODS-8-BRACKET ;; LAW-PODS-9-COLDLOAD
+law-pods       | active | tools/pod/launch_pod.sh,tools/pod/boot.sh,tools/pod/deploy_from_git.sh | "cloudType": "SECURE" ;; runpodctl stop pod ;; nohup sleep 6h ;; deploy_from_git.sh ;; NO-PKILL-WINDOW ;; LAW-PODS-7-TMUX ;; LAW-PODS-8-BRACKET ;; LAW-PODS-9-COLDLOAD ;; LAW-PODS-10-BRAINDEPLOY
 law-direct-voice | active | nova-commercial.html,nova-direct-voice.js             | LAW-DIRECT-VOICE ;; oai-events ;; response.cancel
 law-inputlock  | active | pod/rt_lk.py                                            | LAW-INPUT-LOCK ;; [INPUT-LOCK] ;; one-shot fired for turn
+law-producer-silent | active | pod/rt_lk.py                                       | PRODUCER-SILENT ;; async def remember( ;; async def speak_now( ;; async def cancel_speech( ;; [BOUNDARY] ;; [REMEMBER] ;; you were told, you did not guess
 law-ambient    | lost   | -                                                       | nova-ambient
 law-v2v        | policy | -                                                       | -
 law-treaty     | policy | -                                                       | -
