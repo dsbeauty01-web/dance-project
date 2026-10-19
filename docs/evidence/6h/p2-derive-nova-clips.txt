@@ -1,0 +1,15 @@
+
+⚠ Phase 2 pending clips — ref-still / ref-sway / ref-dance not tracked yet. Running on Nova's clips.
+
+motion per clip — energy in shoulder-widths per second (freeze2 judges.js update())
+| clip        | role  | p10  | p50  | p90  | max  | n   |
+|-------------|-------|------|------|------|------|-----|
+| frozen-body | still | 0.01 | 0.01 | 0.06 | 0.17 | 228 |
+| still-sway  | sway  | 0.25 | 0.59 | 0.91 | 1.18 | 230 |
+| dance-hype  | dance | 1.60 | 2.59 | 3.66 | 5.27 | 229 |
+
+current tune moveFloor 1.1 · moveK 2.5 · moveCeil 1.4  →  still 100% · sway 100% · dance 0% held
+212 of the swept sets meet still ≥95 · sway ≥80 · dance ≤15.
+best: moveFloor 1 · moveK 1.5 · moveCeil 2.5  →  still 100% · sway 100% · dance 0%  (margin 5 pts)
+
+Groove floor (Phase 4) = 2 × the still clip's noise. Still clip energy p50 here: 0.015 sw/s (freeze unit). The groove unit is printed by test/replay/groove.mjs.
