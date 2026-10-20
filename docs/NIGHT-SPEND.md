@@ -54,6 +54,8 @@ Pods I started: 0, so 0 are running.
 |---|---|---|---|
 | fal Kling v2.1 pro i2v ×6 (A/B/C × 2 takes, 10 s each, $0.098/s from fal pricing API) | 09:12 | 09:18 | 5.88 |
 | fal Kling v2.1 pro i2v ×4 round 2 (D subtle groove + foot taps ×2, E big groove ×2, cfg 0.7) | 09:31 | 09:37 | 3.92 |
+| RunPod bake pod udzxei5g2u4iem (Secure 4090; no Community stock ×3), 3 bakes + verify | 10:05 | 10:23 | 0.27 |
+| RunPod test pod fao8782p73h13a (Secure 4090): lipsync A/C, lk_bridge patch, stream stats, 60 s round | 10:21 | 10:36 | 0.22 |
 
-**Job total so far: $9.80 of $12.00.** RunPod pods started for this job: 0.
-Outside this job's cap: live Freeze pod `fp2duc119zwfhx` (Secure 4090, $0.89/hr) from the earlier v1.3 run, still RUNNING since 06:05 UTC.
+**Job total: $10.29 of $12.00.** RunPod pods started for this job: 2, both terminated via REST (listing in docs/GROOVE-1080-REPORT.md).
+Outside this job's cap: live Freeze pod `fp2duc119zwfhx` (Secure 4090, $0.89/hr) from the earlier v1.3 run, found EXITED at 10:20 UTC (not stopped by me).

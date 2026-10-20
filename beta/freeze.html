@@ -1042,10 +1042,35 @@ let CUR_TIER = 'calm';
 /* MACHINE-CERTIFY G6 body-map law: TALK body (intro/ending, lips on) = nova_idle2.
    Bake verified present on volume 1ditrne6cb (ls avatars/ 2026-08-30) before switching —
    after the body-identity saga, no body name changes without checking the volume. */
-const TALK_BODY = 'nova_idle2';
 /* FREEZE-FIX-GROOVE-START (2026-09-10): the GAME body, named once — same volume-verified
    bake the switch point already used (idlegroove_v2, founder ruling 2026-08-29). */
-const GROOVE_BODY = 'nova_idlegroove_v2';
+const GROOVE_BODY_V2 = 'nova_idlegroove_v2';         // pre-1080 game body (kept on the volume, unused here)
+/* GROOVE-1080 (2026-10-20): Kling v2.1 1080p bodies (beta/sources/groove-1080, baked on 1ditrne6cb,
+   bake_verify PASS). C = calm sway (pre-game) · A = subtle groove + foot taps (rounds 1-4) ·
+   B = big groove (rounds 5+). All three start AND end on the same reference frame, so the loop
+   seam (loopTime 0 / loopDur) is the one place a body swap cannot be seen. */
+const CALM_BODY = 'nova_groove_c_1080';
+const GROOVE_A  = 'nova_groove_a_1080';
+const GROOVE_B  = 'nova_groove_b_1080';
+const GROOVE_BODY = GROOVE_A;                          // body on beat one
+/* lipsync-test verdicts (docs/GROOVE-1080-REPORT.md) set the defaults; ?lipsA=0|1 and ?talk=c|idle2
+   override them for live testing only. */
+const LIPS_ON_A = Q0('lipsA') ? Q0('lipsA')==='1' : false;
+const TALK_BODY = (Q0('talk') ? Q0('talk')==='c' : false) ? CALM_BODY : 'nova_idle2';   // intro/ending, lips on
+function grooveFor(idx){ return idx>=4 ? GROOVE_B : GROOVE_A; }   // dance before freeze idx: 0-3 = rounds 1-4
+function gameRoute(){ return (LIPS_ON_A && Live._body===GROOVE_A) ? 'engine' : 'air'; }   // lips on A only; B = air
+/* SEAM SWAP: the game asks for a body; the swap waits for the loop boundary of the current one. */
+const Body = { want: GROOVE_A,
+  request(id){ if(this.want!==id){ this.want=id; try{ console.log('[BODY] want', id, '(waits for seam)'); }catch(_){} } },
+  tick(){
+    if(!Live.on || PHASE!==PH.GAME || G.freeze || Live._body===this.want) return;
+    const lt=NEUTRAL.loopTime(), d=NEUTRAL.loopDur;
+    if(lt>0.12 && lt<d-0.12) return;                   // not at the seam yet
+    try{ console.log('[SEAM] swap', Live._body, '->', this.want, 'loopT', lt.toFixed(2)); }catch(_){}
+    Live.setAvatar(this.want); NEUTRAL.use(this.want); NEUTRAL.setT=performance.now();
+    routeVoice(gameRoute());
+  },
+};
 
 /* ═══ THE PHASE MACHINE (READY.md PART 0, 2026-08-27) — the spine ═══
    INTRO/ENDING → voice through the ENGINE (lips ON, calm body nova_idle)
@@ -1063,13 +1088,14 @@ function routeVoice(r){
 function setPhase(p){
   PHASE=p; try{ console.log('[PHASE]', p); }catch(_){}
   if(p===PH.INTRO || p===PH.ENDING) routeVoice('engine');
-  else if(p===PH.GAME){             routeVoice('air');
+  else if(p===PH.GAME){
     /* FREEZE-FIX-GROOVE-START: ANY path into GAME guarantees the groove body — round 1
        must never run on the calm idle (founder-observed, last playthrough). No-op when
        the body is already groove, so the per-round endFreeze→GAME hop never re-sends
        /set_avatar and the NEUTRAL loop clock only re-stamps on a real switch. */
-    if(Live.on && Live._body!==GROOVE_BODY){
-      try{ Live.setAvatar(GROOVE_BODY); NEUTRAL.setT=performance.now(); }catch(_){} } }
+    if(Live.on && Live._body!==GROOVE_A && Live._body!==GROOVE_B){
+      try{ Live.setAvatar(Body.want); NEUTRAL.use(Body.want); NEUTRAL.setT=performance.now(); }catch(_){} }
+    routeVoice(gameRoute()); }
   else                              routeVoice('mute');
 }
 /* ═══ Nova facade — the game calls these; they route live-avatar vs clip-bank.
@@ -1248,6 +1274,13 @@ const NEUTRAL = {
   loopDur: 22.76, mirror: true,                       // engine ping-pongs: period = 2*loopDur
   times: [0.8, 2.32, 4.36, 6.4, 7.68, 8.72, 12.0, 13.76, 15.6, 16.64, 19.6, 21.64],
   arrivals: { bear:1.37, frog:4.28, flamingo:1.24, star:1.07 },  // clip in-points: she LANDS into the pose
+  /* GROOVE-1080 per-body data: tools/find_neutrals.py on the Kling sources (24fps), scaled to the
+     engine's 25fps (×0.96). Both loops are 242 frames = 9.68s. */
+  bodies: {
+    nova_groove_a_1080: { loopDur: 9.68, times: [0.68, 1.68, 2.76, 3.76, 5.56, 7.16, 8.16, 9.16] },
+    nova_groove_b_1080: { loopDur: 9.68, times: [0.68, 2.56, 3.6, 5.52, 6.6, 8.36, 9.32] },
+  },
+  use(id){ const b=this.bodies[id]; if(b){ this.loopDur=b.loopDur; this.times=b.times; } },
   setT: 0,                                            // performance.now() when the groove avatar was set
   NET_LAG: 0.45,                                      // est. engine→browser latency (phase offset)
   loopTime(){                                         // current position inside the loop (est. ±0.5s)
@@ -1623,6 +1656,7 @@ function tick(){
   if(!G.running){ requestAnimationFrame(tick); return; }
   const t=Music.t();
 
+  try{ Body.tick(); }catch(_){}                    // GROOVE-1080 seam swap
   if(!G.freeze){
     DANCE_CUES.forEach((c,i)=>{ if(t>=c.at && !G.fired.c.has(i)){ G.fired.c.add(i); FX.cue(c.text); }});
     tickTier(t);                                   // ENERGY LADDER: she escalates with the game
@@ -1712,7 +1746,8 @@ function endFreeze(){
   const name=ASSETS.clips[f.def.clip].name, secs=(f.stillMs/1000).toFixed(1), pct=Math.round(frac*100);
   const froze = !noshow && !f.broken && frac>=FULL_AT, moved = !noshow && (f.broken || frac<MOVE_AT);
   try{ console.log('[FREEZE] round',f.idx+1,name,'seen',Math.round(seenFrac*100)+'%','held',pct+'%','thr',Pose.stillThr.toFixed(2),'motionNow',Pose.motion.toFixed(2),'broken',!!f.broken, noshow?'NOSHOW':froze?'HELD':moved?'MOVED':'ALMOST'); }catch(_){}
-  setPhase(PH.GAME);                                   // gap: voice routes to AIR again
+  Body.request(grooveFor(f.idx+1));                    // GROOVE-1080: next round's body, swapped at the seam
+  setPhase(PH.GAME);                                   // gap: voice routes to AIR again (or lips on A)
   if(noshow){
     Nova.melt(); Flash.fire();
     FX.frostOff(); FX.badgeOff(); ring.classList.remove('show');
