@@ -53,6 +53,7 @@ Pods I started: 0, so 0 are running.
 | item | start | end | $ |
 |---|---|---|---|
 | fal Kling v2.1 pro i2v ×6 (A/B/C × 2 takes, 10 s each, $0.098/s from fal pricing API) | 09:12 | 09:18 | 5.88 |
+| fal Kling v2.1 pro i2v ×4 round 2 (D subtle groove + foot taps ×2, E big groove ×2, cfg 0.7) | 09:31 | 09:37 | 3.92 |
 
-**Job total so far: $5.88 of $12.00.** RunPod pods started for this job: 0.
+**Job total so far: $9.80 of $12.00.** RunPod pods started for this job: 0.
 Outside this job's cap: live Freeze pod `fp2duc119zwfhx` (Secure 4090, $0.89/hr) from the earlier v1.3 run, still RUNNING since 06:05 UTC.
