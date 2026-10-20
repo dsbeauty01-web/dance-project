@@ -51,10 +51,20 @@ export const PoseEngine = {
      onPose(nova, engine) fires per frame with toNova() output (may hold zero joints
      when nobody is confidently visible — the caller decides what absence means). */
   async start(videoEl, onPose) {
-    try { this.engine = await this._initMediapipe(); }
-    catch (e) {
-      console.log('[POSE] mediapipe unavailable (' + (e && e.message || e) + ') -> movenet fallback');
-      this.engine = await this._initMovenet();   // throws to the caller if this fails too
+    // LAW (NOVA-CONTEXT §4, 2026-10-19): detection = MoveNet only. MediaPipe is banned — it
+    // dies in the founder's Chrome (wasm "dbg is not a function") and every measured
+    // threshold (beta/freeze2/script.json) was taken on MoveNet. ?engine=mediapipe opts in
+    // for experiments only.
+    let wantMP = false;
+    try { wantMP = new URLSearchParams(location.search).get('engine') === 'mediapipe'; } catch (_) {}
+    if (wantMP) {
+      try { this.engine = await this._initMediapipe(); }
+      catch (e) {
+        console.log('[POSE] mediapipe unavailable (' + (e && e.message || e) + ') -> movenet fallback');
+        this.engine = await this._initMovenet();   // throws to the caller if this fails too
+      }
+    } else {
+      this.engine = await this._initMovenet();     // throws to the caller if this fails
     }
     this._running = true; this._lastLog = performance.now();
     let lastVideoT = -1;

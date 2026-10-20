@@ -8,7 +8,7 @@ import { ROOT } from './replay/sim.mjs';
 let fail = 0;
 const lines = [];
 
-for (const t of ['test/freeze2_hold_test.mjs', 'test/freeze2_realdata_test.mjs']){
+for (const t of ['test/freeze2_hold_test.mjs', 'test/freeze2_realdata_test.mjs', 'test/freeze_live_judge_test.mjs']){
   try { const out = execFileSync('node', [join(ROOT, t)], { encoding: 'utf8' }); lines.push(`${t}: ${out.trim().split('\n').pop()}`); }
   catch (e) { fail++; lines.push(`${t}: FAIL\n${e.stdout || ''}${e.stderr || ''}`); }
 }
