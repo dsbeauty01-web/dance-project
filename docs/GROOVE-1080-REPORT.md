@@ -7,8 +7,9 @@
 | Bake nova_groove_{a,b,c}_1080 + bake_verify + registry | ✅ all PASS, 1076×1924, 242 frames |
 | Lipsync test A (+ C) | ❌ **not a PASS** → lips stay off the new bodies |
 | Stream: lk_bridge.py top layer 10 Mbit/s, no 360/180 simulcast | ✅ applied on the volume, measured |
-| beta/freeze.html wiring (one commit, FREEZE-APPROVED) | ✅ committed locally, **not pushed** (see Blockers) |
-| Test pod: /beta/freeze serves the new ids + 60 s round | ⚠️ partial: 60 s round recorded on the new bodies through a test harness (main's page) |
+| beta/freeze.html wiring (one commit, FREEZE-APPROVED) | ✅ b40fde8, pushed to beta |
+| Test pod 33cdsguzn1bh5c on **beta**: /beta/freeze serves JUDGE-TRUTH + new ids; real round recorded | ✅ A rounds 1-4 → seam swap → B rounds 5-7, no page errors |
+| Deploy bug found + fixed: NOVA_DEPLOY_BRANCH never took effect | ✅ d65a228 on beta |
 
 ## Picks (founder: "all are quite good, you choose")
 | body | avatar_id | take | why |
@@ -29,13 +30,16 @@ PASS nova_groove_b_1080 — frames=242 latents=3941KB full_imgs=242 mask=242
 RES all three 1076x1924. Old bakes untouched (script refuses to overwrite an existing id).
 ```
 
-## Lipsync verdict: NOT A PASS
-Test: live engine, body switched to A (then C), `Live.say("Hi friend! I'm Nova, let's dance and freeze together! שלום חבר! אני נובה, בוא נרקוד ונקפא ביחד!")`, 12 s recorded from the received stream (1076×1924).
-Files: beta/sources/groove-1080/tests/lipsync-test-A.mp4, lipsync-test-C.mp4, mouth-A.png, mouth-C.png (face crops every 0.4 s).
-- Sharpness: good. The face stays crisp at 1080p, no smearing, no visible jitter.
-- But the mouth moved only in ~2 of 28 crops (A) / ~5 of 28 (C) across an ~7 s line, then stayed closed and smiling. The recording has no audio track, so alignment can't be confirmed.
-- Verdict per the job rule: no phase change. In GAME, voice stays in the AIR on A and B; holds mute; intro/ending keep lips on nova_idle2.
-  The page ships `LIPS_ON_A=false`, `TALK_BODY='nova_idle2'`; `?lipsA=1` / `?talk=c` exist for a live re-test only.
+## Lipsync verdict: FAIL (measured, with a control)
+Test: live engine, body switched to A, `Live.say("Hi friend! I'm Nova, let's dance and freeze together! שלום חבר! אני נובה, בוא נרקוד ונקפא ביחד!")`, recorded from the received stream **with her audio** (beta/sources/groove-1080/tests/lipsync-test-A.mp4; first pass video-only: lipsync-test-C.mp4, mouth-A.png, mouth-C.png).
+Metric: mouth-box activity (face template-tracked) during speech vs silence; control = nova_idle2, whose lips are known to work (control-idle2.mp4).
+| body | speech captured | mouth activity speech vs silence |
+|---|---|---|
+| nova_idle2 (control) | 1.5 s | 4.87 vs 3.35 (**+45 %**: lips react) |
+| nova_groove_a_1080 | 1.4 s | 2.64 vs 2.57 (**+3 %**: lips do not react) |
+- Sharpness is good (crisp 1080p face, no smear). But MuseTalk barely opens her mouth on the A body: FAIL.
+- Note: she spoke only ~1.5 s of the line (the brain shortened it), so this is a short sample, but the control under the same conditions clearly passes.
+- Per the job rule: **no phase change.** In GAME her voice stays in the AIR on A and B; holds mute; intro/ending keep lips on nova_idle2 (`LIPS_ON_A=false`, `TALK_BODY='nova_idle2'`; `?lipsA=1` / `?talk=c` for re-tests only).
 
 ## Stream: /workspace/lk_bridge.py (backup lk_bridge.py.bak-20261020; md5 c2378e46… → 47d011c3…)
 Before (line 123-124: no encoding options → LiveKit defaults: simulcast 180p/360p/full, ~5 Mbit/s):
@@ -58,18 +62,26 @@ Trade-off: with no low layers, a viewer below ~10 Mbit/s gets stalls instead of 
 - The phase guard accepts A or B; voice routing goes through `gameRoute()` (air unless LIPS_ON_A and body A).
 - CALM_BODY (C) is wired as an id and selectable with `?talk=c`; the default talk body stays nova_idle2 because lipsync was not proven.
 
-## 60 s round (test pod fao8782p73h13a)
-beta/sources/groove-1080/tests/rec60/round-60s-nova-stream.mp4 (1088×1920, 62 s, received stream) + round-60s-page.mp4 (page screenshots; low fps).
-Honest caveat: the beta page could not be deployed (not pushed), so this pod served **main's** page. A test harness re-mapped the old groove id to A (and B from round 6; off by one vs the beta code).
-Seen: intro on nova_idle2 → A from beat one at 1076×1924, rounds 1-4 STAR/BEAR/FLAMINGO/FROG, pose clips on holds. The recorded window did not reach a B round.
-JUDGE-TRUTH is served (main = v1.3); the new avatar ids are not in the served page yet.
+## Round recording on the real beta page (test pod 33cdsguzn1bh5c, NOVA_DEPLOY_BRANCH=beta @ d65a228)
+beta/sources/groove-1080/tests/rec70-beta/round-70s-beta.mp4 (1076×1924, 85.7 s, video + her voice) · console.log · page-g5/30/55/68s.jpg · seam-strip.png
+```
+pre   [BODY] nova_groove_a_1080 phase=game          ← A from beat one
+g+12.7..51.8  rounds 1-4 STAR/BEAR/FLAMINGO/FROG on A, pose clips on holds
+g+51.8 [BODY] want nova_groove_b_1080 (waits for seam)
+g+58.0 [SEAM] swap nova_groove_a_1080 -> nova_groove_b_1080 loopT 0.09
+g+62.4..81.2  rounds 5-7 STAR/BEAR/FLAMINGO on B
+```
+Seam check: the largest frame diff in the 56-60 s window is 10.6 (B's normal big-move frames reach ~20; median 1.96). The strip shows one continuous standing pose, so the swap cannot be seen.
+(NOSHOW on every round = the headless fake camera has no kid in it; judging is unchanged v1.3.)
+Earlier harness run on main's page: tests/rec60/round-60s-nova-stream.mp4.
 
-## Blockers
-1. **git push to dance-project is refused**: the repo is not in this session's write set, and attaching it with push access was denied by the permission check. Commits sit on local beta.
-2. Sending page code to the pod any other way (fal upload, start-command payload) was blocked as data exfiltration. Correctly so; git is the route.
+## Issues hit
+1. Push access: resolved (dance-project attached with push). Before that, sending page code to the pod any other way was blocked as data exfiltration, correctly.
+2. tools/pod/deploy_from_git.sh: the volume repo is a single-branch clone of main, so `fetch origin beta` never made origin/beta and the reset failed silently; NOVA_DEPLOY_BRANCH=beta deployed main. Fixed on beta (d65a228, explicit refspec + logged failure). This pod got a one-line pre-fetch in its start command.
+3. Live pod fp2duc119zwfhx went EXITED on its own around 10:20 UTC (not stopped by me).
 
-## Spend: $10.29 of $12 (docs/NIGHT-SPEND.md)
-fal 9.80 · bake pod 0.27 · test pod 0.22.
+## Spend: see docs/NIGHT-SPEND.md
+fal 9.80 · bake pod 0.27 · test pod #1 0.22 · test pod #2 (beta) running for the founder's live play.
 
 ## Pods after the job
 ```
@@ -79,6 +91,8 @@ fp2duc119zwfhx nova-live-fresh EXITED
 1oq9evl38daht3 nova-live-fresh EXITED
 ```
 
-## READY FOR PROMOTE v1.4: **NO**
-Why: (1) the beta page has not run on a pod yet, so the seam swap and the B rounds are unproven live; (2) lipsync on the new bodies is unproven.
-Next: allow push → push beta → test pod with NOVA_DEPLOY_BRANCH=beta → founder plays → full round incl. B → then PROMOTE.
+## READY FOR PROMOTE v1.4: **YES, after the founder's live play**
+Proven on a beta pod: 1080p bodies bake-verified; A from beat one; seam-only swap to B after round 4 with no visible jump; JUDGE-TRUTH v1.3 intact; stream single-layer 10 Mbit/s; no page errors.
+Lipsync on the new bodies FAILED, so the page keeps voice in the air (no phase change), as the rule says.
+Still to confirm by the founder (not testable headless): (1) it plays smoothly on the founder's own connection with the 10 Mbit/s single layer (no low-bitrate fallback now); (2) a real kid's freezes are judged as before.
+PROMOTE must include d65a228 (deploy fix). Do NOT merge until the founder says go.
