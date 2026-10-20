@@ -49,8 +49,11 @@ if [ ! -d "$REPO/.git" ]; then
   [ -f "$TOKEN_FILE" ] && url="https://x-access-token:$(tr -d '\r\n' <"$TOKEN_FILE")@github.com/dsbeauty01-web/dance-project.git"
   git clone --depth 20 -b "$BRANCH" "$url" "$REPO" >/dev/null 2>&1 || { say "clone FAILED — nothing deployed"; exit 1; }
 fi
-git -C "$REPO" fetch --depth 20 origin "$BRANCH" >/dev/null 2>&1 || say "fetch failed — deploying the cached checkout"
-git -C "$REPO" reset --hard "origin/${BRANCH}" >/dev/null 2>&1
+# Explicit refspec: the volume checkout is a single-branch (-b main) shallow clone, so a bare
+# "fetch origin beta" only fills FETCH_HEAD, origin/beta never exists, and the reset below used to
+# fail silently — NOVA_DEPLOY_BRANCH=beta kept deploying main (found 2026-10-20, GROOVE-1080).
+git -C "$REPO" fetch --depth 20 origin "+refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}" >/dev/null 2>&1 || say "fetch failed — deploying the cached checkout"
+git -C "$REPO" reset --hard "origin/${BRANCH}" >/dev/null 2>&1 || say "reset to origin/${BRANCH} FAILED — still on $(git -C "$REPO" rev-parse --short HEAD 2>/dev/null)"
 SHA="$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 
 # ---------------------------------------------------------------- 2) pages + static
