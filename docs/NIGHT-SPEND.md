@@ -47,3 +47,12 @@ No Nova tester pod is listed (the 16:30 tester pod is not on this account's list
 
 `spend/hr 0.165 · pods 24 · {'EXITED': 24} · running: []`. The same 24 Maya pods as Step 0, all EXITED, none running.
 Pods I started: 0, so 0 are running.
+
+## 2026-10-20: GROOVE-1080 job (cap $12, fal + RunPod)
+
+| item | start | end | $ |
+|---|---|---|---|
+| fal Kling v2.1 pro i2v ×6 (A/B/C × 2 takes, 10 s each, $0.098/s from fal pricing API) | 09:12 | 09:18 | 5.88 |
+
+**Job total so far: $5.88 of $12.00.** RunPod pods started for this job: 0.
+Outside this job's cap: live Freeze pod `fp2duc119zwfhx` (Secure 4090, $0.89/hr) from the earlier v1.3 run, still RUNNING since 06:05 UTC.
