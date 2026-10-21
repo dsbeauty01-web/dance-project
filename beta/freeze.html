@@ -2100,6 +2100,28 @@ if(TEST_MODE){
   }catch(_){} });
   console.log('[TEST] harness armed (?test=1) — window.__test ready');
 }
+
+/* ═══ ?report LIVE STREAM READOUT (2026-10-21) — on-screen so the founder reads it himself:
+   which simulcast layer actually arrives + freezes + fps, polled from the received video track. */
+if(Q0('report')!==null){
+  const box=document.createElement('div');
+  box.style.cssText='position:fixed;left:6px;bottom:6px;z-index:999;font:600 12px/1.4 ui-monospace,Menlo,monospace;'+
+    'color:#8ef;background:rgba(0,0,0,.72);padding:6px 9px;border-radius:7px;white-space:pre;pointer-events:none;max-width:92vw';
+  box.textContent='stream: waiting…'; document.body.appendChild(box);
+  let b0=null,t0=null;
+  setInterval(async()=>{ try{
+    const r=(typeof Live!=='undefined'&&Live.room)||null; if(!r){ box.textContent='stream: no room yet'; return; }
+    for(const [,pp] of r.remoteParticipants){ for(const [,pub] of pp.trackPublications){ const t=pub.track; if(!t||t.kind!=='video') continue;
+      const st=await t.receiver.getStats(); let o=null; st.forEach(x=>{ if(x.type==='inbound-rtp') o=x; });
+      if(!o) continue;
+      let kbps=''; if(b0!=null && o.timestamp>t0){ kbps=Math.round((o.bytesReceived-b0)*8/((o.timestamp-t0)/1000)/1000)+'kbps'; } b0=o.bytesReceived; t0=o.timestamp;
+      box.textContent='LAYER '+(o.frameWidth||'?')+'×'+(o.frameHeight||'?')+'  '+(o.framesPerSecond||0)+'fps  '+kbps+
+        '\nfreezes '+(o.freezeCount||0)+' ('+(+(o.totalFreezesDuration||0)).toFixed(1)+'s)  dropped '+(o.framesDropped||0);
+      return;
+    } }
+    box.textContent='stream: connecting…';
+  }catch(e){ box.textContent='stream: '+String(e).slice(0,40); } }, 1000);
+}
 </script>
 <script>
 // LAW-CONSENT (ported verbatim from nova-commercial, itself ported from nova-app 2026-07-17):
