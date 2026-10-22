@@ -37,3 +37,13 @@ Romania(pod) → US(LiveKit edge) → Asia(viewer) path when the link can't sust
 ## Still only the founder can confirm
 Choppy is a property of the founder's own connection/path; a US test client sees it smooth either way.
 The fix is the mechanism (graceful layer drop); the founder's live play is the proof.
+
+## Update 2026-10-22 — bitrate starvation fix (downscale publish to 720×1288)
+Founder measured the recording: 0 frozen frames, but 1076×1924 @ 3 Mbit = **0.06 bpp** (needs ≥0.12) —
+starvation, not freezing. Fix on the volume /workspace/lk_bridge.py (tracked here as
+tools/pod/downscale_lk_bridge.py; the bridge file itself is volume-only, not in git):
+- publish-side nearest-neighbour downscale to **720×1288** before VideoSource/capture_frame (numpy only,
+  index maps cached per source size), keep top layer 3 Mbit + simulcast ON.
+- Verified on the live track: pub=720×1288, received top ~3.0 Mbit → **bpp 0.129–0.144** (≥0.12),
+  avgQP ~22 (was ~39 starved). Layers: 180×322@160k · 360×644@450k · 720×1288@3M.
+- Backup kept on the volume (lk_bridge.py.bak-downscale-*). Next step if still bad: 540×966 @ 3 Mbit (0.23 bpp).
