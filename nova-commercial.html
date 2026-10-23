@@ -130,6 +130,10 @@ en: {
      They are instructions to her brain, not lines she repeats — and they were hardcoded
      English until now, which is why "Shoulder MAGIC!" fired inside Hebrew sessions. */
   armShoulder: 'The light is glowing on his shoulder now — ask him to lift that shoulder. One short line, then wait.',
+  /* SHOULDER-BEAT §4b (founder 2026-09-20): the light appearing is a SECTION START, and she
+     says these EXACT words — not an improvisation off a director note. */
+  sayLightArm: 'Look — a magic light on your shoulder! Lift that shoulder up high, just that one!',
+  sayLightRetry: "I haven't seen it yet — try lifting the shoulder with the light, high!",
   factShrug: 'He lifted his shoulder — the light caught it. Celebrate in five words.',
   toGameAfterWin: 'Now invite him to the Freeze game. One question, then wait.',
   releaseShoulder: 'Nobody lifted the shoulder. Don’t mention it again — warmly move on and invite him to the Freeze game. One question, then wait.',
@@ -215,6 +219,9 @@ he: {
   speechLang: 'he-IL',
   genderBoy: 'ילד 💙', genderGirl: 'ילדה 💜', genderSkip: 'לא משנה ✨',
   armShoulder: 'האור נדלק עכשיו על הכתף שלו — בקשי ממנו להרים את הכתף. משפט אחד קצר, ואז חכי.',
+  /* SHOULDER-BEAT §4b — the exact words, first person, no improvisation. */
+  sayLightArm: 'תראה — אור קסם על הכתף שלך! תרים אותה גבוה, רק אותה!',
+  sayLightRetry: 'עוד לא ראיתי — נסה להרים את הכתף עם האור, גבוה!',
   factShrug: 'הוא הרים את הכתף — האור תפס את זה. חגגי בחמש מילים.',
   toGameAfterWin: 'עכשיו הזמיני אותו למשחק הקיפאון. שאלה אחת, ואז חכי.',
   releaseShoulder: 'אף אחד לא הרים את הכתף. אל תזכירי את זה שוב — עברי בחום והזמיני אותו למשחק הקיפאון. שאלה אחת, ואז חכי.',
@@ -474,6 +481,15 @@ body{font-family:'Quicksand',sans-serif;color:#fff}
 #rec-cam-glow.pulse::after{content:'';position:absolute;inset:-18px;border-radius:50%;
   border:4px solid rgba(255,220,130,.95);animation:cuePulse 0.9s ease-out infinite;pointer-events:none}
 @keyframes cuePulse{0%{transform:scale(.55);opacity:1}100%{transform:scale(1.5);opacity:0}}
+/* SHOULDER-BEAT §4b: the POP — the instant, page-side reward for a REAL detected lift.
+   Bloom on the glow itself + one ring that fires outward once. No brain in this path. */
+#rec-cam-glow.pop{animation:glowBloom .7s cubic-bezier(.22,1,.36,1) 1}
+#rec-cam-glow.pop::before{content:'';position:absolute;inset:-26px;border-radius:50%;
+  border:6px solid rgba(255,255,255,.95);animation:popRing .7s ease-out 1;pointer-events:none}
+@keyframes glowBloom{0%{filter:drop-shadow(0 0 10px rgba(255,200,90,.85)) brightness(1);transform:scale(1)}
+  35%{filter:drop-shadow(0 0 34px rgba(255,255,255,1)) brightness(1.8);transform:scale(1.35)}
+  100%{filter:drop-shadow(0 0 10px rgba(255,200,90,.85)) brightness(1);transform:scale(1)}}
+@keyframes popRing{0%{transform:scale(.5);opacity:1}100%{transform:scale(2.1);opacity:0}}
 /* COMMERCIAL-INTRO D.5: state badge — silence always reads as intentional */
 #nova-state-badge{position:fixed;top:10px;right:12px;z-index:9000;display:none;align-items:center;gap:7px;
   padding:5px 13px;border-radius:999px;background:rgba(20,16,40,.72);backdrop-filter:blur(6px);
@@ -2657,6 +2673,27 @@ window.LOG = LOG;
 
 /* The producer's voice: ONE instruction to her brain. The whole intro spends exactly two of
    these (arm, then fact-or-release) — everything else in the intro is her and the child. */
+/* SHOULDER-BEAT §4b (2026-09-20). Two page→brain verbs for a section the PAGE owns:
+   novaSayNow  — an EXACT line plus the boundary it belongs to, so it airs at once
+                 (a plain nova-say waits for the child's next turn, by design).
+   novaSection — "this section owns the beat": the brain's 13s silence timer stands
+                 down while it is open, because this window retries on its own clock. */
+window.novaSayNow = function(text, boundary){
+  try {
+    const f = document.getElementById('saray-frame');
+    if (f && f.contentWindow) f.contentWindow.postMessage(
+      { type:'nova-say', text, boundary: boundary || 'section-start' }, '*');
+    LOG('SAY', '[' + (boundary || 'section-start') + '] ' + String(text).slice(0, 70));
+  } catch(_){}
+};
+window.novaSection = function(name, state){
+  try {
+    const f = document.getElementById('saray-frame');
+    if (f && f.contentWindow) f.contentWindow.postMessage({ type:'section', name, state }, '*');
+    LOG('SECTION', name + ' ' + state);
+  } catch(_){}
+};
+
 window.novaCue = function(intent, ctx){
   try {
     const f = document.getElementById('saray-frame');
@@ -4031,7 +4068,17 @@ async function introShoulderChallenge() {
   const success = () => {                               // a REAL detected shrug, nothing else
     if (window.__introShoulderDone) return;
     window.__introShoulderDone = true; window.__introShoulderRunning = false;
-    try { glow && glow.classList.add('hit'); } catch(_){}
+    /* SHOULDER-BEAT §4b: THE INSTANT REACTION IS PAGE-SIDE. The glow POPS and a 300ms
+       "YES!!" in her own voice fires the same frame the lift is detected — the brain is
+       not in this path at all, because a round trip is not instant and she must not be
+       the one claiming the lift. Her words come later, from the FACT she is told. */
+    try { glow && glow.classList.add('hit'); glow && glow.classList.add('pop');
+          setTimeout(() => { try { glow.classList.remove('pop'); } catch(_){} }, 700); } catch(_){}
+    try {
+      const st = new Audio('audio/says/sting_yes_' + (window.NOVA_HE ? 'he' : 'en') + '.mp3');
+      st.volume = 0.9; st.play().catch(()=>{});
+    } catch(_){}
+    novaSection('shoulder', 'end');
     window.__cuePulseUntil = Date.now() + 1400;
     // a FACT, not a scripted line — she writes the celebration herself, in her own language
     try { const f = document.getElementById('saray-frame');
@@ -4044,6 +4091,7 @@ async function introShoulderChallenge() {
   const release = () => {                               // nobody lifted — pass on warmly, no lie
     if (window.__introShoulderDone) return;
     window.__introShoulderDone = true; window.__introShoulderRunning = false;
+    novaSection('shoulder', 'end');                     // the brain takes its timer back
     window.__cuePulseUntil = 0;
     LOG('INTRO', 'no shrug seen → RELEASE (she must never claim she saw one)');
     novaCue(T('releaseShoulder'));                       // PRODUCER SEND 2 of 2 (no-win path)
@@ -4051,9 +4099,20 @@ async function introShoulderChallenge() {
   window.__testShrug = success;   // test hook: synthetic shrug success (available immediately)
   window.__testRelease = release; // test hook: force the no-shrug path
   try { if (!detector) await initDetector(); } catch(_){}
+  /* SHOULDER-BEAT §4b: THE RETRY IS THIS WINDOW'S OWN, AT 8s — not the brain's generic 13s
+     (the brain stands its timer down for the whole section, so only one line lands). She
+     reads it EXACTLY: it states what she has NOT seen, which is the only honest thing to
+     say to a child who has not moved. RELEASE stays at 20s. */
+  let retried = false;
   const loop = async () => {
     if (window.__introShoulderDone) return;
-    if (Date.now() - t0 > 20000) { LOG('INTRO', 'shoulder: no shrug seen in 20s → RELEASE'); return release(); }
+    const age = Date.now() - t0;
+    if (!retried && age > 8000) {
+      retried = true;
+      LOG('INTRO', 'shoulder: 8s with no lift → ONE exact retry');
+      novaSayNow(T('sayLightRetry'), 'section-retry');
+    }
+    if (age > 20000) { LOG('INTRO', 'shoulder: no shrug seen in 20s → RELEASE'); return release(); }
     try {
       if (detector && cam && cam.readyState >= 2) {
         const poses = await detector.estimatePoses(cam, { flipHorizontal:false });
@@ -7533,7 +7592,12 @@ document.addEventListener('arrival-done', async () => {
         if (!window.__nameCaptured) return;          // LAW: nothing before the name — no timer may bypass this
         LOG('INTRO', 'shoulder ARM (' + why + ') at ' +
             Math.round((Date.now() - window.__introChatT0)/1000) + 's');
-        novaCue(T('armShoulder'));                   // PRODUCER SEND 1 of 2 — the only instruction until fact-or-release
+        /* SHOULDER-BEAT §4b (founder 2026-09-20): THE LIGHT APPEARING IS A BOUNDARY.
+           The page reports section-start and hands her the EXACT line, so she speaks
+           within 2s instead of waiting for the child to say something first. The old
+           director note is gone: a note is for her own words, and these are not. */
+        novaSection('shoulder', 'start');
+        novaSayNow(T('sayLightArm'), 'section-start');   // PRODUCER SEND 1 — the light line
         introShoulderChallenge();
       };
       window.__armShoulder = __armShoulder;
