@@ -355,6 +355,44 @@ const ASSETS = {
    founder approved and what the page plays are the same math. Change the array ONLY
    together with the render generator, and re-approve by ear. */
 const Q0 = k => new URLSearchParams(location.search).get(k);
+
+/* ═══ NOVA_FACE (2026-10-30, branch nova-ditto) — which engine draws her lips ═══
+   musetalk (default, and anything that is not 'ditto') — nothing below changes. The pose
+   clips stay the ones that ship today; this whole block is inert.
+   ditto — Ditto needs her face 200-470 px tall, which forces a ~1.72x KNEES-UP reframe of
+   the LIVE body (measured: at today's full-body framing MediaPipe finds her face in 0.0% of
+   frames, so Ditto cannot even start — docs/DITTO-TRY.md). PoseClip is a FULL-STAGE overlay
+   (inset:0, object-fit:contain, z6 over the live video at z3), so a full-body pose clip
+   dropped over a knees-up body is a visible scale jump at every single freeze.
+   freezegame/knees/ holds the same four clips cut to the body's own crop box.
+   MEASURED on the exact held frames (freezegame/knees/manifest.json): only FLAMINGO
+   survives. Star loses both hands, bear loses a raised paw and the top of the pose, frog
+   loses both knees — the landmarks that MAKE each pose fall outside the crop.
+   So the set is NOT approved: ditto mode banners and refuses to show a chopped pose to a
+   kid, instead of quietly showing one. No silent fallbacks (Nova law 4). */
+const NOVA_FACE = (Q0('face') || 'musetalk').toLowerCase();
+let POSE_SET_OK = true;
+if(NOVA_FACE === 'ditto'){
+  POSE_SET_OK = false;                       // until the manifest says otherwise
+  for(const k of ['star','frog','bear','flamingo']){
+    const c = ASSETS.clips[k];
+    if(c) c.file = 'freezegame/knees/' + c.file.split('/').pop();
+  }
+  const stop = (why)=>{
+    const b = document.getElementById('banner');
+    if(b){ b.style.background='#f59f00'; b.style.color='#2b1a00';
+           b.textContent = '⛔ NOVA_FACE=ditto · knees-up freeze set BLOCKED — ' + why; }
+    try{ console.error('[NOVA_FACE] ditto pose set blocked:', why); }catch(_){}
+  };
+  fetch('freezegame/knees/manifest.json', {cache:'no-store'})
+    .then(r => r.ok ? r.json() : Promise.reject(new Error('manifest ' + r.status)))
+    .then(m => {
+      const cut = Object.entries(m.poses || {}).filter(([,p]) => p.verdict !== 'OK').map(([k]) => k);
+      if(m.set_verdict === 'OK' && !cut.length){ POSE_SET_OK = true; try{ console.log('[NOVA_FACE] ditto pose set approved'); }catch(_){} }
+      else stop(cut.join(', ') + ' cut off by the crop (freezegame/knees/manifest.json)');
+    })
+    .catch(e => stop('manifest unreadable: ' + e.message));
+}
 const BPM = 129.2, BEAT = 60/BPM;
 const BEAT_OFFSET = Math.max(0, parseFloat(Q0('beatoffset')) || 0.151);   // grid phase, from the analyzer
 const FREEZES = [
@@ -1312,6 +1350,9 @@ const PoseClip = {
      hide() now clear EVERY overlay, not just the remembered one. */
   show(k){
     if(this.showing===k) return true;   // same round re-fire (swap timer + startFreeze): already up
+    /* NOVA_FACE=ditto: never put an unapproved (cut-off) pose on a kid's screen. The banner
+       set by the NOVA_FACE block says why; this is the refusal, not a silent fallback. */
+    if(!POSE_SET_OK){ try{ console.error('[BODY] poseclip:'+k+' REFUSED — knees-up set not approved'); }catch(_){} return false; }
     const v=this.vids[k]; if(!v) return false;
     for(const [kk,vv] of Object.entries(this.vids)){
       if(kk!==k){ vv.style.opacity='0'; try{ vv.pause(); }catch(_){} }

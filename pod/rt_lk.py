@@ -22,6 +22,34 @@ LK_KEY = os.environ["LIVEKIT_API_KEY"]
 LK_SEC = os.environ["LIVEKIT_API_SECRET"]
 LK_ROOM = os.environ.get("LK_ROOM", "nova-live")
 ENGINE = os.environ.get("ENGINE_URL", "http://127.0.0.1:8010")
+
+# ── NOVA_FACE (2026-10-30, branch nova-ditto): which engine draws her lips ────────────
+#  musetalk (default, or unset) — nothing below changes. Byte-identical behaviour.
+#  ditto                        — her reply audio ALSO goes to the Ditto server on :8031
+#    (maya-lt maya-ops/lt/ditto_server.py), which repaints only her lips on a pre-made body
+#    video; lk_bridge.py publishes those frames instead of MuseTalk's (tools/pod/ditto_bridge_patch.py).
+#    The copy that still goes to /humanaudio is HELD BACK by (DITTO_PRIME + slack) × 40 ms,
+#    because every Ditto frame comes back that far behind the audio it was drawn from, and the
+#    LiveTalking engine is what publishes the audio track. Without the hold her lips run early
+#    by exactly that much. MuseTalk keeps running as the audio pump; its video is dropped.
+NOVA_FACE = (os.environ.get("NOVA_FACE", "musetalk") or "musetalk").strip().lower()
+_NOVA_DITTO = None
+if NOVA_FACE == "ditto":
+    import sys as _nf_sys
+    for _p in ("/workspace", os.path.dirname(os.path.abspath(__file__))):
+        if _p not in _nf_sys.path:
+            _nf_sys.path.insert(0, _p)
+    import nova_ditto as _nova_ditto_mod
+    _NOVA_DITTO = _nova_ditto_mod.boot(wait=True)
+    if not _NOVA_DITTO.ready:
+        # NO SILENT FALLBACKS (Nova law 4): running MuseTalk while the pod says it is on Ditto
+        # would put an untrue picture on a kid's screen. Die loudly.
+        raise RuntimeError("NOVA_FACE=ditto but the Ditto server never answered ready — "
+                           "start it first: DITTO_SRC=<body.mp4> bash ditto_up.sh")
+    print(f"[NOVA_FACE] ditto — /humanaudio held back {_NOVA_DITTO.av_delay_ms:.0f} ms "
+          f"(prime {_NOVA_DITTO.prime} + slack {_NOVA_DITTO.slack}) × 40 ms", flush=True)
+else:
+    print(f"[NOVA_FACE] {NOVA_FACE}", flush=True)
 MODEL = os.environ.get("RT_MODEL", "gpt-realtime-2")
 VOICE = os.environ.get("NOVA_VOICE", "marin")   # 2026-08-08 founder decision: marin IS Nova's voice (shimmer too adult, coral weird). ?voice= still overrides per-session for A/B
 RT_URL = f"wss://api.openai.com/v1/realtime?model={MODEL}"
@@ -537,16 +565,45 @@ async def relay(request):
     race_tasks = set()
     FREEZE_CALL_RE = _re.compile(r"(show me a freeze|like a statue|don'?t move|hold (it|still)|freeze!)", _re.I)
 
+    # NOVA_FACE=ditto only: one in-order delay line (defined before the worker that fills it).
+    delayed_q = asyncio.Queue()
+
     async def engine_worker():
         while True:
             pcm = await engine_q.get()
             if pcm is None: break
             try:
+                if _NOVA_DITTO is not None:
+                    # Ditto gets her voice the moment it exists (it needs the head start: every
+                    # frame it returns is DITTO_PRIME frames behind the audio it was drawn from).
+                    # The engine's copy — the one that becomes the published audio track — is
+                    # queued with a due time, so it lands with the frames, not before them.
+                    _NOVA_DITTO.feed(pcm)
+                    await delayed_q.put((asyncio.get_event_loop().time()
+                                         + _NOVA_DITTO.av_delay_ms / 1000.0, pcm))
+                    continue
                 wav = await asyncio.get_event_loop().run_in_executor(None, pcm24_to_wav16, pcm)
                 await feed_engine(http, wav)
             except Exception as e:
                 print("worker err", e, flush=True)
     worker = asyncio.create_task(engine_worker())
+
+    # It sleeps until each chunk's due time and then feeds the engine. The delay is a constant
+    # OFFSET, not a per-chunk cost — chunk i+1's due time is never earlier than chunk i's, so
+    # order holds and throughput is unchanged.
+    async def delayed_engine_worker():
+        while True:
+            item = await delayed_q.get()
+            if item is None: break
+            due, pcm = item
+            left = due - asyncio.get_event_loop().time()
+            if left > 0: await asyncio.sleep(left)
+            try:
+                wav = await asyncio.get_event_loop().run_in_executor(None, pcm24_to_wav16, pcm)
+                await feed_engine(http, wav)
+            except Exception as e:
+                print("delayed worker err", e, flush=True)
+    delayed_worker = asyncio.create_task(delayed_engine_worker()) if _NOVA_DITTO is not None else None
 
     async def fire_freeze_demo():
         # Fire the baked freeze gesture on the avatar engine IF one exists on the
@@ -1630,6 +1687,10 @@ async def relay(request):
         await engine_q.put(None)
         try: await worker
         except Exception: pass
+        if delayed_worker is not None:          # NOVA_FACE=ditto: drain the delay line too
+            await delayed_q.put(None)
+            try: await delayed_worker
+            except Exception: pass
         await http.close()
         try: await ws_client.close()
         except Exception: pass
