@@ -1,0 +1,82 @@
+{
+ "session": "novaditto-live 2026-10-30",
+ "question": "Does Ditto beat MuseTalk on a CLEAN body (mouth closed, calm head), same audio?",
+ "answered_this_session": false,
+ "why_not": "No RUNPOD_API_KEY, no FAL_KEY, no MAYA_ASSETS_TOKEN, no SSH key in this container. No pod could be created and no fal Kling body could be generated, so no Ditto frames exist to measure. Nothing was simulated or estimated.",
+ "measured_this_session": {
+  "lip_audio_musetalk_as_aired": {
+   "video": "nova_src_crop.mp4",
+   "frames": 1575,
+   "face_found_pct": 99.2,
+   "corr_lag0": 0.187,
+   "corr_best": 0.239,
+   "lag_best_frames": -17,
+   "lag_best_ms": -680,
+   "mouth_speaking": 0.0368,
+   "mouth_silent": 0.023,
+   "mouth_travel_mad": 0.00041,
+   "sharp256_speaking_median": 11.9,
+   "sharp256_all_median": 9.1
+  },
+  "method": "maya-lt bench/results/nova-ab/tools/lipcorr.py, mediapipe 0.10.32 face_landmarker, inner-lip gap (13-14)/face height vs audio RMS per 40 ms frame, Pearson at lag 0 and best over -25..+25 frames",
+  "source": "beta/sources/talk-test/talk-90s.mp4",
+  "video_prep": "crop=626:1112:246:276,scale=1080:1920:flags=lanczos, -r 25 -> 1575 frames / 63.0 s (identical to the prior run)",
+  "audio_prep": "-vn -ac 1 -ar 16000 -f f32le -> 1024341 samples / 64.021 s, 17.9% voiced (RMS>0.02)",
+  "reproduces_prior_run": {
+   "prior_corr_lag0": 0.189,
+   "this_corr_lag0": 0.187,
+   "prior_corr_best": 0.25,
+   "this_corr_best": 0.239,
+   "note": "delta is the crf 18 vs crf 16 re-encode; face_found_pct 99.2 identical both runs"
+  }
+ },
+ "ditto_clean_body": {
+  "measured_this_session": null,
+  "standing_number_from_prior_pod_run": {
+   "video": "nova_ditto_clean.mp4",
+   "frames": 1575,
+   "face_found_pct": 100.0,
+   "corr_lag0": 0.271,
+   "corr_best": 0.281,
+   "lag_best_frames": 1,
+   "lag_best_ms": 40,
+   "mouth_speaking": 0.0621,
+   "mouth_silent": 0.0362,
+   "mouth_travel_mad": 0.00428,
+   "sharp256_speaking_median": 9.7,
+   "sharp256_all_median": 8.2
+  },
+  "caveat": "That 'clean body' is the idle_sway ping-pong loop, which itself gates REJECT with mouth_p95 0.059 - her resting mouth sits open. No Nova body has ever passed the gate. A genuinely closed-mouth body has never been measured with Ditto."
+ },
+ "standing_comparison_clean_body": {
+  "musetalk_as_aired_lag0": 0.187,
+  "ditto_on_clean_body_lag0": 0.271,
+  "delta_lag0": 0.084,
+  "musetalk_best_lag_ms": -680,
+  "ditto_best_lag_ms": 40,
+  "source_of_ditto_number": "maya-lt bench/results/nova-ab/numbers.json (pod run 2026-10-30 07:00-07:45Z), NOT this session"
+ },
+ "kling_seed_found": {
+  "clip": "/home/claude/dance-project/docs/ditto-try/nova_body_ditto.mp4",
+  "frames": 314,
+  "eye_open_p75": 0.11259,
+  "candidates": 37,
+  "best": {
+   "frame": 263,
+   "mouth": 0.01061,
+   "eye": 0.12076,
+   "face_px": 288.9,
+   "sharp": 16.1
+  },
+  "still": "./kling_seed_f263.png",
+  "mouth_p50": 0.01317,
+  "mouth_p95": 0.03856
+ },
+ "probe": {
+  "cmd": "tools/pod/ditto_bridge_patch.py --probe",
+  "result": "MISSING - /workspace/lk_bridge.py does not exist (it lives on the pod volume). Assumptions A1 (the two anchors) and A2 (who publishes the audio track) remain unkilled."
+ },
+ "pods_created": 0,
+ "pods_remaining": 0,
+ "usd_spent": 0.0
+}
