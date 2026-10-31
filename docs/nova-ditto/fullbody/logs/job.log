@@ -1,0 +1,40 @@
+[job 08:29:57] waiting for the payload
+[job 08:29:57] payload complete
+[job 08:29:57] recon skipped (done on the previous pod; the volume is left alone)
+dcad84ca27a7ee4c3ab435bacc9770d2  /root/mt/maya-ops/lt/ditto_server.py
+31110eb08d4753579a1318db6bdf9e7d  /root/mt/bench/replace_musetalk_alt/ditto_wide.py
+787bcd6cfdaa7210ad4de055068bf66f  /workspace/in/ditto_fullbody.py
+[job 08:29:58] installing python3.10 dev headers -- Ditto builds core/utils/blend with pyximport at import
+[job 08:30:03] Python.h OK
+[job 08:30:03] === fullbody_calm: src=body_a.mp4 box=263,215,763,715 frames=1600
+[job 08:33:06] fullbody_calm ditto_up rc=0 health={"ready": true, "chunk_frames": 25, "chunk_samples": 16000, "fps": 25, "prime": 35, "info": {"src": "body_a.mp4", "src_frames": 252, "src_wh": [1076, 1924], "amp": 0.6, "gate_frames": 0, "out_wh": [1076, 1924], "setup_s": 9.6, "bank": null, "zoom": false, "eye_holds": 0, "prime_s": 121.7}, "renders": 0, "late": 0, "ms_p50": 0, "ms_p95": 0, "error": null, "motion": null, "putback_ms_p95": 7.1}
+[job 08:33:43] fullbody_calm drive rc=0 DRIVE_DONE /workspace/novaditto_fb_out/fullbody_calm.mp4 1600 late 0 p95 630
+-rw-rw-rw- 1 root root 36428521 Oct 31 08:33 /workspace/novaditto_fb_out/fullbody_calm.mp4
+[job 08:33:43] === fullbody_dance: src=body_dance.mp4 box=288,200,798,710 frames=500
+[job 08:35:54] fullbody_dance ditto_up rc=0 health={"ready": true, "chunk_frames": 25, "chunk_samples": 16000, "fps": 25, "prime": 35, "info": {"src": "body_dance.mp4", "src_frames": 252, "src_wh": [1076, 1924], "amp": 0.6, "gate_frames": 0, "out_wh": [1076, 1924], "setup_s": 5.7, "bank": null, "zoom": false, "eye_holds": 0, "prime_s": 121.2}, "renders": 0, "late": 0, "ms_p50": 0, "ms_p95": 0, "error": null, "motion": null, "putback_ms_p95": 5.3}
+[job 08:36:07] fullbody_dance drive rc=0 DRIVE_DONE /workspace/novaditto_fb_out/fullbody_dance.mp4 500 late 0 p95 441
+-rw-rw-rw- 1 root root 18992378 Oct 31 08:36 /workspace/novaditto_fb_out/fullbody_dance.mp4
+[job 08:36:07] ALL DONE
+total 59067
+drwxrwxrwx  2 root root  2005290 Oct 31 08:36 .
+drwxrwxrwx 39 root root  3003831 Oct 31 08:24 ..
+-rw-rw-rw-  1 root root     2683 Oct 31 08:30 aptdev.log
+-rw-rw-rw-  1 root root    13579 Oct 31 08:33 ditto_server_fullbody_calm.log
+-rw-rw-rw-  1 root root     6970 Oct 31 08:36 ditto_server_fullbody_dance.log
+-rw-rw-rw-  1 root root      647 Oct 31 08:33 ditto_up_fullbody_calm.log
+-rw-rw-rw-  1 root root      610 Oct 31 08:35 ditto_up_fullbody_dance.log
+-rw-rw-rw-  1 root root      990 Oct 31 08:33 drive_fullbody_calm.log
+-rw-rw-rw-  1 root root      864 Oct 31 08:36 drive_fullbody_dance.log
+-rw-rw-rw-  1 root root 36428521 Oct 31 08:33 fullbody_calm.mp4
+-rw-rw-rw-  1 root root     2596 Oct 31 08:33 fullbody_calm.mp4.json
+-rw-rw-rw-  1 root root 18992378 Oct 31 08:36 fullbody_dance.mp4
+-rw-rw-rw-  1 root root     1235 Oct 31 08:36 fullbody_dance.mp4.json
+-rw-rw-rw-  1 root root      395 Oct 31 08:33 health_fullbody_calm.json
+-rw-rw-rw-  1 root root      404 Oct 31 08:33 health_fullbody_calm_end.json
+-rw-rw-rw-  1 root root      399 Oct 31 08:35 health_fullbody_dance.json
+-rw-rw-rw-  1 root root      408 Oct 31 08:36 health_fullbody_dance_end.json
+-rw-rw-rw-  1 root root     8290 Oct 31 08:26 lk_bridge.real.py
+-rw-rw-rw-  1 root root      221 Oct 31 08:29 payload_md5.txt
+-rw-rw-rw-  1 root root     2035 Oct 31 08:26 probe.txt
+-rw-rw-rw-  1 root root     7359 Oct 31 08:26 recon.log
+[job 08:36:07] waiting up to 20 min for /workspace/in/PULLED, then cleaning our footprint off the volume
