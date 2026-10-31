@@ -1,0 +1,14 @@
+[novaditto 07:43:10 +0s] waiting for /workspace/in/READY
+[novaditto 07:43:10 +0s] inputs: total 8580 drwxr-xr-x 2 root root    4096 Oct 31 07:43 . drwxr-xr-x 1 root root     185 Oct 31 07:43 .. -rw-r--r-- 1 root root       6 Oct 31 07:43 READY -rw-r--r-- 1 root root 4097364 Oct 31 07:43 audio16k.f32 -rw-r--r-- 1 root root   17166 Oct 31 07:43 ditto_server.py -rw-r--r-- 1 root root    6150 Oct 31 07:43 ditto_up.sh -rw-r--r-- 1 root root   14117 Oct 31 07:43 ditto_wide.py -rw-r--r-- 1 root root    2345 Oct 31 07:43 drive.py -rw-r--r-- 1 root root    2290 Oct 31 07:43 job.sh -rw-r--r-- 1 root root   10020 Oct 31 07:43 motion_bank.py -rw-r--r-- 1 root root 4609490 Oct 31 07:43 nova_body_closed.mp4 
+[novaditto 07:43:10 +0s] staging renderer from /workspace/in
+[novaditto 07:43:10 +0s] apt
+[novaditto 07:43:40 +30s] apt rc=0
+[novaditto 07:43:40 +30s] == ditto_up (install + start on the closed-mouth body)
+[ditto_up 07:44:36] setup done in 56 s (11G)
+[ditto_up 07:44:36] ditto_server pid 2573 on :8031 (src /workspace/in/nova_body_closed.mp4)
+[ditto_up 07:46:55] ready after 195 s: {"ready": true, "chunk_frames": 25, "chunk_samples": 16000, "fps": 25, "prime": 35, "info": {"src": "nova_body_closed.mp4", "src_frames": 252, "src_wh": [1080, 1920], "amp": 0.6, "gate_frames": 0, "out_wh": [1080, 1920], "setup_s": 9.9, "bank": null, "zoom": false, "eye_holds": 0, "prime_s": 121.7}, "renders": 0, "late": 0, "ms_p50": 0, "ms_p95": 0, "error": null, "motion": null, "putback_ms_p95": 20.6}
+[novaditto 07:46:55 +225s] ditto_up rc=0
+[novaditto 07:46:55 +225s] health {"ready": true, "chunk_frames": 25, "chunk_samples": 16000, "fps": 25, "prime": 35, "info": {"src": "nova_body_closed.mp4", "src_frames": 252, "src_wh": [1080, 1920], "amp": 0.6, "gate_frames": 0, "out_wh": [1080, 1920], "setup_s": 9.9, "bank": null, "zoom": false, "eye_holds": 0, "prime_s": 121.7}, "renders": 0, "late": 0, "ms_p50": 0, "ms_p95": 0, "error": null, "motion": null, "putback_ms_p95": 20.6}
+[novaditto 07:46:55 +225s] == drive 1575 frames
+[novaditto 07:47:57 +287s] drive rc=0 DRIVE_DONE /workspace/out/ditto_clean.mp4 1575 late 0 p95 636
+[novaditto 07:47:57 +287s] ALL_DONE
