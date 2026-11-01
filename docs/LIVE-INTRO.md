@@ -275,6 +275,12 @@ for `/root/in/novalive_job.sh`, a name no previous session can have left behind.
 | `wpl5l5zii24uut` | 4090 Secure | 5.2 | $0.077 | the read-only inventory and the refused repair |
 | **total** | | **52.9** | **$0.78** | of a $2 cap. **fal: $0.00 — no generation was run.** |
 
+> **On the account balance, so the number is not misread.** RunPod's `clientBalance` went
+> $4.0287 → $2.2169 across this session, a delta of **$1.81** — but another session's pod
+> (`clat--body`, 4090 at $0.89/h, recreated several times) ran concurrently for the whole hour and
+> is most of the difference, along with storage on six network volumes. **$0.78 is this session's
+> own spend**, computed from each pod's measured create→terminate lifetime at its stated $0.89/h.
+
 **Pods remaining: 0.** All five return HTTP 404 by id. The only pod left on the account,
 `clat--body`, belongs to another session and was never touched.
 
