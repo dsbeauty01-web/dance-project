@@ -28,11 +28,21 @@ ENGINE = os.environ.get("ENGINE_URL", "http://127.0.0.1:8010")
 #  ditto                        — her reply audio ALSO goes to the Ditto server on :8031
 #    (maya-lt maya-ops/lt/ditto_server.py), which repaints only her lips on a pre-made body
 #    video; lk_bridge.py publishes those frames instead of MuseTalk's (tools/pod/ditto_bridge_patch.py).
-#    The copy that still goes to /humanaudio is HELD BACK by (DITTO_PRIME + slack) × 40 ms,
-#    because every Ditto frame comes back that far behind the audio it was drawn from, and the
-#    LiveTalking engine is what publishes the audio track. Without the hold her lips run early
-#    by exactly that much. MuseTalk keeps running as the audio pump; its video is dropped.
+#    MuseTalk keeps running as the audio pump; its video is dropped.
+#
+#  WHERE THE A/V OFFSET LIVES — corrected 2026-11-01 (session novalive-intro).
+#    Every Ditto frame comes back (DITTO_PRIME + slack) × 40 ms behind the audio it was drawn
+#    from, so the audio must be held back by that much or her lips run early. This file used to
+#    do the holding, on the assumption (NOVA-DITTO.md A2) that the LiveTalking engine publishes
+#    the audio track. The 2026-10-31 probe on the real /workspace/lk_bridge.py killed that:
+#    lk_bridge publishes BOTH tracks (AudioSource L120, publish_track L122 microphone +
+#    L140 camera). Holding /humanaudio back HERE delays the engine itself and therefore the
+#    start of her turn — added latency, not a pure picture-against-sound offset. So the offset
+#    now lives in lk_bridge.py's drain_audio, and this file only FEEDS Ditto her voice at once.
+#    NOVA_DITTO_DELAY_SITE=rtlk restores the old in-brain delay line for an A/B.
 NOVA_FACE = (os.environ.get("NOVA_FACE", "musetalk") or "musetalk").strip().lower()
+_NOVA_DITTO_DELAY_IN_RTLK = (
+    (os.environ.get("NOVA_DITTO_DELAY_SITE", "bridge") or "bridge").strip().lower() == "rtlk")
 _NOVA_DITTO = None
 if NOVA_FACE == "ditto":
     import sys as _nf_sys
@@ -46,8 +56,11 @@ if NOVA_FACE == "ditto":
         # would put an untrue picture on a kid's screen. Die loudly.
         raise RuntimeError("NOVA_FACE=ditto but the Ditto server never answered ready — "
                            "start it first: DITTO_SRC=<body.mp4> bash ditto_up.sh")
-    print(f"[NOVA_FACE] ditto — /humanaudio held back {_NOVA_DITTO.av_delay_ms:.0f} ms "
-          f"(prime {_NOVA_DITTO.prime} + slack {_NOVA_DITTO.slack}) × 40 ms", flush=True)
+    print(f"[NOVA_FACE] ditto — Ditto fed immediately; the {_NOVA_DITTO.av_delay_ms:.0f} ms A/V "
+          f"offset (prime {_NOVA_DITTO.prime} + slack {_NOVA_DITTO.slack}) × 40 ms is applied in "
+          + ("rt_lk.py's delay line (NOVA_DITTO_DELAY_SITE=rtlk)" if _NOVA_DITTO_DELAY_IN_RTLK
+             else "lk_bridge.py drain_audio (NOVA_DITTO_DELAY_SITE=bridge, the default)"),
+          flush=True)
 else:
     print(f"[NOVA_FACE] {NOVA_FACE}", flush=True)
 MODEL = os.environ.get("RT_MODEL", "gpt-realtime-2")
@@ -576,12 +589,16 @@ async def relay(request):
                 if _NOVA_DITTO is not None:
                     # Ditto gets her voice the moment it exists (it needs the head start: every
                     # frame it returns is DITTO_PRIME frames behind the audio it was drawn from).
-                    # The engine's copy — the one that becomes the published audio track — is
-                    # queued with a due time, so it lands with the frames, not before them.
                     _NOVA_DITTO.feed(pcm)
-                    await delayed_q.put((asyncio.get_event_loop().time()
-                                         + _NOVA_DITTO.av_delay_ms / 1000.0, pcm))
-                    continue
+                    if _NOVA_DITTO_DELAY_IN_RTLK:
+                        # the OLD site, kept for an A/B only: the engine's copy is queued with a
+                        # due time. This delays the engine too, so it costs turn latency.
+                        await delayed_q.put((asyncio.get_event_loop().time()
+                                             + _NOVA_DITTO.av_delay_ms / 1000.0, pcm))
+                        continue
+                    # the DEFAULT site: feed the engine now and let lk_bridge.py's drain_audio
+                    # hold the published audio track back instead — a pure A/V offset, no added
+                    # latency on the start of her turn. Falls through to the normal path below.
                 wav = await asyncio.get_event_loop().run_in_executor(None, pcm24_to_wav16, pcm)
                 await feed_engine(http, wav)
             except Exception as e:
@@ -603,7 +620,8 @@ async def relay(request):
                 await feed_engine(http, wav)
             except Exception as e:
                 print("delayed worker err", e, flush=True)
-    delayed_worker = asyncio.create_task(delayed_engine_worker()) if _NOVA_DITTO is not None else None
+    delayed_worker = (asyncio.create_task(delayed_engine_worker())
+                      if (_NOVA_DITTO is not None and _NOVA_DITTO_DELAY_IN_RTLK) else None)
 
     async def fire_freeze_demo():
         # Fire the baked freeze gesture on the avatar engine IF one exists on the

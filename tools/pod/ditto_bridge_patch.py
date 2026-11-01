@@ -23,17 +23,25 @@ WHAT THIS SCRIPT DOES **NOT** TOUCH, ON PURPOSE
     already on the volume (docs/CHOPPY-FIX-2026-10-21.md) stay exactly as they are: the ditto
     branch is inserted ABOVE the downscale line, so Ditto's 1080x1920 frames go through the
     same downscale and the same publish_track call as MuseTalk's do today.
-  * The audio. Nova's reply audio never enters lk_bridge.py -- it goes
-    OpenAI Realtime -> rt_lk.py -> POST /humanaudio -> the LiveTalking engine, which is what
-    publishes it (pod/rt_lk.py, feed_engine / engine_worker). So the PRIME x 40 ms audio delay
-    is applied in pod/rt_lk.py, which IS in git, instead of being guessed at here.
-    See docs/NOVA-DITTO.md, "What was assumed".
+  * The publish_track calls, the tracks, the room, the engine socket, the queues. Untouched.
 
-[ASSUMPTION -- not verified in this container] lk_bridge.py is volume-only; it is not in this
-repo and this session could not read it. The two anchors below are quoted from work that DID
-patch it: tools/pod/downscale_lk_bridge.py (both anchors, applied and measured on 2026-10-22)
-and docs/GROOVE-1080-REPORT.md (the publish_track call). If --probe reports a missing anchor,
-STOP and send the probe log back -- do not hand-edit the bridge.
+THE AUDIO -- CORRECTED 2026-11-01 (session novalive-intro). This file used to say the audio
+never enters lk_bridge.py and put the A/V offset in pod/rt_lk.py instead. That was assumption
+A2 of docs/NOVA-DITTO.md and the 2026-10-31 probe on the REAL /workspace/lk_bridge.py KILLED it:
+
+    AudioSource: 1        L120: asrc = rtc.AudioSource(AUDIO_SR, 1)
+    publish_track: 2      L122 (atrack, SOURCE_MICROPHONE) + L140 (vt, SOURCE_CAMERA)
+
+lk_bridge.py publishes BOTH tracks. One engine socket carries 'V' and 'A'; the audio lands in
+`aq` and `drain_audio` pushes it into the LiveKit audio track. So the offset belongs HERE, in
+drain_audio (anchors A3/A4 below), and NOT in rt_lk.py: holding /humanaudio back in rt_lk.py
+delays the ENGINE itself and therefore the start of her turn -- that is added latency, not a
+pure picture-against-sound offset. rt_lk.py keeps feeding Ditto her voice immediately and its
+own delay line is now off by default (NOVA_DITTO_DELAY_SITE=bridge).
+
+The anchors were verified against the real file, byte for byte: docs/nova-ditto/fullbody/
+lk_bridge.real.py, md5 1c4448b475ae0cdd719aef4edaa90337, all four anchors count=1.
+If --probe reports a missing anchor, STOP and send the probe log back -- do not hand-edit it.
 """
 import argparse
 import hashlib
@@ -99,6 +107,31 @@ A2_NEW = '''            if _NOVA_FACE_DITTO:
                 w, h, rgba = await vq.get()
 '''
 
+# A3 / A4: the A/V OFFSET, in drain_audio -- the place the 2026-10-31 probe proved is correct.
+# A3 stamps each engine audio frame with its arrival time; A4 holds it until arrival + the delay.
+# Measured from ARRIVAL, so it is a constant OFFSET, not a per-frame cost: frame i+1's due time is
+# never earlier than frame i's, so order and throughput are unchanged. aq (maxsize 600) absorbs the
+# backlog -- 1.8 s of 20 ms engine frames is ~90 entries.
+A3 = "            pcm = await aq.get()\n            n = int(pcm.shape[0])\n"
+
+A3_NEW = '''            pcm = await aq.get()
+            _nf_arrived = time.monotonic() if _NOVA_FACE_DITTO else 0.0
+            n = int(pcm.shape[0])
+'''
+
+A4 = "            await asrc.capture_frame(fr)\n"
+
+A4_NEW = '''            if _NOVA_FACE_DITTO:
+                # Every Ditto frame comes back (DITTO_PRIME + slack) x 40 ms behind the audio it
+                # was drawn from (nova_ditto.next_frame_bgr waits for `slack` frames before it
+                # starts its publish clock). Without this hold her lips run early by exactly that
+                # much. musetalk takes neither branch: _nf_arrived is 0.0 and this block is skipped.
+                _nf_left = (_nf_arrived + _nova_ditto_face.av_delay_ms / 1000.0) - time.monotonic()
+                if _nf_left > 0:
+                    await asyncio.sleep(_nf_left)
+            await asrc.capture_frame(fr)
+'''
+
 MARK = "_NOVA_FACE_DITTO"          # idempotency marker
 
 
@@ -160,9 +193,12 @@ def probe(target, log):
     src = open(target, encoding="utf-8", errors="replace").read()
     log(f"   md5 {md5(target)}   {len(src)} bytes   {src.count(chr(10))} lines")
     log("")
-    log("   anchors this patch needs (both must be exactly 1):")
+    log("   anchors this patch needs (all four must be exactly 1):")
     ok = True
-    for name, a in (("A1  return rgba.tobytes()", A1), ("A2  w, h, rgba = await vq.get()", A2)):
+    for name, a in (("A1  return rgba.tobytes()", A1),
+                    ("A2  w, h, rgba = await vq.get()", A2),
+                    ("A3  pcm = await aq.get() + n =", A3),
+                    ("A4  await asrc.capture_frame(fr)", A4)):
         n = src.count(a)
         log(f"     {'OK ' if n == 1 else 'BAD'}  {name}  count={n}")
         ok = ok and n == 1
@@ -177,10 +213,10 @@ def probe(target, log):
         if len(hits) > 6:
             log(f"        ... {len(hits) - 6} more")
     log("")
-    log("   KEY QUESTION for the audio: if 'AudioSource' / 'AudioFrame' above is 0, lk_bridge")
-    log("   publishes VIDEO only and the audio track comes from the LiveTalking engine, which")
-    log("   is what pod/rt_lk.py's NOVA_FACE=ditto delay assumes. If it is NOT 0, the audio is")
-    log("   published here and the delay belongs here instead -- say so before applying.")
+    log("   THE AUDIO, settled 2026-10-31 and corrected here: 'AudioSource' above is 1 and")
+    log("   'publish_track' is 2, so lk_bridge publishes BOTH tracks and the A/V offset belongs")
+    log("   in drain_audio (A3/A4) -- which is where this patch now puts it. If a future file")
+    log("   ever shows AudioSource: 0, A3/A4 are wrong for it: stop and re-site the offset.")
     log(f"   already patched: {'yes' if MARK in src else 'no'}")
     return ok
 
@@ -224,6 +260,15 @@ def apply(target, sidecar_src, log):
     if out2 == out:
         log("   REFUSING: A2 did not apply")
         return 2
+    out3 = out2.replace(A3, A3_NEW, 1)
+    if out3 == out2:
+        log("   REFUSING: A3 did not apply (the A/V offset would have no arrival stamp)")
+        return 2
+    out4 = out3.replace(A4, A4_NEW, 1)
+    if out4 == out3:
+        log("   REFUSING: A4 did not apply (the A/V offset would never be held)")
+        return 2
+    out2 = out4
 
     bak = f"{target}.bak-ditto-{int(time.time())}"
     shutil.copy2(target, bak)
@@ -243,11 +288,11 @@ def apply(target, sidecar_src, log):
     log("")
     log("   behaviour now:")
     log("     NOVA_FACE unset / musetalk  -> `w, h, rgba = await vq.get()`, exactly as before")
-    log("     NOVA_FACE=ditto             -> frames from nova_ditto (Ditto server :8031)")
-    log("   the downscale and the publish_track call were NOT touched.")
-    log("   REMEMBER: also run this on rt_lk.py's side -- NOVA_FACE=ditto there feeds Ditto the")
-    log("   audio and delays /humanaudio by (DITTO_PRIME + slack) x 40 ms. Without it the lips")
-    log("   are early by that much.")
+    log("     NOVA_FACE=ditto             -> frames from nova_ditto (Ditto server :8031) AND the")
+    log("                                    audio track held back av_delay_ms in drain_audio")
+    log("   the downscale and both publish_track calls were NOT touched.")
+    log("   rt_lk.py keeps NOVA_FACE=ditto only to FEED Ditto her voice; its own delay line is off")
+    log("   by default now (NOVA_DITTO_DELAY_SITE=bridge) so the offset is applied exactly once.")
     return 0
 
 
