@@ -1,0 +1,32 @@
+===== BOOT Sun Nov  1 11:33:03 UTC 2026 =====
+error: could not write config file .git/config: Disk quota exceeded
+fatal: could not set 'remote.origin.url' to 'https://<REDACTED-TOKEN>@github.com/dsbeauty01-web/dance-project.git'
+error: Could not read 56cc0e18a2321551385c9859325406ed228914c8
+fatal: Failed to traverse parents of commit 54c069f7e372d544402440075136182f0ac33cea
+error: remote did not send all necessary objects
+[DEPLOY] git sync FAILED — keeping existing /workspace/pages
+[DEPLOY] fetch failed — deploying the cached checkout
+[DEPLOY] reset to origin/nova-ditto FAILED — still on 05f88b0
+cp: failed to close '/workspace/pages/animal-freeze.html': Disk quota exceeded
+cp: failed to close '/workspace/pages/up-groove.html': Disk quota exceeded
+cp: failed to close '/workspace/pages/upperbody.html': Disk quota exceeded
+cp: failed to close '/workspace/pages/wave.html': Disk quota exceeded
+[DEPLOY] pages synced from nova-ditto@05f88b0: none
+cp: failed to close '/workspace/pages/shared/cue-window.js': Disk quota exceeded
+cp: failed to close '/workspace/pages/shared/freeze-fx.js': Disk quota exceeded
+cp: failed to close '/workspace/pages/shared/game-kit.js': Disk quota exceeded
+cp: failed to close '/workspace/pages/shared/light-engine.js': Disk quota exceeded
+cp: failed to close '/workspace/pages/shared/mover-engine.js': Disk quota exceeded
+cp: failed to close '/workspace/pages/shared/mover-rules.js': Disk quota exceeded
+cp: failed to close '/workspace/pages/shared/nova-bridge.js': Disk quota exceeded
+cp: failed to close '/workspace/pages/shared/nova-lang.js': Disk quota exceeded
+cp: failed to close '/workspace/pages/shared/nova-lights.js': Disk quota exceeded
+cp: failed to close '/workspace/pages/shared/pose-adapter.js': Disk quota exceeded
+cp: failed to close '/workspace/pages/shared/pose-engine.js': Disk quota exceeded
+cp: failed to close '/workspace/pages/shared/pulse.js': Disk quota exceeded
+cp: error writing '/workspace/pages/models/pose_landmarker_lite.task': Disk quota exceeded
+cp: failed to close '/workspace/pages/models/pose_landmarker_lite.task': Disk quota exceeded
+[DEPLOY] WARNING volume brain was hand-edited (md5 d41d8cd9 != last deployed b57bd139) — saved /workspace/rt_lk.py.bak-drift-20261101T113316Z
+[DEPLOY] brain rt_lk.py DEPLOYED from nova-ditto@05f88b0: md5 d41d8cd9 -> b57bd139 (+2091 -0
+0 lines, diff: /root/deploy-rtlk.diff)
+[DEPLOY] brain not running — boot starts the new file at step 7 (no restart needed)

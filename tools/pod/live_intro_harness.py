@@ -27,6 +27,7 @@ import argparse
 import glob
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -187,7 +188,8 @@ ThreadingHTTPServer(("127.0.0.1", int(sys.argv[2])), H).serve_forever()
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--url", default="http://127.0.0.1:8765/beta/freeze?intro=freeze")
+    ap.add_argument("--url", default="http://127.0.0.1:8765/beta/freeze?intro=freeze",
+                help="one URL, or several separated by | and tried in order")
     ap.add_argument("--out", default="/workspace/novalive_out")
     ap.add_argument("--inbox", default="/workspace/in")
     ap.add_argument("--rec-dir", default="/root/rec")
@@ -236,6 +238,42 @@ def main():
         subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i",
                         "anullsrc=r=48000:cl=mono", "-t", "20", "-c:a", "pcm_s16le", sil], check=False)
 
+    # ---- PAGE REPAIR (2026-11-01) ---------------------------------------------------------
+    # boot.sh's deploy step copies the repo's pages onto the volume. On 2026-11-01 the volume was
+    # out of quota, so every cp opened its destination, truncated it, and then failed to write:
+    # /workspace/pages/beta/freeze.html and twelve shared/*.js were left at 0 bytes, timestamped
+    # 11:33, and /beta/freeze answered 200 with an empty body. The truncation itself freed the
+    # quota, so the volume is writable again but the files are gone.
+    # If an uploaded repair set is present, put those exact files back BEFORE opening the page.
+    # Names are flattened as "<subdir>__<file>" because podsrv's PUT takes a basename only.
+    # Nothing is overwritten unless the uploaded copy is LARGER than what is on the volume, so a
+    # healthy file is never clobbered by this.
+    fixed, skipped = [], []
+    for src in sorted(glob.glob(os.path.join(a.inbox, "*__*"))):
+        sub, _, base = os.path.basename(src).partition("__")
+        if sub not in ("beta", "shared", "models") or not base:
+            continue
+        dst = os.path.join("/workspace/pages", sub, base)
+        try:
+            have = os.path.getsize(dst) if os.path.exists(dst) else -1
+            want = os.path.getsize(src)
+            if have >= want:
+                skipped.append(f"{sub}/{base} ({have} >= {want})")
+                continue
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            tmp = dst + ".novalive-new"
+            shutil.copyfile(src, tmp)
+            os.replace(tmp, dst)          # atomic: the live file is never a partial write
+            fixed.append(f"{sub}/{base} {have} -> {os.path.getsize(dst)}")
+        except Exception as e:
+            skipped.append(f"{sub}/{base} FAILED {type(e).__name__}: {e}")
+    if fixed or skipped:
+        status(f"page repair: restored {len(fixed)}, left alone {len(skipped)}")
+        for f in fixed:
+            status("  + " + f)
+        for f in skipped[:6]:
+            status("  . " + f)
+
     from playwright.sync_api import sync_playwright          # noqa: E402
 
     caps = []          # [{who,text}] -- the real exchange, mirrored into the recording
@@ -261,13 +299,35 @@ def main():
         page = ctx.new_page()
         page.on("console", lambda m: conf.write(f"[{time.time()-t00:7.1f}s] {m.type}: {m.text}\n"))
         page.on("pageerror", lambda e: conf.write(f"[{time.time()-t00:7.1f}s] PAGEERROR: {e}\n"))
-        status(f"goto {a.url}")
-        page.goto(a.url, wait_until="domcontentloaded", timeout=90000)
-        try:
-            page.click("#start-btn", timeout=20000)
-            status("clicked Let's Play (the user gesture the page needs)")
-        except Exception as e:
-            status(f"start-btn click failed: {e}")
+        # 2026-11-01: on a pod whose volume is out of quota, boot.sh's deploy step truncates the
+        # page it was meant to deploy, and /beta/freeze then answers 200 with an EMPTY body: the
+        # harness saw a white page with no #start-btn and no console output at all. So the URL is
+        # a LIST now, tried in order, and a page that never shows the Let's-Play button is treated
+        # as not-served rather than silently recorded as a blank screen.
+        opened = None
+        for u in [x for x in a.url.split("|") if x.strip()]:
+            status(f"goto {u}")
+            try:
+                page.goto(u, wait_until="domcontentloaded", timeout=60000)
+            except Exception as e:
+                status(f"  goto failed: {type(e).__name__}")
+                continue
+            try:
+                body = page.evaluate("()=>({len:(document.body&&document.body.innerText||'').length,"
+                                     "html:document.documentElement.outerHTML.length,"
+                                     "txt:(document.body&&document.body.innerText||'').slice(0,160)})")
+                status(f"  body text {body['len']} chars, html {body['html']} bytes: {body['txt']!r}")
+            except Exception:
+                pass
+            try:
+                page.click("#start-btn", timeout=15000)
+                status(f"  clicked Let's Play on {u}")
+                opened = u
+                break
+            except Exception as e:
+                status(f"  no #start-btn here ({type(e).__name__})")
+        if not opened:
+            status("NO PAGE SERVED the app on any candidate URL -- nothing to record")
 
         def pump_ws():
             try:

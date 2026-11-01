@@ -15,7 +15,10 @@
 # serving. That means ONE boot of the stack, no restarts, and boot.sh keeps owning the four live
 # credentials it exports -- this job never reads or prints them.
 set -uo pipefail
-IN=/workspace/in; OUT=/workspace/novalive_out; MT=/root/mt; LOG=/root/logs
+# 2026-11-01: IN and OUT live on the CONTAINER disk, not the volume. podsrv serves /root and
+# takes uploads into /root/in, so this session only ever READS the production volume (apart
+# from lk_bridge.py and rt_lk.py, both backed up and restored in stage 8).
+IN=/root/in; OUT=/root/novalive_out; MT=/root/mt; LOG=/root/logs
 mkdir -p "$OUT" "$MT/maya-ops/lt" "$MT/bench/replace_musetalk_alt" "$LOG"
 say(){ local m="[job $(date -u +%H:%M:%S)] $*"; echo "$m"; echo "$m" >> "$OUT/STAGES"; }
 : > "$OUT/STAGES"
@@ -153,6 +156,4 @@ fi
 [ -s "$OUT/rt_lk.volume.before.py" ] && cp "$OUT/rt_lk.volume.before.py" /workspace/rt_lk.py && say "rt_lk.py restored to the volume's original"
 rm -f /workspace/lk_bridge.py.bak-ditto-* /workspace/nova_ditto.py
 rm -rf "$OUT"
-rm -f "$IN"/*.mp4 "$IN"/*.json "$IN"/*.py "$IN"/*.sh "$IN"/kid_*.txt "$IN"/GESTURE_* \
-      "$IN"/PAYLOAD_DONE "$IN"/PULLED "$IN"/GO "$IN"/STOP
-echo "footprint cleaned: $(ls -A "$IN" | wc -l) entries left in in/"
+echo "nothing of ours was written to the volume: IN and OUT were both on the container disk"
