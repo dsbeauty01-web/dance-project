@@ -1,0 +1,69 @@
+{
+ "tree": "/workspace/_sys/pylibs311_good/dist-packages",
+ "our_version": "2.9.1",
+ "our_dist_info": "torch-2.9.1+cu129.dist-info",
+ "import_before": {
+  "ok": false,
+  "msg": [
+   "OSError: /workspace/_sys/pylibs311_good/dist-packages/torch/lib/libtorch_global_deps.so: cannot open shared object file: No such file or directory"
+  ]
+ },
+ "donors": [
+  {
+   "tree": "/workspace/opentalking/.venv/lib/python3.11/site-packages",
+   "version": "2.10.0",
+   "py311": true,
+   "via": "known-path"
+  }
+ ],
+ "chosen": {
+  "tree": "/workspace/opentalking/.venv/lib/python3.11/site-packages",
+  "version": "2.10.0",
+  "py311": true,
+  "via": "known-path"
+ },
+ "missing_count": 3707,
+ "missing_bytes": 22476558,
+ "missing_sample": [
+  "torch/_namedtensor_internals.py",
+  "torch/include/xnnpack.h",
+  "torch/include/experiments-config.h",
+  "torch/include/torch/script.h",
+  "torch/include/torch/library.h",
+  "torch/include/torch/extension.h",
+  "torch/include/torch/custom_class_detail.h",
+  "torch/include/torch/custom_class.h",
+  "torch/include/torch/csrc/utils.h",
+  "torch/include/torch/csrc/shim_conversion_utils.h",
+  "torch/include/torch/csrc/serialization.h",
+  "torch/include/torch/csrc/python_headers.h",
+  "torch/include/torch/csrc/python_dimname.h",
+  "torch/include/torch/csrc/itt_wrapper.h",
+  "torch/include/torch/csrc/itt.h",
+  "torch/include/torch/csrc/copy_utils.h",
+  "torch/include/torch/csrc/Types.h",
+  "torch/include/torch/csrc/TypeInfo.h",
+  "torch/include/torch/csrc/THP.h",
+  "torch/include/torch/csrc/THConcat.h",
+  "torch/include/torch/csrc/Stream.h",
+  "torch/include/torch/csrc/StorageSharing.h",
+  "torch/include/torch/csrc/StorageMethods.h",
+  "torch/include/torch/csrc/Storage.h",
+  "torch/include/torch/csrc/Size.h"
+ ],
+ "copied": 3707,
+ "failed": [],
+ "import_after_torch": {
+  "ok": false,
+  "msg": [
+   "OSError: /workspace/_sys/pylibs311_good/dist-packages/torch/lib/libtorch_global_deps.so: cannot open shared object file: No such file or directory"
+  ]
+ },
+ "import_after_torchvision": {
+  "ok": false,
+  "msg": [
+   "OSError: /workspace/_sys/pylibs311_good/dist-packages/torch/lib/libtorch_global_deps.so: cannot open shared object file: No such file or directory"
+  ]
+ },
+ "verdict": "still broken"
+}

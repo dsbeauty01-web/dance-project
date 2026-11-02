@@ -1,0 +1,35 @@
+our torch version: 2.9.1  dist-info: torch-2.9.1+cu129.dist-info
+import torch before: ok=False ['OSError: /workspace/_sys/pylibs311_good/dist-packages/torch/lib/libtorch_global_deps.so: cannot open shared object file: No such file or directory']
+donor trees with a torch: 1
+  2.10.0       py311=True  /workspace/opentalking/.venv/lib/python3.11/site-packages
+missing from our torch vs /workspace/opentalking/.venv/lib/python3.11/site-packages: 3707 files, 22.5 MB
+           5276  torch/_namedtensor_internals.py
+         201257  torch/include/xnnpack.h
+            766  torch/include/experiments-config.h
+            723  torch/include/torch/script.h
+          42653  torch/include/torch/library.h
+            467  torch/include/torch/extension.h
+           8086  torch/include/torch/custom_class_detail.h
+          20104  torch/include/torch/custom_class.h
+           4884  torch/include/torch/csrc/utils.h
+            926  torch/include/torch/csrc/shim_conversion_utils.h
+            935  torch/include/torch/csrc/serialization.h
+            903  torch/include/torch/csrc/python_headers.h
+            468  torch/include/torch/csrc/python_dimname.h
+            574  torch/include/torch/csrc/itt_wrapper.h
+            435  torch/include/torch/csrc/itt.h
+           1674  torch/include/torch/csrc/copy_utils.h
+            417  torch/include/torch/csrc/Types.h
+            819  torch/include/torch/csrc/TypeInfo.h
+            763  torch/include/torch/csrc/THP.h
+            945  torch/include/torch/csrc/THConcat.h
+            963  torch/include/torch/csrc/Stream.h
+            393  torch/include/torch/csrc/StorageSharing.h
+            386  torch/include/torch/csrc/StorageMethods.h
+           1701  torch/include/torch/csrc/Storage.h
+            730  torch/include/torch/csrc/Size.h
+copied 3707/3707; 0 failed
+import torch after: ok=False ['OSError: /workspace/_sys/pylibs311_good/dist-packages/torch/lib/libtorch_global_deps.so: cannot open shared object file: No such file or directory']
+import torchvision after: ok=False ['OSError: /workspace/_sys/pylibs311_good/dist-packages/torch/lib/libtorch_global_deps.so: cannot open shared object file: No such file or directory']
+
+--- stderr ---

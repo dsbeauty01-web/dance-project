@@ -49,8 +49,25 @@ def ver_of(tree):
 
 
 def find_donors(root, skip):
-    """Every python3.11 site-packages/dist-packages on the volume that has a torch."""
+    """Every python3.11 site-packages/dist-packages on the volume that has a torch.
+
+    The known locations are checked FIRST and the full walk is skipped if one of them has a
+    torch: os.walk over a 48 GB MooseFS volume costs minutes, and this runs against a pod
+    self-stop deadline."""
     out = []
+    for cand in ("opentalking/.venv/lib/python3.11/site-packages",
+                 "LiveTalking/.venv/lib/python3.11/site-packages",
+                 "_sys/pylibs311/dist-packages",
+                 "venv/lib/python3.11/site-packages",
+                 ".venv/lib/python3.11/site-packages"):
+        p = os.path.join(root, cand)
+        if os.path.abspath(p) == os.path.abspath(skip):
+            continue
+        if os.path.isdir(os.path.join(p, "torch")):
+            v, _ = ver_of(p)
+            out.append({"tree": p, "version": v, "py311": True, "via": "known-path"})
+    if out:
+        return out
     for dirpath, dnames, fnames in os.walk(root):
         dnames[:] = [d for d in dnames if d not in (".git", "__pycache__")]
         base = os.path.basename(dirpath)
@@ -100,6 +117,8 @@ def main():
     ap.add_argument("--tree", default=TREE)
     ap.add_argument("--volume", default="/workspace")
     ap.add_argument("--report", required=True)
+    ap.add_argument("--allow-mismatch", action="store_true",
+                    help="copy from a donor whose torch version differs. Dangerous; off by default.")
     ap.add_argument("--apply", action="store_true",
                     help="actually copy the missing files from a version-matched donor")
     a = ap.parse_args()
@@ -118,14 +137,25 @@ def main():
     for d in donors:
         print(f"  {d['version']!s:<12} py311={d['py311']}  {d['tree']}")
 
+    # 2026-11-02: this used to fall back to "any python3.11 donor" when no version matched.
+    # That is wrong and it cost this session real damage: the only donor was torch 2.10.0
+    # against our 2.9.1+cu129, and it copied 3707 files (22.5 MB of mostly C++ headers) of
+    # the WRONG version into a shared production tree -- and still did not fix the fault,
+    # because 2.10.0 does not ship libtorch_global_deps.so at all. A version mismatch now
+    # REFUSES unless it is asked for explicitly.
     match = [d for d in donors if d["version"] and ours and d["version"] == ours]
-    if not match:
+    if not match and a.allow_mismatch:
         match = [d for d in donors if d["py311"]]
+        if match:
+            print(f"WARNING --allow-mismatch: copying from torch {match[0]['version']} "
+                  f"into a torch {ours} tree. This can make things worse.")
     res["chosen"] = match[0] if match else None
     if not match:
-        res["verdict"] = ("NO VERSION-MATCHED DONOR on the volume. torch must be reinstalled "
-                          f"at exactly {ours}, which needs ~2.8 GB -- more than this volume has. "
-                          "Reported, not guessed.")
+        res["verdict"] = ("NO VERSION-MATCHED DONOR on the volume. Do NOT guess another "
+                          f"version into a shared tree. torch {ours} needs ~2.8 GB to reinstall, "
+                          "more than this volume has -- so pull the single missing file out of "
+                          "the correct wheel with tools/pod/zipgrab.py instead. See "
+                          "docs/nova-ditto/live/torchfix/README.md.")
         print(res["verdict"])
         json.dump(res, open(a.report, "w"), indent=1)
         return 3

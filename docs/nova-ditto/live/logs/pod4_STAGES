@@ -1,0 +1,70 @@
+[job 03:53:09] stage 0: waiting for the payload
+[job 03:53:09] stage 0 OK
+[job 03:53:09] stage 1: apt python3.10-dev + build-essential (foreground -- owns the dpkg lock)
+[job 03:53:15] stage 1 OK: Python.h present
+[job 03:53:15] stage 2: ditto_up.sh in the background (ready in ~180 s on this volume)
+[job 03:53:15] stage 3: playwright + chromium (serial, after apt released the lock)
+[job 03:53:41] stage 3 OK: chromium installed
+[job 03:53:41] stage 3: CHROMIUM OK 156.0.8078.4
+[job 03:53:42] stage 4: repairing /workspace/_sys/pylibs311_good/dist-packages -- container pip, PYTHONPATH unset
+[job 03:53:48] stage 4: repair rc=0
+[job 03:53:48] stage 4b: proving torch and the MuseTalk deps still import after attempt 3 was killed
+[job 03:53:52] stage 4b: 5 of 7 import OK
+[job 03:53:52] stage 5: --revert to the pristine original (attempt 1 left it patched)
+[job 03:53:52] stage 5: revert rc=0 --    REVERTED
+[job 03:53:52] stage 5: waiting for Ditto to be ready before touching the bridge
+[job 03:56:18] stage 5: Ditto ready after 150s
+[job 03:56:18] stage 5: probe rc=0
+[job 03:56:18] stage 5: apply rc=0 --    already patched: no
+[job 03:56:18] stage 5 DONE: face engine = ditto
+[job 03:56:18] stage 6: boot.sh round 1 (NOVA_FACE=ditto)
+[job 04:01:21] stage 6: round 1 did not come up. missing: aiortc pip 
+[job 04:01:21] stage 6: healing -> pip install aiortc into the tree
+[job 04:01:23] stage 6: healing -> pip install pip into the tree
+[job 04:01:38] stage 6: boot.sh round 2 (NOVA_FACE=ditto)
+[job 04:06:41] stage 6: round 2 did not come up. missing: aiortc pip 
+[job 04:06:41] stage 6: healing -> pip install aiortc into the tree
+[job 04:06:43] stage 6: healing -> pip install pip into the tree
+[job 04:06:58] stage 6 FAILED: :8765 never answered 200
+[job 04:06:58]     [NOVA_FACE] ditto
+[job 04:06:58]     [NOVA_FACE] ditto ready -- delay the audio by 1800 ms (DITTO_PRIME 35 + slack 10)
+[job 04:06:58] stage 7: what the brain serves
+[job 04:06:58] stage 7: /beta/freeze served  bytes, JUDGE-TRUTH x0
+[job 04:06:58] stage 7: no stack -> NO RECORDING. Not pretending otherwise.
+[job 04:06:58] ALL DONE -- waiting up to 20 min for /root/in/PULLED, then reverting
+[hook 04:07:08] start -- torch repair, then the stack, then THE RECORDING
+[hook 04:08:41]   our torch version: 2.9.1  dist-info: torch-2.9.1+cu129.dist-info
+[hook 04:08:41]   import torch before: ok=False ['OSError: /workspace/_sys/pylibs311_good/dist-packages/torch/lib/libtorch_global_deps.so: cannot open shared object file: No such file or directory']
+[hook 04:08:41]   donor trees with a torch: 1
+[hook 04:08:41]     2.10.0       py311=True  /workspace/opentalking/.venv/lib/python3.11/site-packages
+[hook 04:08:41]   missing from our torch vs /workspace/opentalking/.venv/lib/python3.11/site-packages: 3707 files, 22.5 MB
+[hook 04:08:41]              5276  torch/_namedtensor_internals.py
+[hook 04:08:41]            201257  torch/include/xnnpack.h
+[hook 04:08:41]               766  torch/include/experiments-config.h
+[hook 04:08:41]               723  torch/include/torch/script.h
+[hook 04:08:41]             42653  torch/include/torch/library.h
+[hook 04:08:41]               467  torch/include/torch/extension.h
+[hook 04:08:41]              8086  torch/include/torch/custom_class_detail.h
+[hook 04:08:41]             20104  torch/include/torch/custom_class.h
+[hook 04:08:41]              4884  torch/include/torch/csrc/utils.h
+[hook 04:08:41]               926  torch/include/torch/csrc/shim_conversion_utils.h
+[hook 04:08:41]               935  torch/include/torch/csrc/serialization.h
+[hook 04:08:41]               903  torch/include/torch/csrc/python_headers.h
+[hook 04:08:41]               468  torch/include/torch/csrc/python_dimname.h
+[hook 04:08:41]               574  torch/include/torch/csrc/itt_wrapper.h
+[hook 04:08:41]               435  torch/include/torch/csrc/itt.h
+[hook 04:08:41]              1674  torch/include/torch/csrc/copy_utils.h
+[hook 04:08:41]               417  torch/include/torch/csrc/Types.h
+[hook 04:08:41]               819  torch/include/torch/csrc/TypeInfo.h
+[hook 04:08:41]               763  torch/include/torch/csrc/THP.h
+[hook 04:08:41]               945  torch/include/torch/csrc/THConcat.h
+[hook 04:08:41]               963  torch/include/torch/csrc/Stream.h
+[hook 04:08:41]               393  torch/include/torch/csrc/StorageSharing.h
+[hook 04:08:41]               386  torch/include/torch/csrc/StorageMethods.h
+[hook 04:08:41]              1701  torch/include/torch/csrc/Storage.h
+[hook 04:08:41]               730  torch/include/torch/csrc/Size.h
+[hook 04:08:41] torch repair rc=4
+[hook 04:08:41] import torch -> rc=1 ['OSError: /workspace/_sys/pylibs311_good/dist-packages/torch/lib/libtorch_global_deps.so: cannot open shared object file: No such file or directory']
+[hook 04:08:41] torch is STILL broken -- the app cannot start, so there is nothing to record. Saying so instead of pretending.
+[hook 04:08:44] boot.sh restarting with NOVA_FACE=ditto
+[hook 04:09:44]   60s... No module named 'aiortc' | No module named 'pip._vendor.certifi.core' | libtorch_global_deps.so

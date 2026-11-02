@@ -1,0 +1,13 @@
+[NOVA_FACE] ditto
+[DITTO 04:02:10] ready: chunk 25f/16000smp prime 35 (1800 ms audio delay) info={"src": "nova_fb_bank.mp4", "src_frames": 344, "src_wh": [1076, 1924], "amp": 0.6, "gate_frames": 0, "out_wh": [1074, 1920], "setup_s": 7.3, "bank": "/root/in/nova_fb_bank.json", "zoom": false, "eye_holds": 0, "prime_s": 121.3}
+[DITTO 04:02:10] pump started
+[NOVA_FACE] ditto ready -- delay the audio by 1800 ms (DITTO_PRIME 35 + slack 10)
+Nvidia Decoder is supported.
+bridge: connected to LiveKit room 'nova-live'
+bridge: audio track published
+bridge: listening on 127.0.0.1:9999
+[DITTO 04:02:11] publish clock started with 10 frames of slack -- audio must be delayed 1800 ms (prime 35 + slack 10) x 40 ms
+bridge: video track published 720x1288
+bridge: engine connected
+BRIDGE_DROP: IncompleteReadError errno= msg=expected=1 partial=0 since_last_frame=0.00s frames_this_conn=0
+bridge: engine disconnected
