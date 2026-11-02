@@ -36,8 +36,37 @@ lk_bridge.py publishes BOTH tracks. One engine socket carries 'V' and 'A'; the a
 `aq` and `drain_audio` pushes it into the LiveKit audio track. So the offset belongs HERE, in
 drain_audio (anchors A3/A4 below), and NOT in rt_lk.py: holding /humanaudio back in rt_lk.py
 delays the ENGINE itself and therefore the start of her turn -- that is added latency, not a
-pure picture-against-sound offset. rt_lk.py keeps feeding Ditto her voice immediately and its
-own delay line is now off by default (NOVA_DITTO_DELAY_SITE=bridge).
+pure picture-against-sound offset.
+
+THE AUDIO, FIXED 2026-11-02 (session novaditto-final). The 2026-11-01 version of A3/A4 above
+turned the offset into a COMPOUNDING delay and that is why both Ditto takes came back silent
+(max_volume -84.3 dB). Measured, in docs/nova-ditto/live/logs/novarec_bridge.log:
+
+    bridge: published 2300 frames
+    bridge: audio published 100 frames      <-- 100 audio frames = 2.0 s of 20 ms frames
+    bridge: published 3300 frames
+    bridge: audio published 200 frames      <-- the next 2.0 s took 1000 video frames
+
+100 audio frames (2 s of sound) per 1000 video frames (40 s of picture): the audio track ran
+about 20x slower than real time, so a 72 s take carried ~3 s of scattered sound and measured
+as silence. The cause is one line: A3 stamped `_nf_arrived` AFTER `await aq.get()` returned,
+i.e. at DEQUEUE time, not at arrival. `aq.get()` returns instantly on a non-empty queue, so
+every frame was dequeued, stamped NOW, and then held a FULL av_delay_ms again -- each frame
+paying the whole delay instead of the stream paying it once.
+
+The fix: stamp the arrival time where the frame actually ARRIVES (A5, in handle_conn) and
+carry it with the samples. Due times are then as far apart as the arrivals were -- a constant
+offset, paid once. A4 also caps its sleep at av_delay_ms so no future stamping mistake can
+compound again.
+
+A5 does one more thing, and it is the second half of why Ditto was silent. nova_ditto.boot()
+used to run in BOTH processes: rt_lk.py fed one DittoFace, lk_bridge.py published frames from a
+DIFFERENT one that nobody ever fed (it posted silence to the server forever, and the two pumps
+fought over one stateful body video). lk_bridge already receives her voice on the 'A' channel at
+exactly AUDIO_SR = 16000, which is exactly what Ditto wants, so A5 feeds the face HERE, in the
+publishing process, by READING the same samples the audio track publishes. Nothing is consumed
+-- that is the contract ditto_renderer.py states. Run the brain WITHOUT NOVA_FACE (so it never
+boots a second face) and the bridge WITH NOVA_FACE=ditto.
 
 The anchors were verified against the real file, byte for byte: docs/nova-ditto/fullbody/
 lk_bridge.real.py, md5 1c4448b475ae0cdd719aef4edaa90337, all four anchors count=1.
@@ -72,6 +101,7 @@ import os as _nf_os
 _NOVA_FACE = (_nf_os.environ.get("NOVA_FACE", "musetalk") or "musetalk").strip().lower()
 _NOVA_FACE_DITTO = (_NOVA_FACE == "ditto")
 _nova_ditto_face = None
+_nf_ain = [0, 0]          # [engine audio frames IN, frames dropped because aq was full]
 print("[NOVA_FACE] %s" % _NOVA_FACE, flush=True)
 if _NOVA_FACE_DITTO:
     import sys as _nf_sys
@@ -107,15 +137,58 @@ A2_NEW = '''            if _NOVA_FACE_DITTO:
                 w, h, rgba = await vq.get()
 '''
 
+# A5: the 'A' branch of the engine socket reader -- the place the audio actually ARRIVES.
+#   (1) stamp the arrival time and carry it with the samples, so A4 can apply a CONSTANT offset
+#       instead of re-charging the whole delay to every frame (the 2026-11-01 silence bug);
+#   (2) drive Ditto's lips from the SAME pcm, in the SAME process that publishes. Reading only.
+# musetalk keeps the original line, byte for byte, in the else branch.
+A5 = """            elif kind == b'A':
+                (ln,) = struct.unpack('>I', await reader.readexactly(4))
+                data = await reader.readexactly(ln)
+                if not aq.full():
+                    aq.put_nowait(np.frombuffer(data, dtype=np.int16).copy())
+                last_frame = time.monotonic()
+"""
+
+A5_NEW = """            elif kind == b'A':
+                (ln,) = struct.unpack('>I', await reader.readexactly(4))
+                data = await reader.readexactly(ln)
+                if _NOVA_FACE_DITTO:
+                    _nf_pcm = np.frombuffer(data, dtype=np.int16).copy()
+                    # LIPS: Ditto is fed here, in the publishing process, from her voice as the
+                    # engine already resampled it (pcm16 mono 16 kHz = exactly what Ditto wants).
+                    # This only READS the samples; the publish path below is untouched.
+                    try:
+                        _nova_ditto_face.feed_pcm16_16k(_nf_pcm)
+                    except Exception as _nf_e:
+                        print("bridge: ditto feed failed %r" % (_nf_e,), flush=True)
+                    _nf_ain[0] += 1
+                    # AUDIO IN, stamped at ARRIVAL: a constant offset, applied once (A4).
+                    if not aq.full():
+                        aq.put_nowait((time.monotonic(), _nf_pcm))
+                    else:
+                        _nf_ain[1] += 1
+                    if _nf_ain[0] % 50 == 0:
+                        print("bridge: audio IN %d frames from the engine (%d samples), aq=%d, dropped %d"
+                              % (_nf_ain[0], _nf_pcm.shape[0], aq.qsize(), _nf_ain[1]), flush=True)
+                else:
+                    if not aq.full():
+                        aq.put_nowait(np.frombuffer(data, dtype=np.int16).copy())
+                last_frame = time.monotonic()
+"""
+
 # A3 / A4: the A/V OFFSET, in drain_audio -- the place the 2026-10-31 probe proved is correct.
-# A3 stamps each engine audio frame with its arrival time; A4 holds it until arrival + the delay.
+# A3 unpacks the (arrival, pcm) pair A5 queued; A4 holds the frame until arrival + the delay.
 # Measured from ARRIVAL, so it is a constant OFFSET, not a per-frame cost: frame i+1's due time is
 # never earlier than frame i's, so order and throughput are unchanged. aq (maxsize 600) absorbs the
 # backlog -- 1.8 s of 20 ms engine frames is ~90 entries.
 A3 = "            pcm = await aq.get()\n            n = int(pcm.shape[0])\n"
 
 A3_NEW = '''            pcm = await aq.get()
-            _nf_arrived = time.monotonic() if _NOVA_FACE_DITTO else 0.0
+            if _NOVA_FACE_DITTO:
+                _nf_arrived, pcm = pcm          # A5 queued (arrival_monotonic, samples)
+            else:
+                _nf_arrived = 0.0
             n = int(pcm.shape[0])
 '''
 
@@ -126,9 +199,13 @@ A4_NEW = '''            if _NOVA_FACE_DITTO:
                 # was drawn from (nova_ditto.next_frame_bgr waits for `slack` frames before it
                 # starts its publish clock). Without this hold her lips run early by exactly that
                 # much. musetalk takes neither branch: _nf_arrived is 0.0 and this block is skipped.
-                _nf_left = (_nf_arrived + _nova_ditto_face.av_delay_ms / 1000.0) - time.monotonic()
+                # The sleep is CAPPED at av_delay_ms: the whole stream pays the offset once, and
+                # no stamping mistake can ever turn it back into a per-frame cost (the bug that
+                # made both 2026-11-01 Ditto takes silent).
+                _nf_cap = _nova_ditto_face.av_delay_ms / 1000.0
+                _nf_left = (_nf_arrived + _nf_cap) - time.monotonic()
                 if _nf_left > 0:
-                    await asyncio.sleep(_nf_left)
+                    await asyncio.sleep(min(_nf_left, _nf_cap))
             await asrc.capture_frame(fr)
 '''
 
@@ -193,10 +270,11 @@ def probe(target, log):
     src = open(target, encoding="utf-8", errors="replace").read()
     log(f"   md5 {md5(target)}   {len(src)} bytes   {src.count(chr(10))} lines")
     log("")
-    log("   anchors this patch needs (all four must be exactly 1):")
+    log("   anchors this patch needs (all five must be exactly 1):")
     ok = True
     for name, a in (("A1  return rgba.tobytes()", A1),
                     ("A2  w, h, rgba = await vq.get()", A2),
+                    ("A5  elif kind == b'A': ... aq.put_nowait", A5),
                     ("A3  pcm = await aq.get() + n =", A3),
                     ("A4  await asrc.capture_frame(fr)", A4)):
         n = src.count(a)
@@ -260,6 +338,12 @@ def apply(target, sidecar_src, log):
     if out2 == out:
         log("   REFUSING: A2 did not apply")
         return 2
+    out2b = out2.replace(A5, A5_NEW, 1)
+    if out2b == out2:
+        log("   REFUSING: A5 did not apply (the audio would have no arrival stamp and Ditto "
+            "would never be fed in the publishing process)")
+        return 2
+    out2 = out2b
     out3 = out2.replace(A3, A3_NEW, 1)
     if out3 == out2:
         log("   REFUSING: A3 did not apply (the A/V offset would have no arrival stamp)")
@@ -288,11 +372,12 @@ def apply(target, sidecar_src, log):
     log("")
     log("   behaviour now:")
     log("     NOVA_FACE unset / musetalk  -> `w, h, rgba = await vq.get()`, exactly as before")
-    log("     NOVA_FACE=ditto             -> frames from nova_ditto (Ditto server :8031) AND the")
-    log("                                    audio track held back av_delay_ms in drain_audio")
+    log("     NOVA_FACE=ditto             -> frames from nova_ditto (Ditto server :8031); the")
+    log("                                    engine's 'A' pcm16@16k both FEEDS Ditto's lips and")
+    log("                                    publishes as before, offset once by av_delay_ms")
     log("   the downscale and both publish_track calls were NOT touched.")
-    log("   rt_lk.py keeps NOVA_FACE=ditto only to FEED Ditto her voice; its own delay line is off")
-    log("   by default now (NOVA_DITTO_DELAY_SITE=bridge) so the offset is applied exactly once.")
+    log("   RUN THE BRAIN WITHOUT NOVA_FACE: rt_lk.py must not boot a second DittoFace -- the one")
+    log("   that publishes is the one that must be fed, and A5 feeds it here.")
     return 0
 
 

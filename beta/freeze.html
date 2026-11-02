@@ -548,7 +548,17 @@ const SARAY_BASE = location.origin + '/';
    generic onboarding opener that asks for a name and mentions no game. The kid already
    chose freeze by opening this page; asking "what's your name / which game?" restarts an
    onboarding they finished. nova-pick still fires later as the belt-and-braces switch. */
-const SARAY = SARAY_BASE + (SARAY_BASE.indexOf('?')>=0 ? '&' : '?') + 'intro=freeze';
+/* COMMERCIAL INTRO (2026-11-02, ?commercial=1 — default OFF, this page is unchanged without it).
+   The brain picks her opening line from ?intro=<game> on the websocket URL (pod/rt_lk.py ~L686).
+   With NO intro= it runs the COMMERCIAL greeting — "Hi! I'm Nova, your magical AI dance teacher!
+   What's your name?" and the full intro choreography. This page hardcodes intro=freeze in TWO
+   places and also registers the [GAME-MODE] persona + nova-pick, which together REPLACE that
+   intro script. ?commercial=1 suppresses exactly those three things and nothing else: the brain's
+   own words are untouched, we just stop telling it we are a game. Without the flag every branch
+   below is byte-identical to before. */
+const COMMERCIAL = Q.get('commercial') === '1';
+const SARAY = COMMERCIAL ? SARAY_BASE
+            : SARAY_BASE + (SARAY_BASE.indexOf('?')>=0 ? '&' : '?') + 'intro=freeze';
 const LIVE_OFF = Q.get('nolive') === '1';
 
 /* ═══ Speech log — kid bubble + Nova's line under her panel ═══ */
@@ -846,7 +856,8 @@ const Live = {
   _connectWS(){
     const self=this;
     const qs=new URLSearchParams(location.search);
-    qs.set('intro','freeze');                            // her FIRST line is the freeze intro
+    if(!COMMERCIAL) qs.set('intro','freeze');            // her FIRST line is the freeze intro
+                                                         // (?commercial=1: no intro= -> the brain's commercial greeting)
     if(this._wsConns++) qs.set('rc','1');                // seamless reconnect: no re-greet
     const ws=new WebSocket(SARAY_BASE.replace('http','ws')+'rt?'+qs.toString());
     this.ws=ws;
@@ -1053,6 +1064,10 @@ const Live = {
      brain ACKs, max 10 tries. Every try and every ack is logged to the console. */
   _ackPersona:false, _ackPick:false, _introTries:0, _introTimer:null,
   armIntro(){
+    /* ?commercial=1: the [GAME-MODE] persona REPLACES the brain's intro script (rt_lk.py
+       ~L1257) and nova-pick declares the intro over, so arming either one would cancel the
+       commercial intro we came for. Default (no flag) is unchanged. */
+    if(COMMERCIAL){ console.log('[INTRO] COMMERCIAL mode — no game persona, no nova-pick'); return; }
     if(this._introTimer) return;                       // already arming
     const send = ()=>{
       if(this._ackPersona && this._ackPick){

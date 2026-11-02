@@ -226,6 +226,28 @@ class DittoFace:
             with self._alock:
                 self._abuf = np.concatenate([self._abuf, y])
 
+    def feed_pcm16_16k(self, pcm) -> None:
+        """Her voice as the ENGINE already produced it: pcm16 mono 16 kHz.
+
+        WHY THIS EXISTS (2026-11-02, session novaditto-final). The old wiring fed Ditto from
+        rt_lk.py and published frames from lk_bridge.py -- TWO PROCESSES, therefore two
+        DittoFace instances. The one that was fed never published and the one that published
+        was never fed, so it posted nothing but silence to the server while both pumps fought
+        over the same stateful body video.
+
+        lk_bridge.py already receives her voice on the engine socket's 'A' channel at exactly
+        AUDIO_SR = 16000, which is exactly what Ditto wants. So the face is now fed THERE, in
+        the same process that publishes, and the publish path is untouched: this method only
+        READS the samples. That is the contract ditto_renderer.py states -- the renderer never
+        consumes the audio, it is only offset.
+        """
+        a = np.asarray(pcm, dtype=np.int16)
+        if not a.size:
+            return
+        y = a.astype(np.float32) / 32768.0
+        with self._alock:
+            self._abuf = np.concatenate([self._abuf, y])
+
     def _take_chunk(self) -> tuple[np.ndarray, bool]:
         """Exactly chunk_samples. Returns (audio, is_speech). When she is quiet this returns
         SILENCE, which is the point: the contract says send silence or the body freezes."""
@@ -489,6 +511,17 @@ def _selftest() -> int:
     for i in range(0, len(tone), step):
         f2.feed(tone[i:i + step])
     check("buffered ~1 s of 16k audio", abs(len(f2._abuf) - SR_OUT) <= 8, f"got {len(f2._abuf)}")
+    # the bridge-side feed: pcm16 ALREADY at 16 kHz (lk_bridge's 'A' channel), no resampling
+    f3 = DittoFace(port=port)
+    t16 = np.arange(SR_OUT, dtype=np.float32) / SR_OUT
+    pcm16 = (np.sin(2 * np.pi * 440 * t16) * 0.5 * 32767).astype("<i2")
+    for i in range(0, len(pcm16), 320):               # 20 ms engine frames, as the bridge gets them
+        f3.feed_pcm16_16k(pcm16[i:i + 320])
+    check("feed_pcm16_16k buffers 16k pcm16 1:1", len(f3._abuf) == SR_OUT, f"got {len(f3._abuf)}")
+    check("feed_pcm16_16k keeps the tone", 0.2 < float(np.abs(f3._abuf).max()) <= 1.0,
+          f"peak {float(np.abs(f3._abuf).max()):.3f}")
+    f3.feed_pcm16_16k(np.zeros(0, np.int16))
+    check("feed_pcm16_16k ignores an empty frame", len(f3._abuf) == SR_OUT)
 
     # 3. the real loop against the fake server
     face = DittoFace(port=port)

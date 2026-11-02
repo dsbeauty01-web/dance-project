@@ -71,7 +71,8 @@ window.__ms = [];
 
 // ---- the recorder, started from Python once her tracks exist -----------------------------
 window.__caps = [];
-window.__recState = {started:false, frames:0, chunks:0, bytes:0, err:null, w:0, h:0};
+window.__recState = {started:false, frames:0, chunks:0, bytes:0, err:null, w:0, h:0,
+                     vfc:0, drawMode:null, pushMode:null, stopped:false};
 window.__startRec = async function(sink, cw, ch){
   var S = window.__recState;
   if (S.started) return S;
@@ -169,7 +170,7 @@ window.__startRec = async function(sink, cw, ch){
     if (cur) out.push(cur);
     return out;
   }
-  function draw(){
+  function paint(){
     try{
       g.fillStyle = '#07080d'; g.fillRect(0,0,cw,ch);
       var vw = v.videoWidth, vh = v.videoHeight;
@@ -198,9 +199,45 @@ window.__startRec = async function(sink, cw, ch){
       S.frames++;
     }catch(e){ S.err = ''+e; }
   }
-  draw();
-  window.__recTimer = setInterval(draw, 40);
-  var st = c.captureStream(25);
+  // DUPLICATE FRAMES -- fixed 2026-11-02, session novaditto-final. This used to be
+  //     draw(); window.__recTimer = setInterval(draw, 40);   with   c.captureStream(25)
+  // a fixed 40 ms timer that repainted the canvas whether or not a new frame had arrived on her
+  // track, while captureStream(25) sampled the canvas 25 times a second regardless -- so every
+  // frame her track failed to deliver on time was published AGAIN as an identical copy. The
+  // 2026-11-01 take measured 28% duplicate frames that way.
+  // Now: captureStream(0) never samples on its own, requestFrame() pushes exactly one frame, and
+  // requestVideoFrameCallback fires exactly once per NEW decoded frame of her video. One output
+  // frame per input frame; when no frame arrives, none is invented.
+  var vtrk = null;
+  function emit(){
+    paint();
+    if (vtrk && vtrk.requestFrame) { try { vtrk.requestFrame(); } catch(e) {} }
+  }
+  var st = null;
+  try {
+    st = c.captureStream(0);
+    vtrk = st.getVideoTracks()[0];
+  } catch(e) { st = null; }
+  if (!st || !vtrk || typeof vtrk.requestFrame !== 'function') {
+    st = c.captureStream(25);
+    vtrk = st.getVideoTracks()[0];
+    S.pushMode = 'captureStream(25) FALLBACK -- requestFrame unavailable, duplicates possible';
+  } else {
+    S.pushMode = 'captureStream(0)+requestFrame';
+  }
+  emit();                              // one frame so the track has a size before recording
+  if (typeof v.requestVideoFrameCallback === 'function') {
+    S.drawMode = 'requestVideoFrameCallback';
+    var vfcb = function(){
+      if (S.stopped) return;
+      S.vfc++; emit();
+      try { v.requestVideoFrameCallback(vfcb); } catch(e) {}
+    };
+    try { v.requestVideoFrameCallback(vfcb); } catch(e) { S.drawMode = 'rVFC threw: ' + e; }
+  } else {
+    S.drawMode = 'setInterval(40) FALLBACK -- requestVideoFrameCallback unavailable';
+    window.__recTimer = setInterval(emit, 40);
+  }
   if (at) st.addTrack(at);
   var mime = ['video/webm;codecs=vp8,opus','video/webm;codecs=vp9,opus','video/webm']
              .find(function(m){ return MediaRecorder.isTypeSupported(m); });
@@ -223,6 +260,7 @@ window.__startRec = async function(sink, cw, ch){
   return S;
 };
 window.__stopRec = async function(){
+  try{ window.__recState.stopped = true; }catch(e){}
   try{ clearInterval(window.__recTimer); }catch(e){}
   try{ window.__rec.requestData(); window.__rec.stop(); }catch(e){}
   await new Promise(function(r){ setTimeout(r, 2500); });
@@ -260,9 +298,84 @@ ThreadingHTTPServer(("127.0.0.1", int(sys.argv[2])), H).serve_forever()
 """
 
 
+def verify(mp4, status):
+    """Measure the three things a take is only believable with. Nothing here is estimated.
+
+      max_volume   ffmpeg volumedetect over the whole audio track. Silence reads about -91 dB
+                   and the 2026-11-01 Ditto takes read -84.3 dB; a real voice is > -40 dB.
+      duplicates   consecutive decoded video frames that carry the SAME PICTURE. 28% on the
+                   2026-11-01 take, because the recorder repainted the canvas on a 40 ms timer
+                   whether or not a new frame had arrived. A frame-accurate recorder is near 0.
+
+                   Two numbers are reported because the honest one needs a threshold.
+                   `bitexact_pct` is ffmpeg's framemd5: it is the strict answer but it reads 0
+                   on any lossy re-encode, because x264 gives a repeated input frame a tiny
+                   different residual (measured: the 2026-11-01 take reads 0.0% bit-exact).
+                   `duplicate_pct` is the real measure: mean absolute difference between
+                   consecutive frames, decoded to 135x240 gray, below DUP_MAD. The threshold is
+                   CALIBRATED, not guessed -- on a 240-frame clip built with exactly 79 known
+                   duplicate transitions (33.05%), re-encoded with these same x264 settings,
+                   duplicates measured 0.005-0.236 and real transitions 0.014-2.02 (mean 1.04),
+                   and DUP_MAD=0.1 recovered 33.05% (77 true positives, 2 false, 2 missed).
+                   ffmpeg's own mpdecimate was tried and rejected: its default threshold calls
+                   68% of a real talking-head take duplicate.
+      frames       how many decoded video frames the file actually has.
+    """
+    out = {}
+    DUP_MAD = 0.1
+    try:
+        r = subprocess.run(["ffmpeg", "-v", "info", "-i", mp4, "-af", "volumedetect",
+                            "-f", "null", "-"], capture_output=True, text=True)
+        for line in (r.stderr or "").splitlines():
+            if "max_volume:" in line:
+                out["max_volume_db"] = float(line.split("max_volume:")[1].replace("dB", "").strip())
+            if "mean_volume:" in line:
+                out["mean_volume_db"] = float(line.split("mean_volume:")[1].replace("dB", "").strip())
+    except Exception as e:
+        out["volume_err"] = f"{type(e).__name__}: {e}"
+    try:
+        r = subprocess.run(["ffmpeg", "-v", "error", "-i", mp4, "-an",
+                            "-f", "framemd5", "-"], capture_output=True, text=True)
+        md5s = [ln.rsplit(",", 1)[-1].strip() for ln in (r.stdout or "").splitlines()
+                if ln and not ln.startswith("#") and "," in ln]
+        dup = sum(1 for i in range(1, len(md5s)) if md5s[i] == md5s[i - 1])
+        out["video_frames"] = len(md5s)
+        out["bitexact_dupes"] = dup
+        out["bitexact_pct"] = round(100.0 * dup / max(1, len(md5s) - 1), 2)
+    except Exception as e:
+        out["bitexact_err"] = f"{type(e).__name__}: {e}"
+    try:
+        import numpy as np
+        W, H = 135, 240
+        p = subprocess.Popen(["ffmpeg", "-v", "error", "-i", mp4, "-an", "-vf", f"scale={W}:{H}",
+                              "-pix_fmt", "gray", "-f", "rawvideo", "-"], stdout=subprocess.PIPE)
+        fs, prev, mad = W * H, None, []
+        while True:
+            b = p.stdout.read(fs)
+            if len(b) < fs:
+                break
+            a = np.frombuffer(b, np.uint8).astype(np.int16)
+            if prev is not None:
+                mad.append(float(np.abs(a - prev).mean()))
+            prev = a
+        p.stdout.close()
+        p.wait()
+        mad = np.asarray(mad)
+        dup2 = int((mad < DUP_MAD).sum())
+        out["mad_transitions"] = int(mad.size)
+        out["duplicate_frames"] = dup2
+        out["duplicate_pct"] = round(100.0 * dup2 / max(1, mad.size), 2)
+        out["mad_threshold"] = DUP_MAD
+        out["mad_median"] = round(float(np.median(mad)), 4) if mad.size else None
+    except Exception as e:
+        out["dup_err"] = f"{type(e).__name__}: {e}"
+    status("VERIFY " + json.dumps(out))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--url", default="http://127.0.0.1:8765/beta/freeze?intro=freeze",
+    ap.add_argument("--url", default="http://127.0.0.1:8765/beta/freeze?commercial=1",
                 help="one URL, or several separated by | and tried in order")
     ap.add_argument("--out", default="/workspace/novalive_out")
     ap.add_argument("--inbox", default="/workspace/in")
@@ -501,8 +614,9 @@ def main():
                     s = page.evaluate("()=>window.__recState")
                 except Exception:
                     s = {}
-                status(f"rec frames={s.get('frames')} chunks={s.get('chunks')} "
-                       f"bytes={s.get('bytes')} src={s.get('w')}x{s.get('h')} err={s.get('err')}")
+                status(f"rec frames={s.get('frames')} vfc={s.get('vfc')} chunks={s.get('chunks')} "
+                       f"bytes={s.get('bytes')} src={s.get('w')}x{s.get('h')} "
+                       f"draw={s.get('drawMode')} push={s.get('pushMode')} err={s.get('err')}")
             time.sleep(0.35)
 
         pump_ws()
@@ -535,11 +649,22 @@ def main():
     rc = 1
     if nb > 0:
         # one continuous take: stream copy is not possible (vp8/opus -> mp4), so one encode.
+        # -fps_mode passthrough: keep the capture's own timestamps. The default (cfr) would
+        # DUPLICATE frames to fill a constant rate, which would put back exactly the duplicates
+        # the recorder was just fixed to stop making -- and make the measurement below a lie.
         r = subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", webm,
+                            "-fps_mode", "passthrough",
                             "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
                             "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k",
                             "-movflags", "+faststart", mp4], capture_output=True, text=True)
         rc = r.returncode
+        if rc:
+            # older ffmpeg: -fps_mode did not exist, -vsync 0 is the same thing
+            r = subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", webm, "-vsync", "0",
+                                "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+                                "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k",
+                                "-movflags", "+faststart", mp4], capture_output=True, text=True)
+            rc = r.returncode
         if rc:
             status("ffmpeg mux failed: " + (r.stderr or "")[-400:])
         else:
@@ -549,15 +674,18 @@ def main():
         probe = subprocess.run(["ffprobe", "-v", "error", "-show_entries",
                                 "stream=codec_type,codec_name,width,height,nb_frames,duration,avg_frame_rate",
                                 "-of", "json", mp4], capture_output=True, text=True).stdout
+    verdict = verify(mp4, status) if os.path.exists(mp4) else {}
     summary = {
         "url": a.url, "mp4": mp4, "mp4_bytes": os.path.getsize(mp4) if os.path.exists(mp4) else 0,
         "webm_bytes": nb, "chunks": len(parts), "recorder": final, "ffmpeg_rc": rc,
         "nova_lines": said, "kid_typed": typed, "kid_echo": heard,
-        "gestures": gestures, "probe": probe,
+        "gestures": gestures, "probe": probe, "verify": verdict,
     }
     with open(os.path.join(a.out, "live_intro.json"), "w") as f:
         json.dump(summary, f, indent=1)
-    status(f"DONE mp4={summary['mp4_bytes']} bytes  her lines={len(said)}  my lines={len(typed)}")
+    status(f"DONE mp4={summary['mp4_bytes']} bytes  her lines={len(said)}  my lines={len(typed)}  "
+           f"max_volume={verdict.get('max_volume_db')}dB  dup={verdict.get('duplicate_pct')}%  "
+           f"frames={verdict.get('video_frames')}")
     with open(os.path.join(a.out, "HARNESS_DONE"), "w") as f:
         f.write(str(int(time.time())))
     wsf.close()
