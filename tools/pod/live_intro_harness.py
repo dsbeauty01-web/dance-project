@@ -43,7 +43,7 @@ window.__ms = [];
   var d = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'srcObject');
   Object.defineProperty(HTMLMediaElement.prototype, 'srcObject', {
     configurable: true, get: d.get,
-    set: function(v){ try{ if(v) window.__ms.push({tag:(this.tagName||'')+'#'+(this.id||''), ms:v}); }catch(e){}
+    set: function(v){ try{ if(v) window.__ms.push({tag:(this.tagName||'')+'#'+(this.id||''), ms:v, el:this}); }catch(e){}
                       return d.set.call(this, v); }
   });
   // 2. every brain websocket frame, both directions.
@@ -72,7 +72,8 @@ window.__ms = [];
 // ---- the recorder, started from Python once her tracks exist -----------------------------
 window.__caps = [];
 window.__recState = {started:false, frames:0, chunks:0, bytes:0, err:null, w:0, h:0,
-                     vfc:0, drawMode:null, pushMode:null, stopped:false};
+                     vfc:0, skipped:0, drawMode:null, pushMode:null, paintSource:null,
+                     frameGuard:null, stopped:false};
 window.__startRec = async function(sink, cw, ch){
   var S = window.__recState;
   if (S.started) return S;
@@ -90,7 +91,7 @@ window.__startRec = async function(sink, cw, ch){
     try {
       x.ms.getVideoTracks().forEach(function(t){
         var st; try { st = t.getSettings ? t.getSettings() : {}; } catch(e) { st = {}; }
-        vcands.push({x: x, t: t, tag: x.tag, label: t.label, local: !!st.deviceId,
+        vcands.push({x: x, t: t, el: x.el, tag: x.tag, label: t.label, local: !!st.deviceId,
                      w: st.width || 0, h: st.height || 0});
       });
     } catch(e) {}
@@ -155,8 +156,20 @@ window.__startRec = async function(sink, cw, ch){
     var as = window.__ms.find(function(x){ try{ return x.ms.getAudioTracks().length>0; }catch(e){ return false; } });
     at = as ? as.ms.getAudioTracks()[0] : null;
   }
-  var v = document.createElement('video');
-  v.srcObject = new MediaStream([vt]); v.muted = true; v.autoplay = true; v.playsInline = true;
+  // PAINT SOURCE (fixed 2026-11-02, session novaditto-final, take 0). This used to always
+  // create a FRESH detached <video> and attach her track to it. Chromium only presents frames
+  // for an element the compositor is actually driving, and a detached element is not one:
+  // take 0 measured requestVideoFrameCallback firing 191 times in 43.4 s -- 4.4 fps -- while
+  // ditto_stats said the bridge had published 1082 frames in the same window (24 fps) with
+  // held 0 and errors 0. The frames were arriving and being thrown away before presentation.
+  // The page already has her track on its OWN element (#nova-live-video), in the DOM and
+  // composited, so paint from that one and only fall back to a new element if it is gone.
+  var v = (chosen.el && chosen.el.isConnected && chosen.el.tagName === 'VIDEO') ? chosen.el : null;
+  S.paintSource = v ? ('page element ' + chosen.tag) : 'new detached element';
+  if (!v) {
+    v = document.createElement('video');
+    v.srcObject = new MediaStream([vt]); v.muted = true; v.autoplay = true; v.playsInline = true;
+  }
   try { await v.play(); } catch(e) {}
   var c = document.createElement('canvas'); c.width = cw; c.height = ch;
   var g = c.getContext('2d');
@@ -208,8 +221,26 @@ window.__startRec = async function(sink, cw, ch){
   // Now: captureStream(0) never samples on its own, requestFrame() pushes exactly one frame, and
   // requestVideoFrameCallback fires exactly once per NEW decoded frame of her video. One output
   // frame per input frame; when no frame arrives, none is invented.
-  var vtrk = null;
-  function emit(){
+  // One emit per NEW decoded frame. getVideoPlaybackQuality().totalVideoFrames is the element's
+  // own count of frames it has taken from the track, so it is the ground truth for "is this a
+  // new picture": rVFC and the poll below both go through this guard, and neither can emit the
+  // same frame twice. When the counter is unavailable the guard opens and the timer emits --
+  // duplicates become possible again, which is why S.frameGuard is reported.
+  var vtrk = null, lastVF = -1;
+  function vfcount(){
+    try {
+      var q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null;
+      if (q && typeof q.totalVideoFrames === 'number') return q.totalVideoFrames;
+    } catch(e) {}
+    return -1;
+  }
+  S.frameGuard = (vfcount() >= 0) ? 'totalVideoFrames' : 'none (timer emits, duplicates possible)';
+  function emit(force){
+    var n = vfcount();
+    if (!force && n >= 0) {
+      if (n === lastVF) { S.skipped++; return; }
+      lastVF = n;
+    }
     paint();
     if (vtrk && vtrk.requestFrame) { try { vtrk.requestFrame(); } catch(e) {} }
   }
@@ -225,19 +256,22 @@ window.__startRec = async function(sink, cw, ch){
   } else {
     S.pushMode = 'captureStream(0)+requestFrame';
   }
-  emit();                              // one frame so the track has a size before recording
+  emit(true);                          // one frame so the track has a size before recording
+  S.drawMode = [];
   if (typeof v.requestVideoFrameCallback === 'function') {
-    S.drawMode = 'requestVideoFrameCallback';
+    S.drawMode.push('requestVideoFrameCallback');
     var vfcb = function(){
       if (S.stopped) return;
-      S.vfc++; emit();
+      S.vfc++; emit(false);
       try { v.requestVideoFrameCallback(vfcb); } catch(e) {}
     };
-    try { v.requestVideoFrameCallback(vfcb); } catch(e) { S.drawMode = 'rVFC threw: ' + e; }
-  } else {
-    S.drawMode = 'setInterval(40) FALLBACK -- requestVideoFrameCallback unavailable';
-    window.__recTimer = setInterval(emit, 40);
+    try { v.requestVideoFrameCallback(vfcb); } catch(e) { S.drawMode.push('rVFC threw: ' + e); }
   }
+  // the poll runs TOO, through the same guard: rVFC is tied to presentation and can be throttled
+  // (take 0: 4.4 fps), while totalVideoFrames advances as the element takes frames off the track.
+  S.drawMode.push('poll(10ms)');
+  window.__recTimer = setInterval(function(){ if (!S.stopped) emit(false); }, 10);
+  S.drawMode = S.drawMode.join('+');
   if (at) st.addTrack(at);
   var mime = ['video/webm;codecs=vp8,opus','video/webm;codecs=vp9,opus','video/webm']
              .find(function(m){ return MediaRecorder.isTypeSupported(m); });
@@ -616,7 +650,7 @@ def main():
                     s = {}
                 status(f"rec frames={s.get('frames')} vfc={s.get('vfc')} chunks={s.get('chunks')} "
                        f"bytes={s.get('bytes')} src={s.get('w')}x{s.get('h')} "
-                       f"draw={s.get('drawMode')} push={s.get('pushMode')} err={s.get('err')}")
+                       f"draw={s.get('drawMode')} src_el={s.get('paintSource')} guard={s.get('frameGuard')} skip={s.get('skipped')} err={s.get('err')}")
             time.sleep(0.35)
 
         pump_ws()
