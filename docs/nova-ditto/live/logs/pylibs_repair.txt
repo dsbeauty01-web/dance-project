@@ -1,0 +1,14 @@
+  flask: missing flask -> pip install flask into the tree
+  flask: missing werkzeug -> pip install werkzeug into the tree
+  flask: missing click.core -> pip install click into the tree
+  flask: missing itsdangerous -> pip install itsdangerous into the tree
+  import flask: OK after 4 install(s)
+  livekit.api: missing idna.core -> pip install idna into the tree
+  import livekit.api: OK after 1 install(s)
+  import livekit.rtc: OK after 0 install(s)
+  import aiohttp: OK after 0 install(s)
+  requests: missing certifi.core -> pip install certifi into the tree
+  import requests: OK after 1 install(s)
+  import numpy: OK after 0 install(s)
+  installed: flask, werkzeug, click, itsdangerous, idna, certifi
+  targets: {"flask": true, "livekit.api": true, "livekit.rtc": true, "aiohttp": true, "requests": true, "numpy": true}

@@ -49,6 +49,18 @@ DIST = {
 }
 MISSING_RE = re.compile(r"No module named '([^']+)'")
 
+# NEVER auto-install these: each is hundreds of MB to multiple GB, and the volume this
+# repairs has ~1.5 GB of headroom. 2026-11-02: `torch.masked.maskedtensor.core` was missing
+# (one more sourceless .pyc casualty, in a corner of torch the live stack never imports) and
+# an earlier version of this script answered by pip-installing TORCH into a volume that could
+# not hold it -- minutes burnt, and a real risk of leaving a half-written torch that would
+# shadow the working one. A deep submodule missing from a big package is reported, not fixed.
+NEVER_INSTALL = {
+    "torch", "torchvision", "torchaudio", "triton", "onnxruntime", "onnxruntime-gpu",
+    "tensorflow", "scipy", "opencv-python", "opencv-python-headless", "transformers",
+    "diffusers", "jaxlib", "jax", "pandas", "sympy", "mediapipe", "xformers",
+}
+
 
 def pip_target(dp, dist, extra=()):
     """Install ONE distribution into dp with the CONTAINER's pip.
@@ -57,7 +69,7 @@ def pip_target(dp, dist, extra=()):
     env.pop("PYTHONPATH", None)
     cmd = [sys.executable, "-m", "pip", "install", "--no-input", "--disable-pip-version-check",
            "--target", dp, "--upgrade", "--no-deps", *extra, dist]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=600, env=env)
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=240, env=env)
     return r.returncode, (r.stdout + r.stderr)[-1500:]
 
 
@@ -103,7 +115,7 @@ def diagnose(dp):
 
 
 def repair(dp, targets, rounds, log):
-    res = {"dist_packages": dp, "installed": [], "failed": [], "targets": {}}
+    res = {"dist_packages": dp, "installed": [], "tried": [], "failed": [], "targets": {}}
     for target in targets:
         for i in range(rounds):
             ok, err = try_import(dp, target)
@@ -119,13 +131,21 @@ def repair(dp, targets, rounds, log):
             mod = m.group(1)
             top = mod.split(".")[0]
             dist = DIST.get(top, top)
-            if dist in res["installed"]:
-                # we already reinstalled this distribution and the module is still missing
+            if dist in NEVER_INSTALL or top in NEVER_INSTALL:
+                res["targets"][target] = {"ok": False, "rounds": i, "too_big": dist,
+                                          "missing": mod, "err": err[-600:]}
+                log(f"  import {target}: {mod} is missing from {dist}, which is on the "
+                    f"NEVER_INSTALL list (too big for this volume). REPORTED, NOT INSTALLED.")
+                break
+            if dist in res["installed"] or dist in res["tried"]:
+                # already reinstalled (or tried and failed) and the module is still missing:
+                # retrying the same download is how an earlier version burnt a whole pod.
                 res["targets"][target] = {"ok": False, "rounds": i,
                                           "stuck_on": mod, "err": err[-900:]}
-                log(f"  import {target}: STUCK -- {mod} still missing after reinstalling {dist}")
+                log(f"  import {target}: STUCK -- {mod} still missing after {dist}")
                 break
             log(f"  {target}: missing {mod} -> pip install {dist} into the tree")
+            res["tried"].append(dist)
             rc, outp = pip_target(dp, dist)
             if rc == 0:
                 res["installed"].append(dist)
