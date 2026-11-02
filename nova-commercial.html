@@ -3028,6 +3028,17 @@ function startIntroOverlay() {
         LOG('INTRO', 'Kling MP4 playing');
       }, { once: true });
       mp4.addEventListener('error', () => LOG('INTRO', 'no MP4 yet — sparkle placeholder'), { once: true });
+      // Ditto-rendered spoken intro (EN/HE, 11 s, lips QA PASS 2026-11-02) — OPT-IN with ?introclip=1, default OFF:
+      // it says "Hi! I'm Nova…" and the live greet says it again after the reveal, and the overlay may melt
+      // before the clip ends. Founder decides; until then the sparkle stays the intro.
+      if (/[?&]introclip=1/.test(location.search) && !mp4.querySelector('source[src]')) {
+        const src = document.createElement('source');
+        src.src = (window.NOVA_LANG === 'he') ? 'audio/intro/nova-arrival-he.mp4' : 'audio/intro/nova-arrival.mp4';
+        src.type = 'video/mp4'; mp4.appendChild(src);
+        mp4.muted = false;                       // her voice is the point; fall back to muted if autoplay blocks it
+        mp4.addEventListener('loadeddata', () => { mp4.play().catch(() => { mp4.muted = true; mp4.play().catch(() => {}); }); }, { once: true });
+        LOG('INTRO', 'introclip=1 → ' + src.src);
+      }
       // only load if a <source> is actually present, else the sparkle placeholder stays (no 404)
       if (mp4.querySelector('source[src]')) { try { mp4.load(); } catch (_) {} }
       else LOG('INTRO', 'no intro MP4 source — sparkle placeholder');
