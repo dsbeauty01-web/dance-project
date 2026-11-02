@@ -57,7 +57,7 @@ RED='s#(https?://)[^/@[:space:]]+@#\1<REDACTED-TOKEN>@#g; s#x-access-token:[A-Za
   done ) &
 say "stage 0b: CMD channel open (PUT /put/CMD -> runs once -> novaditto_out/CMD_OUT.<hhmmss>)"
 
-need="novalive_job.sh repair_pylibs.py real_harness.py ditto_bridge_patch.py nova_ditto.py \
+need="novalive_job.sh repair_pylibs.py real_harness.py ditto_bridge_patch.py nova_ditto.py boot_wrap.py \
 ditto_server.py ditto_up.sh ditto_wide.py motion_bank.py nova_idle.mp4 nova_idle.gate.json \
 beta__freeze.html libtorch_global_deps.so PAYLOAD_DONE"
 say "stage 0: waiting for the payload"
@@ -98,6 +98,10 @@ if [ -d "$DP/torch/lib" ]; then
     say "stage 1b: BRANCH A did not fix the import -- falling through to C"
   fi
 fi
+if [ "$BRANCH" = none ] && PYTHONPATH="$TFX:$DP" python3 -c "import torch,torchvision" 2>/dev/null; then
+  BRANCH=C
+  say "stage 1b: BRANCH C ALREADY THERE -- $TFX imports torch, skipping the 84 s pip"
+fi
 if [ "$BRANCH" = none ]; then
   say "stage 1b: BRANCH C -- torch onto the CONTAINER disk at $TFX (the volume is never written)"
   mkdir -p "$TFX"
@@ -135,27 +139,22 @@ say "stage 1 DONE: branch=$BRANCH  PYTHONPATH=$PYPATH"
 BOOTSH=/workspace/boot.sh
 BOOTUSE=""
 if [ -s "$BOOTSH" ]; then
-  sed -e "s#^export PYTHONPATH=/workspace/_sys/pylibs311_good/dist-packages\$#export PYTHONPATH=$PYPATH#" \
-      -e 's#^\(\s*\)NOVA_REPO_DIR="\$d" bash "\$d/tools/pod/deploy_from_git.sh".*$#\1echo "[DEPLOY] SKIPPED by novaditto wrapper (page-truncation + token-print trap)"#' \
-      -e 's#setsid nohup python -u lk_bridge.py #setsid nohup env NOVA_FACE=ditto python -u lk_bridge.py #' \
-      "$BOOTSH" > /root/boot_novaditto.sh
-  W1=$(grep -c "^export PYTHONPATH=$PYPATH\$" /root/boot_novaditto.sh || true)
-  W2=$(grep -c "DEPLOY\] SKIPPED by novaditto" /root/boot_novaditto.sh || true)
-  W3=$(grep -c "env NOVA_FACE=ditto python -u lk_bridge.py" /root/boot_novaditto.sh || true)
-  say "stage 1c: wrapper rewrites applied: PYTHONPATH=$W1 deploy_skip=$W2 bridge_face=$W3 (want 2)"
-  diff "$BOOTSH" /root/boot_novaditto.sh > "$OUT/bootwrap.diff" 2>&1
-  sed -E "$RED" "$OUT/bootwrap.diff" > "$OUT/bootwrap.diff.red" && mv "$OUT/bootwrap.diff.red" "$OUT/bootwrap.diff"
-  head -30 "$OUT/bootwrap.diff" | while read -r l; do say "    $l"; done
-  bash -n /root/boot_novaditto.sh 2>> "$OUT/bootwrap_syntax.txt" && SYN=ok || SYN=BAD
-  say "stage 1c: wrapper syntax $SYN"
-  if [ "$W3" -ge 1 ] && [ "$W2" -ge 1 ] && [ "$SYN" = ok ]; then
-    BOOTUSE=/root/boot_novaditto.sh
-  fi
+  # boot_wrap.py, not sed: the volume's boot.sh is NOT tools/pod/boot.sh -- it has an inline
+  # deploy_from_git() AND an if/elif calling two more deploy scripts, and a sed written against
+  # the repo's single-line deploy matched none of them (measured: run 1 of this session).
+  # boot_wrap.py neutralises every deploy INVOCATION, tags every bridge launch and asserts the
+  # brain is untagged; it refuses to write anything if any of that fails. The diff it saves is
+  # redacted, because the volume's boot.sh carries plaintext API keys in export lines.
+  python3 -I "$IN/boot_wrap.py" --src "$BOOTSH" --out /root/boot_novaditto.sh \
+      --pypath "$PYPATH" --diff "$OUT/bootwrap.diff" > "$OUT/bootwrap.txt" 2>&1
+  BWRC=$?
+  say "stage 1c: boot_wrap rc=$BWRC -- $(grep -E 'rewrites|REFUSING|WROTE' "$OUT/bootwrap.txt" | head -3 | tr '\n' ' ')"
+  [ "$BWRC" = 0 ] && BOOTUSE=/root/boot_novaditto.sh
 fi
 if [ -z "$BOOTUSE" ]; then
   say "stage 1c: REFUSING to boot -- the wrapper could not be built, and plain boot.sh would"
   say "stage 1c: run the page-truncating deploy and would put NOVA_FACE in the brain's env too."
-  cp "$BOOTSH" "$OUT/boot.sh.asfound" 2>/dev/null
+  sed -E "$RED" "$BOOTSH" > "$OUT/boot.sh.asfound" 2>/dev/null
   echo NO_WRAPPER > "$OUT/STACK"; ls -la "$OUT" > "$OUT/LISTING" 2>&1; echo READY > "$OUT/PULLABLE"
   for i in $(seq 1 300); do [ -s "$IN/PULLED" ] && break; sleep 5; done
   exit 0
