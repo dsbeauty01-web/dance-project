@@ -1,0 +1,14 @@
+### md5
+9f64d1e604a8926c328c3e4e9c4d32ab  /workspace/rt_lk.py
+1c4448b475ae0cdd719aef4edaa90337  /workspace/lk_bridge.py
+
+### the commercial greeting (the no-intro= branch)
+93:    "1. GREET + NAME: say exactly — Hi! I'm Nova, your magical AI dance teacher! What's your name?\n"
+745:                              "Hi! I'm Nova, your magical AI dance teacher! What's your name? "
+
+### the intro= branches
+651:            _intro = (request.query.get("intro") or "").strip().lower()
+653:            _freeze_mode = (_intro == "freeze")   # V2.1: page owns the game -> brain self-triggers OFF
+686:                _intro = (request.query.get("intro") or "").strip().lower()
+687:                if _intro == "freeze" and _hebrew:
+697:                elif _intro == "freeze":

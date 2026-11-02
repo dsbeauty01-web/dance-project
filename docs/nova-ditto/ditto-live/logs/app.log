@@ -1,0 +1,30 @@
+The cache for model files in Transformers v4.22.0 has been updated. Migrating your old cache. This is a one-time only operation. You can interrupt this and resume the migration later on by calling `transformers.utils.move_cache()`.
+0it [00:00, ?it/s]0it [00:00, ?it/s]
+INFO:utils.logger:Using cuda for inference.
+INFO:utils.logger:Registered avatar/musetalk: MuseReal
+INFO:utils.logger:Namespace(config='config.yaml', fps=25, l=10, m=8, r=10, model='musetalk', avatar_id='nova_idle', batch_size=8, modelres=192, modelfile='', customvideo_config='', tts='edgetts', REF_FILE='', REF_TEXT='', TTS_SERVER='', transport='livekit', stun='stun:stun.freeswitch.org:3478', push_url='', max_session=1, listenport=8010, audio_output_device=None, customopt=[])
+Cannot initialize model with low cpu memory usage because `accelerate` was not found in the environment. Defaulting to `low_cpu_mem_usage=False`. It is strongly recommended to install `accelerate` for faster and less memory-intense model loading. You can do so with: 
+```
+pip install accelerate
+```
+.
+An error occurred while trying to fetch models/sd-vae: Error no file named diffusion_pytorch_model.safetensors found in directory models/sd-vae.
+Defaulting to unsafe serialization. Pass `allow_pickle=False` to raise an error instead.
+load unet model from models/musetalkV15/unet.pth
+  0%|          | 0/121 [00:00<?, ?it/s]  1%|          | 1/121 [00:00<00:39,  3.02it/s] 26%|██▋       | 32/121 [00:00<00:00, 89.72it/s] 40%|███▉      | 48/121 [00:00<00:00, 74.95it/s] 54%|█████▎    | 65/121 [00:01<00:00, 66.55it/s] 78%|███████▊  | 94/121 [00:01<00:00, 106.34it/s] 92%|█████████▏| 111/121 [00:01<00:00, 90.96it/s]100%|██████████| 121/121 [00:01<00:00, 88.14it/s]
+  0%|          | 0/121 [00:00<?, ?it/s]100%|██████████| 121/121 [00:00<00:00, 1431.37it/s]
+warmup model...
+INFO:utils.logger:Registered tts/edgetts: EdgeTTS
+INFO:utils.logger:Registered streamout/livekit: LiveKitOutput
+INFO:utils.logger:start inference
+INFO:utils.logger:LiveKitOutput(ipc): frames -> bridge 127.0.0.1:9999
+INFO:utils.logger:LiveKitOutput(ipc): connected to bridge
+INFO:utils.logger:[ASR] funasr not installed — local ASR endpoint disabled (pip install funasr modelscope)
+INFO:utils.logger:start http server; http://<serverip>:8010/index.html
+WARNING:utils.logger:bridge send err -> reconnect: [Errno 104] Connection reset by peer
+WARNING:utils.logger:bridge connect retry: [Errno 111] Connection refused
+WARNING:utils.logger:bridge connect retry: [Errno 111] Connection refused
+WARNING:utils.logger:bridge connect retry: [Errno 111] Connection refused
+WARNING:utils.logger:bridge connect retry: [Errno 111] Connection refused
+WARNING:utils.logger:bridge connect retry: [Errno 111] Connection refused
+INFO:utils.logger:LiveKitOutput(ipc): connected to bridge

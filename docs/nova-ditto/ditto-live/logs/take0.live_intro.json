@@ -1,0 +1,81 @@
+{
+ "url": "http://127.0.0.1:8765/beta/freeze?commercial=1",
+ "mp4": "/root/novaditto_out/live_intro.mp4",
+ "mp4_bytes": 2068368,
+ "webm_bytes": 2023066,
+ "chunks": 36,
+ "recorder": {
+  "started": true,
+  "frames": 192,
+  "chunks": 36,
+  "bytes": 2023066,
+  "err": null,
+  "w": 360,
+  "h": 644,
+  "vfc": 191,
+  "drawMode": "requestVideoFrameCallback",
+  "pushMode": "captureStream(0)+requestFrame",
+  "stopped": true,
+  "mime": "video/webm;codecs=vp8,opus",
+  "audio": true,
+  "mix": {
+   "n": 1,
+   "tracks": [
+    {
+     "tag": "AUDIO#",
+     "label": "remote audio",
+     "muted": false,
+     "local": true,
+     "id": "4a331048"
+    }
+   ],
+   "ctx": "running"
+  },
+  "vpick": {
+   "n": 2,
+   "cands": [
+    {
+     "tag": "VIDEO#nova-live-video",
+     "label": "remote video",
+     "w": 180,
+     "h": 322,
+     "score": 14
+    },
+    {
+     "tag": "VIDEO#cam",
+     "label": "fake_device_0",
+     "w": 960,
+     "h": 720,
+     "score": -24
+    }
+   ],
+   "chosen": {
+    "tag": "VIDEO#nova-live-video",
+    "label": "remote video",
+    "w": 180,
+    "h": 322
+   }
+  }
+ },
+ "ffmpeg_rc": 0,
+ "nova_lines": [
+  "Hi! I'm Nova, your magical AI dance teacher! What's your name?",
+  "I'm right here, no rush at all."
+ ],
+ "kid_typed": [],
+ "kid_echo": [],
+ "gestures": [],
+ "probe": "{\n    \"programs\": [\n\n    ],\n    \"streams\": [\n        {\n            \"codec_name\": \"h264\",\n            \"codec_type\": \"video\",\n            \"width\": 540,\n            \"height\": 960,\n            \"avg_frame_rate\": \"190000/43423\",\n            \"duration\": \"43.423000\",\n            \"nb_frames\": \"190\"\n        },\n        {\n            \"codec_name\": \"aac\",\n            \"codec_type\": \"audio\",\n            \"avg_frame_rate\": \"0/0\",\n            \"duration\": \"44.281333\",\n            \"nb_frames\": \"1433\"\n        }\n    ]\n}\n",
+ "verify": {
+  "mean_volume_db": -30.6,
+  "max_volume_db": -4.9,
+  "video_frames": 149,
+  "bitexact_dupes": 0,
+  "bitexact_pct": 0.0,
+  "mad_transitions": 192,
+  "duplicate_frames": 43,
+  "duplicate_pct": 22.4,
+  "mad_threshold": 0.1,
+  "mad_median": 0.5158
+ }
+}

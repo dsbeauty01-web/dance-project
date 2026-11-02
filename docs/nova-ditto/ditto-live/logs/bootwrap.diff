@@ -1,0 +1,20 @@
+--- boot.sh
++++ boot_novaditto.sh
+@@ -8 +8 @@
+-export PYTHONPATH=/workspace/_sys/pylibs311_good/dist-packages
++export PYTHONPATH=/root/torchfix:/workspace/_sys/pylibs311_good/dist-packages
+@@ -42 +42 @@
+-deploy_from_git
++echo "[DEPLOY] SKIPPED by novaditto wrapper (page-truncation + token-print trap)"
+@@ -48 +48 @@
+-  bash /workspace/_repo/tools/pod/deploy_from_git.sh || echo "[DEPLOY] step failed"
++  echo "[DEPLOY] SKIPPED by novaditto wrapper (page-truncation + token-print trap)"
+@@ -50 +50 @@
+-  bash /workspace/_deploy_step.sh || echo "[DEPLOY] step failed"
++  echo "[DEPLOY] SKIPPED by novaditto wrapper (page-truncation + token-print trap)"
+@@ -76 +76 @@
+-setsid nohup python -u lk_bridge.py >/root/bridge.log 2>&1 </dev/null &
++setsid nohup env NOVA_FACE=ditto python -u lk_bridge.py >/root/bridge.log 2>&1 </dev/null &
+@@ -86 +86 @@
+-setsid nohup python -u lk_bridge.py >/root/bridge.log 2>&1 </dev/null &
++setsid nohup env NOVA_FACE=ditto python -u lk_bridge.py >/root/bridge.log 2>&1 </dev/null &

@@ -1,0 +1,18 @@
+[    0.0s] chunk sink up on 127.0.0.1:8099 -> /root/rec
+[    0.1s] page repair: restored 0, left alone 1
+[    0.1s]   . beta/freeze.html (148832 >= 148832)
+[    0.7s] goto http://127.0.0.1:8765/beta/freeze?commercial=1
+[    1.2s]   body text 523 chars, html 146192 bytes: '❄ ANIMAL FREEZE v3 · LIVE Nova (V2V) · full-figure · she becomes the animal · one-mic ❄\n🌟\nNova is waking up…\ngetting her ready for you ✨\n🌟 Nova\n⭐\n🐻\n🦩\n🐸\n⭐\n�'
+[    1.2s]   clicked Let's Play on http://127.0.0.1:8765/beta/freeze?commercial=1
+[    1.2s] rec frames=0 vfc=0 chunks=0 bytes=0 src=0x0 draw=None push=None err=None
+[    1.6s] brain ws open
+[    2.2s] RECORDING started mime=video/webm;codecs=vp8,opus audio_track=True audio_mix={"n": 1, "tracks": [{"tag": "AUDIO#", "label": "remote audio", "muted": false, "local": true, "id": "4a331048"}], "ctx": "running"} video={"tag": "VIDEO#nova-live-video", "label": "remote video", "w": 180, "h": 322}
+[    2.2s] brain ws open
+[    4.7s] SHE: Hi! I'm Nova, your magical AI dance teacher! What's your name?
+[   16.4s] SHE: I'm right here, no rush at all.
+[   16.7s] rec frames=83 vfc=82 chunks=9 bytes=785036 src=360x644 draw=requestVideoFrameCallback push=captureStream(0)+requestFrame err=None
+[   32.2s] rec frames=139 vfc=138 chunks=22 bytes=1417440 src=360x644 draw=requestVideoFrameCallback push=captureStream(0)+requestFrame err=None
+[   49.3s] recorder final: {"started": true, "frames": 192, "chunks": 36, "bytes": 2023066, "err": null, "w": 360, "h": 644, "vfc": 191, "drawMode": "requestVideoFrameCallback", "pushMode": "captureStream(0)+requestFrame", "stopped": true, "mime": "video/webm;codecs=vp8,opus", "audio": true, "mix": {"n": 1, "tracks": [{"tag": "AUDIO#", "label": "remote audio", "muted": false, "local": true, "id": "4a331048"}], "ctx": "running"}, "vpick": {"n": 2, "cands": [{"tag": "VIDEO#nova-live-video", "label": "remote video", "w": 180, "h": 322, "score": 14}, {"tag": "VIDEO#cam", "label": "fake_device_0", "w": 960, "h": 720, "score": -24}], "chosen": {"tag": "VIDEO#nova-live-video", "label": "remote video", "w": 180, "h": 322}}}
+[   53.9s] webm: 36 chunks, 2023066 bytes
+[   56.1s] VERIFY {"mean_volume_db": -30.6, "max_volume_db": -4.9, "video_frames": 149, "bitexact_dupes": 0, "bitexact_pct": 0.0, "mad_transitions": 192, "duplicate_frames": 43, "duplicate_pct": 22.4, "mad_threshold": 0.1, "mad_median": 0.5158}
+[   56.1s] DONE mp4=2068368 bytes  her lines=2  my lines=0  max_volume=-4.9dB  dup=22.4%  frames=149
