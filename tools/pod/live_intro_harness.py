@@ -76,10 +76,42 @@ window.__startRec = async function(sink, cw, ch){
   var S = window.__recState;
   if (S.started) return S;
   var vs = window.__ms.find(function(x){ try{ return x.ms.getVideoTracks().length>0; }catch(e){ return false; } });
-  var as = window.__ms.find(function(x){ try{ return x.ms.getAudioTracks().length>0; }catch(e){ return false; } });
   if (!vs) return {started:false, why:'no video stream attached yet', seen:window.__ms.length};
   var vt = vs.ms.getVideoTracks()[0];
-  var at = as ? as.ms.getAudioTracks()[0] : null;
+  // AUDIO (fixed 2026-11-02, session novarec). This used to be
+  //     window.__ms.find(x => x.ms.getAudioTracks().length > 0)
+  // i.e. the FIRST attached stream carrying audio -- which on this page is the LOCAL MIC, and
+  // the mic on a headless pod is --use-file-for-fake-audio-capture=/root/silence.wav. Take 1
+  // therefore recorded a real-but-silent audio track: ffmpeg measured max_volume -84.3 dB over
+  // 67 s while app.log showed the engine genuinely producing speech ("put audio stream 16000")
+  // and Ditto rendering 211 audio-driven chunks. Her voice was never the track being captured.
+  // Now: mix EVERY attached audio track through WebAudio, so hers is in whichever stream it
+  // arrives on and the silent mic contributes nothing.
+  var at = null, mixed = [];
+  try {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    var ac = new AC({sampleRate: 48000});
+    var dest = ac.createMediaStreamDestination();
+    window.__ms.forEach(function(x){
+      try {
+        if (!x.ms.getAudioTracks().length) return;
+        x.ms.getAudioTracks().forEach(function(t){
+          var st;
+          try { st = t.getSettings ? t.getSettings() : {}; } catch(e) { st = {}; }
+          mixed.push({tag: x.tag, label: t.label, muted: t.muted,
+                      local: !!st.deviceId, id: (t.id||'').slice(0,8)});
+        });
+        ac.createMediaStreamSource(x.ms).connect(dest);
+      } catch(e) {}
+    });
+    try { await ac.resume(); } catch(e) {}
+    at = dest.stream.getAudioTracks()[0] || null;
+    window.__audioMix = {n: mixed.length, tracks: mixed, ctx: ac.state};
+  } catch(e) {
+    window.__audioMix = {err: ''+e};
+    var as = window.__ms.find(function(x){ try{ return x.ms.getAudioTracks().length>0; }catch(e){ return false; } });
+    at = as ? as.ms.getAudioTracks()[0] : null;
+  }
   var v = document.createElement('video');
   v.srcObject = new MediaStream([vt]); v.muted = true; v.autoplay = true; v.playsInline = true;
   try { await v.play(); } catch(e) {}
@@ -145,7 +177,7 @@ window.__startRec = async function(sink, cw, ch){
   };
   rec.onerror = function(e){ S.err = 'rec: ' + (e && e.message); };
   rec.start(1000);
-  S.started = true; S.mime = mime; S.audio = !!at;
+  S.started = true; S.mime = mime; S.audio = !!at; S.mix = window.__audioMix;
   return S;
 };
 window.__stopRec = async function(){
@@ -371,7 +403,8 @@ def main():
                 return
             if s and s.get("started"):
                 rec_started[0] = True
-                status(f"RECORDING started mime={s.get('mime')} audio_track={s.get('audio')}")
+                status(f"RECORDING started mime={s.get('mime')} audio_track={s.get('audio')} "
+                       f"audio_mix={json.dumps(s.get('mix'))}")
 
         t_end = time.time() + a.max_s
         stop = os.path.join(a.inbox, "STOP")

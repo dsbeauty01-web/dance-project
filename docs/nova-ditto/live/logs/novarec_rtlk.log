@@ -1,0 +1,596 @@
+/workspace/rt_lk.py:10: DeprecationWarning: 'audioop' is deprecated and slated for removal in Python 3.13
+  import audioop as _audioop          # C-speed PCM math — this runs on every 40ms mic chunk
+[NOVA_FACE] musetalk
+browser connected
+[BOUNDARY] connect
+[SPEAK] (connect) Say EXACTLY these words and NOTHING more: Hi! I'm Nova - FREEZE time! What's you
+PERSONA REPLACE (game-mode): [GAME-MODE] You are Nova, a kids' dance friend hosting the Animal Free
+[PERSONA-HASH] 05b0de4908f5 len 4276
+PERSONA REPLACE (game-mode): [GAME-MODE] You are Nova, a kids' dance friend hosting the Animal Free
+[PERSONA-HASH] 05b0de4908f5 len 4276
+PERSONA duplicate ignored
+[PICK] freeze
+[PICK] session switched to game-mode persona
+[REMEMBER] system: [phase] The child just picked the game: freeze. That is the game you are in now 
+[PICK] freeze: silent mode-switch
+PERSONA REPLACE (game-mode): [GAME-MODE] You are Nova, a kids' dance friend hosting the Animal Free
+[PERSONA-HASH] 05b0de4908f5 len 4276
+PERSONA duplicate ignored
+PERSONA REPLACE (game-mode): [GAME-MODE] You are Nova, a kids' dance friend hosting the Animal Free
+[PERSONA-HASH] 05b0de4908f5 len 4276
+PERSONA duplicate ignored
+[PICK] freeze
+[PICK] duplicate ignored (already picked)
+OAI: session.created
+OAI: session.updated
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: session.updated
+OAI: session.updated
+OAI: session.updated
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: session.updated
+OAI: session.updated
+OAI: response.output_item.added
+OAI: conversation.item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] greet | Hi! I'm Nova - FREEZE time! What's your name?
+[ASK-LOCK] set (she asked)
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+MIC recv: 50 chunks, ~297200 b64 bytes
+[ASK-LOCK] queued nova-say: Say YES when you are ready!
+[ASK-LOCK] cleared-by=tap
+[REMEMBER] user: Noam!
+[BOUNDARY] tap
+[SPEAK] (tap) bare
+[TYPED] kid text: Noam!
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: conversation.item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] kid | Noam, awesome to meet you! When the music plays, you dance l
+[ASK-LOCK] set (she asked)
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+MIC recv: 100 chunks, ~594400 b64 bytes
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+MIC recv: 150 chunks, ~891600 b64 bytes
+MIC recv: 200 chunks, ~1188800 b64 bytes
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[TURN-GATE] silence 13s -> ONE gentle retry (verbatim): I'm right here, no rush at all.
+[BOUNDARY] 13s-silence
+[SPEAK] (13s-silence) I'm right here, no rush at all.
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] reinvite | I'm right here, no rush at all.
+[DE-CAN] she repeated a line verbatim: I'm right here, no rush at all.
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+MIC recv: 250 chunks, ~1486000 b64 bytes
+MIC recv: 300 chunks, ~1783200 b64 bytes
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[ASK-LOCK] cleared-by=tap
+[CONSENT] real yes (typed)
+[REMEMBER] user: yes! im ready!
+[BOUNDARY] tap
+[SPEAK] (tap) bare
+[TYPED] kid text: yes! im ready!
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: conversation.item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] kid | Let’s GO!
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+PITCH say (flushed): Say YES when you are ready!
+[SPEAK] queued (not a boundary): Say YES when you are ready!
+MIC recv: 350 chunks, ~2080400 b64 bytes
+[SPEAK-GATE] ON (air) - engine audio blocked
+[GAME-START] music running - in-game mode
+[REMEMBER] system: [phase] The music just started — the game is running. From now on stay silent un
+[BOUNDARY] game-start
+[SPEAK] (game-start) Say YES when you are ready!
+[SPEAK] queued (not a boundary): The music just started! Shout ONE excited burst, three words
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+[SPEAK-GATE] cancelled response (game phase)
+[CANCEL] uncredited mid-game generation
+OAI: response.output_item.added
+OAI: error -> invalid_request_error | response_cancel_not_active | Cancellation failed: no active response found | param: None
+OAI: response.content_part.added
+OAI: response.output_audio.done
+[TRUTH-GATE] pre-synth blocked (never synthesized): Let’s GO!Say YES when you are ready!
+OAI: response.output_audio_transcript.done
+[ORIGIN] say | Say YES when you are ready!
+[KILL] stub suppressed: Say YES when you are ready!
+[DE-CAN] she repeated a line verbatim: Say YES when you are ready!
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+GATE OPEN: mic live (0.6s after last chunk)
+OAI: rate_limits.updated
+MIC recv: 400 chunks, ~2377600 b64 bytes
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[SPEAK-GATE] air line credited: nova-cue
+[REMEMBER] system: [director] warn: a FREEZE moment comes in 3 seconds - and the game KEEPS GOING a
+PITCH cue (air-credit): warn: a FREEZE moment comes in 3 seconds - and the game KEEPS GOING af | ctx: 
+[BOUNDARY] air-credit
+[SPEAK] (air-credit) The music just started! Shout ONE excited burst, three words max, like: Dance da
+[SPEAK] queued (not a boundary): [GAME DIRECTOR - improvise, never read this aloud] warn: a F
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+[SPEAK-GATE] air line generating (credit spent)
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: conversation.item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+[SPEAK-GATE] air voice -> page: 136800 bytes
+OAI: response.output_audio_transcript.done
+[ORIGIN] game-start | Freeze coming... stay sharp!
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+GATE OPEN: mic live (0.6s after last chunk)
+OAI: rate_limits.updated
+MIC recv: 450 chunks, ~2674800 b64 bytes
+[SPEAK-GATE] ON (hard) - engine audio blocked
+MIC recv: 500 chunks, ~2972000 b64 bytes
+[SPEAK-GATE] ON (air) - engine audio blocked
+[SPEAK-GATE] air line credited: nova-cue
+[REMEMBER] system: [director] skip: the camera could not see the kid during this freeze. Say ONE wa
+PITCH cue (air-credit): skip: the camera could not see the kid during this freeze. Say ONE war | ctx: camera lost the kid
+[BOUNDARY] air-credit
+[SPEAK] (air-credit) [GAME DIRECTOR - improvise, never read this aloud] warn: a FREEZE moment comes i
+[SPEAK] queued (not a boundary): [GAME DIRECTOR - improvise, never read this aloud] skip: the
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+[SPEAK-GATE] air line generating (credit spent)
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: conversation.item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+[SPEAK-GATE] air voice -> page: 62400 bytes
+OAI: response.output_audio_transcript.done
+[ORIGIN] cue:warn | Hey Noam, step back a bit
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[SPEAK-GATE] air line credited: nova-cue
+[REMEMBER] system: [director] warn: a FREEZE moment comes in 3 seconds - and the game KEEPS GOING a
+PITCH cue (air-credit): warn: a FREEZE moment comes in 3 seconds - and the game KEEPS GOING af | ctx: 
+[BOUNDARY] air-credit
+[SPEAK] (air-credit) [GAME DIRECTOR - improvise, never read this aloud] skip: the camera could not se
+[SPEAK] queued (not a boundary): [GAME DIRECTOR - improvise, never read this aloud] warn: a F
+MIC recv: 550 chunks, ~3269200 b64 bytes
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+[SPEAK-GATE] air line generating (credit spent)
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: conversation.item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+[SPEAK-GATE] air voice -> page: 69600 bytes
+OAI: response.output_audio_transcript.done
+[ORIGIN] cue:skip | Get ready to freeze!
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+[SPEAK-GATE] ON (hard) - engine audio blocked
+MIC recv: 600 chunks, ~3566400 b64 bytes
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[SPEAK-GATE] ON (air) - engine audio blocked
+[SPEAK-GATE] air line credited: nova-cue
+[REMEMBER] system: [director] skip: the camera could not see the kid during this freeze. Say ONE wa
+PITCH cue (air-credit): skip: the camera could not see the kid during this freeze. Say ONE war | ctx: camera lost the kid
+[BOUNDARY] air-credit
+[SPEAK] (air-credit) [GAME DIRECTOR - improvise, never read this aloud] warn: a FREEZE moment comes i
+[SPEAK] queued (not a boundary): [GAME DIRECTOR - improvise, never read this aloud] skip: the
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+[SPEAK-GATE] air line generating (credit spent)
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: conversation.item.added
+OAI: response.content_part.added
+[MIDGAME-BAN] killed (>8 words): Hey Noam, step where I can see
+OAI: response.output_audio.done
+[TRUTH-GATE] pre-synth blocked (never synthesized): Hey Noam, step where I can see
+OAI: response.output_audio_transcript.done
+[ORIGIN] cue:warn | Hey Noam, step where I can see
+[KILL] stub suppressed: Hey Noam, step where I can see
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+MIC recv: 650 chunks, ~3863600 b64 bytes
+browser connected
+[BOUNDARY] connect
+[SPEAK] (connect) Say EXACTLY these words and NOTHING more: Hi! I'm Nova - FREEZE time! What's you
+PERSONA REPLACE (game-mode): [GAME-MODE] You are Nova, a kids' dance friend hosting the Animal Free
+[PERSONA-HASH] 05b0de4908f5 len 4276
+PERSONA REPLACE (game-mode): [GAME-MODE] You are Nova, a kids' dance friend hosting the Animal Free
+[PERSONA-HASH] 05b0de4908f5 len 4276
+PERSONA duplicate ignored
+[PICK] freeze
+[PICK] session switched to game-mode persona
+[REMEMBER] system: [phase] The child just picked the game: freeze. That is the game you are in now 
+[PICK] freeze: silent mode-switch
+PERSONA REPLACE (game-mode): [GAME-MODE] You are Nova, a kids' dance friend hosting the Animal Free
+[PERSONA-HASH] 05b0de4908f5 len 4276
+PERSONA duplicate ignored
+PERSONA REPLACE (game-mode): [GAME-MODE] You are Nova, a kids' dance friend hosting the Animal Free
+[PERSONA-HASH] 05b0de4908f5 len 4276
+PERSONA duplicate ignored
+[PICK] freeze
+[PICK] duplicate ignored (already picked)
+OAI: session.created
+OAI: session.updated
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: session.updated
+OAI: session.updated
+OAI: session.updated
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: session.updated
+OAI: session.updated
+OAI: response.output_item.added
+OAI: conversation.item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] greet | Hi! I'm Nova - FREEZE time! What's your name?
+[ASK-LOCK] set (she asked)
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+MIC recv: 50 chunks, ~297200 b64 bytes
+[ASK-LOCK] queued nova-say: Say YES when you are ready!
+MIC recv: 100 chunks, ~594400 b64 bytes
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[TURN-GATE] silence 13s -> ONE gentle retry (verbatim): I'm right here, no rush at all.
+[BOUNDARY] 13s-silence
+[SPEAK] (13s-silence) I'm right here, no rush at all.
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] reinvite | I'm right here, no rush at all.
+[DE-CAN] she repeated a line verbatim: I'm right here, no rush at all.
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+MIC recv: 150 chunks, ~891600 b64 bytes
+MIC recv: 200 chunks, ~1188800 b64 bytes
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[ASK-LOCK] cleared-by=tap
+[REMEMBER] user: im Noam
+[BOUNDARY] tap
+[SPEAK] (tap) bare
+[TYPED] kid text: im Noam
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: conversation.item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] kid | Noam! Awesome to meet you! When the music plays, dance like 
+[ASK-LOCK] set (she asked)
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+MIC recv: 250 chunks, ~1486000 b64 bytes
+MIC recv: 300 chunks, ~1783200 b64 bytes
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[TURN-GATE] silence 13s -> ONE gentle retry (verbatim): Still right here.
+[BOUNDARY] 13s-silence
+[SPEAK] (13s-silence) Still right here.
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] reinvite | Still right here.
+[DE-CAN] she repeated a line verbatim: Still right here.
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+MIC recv: 350 chunks, ~2080400 b64 bytes
+[ASK-LOCK] cleared-by=tap
+[REMEMBER] user: can i be the frog?
+[BOUNDARY] tap
+[SPEAK] (tap) bare
+[TYPED] kid text: can i be the frog?
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: conversation.item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] kid | Ribbit, let's hop into it!
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+PITCH say (flushed): Say YES when you are ready!
+[SPEAK] queued (not a boundary): Say YES when you are ready!
+MIC recv: 400 chunks, ~2377600 b64 bytes
+[SPEAK-GATE] ON (air) - engine audio blocked
+[GAME-START] music running - in-game mode
+[REMEMBER] system: [phase] The music just started — the game is running. From now on stay silent un
+[BOUNDARY] game-start
+[SPEAK] (game-start) Say YES when you are ready!
+[SPEAK] queued (not a boundary): The music just started! Shout ONE excited burst, three words
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+[SPEAK-GATE] cancelled response (game phase)
+[CANCEL] uncredited mid-game generation
+OAI: error -> invalid_request_error | response_cancel_not_active | Cancellation failed: no active response found | param: None
+OAI: response.output_item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+[TRUTH-GATE] pre-synth blocked (never synthesized): Ribbit, let's hop into it!Say YES when you are ready!
+OAI: response.output_audio_transcript.done
+[ORIGIN] say | Say YES when you are ready!
+[KILL] stub suppressed: Say YES when you are ready!
+[DE-CAN] she repeated a line verbatim: Say YES when you are ready!
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+MIC recv: 450 chunks, ~2674800 b64 bytes
+[SPEAK-GATE] air line credited: nova-cue
+[REMEMBER] system: [director] warn: a FREEZE moment comes in 3 seconds - and the game KEEPS GOING a
+PITCH cue (air-credit): warn: a FREEZE moment comes in 3 seconds - and the game KEEPS GOING af | ctx: 
+[BOUNDARY] air-credit
+[SPEAK] (air-credit) The music just started! Shout ONE excited burst, three words max, like: Dance da
+[SPEAK] queued (not a boundary): [GAME DIRECTOR - improvise, never read this aloud] warn: a F
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+[SPEAK-GATE] air line generating (credit spent)
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: conversation.item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+[SPEAK-GATE] air voice -> page: 129600 bytes
+OAI: response.output_audio_transcript.done
+[ORIGIN] game-start | Freeze coming... Stay sharp!
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+GATE OPEN: mic live (0.6s after last chunk)
+OAI: rate_limits.updated
+MIC recv: 500 chunks, ~2972000 b64 bytes
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[SPEAK-GATE] ON (hard) - engine audio blocked
+[CONSENT] real yes (typed)
+[REMEMBER] user: yes! im ready
+[BOUNDARY] tap
+[SPEAK] (tap) bare
+[TYPED] kid text: yes! im ready
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+[SPEAK-GATE] cancelled response (game phase)
+[CANCEL] uncredited mid-game generation
+OAI: response.done
+GATE OPEN: mic live (0.6s after last chunk)
+[SPEAK-GATE] ON (air) - engine audio blocked
+[SPEAK-GATE] air line credited: nova-cue
+[REMEMBER] system: [director] skip: the camera could not see the kid during this freeze. Say ONE wa
+PITCH cue (air-credit): skip: the camera could not see the kid during this freeze. Say ONE war | ctx: camera lost the kid
+[BOUNDARY] air-credit
+[SPEAK] (air-credit) [GAME DIRECTOR - improvise, never read this aloud] warn: a FREEZE moment comes i
+[SPEAK] queued (not a boundary): [GAME DIRECTOR - improvise, never read this aloud] skip: the
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+[SPEAK-GATE] air line generating (credit spent)
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: conversation.item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+[SPEAK-GATE] air voice -> page: 60000 bytes
+OAI: response.output_audio_transcript.done
+[ORIGIN] cue:warn | Oops, I lost you—can you step
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+MIC recv: 550 chunks, ~3269200 b64 bytes
+[SPEAK-GATE] air line credited: nova-cue
+[REMEMBER] system: [director] warn: a FREEZE moment comes in 3 seconds - and the game KEEPS GOING a
+PITCH cue (air-credit): warn: a FREEZE moment comes in 3 seconds - and the game KEEPS GOING af | ctx: 
+[BOUNDARY] air-credit
+[SPEAK] (air-credit) [GAME DIRECTOR - improvise, never read this aloud] skip: the camera could not se
+[SPEAK] queued (not a boundary): [GAME DIRECTOR - improvise, never read this aloud] warn: a F
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+[SPEAK-GATE] air line generating (credit spent)
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: conversation.item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+[SPEAK-GATE] air voice -> page: 69600 bytes
+OAI: response.output_audio_transcript.done
+[ORIGIN] cue:skip | Freeze time is close...
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+MIC recv: 600 chunks, ~3566400 b64 bytes
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[SPEAK-GATE] ON (hard) - engine audio blocked
+MIC recv: 650 chunks, ~3863600 b64 bytes
+[SPEAK-GATE] ON (air) - engine audio blocked
+[SPEAK-GATE] air line credited: nova-cue
+[REMEMBER] system: [director] skip: the camera could not see the kid during this freeze. Say ONE wa
+PITCH cue (air-credit): skip: the camera could not see the kid during this freeze. Say ONE war | ctx: camera lost the kid
+[BOUNDARY] air-credit
+[SPEAK] (air-credit) [GAME DIRECTOR - improvise, never read this aloud] warn: a FREEZE moment comes i
+[SPEAK] queued (not a boundary): [GAME DIRECTOR - improvise, never read this aloud] skip: the
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+[SPEAK-GATE] air line generating (credit spent)
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: conversation.item.added
+OAI: response.content_part.added
+[MIDGAME-BAN] killed (>8 words): Can you step back so I can
+OAI: response.output_audio.done
+[TRUTH-GATE] pre-synth blocked (never synthesized): Can you step back so I can see you?
+OAI: response.output_audio_transcript.done
+[ORIGIN] cue:warn | Can you step back so I can see you?
+[KILL] stub suppressed: Can you step back so I can see you?
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+[SPEAK-GATE] air line credited: nova-cue
+[REMEMBER] system: [director] warn: a FREEZE moment comes in 3 seconds - and the game KEEPS GOING a
+PITCH cue (air-credit): warn: a FREEZE moment comes in 3 seconds - and the game KEEPS GOING af | ctx: 
+[BOUNDARY] air-credit
+[SPEAK] (air-credit) [GAME DIRECTOR - improvise, never read this aloud] skip: the camera could not se
+[SPEAK] queued (not a boundary): [GAME DIRECTOR - improvise, never read this aloud] warn: a F
+MIC recv: 700 chunks, ~4160800 b64 bytes
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+[SPEAK-GATE] air line generating (credit spent)
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: conversation.item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+[SPEAK-GATE] air voice -> page: 67200 bytes
+OAI: response.output_audio_transcript.done
+[ORIGIN] cue:skip | Hold still … freeze soon!
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+GATE OPEN: mic live (0.6s after last chunk)
+OAI: rate_limits.updated
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[SPEAK-GATE] ON (hard) - engine audio blocked
+MIC recv: 750 chunks, ~4458000 b64 bytes
+[SPEAK-GATE] ON (air) - engine audio blocked
+[SPEAK-GATE] air line credited: nova-cue
+[REMEMBER] system: [director] skip: the camera could not see the kid during this freeze. Say ONE wa
+PITCH cue (air-credit): skip: the camera could not see the kid during this freeze. Say ONE war | ctx: camera lost the kid
+[BOUNDARY] air-credit
+[SPEAK] (air-credit) [GAME DIRECTOR - improvise, never read this aloud] warn: a FREEZE moment comes i
+[SPEAK] queued (not a boundary): [GAME DIRECTOR - improvise, never read this aloud] skip: the
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+[SPEAK-GATE] air line generating (credit spent)
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: conversation.item.added
+OAI: response.content_part.added
+[MIDGAME-BAN] killed (>8 words): Step back a little so I can
+OAI: response.output_audio.done
+[TRUTH-GATE] pre-synth blocked (never synthesized): Step back a little so I can see you!
+OAI: response.output_audio_transcript.done
+[ORIGIN] cue:warn | Step back a little so I can see you!
+[KILL] stub suppressed: Step back a little so I can see you!
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)

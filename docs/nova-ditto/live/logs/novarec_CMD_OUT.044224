@@ -1,0 +1,23 @@
+== before: .env_failed/.env_ok ==
+ls: cannot access '/root/ditto/.env_ok': No such file or directory
+-rw-r--r-- 1 root root 0 Nov  2 04:37 /root/ditto/.env_failed
+== setup_env.log tail ==
+  File "/root/torchfix/torch/__init__.py", line 1013, in <module>
+    raise ImportError(
+ImportError: Failed to load PyTorch C extensions:
+    It appears that PyTorch has loaded the `torch/_C` folder
+    of the PyTorch repository rather than the C extensions which
+    are expected in the `torch._C` namespace. This can occur when
+    using the `install` workflow. e.g.
+        $ python -m pip install --no-build-isolation -v . && python -c "import torch"
+
+    This error can generally be solved using the `develop` workflow
+        $ python -m pip install --no-build-isolation -v -e . && python -c "import torch"  # This should succeed
+    or by running Python from a different directory.
+== weights log tail ==
+ditto c3e47eee2e626500017a0556b470d6d4182f85e8 2025-11-12 21:58:42 +0800
+[ditto_fullbody] installed: explicit_box=[263.0, 215.0, 763.0, 715.0] up=3.0 rungs=5
+Fetching 16 files:   0%|          | 0/16 [00:00<?, ?it/s]Fetching 16 files:   6%|▋         | 1/16 [00:00<00:04,  3.50it/s]Fetching 16 files:  19%|█▉        | 3/16 [00:00<00:02,  4.38it/s]Fetching 16 files:  25%|██▌       | 4/16 [00:01<00:03,  3.62it/s]Fetching 16 files:  44%|████▍     | 7/16 [00:01<00:02,  3.42it/s]Fetching 16 files:  56%|█████▋    | 9/16 [00:12<00:15,  2.16s/it]Fetching 16 files: 100%|██████████| 16/16 [00:12<00:00,  1.25it/s]
+W_OK
+relaunched ditto_up.sh with PYTHONPATH=/root/in only
+rc=0

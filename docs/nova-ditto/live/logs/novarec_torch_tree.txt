@@ -1,0 +1,72 @@
+### mounts and the path down to torch
+/workspace                                                             drwxrwxrwx 38 root root 3003776 Nov  2 03:56 /workspace
+/workspace/_sys                                                        drwxrwxrwx 3 root root 3000701 Aug 15 09:28 /workspace/_sys
+/workspace/_sys/pylibs311_good                                         drwxrwxrwx 3 root root 3000701 Jul 25 09:35 /workspace/_sys/pylibs311_good
+/workspace/_sys/pylibs311_good/dist-packages                           drwxrwxrwx 360 root root 3000701 Nov  2 04:06 /workspace/_sys/pylibs311_good/dist-packages
+/workspace/_sys/pylibs311_good/dist-packages/torch                     drwxrwxrwx 45 root root 2013688 Nov  2 04:07 /workspace/_sys/pylibs311_good/dist-packages/torch
+/workspace/_sys/pylibs311_good/dist-packages/torch/lib                 ls: cannot access '/workspace/_sys/pylibs311_good/dist-packages/torch/lib': No such file or directory
+
+### /workspace/_sys/pylibs311_good/dist-packages/torch, top level (first 40)
+_C
+_C.cpython-311-x86_64-linux-gnu.so
+_C_flatbuffer
+_VF.py
+_VF.pyi
+__config__.py
+__future__.py
+__init__.py
+__pycache__
+_appdirs.py
+_awaits
+_classes.py
+_compile.py
+_custom_class_base.py
+_custom_op
+_custom_ops.py
+_decomp
+_dispatch
+_dynamo
+_environment.py
+_export
+_functorch
+_guards.py
+_higher_order_ops
+_inductor
+_jit_internal.py
+_lazy
+_library
+_linalg_utils.py
+_lobpcg.py
+_logging
+_lowrank.py
+_meta_registrations.py
+_namedtensor_internals.py
+_native
+_numpy
+_opaque_base.py
+_ops.py
+_precompile.py
+_precompile_driver.py
+
+### /workspace/_sys/pylibs311_good/dist-packages/torch/lib listing
+ls: cannot access '/workspace/_sys/pylibs311_good/dist-packages/torch/lib': No such file or directory
+
+### .so count and total size under /workspace/_sys/pylibs311_good/dist-packages/torch
+1
+878M	/workspace/_sys/pylibs311_good/dist-packages/torch
+
+### is a torch wheel's RECORD still there?
+torch
+torch-2.9.1+cu129.dist-info
+torchaudio
+torchaudio-2.9.1+cu129.dist-info
+torchgen
+torchvision
+torchvision-0.24.1+cu129.dist-info
+torchvision.libs
+
+### write probe on the volume (1 MB)
+1048576 bytes (1.0 MB, 1.0 MiB) copied, 0.0151612 s, 69.2 MB/s
+
+### container disk
+overlay          80G   26M   80G   1% /

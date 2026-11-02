@@ -1,0 +1,47 @@
+== where could the env have come from (names only, no values) ==
+ls: cannot access '/workspace/.env': No such file or directory
+ls: cannot access '/workspace/.env.*': No such file or directory
+rt_lk pid=8234
+rt_lk env has these NAMES: SHELL NV_LIBCUBLAS_VERSION NVIDIA_VISIBLE_DEVICES NV_NVML_DEV_VERSION PYTHONUNBUFFERED NV_LIBNCCL_DEV_PACKAGE NV_LIBNCCL_DEV_PACKAGE_VERSION ENGINE_URL HOSTNAME REC_MAX_S NVIDIA_REQUIRE_CUDA NV_LIBCUBLAS_DEV_PACKAGE NV_NVTX_VERSION MAYA_TAG_LANE LK_BRIDGE_PORT NV_CUDA_CUDART_DEV_VERSION NV_LIBCUSPARSE_VERSION OPENAI_API_KEY NV_LIBNPP_VERSION NCCL_VERSION HUME_CONFIG_ID LIVEKIT_URL PWD NVIDIA_DRIVER_CAPABILITIES NV_NVPROF_DEV_PACKAGE NV_LIBNPP_PACKAGE NV_LIBNCCL_DEV_PACKAGE_NAME NV_LIBCUBLAS_DEV_VERSION NVIDIA_PRODUCT_NAME RUNPOD_CPU_COUNT NV_LIBCUBLAS_DEV_PACKAGE_NAME NV_CUDA_CUDART_VERSION HOME CUDA_VERSION NOVA_DITTO_DELAY_SITE RUNPOD_POD_ID NV_LIBCUBLAS_PACKAGE LIVEKIT_API_SECRET NV_CUDA_NSIGHT_COMPUTE_DEV_PACKAGE MAYA_AUTOPSY_MIN POD_URL VOICE_BACKEND NV_LIBNPP_DEV_PACKAGE NV_LIBCUBLAS_PACKAGE_NAME RUNPOD_MEM_GB POD_MINUTES NV_LIBNPP_DEV_VERSION RUNPOD_VOLUME_ID RUNPOD_GPU_COUNT MAYA_ASSETS_TOKEN HUME_API_KEY PYTHONPATH NV_LIBCUSPARSE_DEV_VERSION RUNPOD_POD_HOSTNAME NOVA_DEPLOY_BRANCH LIBRARY_PATH RUNPOD_DC_ID SHLVL ELEVEN_AGENT_ID NV_CUDA_LIB_VERSION NVARCH POD_REF ELEVEN_API_KEY RUNPOD_GPU_NAME NV_CUDA_COMPAT_PACKAGE PIP_ROOT_USER_ACTION RT_MODEL NV_LIBNCCL_PACKAGE LD_LIBRARY_PATH POD_JOB_PATH RUNPOD_VOLUME_IDS NV_CUDA_NSIGHT_COMPUTE_VERSION ELEVEN_VOICE_ID NVIDIA_CTK_LIBCUDA_DIR NV_NVPROF_VERSION RUNPOD_API_KEY PATH LIVEKIT_API_KEY NV_LIBNCCL_PACKAGE_NAME NV_LIBNCCL_PACKAGE_VERSION NOVA_BRAIN PUBLIC_KEY ssh MAYA_LOGS LK_ROOM DEBIAN_FRONTEND LK_BRIDGE_HOST OLDPWD POD_JOB BASH_FUNC_maya_fetch_dir import R def def walk PY BASH_FUNC_maya_fetch _ 
+/root/cmd.045151.sh: line 21: export: `BASH_FUNC_maya_fetch_dir%%=() {  python3 - "$1" <<'PY'
+import json, os, sys, urllib.request
+R, REF, T, top = "dsbeauty01-web/maya-lt", os.environ["POD_REF"], os.environ["MAYA_ASSETS_TOKEN"], sys.argv[1]
+def api(path, raw=False):
+    req = urllib.request.Request(f"https://api.github.com/repos/{R}/contents/{path}?ref={REF}", headers={"Authorization": f"Bearer {T}", "Accept": "application/vnd.github.raw" if raw else "application/vnd.github+json", "User-Agent": "maya-launch/0.1"})
+    with urllib.request.urlopen(req, timeout=300) as r: return r.read()
+def walk(path):
+    for it in json.loads(api(path)):
+        if it["type"] == "dir": walk(it["path"]); continue
+        if it["name"].endswith(".pyc") or "__pycache__" in it["path"]: continue
+        dst = "/workspace/mt/" + it["path"]; os.makedirs(os.path.dirname(dst), exist_ok=True)
+        open(dst, "wb").write(api(it["path"], raw=True)); print("ok", it["path"], it["size"], flush=True)
+walk(top); print("DIR_DONE", top)
+PY
+
+}': not a valid identifier
+/root/cmd.045151.sh: line 21: export: `BASH_FUNC_maya_fetch%%=() {  mkdir -p "/workspace/mt/$(dirname "$1")";
+ curl -fsSL -m 900 --retry 3 -A maya-launch/0.1 -H "Authorization: Bearer $MAYA_ASSETS_TOKEN" -H "Accept: application/vnd.github.raw" "https://api.github.com/repos/dsbeauty01-web/maya-lt/contents/$1?ref=$POD_REF" -o "/workspace/mt/$1" && echo "ok $1 $(stat -c %s "/workspace/mt/$1")" || { 
+ echo "FETCH FAIL $1";
+ return 1
+ }
+}': not a valid identifier
+LIVEKIT_URL present: yes
+BRIDGE_UP after 9s
+== bridge.log tail ==
+[NOVA_FACE] ditto
+[DITTO 04:51:55] ready: chunk 25f/16000smp prime 35 (1800 ms audio delay) info={"src": "nova_fb_bank.mp4", "src_frames": 344, "src_wh": [1076, 1924], "amp": 0.6, "gate_frames": 0, "out_wh": [1074, 1920], "setup_s": 9.7, "bank": "/root/in/nova_fb_bank.json", "zoom": false, "eye_holds": 0, "prime_s": 121.2}
+[DITTO 04:51:55] pump started
+[NOVA_FACE] ditto ready -- delay the audio by 1800 ms (DITTO_PRIME 35 + slack 10)
+Nvidia Decoder is supported.
+bridge: connected to LiveKit room 'nova-live'
+bridge: audio track published
+bridge: listening on 127.0.0.1:9999
+[DITTO 04:51:56] publish clock started with 10 frames of slack -- audio must be delayed 1800 ms (prime 35 + slack 10) x 40 ms
+bridge: video track published 720x1288
+bridge: engine connected
+bridge: engine connected
+BRIDGE_DROP: IncompleteReadError errno= msg=expected=1 partial=0 since_last_frame=0.00s frames_this_conn=0
+bridge: engine disconnected
+== ports ==
+:8010=403  :8765=200
+rc=0
