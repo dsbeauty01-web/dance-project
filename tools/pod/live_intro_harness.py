@@ -75,9 +75,51 @@ window.__recState = {started:false, frames:0, chunks:0, bytes:0, err:null, w:0, 
 window.__startRec = async function(sink, cw, ch){
   var S = window.__recState;
   if (S.started) return S;
-  var vs = window.__ms.find(function(x){ try{ return x.ms.getVideoTracks().length>0; }catch(e){ return false; } });
-  if (!vs) return {started:false, why:'no video stream attached yet', seen:window.__ms.length};
-  var vt = vs.ms.getVideoTracks()[0];
+  // VIDEO (fixed 2026-11-02, session novarec). This used to be
+  //     window.__ms.find(x => x.ms.getVideoTracks().length > 0)
+  // i.e. the FIRST attached stream with video. On this page that is the page's own CAMERA
+  // PREVIEW, and the camera on a headless pod is --use-fake-device-for-media-stream: Chromium's
+  // green test pattern with a rotating wedge and a timecode. Takes 1-3 recorded 67-82 s of that
+  // fake webcam and none of Nova. The giveaway was in the log the whole time: the bridge
+  // published 720x1288 and the recorder reported src=960x720.
+  // A LOCAL track has a deviceId in getSettings(); a REMOTE one does not. Prefer remote, then
+  // the tallest track (Nova is portrait 720x1288, the fake camera is landscape 960x720).
+  var vcands = [];
+  window.__ms.forEach(function(x){
+    try {
+      x.ms.getVideoTracks().forEach(function(t){
+        var st; try { st = t.getSettings ? t.getSettings() : {}; } catch(e) { st = {}; }
+        vcands.push({x: x, t: t, tag: x.tag, label: t.label, local: !!st.deviceId,
+                     w: st.width || 0, h: st.height || 0});
+      });
+    } catch(e) {}
+  });
+  window.__videoPick = {n: vcands.length, cands: vcands.map(function(c){
+    return {tag: c.tag, label: c.label, local: c.local, w: c.w, h: c.h}; })};
+  if (!vcands.length) return {started:false, why:'no video stream attached yet', seen:window.__ms.length};
+  // getSettings() reports a deviceId for BOTH the local camera and the remote track in
+  // Chromium, so `local` cannot be the discriminator (measured: the fake camera is
+  // {label:'fake_device_0', 960x720} and Nova is {label:'remote video', 360x644}, both
+  // local:true). Score on what actually separates them: the element Nova is attached to
+  // (#nova-live-video), the track label, and portrait-vs-landscape.
+  function score(c){
+    var s = 0;
+    if (/nova/i.test(c.tag || '')) s += 8;
+    if (/remote/i.test(c.label || '')) s += 4;
+    if ((c.h || 0) > (c.w || 0)) s += 2;                    // she is portrait, the camera is not
+    if (/fake_device|camera|webcam|default/i.test(c.label || '')) s -= 16;
+    if (/#cam\b|#cam$/i.test(c.tag || '')) s -= 8;
+    return s;
+  }
+  vcands.forEach(function(c){ c.score = score(c); });
+  vcands.sort(function(a, b){ return b.score - a.score || (b.h || 0) - (a.h || 0); });
+  var chosen = vcands[0];
+  window.__videoPick.cands = vcands.map(function(c){
+    return {tag: c.tag, label: c.label, w: c.w, h: c.h, score: c.score}; });
+  if (chosen.score <= 0) return {started:false, why:'only the local camera is attached so far',
+                                 pick: window.__videoPick};
+  window.__videoPick.chosen = {tag: chosen.tag, label: chosen.label, w: chosen.w, h: chosen.h};
+  var vs = chosen.x, vt = chosen.t;
   // AUDIO (fixed 2026-11-02, session novarec). This used to be
   //     window.__ms.find(x => x.ms.getAudioTracks().length > 0)
   // i.e. the FIRST attached stream carrying audio -- which on this page is the LOCAL MIC, and
@@ -177,7 +219,7 @@ window.__startRec = async function(sink, cw, ch){
   };
   rec.onerror = function(e){ S.err = 'rec: ' + (e && e.message); };
   rec.start(1000);
-  S.started = true; S.mime = mime; S.audio = !!at; S.mix = window.__audioMix;
+  S.started = true; S.mime = mime; S.audio = !!at; S.mix = window.__audioMix; S.vpick = window.__videoPick;
   return S;
 };
 window.__stopRec = async function(){
@@ -401,10 +443,13 @@ def main():
             except Exception as e:
                 status(f"startRec threw: {e}")
                 return
+            if s and not s.get("started") and s.get("why"):
+                if time.time() - t00 > 4 and int(time.time()*2) % 20 == 0:
+                    status(f"waiting for her video track: {s.get('why')} {json.dumps(s.get('pick'))}")
             if s and s.get("started"):
                 rec_started[0] = True
                 status(f"RECORDING started mime={s.get('mime')} audio_track={s.get('audio')} "
-                       f"audio_mix={json.dumps(s.get('mix'))}")
+                       f"audio_mix={json.dumps(s.get('mix'))} video={json.dumps(s.get('vpick',{}).get('chosen'))}")
 
         t_end = time.time() + a.max_s
         stop = os.path.join(a.inbox, "STOP")
