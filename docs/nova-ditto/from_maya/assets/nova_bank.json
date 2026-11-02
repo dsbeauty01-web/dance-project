@@ -1,0 +1,187 @@
+{
+ "video": "nova_bank.mp4",
+ "fps": 25,
+ "frames": 1216,
+ "still": "nova_S1080.png",
+ "segments": [
+  {
+   "name": "nova_idle3",
+   "kind": "idle",
+   "start": 5,
+   "end": 236,
+   "secs": 9.68,
+   "src": "nova_idle3.mp4",
+   "no_paste": 0,
+   "seam": 0.0,
+   "raw": [
+    0,
+    242
+   ]
+  },
+  {
+   "name": "nova_idle3r",
+   "kind": "idle",
+   "start": 247,
+   "end": 478,
+   "secs": 9.68,
+   "src": "nova_idle3r.mp4",
+   "no_paste": 0,
+   "seam": 0.0,
+   "raw": [
+    242,
+    484
+   ]
+  },
+  {
+   "name": "nova_wave",
+   "kind": "gesture",
+   "start": 485,
+   "end": 601,
+   "secs": 4.88,
+   "src": "nova_wave.mp4",
+   "no_paste": 0,
+   "seam": 0.0,
+   "raw": [
+    484,
+    606
+   ]
+  },
+  {
+   "name": "nova_nod",
+   "kind": "gesture",
+   "start": 607,
+   "end": 723,
+   "secs": 4.88,
+   "src": "nova_nod.mp4",
+   "no_paste": 0,
+   "seam": 0.0,
+   "raw": [
+    606,
+    728
+   ]
+  },
+  {
+   "name": "nova_point",
+   "kind": "gesture",
+   "start": 729,
+   "end": 845,
+   "secs": 4.88,
+   "src": "nova_point.mp4",
+   "no_paste": 0,
+   "seam": 0.0,
+   "raw": [
+    728,
+    850
+   ]
+  },
+  {
+   "name": "kit_closer",
+   "kind": "gesture",
+   "start": 851,
+   "end": 967,
+   "secs": 4.88,
+   "src": "kit_closer.mp4",
+   "no_paste": 0,
+   "seam": 0.0,
+   "raw": [
+    850,
+    972
+   ]
+  },
+  {
+   "name": "kit_open",
+   "kind": "gesture",
+   "start": 973,
+   "end": 1089,
+   "secs": 4.88,
+   "src": "kit_open.mp4",
+   "no_paste": 0,
+   "seam": 0.0,
+   "raw": [
+    972,
+    1094
+   ]
+  },
+  {
+   "name": "kit_eruption",
+   "kind": "gesture",
+   "start": 1095,
+   "end": 1211,
+   "secs": 4.88,
+   "src": "kit_eruption.mp4",
+   "no_paste": 0,
+   "seam": 0.0,
+   "raw": [
+    1094,
+    1216
+   ]
+  }
+ ],
+ "aliases": {
+  "wave": "nova_wave",
+  "nod": "nova_nod",
+  "laugh": "nova_nod",
+  "point": "nova_point",
+  "hold_up": "kit_closer",
+  "show_closer": "kit_closer",
+  "open": "kit_open",
+  "show_inside": "kit_open",
+  "kit_inside": "kit_open",
+  "demo": "kit_eruption",
+  "detail_zoom": "zoom",
+  "kit_zoom": "zoom",
+  "zoom": "zoom"
+ },
+ "built": "bench/live_motion/build_bank.py (lane/live-motion)",
+ "zoom_img": "nova_bank_zoom.png",
+ "trim_note": "segments skip the eased, edge-locked still frames at both ends (idle +5/-6, gesture +1/-5; 'raw' = the full clip): the junction stills read as a 0.4 s freeze (judge 'frozen', D3)",
+ "skip": [
+  145,
+  147,
+  248,
+  337,
+  570,
+  572,
+  575,
+  577,
+  579,
+  581,
+  583,
+  584,
+  586,
+  587,
+  589,
+  591,
+  593,
+  594,
+  596,
+  597,
+  598,
+  733,
+  735,
+  736,
+  779,
+  814,
+  820,
+  822,
+  824,
+  825,
+  827,
+  828,
+  829,
+  831,
+  832,
+  834,
+  836,
+  838,
+  839,
+  840,
+  842,
+  843,
+  1100,
+  1109,
+  1207,
+  1209
+ ],
+ "skip_note": "frames whose head region differs < 0.10 (mean abs, 0-255) from the last kept frame are skipped: Kling holds a pose for 0.3-0.8 s inside some clips, which on air reads as a freeze (judge 'frozen', D3/N2)"
+}
