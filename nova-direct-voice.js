@@ -75,6 +75,15 @@
 
     beat(instructions) { this.send({ type: 'response.create', response: { instructions: instructions } }); },
 
+    /* the ear must open at the reveal whether or not she greets (2026-11-03): when the
+       spoken intro clip already said hello, the page calls openEar() instead of onReveal()
+       so she can HEAR the kid without saying "Hi! I'm Nova…" a second time. */
+    openEar() {
+      try { (this._micTracks || []).forEach(t => { t.enabled = true; }); } catch (_) {}
+      this.greeted = true;            // the intro clip was the greeting — never greet twice
+      LOG('AUDIO', 'ear OPEN (reveal) — greeting skipped, the intro clip already said it');
+    },
+
     onReveal() {
       try { (this._micTracks || []).forEach(t => { t.enabled = true; }); LOG('AUDIO', 'ear OPEN (reveal)'); } catch (_) {}
       this.greet();

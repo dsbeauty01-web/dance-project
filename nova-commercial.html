@@ -1471,8 +1471,9 @@ if (/[?&]debug\b/.test(location.search)) document.documentElement.classList.add(
 </div>
 
 <!-- ═══ INTRO OVERLAY — covers the screen while Runway connects ═══
-     Drop the Kling MP4 at: audio/intro/nova-arrival.mp4 (it auto-shows when
-     present; until then the CSS sparkle placeholder plays). -->
+     Her spoken arrival clip lives at audio/intro/nova-arrival.mp4 (and -he.mp4) and is
+     the intro by default. ?introclip=0 turns it off; a missing or broken file falls back
+     to the CSS sparkle placeholder. -->
 <style>
 #intro-overlay{position:fixed;inset:0;z-index:9000;background:#0a0015;
   display:none;opacity:1;transition:opacity 0.3s ease;overflow:hidden}
@@ -1483,6 +1484,10 @@ if (/[?&]debug\b/.test(location.search)) document.documentElement.classList.add(
 #intro-sparkle{position:absolute;inset:0;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:20px;
   background:radial-gradient(ellipse at 50% 40%,#2d0750,#0a0015 70%)}
+/* the sparkle is the PLACEHOLDER: the moment her real clip is playing it must get out of
+   the way, or she is heard but never seen (it sits after the video and painted over it).
+   If the clip fails, .ready comes off again and the sparkle comes straight back. */
+#intro-mp4.ready ~ #intro-sparkle{display:none}
 .intro-orb{font-size:92px;animation:introPulse 2.2s ease-in-out infinite;
   filter:drop-shadow(0 0 44px rgba(180,120,255,.85))}
 .intro-caption{font-family:'Fredoka',sans-serif;color:#e9d5ff;font-size:20px;
@@ -1506,8 +1511,9 @@ if (/[?&]debug\b/.test(location.search)) document.documentElement.classList.add(
   box-shadow:0 6px 22px rgba(0,0,0,.55);background:#000;z-index:2}
 </style>
 <div id="intro-overlay">
-  <!-- intro Kling MP4 is optional; add a <source src="audio/intro/nova-arrival.mp4"> to enable it.
-       Absent by default so no 404 fires — the CSS sparkle placeholder is the intro. -->
+  <!-- the <source> is added by startIntroOverlay() (default ON, ?introclip=0 off). The muted
+       attribute is only the pre-script safety: the script unmutes before play, because her
+       voice is the whole point of the clip. -->
   <video id="intro-mp4" muted playsinline preload="none"></video>
   <div id="intro-sparkle">
     <div class="intro-orb">🌟</div>
@@ -3019,26 +3025,53 @@ function startIntroOverlay() {
     ov.classList.add('show');
     LOG('INTRO', 'overlay shown (sparkle/MP4 + humming)');
 
-    // Kling MP4 (audio/intro/nova-arrival.mp4): show it only if it actually
-    // loads; otherwise the CSS sparkle placeholder stays.
+    // HER SPOKEN ARRIVAL IS THE OPENING (2026-11-03, founder: "make it the real intro").
+    // Ditto-rendered clip, her own ElevenLabs voice, EN/HE, 11 s, lips QA PASS 2026-11-02.
+    // DEFAULT ON. Kill switch: ?introclip=0 → the CSS sparkle placeholder is the intro again.
+    // The sparkle also stays whenever the file is missing or refuses to load, so the cover is
+    // never a silent black box.
     const mp4 = document.getElementById('intro-mp4');
+    window.__introClipLive  = false;   // the clip is really on screen and running
+    window.__introClipEnded = false;   // it reached its own end
+    window.__introHeardSec  = 0;       // seconds of it that actually played WITH sound
     if (mp4) {
-      mp4.addEventListener('loadeddata', () => {
-        mp4.classList.add('ready'); mp4.play().catch(() => {});
-        LOG('INTRO', 'Kling MP4 playing');
-      }, { once: true });
-      mp4.addEventListener('error', () => LOG('INTRO', 'no MP4 yet — sparkle placeholder'), { once: true });
-      // Ditto-rendered spoken intro (EN/HE, 11 s, lips QA PASS 2026-11-02) — OPT-IN with ?introclip=1, default OFF:
-      // it says "Hi! I'm Nova…" and the live greet says it again after the reveal, and the overlay may melt
-      // before the clip ends. Founder decides; until then the sparkle stays the intro.
-      if (/[?&]introclip=1/.test(location.search) && !mp4.querySelector('source[src]')) {
+      const introOn = !/[?&]introclip=0/.test(location.search);
+      if (introOn && !mp4.querySelector('source[src]')) {
         const src = document.createElement('source');
         src.src = (window.NOVA_LANG === 'he') ? 'audio/intro/nova-arrival-he.mp4' : 'audio/intro/nova-arrival.mp4';
         src.type = 'video/mp4'; mp4.appendChild(src);
-        mp4.muted = false;                       // her voice is the point; fall back to muted if autoplay blocks it
-        mp4.addEventListener('loadeddata', () => { mp4.play().catch(() => { mp4.muted = true; mp4.play().catch(() => {}); }); }, { once: true });
-        LOG('INTRO', 'introclip=1 → ' + src.src);
+        // a 404/decode failure fires on the <source>, not the <video> — say so out loud
+        src.addEventListener('error', () => { window.__introClipLive = false;
+          LOG('INTRO', 'intro clip MISSING or unplayable (' + src.src + ') — sparkle placeholder is the intro'); }, { once: true });
+        mp4.muted = false; mp4.volume = 1;       // her voice IS the intro
+        LOG('INTRO', 'intro clip ON (default) → ' + src.src + '   [?introclip=0 disables it]');
+      } else if (!introOn) {
+        LOG('INTRO', 'introclip=0 → kill switch; sparkle placeholder is the intro');
       }
+      mp4.addEventListener('loadeddata', () => {
+        mp4.classList.add('ready');
+        window.__introClipLive = true;
+        // A browser may refuse autoplay WITH SOUND. Be honest about it: log the refusal and
+        // play muted rather than showing a silent black box — and because nobody heard her,
+        // the scripted greeting is then NOT suppressed (see the reveal below).
+        mp4.play().then(() => LOG('INTRO', 'intro clip playing WITH SOUND'))
+          .catch((e) => {
+            LOG('INTRO', 'sound autoplay BLOCKED (' + ((e && e.name) || 'error') + ') → muted fallback; the live greet will still fire');
+            mp4.muted = true;
+            mp4.play().then(() => LOG('INTRO', 'intro clip playing MUTED'))
+              .catch(() => { window.__introClipLive = false; mp4.classList.remove('ready');
+                             LOG('INTRO', 'intro clip will not play at all → sparkle placeholder'); });
+          });
+      }, { once: true });
+      mp4.addEventListener('timeupdate', () => {
+        if (!mp4.muted && mp4.volume > 0) window.__introHeardSec = mp4.currentTime;
+      });
+      mp4.addEventListener('ended', () => {
+        window.__introClipEnded = true;
+        LOG('INTRO', 'intro clip finished — ' + (window.__introHeardSec || 0).toFixed(1) + 's of ' + ((mp4.duration || 0).toFixed(1)) + 's were audible');
+      }, { once: true });
+      mp4.addEventListener('error', () => { window.__introClipLive = false;
+        LOG('INTRO', 'intro clip failed to load — sparkle placeholder'); }, { once: true });
       // only load if a <source> is actually present, else the sparkle placeholder stays (no 404)
       if (mp4.querySelector('source[src]')) { try { mp4.load(); } catch (_) {} }
       else LOG('INTRO', 'no intro MP4 source — sparkle placeholder');
@@ -3183,6 +3216,20 @@ function handoffFromIntro() {
       clearInterval(poll);
       window.__gateDoneAt = Date.now();
       LOG('GATE', 'ALL READY' + (forced ? ' (forced after 15s)' : '') + ' → ' + JSON.stringify(Object.keys(g).reduce((o,k)=>{o[k]=g[k]-(window.__gate.evi||g[k]);return o;},{})));
+      // NEVER CUT HER OFF MID-WORD (2026-11-03): the readiness gate can pass at any moment,
+      // including halfway through her 11 s spoken arrival. If the clip is still running, hold
+      // the cover until the clip's OWN end — capped at 12 s past the gate so a stalled clip
+      // can never strand the kid. Clip already finished (or never ran) → melt at once, as before.
+      let introHoldMs = 0;
+      try {
+        const ic = document.getElementById('intro-mp4');
+        if (window.__introClipLive && ic && !window.__introClipEnded && !ic.ended) {
+          const dur = (isFinite(ic.duration) && ic.duration > 0) ? ic.duration : 11;
+          introHoldMs = Math.min(Math.max(0, (dur - ic.currentTime) * 1000 + 200), 12000);
+        }
+      } catch (_) {}
+      const doReveal = () => {
+       try {
       if (capEl) capEl.textContent = T('introHereSheComes');
       // 1) she APPEARS — calm melt, badge quietly listening
       window.__revealAt = Date.now();
@@ -3199,6 +3246,20 @@ function handoffFromIntro() {
         try { const m = JSON.parse(new TextDecoder().decode(p)); if (m && m.kind === 'reveal-ack') { acked = true; LOG('INTRO', 'reveal-ack received'); } } catch(_){}
       }); } catch(_){}
       setTimeout(() => {
+        // SHE ALREADY SAID HELLO: when the spoken arrival clip really ran AND was audible, the
+        // scripted "Hi! I'm Nova…" is the SECOND one — so don't trigger it. reveal-now IS the
+        // speak-trigger, so we simply don't send it; the legacy client-ready ack still goes out
+        // (it stops the nova-ready announcer) plus an intro-spoke note for the worker's log, and
+        // the direct-mode ear is opened without a greeting. Then we hand straight to the game.
+        // Muted fallback or a clip that never finished → nobody heard her → normal greet.
+        const introSpoke = !!(window.__introClipEnded && (window.__introHeardSec || 0) >= 6);
+        window.__introSpoke = introSpoke;
+        if (introSpoke) {
+          LOG('INTRO', 'intro clip was her greeting (' + (window.__introHeardSec || 0).toFixed(1) + 's heard) → scripted greet SUPPRESSED; handing over to the game');
+          try { if (window.__novaSend) { window.__novaSend({ kind: 'intro-spoke', source: 'intro-clip' }); window.__novaSend({ kind: 'client-ready' }); } } catch(_){}
+          try { if (window.__directVoice && window.__directVoice.openEar) window.__directVoice.openEar(); } catch(_){}
+          try { setStateBadge('listening'); } catch(_){}
+        } else {
         let tries = 0;
         const sendReveal = setInterval(() => {
           if (acked || window.__novaSpeakingNow || ++tries > 20) { clearInterval(sendReveal); return; }
@@ -3208,6 +3269,7 @@ function handoffFromIntro() {
         }, 1000);
         if (window.__novaSend) { window.__novaSend({ kind: 'reveal-now' }); window.__novaSend({ kind: 'client-ready' }); }
         try { setStateBadge('talking'); } catch(_){}   // COMMERCIAL-INTRO D.5: badge live from reveal
+        }
         // UI unlocks belong to the reveal (moved from the deleted novaArrivalGreet)
         try { document.getElementById('rec-dance-btn').classList.add('ready'); } catch(_){}
         try { showNameCaptureButtons(); } catch(_){}
@@ -3216,7 +3278,19 @@ function handoffFromIntro() {
         if (window.__DIRECTGAME) setTimeout(() => {
           try { LOG('GAME', 'DIRECT-GAME → ' + window.__DIRECTGAME); pickGame(window.__DIRECTGAME); } catch(e){ LOG('ERROR', 'direct-game failed: ' + e.message); }
         }, 1500);
+        // her spoken intro already did the hello → open the song picker instead of
+        // leaving the kid on a quiet chat screen waiting for a greeting that never comes
+        else if (introSpoke) setTimeout(() => {
+          try { LOG('GAME', 'intro clip handed over → opening the song picker'); goToPicker(); }
+          catch(e){ LOG('ERROR', 'picker handoff failed: ' + e.message); }
+        }, 1400);
       }, 1600);
+       } catch (e) { LOG('ERROR', 'doReveal: ' + e.message); }
+      };
+      if (introHoldMs > 120) {
+        LOG('INTRO', 'gate passed mid-clip → holding the cover ' + Math.round(introHoldMs) + 'ms so she finishes her sentence');
+        setTimeout(doReveal, introHoldMs);
+      } else doReveal();
     }, 250);
   } catch (e) { LOG('ERROR', 'handoffFromIntro: ' + e.message); }
 }
