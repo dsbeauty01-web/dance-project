@@ -1,0 +1,23 @@
+1.13 OPEN /rt?replay=frozen-body%2Cdance-hype%2Cstill-sway%2Cdance-hype&rounds=4&checked=1&autostart=1&fast=1&mute=1&intro=freeze
+1.69 speak_gate OFF (engine)
+5.07 speak_gate ON (air)
+6.77 nova-say "I can see you! Here comes the music." → stand-in speaks 1980 ms
+7.87 speak_gate ON (hard)
+10.38 speak_gate ON (air)
+10.38 nova-cue {"type":"nova-cue","intent":"note","ctx":"fact: {\"freeze\":\"held\",\"round\":1,\"animal\":\"flamingo\"}"}
+11.62 nova-say "That was perfect. Dance!" → stand-in speaks 1320 ms
+14.28 speak_gate ON (hard)
+16.80 speak_gate ON (air)
+16.81 nova-cue {"type":"nova-cue","intent":"note","ctx":"fact: {\"freeze\":\"moved\",\"round\":2,\"animal\":\"bear\"}"}
+18.05 nova-say "Next time: music stops, you turn into a statue. Even your fingers!" → stand-in speaks 3630 ms
+21.17 speak_gate ON (hard)
+23.68 speak_gate ON (air)
+23.68 nova-cue {"type":"nova-cue","intent":"note","ctx":"fact: {\"freeze\":\"held\",\"round\":3,\"animal\":\"frog\"}"}
+24.92 nova-say "You are a freeze champion. Again!" → stand-in speaks 1815 ms
+27.90 speak_gate ON (hard)
+30.40 speak_gate ON (air)
+30.41 nova-cue {"type":"nova-cue","intent":"note","ctx":"fact: {\"freeze\":\"moved\",\"round\":4,\"animal\":\"star\"}"}
+31.62 speak_gate OFF (engine)
+31.62 nova-cue {"type":"nova-cue","intent":"note","ctx":"fact: {\"game\":\"over\",\"stars\":2,\"medal\":\"bronze\",\"rounds\":4}"}
+31.71 nova-say "Oops, you kept moving. Freeze when it stops!" → stand-in speaks 2420 ms
+(mic audio messages received: 233)

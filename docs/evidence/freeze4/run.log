@@ -1,0 +1,53 @@
+test/proof/freeze4.mjs  2026-11-10T17:47:23.427Z
+browser: /usr/bin/google-chrome 153.0.8010.12
+
+== A · full game, 1280x720, English, stand-in pod — recorded ==
+      screenshot docs/evidence/freeze4/A-1-start-screen.png
+PASS  A1 the face stream reaches the side panel through the bridge (nova-face → onFace → panel live)  — {"live":true,"badge":"listening","size":"small","frames":1,"missing":false}
+      screenshot docs/evidence/freeze4/A-2-intro-talking-big.png
+PASS  A2 while she talks the badge says Talking and the panel is big  — rail 307.2px of 1280px
+      screenshot docs/evidence/freeze4/A-3-dance-watching-small.png
+PASS  A3 quiet in the game: badge Watching, panel small  — rail 230.4px
+PASS  A4 the panel never overlaps the child pane (small and big)  — small rail x 0–230.4, big rail x 0–307.2, child pane starts x 640
+PASS  A5 the child pane and the light canvas keep the same box when the panel grows  — child pane 640x720 at x 640 both times; canvas 640x720
+PASS  A6 her body stays whole (object-fit contain) — small: full height; big: scaled, not cropped  — small: drawn 401.5x720 in pane 409.6x720; big: drawn 332.8x595.1 in pane 332.8x720
+      screenshot docs/evidence/freeze4/A-4-freeze-hold-badge.png
+PASS  A7 in the hold the badge says FREEZE!
+      screenshot docs/evidence/freeze4/A-5-ending-talking.png
+      screenshot docs/evidence/freeze4/A-6-ending-listening.png
+PASS  A8 the badge used every state the phases need  — seen: listening, talking, watching, freeze
+PASS  A8b in the game she is asked for at most ONE line per gap (never two stacked)  — 7 lines asked for, 3 held back
+PASS  A9 routing follows the phase machine: engine, then air/mute per round, then engine  — engine → air → mute → air → mute → air → mute → air → engine
+PASS  A10 nothing is said or asked for inside a freeze hold  — 0 violations; pod dropped 0
+PASS  A11 the page never spoke by itself (no speech synthesis, no recorded speech files)  — only the FREEZE sting was fetched from audio/freeze2
+PASS  A12 the game ran to its medal  — {"medal":"silver","stars":2,"rounds":3,"skips":0}
+      recording docs/evidence/freeze4/freeze4-STANDIN-face-full-game.mp4  54.6 s (no sound track — the stand-in voice is a hum)
+
+== B · no face stream at all (voice present) → red banner, no game ==
+      screenshot docs/evidence/freeze4/B-1-red-banner-no-face.png
+PASS  B1 red banner names the missing SoulX face  — ⛔ Freeze v4 cannot start / Nova's live face (SoulX) is not streaming / For the operator: this page needs the Nova pod — a live voice and a face stream published as "nova-face". Nothing is faked when they are missing.
+PASS  B2 the game did not start (no round, no music cue)  — nova events: 0
+PASS  B3 the panel shows no picture at all (no stand-by face)
+
+== C · the face stream stops mid-game → red banner in the panel; resumes → it clears ==
+      screenshot docs/evidence/freeze4/C-1-face-lost-mid-game.png
+PASS  C1 a dead face stream turns the panel red within the stall limit (3 s + one check)  — 3076 ms · "Nova's live face is not streaming (SoulX)"
+PASS  C2 the frozen last frame is hidden — no stale face pretending to be live
+PASS  C3 the banner clears when frames come back
+PASS  C4 the game itself went on to its end  — {"medal":"bronze","stars":1,"rounds":2,"skips":0}
+
+== D · 432x768 portrait, Hebrew (stacked layout) ==
+      screenshot docs/evidence/freeze4/D-1-portrait-he-talking.png
+      screenshot docs/evidence/freeze4/D-2-portrait-he-dance.png
+PASS  D1 stacked: the panel stays out of the child pane, small and big  — rail bottom 384, child pane top 384
+PASS  D2 the child pane does not change when the panel grows  — 432x384
+PASS  D3 Hebrew badge  — מסתכלת
+
+== E · same replay through freeze-nova.html and freeze4.html → same outcomes ==
+      screenshot docs/evidence/freeze4/E-freeze-nova-medal.png
+      screenshot docs/evidence/freeze4/E-freeze4-medal.png
+      freeze-nova: hit@1 miss@2 hit@3 miss@4 medal:bronze:2   stars ⭐⭐
+      freeze4:     hit@1 miss@2 hit@3 miss@4 medal:bronze:2   stars ⭐⭐
+PASS  E1 identical outcomes round by round, identical stars and medal
+
+24 passed, 0 failed   (stand-in pod: no SoulX, no live voice — see the header of test/proof/freeze4.mjs)

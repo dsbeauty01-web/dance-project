@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Freeze v4 · Nova's live face</title>
+<!-- beta/freeze4.html — FREEZE v4 (b0.27): the SAME honest Freeze as beta/freeze-nova.html (freeze3 logic, freeze2 judge,
+     nova-lights, stars) with two changes and nothing else:
+       1. her VOICE is the live V2V voice through shared/nova-bridge.js (attachNova / routeVoice / note) — no speech
+          synthesis, no recorded speech; the only canned audio left is the FREEZE sting (CONTEXT: "Voice = live V2V only").
+       2. her FACE is a live stream from the face engine (SoulX-FlashHead) shown in a panel on the SIDE of the screen
+          (shared/face-panel.js). No lips are drawn on her body. No fallback face: a missing stream = red banner.
+     Spec, the pod contract and every value: docs/FREEZE4-SOULX-FACE.md.
+     [CLI-FILL] name: the Freeze pages on beta are freeze.html → freeze2/ → freeze3.html → freeze-nova.html, so "v4" = freeze4.html.
+     beta/freeze-nova.html and beta/freeze.html are NOT touched. -->
+<link rel="stylesheet" href="play.css">
+<script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script><!-- same line as beta/novasays.html:4 -->
+<style>
+/* ── layout ──────────────────────────────────────────────────────────────────────────────────────────────
+   [ face rail | Nova's body clips ]  |  [ the child: camera + lights ]
+   · The child's pane is a flex sibling with a FIXED 50% (exactly freeze-nova's share). The face rail lives only
+     inside Nova's half, so it can never cover the child's body or the joint lights, and when it grows it takes
+     room from Nova's body pane — the child's pane and its light canvas never change size.
+   · lexi-ux-patterns Pattern 1: in the game "Nova shrinks to corner bubble"; "when she has something specific to
+     say, she briefly grows" → two rail widths, small (quiet) and big (talking).
+   · game-cues-lights layout law: "Adaptive width transition 0.5s"; "zero black anywhere"; full figure never cropped
+     (her body clip stays object-fit:contain).
+   · Rail widths [CLI-FILL — derived, no spec gives them]: her clips are 1076x1924 (measured, ffprobe), so at full height
+     her figure needs 56.2vh of width; on a 16:9 screen Nova's half is 88.9vh wide, which leaves 32.7vh = 18.4vw free.
+     small = min(18vw, 32vh) → her figure keeps its full height. big = 24vw → her figure is still whole, drawn at 82 %.
+     Stacked (phone, portrait): her half is 100vw x 50vh, the figure needs 28.1vh; small = 34vw, big = 46vw. */
+:root{ --rail: min(18vw, 32vh); --rail-big: 24vw; }
+#stage{display:flex;flex-direction:row}
+#novaSide{display:flex;flex:0 0 50%;min-width:0;min-height:0;background:#1b1030}
+#camPane{position:relative;flex:0 0 50%;min-width:0;min-height:0;overflow:hidden}
+#novaPane{position:relative;flex:1 1 0;min-width:0;min-height:0;background:#1b1030;overflow:hidden}
+#nova{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:2}
+/* zero black bars: the margins around her whole figure are filled by a blurred copy of the same clip
+   (game-cues-lights layout law: "ambient room-stretch fills margins (blurred self-copy scaleX 2.2, blur 28px)") */
+#novaAmb{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(2.2);filter:blur(28px);z-index:1}
+#camPane #cam,#camPane #fx{position:absolute;inset:0;width:100%;height:100%}
+
+#faceRail{flex:0 0 var(--rail);min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  padding:64px 8px 12px;background:linear-gradient(180deg,#241544,#1b1030);transition:flex-basis .5s ease}
+#faceRail[data-size=big]{flex-basis:var(--rail-big)}
+/* the tile is square: SoulX-FlashHead renders a square head close-up. [CLI-FILL] the pod's real track size is not
+   known until a pod runs (QUESTION in the spec) — object-fit:cover keeps the tile full either way, no bars. */
+#faceTile{position:relative;width:100%;aspect-ratio:1/1;max-height:100%;border-radius:22px;overflow:hidden;background:#2a1a4a;
+  outline:3px solid rgba(255,255,255,.14);transition:outline-color .25s,box-shadow .25s}
+#faceRail[data-state=talking] #faceTile{outline-color:var(--gold);box-shadow:0 0 26px rgba(255,214,90,.45)}   /* gold = the only colour that glows */
+#faceRail[data-state=freeze] #faceTile{outline-color:#aee8ff}                                                  /* ice only at freezes */
+#face{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#2a1a4a}
+#faceRail[data-live="0"] #face{visibility:hidden}
+/* the state badge — lexi-ux-patterns Pattern 2: "a small pill at the bottom of Nova's tile", "Talking — green pulse" */
+#faceBadge{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);z-index:3;white-space:nowrap;
+  font:800 clamp(11px,1.3vw,15px)/1 'Baloo 2',Nunito,system-ui;padding:6px 12px;border-radius:999px;background:rgba(0,0,0,.72);color:#fff}
+#faceBadge[data-state=talking]{background:#1f7a4a;animation:talkpulse 1s ease-in-out infinite}
+#faceBadge[data-state=freeze]{background:#aee8ff;color:#12324a}
+#faceBadge[data-state=thinking]::after{content:' …'}
+@keyframes talkpulse{50%{box-shadow:0 0 0 6px rgba(125,219,163,.35)}}
+/* no silent fallback: the stream is missing → red, in the panel (colours of beta/wave.html #banner) */
+#faceBanner{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;text-align:center;padding:10px;
+  background:#3a0d0d;color:#ffb3b3;font:800 clamp(11px,1.4vw,16px)/1.25 Nunito,system-ui}
+#faceBanner[hidden]{display:none}
+#faceName{font:800 clamp(12px,1.4vw,16px) 'Baloo 2',Nunito,system-ui;color:var(--gold)}
+
+#novaSay{position:absolute;left:12px;right:12px;top:96px;z-index:8;background:rgba(255,255,255,.93);color:#2a1a4a;border-radius:18px;padding:10px 14px;
+  font:800 clamp(15px,2.2vw,22px)/1.25 'Baloo 2',Nunito,system-ui;text-align:center;opacity:0;transform:translateY(8px);transition:opacity .25s,transform .25s;pointer-events:none}
+#novaSay.on{opacity:1;transform:none}
+#novaTag{position:absolute;left:12px;top:56px;z-index:7;font:800 16px 'Baloo 2',Nunito,system-ui;color:var(--gold);background:rgba(0,0,0,.35);padding:4px 10px;border-radius:999px}
+/* the whole-screen red banner: something the game needs is missing → it refuses to start (CLAUDE.md law 4) */
+#banner{position:fixed;inset:0;z-index:95;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:24px;
+  background:#3a0d0d;color:#ffb3b3;font:800 clamp(18px,3vw,26px)/1.3 Nunito,system-ui}
+#banner small{font:600 clamp(13px,1.8vw,16px)/1.4 Nunito,system-ui;color:#ffd0d0;max-width:720px}
+#banner.hidden{display:none}
+@media (max-aspect-ratio: 1/1){
+  :root{ --rail: 34vw; --rail-big: 46vw; }
+  #stage{flex-direction:column}
+  #faceRail{padding-top:56px}
+}
+</style>
+</head><body>
+<div id="stage">
+  <div id="novaSide">
+    <aside id="faceRail" data-size="small" data-live="0" aria-label="Nova">
+      <div id="faceTile"><video id="face" playsinline muted autoplay></video><div id="faceBanner" hidden></div><div id="faceBadge"></div></div>
+      <div id="faceName">Nova</div>
+    </aside>
+    <div id="novaPane"><video id="novaAmb" playsinline muted loop></video><video id="nova" playsinline muted loop></video><div id="novaSay"></div></div>
+  </div>
+  <div id="camPane"><video id="cam" playsinline muted></video><canvas id="fx"></canvas></div>
+</div>
+<div id="topbar"><button class="back" id="back">←</button><div id="stars"></div><div id="dots"></div></div>
+<div id="doctor"><div class="outline"></div><div class="msg"></div><div class="bar"><i></i></div><button class="big go"></button></div>
+<div id="ring"></div><div id="card"></div><div id="cap"></div>
+<div class="screen on" id="startScr"><h1 id="title">Freeze!</h1><p id="howto"></p><button class="big" id="go">▶</button></div>
+<div class="screen" id="end"><div id="medal"></div><div id="medalStars"></div><p id="endLine"></p>
+  <div class="row"><button class="big" id="again"></button><button class="big alt" id="back2"></button></div><button class="save" id="save"></button></div>
+<div id="banner" class="hidden"></div>
+<script type="module">
+import { createFreezeGame } from './lib/freeze-game.js';
+import { toJudge } from './lib/kp.js';
+import { createLights } from '../shared/nova-lights.js';
+import { Q, getLang, applyLang, COMMON, createHud, caption, card, ring, medalScreen, createSource, createRecorder, audio, guideFor } from './lib/play.js';
+import { createNovaEvents } from './lib/events.js';
+import { createLocalBrain } from './lib/brain-local.js';
+import { runDoctor } from './lib/doctor.js';
+import { attachNova, routeVoice, note, onHerAudio, bridgeState } from '../shared/nova-bridge.js';
+import { createFacePanel } from '../shared/face-panel.js';
+
+const $ = id => document.getElementById(id);
+const lang = getLang(); applyLang(lang);
+const voiceDir = lang === 'he' ? (Q.get('g') === 'm' ? 'he-m' : 'he-f') : 'en';
+const TXT = {
+  en: { title: 'Freeze!', howto: 'Dance while the music plays. When it stops — FREEZE like the animal!', calib: 'Stand still for a moment…', dance: 'Dance! 💃',
+        freeze: a => `FREEZE like a ${a}!`, star: 'Frozen! ⭐', notyet: "Next one's yours!", warming: "Nova's warming up ✨",
+        animals: { flamingo: 'flamingo', bear: 'bear', frog: 'frog', star: 'star', statue: 'statue' },
+        refuse: 'Freeze v4 cannot start', noFace: "Nova's live face (SoulX) is not streaming", noVoice: "Nova's live voice is not connected", noBody: 'A Nova body clip is missing: ',
+        op: 'For the operator: this page needs the Nova pod — a live voice and a face stream published as "nova-face". Nothing is faked when they are missing.' },
+  he: { title: 'קופאים!', howto: 'רוקדים כשיש מוזיקה. כשהיא נעצרת — קופאים כמו החיה!', calib: 'רגע אחד בלי לזוז…', dance: 'רוקדים! 💃',
+        freeze: a => `קופאים כמו ${a}!`, star: 'קפאת! ⭐', notyet: 'הפעם הבאה שלך!', warming: 'נובה מתעוררת ✨',
+        animals: { flamingo: 'פלמינגו', bear: 'דוב', frog: 'צפרדע', star: 'כוכב', statue: 'פסל' },
+        refuse: 'קופאים v4 לא יכול להתחיל', noFace: 'הפנים החיות של נובה (SoulX) לא משודרות', noVoice: 'הקול החי של נובה לא מחובר', noBody: 'חסר קליפ גוף של נובה: ',
+        op: 'למפעיל: הדף צריך את הפוד של נובה — קול חי וזרם פנים בשם "nova-face". כשהם חסרים שום דבר לא מזויף.' },
+}[lang];
+const L = COMMON[lang];
+const EMO = { flamingo: '🦩', bear: '🐻', frog: '🐸', star: '⭐', statue: '🗿' };
+$('title').textContent = TXT.title; $('howto').textContent = TXT.howto; $('back').textContent = lang === 'he' ? '→' : '←';
+$('back').onclick = () => location.href = 'index.html' + location.search;
+
+/* ── the run log: everything the proof harness (and a curious founder) reads back — window.freeze4Log ── */
+const LOG = window.freeze4Log = []; const T0 = performance.now();
+const log = (kind, detail = '') => { const e = { t: +((performance.now() - T0) / 1000).toFixed(2), kind, detail }; LOG.push(e); console.log('[FREEZE4]', e.t, kind, detail); };
+function refuse(reasons){ const b = $('banner'); b.innerHTML = ''; const h = document.createElement('div'); h.textContent = '⛔ ' + TXT.refuse; b.appendChild(h);
+  for (const r of reasons){ const d = document.createElement('div'); d.textContent = r; b.appendChild(d); }
+  const s = document.createElement('small'); s.textContent = TXT.op; b.appendChild(s); b.classList.remove('hidden'); caption(''); log('refused', reasons.join(' | ')); }
+
+const tune = (await (await fetch('freeze2/script.json')).json()).tune;
+const fast = Q.get('fast') === '1';
+const pace = fast ? { danceS: [2.6, 3.2], resultS: 1.2 } : {};
+if (+Q.get('rounds') > 0) pace.rounds = +Q.get('rounds');        // shorter games for the lobby demo
+/* Nova's body pane: which of HER clips plays in which phase (all from ../freezegame — the approved Freeze assets; same map as freeze-nova) */
+const NOVA = { idle: '../freezegame/idle_sway.mp4', dance: ['../freezegame/dance-active.mp4', '../freezegame/dance-sub.mp4'],
+  freeze: { flamingo: '../freezegame/flamingo_freeze.mp4', bear: '../freezegame/freezebear.mp4', frog: '../freezegame/freezefrog.mp4', star: '../freezegame/freeze-star.mp4', statue: '../freezegame/freeze-star.mp4' } };
+const novaV = $('nova'), novaAmb = $('novaAmb'); let novaCur = '';
+function novaPlay(srcUrl, { loop = true, holdEnd = false } = {}){
+  if (novaCur === srcUrl && !novaV.paused && !novaV.ended) return;
+  novaCur = srcUrl; novaV.loop = loop && !holdEnd; novaV.src = srcUrl; novaV.currentTime = 0;
+  novaV.onended = holdEnd ? () => { novaV.pause(); } : null;          // the freeze pose: play once, then HOLD her still frame
+  novaV.play().catch(() => {});
+  novaAmb.src = srcUrl; novaAmb.play().catch(() => {});               // the blurred room behind her (picture only, never a cue)
+}
+novaV.addEventListener('error', () => { if (novaCur) refuse([TXT.noBody + novaCur]); });      // a body clip that will not play is never silent
+novaPlay(NOVA.idle);
+const sting = () => audio(`../audio/freeze2/${voiceDir}/sting.freeze.${1 + Math.floor(Math.random() * 3)}.mp3`);   // the ONE canned sound (law)
+const music = new Audio('../freezegame/animal-freeze-song.mp3'); music.loop = true; music.volume = 0.6;
+
+const lights = createLights($('fx'), { video: $('cam') });
+const rec = createRecorder('freeze4', lang);
+const brain = createNovaEvents('freeze', ev => rec.nova(ev));     // reaction triggers for the avatar: window.novaEvents
+
+/* ── her FACE: the side panel. The stream comes from the bridge (onFace); the panel only shows it. ── */
+const face = createFacePanel({ root: $('faceRail'), video: $('face'), badge: $('faceBadge'), banner: $('faceBanner'), lang, log,
+  onHealth: live => { if (!live) rec.event('face_missing', {}, performance.now() / 1000); } });
+window.freeze4Face = face;
+
+/* ── her VOICE: live V2V only, through the bridge. What she is asked to say is chosen by the same Truth-Law brain as
+      freeze-nova (beta/lib/brain-local.js — only what the judge really saw); the pod's speak-gate is the rate limiter
+      (pod/rt_lk.py SPEAK-GATE: one staged line per gap in 'air', none in a hold). ── */
+const mind = createLocalBrain({ lang, g: Q.get('g') === 'm' ? 'm' : 'f' });
+window.novaBrainLog = [];
+const sayEl = $('novaSay'); if (lang === 'he') sayEl.dir = 'rtl';
+let sayTimer = null, voiceMode = 'engine', holding = false, gapLine = false;
+/* In the game ('air') she gets ONE line per gap (game-cues-lights juice checklist: "≤1 line/gap"; pod speak-gate: "this
+   gap's ONE allowed line"). A gap = from the end of one hold to the start of the next. The first line asked for wins —
+   that is the one about what the judge just saw; a second one is held back, never stacked on top of her own voice. */
+function setVoice(mode){ if (mode === voiceMode && setVoice.sent) return; setVoice.sent = true; voiceMode = mode; routeVoice(mode); log('voice', mode); }      // routeVoice() is the only thing that changes routing
+function novaSays(text, delayMs = 0){
+  if (!text) return;
+  setTimeout(() => {
+    const entry = { t: performance.now() / 1000, text, delayMs, mode: voiceMode, sent: !holding };
+    window.novaBrainLog.push(entry);
+    if (holding){ entry.sent = false; log('line-held-back', 'hold: ' + text); return; }        // HOLDS = hard mute: nothing is asked for during a freeze
+    if (voiceMode === 'air'){ if (gapLine){ entry.sent = false; log('line-held-back', 'one per gap: ' + text); return; } gapLine = true; }
+    note(`say exactly: "${text}"`); face.thinking(); log('line', text);
+    sayEl.textContent = text; sayEl.classList.add('on'); clearTimeout(sayTimer);
+    sayTimer = setTimeout(() => sayEl.classList.remove('on'), Math.max(2600, 120 * text.length));
+  }, delayMs);
+}
+const fact = o => note('fact: ' + JSON.stringify(o));                         // silent context for her — never unlocks speech (bridge contract)
+function mindReact(type, d){ const r = mind.react(type, d); if (r) novaSays(r.text, r.delayMs); }
+onHerAudio({ playing: () => { face.speaking(true); log('her-voice', 'start'); }, ended: () => { face.speaking(false); log('her-voice', 'end'); } });
+addEventListener('nova:kid', () => face.thinking());                          // the child said something → she is about to answer
+
+let doc = null, game, hud, src, phaseCap = ['', ''], freezeAt = 0, holdS = 2.5, animal = 'statue', ended = false, lastFrame = null;
+
+function say(text, cls = ''){ phaseCap = [text, cls]; if (game?.state.seen !== false) caption(text, cls); }
+
+/* the game's own cues, lights and scoring — line for line what freeze-nova does; only the voice calls differ */
+function onEvent(type, d){
+  const t = performance.now() / 1000; rec.event(type, d, t); brain(type, d);
+  if (type === 'phase'){
+    if (d.phase === 'calib') say(TXT.calib, 'wait');
+    if (d.phase === 'dance'){ holding = false; setVoice('air'); face.setBase('watching');          // GAME = her voice in the air
+      card(null); ring(null); lights.ice(false); lights.speedGlow(true); hud.now(d.round); say(TXT.dance, 'gold'); music.play().catch(() => {});
+      novaPlay(NOVA.dance[(d.round - 1) % NOVA.dance.length]); /* Nova dances with the music */
+      if (d.round > 1) src.next(); }
+    if (d.phase === 'result'){ holding = false; gapLine = false; setVoice('air'); face.setBase('watching'); }        // the hold is over: one line may ride this gap
+  }
+  if (type === 'freeze'){ holding = true; setVoice('mute'); face.setBase('freeze');                 // HOLDS = hard mute
+    animal = d.animal; music.pause(); sting(); novaPlay(NOVA.freeze[d.animal] || NOVA.freeze.star, { holdEnd: true }); /* Nova strikes the animal pose and holds it */ lights.speedGlow(false); lights.ice(true); freezeAt = t; holdS = game.pace.holdS;
+    card(TXT.animals[animal], EMO[animal]); say(TXT.freeze(TXT.animals[animal]), 'wait'); }
+  if (type === 'star'){ fact({ freeze: 'held', round: d.round, animal }); hud.star(); hud.mark(d.round, 'star'); ring(1, true); lights.ice(false); lights.snow('nose'); lights.burst('nose', 'gold'); say(TXT.star, 'good'); }
+  if (type === 'notyet'){ fact({ freeze: d.hold === 'almost' ? 'almost' : 'moved', round: d.round, animal }); hud.mark(d.round, 'notyet'); ring(null); lights.ice(false); say(TXT.notyet, 'wait'); }
+  if (type === 'skip'){ fact({ freeze: 'not seen', round: d.round }); hud.mark(d.round, 'skip'); ring(null); lights.ice(false); lights.guide('tooClose'); say(L.cantSee, 'wait'); }
+  if (type === 'seen'){ if (d.seen){ lights.guide(null); caption(...phaseCap); } else { lights.guide(guideFor(lastFrame)); caption(L.cantSee, 'wait'); } }
+  mindReact(type, d);                                                        // after the routing above, so a line is never asked for inside a hold
+  if (type === 'end') finish(d);
+}
+
+function finish(d){
+  ended = true; holding = false; music.pause(); src.stop(); card(null); ring(null); caption(''); lights.clearAll(); novaPlay(NOVA.idle);
+  setVoice('engine'); face.setBase('listening');                              // ENDING = she has the floor again
+  fact({ game: 'over', stars: d.stars, medal: d.medal || 'none', rounds: d.rounds });
+  rec.end(d, src.state);
+  const story = mind.recap(d); story.forEach((txt, i) => novaSays(txt, 1400 + i * 3600));   // the after-game story, line by line (freeze-nova timing)
+  medalScreen({ ...d, lang, onAgain: () => location.reload(), onBack: () => location.href = 'index.html' + location.search, onSave: () => { rec.save(); $('save').textContent = '✓ ' + L.saved; } });
+}
+
+/* How long the page waits for her face + voice before it refuses. [CLI-FILL] 15 s — no spec gives it; the pod is
+   already warm when a page is opened (the tester package's "waking-up" state covers a cold pod). QUESTION. ?facewait=<s> overrides. */
+const FACE_WAIT_MS = (+Q.get('facewait') > 0 ? +Q.get('facewait') : 15) * 1000;
+async function bodyClipsOk(){
+  const all = [NOVA.idle, ...NOVA.dance, ...new Set(Object.values(NOVA.freeze))], bad = [];
+  await Promise.all(all.map(async u => { try { const r = await fetch(u, { method: 'HEAD' }); if (!r.ok) bad.push(u); } catch { bad.push(u); } }));
+  return bad;
+}
+
+async function begin(){
+  $('startScr').classList.remove('on');
+  caption(TXT.warming, 'wait');                                               // game-cues-lights: the "Nova's warming up ✨" loading state
+  const missingClips = await bodyClipsOk();
+  if (missingClips.length) return refuse(missingClips.map(u => TXT.noBody + u));
+  /* her live face + live voice — both must be really there, or the game does not start (no silent fallbacks) */
+  log('attach', 'start');
+  try { await attachNova({ intro: 'freeze', onFace: s => face.attach(s) }); } catch (e) { log('attach-error', String(e?.message || e)); }
+  const deadline = performance.now() + FACE_WAIT_MS;
+  const faceOk = await face.waitLive(FACE_WAIT_MS);
+  let st = bridgeState();
+  while (!(st.ws && st.voice) && performance.now() < deadline){ await new Promise(r => setTimeout(r, 200)); st = bridgeState(); }
+  log('attach', JSON.stringify({ face: faceOk, ...st }));
+  const why = []; if (!faceOk) why.push(TXT.noFace); if (!st.ws || !st.voice) why.push(TXT.noVoice);
+  if (why.length) return refuse(why);
+
+  setVoice('engine'); face.setBase('listening');                              // INTRO = she talks, the child may answer
+  if (!fast){ mindReact('intro'); await new Promise(r => setTimeout(r, 3400)); }     // she explains the game first (skipped with ?fast=1) — freeze-nova timing
+  game = createFreezeGame({ tune, pace, on: onEvent });
+  hud = createHud(game.pace.rounds);
+  src = await createSource($('cam'), (frame, t) => {
+    if (ended) return; lastFrame = frame;
+    const k = toJudge(frame); if (k) lights.feed(k);
+    if (doc){ doc(frame); return; }                       // Camera Doctor first — the game isn't running yet
+    rec.frame(frame, t, src?.state); game.feed(frame, t); game.tick(t);
+    if (game.state.phase === 'freeze') ring(Math.min(1, (t - freezeAt) / holdS));
+  });
+  if (!src.state.modelOk) caption(src.state.cameraError ? L.noCamera : L.cantSee, 'wait');
+  src.start();
+  if (Q.get('checked') !== '1' && Q.get('doctor') !== '0') await runDoctor({ lights, lang, onFrameHook: h => doc = h });
+  face.setBase('watching');
+  game.start(performance.now() / 1000);
+  setInterval(() => { if (!ended) game.tick(performance.now() / 1000); }, 100);     // the game always ends, frames or not
+}
+$('go').textContent = '▶ ' + L.start; $('go').onclick = begin;
+if (Q.get('autostart') === '1') begin();
+</script>
+</body></html>

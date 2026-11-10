@@ -8,11 +8,19 @@
 //                            "fact: …" = silent context (mirrors the freeze staged-line contract)
 //   onHerAudio({playing,ended}) — fires around her live-voice turns (for music ducking)
 //   window 'nova:consent'  — dispatched when a validated kid "yes" arrives at the name/ready beat
+//   attachNova({onFace})   — [b0.27 freeze4] OPTIONAL: the live FACE stream (SoulX-FlashHead close-up), published as a
+//                            second LiveKit participant `nova-face`. onFace(MediaStream) when it arrives,
+//                            onFace(null) when it goes away. Pages that pass no onFace behave exactly as before.
+//   bridgeState()          — [b0.27 freeze4] { room, ws, face, voice } booleans, so a page can show the red banner
+//                            (no silent fallbacks) instead of guessing what is missing.
 //
 // POD-VERIFY (needs a live pod to confirm against rt_lk): the exact ws message vocabulary.
 // This sends {type:'nova-say'|'nova-cue'|'speak_gate'|'audio'} — the same types beta/freeze.html
 // posts today. `note()` splits on the "say exactly"/"fact" prefix; if rt_lk expects a different
 // tag for staged lines, adjust HERE only (the pages never change).
+//
+// POD-VERIFY (face): NOTHING on the pod publishes `nova-face` today (docs/FREEZE4-SOULX-FACE.md). The identity
+// name is a [CLI-FILL] — if the pod publishes the SoulX face under another identity, change FACE_ID HERE only.
 
 const BASE = location.origin + '/';
 const WSBASE = BASE.replace(/^http/, 'ws');
@@ -20,10 +28,13 @@ const WSBASE = BASE.replace(/^http/, 'ws');
 let ws = null, room = null, voiceGain = null, audioEl = null, ctx = null;
 let speakGated = false, micGated = false, wsConns = 0, wsDelay = 1500;
 const herAudio = { playing: () => {}, ended: () => {} };
+const FACE_ID = 'nova-face';                         // [CLI-FILL] see POD-VERIFY (face) above
+const state = { room: false, ws: false, face: false, voice: false };
+export function bridgeState() { return { ...state }; }
 
 // ── public API ──────────────────────────────────────────────────────────────
-export async function attachNova({ onVideo, intro = '' } = {}) {
-  await joinLiveKit(onVideo);
+export async function attachNova({ onVideo, onFace, intro = '' } = {}) {
+  await joinLiveKit(onVideo, onFace);
   connectWS(intro);
   try { await startMic(); } catch (e) { console.warn('[BRIDGE] mic blocked', e && e.message); }
 }
@@ -54,24 +65,31 @@ export function onHerAudio({ playing, ended } = {}) {
 }
 
 // ── internals (faithful to beta/freeze.html Live) ────────────────────────────
-async function joinLiveKit(onVideo) {
+async function joinLiveKit(onVideo, onFace) {
   try {
     const LK = window.LivekitClient || window.LiveKitClient;
     if (!LK) { console.warn('[BRIDGE] LiveKit client not loaded'); return; }
     const r = await (await fetch(BASE + 'token')).json();
     room = new LK.Room({ adaptiveStream: false, dynacast: false });
     room.on(LK.RoomEvent.TrackSubscribed, (track, pub, p) => {
+      if (p.identity === FACE_ID) {                  // the live face (SoulX) — video only; her voice stays on nova-avatar
+        if (track.kind === 'video' && onFace) { state.face = true; onFace(new MediaStream([track.mediaStreamTrack])); }
+        return;
+      }
       if (p.identity !== 'nova-avatar') return;
       if (track.kind === 'video' && onVideo) onVideo(new MediaStream([track.mediaStreamTrack]));
-      if (track.kind === 'audio') routeHerAudio(track);
+      if (track.kind === 'audio') { state.voice = true; routeHerAudio(track); }
+    });
+    if (LK.RoomEvent.TrackUnsubscribed) room.on(LK.RoomEvent.TrackUnsubscribed, (track, pub, p) => {
+      if (p.identity === FACE_ID && track.kind === 'video') { state.face = false; if (onFace) onFace(null); }
     });
     let rc = 2000;
     const resub = async () => {
-      try { const r2 = await (await fetch(BASE + 'token')).json(); await room.connect(r2.url, r2.token); rc = 2000; }
+      try { const r2 = await (await fetch(BASE + 'token')).json(); await room.connect(r2.url, r2.token); rc = 2000; state.room = true; }
       catch (_) { rc = Math.min(30000, Math.round(rc * 1.8)); setTimeout(resub, rc); }
     };
-    room.on(LK.RoomEvent.Disconnected, () => setTimeout(resub, rc));
-    await room.connect(r.url, r.token);
+    room.on(LK.RoomEvent.Disconnected, () => { state.room = false; setTimeout(resub, rc); });
+    await room.connect(r.url, r.token); state.room = true;
     console.log('[BRIDGE] LiveKit joined', r.room);
   } catch (e) { console.warn('[BRIDGE] room err', e && e.message); }
 }
@@ -108,8 +126,8 @@ function connectWS(intro) {
   if (intro) qs.set('intro', intro);
   if (wsConns++) qs.set('rc', '1');                 // seamless reconnect: no re-greet
   ws = new WebSocket(WSBASE + 'rt?' + qs.toString());
-  ws.onopen = () => { wsDelay = 1500; };
-  ws.onclose = () => { wsDelay = Math.min(30000, Math.round((wsDelay || 1500) * 1.8)); setTimeout(() => connectWS(intro), wsDelay); };
+  ws.onopen = () => { wsDelay = 1500; state.ws = true; };
+  ws.onclose = () => { state.ws = false; wsDelay = Math.min(30000, Math.round((wsDelay || 1500) * 1.8)); setTimeout(() => connectWS(intro), wsDelay); };
   ws.onmessage = (ev) => {
     let m; try { m = JSON.parse(ev.data); } catch (_) { return; }
     if (m.type === 'voice_air') { herAudio.playing(); return; }
