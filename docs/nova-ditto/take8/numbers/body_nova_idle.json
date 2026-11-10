@@ -1,0 +1,24 @@
+{
+ "label": "body_nova_idle",
+ "frames_at_25fps": 69,
+ "seconds": 2.76,
+ "delivered_wh": [
+  1080,
+  1920
+ ],
+ "file_fps": 25.0,
+ "face_found_pct": 100.0,
+ "face_px_p50": 301.0,
+ "mouth_sharp256": 1.0,
+ "face_sharp_lapvar": 121.7,
+ "duplicate_pct": 7.2,
+ "longest_frozen_s": 0.08,
+ "lips": null,
+ "verdict": {
+  "face_found>=95%": "PASS",
+  "duplicates<=15%": "PASS",
+  "no_frozen_stretch>2s": "PASS",
+  "nova_corr>=0.35": "NOT MEASURED (no audio or no face)",
+  "ALL_NOVA_BARS": "FAIL"
+ }
+}
