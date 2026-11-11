@@ -1,0 +1,97 @@
+{
+ "url": "http://127.0.0.1:8765/beta/freeze?commercial=1",
+ "mp4": "/root/out/live/live_intro.mp4",
+ "mp4_bytes": 5830900,
+ "webm_bytes": 3356978,
+ "chunks": 68,
+ "recorder": {
+  "started": true,
+  "frames": 404,
+  "chunks": 68,
+  "bytes": 3356978,
+  "err": null,
+  "w": 180,
+  "h": 322,
+  "vfc": 368,
+  "skipped": 714,
+  "drawMode": "requestVideoFrameCallback+poll(10ms)",
+  "pushMode": "captureStream(0)+requestFrame",
+  "paintSource": "page element VIDEO#nova-live-video",
+  "frameGuard": "totalVideoFrames",
+  "stopped": true,
+  "mime": "video/webm;codecs=vp8,opus",
+  "audio": true,
+  "mix": {
+   "n": 1,
+   "tracks": [
+    {
+     "tag": "AUDIO#",
+     "label": "remote audio",
+     "muted": true,
+     "local": true,
+     "id": "e64f4a1d"
+    }
+   ],
+   "ctx": "running"
+  },
+  "vpick": {
+   "n": 2,
+   "cands": [
+    {
+     "tag": "VIDEO#nova-live-video",
+     "label": "remote video",
+     "w": 0,
+     "h": 0,
+     "score": 12
+    },
+    {
+     "tag": "VIDEO#cam",
+     "label": "fake_device_0",
+     "w": 960,
+     "h": 720,
+     "score": -24
+    }
+   ],
+   "chosen": {
+    "tag": "VIDEO#nova-live-video",
+    "label": "remote video",
+    "w": 0,
+    "h": 0
+   }
+  }
+ },
+ "ffmpeg_rc": 0,
+ "nova_lines": [
+  "Hi! I'm Nova, your magical AI dance teacher! What's your name?",
+  "I'm right here, no rush at all.",
+  "Sam! Awesome to meet you\u2014what\u2019s your favorite kind of music to dance to?",
+  "Still right here.",
+  "Dolphin vibes, I love it\u2014you ready to jump in and play?",
+  "I'm not going anywhere.",
+  "Just waiting for the magic light to glow, then we\u2019ll jump right in!"
+ ],
+ "kid_typed": [
+  "I'm Sam!",
+  "a dolphin! they jump so high",
+  "can we dance now?"
+ ],
+ "kid_echo": [
+  "I'm Sam!",
+  "a dolphin! they jump so high",
+  "can we dance now?"
+ ],
+ "gestures": [],
+ "probe": "{\n    \"streams\": [\n        {\n            \"codec_name\": \"h264\",\n            \"codec_type\": \"video\",\n            \"width\": 540,\n            \"height\": 960,\n            \"avg_frame_rate\": \"100750/20313\",\n            \"duration\": \"81.252000\",\n            \"nb_frames\": \"403\"\n        },\n        {\n            \"codec_name\": \"aac\",\n            \"codec_type\": \"audio\",\n            \"avg_frame_rate\": \"0/0\",\n            \"duration\": \"81.944000\",\n            \"nb_frames\": \"2800\"\n        }\n    ]\n}\n",
+ "verify": {
+  "mean_volume_db": -24.8,
+  "max_volume_db": -0.5,
+  "video_frames": 340,
+  "bitexact_dupes": 0,
+  "bitexact_pct": 0.0,
+  "mad_transitions": 405,
+  "duplicate_frames": 120,
+  "duplicate_pct": 29.63,
+  "mad_threshold": 0.1,
+  "mad_median": 0.2282
+ }
+}

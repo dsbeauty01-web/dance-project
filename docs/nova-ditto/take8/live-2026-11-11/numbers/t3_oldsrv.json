@@ -1,0 +1,41 @@
+{
+ "label": "t3_oldsrv",
+ "frames_at_25fps": 2036,
+ "seconds": 81.44,
+ "delivered_wh": [
+  540,
+  960
+ ],
+ "file_fps": 5.23,
+ "face_found_pct": 100.0,
+ "face_px_p50": 125.0,
+ "mouth_sharp256": 0.05,
+ "face_sharp_lapvar": 111.4,
+ "duplicate_pct": 85.3,
+ "longest_frozen_s": 3.96,
+ "lips": {
+  "voiced_s": 15.4,
+  "silent_s": 59.7,
+  "lip_motion_speaking": 0.57,
+  "lip_motion_silent": 0.49,
+  "gap_speaking_p90": 0.0272,
+  "gap_silent_p90": 0.0269,
+  "open_in_silence_frames": 324,
+  "pucker_frames": 153,
+  "corr_best_lag8": -0.087,
+  "corr_lag8_frames": 8,
+  "corr_best_lag75": -0.024,
+  "corr_lag75_frames": 30,
+  "corr_lag75_ms": 1200
+ },
+ "verdict": {
+  "face_found>=95%": "PASS",
+  "duplicates<=15%": "FAIL",
+  "no_frozen_stretch>2s": "FAIL",
+  "nova_corr>=0.35": "FAIL",
+  "in_sync(best lag within +-8 frames)": "FAIL",
+  "maya_gate(corr>=0.5, silent<=1.2, 0 open, 0 pucker)": "FAIL",
+  "ALL_NOVA_BARS": "FAIL"
+ },
+ "strip": "t3_oldsrv_strip.jpg"
+}
