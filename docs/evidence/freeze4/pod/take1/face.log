@@ -1,0 +1,28 @@
+04:14:07 [FACE] HTTP on 8010 — loading renderer flashhead face /root/repo/tools/pod/assets/nova_face_ref.png
+WARNING 11-11 04:14:12 [compat.py:122] Skipping xfuser.model_executor.pipelines.pipeline_flux2: cannot import name 'Flux2KleinPipeline' from 'diffusers' (/opt/ltenv/lib/python3.10/site-packages/diffusers/__init__.py). What it provides will be unavailable, usually because the installed diffusers predates the feature. Set XDIT_LOGGING_LEVEL=DEBUG for the traceback.
+DEBUG 11-11 04:14:12 [compat.py:127] Import of xfuser.model_executor.pipelines.pipeline_flux2 failed
+DEBUG 11-11 04:14:12 [compat.py:127] Traceback (most recent call last):
+DEBUG 11-11 04:14:12 [compat.py:127]   File "/opt/ltenv/lib/python3.10/site-packages/xfuser/compat.py", line 119, in _import_optional
+DEBUG 11-11 04:14:12 [compat.py:127]     return importlib.import_module(name)
+DEBUG 11-11 04:14:12 [compat.py:127]   File "/usr/lib/python3.10/importlib/__init__.py", line 126, in import_module
+DEBUG 11-11 04:14:12 [compat.py:127]     return _bootstrap._gcd_import(name[level:], package, level)
+DEBUG 11-11 04:14:12 [compat.py:127]   File "<frozen importlib._bootstrap>", line 1050, in _gcd_import
+DEBUG 11-11 04:14:12 [compat.py:127]   File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
+DEBUG 11-11 04:14:12 [compat.py:127]   File "<frozen importlib._bootstrap>", line 1006, in _find_and_load_unlocked
+DEBUG 11-11 04:14:12 [compat.py:127]   File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
+DEBUG 11-11 04:14:12 [compat.py:127]   File "<frozen importlib._bootstrap_external>", line 883, in exec_module
+DEBUG 11-11 04:14:12 [compat.py:127]   File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+DEBUG 11-11 04:14:12 [compat.py:127]   File "/opt/ltenv/lib/python3.10/site-packages/xfuser/model_executor/pipelines/pipeline_flux2.py", line 20, in <module>
+DEBUG 11-11 04:14:12 [compat.py:127]     from diffusers import Flux2KleinPipeline, Flux2Pipeline
+DEBUG 11-11 04:14:12 [compat.py:127] ImportError: cannot import name 'Flux2KleinPipeline' from 'diffusers' (/opt/ltenv/lib/python3.10/site-packages/diffusers/__init__.py)
+DEBUG 11-11 04:14:12 [compat.py:154] .model_executor.pipelines does not provide xFuserFlux2Pipeline on this install
+DEBUG 11-11 04:14:12 [compat.py:154] .model_executor.pipelines does not provide xFuserFlux2KleinPipeline on this install
+AttributeError: 'MessageFactory' object has no attribute 'GetPrototype'
+2026-11-11 04:14:13.122 | INFO     | flash_head.inference:get_pipeline:17 - ulysses_degree: 1, ring_degree: 1, device: cuda
+Some weights of Wav2Vec2Model were not initialized from the model checkpoint at /opt/soulxroot/models/wav2vec2-base-960h and are newly initialized: ['masked_spec_embed']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+/opt/ltenv/lib/python3.10/site-packages/torch/_inductor/lowering.py:1814: UserWarning: Torchinductor does not support code generation for complex operators. Performance may be worse than eager.
+  warnings.warn(
+04:16:59 [FACE] renderer ready in 171.8 s
+Nvidia Decoder is supported.
+04:17:00 [FACE] LiveKit: published as nova-face in room nova-freeze4

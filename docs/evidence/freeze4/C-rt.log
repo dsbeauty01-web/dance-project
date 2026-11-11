@@ -1,14 +1,11 @@
-0.44 OPEN /rt?replay=frozen-body%2Cdance-hype&rounds=2&checked=1&autostart=1&fast=1&intro=freeze
-0.96 speak_gate OFF (engine)
-3.00 speak_gate ON (air)
-4.70 nova-say "I can see you! Here comes the music." → stand-in speaks 1980 ms
-5.82 speak_gate ON (hard)
-8.36 speak_gate ON (air)
-8.36 nova-cue {"type":"nova-cue","intent":"note","ctx":"fact: {\"freeze\":\"held\",\"round\":1,\"animal\":\"flamingo\"}"}
-9.56 nova-say "Yes! Another one coming — keep dancing!" → stand-in speaks 2145 ms
-12.25 speak_gate ON (hard)
-14.76 speak_gate ON (air)
-14.76 nova-cue {"type":"nova-cue","intent":"note","ctx":"fact: {\"freeze\":\"moved\",\"round\":2,\"animal\":\"bear\"}"}
-16.00 speak_gate OFF (engine)
-16.00 nova-cue {"type":"nova-cue","intent":"note","ctx":"fact: {\"game\":\"over\",\"stars\":1,\"medal\":\"bronze\",\"rounds\":2}"}
-(mic audio messages received: 122)
+0.40 OPEN /rt?replay=frozen-body%2Cdance-hype&rounds=2&checked=1&autostart=1&fast=1&intro=freeze4
+0.92 speak_gate OFF (engine)
+2.97 speak_gate ON (air)
+4.67 nova-say "Got you!" → stand-in speaks 900 ms
+5.97 speak_gate ON (hard)
+8.47 speak_gate ON (air)
+9.71 nova-say "Yes!" → stand-in speaks 900 ms
+12.77 speak_gate ON (hard)
+15.27 speak_gate ON (air)
+16.48 speak_gate OFF (engine)
+(mic audio messages received: 153)

@@ -168,9 +168,9 @@ async def publisher():
         rec_a = wave.open(os.path.join(OUT, "face_published_voice.wav"), "wb"); rec_a.setnchannels(1); rec_a.setsampwidth(2); rec_a.setframerate(SR)
     S["_rec"] = (rec_v, rec_a)
 
-    # FACE_VIDEO_DELAY_FRAMES: hold the face back N frames behind the voice. Measured on the first pod run (2026-11-11,
-    # in the browser): the mouth started ~133 ms (median of 8 voice starts; cross-correlation 140 ms) BEFORE the voice was
-    # heard — the browser buffers audio longer than video. 3 frames = 120 ms.
+    # FACE_VIDEO_DELAY_FRAMES (default 0): hold the face back N frames behind the voice. Do NOT set it: judged BY EYE on the
+    # pod recordings (2026-11-11) the mouth already starts ~120-160 ms AFTER her voice with 0, and 3 frames made it later.
+    # (The in-page mouth-motion probe said "133 ms before" — it counts head motion in silence; the frames say otherwise.)
     vdelay = int(E("FACE_VIDEO_DELAY_FRAMES", "0")); vq = collections.deque()
     log("video delay frames:", vdelay)
     loop = asyncio.get_event_loop()

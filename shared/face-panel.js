@@ -40,6 +40,9 @@ export const FACE_STALL_MS = 3000;
 // [CLI-FILL] 6000 ms — her measured reply latency is 1.04 s median, 7.0 s worst (docs/TALK-TEST.md, n=6); 6 s covers
 // all but that worst case. No spec gives this number. QUESTION for the founder.
 const THINK_GIVE_UP_MS = 6000;
+// [CLI-FILL] 700 ms — longer than the gaps between her words in the pod recording (≤ 0.5 s), shorter than a pause
+// between two lines. QUESTION for the founder.
+const TALK_HOLD_MS = 700;
 
 export function createFacePanel({ root, video, badge, banner, lang = 'en', stallMs = FACE_STALL_MS, onHealth = () => {}, log = () => {} }) {
   const T = TXT[lang] || TXT.en;
@@ -100,7 +103,11 @@ export function createFacePanel({ root, video, badge, banner, lang = 'en', stall
     waitLive(ms) { if (S.live) return Promise.resolve(true);
       return new Promise(ok => { const w = v => { clearTimeout(t); ok(v); }; const t = setTimeout(() => { waiters = waiters.filter(x => x !== w); ok(false); }, ms); waiters.push(w); }); },
     setBase(b) { if (TXT.en[b] && b !== 'talking' && b !== 'thinking') { S.base = b; paint(); } },
-    speaking(on) { S.talking = !!on; if (on) S.thinkAt = 0; paint(); },
+    // her voice level dips between words; without a hold the badge and the panel size flickered Talking↔Listening several
+    // times a second (pod run 2026-11-11, recording frames 5.20–6.72 s). Talking ends only after TALK_HOLD_MS of quiet.
+    speaking(on) { clearTimeout(S.offT);
+      if (on) { S.talking = true; S.thinkAt = 0; paint(); }
+      else S.offT = setTimeout(() => { S.talking = false; paint(); }, TALK_HOLD_MS); },
     thinking() { if (!S.talking) { S.thinkAt = performance.now(); } },
     destroy() { clearInterval(dog); },
     get state() { return { live: S.live, badge: S.badge, size: S.size, frames: S.frames, missing: S.missing }; },

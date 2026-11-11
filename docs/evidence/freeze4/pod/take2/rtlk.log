@@ -1,0 +1,122 @@
+browser connected
+OAI: session.created
+OAI: session.updated
+browser connected
+[SPEAK-GATE] OFF - voice open (intro/ending)
+[REMEMBER] system: [phase] The game section just ended. The ending has the floor now — speak only t
+[BOUNDARY] phase-end
+PITCH say: Dance when the music plays. When it stops — freeze like the animal I show you! Ready?
+[SPEAK] (phase-end) Dance when the music plays. When it stops — freeze like the animal I show you! R
+OAI: session.created
+OAI: session.updated
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] say | Dance when the music plays. When it stops — freeze like the 
+[ASK-LOCK] set (she asked)
+[DE-CAN] she repeated a line verbatim: Dance when the music plays. When it stops — freeze
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+[SPEAK-GATE] ON (air) - engine audio blocked
+[SPEAK-GATE] air line credited: nova-say
+[BOUNDARY] refused (air-credit) — she asked, still waiting
+PITCH queued (busy): I can see you!
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[SPEAK-GATE] ON (hard) - engine audio blocked
+[SPEAK-GATE] ON (air) - engine audio blocked
+[SPEAK-GATE] air line credited: nova-say
+[BOUNDARY] refused (air-credit) — she asked, still waiting
+PITCH queued (busy): Yes!
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[SPEAK-GATE] ON (hard) - engine audio blocked
+[SPEAK-GATE] ON (air) - engine audio blocked
+[SPEAK-GATE] air line credited: nova-say
+[BOUNDARY] refused (air-credit) — she asked, still waiting
+PITCH queued (busy): Oops, you kept moving.
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[SPEAK-GATE] ON (hard) - engine audio blocked
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[SPEAK-GATE] ON (air) - engine audio blocked
+[SPEAK-GATE] OFF - voice open (intro/ending)
+[REMEMBER] system: [phase] The game section just ended. The ending has the floor now — speak only t
+[BOUNDARY] refused (phase-end) — she asked, still waiting
+OAI: conversation.item.added
+OAI: conversation.item.done
+[ASK-LOCK] queued nova-say: Great round! Your best freeze was the flamingo.
+[ASK-LOCK] queued nova-say: One more round? I am ready when you are.
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+browser connected
+[SPEAK-GATE] OFF - voice open (intro/ending)
+[REMEMBER] system: [phase] The game section just ended. The ending has the floor now — speak only t
+[BOUNDARY] phase-end
+OAI: session.created
+OAI: session.updated
+OAI: conversation.item.added
+OAI: conversation.item.done
+[SPEAK-GATE] ON (air) - engine audio blocked
+[SPEAK-GATE] air line credited: nova-say
+[BOUNDARY] air-credit
+PITCH say: Got you!
+[SPEAK] (air-credit) Got you!
+OAI: response.created
+[SPEAK-GATE] air line generating (credit spent)
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+[SPEAK-GATE] air voice -> face engine: 45600 bytes
+OAI: response.output_audio_transcript.done
+[ORIGIN] say | Got you!
+[DE-CAN] she repeated a line verbatim: Got you!
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+[CANCEL] hard speak-gate (freeze hold opened)
+[SPEAK-GATE] ON (hard) - engine audio blocked
+OAI: error -> invalid_request_error | response_cancel_not_active | Cancellation failed: no active response found | param: None
+GATE OPEN: mic live (0.6s after last chunk)
+[SPEAK-GATE] ON (air) - engine audio blocked
+[SPEAK-GATE] air line credited: nova-say
+[BOUNDARY] air-credit
+PITCH say: Yes!
+[SPEAK] (air-credit) Yes!
+OAI: response.created
+[SPEAK-GATE] air line generating (credit spent)
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+[SPEAK-GATE] air voice -> face engine: 33600 bytes
+OAI: response.output_audio_transcript.done
+[ORIGIN] say | Yes!
+[DE-CAN] she repeated a line verbatim: Yes!
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+Task exception was never retrieved
+future: <Task finished name='Task-236' coro=<relay.<locals>.from_openai.<locals>.reopen() done, defined at /workspace/rt_lk.py:1617> exception=ClientConnectionResetError('Cannot write to closing transport')>
+Traceback (most recent call last):
+  File "/workspace/rt_lk.py", line 1623, in reopen
+    await ws_client.send_json({"type": "status", "speaking": False, "state": "listening"})
+  File "/opt/ltenv/lib/python3.10/site-packages/aiohttp/web_ws.py", line 506, in send_json
+    await self.send_str(dumps(data), compress=compress)
+  File "/opt/ltenv/lib/python3.10/site-packages/aiohttp/web_ws.py", line 488, in send_str
+    await self._writer.send_frame(
+  File "/opt/ltenv/lib/python3.10/site-packages/aiohttp/_websocket/writer.py", line 79, in send_frame
+    raise ClientConnectionResetError("Cannot write to closing transport")
+aiohttp.client_exceptions.ClientConnectionResetError: Cannot write to closing transport
