@@ -61,8 +61,9 @@
 #faceBanner[hidden]{display:none}
 #faceName{font:800 clamp(12px,1.4vw,16px) 'Baloo 2',Nunito,system-ui;color:var(--gold)}
 
-#novaSay{position:absolute;left:12px;right:12px;top:96px;z-index:8;background:rgba(255,255,255,.93);color:#2a1a4a;border-radius:18px;padding:10px 14px;
-  font:800 clamp(15px,2.2vw,22px)/1.25 'Baloo 2',Nunito,system-ui;text-align:center;opacity:0;transform:translateY(8px);transition:opacity .25s,transform .25s;pointer-events:none}
+/* what she says, under her face in the rail — never over her baked body (founder 2026-11-11: the body stays untouched) */
+#novaSay{width:100%;min-height:2.6em;background:rgba(255,255,255,.93);color:#2a1a4a;border-radius:14px;padding:6px 8px;
+  font:800 clamp(11px,1.3vw,16px)/1.2 'Baloo 2',Nunito,system-ui;text-align:center;opacity:0;transform:translateY(6px);transition:opacity .25s,transform .25s;pointer-events:none}
 #novaSay.on{opacity:1;transform:none}
 #novaTag{position:absolute;left:12px;top:56px;z-index:7;font:800 16px 'Baloo 2',Nunito,system-ui;color:var(--gold);background:rgba(0,0,0,.35);padding:4px 10px;border-radius:999px}
 /* the whole-screen red banner: something the game needs is missing → it refuses to start (CLAUDE.md law 4) */
@@ -82,8 +83,9 @@
     <aside id="faceRail" data-size="small" data-live="0" aria-label="Nova">
       <div id="faceTile"><video id="face" playsinline muted autoplay></video><div id="faceBanner" hidden></div><div id="faceBadge"></div></div>
       <div id="faceName">Nova</div>
+      <div id="novaSay"></div>
     </aside>
-    <div id="novaPane"><video id="novaAmb" playsinline muted loop></video><video id="nova" playsinline muted loop></video><div id="novaSay"></div></div>
+    <div id="novaPane"><video id="novaAmb" playsinline muted loop></video><video id="nova" playsinline muted loop></video></div>
   </div>
   <div id="camPane"><video id="cam" playsinline muted></video><canvas id="fx"></canvas></div>
 </div>
@@ -172,9 +174,24 @@ let sayTimer = null, voiceMode = 'engine', holding = false, gapLine = false;
    gap's ONE allowed line"). A gap = from the end of one hold to the start of the next. The first line asked for wins —
    that is the one about what the judge just saw; a second one is held back, never stacked on top of her own voice. */
 function setVoice(mode){ if (mode === voiceMode && setVoice.sent) return; setVoice.sent = true; voiceMode = mode; routeVoice(mode); log('voice', mode); }      // routeVoice() is the only thing that changes routing
+/* SHE TALKS LESS (founder, 2026-11-11: "she should talk a bit less"). In the game a line is cut to its first sentence and
+   said only if that is ≤ 6 words — beta/tiers.js kids `maxWordsMidGame: 6`; game-cues-lights juice checklist "voice or
+   badge (fact-fed, ≤6 words, not every hit — ≤1 line/gap)". A longer line is not said at all: the badge, the card and the
+   stars carry that moment. brain-local.js is not changed (freeze-nova still uses it whole). */
+const MAX_GAME_WORDS = 6;
+function gameLine(text){
+  const words = s => s.split(/\s+/).filter(w => /[\p{L}\p{N}]/u.test(w)).length;
+  const first = (text.match(/^.*?[.!?](?=\s|$)/) || [text])[0].trim();
+  if (words(first) <= MAX_GAME_WORDS) return first;
+  const clause = first.split(/\s+—\s+/)[0].trim();                          // "The bear got away — the music…" → "The bear got away!"
+  return clause !== first && words(clause) <= MAX_GAME_WORDS ? clause.replace(/[,;:]$/, '') + '!' : null;
+}
 function novaSays(text, delayMs = 0){
   if (!text) return;
   setTimeout(() => {
+    if (voiceMode === 'air' && !holding){ const short = gameLine(text);
+      if (!short){ log('line-held-back', 'over ' + MAX_GAME_WORDS + ' words: ' + text); window.novaBrainLog.push({ t: performance.now() / 1000, text, delayMs, mode: voiceMode, sent: false }); return; }
+      text = short; }
     const entry = { t: performance.now() / 1000, text, delayMs, mode: voiceMode, sent: !holding };
     window.novaBrainLog.push(entry);
     if (holding){ entry.sent = false; log('line-held-back', 'hold: ' + text); return; }        // HOLDS = hard mute: nothing is asked for during a freeze
@@ -189,6 +206,7 @@ function mindReact(type, d){ const r = mind.react(type, d); if (r) novaSays(r.te
 onHerAudio({ playing: () => { face.speaking(true); log('her-voice', 'start'); }, ended: () => { face.speaking(false); log('her-voice', 'end'); } });
 addEventListener('nova:kid', () => face.thinking());                          // the child said something → she is about to answer
 
+const animalByRound = {};
 let doc = null, game, hud, src, phaseCap = ['', ''], freezeAt = 0, holdS = 2.5, animal = 'statue', ended = false, lastFrame = null;
 
 function say(text, cls = ''){ phaseCap = [text, cls]; if (game?.state.seen !== false) caption(text, cls); }
@@ -205,7 +223,7 @@ function onEvent(type, d){
     if (d.phase === 'result'){ holding = false; gapLine = false; setVoice('air'); face.setBase('watching'); }        // the hold is over: one line may ride this gap
   }
   if (type === 'freeze'){ holding = true; setVoice('mute'); face.setBase('freeze');                 // HOLDS = hard mute
-    animal = d.animal; music.pause(); sting(); novaPlay(NOVA.freeze[d.animal] || NOVA.freeze.star, { holdEnd: true }); /* Nova strikes the animal pose and holds it */ lights.speedGlow(false); lights.ice(true); freezeAt = t; holdS = game.pace.holdS;
+    animal = d.animal; animalByRound[d.round] = d.animal; music.pause(); sting(); novaPlay(NOVA.freeze[d.animal] || NOVA.freeze.star, { holdEnd: true }); /* Nova strikes the animal pose and holds it */ lights.speedGlow(false); lights.ice(true); freezeAt = t; holdS = game.pace.holdS;
     card(TXT.animals[animal], EMO[animal]); say(TXT.freeze(TXT.animals[animal]), 'wait'); }
   if (type === 'star'){ fact({ freeze: 'held', round: d.round, animal }); hud.star(); hud.mark(d.round, 'star'); ring(1, true); lights.ice(false); lights.snow('nose'); lights.burst('nose', 'gold'); say(TXT.star, 'good'); }
   if (type === 'notyet'){ fact({ freeze: d.hold === 'almost' ? 'almost' : 'moved', round: d.round, animal }); hud.mark(d.round, 'notyet'); ring(null); lights.ice(false); say(TXT.notyet, 'wait'); }
@@ -220,7 +238,13 @@ function finish(d){
   setVoice('engine'); face.setBase('listening');                              // ENDING = she has the floor again
   fact({ game: 'over', stars: d.stars, medal: d.medal || 'none', rounds: d.rounds });
   rec.end(d, src.state);
-  const story = mind.recap(d); story.forEach((txt, i) => novaSays(txt, 1400 + i * 3600));   // the after-game story, line by line (freeze-nova timing)
+  /* the after-game story: at most 2 lines — the verdict and the choice (ai-companion-presence "Conversation: 2 sentences MAX";
+     founder 2026-11-11 "talk a bit less"). freeze-nova says all 2–3. Timing as freeze-nova. */
+  /* TRUTH: the judge's result rows carry no animal, so brain-local's recap named "the statue" as her best freeze whatever
+     the animal was (seen in the 2026-11-10 stand-in run). Her real voice must not say that: give it the real animals. */
+  const truth = { ...d, results: (d.results || []).map(r => ({ ...r, animal: animalByRound[r.round] })) };
+  const all = mind.recap(truth), story = all.length > 2 ? [all[0], all[all.length - 1]] : all;
+  story.forEach((txt, i) => novaSays(txt, 1400 + i * 3600));
   medalScreen({ ...d, lang, onAgain: () => location.reload(), onBack: () => location.href = 'index.html' + location.search, onSave: () => { rec.save(); $('save').textContent = '✓ ' + L.saved; } });
 }
 

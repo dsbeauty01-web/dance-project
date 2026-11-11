@@ -19,8 +19,8 @@
 // posts today. `note()` splits on the "say exactly"/"fact" prefix; if rt_lk expects a different
 // tag for staged lines, adjust HERE only (the pages never change).
 //
-// POD-VERIFY (face): NOTHING on the pod publishes `nova-face` today (docs/FREEZE4-SOULX-FACE.md). The identity
-// name is a [CLI-FILL] — if the pod publishes the SoulX face under another identity, change FACE_ID HERE only.
+// FACE: tools/pod/nova_face.py publishes `nova-face` (SoulX face video + her voice audio) when the pod runs with
+// NOVA_FACE_SOULX=1 (docs/FREEZE4-SOULX-FACE.md). Change FACE_ID HERE only if that identity ever changes.
 
 const BASE = location.origin + '/';
 const WSBASE = BASE.replace(/^http/, 'ws');
@@ -28,7 +28,7 @@ const WSBASE = BASE.replace(/^http/, 'ws');
 let ws = null, room = null, voiceGain = null, audioEl = null, ctx = null;
 let speakGated = false, micGated = false, wsConns = 0, wsDelay = 1500;
 const herAudio = { playing: () => {}, ended: () => {} };
-const FACE_ID = 'nova-face';                         // [CLI-FILL] see POD-VERIFY (face) above
+const FACE_ID = 'nova-face';                         // = FACE_IDENTITY in tools/pod/nova_face.py
 const state = { room: false, ws: false, face: false, voice: false };
 export function bridgeState() { return { ...state }; }
 
@@ -72,8 +72,11 @@ async function joinLiveKit(onVideo, onFace) {
     const r = await (await fetch(BASE + 'token')).json();
     room = new LK.Room({ adaptiveStream: false, dynacast: false });
     room.on(LK.RoomEvent.TrackSubscribed, (track, pub, p) => {
-      if (p.identity === FACE_ID) {                  // the live face (SoulX) — video only; her voice stays on nova-avatar
+      if (p.identity === FACE_ID) {                  // the live face (SoulX): its video is her face, its audio is her voice —
+        // tools/pod/nova_face.py renders the face FROM those very samples, so voice and face leave the pod together.
+        // Only pages that pass onFace take her voice from here (a freeze4 pod has no nova-avatar participant).
         if (track.kind === 'video' && onFace) { state.face = true; onFace(new MediaStream([track.mediaStreamTrack])); }
+        if (track.kind === 'audio' && onFace) { state.voice = true; routeHerAudio(track); }
         return;
       }
       if (p.identity !== 'nova-avatar') return;
@@ -107,6 +110,7 @@ function routeHerAudio(track) {
     const a = track.attach(); a.muted = true; a.autoplay = true; a.playsInline = true; document.body.appendChild(a); audioEl = a;
     // level meter → herAudio.playing/ended for music ducking
     const an = ctx.createAnalyser(); an.fftSize = 512; voiceGain.connect(an);
+    window.__novaVoiceAnalyser = an;                 // read-only probe for proof runs (voice-to-face delay); changes nothing
     const buf = new Float32Array(an.fftSize); let on = false;
     setInterval(() => {
       an.getFloatTimeDomainData(buf); let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];

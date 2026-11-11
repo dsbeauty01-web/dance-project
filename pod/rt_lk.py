@@ -23,6 +23,11 @@ LK_SEC = os.environ["LIVEKIT_API_SECRET"]
 LK_ROOM = os.environ.get("LK_ROOM", "nova-live")
 ENGINE = os.environ.get("ENGINE_URL", "http://127.0.0.1:8010")
 MODEL = os.environ.get("RT_MODEL", "gpt-realtime-2")
+# b0.27 FREEZE4 (docs/FREEZE4-SOULX-FACE.md): NOVA_FACE_SOULX=1 = the engine on ENGINE_URL is the SoulX face server
+# (tools/pod/nova_face.py) that publishes her face (video) AND her voice (audio) into LiveKit as `nova-face`.
+# Then an 'air' line goes to that engine too (face + voice from one renderer, in sync) instead of voice_air to
+# the page — the lips land on the SIDE FACE, never on her dancing body. Default OFF: nothing changes for any other page.
+FACE_SOULX = os.environ.get("NOVA_FACE_SOULX", "0") == "1"
 VOICE = os.environ.get("NOVA_VOICE", "marin")   # 2026-08-08 founder decision: marin IS Nova's voice (shimmer too adult, coral weird). ?voice= still overrides per-session for A/B
 RT_URL = f"wss://api.openai.com/v1/realtime?model={MODEL}"
 
@@ -1372,7 +1377,13 @@ async def relay(request):
                             audio_buf.clear()
                         elif sgate["on"]:
                             # AIR MODE: her line goes to the PAGE, never the engine (no lips)
-                            if sgate["mode"] == "air" and audio_buf:
+                            if sgate["mode"] == "air" and audio_buf and FACE_SOULX:
+                                # FREEZE4: the air line rides the face engine (voice + side face together)
+                                data = bytes(audio_buf); audio_buf.clear()
+                                for i in range(0, len(data), FLUSH):
+                                    speaking["last_chunk"] = time.time(); await engine_q.put(data[i:i+FLUSH])
+                                print("[SPEAK-GATE] air voice -> face engine:", len(data), "bytes", flush=True)
+                            elif sgate["mode"] == "air" and audio_buf:
                                 data = bytes(audio_buf); audio_buf.clear()
                                 try:
                                     await ws_client.send_json({"type": "voice_air",
@@ -2025,6 +2036,22 @@ async def beta_novasays_page(request):
         return web.Response(status=503, text="beta novasays page not deployed")
     return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
 
+async def beta_freeze4_page(request):
+    # b0.27 FREEZE4: Freeze with Nova's live SoulX face in a side panel (mirrors beta_novasays_page).
+    try:
+        with open("/workspace/pages/beta/freeze4.html", encoding="utf-8") as f:
+            html = f.read()
+    except FileNotFoundError:
+        return web.Response(status=503, text="beta freeze4 page not deployed")
+    return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
+
+async def beta_play_css(request):
+    try:
+        with open("/workspace/pages/beta/play.css", encoding="utf-8") as f:
+            return web.Response(text=f.read(), content_type="text/css", headers={"Cache-Control": "no-store"})
+    except FileNotFoundError:
+        return web.Response(status=503, text="beta play.css not deployed")
+
 async def avatar_check(request):
     # b0.21-novasays preflight: which of these bakes actually exist on the volume?
     # (Deterministic — replaces gallery-preview filename guessing. No silent fallbacks:
@@ -2090,6 +2117,8 @@ app.router.add_get("/beta/freeze", beta_freeze_page)
 app.router.add_get("/beta/wave", beta_wave_page)
 app.router.add_get("/beta/upperbody", beta_upperbody_page)
 app.router.add_get("/beta/novasays", beta_novasays_page)
+app.router.add_get("/beta/freeze4", beta_freeze4_page)
+app.router.add_get("/beta/play.css", beta_play_css)
 app.router.add_get(r"/beta/{name:[A-Za-z0-9_.-]+\.js}", beta_novasays_lib)
 app.router.add_get("/avatar_check", avatar_check)
 app.router.add_post("/pulse", pulse_post)
@@ -2133,6 +2162,21 @@ try:
     app.router.add_static("/media", "/workspace/media", show_index=False)
 except Exception as _e:
     print(f"[MEDIA] static route not mounted: {_e}", flush=True)
+
+# b0.27 FREEZE4: the page imports ./lib/*.js and ./freeze2/* (the freeze judge). Deploy copies them next to the page.
+for _pfx, _dir in (("/beta/lib", "/workspace/pages/beta/lib"), ("/beta/freeze2", "/workspace/pages/beta/freeze2")):
+    try:
+        os.makedirs(_dir, exist_ok=True)
+        app.router.add_static(_pfx, _dir, show_index=False)
+    except Exception as _e:
+        print(f"[FREEZE4] static {_pfx} not mounted: {_e}", flush=True)
+# recorded test children (?replay=) — mounted ONLY when NOVA_TEST_CLIPS=1 (proof runs), never on a tester pod
+if os.environ.get("NOVA_TEST_CLIPS", "0") == "1":
+    try:
+        os.makedirs("/workspace/pages/test/clips", exist_ok=True)
+        app.router.add_static("/test/clips", "/workspace/pages/test/clips", show_index=False)
+    except Exception as _e:
+        print(f"[FREEZE4] /test/clips not mounted: {_e}", flush=True)
 
 if __name__ == "__main__":
     web.run_app(app, host="0.0.0.0", port=8765, print=None)
