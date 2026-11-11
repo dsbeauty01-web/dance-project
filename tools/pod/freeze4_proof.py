@@ -48,19 +48,28 @@ PROBE = r"""
 """
 
 
+class _B:
+    """one kiosk window that fills the virtual screen (a persistent context keeps --kiosk: no tab bar, no URL bar)"""
+    def __init__(self, ctx): self.ctx = ctx
+    def close(self): self.ctx.close()
+
+
 def browser(p):
-    return p.chromium.launch(executable_path=CHROME, headless=False, args=[
+    import tempfile
+    ctx = p.chromium.launch_persistent_context(tempfile.mkdtemp(prefix="f4chrome-"), executable_path=CHROME, headless=False,
+        no_viewport=True, permissions=["microphone", "camera"], args=[
         "--autoplay-policy=no-user-gesture-required", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream",
         f"--use-file-for-fake-audio-capture={SILENCE}", f"--window-size={W},{H}", "--window-position=0,0", "--kiosk",
-        "--no-first-run", "--disable-infobars", "--password-store=basic", "--no-sandbox"])
+        "--no-first-run", "--disable-infobars", "--password-store=basic", "--no-sandbox", "--noerrdialogs"])
+    return _B(ctx)
 
 
 def page_of(b):
-    ctx = b.new_context(viewport={"width": W, "height": H}, no_viewport=False, permissions=["microphone", "camera"])
-    pg = ctx.new_page(); logs = []
+    ctx = b.ctx
+    pg = ctx.pages[0] if ctx.pages else ctx.new_page(); logs = []
     pg.on("console", lambda m: logs.append(f"[{m.type}] {m.text}"))
     pg.on("pageerror", lambda e: logs.append(f"[pageerror] {e}"))
-    pg.add_init_script(PROBE)
+    ctx.add_init_script(PROBE)
     return ctx, pg, logs
 
 
@@ -112,34 +121,44 @@ def run_A(p):
     b = browser(p); ctx, pg, logs = page_of(b)
     pg.goto(f"{BASE}/beta/freeze4?replay=frozen-body,dance-hype,still-sway&rounds=3&checked=1&lang=en")
     time.sleep(3)
+    vp = pg.evaluate("() => [innerWidth, innerHeight, outerWidth, outerHeight]")
+    print("viewport", vp, flush=True)
+    with open(os.path.join(OUT, "A-viewport.json"), "w") as fh: json.dump(vp, fh)
     rec = recorder_start(os.path.join(OUT, "freeze4-live-soulx.mp4")); t_rec = time.time()
     time.sleep(1.5)
     pg.click("#go")
-    got = {}
+    got, since, prev = {}, {}, None
     def poll(until_s):
+        nonlocal prev
         t_end = time.time() + until_s
         while time.time() < t_end:
             st = pg.evaluate("() => window.freeze4Face ? window.freeze4Face.state : null") or {}
             ended = pg.evaluate("() => document.getElementById('end').classList.contains('on')")
-            banner = pg.evaluate("() => !document.getElementById('banner').classList.contains('hidden')")
-            if banner and "banner" not in got: got["banner"] = shot(pg, "A-unexpected-banner.png")
-            if st.get("badge") == "talking" and "big" not in got:
-                time.sleep(0.7); got["big"] = shot(pg, "A-1-talking-panel-big.png"); face_png(pg, "A-face-received-1.png")
-            if st.get("badge") == "talking" and "big" in got and "big2" not in got and time.time() - got.setdefault("_tb", time.time()) > 20:
+            started = pg.evaluate("() => (window.novaEvents||[]).some(e => e.event === 'round_start')")
+            key = (st.get("badge"), st.get("size"))
+            if key != prev: since.clear(); since[key] = time.time(); prev = key
+            held = time.time() - since.get(key, time.time())        # how long this exact state has held
+            if pg.evaluate("() => !document.getElementById('banner').classList.contains('hidden')") and "banner" not in got:
+                got["banner"] = shot(pg, "A-unexpected-banner.png")
+            if key == ("talking", "big") and held > 0.6 and "big" not in got:
+                got["big"] = shot(pg, "A-1-talking-panel-big.png"); face_png(pg, "A-face-received-1.png")
+            if key == ("talking", "big") and held > 0.6 and started and "big2" not in got:
                 got["big2"] = shot(pg, "A-4-talking-in-game.png"); face_png(pg, "A-face-received-2.png")
-            if st.get("badge") == "watching" and st.get("size") == "small" and "small" not in got and pg.evaluate("() => (window.novaEvents||[]).some(e => e.event === 'round_start')"):
-                time.sleep(0.7); got["small"] = shot(pg, "A-2-dance-panel-small.png")
-            if st.get("badge") == "freeze" and "freeze" not in got:
-                time.sleep(0.8); got["freeze"] = shot(pg, "A-3-freeze-hold.png")
+            if key == ("watching", "small") and held > 0.8 and started and "small" not in got:
+                got["small"] = shot(pg, "A-2-dance-panel-small.png")
+            if key[0] == "freeze" and held > 0.8 and "freeze" not in got:
+                got["freeze"] = shot(pg, "A-3-freeze-hold.png")
+            if ended and key == ("talking", "big") and held > 0.6 and "endtalk" not in got:
+                got["endtalk"] = shot(pg, "A-5-ending-talking.png"); face_png(pg, "A-face-received-3.png")
             if ended and "end" not in got: got["end_t"] = time.time(); got["end"] = True
-            if got.get("end") and time.time() - got["end_t"] > 13:
+            if got.get("end") and time.time() - got["end_t"] > 16:
                 break
-            time.sleep(0.15)
+            time.sleep(0.12)
     poll(240)
-    shot(pg, "A-5-ending.png"); face_png(pg, "A-face-received-3.png")
+    shot(pg, "A-6-ending-after.png")
     recorder_stop(rec)
     data = dump(pg, logs, "A"); b.close()
-    print("A recorded", round(time.time() - t_rec, 1), "s; shots", sorted(k for k in got if not k.startswith("_")), flush=True)
+    print("A recorded", round(time.time() - t_rec, 1), "s; shots", sorted(k for k in got if not k.endswith("_t")), flush=True)
     return data
 
 

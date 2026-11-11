@@ -1,21 +1,17 @@
-1.87 OPEN /rt?replay=frozen-body%2Cdance-hype%2Cstill-sway&rounds=3&checked=1&lang=en&intro=freeze
-2.50 speak_gate OFF (engine)
-2.55 nova-say "Here is the game: music on, you dance. Music off, you freeze! Let us go!" → stand-in speaks 3960 ms
-8.00 speak_gate ON (air)
-9.70 nova-say "Got you!" → stand-in speaks 900 ms
-16.50 speak_gate ON (hard)
-19.00 speak_gate ON (air)
-19.00 nova-cue {"type":"nova-cue","intent":"note","ctx":"fact: {\"freeze\":\"held\",\"round\":1,\"animal\":\"flamingo\"}"}
-20.30 nova-say "Not even a wobble!" → stand-in speaks 990 ms
-28.92 speak_gate ON (hard)
-31.44 speak_gate ON (air)
-31.44 nova-cue {"type":"nova-cue","intent":"note","ctx":"fact: {\"freeze\":\"moved\",\"round\":2,\"animal\":\"bear\"}"}
-32.75 nova-say "The bear got away!" → stand-in speaks 990 ms
-40.74 speak_gate ON (hard)
-43.24 speak_gate ON (air)
-43.24 nova-cue {"type":"nova-cue","intent":"note","ctx":"fact: {\"freeze\":\"held\",\"round\":3,\"animal\":\"frog\"}"}
-44.88 speak_gate OFF (engine)
-44.88 nova-cue {"type":"nova-cue","intent":"note","ctx":"fact: {\"game\":\"over\",\"stars\":2,\"medal\":\"silver\",\"rounds\":3}"}
-46.27 nova-say "Great round! Your best freeze was the flamingo." → stand-in speaks 2585 ms
-49.88 nova-say "One more round? I am ready when you are." → stand-in speaks 2200 ms
-(mic audio messages received: 463)
+3.52 OPEN /rt?replay=frozen-body%2Cdance-hype%2Cstill-sway&rounds=3&checked=1&lang=en&intro=freeze4
+4.30 speak_gate OFF (engine)
+4.38 nova-say "Dance when the music plays. When it stops — freeze like the animal I show you! Ready?" → stand-in speaks 4500 ms
+11.35 speak_gate ON (air)
+13.03 nova-say "I can see you!" → stand-in speaks 900 ms
+18.65 speak_gate ON (hard)
+21.17 speak_gate ON (air)
+22.49 nova-say "You held it!" → stand-in speaks 900 ms
+29.59 speak_gate ON (hard)
+32.09 speak_gate ON (air)
+33.40 nova-say "The bear got away!" → stand-in speaks 990 ms
+42.70 speak_gate ON (hard)
+45.20 speak_gate ON (air)
+46.86 speak_gate OFF (engine)
+48.24 nova-say "Great round! Your best freeze was the flamingo." → stand-in speaks 2585 ms
+51.87 nova-say "One more round? I am ready when you are." → stand-in speaks 2200 ms
+(mic audio messages received: 457)

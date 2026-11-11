@@ -580,7 +580,11 @@ async def relay(request):
         async with http.ws_connect(RT_URL, headers={"Authorization": f"Bearer {KEY}"}, heartbeat=20) as oai:
             _intro = (request.query.get("intro") or "").strip().lower()
             _voice = (request.query.get("voice") or "").strip() or None   # V2: ?voice=coral etc. for instant A/B
-            _freeze_mode = (_intro == "freeze")   # V2.1: page owns the game -> brain self-triggers OFF
+            _freeze_mode = (_intro in ("freeze", "freeze4"))   # V2.1: page owns the game -> brain self-triggers OFF
+            # b0.27 FREEZE4: the page owns EVERY beat, intro and ending included — it stages her welcome itself and starts
+            # the game without waiting for a name. So no name-asking greet (its ASK-LOCK then held the ending recap and she
+            # said a re-invite instead — pod run 2026-11-11) and no silence invites. She speaks only the lines she is staged.
+            _page_owns = (_intro == "freeze4")
             await oai.send_json(session_update(freeze=_freeze_mode, voice=_voice,
                                                lang=("he" if _hebrew else "en"), gender=_gender))
             await log("connected to " + MODEL + " (voice " + VOICE + ")")
@@ -607,7 +611,7 @@ async def relay(request):
                 race_tasks.add(_wt); _wt.add_done_callback(race_tasks.discard)
             # GREET FIRST — but only on the FIRST connect, not on a seamless reconnect
             # (browser sends ?rc=1 when re-establishing after an OpenAI session drop / 55min cap).
-            if not request.query.get("rc"):
+            if not request.query.get("rc") and _intro != "freeze4":
                 # GAME-SPECIFIC INTRO (2026-08-05). The generic opener asks for the child's
                 # name and never mentions a game, which is wrong inside a game that has
                 # already been chosen: the kid clicked FREEZE, so asking "which game?" or
@@ -692,6 +696,8 @@ async def relay(request):
                     # statue regex on her OWN words -> whisper + invented praise pre-yes).
                     if _freeze_mode and sgate["on"]:
                         continue     # game phase: the page owns every beat, brain never self-fires
+                    if _page_owns:
+                        continue     # FREEZE4: the page owns intro and ending too
                     if speaking["v"] or speaking["resp_active"]:
                         continue
                     # WAIT LAW (INTRO-V2V): she asked the child something. Nothing fires into

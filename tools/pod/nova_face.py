@@ -148,6 +148,10 @@ async def publisher():
     vtr = rtc.LocalVideoTrack.create_video_track("nova-face-video", vsrc)
     atr = rtc.LocalAudioTrack.create_audio_track("nova-face-voice", asrc)
     vo = rtc.TrackPublishOptions(source=rtc.TrackSource.SOURCE_CAMERA)
+    try:   # the face is small and soft already; give WebRTC room so it does not soften it further (received/published was 0.72x)
+        vo.video_encoding = rtc.VideoEncoding(max_framerate=FPS, max_bitrate=int(E("FACE_MAX_BITRATE", "3000000")))
+    except Exception as e:
+        log("video_encoding not set:", e)
     ao = rtc.TrackPublishOptions(source=rtc.TrackSource.SOURCE_MICROPHONE)
     for o in (vo, ao):                               # same stream id = the browser lip-syncs the two tracks (if supported)
         try: o.stream = "nova-face"
@@ -164,6 +168,11 @@ async def publisher():
         rec_a = wave.open(os.path.join(OUT, "face_published_voice.wav"), "wb"); rec_a.setnchannels(1); rec_a.setsampwidth(2); rec_a.setframerate(SR)
     S["_rec"] = (rec_v, rec_a)
 
+    # FACE_VIDEO_DELAY_FRAMES: hold the face back N frames behind the voice. Measured on the first pod run (2026-11-11,
+    # in the browser): the mouth started ~133 ms (median of 8 voice starts; cross-correlation 140 ms) BEFORE the voice was
+    # heard — the browser buffers audio longer than video. 3 frames = 120 ms.
+    vdelay = int(E("FACE_VIDEO_DELAY_FRAMES", "0")); vq = collections.deque()
+    log("video delay frames:", vdelay)
     loop = asyncio.get_event_loop()
     t0, i, last = loop.time(), 0, None
     while True:
@@ -181,6 +190,9 @@ async def publisher():
             if dt > 0: await asyncio.sleep(dt)
             elif dt < -0.5: t0 = loop.time() - i / FPS             # we fell far behind (stall): re-anchor the clock
             f = ch["frames"][k]; last = f
+            if vdelay:
+                vq.append(f)
+                f = vq.popleft() if len(vq) > vdelay else vq[0]
             if time.time() >= S["paused_until"]:
                 rgba = np.dstack([f[:, :, ::-1], np.full(f.shape[:2], 255, np.uint8)])
                 vsrc.capture_frame(rtc.VideoFrame(512, 512, rtc.VideoBufferType.RGBA, rgba.tobytes()))

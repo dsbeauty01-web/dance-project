@@ -38,7 +38,7 @@ WPID=$!
 
 # 2b) system packages + Chrome (H.264 for Nova's body clips) + python deps
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -qq && apt-get install -y -qq xvfb pulseaudio git wget ca-certificates >/dev/null 2>&1; stage "apt done $?"
+apt-get update -qq && apt-get install -y -qq xvfb pulseaudio git wget ca-certificates fonts-noto-color-emoji fonts-dejavu-core >/dev/null 2>&1; stage "apt done $?"
 wget -q -O /root/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && apt-get install -y -qq /root/chrome.deb >/dev/null 2>&1
 stage "chrome: $(google-chrome --version 2>&1)"
 $PY -m pip install -q --no-cache-dir livekit livekit-api aiohttp playwright >/dev/null 2>&1; stage "pip done $? ($($PY -c 'import livekit.rtc,livekit.api,aiohttp,playwright;print("ok")' 2>&1 | tail -1))"
@@ -80,7 +80,7 @@ cd /root/repo/tools/pod && timeout 120 $PY freeze4_proof.py B > $OUT/B.log 2>&1;
 wait $WPID; stage "weights: $(head -1 $OUT/weights.txt)"
 [ -s "$SOULX_ROOT/ACTIVATE.sh" ] && . "$SOULX_ROOT/ACTIVATE.sh"
 cd /root/repo/tools/pod
-FACE_RENDERER=flashhead LK_ROOM=nova-freeze4 FACE_OUT=$OUT/face FACE_RECORD=1 FACE_TEST_HOOKS=1 \
+FACE_RENDERER=flashhead FACE_VIDEO_DELAY_FRAMES=${FACE_VIDEO_DELAY_FRAMES:-3} LK_ROOM=nova-freeze4 FACE_OUT=$OUT/face FACE_RECORD=1 FACE_TEST_HOOKS=1 \
   setsid nohup $PY -u nova_face.py > $OUT/face.log 2>&1 < /dev/null &
 for i in $(seq 1 180); do c=$(curl -s -m4 -o /dev/null -w '%{http_code}' http://127.0.0.1:8010/); [ "$c" = "200" ] && break; sleep 5; done
 sleep 4; curl -s -m4 http://127.0.0.1:8010/ > $OUT/face_ready.json

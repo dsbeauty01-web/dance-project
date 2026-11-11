@@ -1,9 +1,9 @@
-test/proof/freeze4.mjs  2026-11-11T04:03:24.454Z
+test/proof/freeze4.mjs  2026-11-11T04:22:55.380Z
 browser: /usr/bin/google-chrome 153.0.8010.12
 
 == A · full game, 1280x720, English, stand-in pod — recorded ==
       screenshot docs/evidence/freeze4/A-1-start-screen.png
-PASS  A1 the face stream reaches the side panel through the bridge (nova-face → onFace → panel live)  — {"live":true,"badge":"listening","size":"small","frames":1,"missing":false}
+PASS  A1 the face stream reaches the side panel through the bridge (nova-face → onFace → panel live)  — {"live":true,"badge":"listening","size":"small","frames":2,"missing":false}
       screenshot docs/evidence/freeze4/A-2-intro-talking-big.png
 PASS  A2 while she talks the badge says Talking and the panel is big  — rail 307.2px of 1280px
       screenshot docs/evidence/freeze4/A-3-dance-watching-small.png
@@ -21,6 +21,6 @@ PASS  A9 routing follows the phase machine: engine, then air/mute per round, the
 PASS  A10 nothing is said or asked for inside a freeze hold  — 0 violations; pod dropped 0
 PASS  A11 the page never spoke by itself (no speech synthesis, no recorded speech files)  — only the FREEZE sting was fetched from audio/freeze2
 PASS  A12 the game ran to its medal  — {"medal":"silver","stars":2,"rounds":3,"skips":0}
-      recording docs/evidence/freeze4/freeze4-STANDIN-face-full-game.mp4  57.4 s (no sound track — the stand-in voice is a hum)
+      recording docs/evidence/freeze4/freeze4-STANDIN-face-full-game.mp4  59.1 s (no sound track — the stand-in voice is a hum)
 
 13 passed, 0 failed   (stand-in pod: no SoulX, no live voice — see the header of test/proof/freeze4.mjs)

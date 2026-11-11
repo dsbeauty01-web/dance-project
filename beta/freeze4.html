@@ -71,7 +71,11 @@
   background:#3a0d0d;color:#ffb3b3;font:800 clamp(18px,3vw,26px)/1.3 Nunito,system-ui}
 #banner small{font:600 clamp(13px,1.8vw,16px)/1.4 Nunito,system-ui;color:#ffd0d0;max-width:720px}
 #banner.hidden{display:none}
+/* the medal screen leaves the face rail uncovered: her ending lines are said by that face (pod run 2026-11-11: the
+   full-screen medal hid her face for the whole ending) */
+#end{left:var(--rail-big)}
 @media (max-aspect-ratio: 1/1){
+  #end{left:0;top:50vh}
   :root{ --rail: 34vw; --rail-big: 46vw; }
   #stage{flex-direction:column}
   #faceRail{padding-top:56px}
@@ -201,7 +205,9 @@ function novaSays(text, delayMs = 0){
     sayTimer = setTimeout(() => sayEl.classList.remove('on'), Math.max(2600, 120 * text.length));
   }, delayMs);
 }
-const fact = o => note('fact: ' + JSON.stringify(o));                         // silent context for her — never unlocks speech (bridge contract)
+/* No 'fact:' notes in v4: on the pod (2026-11-11) every note in the game's 'air' mode was credited as the gap's spoken
+   line (pod/rt_lk.py SPEAK-GATE, nova-cue arm), so a "silent" fact could make her talk on her own. Everything she says
+   about the round is already in the exact line the page stages (Truth Law: only what the judge saw). */
 function mindReact(type, d){ const r = mind.react(type, d); if (r) novaSays(r.text, r.delayMs); }
 onHerAudio({ playing: () => { face.speaking(true); log('her-voice', 'start'); }, ended: () => { face.speaking(false); log('her-voice', 'end'); } });
 addEventListener('nova:kid', () => face.thinking());                          // the child said something → she is about to answer
@@ -225,9 +231,9 @@ function onEvent(type, d){
   if (type === 'freeze'){ holding = true; setVoice('mute'); face.setBase('freeze');                 // HOLDS = hard mute
     animal = d.animal; animalByRound[d.round] = d.animal; music.pause(); sting(); novaPlay(NOVA.freeze[d.animal] || NOVA.freeze.star, { holdEnd: true }); /* Nova strikes the animal pose and holds it */ lights.speedGlow(false); lights.ice(true); freezeAt = t; holdS = game.pace.holdS;
     card(TXT.animals[animal], EMO[animal]); say(TXT.freeze(TXT.animals[animal]), 'wait'); }
-  if (type === 'star'){ fact({ freeze: 'held', round: d.round, animal }); hud.star(); hud.mark(d.round, 'star'); ring(1, true); lights.ice(false); lights.snow('nose'); lights.burst('nose', 'gold'); say(TXT.star, 'good'); }
-  if (type === 'notyet'){ fact({ freeze: d.hold === 'almost' ? 'almost' : 'moved', round: d.round, animal }); hud.mark(d.round, 'notyet'); ring(null); lights.ice(false); say(TXT.notyet, 'wait'); }
-  if (type === 'skip'){ fact({ freeze: 'not seen', round: d.round }); hud.mark(d.round, 'skip'); ring(null); lights.ice(false); lights.guide('tooClose'); say(L.cantSee, 'wait'); }
+  if (type === 'star'){ hud.star(); hud.mark(d.round, 'star'); ring(1, true); lights.ice(false); lights.snow('nose'); lights.burst('nose', 'gold'); say(TXT.star, 'good'); }
+  if (type === 'notyet'){ hud.mark(d.round, 'notyet'); ring(null); lights.ice(false); say(TXT.notyet, 'wait'); }
+  if (type === 'skip'){ hud.mark(d.round, 'skip'); ring(null); lights.ice(false); lights.guide('tooClose'); say(L.cantSee, 'wait'); }
   if (type === 'seen'){ if (d.seen){ lights.guide(null); caption(...phaseCap); } else { lights.guide(guideFor(lastFrame)); caption(L.cantSee, 'wait'); } }
   mindReact(type, d);                                                        // after the routing above, so a line is never asked for inside a hold
   if (type === 'end') finish(d);
@@ -236,7 +242,6 @@ function onEvent(type, d){
 function finish(d){
   ended = true; holding = false; music.pause(); src.stop(); card(null); ring(null); caption(''); lights.clearAll(); novaPlay(NOVA.idle);
   setVoice('engine'); face.setBase('listening');                              // ENDING = she has the floor again
-  fact({ game: 'over', stars: d.stars, medal: d.medal || 'none', rounds: d.rounds });
   rec.end(d, src.state);
   /* the after-game story: at most 2 lines — the verdict and the choice (ai-companion-presence "Conversation: 2 sentences MAX";
      founder 2026-11-11 "talk a bit less"). freeze-nova says all 2–3. Timing as freeze-nova. */
@@ -264,7 +269,7 @@ async function begin(){
   if (missingClips.length) return refuse(missingClips.map(u => TXT.noBody + u));
   /* her live face + live voice — both must be really there, or the game does not start (no silent fallbacks) */
   log('attach', 'start');
-  try { await attachNova({ intro: 'freeze', onFace: s => face.attach(s) }); } catch (e) { log('attach-error', String(e?.message || e)); }
+  try { await attachNova({ intro: 'freeze4', onFace: s => face.attach(s) }); } catch (e) { log('attach-error', String(e?.message || e)); }
   const deadline = performance.now() + FACE_WAIT_MS;
   const faceOk = await face.waitLive(FACE_WAIT_MS);
   let st = bridgeState();
