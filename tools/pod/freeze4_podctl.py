@@ -16,6 +16,8 @@ import json, os, sys, time, urllib.request, urllib.error
 ENVF = os.environ.get("FREEZE4_ENV", "/root/.maya/host.env")
 IMAGE = os.environ.get("FREEZE4_IMAGE", "ghcr.io/dsbeauty01-web/maya-lt:soulx-wide-v2")
 NAME = "nova-freeze4"
+# the newest ghcr credential; the oldest (ghcr-maya-lt, Sept) left 3 pods "Exited by Runpod" within 1-16 s on 2026-11-11
+REG = os.environ.get("FREEZE4_REGISTRY", "ghcr-2026-10-30")
 FLOOR = 5.0
 REST = "https://rest.runpod.io/v1"
 
@@ -55,8 +57,8 @@ def pods():
 def registry_auth_id():
     s, d = req("GET", REST + "/containerregistryauth")
     for a in d if isinstance(d, list) else []:
-        if a.get("name") == "ghcr-maya-lt": return a["id"]
-    raise SystemExit("registry credential ghcr-maya-lt not found (names: %s)" % [a.get("name") for a in (d if isinstance(d, list) else [])])
+        if a.get("name") == REG: return a["id"]
+    raise SystemExit(f"registry credential {REG} not found (names: %s)" % [a.get("name") for a in (d if isinstance(d, list) else [])])
 
 
 def create(commit):
@@ -66,9 +68,10 @@ def create(commit):
     if any(p.get("name") == NAME for p in pods()): raise SystemExit("REFUSED: a pod named nova-freeze4 already exists")
     url = f"https://raw.githubusercontent.com/dsbeauty01-web/dance-project/{commit}/tools/pod/freeze4_pod.sh"
     body = {
-        "name": NAME, "imageName": IMAGE, "gpuTypeIds": ["NVIDIA GeForce RTX 4090"], "gpuCount": 1,
-        "cloudType": "SECURE", "interruptible": False, "containerDiskInGb": 60, "volumeInGb": 0,
-        "ports": ["8099/http", "8765/http"], "containerRegistryAuthId": registry_auth_id(),
+        # field set mirrors maya-lt maya_launch/providers/runpod.py create() (the body Maya's lives boot with)
+        "name": NAME, "imageName": IMAGE, "computeType": "GPU", "gpuTypeIds": ["NVIDIA GeForce RTX 4090"], "gpuCount": 1,
+        "gpuTypePriority": "custom", "cloudType": "SECURE", "containerDiskInGb": 60, "volumeInGb": 0, "volumeMountPath": "/workspace",
+        "ports": ["8099/http", "8765/http"], "supportPublicIp": True, "containerRegistryAuthId": registry_auth_id(),
         "dockerEntrypoint": ["/bin/bash", "-c"],
         "dockerStartCmd": [f"mkdir -p /root/out; curl -fsSL {url} -o /root/f4.sh >> /root/out/fetch.log 2>&1; "
                            f"FREEZE4_BRANCH=nova-freeze-v4 bash /root/f4.sh; sleep infinity"],
@@ -115,7 +118,35 @@ if __name__ == "__main__":
     if c == "balance": print("balance", *balance())
     elif c == "mine": print([(p.get("id"), p.get("desiredStatus")) for p in pods() if p.get("name") == NAME])
     elif c == "create": create(a[0])
+    elif c == "create-retry":                           # no capacity is free to wait for: retry every 45 s, at most N tries
+        for i in range(int(a[1]) if len(a) > 1 else 27):
+            try:
+                create(a[0]); break
+            except SystemExit as e:
+                print(time.strftime("%H:%M:%S"), "try", i + 1, str(e)[:120], flush=True)
+                if "REFUSED" in str(e): raise
+                time.sleep(45)
     elif c == "status": status(a[0])
+    elif c == "tagcheck":                               # does <tag> exist on ghcr maya-lt? (manifest HEAD; prints status + size only)
+        import base64
+        tok = K.get("APP_GH_TOKEN") or K.get("MAYA_ASSETS_TOKEN")
+        b = base64.b64encode(f"x:{tok}".encode()).decode()
+        r = urllib.request.Request("https://ghcr.io/token?scope=repository:dsbeauty01-web/maya-lt:pull", headers={"Authorization": "Basic " + b})
+        bear = json.loads(urllib.request.urlopen(r, timeout=20).read())["token"]
+        for tag in a:
+            r = urllib.request.Request(f"https://ghcr.io/v2/dsbeauty01-web/maya-lt/manifests/{tag}", method="GET", headers={
+                "Authorization": "Bearer " + bear, "Accept": "application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.manifest.v1+json"})
+            try:
+                m = json.loads(urllib.request.urlopen(r, timeout=20).read())
+                size = sum(l.get("size", 0) for l in m.get("layers", [])) / 1e9
+                print(tag, "EXISTS", m.get("mediaType", "")[-30:], f"layers {len(m.get('layers', []))} {size:.1f} GB")
+            except urllib.error.HTTPError as e: print(tag, "HTTP", e.code)
+    elif c == "auths":                                  # registry credential names + ids (no secrets in this listing)
+        s, d = req("GET", REST + "/containerregistryauth")
+        for x in d if isinstance(d, list) else []: print(x.get("id"), x.get("name"))
+    elif c == "show":                                   # the full pod record, minus env (keys) and start command
+        s, d = req("GET", f"{REST}/pods/{a[0]}")
+        print({k: v for k, v in d.items() if k not in ("env", "dockerStartCmd")} if isinstance(d, dict) else (s, d))
     elif c == "pull": pull(a[0], a[1], a[2:])
     elif c == "terminate": terminate(a[0])
     elif c == "watchdog":

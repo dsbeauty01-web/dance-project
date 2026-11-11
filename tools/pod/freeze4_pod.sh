@@ -27,10 +27,13 @@ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader >> $OUT/STAGES 2>
 PY=${PY:-/opt/ltenv/bin/python}
 [ -x "$PY" ] || PY=python3
 export SOULX_ROOT=${SOULX_ROOT:-/opt/soulxroot}
+# Maya's renderer: /opt/maya-ops/lt on soulx-wide-v2, /opt/maya/repo/maya-ops/lt on the golden images
+MO=/opt/maya-ops/lt; [ -f $MO/flashhead_renderer.py ] || MO=/opt/maya/repo/maya-ops/lt
+export FACE_RENDERER_DIR=$MO; echo "renderer dir $MO $(ls $MO/flashhead_renderer.py 2>&1)" >> $OUT/STAGES
 
 # 2a) SoulX weights: baked into the image when it was built with BAKE_WEIGHTS=1; else fetch (Dockerfile.soulx: ~3 min)
 ( if [ -s "$SOULX_ROOT/ACTIVATE.sh" ] && [ -d "$SOULX_ROOT/models/SoulX-FlashHead-1_3B" ]; then echo "weights baked" > $OUT/weights.txt
-  else echo "weights NOT baked - fetching" > $OUT/weights.txt; timeout 1200 $PY /opt/maya-ops/lt/soulx_fetch.py --root "$SOULX_ROOT" --jobs 4 >> $OUT/weights.txt 2>&1; echo "fetch exit $?" >> $OUT/weights.txt; fi ) &
+  else echo "weights NOT baked - fetching" > $OUT/weights.txt; timeout 1200 $PY $MO/soulx_fetch.py --root "$SOULX_ROOT" --jobs 4 >> $OUT/weights.txt 2>&1; echo "fetch exit $?" >> $OUT/weights.txt; fi ) &
 WPID=$!
 
 # 2b) system packages + Chrome (H.264 for Nova's body clips) + python deps
