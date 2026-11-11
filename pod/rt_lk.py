@@ -479,6 +479,12 @@ async def relay(request):
            the persona simultaneously ordered 'English only'."""
         return he if _hebrew else en
     def ask_lock_set(why=""):
+        # FREEZE4 (intro=freeze4): the page owns turn-taking and never waits for an answer, so a staged line that ends in
+        # "?" ("…Ready?") must not lock her. Pod run 2026-11-11: it did, and every later staged line was refused.
+        try:
+            if _page_owns: return
+        except NameError:
+            pass
         if not ask_lock["on"]:
             ask_lock["on"] = True; ask_lock["since"] = time.time()
             print("[ASK-LOCK] set" + ((" (" + why + ")") if why else ""), flush=True)
