@@ -83,6 +83,10 @@ import urllib.request
 from collections import deque
 
 import numpy as np
+try:
+    import cv2 as _cv2
+except Exception:          # the selftest box may not have it; the pod's bridge env does (job4 stage 5: cv2 OK)
+    _cv2 = None
 
 E = os.environ.get
 
@@ -527,6 +531,8 @@ class DittoFace:
     def bgr_to_rgba(f) -> tuple[int, int, bytes]:
         """lk_bridge publishes RGBA. Ditto hands back BGR uint8 (h, w, 3)."""
         h, w = f.shape[:2]
+        if _cv2 is not None:      # 2026-11-11 nova-take8c: one native call, releases the GIL (the bridge is one asyncio thread)
+            return w, h, _cv2.cvtColor(f, _cv2.COLOR_BGR2RGBA).tobytes()
         out = np.empty((h, w, 4), np.uint8)
         out[:, :, 0] = f[:, :, 2]
         out[:, :, 1] = f[:, :, 1]

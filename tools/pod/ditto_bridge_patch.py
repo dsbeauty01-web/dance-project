@@ -209,6 +209,80 @@ A4_NEW = '''            if _NOVA_FACE_DITTO:
             await asrc.capture_frame(fr)
 '''
 
+# ---- 2026-11-11 (session nova-take8c): the CPU anchors. OPTIONAL -- applied when present, logged when not.
+# Measured on the 2026-11-11 live (docs/nova-ditto/take8/live-2026-11-11/): Ditto needed 1.10-1.20 s per 1 s chunk
+# with the GPU ~1 % busy, paste-back 72 ms/frame against the co-host's ~17 ms (room2-wt health logs, same server,
+# same 1080x1920 source). The co-host does two things Nova's bridge did not:
+#   A6  it has no second face engine: here MuseTalk keeps sending 1080x1920 'V' frames and the bridge turned every
+#       one into RGBA (8 MB of numpy per frame, 25/s, on the ONE asyncio thread) only to drop it unread under
+#       NOVA_FACE=ditto. Now those bytes are read off the socket and discarded.
+#   A7  it publishes ONE encoder, simulcast off (lk_cohost/ditto_avatar.py _Runner: "the stock runner publishes
+#       with the SDK defaults (3 simulcast layers), which on the first GPU pod (323qoorgbxhxbs, 1080x1920) starved
+#       the Ditto renderer of CPU: its writer fell to ~7 frames/s and the room saw ~5 fps"). Nova's take 1 recorder
+#       received 180x322 = the LOWEST simulcast layer of the 720x1288 publish (take1.live_intro.json recorder w/h).
+#       NOVA_DITTO_SIMULCAST=1 puts simulcast back for an A/B. NOVA_FACE=musetalk: both lines run exactly as before.
+A6 = """                rgba = bgr_to_rgba(w, h, data)
+                if vq.full():
+"""
+
+A6_NEW = """                if _NOVA_FACE_DITTO:
+                    last_frame = time.monotonic(); frames += 1
+                    continue                    # A6: MuseTalk's frame is not published under Ditto -- do not convert it
+                rgba = bgr_to_rgba(w, h, data)
+                if vq.full():
+"""
+
+A7 = "simulcast=True, video_encoding=rtc.VideoEncoding(max_framerate=25, max_bitrate=3_000_000)"
+
+A7_NEW = ("simulcast=(not _NOVA_FACE_DITTO or _nf_os.environ.get('NOVA_DITTO_SIMULCAST', '0') == '1'), "
+          "video_encoding=rtc.VideoEncoding(max_framerate=25, max_bitrate=3_000_000)")
+
+# A8 (2026-11-11, nova-take8c, Part 2 "full switch to Ditto"): the bridge SAYS which engine draws her lips, as its
+# LiveKit participant metadata {"face": "ditto"|"musetalk", "ready", "alarm", "w", "h"}. shared/nova-face.js reads it
+# on every page and raises the repo's red banner when it is not Ditto or Ditto alarms (no silent fallbacks). An
+# unpatched bridge sends no metadata at all, which the page treats the same way: no Ditto -> red banner.
+A8 = '                print(f"bridge: video track published {w}x{h}", flush=True)\n'
+
+A8_NEW = '''                print(f"bridge: video track published {w}x{h}", flush=True)
+                await _nf_meta(room, w, h)
+'''
+
+A8B = '''            if n % 100 == 0:
+                print(f"bridge: published {n} frames", flush=True)
+'''
+
+A8B_NEW = '''            if n % 100 == 0:
+                print(f"bridge: published {n} frames", flush=True)
+                await _nf_meta(room, w, h)
+'''
+
+META = '''
+_nf_meta_last = [None]
+async def _nf_meta(room, w, h):
+    """A8: tell the page which face engine is live (participant metadata). Only sent when it changes."""
+    import json as _nf_json
+    m = {"face": _NOVA_FACE, "w": w, "h": h}
+    if _NOVA_FACE_DITTO:
+        m.update(ready=bool(_nova_ditto_face.ready), alarm=_nova_ditto_face.alarm,
+                 av_delay_ms=round(_nova_ditto_face.av_delay_ms))
+    s = _nf_json.dumps(m, sort_keys=True)
+    if s == _nf_meta_last[0]:
+        return
+    try:
+        await room.local_participant.set_metadata(s)
+        _nf_meta_last[0] = s
+        print("bridge: face metadata %s" % s, flush=True)
+    except Exception as _nf_e:
+        print("bridge: face metadata NOT set (%r) -- the page will show its red banner" % (_nf_e,), flush=True)
+'''
+
+# A9 (2026-11-11, nova-take8c): A8's set_metadata is DROPPED by LiveKit unless the bridge's token may update its own
+# metadata (measured on the pod: "bridge: face metadata {...ditto...}" in bridge.log, yet a viewer joining later read
+# metadata ''). Under NOVA_FACE=ditto the bridge's grant gains can_update_own_metadata; musetalk: unchanged.
+A9 = "    g = api.VideoGrants(room_join=True, room=ROOM, can_publish=True, can_subscribe=True)\n"
+A9_NEW = ("    g = api.VideoGrants(room_join=True, room=ROOM, can_publish=True, can_subscribe=True,\n"
+          "                        **({'can_update_own_metadata': True} if _NOVA_FACE_DITTO else {}))\n")
+
 MARK = "_NOVA_FACE_DITTO"          # idempotency marker
 
 
@@ -353,6 +427,18 @@ def apply(target, sidecar_src, log):
         log("   REFUSING: A4 did not apply (the A/V offset would never be held)")
         return 2
     out2 = out4
+    out2 = out2.replace(A1 + BOOT, A1 + BOOT + META, 1)
+    for name, a, new in (("A6 drop MuseTalk frames under ditto", A6, A6_NEW),
+                         ("A7 simulcast off under ditto", A7, A7_NEW),
+                         ("A8 face metadata on publish", A8, A8_NEW),
+                         ("A8b face metadata refresh", A8B, A8B_NEW),
+                         ("A9 metadata grant under ditto", A9, A9_NEW)):
+        n = out2.count(a)
+        if n == 1:
+            out2 = out2.replace(a, new, 1)
+            log(f"   {name}: applied")
+        else:
+            log(f"   {name}: NOT applied (anchor count={n}) -- the bridge keeps its old behaviour here")
 
     bak = f"{target}.bak-ditto-{int(time.time())}"
     shutil.copy2(target, bak)

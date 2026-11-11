@@ -578,6 +578,13 @@ const Live = {
       const r=await (await fetch(SARAY_BASE+'token')).json();
       const room=new LK.Room({adaptiveStream:false,dynacast:false});
       this.room=room;
+      /* FACE (2026-11-11, nova-take8c): Ditto lips everywhere + WIDE before the game — the shared engine decides
+         (shared/nova-face.js): pod not on Ditto -> red banner; her video pinned to the whole figure, never a head crop. */
+      import(new URL('../shared/nova-face.js', location.href).href)
+        .then(m=>{ self.face=m; m.watchFace(room, LK, {video:self.video}); })
+        .catch(e=>{ const b=document.createElement('div'); b.textContent='⛔ shared/nova-face.js failed to load — Nova\'s face engine is unchecked: '+(e&&e.message);
+                    b.style.cssText='position:fixed;left:0;right:0;top:0;z-index:2147483647;padding:10px;background:#b00020;color:#fff;font:600 15px system-ui;text-align:center';
+                    document.body.appendChild(b); });
       room.on(LK.RoomEvent.TrackSubscribed,(track,pub,p)=>{
         if(p.identity!=='nova-avatar')return;
         if(track.kind==='video'){ track.attach(self.video); }
@@ -731,7 +738,8 @@ const Live = {
   post(msg){ try{
     const t=(msg&&msg.type)||'';
     if(t==='set-avatar'){ if(msg.id) fetch(SARAY_BASE+'set_avatar?id='+encodeURIComponent(msg.id)).catch(()=>{}); return; }
-    if(t==='frame'){ if(this.video) this.video.style.objectFit=(msg.mode==='closeup')?'cover':'contain'; return; }
+    if(t==='frame'){ if(this.video){ if(this.face && this.face.faceState().face==='ditto') this.face.wide(this.video);   /* Ditto: WIDE, never a head crop (nova-take8c) */
+                     else this.video.style.objectFit=(msg.mode==='closeup')?'cover':'contain'; } return; }
     if(t==='auto-start') return;                        // no gate to wake — we ARE the page
     const map={
       'nova-say':     m=>({type:'nova-say',  text:m.text}),
