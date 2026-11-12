@@ -1,0 +1,96 @@
+{
+ "url": "http://127.0.0.1:8765/beta/freeze?commercial=1",
+ "mp4": "/root/novaditto_out/live_intro.mp4",
+ "mp4_bytes": 2665814,
+ "webm_bytes": 2371551,
+ "chunks": 69,
+ "recorder": {
+  "started": true,
+  "frames": 352,
+  "chunks": 69,
+  "bytes": 2371551,
+  "err": null,
+  "w": 180,
+  "h": 322,
+  "vfc": 315,
+  "skipped": 792,
+  "drawMode": "requestVideoFrameCallback+poll(10ms)",
+  "pushMode": "captureStream(0)+requestFrame",
+  "paintSource": "page element VIDEO#nova-live-video",
+  "frameGuard": "totalVideoFrames",
+  "stopped": true,
+  "mime": "video/webm;codecs=vp8,opus",
+  "audio": true,
+  "mix": {
+   "n": 1,
+   "tracks": [
+    {
+     "tag": "AUDIO#",
+     "label": "remote audio",
+     "muted": true,
+     "local": true,
+     "id": "64eb6cc1"
+    }
+   ],
+   "ctx": "running"
+  },
+  "vpick": {
+   "n": 2,
+   "cands": [
+    {
+     "tag": "VIDEO#nova-live-video",
+     "label": "remote video",
+     "w": 0,
+     "h": 0,
+     "score": 12
+    },
+    {
+     "tag": "VIDEO#cam",
+     "label": "fake_device_0",
+     "w": 960,
+     "h": 720,
+     "score": -24
+    }
+   ],
+   "chosen": {
+    "tag": "VIDEO#nova-live-video",
+    "label": "remote video",
+    "w": 0,
+    "h": 0
+   }
+  }
+ },
+ "ffmpeg_rc": 0,
+ "nova_lines": [
+  "Hi! I'm Nova, your magical AI dance teacher! What's your name?",
+  "I'm right here, no rush at all.",
+  "Noam\u2014so awesome to meet you! What\u2019s your favorite animal?",
+  "Still right here.",
+  "Tigers are epic jumpers\u2014love that!",
+  "I can\u2019t dance myself, but I can help you dance with tiger energy\u2014want to try?"
+ ],
+ "kid_typed": [
+  "im Noam!",
+  "a tiger! i like how it jumps",
+  "can you dance like a tiger?"
+ ],
+ "kid_echo": [
+  "im Noam!",
+  "a tiger! i like how it jumps",
+  "can you dance like a tiger?"
+ ],
+ "gestures": [],
+ "probe": "{\n    \"programs\": [\n\n    ],\n    \"streams\": [\n        {\n            \"codec_name\": \"h264\",\n            \"codec_type\": \"video\",\n            \"width\": 540,\n            \"height\": 960,\n            \"avg_frame_rate\": \"50000/12643\",\n            \"duration\": \"88.501000\",\n            \"nb_frames\": \"350\"\n        },\n        {\n            \"codec_name\": \"aac\",\n            \"codec_type\": \"audio\",\n            \"avg_frame_rate\": \"0/0\",\n            \"duration\": \"89.909333\",\n            \"nb_frames\": \"2935\"\n        }\n    ]\n}\n",
+ "verify": {
+  "mean_volume_db": -32.8,
+  "max_volume_db": -4.0,
+  "video_frames": 284,
+  "bitexact_dupes": 1,
+  "bitexact_pct": 0.35,
+  "mad_transitions": 353,
+  "duplicate_frames": 251,
+  "duplicate_pct": 71.1,
+  "mad_threshold": 0.1,
+  "mad_median": 0.0289
+ }
+}

@@ -1,0 +1,18 @@
+/workspace                                                             drwxrwxrwx 38 root root 3003779 Nov  2 05:10 /workspace
+/workspace/_sys                                                        drwxrwxrwx 3 root root 3000703 Aug 15 09:28 /workspace/_sys
+/workspace/_sys/pylibs311_good/dist-packages                           drwxrwxrwx 365 root root 3000703 Nov  2 08:29 /workspace/_sys/pylibs311_good/dist-packages
+/workspace/_sys/pylibs311_good/dist-packages/torch                     drwxrwxrwx 45 root root 2013688 Nov  2 04:07 /workspace/_sys/pylibs311_good/dist-packages/torch
+/workspace/_sys/pylibs311_good/dist-packages/torch/lib                 ls: cannot access '/workspace/_sys/pylibs311_good/dist-packages/torch/lib': No such file or directory
+
+### .so count and total size under /workspace/_sys/pylibs311_good/dist-packages/torch
+1
+878M	/workspace/_sys/pylibs311_good/dist-packages/torch
+
+### write probe on the volume (1 MB)
+1048576 bytes (1.0 MB, 1.0 MiB) copied, 0.00899268 s, 117 MB/s
+
+### container disk
+overlay          60G  8.8G   52G  15% /
+
+### volume
+mfs#euro-3.runpod.net:9421  2.2P  1.8P  493T  78% /workspace

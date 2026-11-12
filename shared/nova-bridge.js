@@ -22,6 +22,14 @@
 // FACE: tools/pod/nova_face.py publishes `nova-face` (SoulX face video + her voice audio) when the pod runs with
 // NOVA_FACE_SOULX=1 (docs/FREEZE4-SOULX-FACE.md). Change FACE_ID HERE only if that identity ever changes.
 
+// FACE (2026-11-11, nova-take8c): Ditto draws her lips everywhere. shared/nova-face.js reads which engine the pod's
+// bridge reports and raises the red banner when it is not Ditto. Under Ditto the live track is ALWAYS her talking
+// body (the Ditto source, her room, full figure): a non-talk body asked through setBody() is NOT drawn by the pod,
+// so it is said out loud (red banner) instead of silently showing the talk body.
+import { watchFace, faceState, faceOK, onFace, redBanner } from './nova-face.js';
+export { faceState, faceOK, onFace };
+const TALK_BODIES = new Set(['nova_idle2', 'nova_idle']);   // beta/freeze.html TALK_BODY + the Ditto pack's idle
+
 const BASE = location.origin + '/';
 const WSBASE = BASE.replace(/^http/, 'ws');
 
@@ -41,6 +49,11 @@ export async function attachNova({ onVideo, onFace, intro = '' } = {}) {
 
 export function setBody(id) {
   if (!id) return;
+  if (faceState().face === 'ditto' && !TALK_BODIES.has(id)) {
+    // QUESTION (founder): under Ditto the pod shows only the talking body; game bodies must come from the page
+    // (clips) or the in-game face engine. Until that exists for this page, say so — never a silent stand-in.
+    redBanner(`⛔ body "${id}" is not drawn under Ditto — this page still asks the pod for it.`);
+  }
   fetch(BASE + 'set_avatar?id=' + encodeURIComponent(id), { mode: 'no-cors', cache: 'no-store' }).catch(() => {});
 }
 
@@ -71,6 +84,7 @@ async function joinLiveKit(onVideo, onFace) {
     if (!LK) { console.warn('[BRIDGE] LiveKit client not loaded'); return; }
     const r = await (await fetch(BASE + 'token')).json();
     room = new LK.Room({ adaptiveStream: false, dynacast: false });
+    watchFace(room, LK);
     room.on(LK.RoomEvent.TrackSubscribed, (track, pub, p) => {
       if (p.identity === FACE_ID) {                  // the live face (SoulX): its video is her face, its audio is her voice —
         // tools/pod/nova_face.py renders the face FROM those very samples, so voice and face leave the pod together.

@@ -1,0 +1,53 @@
+{
+ "label": "live_ditto_intro_take1",
+ "frames_at_25fps": 1732,
+ "seconds": 69.28,
+ "delivered_wh": [
+  540,
+  960
+ ],
+ "file_fps": 3.98,
+ "face_found_pct": 100.0,
+ "face_px_p50": 151.0,
+ "mouth_sharp256": 0.09,
+ "face_sharp_lapvar": 170.5,
+ "duplicate_pct": 95.3,
+ "longest_frozen_s": 7.04,
+ "lips": {
+  "voiced_s": 3.8,
+  "silent_s": 62.0,
+  "lip_motion_speaking": 0.09,
+  "lip_motion_silent": 0.06,
+  "gap_speaking_p90": 0.0086,
+  "gap_silent_p90": 0.009,
+  "open_in_silence_frames": 0,
+  "pucker_frames": 0,
+  "corr_best_lag8": -0.139,
+  "corr_lag8_frames": -8,
+  "corr_best_lag75": 0.28,
+  "corr_lag75_frames": -69,
+  "corr_lag75_ms": -2760
+ },
+ "body_ref": {
+  "label": "body_nova_idle.mp4",
+  "delivered_wh": [
+   1080,
+   1920
+  ],
+  "face_px_p50": 301.0,
+  "mouth_sharp256": 1.0,
+  "face_sharp_lapvar": 121.7
+ },
+ "mouth_sharp_vs_body": 0.09,
+ "verdict": {
+  "face_found>=95%": "PASS",
+  "duplicates<=15%": "FAIL",
+  "no_frozen_stretch>2s": "FAIL",
+  "nova_corr>=0.35": "FAIL",
+  "in_sync(best lag within +-8 frames)": "FAIL",
+  "maya_gate(corr>=0.5, silent<=1.2, 0 open, 0 pucker)": "FAIL",
+  "sharpness_kept(mouth >= 0.6 x body)": "FAIL",
+  "ALL_NOVA_BARS": "FAIL"
+ },
+ "strip": "live_intro_take1_strip.jpg"
+}

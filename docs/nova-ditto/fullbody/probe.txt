@@ -1,0 +1,41 @@
+ditto_bridge_patch  2026-10-31 08:23:10Z
+== probe /workspace/lk_bridge.py
+   md5 1c4448b475ae0cdd719aef4edaa90337   8288 bytes   182 lines
+
+   anchors this patch needs (both must be exactly 1):
+     OK   A1  return rgba.tobytes()  count=1
+     OK   A2  w, h, rgba = await vq.get()  count=1
+
+   what is in the file (every matching line -- this is what to send back):
+     publish_track: 2
+        L122: await room.local_participant.publish_track(
+        L140: await room.local_participant.publish_track(
+     TrackPublishOptions: 2
+        L123: atrack, rtc.TrackPublishOptions(source=rtc.TrackSource.SOURCE_MICROPHONE))
+        L141: vt, rtc.TrackPublishOptions(source=rtc.TrackSource.SOURCE_CAMERA, simulcast=True, video_encoding=rtc.VideoEncoding(max_framerate=25, max_bitrate=3_000_000)))
+     VideoSource: 1
+        L138: vstate["src"] = rtc.VideoSource(w, h)
+     AudioSource: 1
+        L120: asrc = rtc.AudioSource(AUDIO_SR, 1)
+     audio frame / capture: 3
+        L145: vstate["src"].capture_frame(rtc.VideoFrame(w, h, rtc.VideoBufferType.RGBA, rgba))
+        L159: fr = rtc.AudioFrame.create(AUDIO_SR, 1, n)
+        L174: await asrc.capture_frame(fr)
+     simulcast / bitrate: 1
+        L141: vt, rtc.TrackPublishOptions(source=rtc.TrackSource.SOURCE_CAMERA, simulcast=True, video_encoding=rtc.VideoEncoding(max_framerate=25, max_bitrate=3_000_000)))
+     the video queue: 2
+        L79: vq.put_nowait((w, h, rgba))
+        L135: w, h, rgba = await vq.get()
+     the downscale patch: 2
+        L42: def _downscale(w, h, rgba):
+        L136: w, h, rgba = _downscale(w, h, rgba)
+     NOVA_FACE (this patch): 0
+
+   KEY QUESTION for the audio: if 'AudioSource' / 'AudioFrame' above is 0, lk_bridge
+   publishes VIDEO only and the audio track comes from the LiveTalking engine, which
+   is what pod/rt_lk.py's NOVA_FACE=ditto delay assumes. If it is NOT 0, the audio is
+   published here and the delay belongs here instead -- say so before applying.
+   already patched: no
+
+log: /workspace/gallery/wd/ditto_patch.log
+probe exit=0

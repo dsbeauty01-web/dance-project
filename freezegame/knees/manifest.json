@@ -1,0 +1,151 @@
+{
+ "_about": [
+  "Knees-up crops of the four freeze pose clips, for NOVA_FACE=ditto.",
+  "Ditto needs her face at 200-470 px, which forces a ~1.72x knees-up reframe of the",
+  "LIVE body. PoseClip overlays cover the whole stage (inset:0, object-fit:contain,",
+  "z6 over the live video at z3), so at a freeze the picture would jump from knees-up",
+  "to full-body unless the pose clips are reframed the same way. These are that reframe.",
+  "MEASURED 2026-10-30 (branch nova-ditto): 3 of the 4 poses do not survive it."
+ ],
+ "crop": {
+  "box": "628:1126:218:257",
+  "source_wh": [
+   1076,
+   1924
+  ],
+  "out_wh": [
+   1080,
+   1920
+  ],
+  "zoom": 1.713,
+  "fps": "unchanged (24) \u2014 these are page overlays, not a Ditto source",
+  "from": "docs/ditto-try/reframe_plan.jsonl (the box that put her face at ~280 px)"
+ },
+ "set_verdict": "REJECT",
+ "poses": {
+  "star": {
+   "file": "freeze-star.mp4",
+   "held_frame_s": 3.0,
+   "pose_is": "both arms out \u2014 the star's points are her HANDS",
+   "verdict": "REJECT",
+   "key_landmarks_cut": [
+    {
+     "landmark": "l_wr",
+     "at": [
+      1024,
+      510
+     ],
+     "outside_by": "right 178px"
+    },
+    {
+     "landmark": "r_wr",
+     "at": [
+      204,
+      499
+     ],
+     "outside_by": "left 14px"
+    },
+    {
+     "landmark": "l_idx",
+     "at": [
+      1076,
+      481
+     ],
+     "outside_by": "right 230px"
+    },
+    {
+     "landmark": "r_idx",
+     "at": [
+      156,
+      487
+     ],
+     "outside_by": "left 62px"
+    }
+   ],
+   "why": "the landmarks that MAKE this pose are outside the crop \u2014 what is left does not read as the pose"
+  },
+  "frog": {
+   "file": "freezefrog.mp4",
+   "held_frame_s": 2.4,
+   "pose_is": "deep squat \u2014 the shape is the bent KNEES and the hands between them",
+   "verdict": "REJECT",
+   "key_landmarks_cut": [
+    {
+     "landmark": "l_knee",
+     "at": [
+      764,
+      1472
+     ],
+     "outside_by": "below 89px"
+    },
+    {
+     "landmark": "r_knee",
+     "at": [
+      302,
+      1427
+     ],
+     "outside_by": "below 44px"
+    },
+    {
+     "landmark": "l_idx",
+     "at": [
+      640,
+      1422
+     ],
+     "outside_by": "below 39px"
+    }
+   ],
+   "why": "the landmarks that MAKE this pose are outside the crop \u2014 what is left does not read as the pose"
+  },
+  "bear": {
+   "file": "freezebear.mp4",
+   "held_frame_s": 2.2,
+   "pose_is": "both paws raised beside the head \u2014 the shape is the CLAWS",
+   "verdict": "REJECT",
+   "key_landmarks_cut": [
+    {
+     "landmark": "l_wr",
+     "at": [
+      875,
+      283
+     ],
+     "outside_by": "right 29px"
+    },
+    {
+     "landmark": "l_idx",
+     "at": [
+      862,
+      222
+     ],
+     "outside_by": "right 16px + above 35px"
+    }
+   ],
+   "why": "the landmarks that MAKE this pose are outside the crop \u2014 what is left does not read as the pose"
+  },
+  "flamingo": {
+   "file": "flamingo_freeze.mp4",
+   "held_frame_s": 2.9,
+   "pose_is": "one leg raised, knee bent, foot tucked \u2014 the shape is the RAISED LEG",
+   "verdict": "OK",
+   "key_landmarks_cut": [
+    {
+     "landmark": "r_foot",
+     "at": [
+      527,
+      1452
+     ],
+     "outside_by": "below 69px"
+    }
+   ],
+   "why": "the raised knee, shin and shoe all stay in frame; only the toe tip (~68 px) and her far hand (~50 px) leave it \u2014 the flamingo still reads"
+  }
+ },
+ "decision": "DO NOT SHIP this crop as the live freeze set. 1 of 4 poses survives. The four clips were generated full-body with the limbs filling the frame edge to edge (star hands measured at x=20 and x=1087 of a 1076-wide frame \u2014 already at the edge BEFORE any crop), so no zoom that satisfies Ditto's 200 px face can keep them.",
+ "alternative": [
+  "Re-generate the four pose clips AT knees-up framing (fal Kling, same still, same",
+  "room, face ~280 px) with the poses COMPOSED for the tighter frame: star arms up at",
+  "45 degrees instead of straight out, bear claws beside the cheeks instead of above",
+  "the head, frog a shallower squat so the knees stay up, flamingo unchanged.",
+  "That is a generation job for Refael's CLI (it needs FAL_KEY) \u2014 see docs/NOVA-DITTO.md RUN-ME."
+ ]
+}

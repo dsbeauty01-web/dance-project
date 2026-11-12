@@ -1,0 +1,55 @@
+[ditto_fullbody] installed: explicit_box=[263.0, 215.0, 763.0, 715.0] up=3.0 rungs=5
+[ditto_server] listening on :8031
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1793532651.238525    2511 gl_context_egl.cc:85] Successfully initialized EGL. Major : 1 Minor: 5
+I0000 00:00:1793532651.306870    2545 gl_context.cc:357] GL version: 3.2 (OpenGL ES 3.2 NVIDIA 595.91.07), renderer: NVIDIA GeForce RTX 4090/PCIe/SSE2
+W0000 00:00:1793532651.311090    2511 face_landmarker_graph.cc:174] Sets FaceBlendshapesGraph acceleration to xnnpack by default.
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+W0000 00:00:1793532651.317602    2548 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1793532651.328095    2558 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+In file included from /root/ditto/env/lib/python3.10/site-packages/numpy/_core/include/numpy/ndarraytypes.h:1909,
+                 from /root/ditto/env/lib/python3.10/site-packages/numpy/_core/include/numpy/ndarrayobject.h:12,
+                 from /root/ditto/env/lib/python3.10/site-packages/numpy/_core/include/numpy/arrayobject.h:5,
+                 from /root/.pyxbld/temp.linux-x86_64-3.10/root/ditto/src/core/utils/blend/blend.c:1286:
+/root/ditto/env/lib/python3.10/site-packages/numpy/_core/include/numpy/npy_1_7_deprecated_api.h:17:2: warning: #warning "Using deprecated NumPy API, disable it with " "#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION" [-Wcpp]
+   17 | #warning "Using deprecated NumPy API, disable it with " \
+      |  ^~~~~~~
+==================== setup kwargs ====================
+use_d_keys <class 'dict'> {'exp': 0.6}
+template_n_frames <class 'int'> 344
+max_size <class 'int'> 1920
+crop_scale <class 'float'> 2.3
+crop_vx_ratio <class 'int'> 0
+crop_vy_ratio <class 'float'> -0.125
+crop_flag_do_rot <class 'bool'> True
+smo_k_s <class 'int'> 13
+emo <class 'numpy.ndarray'> (600, 8)
+eye_f0_mode <class 'bool'> False
+ch_info <class 'dict'>
+overlap_v2 <class 'int'> 70
+fix_kp_cond <class 'int'> 1
+fix_kp_cond_dim <class 'list'> [0, 202]
+sampling_timesteps <class 'int'> 10
+online_mode <class 'bool'> True
+v_min_max_for_clip <class 'numpy.ndarray'> (4, 265)
+smo_k_d <class 'int'> 3
+N_d <class 'int'> -1
+relative_d <class 'bool'> True
+drive_eye <class 'NoneType'> None
+delta_eye_arr <class 'numpy.ndarray'> (15, 63)
+delta_eye_open_n <class 'int'> 0
+fade_type <class 'str'> d0
+fade_out_keys <class 'list'> ['exp']
+flag_stitching <class 'bool'> True
+overall_ctrl_info <class 'dict'> {'delta_pitch': 2}
+==================================================
+/root/ditto/env/lib/python3.10/site-packages/google/protobuf/symbol_database.py:55: UserWarning: SymbolDatabase.GetPrototype() is deprecated. Please use message_factory.GetMessageClass() instead. SymbolDatabase.GetPrototype() will be removed soon.
+  warnings.warn('SymbolDatabase.GetPrototype() is deprecated. Please '
+[ditto_fullbody] ROI hit on a 1074x1920 frame: roi=[263, 215, 763, 715] up=3.0 face_px=157.1 (stock full-frame pass found nothing)
+writer: 0it [00:00, ?it/s]I0000 00:00:1793532660.658255    2748 gl_context_egl.cc:85] Successfully initialized EGL. Major : 1 Minor: 5
+I0000 00:00:1793532660.689914    2750 gl_context.cc:357] GL version: 3.2 (OpenGL ES 3.2 NVIDIA 595.91.07), renderer: NVIDIA GeForce RTX 4090/PCIe/SSE2
+W0000 00:00:1793532660.690163    2748 face_landmarker_graph.cc:174] Sets FaceBlendshapesGraph acceleration to xnnpack by default.
+W0000 00:00:1793532660.693514    2756 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1793532660.700704    2768 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+writer: 1it [00:00,  2.81it/s]writer: 9it [00:00, 24.83it/s]writer: 18it [00:00, 43.16it/s]writer: 20it [00:20, 43.16it/s]writer: 21it [02:00,  8.85s/it]writer: 26it [02:00,  5.80s/it]writer: 33it [02:00,  3.44s/it]writer: 40it [02:00,  2.18s/it]writer: 46it [02:00,  1.51s/it]writer: 52it [02:00,  1.05s/it]writer: 58it [02:01,  1.36it/s]writer: 64it [02:01,  1.92it/s]writer: 71it [02:01,  2.85it/s]writer: 77it [02:01,  3.94it/s][ditto_server] ready {"src": "nova_fb_bank.mp4", "src_frames": 344, "src_wh": [1076, 1924], "amp": 0.6, "gate_frames": 0, "out_wh": [1074, 1920], "setup_s": 7.2, "bank": "/root/in/nova_fb_bank.json", "zoom": false, "eye_holds": 0, "prime_s": 121.3}
+writer: 84it [02:01,  5.68it/s]

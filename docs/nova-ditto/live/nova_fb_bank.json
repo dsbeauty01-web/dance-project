@@ -1,0 +1,66 @@
+{
+ "video": "nova_fb_bank.mp4",
+ "fps": 25,
+ "frames": 344,
+ "segments": [
+  {
+   "name": "nova_fb_idle",
+   "kind": "idle",
+   "start": 5,
+   "end": 246,
+   "secs": 9.64,
+   "src": "nova_fullbody_calm.mp4",
+   "raw": [
+    0,
+    252
+   ],
+   "loop_mae": 0.738,
+   "no_paste": 0,
+   "seam": 0.0
+  },
+  {
+   "name": "nova_fb_groove",
+   "kind": "gesture",
+   "start": 252,
+   "end": 344,
+   "secs": 3.68,
+   "src": "D-take2.mp4",
+   "raw": [
+    252,
+    344
+   ],
+   "loop_mae": 3.301,
+   "junction_mae": 10.712,
+   "no_paste": 0,
+   "seam": 0.0
+  }
+ ],
+ "aliases": {
+  "groove": "nova_fb_groove",
+  "greet": "nova_fb_groove",
+  "hello": "nova_fb_groove",
+  "dance": "nova_fb_groove"
+ },
+ "built": "dance-project tools/pod/build_nova_fb_bank.py (branch nova-ditto, 2026-11-01)",
+ "wh": [
+  1076,
+  1924
+ ],
+ "boxes": {
+  "nova_fb_idle": [
+   263,
+   215,
+   763,
+   715
+  ],
+  "nova_fb_groove": [
+   288,
+   200,
+   798,
+   710
+  ],
+  "note": "Ditto detects a face on frame 0 only (source2info._crop early-returns on last_lmk); frame 0 of the bank is the idle, so DITTO_FB_BOX is the idle box."
+ },
+ "trim_note": "segments skip the eased still ends (idle +5/-6, gesture +1/-5); 'raw' is the full clip",
+ "gesture_note": "no wave exists at full-body framing; this is D-take2's groove, mouth_p95 0.0423 (over the idle gate) which is why it is a short gesture and not the idle"
+}

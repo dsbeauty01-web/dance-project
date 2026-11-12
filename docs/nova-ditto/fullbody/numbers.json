@@ -1,0 +1,420 @@
+{
+ "session": "novaditto-fullbody",
+ "date": "2026-10-31",
+ "spend_usd_total": 2.17,
+ "cap_usd": 4,
+ "key_insight_roi": {
+  "clips": [
+   "idle_sway",
+   "D-take2",
+   "E-take1"
+  ],
+  "frames_per_clip": 3,
+  "found_full_frame": 0,
+  "found_full_frame_upscaled_3x": 0,
+  "found_top_third_roi_3x": 9,
+  "of": 9,
+  "face_px_range": [
+   154.5,
+   172.2
+  ],
+  "idle_sway_roi_found_frames": "121/121"
+ },
+ "gates": {
+  "gate_fb_body_a_plain": {
+   "verdict": "REJECT",
+   "summary": {
+    "frames": 252,
+    "face_found_pct": 0.0
+   },
+   "checks": {
+    "face_found_pct_min": "REJECT"
+   }
+  },
+  "gate_fb_body_a_track": {
+   "verdict": "REJECT",
+   "summary": {
+    "frames": 252,
+    "secs": 10.08,
+    "face_found_pct": 100.0,
+    "no_face_run_ms": 0,
+    "face_px_p5": 154,
+    "face_px_p50": 159,
+    "face_px_p95": 162,
+    "yaw_rest_deg": -7.8,
+    "yaw_abs_p99_deg": 11.2,
+    "yaw_range_deg": 3.5,
+    "pitch_range_deg": 11.3,
+    "roll_range_deg": 3.7,
+    "yaw_proxy_p50": 0.056,
+    "yaw_proxy_max": 0.112,
+    "disp_p95_pct": 1.59,
+    "disp_max_pct": 2.85,
+    "rot_v_p95_deg": 1.37,
+    "rot_v_max_deg": 2.41,
+    "smo_res_p95_deg": 1.68,
+    "smo_res_max_deg": 2.77,
+    "mouth_p50": 0.0168,
+    "mouth_p95": 0.0427,
+    "hand_pct": 0.0,
+    "hand_run_ms": 0,
+    "blur_p05_rel": 0.61
+   },
+   "checks": {
+    "face_found_pct_min": "PASS",
+    "no_face_run_ms": "PASS",
+    "face_px_lo": "REJECT",
+    "face_px_hi": "PASS",
+    "yaw_range_deg": "PASS",
+    "yaw_abs_deg": "PASS",
+    "pitch_range_deg": "PASS",
+    "roll_range_deg": "PASS",
+    "disp_p95_pct": "PASS",
+    "disp_max_pct": "PASS",
+    "rot_v_p95_deg": "PASS",
+    "smo_res_p95_deg": "SOFTEN",
+    "mouth_p95": "REJECT",
+    "hand_pct": "PASS",
+    "hand_run_ms": "PASS",
+    "blur_p05_rel": "PASS"
+   }
+  },
+  "gate_fb_body_b_track": {
+   "verdict": "REJECT",
+   "summary": {
+    "frames": 252,
+    "secs": 10.08,
+    "face_found_pct": 100.0,
+    "no_face_run_ms": 0,
+    "face_px_p5": 151,
+    "face_px_p50": 156,
+    "face_px_p95": 160,
+    "yaw_rest_deg": -7.8,
+    "yaw_abs_p99_deg": 8.6,
+    "yaw_range_deg": 1.4,
+    "pitch_range_deg": 7.6,
+    "roll_range_deg": 2.2,
+    "yaw_proxy_p50": 0.043,
+    "yaw_proxy_max": 0.067,
+    "disp_p95_pct": 0.95,
+    "disp_max_pct": 1.76,
+    "rot_v_p95_deg": 0.78,
+    "rot_v_max_deg": 2.08,
+    "smo_res_p95_deg": 0.84,
+    "smo_res_max_deg": 1.93,
+    "mouth_p50": 0.0103,
+    "mouth_p95": 0.0209,
+    "hand_pct": 0.0,
+    "hand_run_ms": 0,
+    "blur_p05_rel": 0.85
+   },
+   "checks": {
+    "face_found_pct_min": "PASS",
+    "no_face_run_ms": "PASS",
+    "face_px_lo": "REJECT",
+    "face_px_hi": "PASS",
+    "yaw_range_deg": "PASS",
+    "yaw_abs_deg": "PASS",
+    "pitch_range_deg": "PASS",
+    "roll_range_deg": "PASS",
+    "disp_p95_pct": "PASS",
+    "disp_max_pct": "PASS",
+    "rot_v_p95_deg": "PASS",
+    "smo_res_p95_deg": "PASS",
+    "mouth_p95": "PASS",
+    "hand_pct": "PASS",
+    "hand_run_ms": "PASS",
+    "blur_p05_rel": "PASS"
+   }
+  },
+  "gate_D-take2_plain": {
+   "verdict": "REJECT",
+   "summary": {
+    "frames": 242,
+    "face_found_pct": 0.0
+   },
+   "checks": {
+    "face_found_pct_min": "REJECT"
+   }
+  },
+  "gate_D-take2_track": {
+   "verdict": "REJECT",
+   "summary": {
+    "frames": 242,
+    "secs": 10.08,
+    "face_found_pct": 100.0,
+    "no_face_run_ms": 0,
+    "face_px_p5": 151,
+    "face_px_p50": 154,
+    "face_px_p95": 157,
+    "yaw_rest_deg": -0.7,
+    "yaw_abs_p99_deg": 4.5,
+    "yaw_range_deg": 5.2,
+    "pitch_range_deg": 7.3,
+    "roll_range_deg": 7.3,
+    "yaw_proxy_p50": 0.009,
+    "yaw_proxy_max": 0.04,
+    "disp_p95_pct": 3.87,
+    "disp_max_pct": 4.77,
+    "rot_v_p95_deg": 1.07,
+    "rot_v_max_deg": 1.88,
+    "smo_res_p95_deg": 1.54,
+    "smo_res_max_deg": 2.3,
+    "mouth_p50": 0.0142,
+    "mouth_p95": 0.0423,
+    "hand_pct": 0.0,
+    "hand_run_ms": 0,
+    "blur_p05_rel": 0.79
+   },
+   "checks": {
+    "face_found_pct_min": "PASS",
+    "no_face_run_ms": "PASS",
+    "face_px_lo": "REJECT",
+    "face_px_hi": "PASS",
+    "yaw_range_deg": "PASS",
+    "yaw_abs_deg": "PASS",
+    "pitch_range_deg": "PASS",
+    "roll_range_deg": "PASS",
+    "disp_p95_pct": "SOFTEN",
+    "disp_max_pct": "PASS",
+    "rot_v_p95_deg": "PASS",
+    "smo_res_p95_deg": "SOFTEN",
+    "mouth_p95": "REJECT",
+    "hand_pct": "PASS",
+    "hand_run_ms": "PASS",
+    "blur_p05_rel": "PASS"
+   }
+  },
+  "gate_E-take1_plain": {
+   "verdict": "REJECT",
+   "summary": {
+    "frames": 242,
+    "face_found_pct": 0.0
+   },
+   "checks": {
+    "face_found_pct_min": "REJECT"
+   }
+  },
+  "gate_E-take1_track": {
+   "verdict": "REJECT",
+   "summary": {
+    "frames": 242,
+    "secs": 10.08,
+    "face_found_pct": 100.0,
+    "no_face_run_ms": 0,
+    "face_px_p5": 145,
+    "face_px_p50": 155,
+    "face_px_p95": 161,
+    "yaw_rest_deg": -3.1,
+    "yaw_abs_p99_deg": 33.8,
+    "yaw_range_deg": 54.2,
+    "pitch_range_deg": 30.3,
+    "roll_range_deg": 13.7,
+    "yaw_proxy_p50": 0.047,
+    "yaw_proxy_max": 0.417,
+    "disp_p95_pct": 8.63,
+    "disp_max_pct": 12.53,
+    "rot_v_p95_deg": 4.12,
+    "rot_v_max_deg": 6.68,
+    "smo_res_p95_deg": 3.98,
+    "smo_res_max_deg": 6.23,
+    "mouth_p50": 0.0426,
+    "mouth_p95": 0.0842,
+    "hand_pct": 0.0,
+    "hand_run_ms": 0,
+    "blur_p05_rel": 0.64
+   },
+   "checks": {
+    "face_found_pct_min": "PASS",
+    "no_face_run_ms": "PASS",
+    "face_px_lo": "REJECT",
+    "face_px_hi": "PASS",
+    "yaw_range_deg": "REJECT",
+    "yaw_abs_deg": "SOFTEN",
+    "pitch_range_deg": "REJECT",
+    "roll_range_deg": "SOFTEN",
+    "disp_p95_pct": "REJECT",
+    "disp_max_pct": "REJECT",
+    "rot_v_p95_deg": "REJECT",
+    "smo_res_p95_deg": "REJECT",
+    "mouth_p95": "REJECT",
+    "hand_pct": "PASS",
+    "hand_run_ms": "PASS",
+    "blur_p05_rel": "PASS"
+   }
+  }
+ },
+ "lipcorr_fullbody": {
+  "tool": "maya-lt bench/results/nova-ab/tools/lipcorr.py (unmodified)",
+  "note": "both videos cropped to the SAME 500x500 face window, no rescale, so the face is the same fraction of what the tool sees",
+  "ditto_fullbody": {
+   "video": "corr_ditto_fb.mp4",
+   "frames": 1599,
+   "face_found_pct": 100.0,
+   "corr_lag0": 0.563,
+   "corr_best": 0.577,
+   "lag_best_frames": 1,
+   "lag_best_ms": 40,
+   "mouth_speaking": 0.0494,
+   "mouth_silent": 0.0195,
+   "mouth_travel_mad": 0.00115,
+   "sharp256_speaking_median": 20.2,
+   "sharp256_all_median": 16.8
+  },
+  "musetalk_as_aired_fullbody": {
+   "video": "corr_musetalk_fb.mp4",
+   "frames": 1575,
+   "face_found_pct": 100.0,
+   "corr_lag0": 0.206,
+   "corr_best": 0.279,
+   "lag_best_frames": -24,
+   "lag_best_ms": -960,
+   "mouth_speaking": 0.0367,
+   "mouth_silent": 0.0206,
+   "mouth_travel_mad": 0.00031,
+   "sharp256_speaking_median": 24.4,
+   "sharp256_all_median": 28.1
+  },
+  "ditto_extra_encode_generation_control": {
+   "video": "corr_ditto_fb_gen2.mp4",
+   "frames": 1599,
+   "face_found_pct": 100.0,
+   "corr_lag0": 0.563,
+   "corr_best": 0.576,
+   "lag_best_frames": 1,
+   "lag_best_ms": 40,
+   "mouth_speaking": 0.0493,
+   "mouth_silent": 0.0194,
+   "mouth_travel_mad": 0.00118,
+   "sharp256_speaking_median": 20.2,
+   "sharp256_all_median": 16.8
+  }
+ },
+ "frozen_stretches": {
+  "ditto_longest_unchanged_mouth_frames": 1,
+  "ditto_longest_s": 0.04,
+  "musetalk_longest_unchanged_mouth_frames": 2,
+  "musetalk_longest_s": 0.08
+ },
+ "pod_render": {
+  "calm": {
+   "ready": true,
+   "chunk_frames": 25,
+   "chunk_samples": 16000,
+   "fps": 25,
+   "prime": 35,
+   "info": {
+    "src": "body_a.mp4",
+    "src_frames": 252,
+    "src_wh": [
+     1076,
+     1924
+    ],
+    "amp": 0.6,
+    "gate_frames": 0,
+    "out_wh": [
+     1076,
+     1924
+    ],
+    "setup_s": 9.6,
+    "bank": null,
+    "zoom": false,
+    "eye_holds": 0,
+    "prime_s": 121.7
+   },
+   "renders": 67,
+   "late": 0,
+   "ms_p50": 370.3,
+   "ms_p95": 480.6,
+   "error": null,
+   "motion": null,
+   "putback_ms_p95": 5.4
+  },
+  "dance": {
+   "ready": true,
+   "chunk_frames": 25,
+   "chunk_samples": 16000,
+   "fps": 25,
+   "prime": 35,
+   "info": {
+    "src": "body_dance.mp4",
+    "src_frames": 252,
+    "src_wh": [
+     1076,
+     1924
+    ],
+    "amp": 0.6,
+    "gate_frames": 0,
+    "out_wh": [
+     1076,
+     1924
+    ],
+    "setup_s": 5.7,
+    "bank": null,
+    "zoom": false,
+    "eye_holds": 0,
+    "prime_s": 121.2
+   },
+   "renders": 23,
+   "late": 0,
+   "ms_p50": 377.5,
+   "ms_p95": 411.9,
+   "error": null,
+   "motion": null,
+   "putback_ms_p95": 5.5
+  }
+ },
+ "stride_bug": {
+  "reported_out_wh": [
+   1076,
+   1924
+  ],
+  "actual_ditto_frame": [
+   1074,
+   1920
+  ],
+  "ditto_max_size": 1920,
+  "effect": "drive.py told ffmpeg the wrong row length -> progressive diagonal shear",
+  "repair": "deshear.py re-chunked the decoded byte stream at the true size; 1599 frames recovered",
+  "fixes": [
+   "DITTO_OUT_W=1074 DITTO_OUT_H=1920",
+   "pre-scale bodies to 1080x1920",
+   "out_wh should come from the first collected frame, not cv2 on the source file"
+  ]
+ },
+ "bridge_probe": {
+  "file": "/workspace/lk_bridge.py",
+  "md5": "1c4448b475ae0cdd719aef4edaa90337",
+  "lines": 182,
+  "A1_anchors": "CONFIRMED, both exactly 1",
+  "A2": "FALSE - lk_bridge publishes BOTH tracks",
+  "AudioSource": 1,
+  "VideoSource": 1,
+  "publish_track": 2,
+  "already_patched": false,
+  "applied": false
+ },
+ "pods": [
+  {
+   "id": "rpc43y4l6kuem8",
+   "min": 3.1,
+   "usd": 0.047,
+   "note": "recon+probe; ditto blocked on Python.h"
+  },
+  {
+   "id": "8u1hrfsy0oikuh",
+   "min": 3.5,
+   "usd": 0.052,
+   "note": "ran stale job.sh off the shared volume"
+  },
+  {
+   "id": "ztxmaapx2qyrxl",
+   "min": 7.7,
+   "usd": 0.114,
+   "note": "the real run, both bodies"
+  }
+ ],
+ "pods_remaining": 0,
+ "fal_usd_published_rate_not_invoice": 1.96,
+ "pod_usd_total": 0.213
+}

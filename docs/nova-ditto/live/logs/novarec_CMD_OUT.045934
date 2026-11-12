@@ -1,0 +1,28 @@
+rt_lk pid=8234
+== reverting lk_bridge.py to the pristine original ==
+revert rc=0
+   md5 e9be0f4fa9560bff522e95687b093cde -> 1c4448b475ae0cdd719aef4edaa90337
+   REVERTED
+1c4448b475ae0cdd719aef4edaa90337  /workspace/lk_bridge.py
+== bridge, stock, NOVA_FACE unset ==
+BRIDGE_UP after 6s
+== app.py AFTER the bridge, so the engine attaches to the live one ==
+APP_UP 403 after 35s
+== bridge.log ==
+bridge: connected to LiveKit room 'nova-live'
+bridge: audio track published
+bridge: listening on 127.0.0.1:9999
+bridge: engine connected
+BRIDGE_DROP: IncompleteReadError errno= msg=expected=1 partial=0 since_last_frame=0.00s frames_this_conn=0
+bridge: engine disconnected
+bridge: engine connected
+bridge: video track published 720x1288
+bridge: audio published 100 frames (320 samples @ 16000Hz)
+bridge: (note) no viewer detected, still sending audio x200
+bridge: audio published 200 frames (320 samples @ 16000Hz)
+bridge: audio published 300 frames (320 samples @ 16000Hz)
+== ports ==
+:8010=403  :8765=200
+== take 3: harness on MuseTalk ==
+harness take 3 launched
+rc=0

@@ -1,0 +1,42 @@
+nova_ditto self-test
+  PASS  flag off by default 
+  PASS  flag on with NOVA_FACE=ditto 
+  PASS  resample 24k->16k length got 15999
+  PASS  resample keeps the tone peak 0.498
+  PASS  buffered ~1 s of 16k audio got 15995
+  PASS  feed_pcm16_16k buffers 16k pcm16 1:1 got 16000
+  PASS  feed_pcm16_16k keeps the tone peak 0.500
+  PASS  feed_pcm16_16k ignores an empty frame 
+[DITTO 17:47:32] ready: chunk 25f/16000smp prime 35 (1800 ms audio delay) info={"src": "fake.mp4"}
+  PASS  ready 
+  PASS  prime adopted from server prime 35
+  PASS  audio delay = (prime + slack) x 40 ms 1800.0 ms
+[DITTO 17:47:32] pump started
+[DITTO 17:47:32] publish clock started with 10 frames of slack -- audio must be delayed 1800 ms (prime 35 + slack 10) x 40 ms
+  PASS  silence chunks sent while quiet 4
+  PASS  every chunk was exactly chunk_samples {16000}
+  PASS  speech chunk sent after feed 1
+  PASS  buffered picture stays bounded (<= chunk + slack + one burst) 37 frames
+  PASS  frames keep coming 25
+  PASS  25 frames take ~1 s (25 fps) 0.99s
+  PASS  no held frames while Ditto keeps up held 0
+  PASS  no freeze alarm None
+  PASS  frame is RGBA at the source size 64x96 24576B
+  PASS  BGR->RGBA channel order 
+[DITTO 17:47:38] gesture 'wave' refused: no motion bank (DITTO_BANK unset)
+  PASS  gesture without a bank is refused and reported no motion bank (DITTO_BANK unset)
+  PASS  stats file written 
+  PASS  stats carry prime, slack and av delay {"prime": 35, "slack": 10, "av_delay_ms": 1800.0}
+[DITTO 17:47:38] ready: chunk 25f/16000smp prime 35 (1800 ms audio delay) info=null
+[DITTO 17:47:38] pump started
+[DITTO 17:47:38] publish clock started with 10 frames of slack -- audio must be delayed 1800 ms (prime 35 + slack 10) x 40 ms
+[DITTO 17:47:38] publish clock started with 10 frames of slack -- audio must be delayed 1800 ms (prime 35 + slack 10) x 40 ms
+  ....  legacy   A/V sim: offsets [2959, 2350, 729] ms, promised 1800, worst error 1159 ms, fps per caller [12.6, 12.6], popped/s 25.2, held 0
+[DITTO 17:47:52] ready: chunk 25f/16000smp prime 35 (3100 ms audio delay) info=null
+[DITTO 17:47:52] timeline started -- frames go on screen 1700 ms later; audio must be delayed 3100 ms[DITTO 17:47:52] pump started
+
+  ....  timeline A/V sim: offsets [3080, 3068, 3049] ms, promised 3100, worst error 51 ms, fps per caller [25.1, 25.1], popped/s 25.1, held 0
+  PASS  timeline: every word lands within 80 ms of the promised A/V offset 51 ms
+  PASS  timeline: two callers each get ~25 fps, the clock does not run fast [25.1, 25.1] / 25.1
+  PASS  timeline: no freeze alarm None
+SELFTEST PASS

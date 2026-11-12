@@ -1,0 +1,33 @@
+[    0.0s] chunk sink up on 127.0.0.1:8099 -> /root/rec
+[    0.0s] page repair: restored 0, left alone 1
+[    0.0s]   . beta/freeze.html (148832 >= 148832)
+[    0.4s] goto http://127.0.0.1:8765/beta/freeze?commercial=1
+[    0.7s]   body text 523 chars, html 146192 bytes: '❄ ANIMAL FREEZE v3 · LIVE Nova (V2V) · full-figure · she becomes the animal · one-mic ❄\n🌟\nNova is waking up…\ngetting her ready for you ✨\n🌟 Nova\n⭐\n🐻\n🦩\n🐸\n⭐\n\ud83d'
+[    0.8s]   clicked Let's Play on http://127.0.0.1:8765/beta/freeze?commercial=1
+[    0.8s] rec frames=0 vfc=0 chunks=0 bytes=0 src=0x0 draw=None src_el=None guard=None skip=0 err=None
+[    1.2s] RECORDING started mime=video/webm;codecs=vp8,opus audio_track=True audio_mix={"n": 1, "tracks": [{"tag": "AUDIO#", "label": "remote audio", "muted": true, "local": true, "id": "e64f4a1d"}], "ctx": "running"} video={"tag": "VIDEO#nova-live-video", "label": "remote video", "w": 0, "h": 0}
+[    1.2s] brain ws open
+[    1.2s] brain ws open
+[    3.7s] SHE: Hi! I'm Nova, your magical AI dance teacher! What's your name?
+[   16.4s] SHE: I'm right here, no rush at all.
+[   16.6s] rec frames=119 vfc=101 chunks=11 bytes=1073104 src=360x644 draw=requestVideoFrameCallback+poll(10ms) src_el=page element VIDEO#nova-live-video guard=totalVideoFrames skip=470 err=None
+[   18.3s] TYPED: I'm Sam!
+[   19.0s] KID(echo): I'm Sam!
+[   20.4s] SHE: Sam! Awesome to meet you—what’s your favorite kind of music to dance to?
+[   31.8s] rec frames=184 vfc=163 chunks=24 bytes=1681108 src=180x322 draw=requestVideoFrameCallback+poll(10ms) src_el=page element VIDEO#nova-live-video guard=totalVideoFrames skip=537 err=None
+[   32.5s] SHE: Still right here.
+[   38.3s] TYPED: a dolphin! they jump so high
+[   38.9s] KID(echo): a dolphin! they jump so high
+[   39.6s] SHE: Dolphin vibes, I love it—you ready to jump in and play?
+[   46.9s] rec frames=246 vfc=222 chunks=37 bytes=2181429 src=180x322 draw=requestVideoFrameCallback+poll(10ms) src_el=page element VIDEO#nova-live-video guard=totalVideoFrames skip=594 err=None
+[   53.1s] SHE: I'm not going anywhere.
+[   60.3s] TYPED: can we dance now?
+[   61.0s] KID(echo): can we dance now?
+[   62.1s] SHE: Just waiting for the magic light to glow, then we’ll jump right in!
+[   62.1s] rec frames=314 vfc=287 chunks=49 bytes=2677608 src=180x322 draw=requestVideoFrameCallback+poll(10ms) src_el=page element VIDEO#nova-live-video guard=totalVideoFrames skip=646 err=None
+[   77.7s] rec frames=376 vfc=342 chunks=61 bytes=3198315 src=180x322 draw=requestVideoFrameCallback+poll(10ms) src_el=page element VIDEO#nova-live-video guard=totalVideoFrames skip=695 err=None
+[   82.6s] STOP seen
+[   85.8s] recorder final: {"started": true, "frames": 404, "chunks": 68, "bytes": 3356978, "err": null, "w": 180, "h": 322, "vfc": 368, "skipped": 714, "drawMode": "requestVideoFrameCallback+poll(10ms)", "pushMode": "captureStream(0)+requestFrame", "paintSource": "page element VIDEO#nova-live-video", "frameGuard": "totalVideoFrames", "stopped": true, "mime": "video/webm;codecs=vp8,opus", "audio": true, "mix": {"n": 1, "tracks": [{"tag": "AUDIO#", "label": "remote audio", "muted": true, "local": true, "id": "e64f4a1d"}], "ctx": "running"}, "vpick": {"n": 2, "cands": [{"tag": "VIDEO#nova-live-video", "label": "remote video", "w": 0, "h": 0, "score": 12}, {"tag": "VIDEO#cam", "label": "fake_device_0", "w": 960, "h": 720, "score": -24}], "chosen": {"tag": "VIDEO#nova-live-video", "label": "remote video", "w": 0, "h": 0}}}
+[   88.9s] webm: 68 chunks, 3356978 bytes
+[   91.1s] VERIFY {"mean_volume_db": -24.8, "max_volume_db": -0.5, "video_frames": 340, "bitexact_dupes": 0, "bitexact_pct": 0.0, "mad_transitions": 405, "duplicate_frames": 120, "duplicate_pct": 29.63, "mad_threshold": 0.1, "mad_median": 0.2282}
+[   91.1s] DONE mp4=5830900 bytes  her lines=7  my lines=3  max_volume=-0.5dB  dup=29.63%  frames=340

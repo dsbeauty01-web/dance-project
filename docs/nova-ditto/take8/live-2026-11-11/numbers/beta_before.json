@@ -1,0 +1,40 @@
+{
+ "label": "beta_before",
+ "frames_at_25fps": 275,
+ "seconds": 11.0,
+ "delivered_wh": [
+  1080,
+  1920
+ ],
+ "file_fps": 25.0,
+ "face_found_pct": 100.0,
+ "face_px_p50": 248.0,
+ "mouth_sharp256": 0.1,
+ "face_sharp_lapvar": 29.3,
+ "duplicate_pct": 1.1,
+ "longest_frozen_s": 0.04,
+ "lips": {
+  "voiced_s": 5.2,
+  "silent_s": 4.0,
+  "lip_motion_speaking": 3.43,
+  "lip_motion_silent": 3.11,
+  "gap_speaking_p90": 0.0656,
+  "gap_silent_p90": 0.0057,
+  "open_in_silence_frames": 3,
+  "pucker_frames": 0,
+  "corr_best_lag8": 0.583,
+  "corr_lag8_frames": 0,
+  "corr_best_lag75": 0.583,
+  "corr_lag75_frames": 0,
+  "corr_lag75_ms": 0
+ },
+ "verdict": {
+  "face_found>=95%": "PASS",
+  "duplicates<=15%": "PASS",
+  "no_frozen_stretch>2s": "PASS",
+  "nova_corr>=0.35": "PASS",
+  "in_sync(best lag within +-8 frames)": "PASS",
+  "maya_gate(corr>=0.5, silent<=1.2, 0 open, 0 pucker)": "FAIL",
+  "ALL_NOVA_BARS": "PASS"
+ }
+}

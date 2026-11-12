@@ -1,0 +1,24 @@
+  import flask: OK after 0 install(s)
+  import livekit.api: OK after 0 install(s)
+  import livekit.rtc: OK after 0 install(s)
+  import aiohttp: OK after 0 install(s)
+  import requests: OK after 0 install(s)
+  import numpy: OK after 0 install(s)
+  import edge_tts: OK after 0 install(s)
+  import pip: OK after 0 install(s)
+  import websockets: OK after 0 install(s)
+  import soundfile: OK after 0 install(s)
+  import av: OK after 0 install(s)
+  aiortc: missing google_crc32c -> pip install google_crc32c into the tree
+  aiortc: missing pylibsrtp -> pip install pylibsrtp into the tree
+  aiortc: missing OpenSSL -> pip install OpenSSL into the tree
+    pip OpenSSL rc=1: ERROR: Could not find a version that satisfies the requirement OpenSSL (from versions: none)
+ERROR: No matching distribution found for OpenSSL
+
+  import aiortc: STUCK -- OpenSSL still missing after OpenSSL
+  import cv2: OK after 0 install(s)
+  installed: google_crc32c, pylibsrtp
+  targets: {"flask": true, "livekit.api": true, "livekit.rtc": true, "aiohttp": true, "requests": true, "numpy": true, "edge_tts": true, "pip": true, "websockets": true, "soundfile": true, "av": true, "aiortc": false, "cv2": true}
+
+[notice] A new release of pip is available: 24.2 -> 26.2.2
+[notice] To update, run: python3 -m pip install --upgrade pip

@@ -1,0 +1,41 @@
+{
+ "label": "maya_seyzar_take8_reference",
+ "frames_at_25fps": 500,
+ "seconds": 20.0,
+ "delivered_wh": [
+  1080,
+  1920
+ ],
+ "file_fps": 25.0,
+ "face_found_pct": 100.0,
+ "face_px_p50": 294.0,
+ "mouth_sharp256": 0.36,
+ "face_sharp_lapvar": 103.9,
+ "duplicate_pct": 10.0,
+ "longest_frozen_s": 0.44,
+ "lips": {
+  "voiced_s": 11.3,
+  "silent_s": 4.4,
+  "lip_motion_speaking": 2.72,
+  "lip_motion_silent": 0.89,
+  "gap_speaking_p90": 0.0627,
+  "gap_silent_p90": 0.0026,
+  "open_in_silence_frames": 0,
+  "pucker_frames": 0,
+  "corr_best_lag8": 0.709,
+  "corr_lag8_frames": 1,
+  "corr_best_lag75": 0.709,
+  "corr_lag75_frames": 1,
+  "corr_lag75_ms": 40
+ },
+ "verdict": {
+  "face_found>=95%": "PASS",
+  "duplicates<=15%": "PASS",
+  "no_frozen_stretch>2s": "PASS",
+  "nova_corr>=0.35": "PASS",
+  "in_sync(best lag within +-8 frames)": "PASS",
+  "maya_gate(corr>=0.5, silent<=1.2, 0 open, 0 pucker)": "PASS",
+  "ALL_NOVA_BARS": "PASS"
+ },
+ "strip": "ref_take8_strip.jpg"
+}

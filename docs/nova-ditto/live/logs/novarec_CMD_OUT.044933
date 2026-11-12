@@ -1,0 +1,25 @@
+== killing the stalled waiter ==
+   4571       06:59 /root/ditto/env/bin/python /root/mt/maya-ops/lt/ditto_server.py
+   7797       03:42 python3 -u app.py --transport livekit --model musetalk --avatar_id nova_idle --max_session 1 --batch_size 8 --listenport 8010
+   8139       03:03 python -u lk_bridge.py
+   8234       02:59 python -u rt_lk.py
+== ports ==
+:8010=403  :8765=200
+ditto ready: True
+== bridge patch: revert -> probe -> apply ==
+revert rc=0
+probe rc=0
+   md5 1c4448b475ae0cdd719aef4edaa90337   8288 bytes   182 lines
+apply rc=0
+   already patched: no
+   APPLIED   md5 1c4448b475ae0cdd719aef4edaa90337 -> e9be0f4fa9560bff522e95687b093cde
+== restarting ONLY lk_bridge.py with NOVA_FACE=ditto (app.py left alone) ==
+== bridge.log ==
+Traceback (most recent call last):
+  File "/workspace/lk_bridge.py", line 9, in <module>
+    URL = os.environ["LIVEKIT_URL"]
+          ~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "<frozen os>", line 679, in __getitem__
+KeyError: 'LIVEKIT_URL'
+FACE now = ditto
+rc=0

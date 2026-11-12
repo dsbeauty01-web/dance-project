@@ -1,0 +1,41 @@
+{
+ "label": "B_take8_origbody",
+ "frames_at_25fps": 225,
+ "seconds": 9.0,
+ "delivered_wh": [
+  1080,
+  1920
+ ],
+ "file_fps": 25.0,
+ "face_found_pct": 100.0,
+ "face_px_p50": 247.0,
+ "mouth_sharp256": 0.11,
+ "face_sharp_lapvar": 29.6,
+ "duplicate_pct": 0.9,
+ "longest_frozen_s": 0.04,
+ "lips": {
+  "voiced_s": 5.2,
+  "silent_s": 2.0,
+  "lip_motion_speaking": 3.81,
+  "lip_motion_silent": 3.19,
+  "gap_speaking_p90": 0.0558,
+  "gap_silent_p90": 0.0055,
+  "open_in_silence_frames": 0,
+  "pucker_frames": 1,
+  "corr_best_lag8": 0.626,
+  "corr_lag8_frames": 1,
+  "corr_best_lag75": 0.626,
+  "corr_lag75_frames": 1,
+  "corr_lag75_ms": 40
+ },
+ "verdict": {
+  "face_found>=95%": "PASS",
+  "duplicates<=15%": "PASS",
+  "no_frozen_stretch>2s": "PASS",
+  "nova_corr>=0.35": "PASS",
+  "in_sync(best lag within +-8 frames)": "PASS",
+  "maya_gate(corr>=0.5, silent<=1.2, 0 open, 0 pucker)": "FAIL",
+  "ALL_NOVA_BARS": "PASS"
+ },
+ "strip": "B_take8_origbody_strip.jpg"
+}

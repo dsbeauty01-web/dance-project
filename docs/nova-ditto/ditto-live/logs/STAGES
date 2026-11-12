@@ -1,0 +1,55 @@
+[job 08:35:44] stage 0b: CMD channel open (PUT /put/CMD -> runs once -> novaditto_out/CMD_OUT.<hhmmss>)
+[job 08:35:44] stage 0: waiting for the payload
+[job 08:35:44] stage 0 OK: 16 files, nova_idle.mp4 = 2520464 bytes
+[job 08:35:44] stage 1a: measuring the volume's torch tree
+[job 08:35:49] stage 1a: torch/lib exists? NO ; .so under torch = 1
+[job 08:35:52] stage 1b: BRANCH C ALREADY THERE -- /root/torchfix imports torch, skipping the 84 s pip
+[job 08:35:52] stage 1 DONE: branch=C  PYTHONPATH=/root/torchfix:/workspace/_sys/pylibs311_good/dist-packages
+[job 08:35:52] stage 1c: boot_wrap rc=0 -- [boot_wrap] rewrites: PYTHONPATH=1 deploy_calls_neutralised=3 bridge_launches=2 (tagged 2) [boot_wrap] WROTE /root/boot_novaditto.sh, valid bash 
+[job 08:35:52] stage 1c: booting with /root/boot_novaditto.sh
+[job 08:35:52] stage 1d: commercial greeting present in the volume's rt_lk.py? lines matching 'magical' = 2
+[job 08:35:52] stage 2: apt python3.10-dev + build-essential (foreground -- owns the dpkg lock)
+[job 08:35:58] stage 2 OK: Python.h present
+[job 08:35:58] stage 3: ditto_up.sh in the background -- src nova_idle.mp4 (69 frames, so the prime is short)
+[job 08:35:58] stage 4: playwright + chromium + numpy (serial, after apt released the lock)
+[job 08:36:28] stage 4: CHROMIUM OK 156.0.8078.4 numpy 1.26.3
+[job 08:36:28] stage 5: repairing /workspace/_sys/pylibs311_good/dist-packages (container pip, PYTHONPATH unset)
+[job 08:36:40] stage 5: repair rc=6
+[job 08:36:53] stage 5: 13 of 13 import OK under PYTHONPATH=/root/torchfix:/workspace/_sys/pylibs311_good/dist-packages
+[job 08:36:53] stage 6: --revert to the pristine original (a previous session may have left it patched)
+[job 08:36:53] stage 6: revert rc=1 --    no .bak-ditto-* backup next to /workspace/lk_bridge.py
+[job 08:36:53] stage 6: waiting for Ditto to be ready before touching the bridge
+[job 08:38:58] stage 6: Ditto ready after 130s
+[job 08:38:58] stage 6: probe rc=0
+[job 08:38:59] stage 6: apply rc=0 --    already patched: no
+[job 08:38:59] stage 6 DONE: face engine = ditto
+[job 08:38:59] stage 6b: installing the ?commercial=1 page over /workspace/pages/beta/freeze.html (original kept at /root/freeze.html.orig)
+[job 08:38:59] stage 6b: 147542 -> 148832 bytes
+[job 08:38:59] stage 6b: COMMERCIAL guard occurrences in the served page = 6
+[job 08:38:59] stage 7: boot (bridge NOVA_FACE=ditto, brain env -u NOVA_FACE)
+[job 08:39:57]     boot 60s: :8010=000 :8765=000 gpu=3173 MiB No module named 'resampy.core' 
+[job 08:40:57]     boot 120s: :8010=000 :8765=000 gpu=3189 MiB No module named 'resampy.core' 
+[job 08:41:57]     boot 180s: :8010=000 :8765=000 gpu=3189 MiB 
+[job 08:42:37] stage 7: BRAIN_UP
+[job 08:42:37]     [NOVA_FACE] ditto
+[job 08:42:37]     [DITTO 08:42:30] ready: chunk 25f/16000smp prime 35 (1800 ms audio delay) info={"src": "nova_idle.mp4", "src_frames": 69, "src_wh": [1080, 1920], "amp": 0.6, "gate_frames": 0, "out_wh": [1080, 1920], "setup_s": 4.2, "bank": null, "zoom": false, "eye_holds": 0, "prime_s": 121.7}
+[job 08:42:37]     [DITTO 08:42:30] pump started
+[job 08:42:37]     [NOVA_FACE] ditto ready -- delay the audio by 1800 ms (DITTO_PRIME 35 + slack 10)
+[job 08:42:37]     [DITTO 08:42:31] publish clock started with 10 frames of slack -- audio must be delayed 1800 ms (prime 35 + slack 10) x 40 ms
+[job 08:42:37]     [NOVA_FACE] musetalk
+[job 08:42:37] stage 7: 'NOVA_FACE] ditto' lines -- bridge=2 (want >=1)  brain=0 (want 0)
+[job 08:42:37] stage 8: curling the page the brain serves
+[job 08:42:38] stage 8: PAGE_ASSERT PASS 148832 bytes JUDGE-TRUTH x1 COMMERCIAL x6
+[job 08:42:38] stage 9: take 0 is the AUDIO PROOF run -- she greets, nobody answers, 45 s
+[job 08:42:38] stage 9: RECORDING take 0 (engine=ditto, max 45s)
+[job 08:43:34] stage 9: take 0 harness rc=0 -- [   56.1s] DONE mp4=2068368 bytes  her lines=2  my lines=0  max_volume=-4.9dB  dup=22.4%  frames=149
+[job 08:43:34] stage 9: take 0 mp4 = 2068368 bytes
+[job 08:43:34] stage 9: take 0 VERIFY {"mean_volume_db": -30.6, "max_volume_db": -4.9, "video_frames": 149, "bitexact_dupes": 0, "bitexact_pct": 0.0, "mad_transitions": 192, "duplicate_frames": 43, "duplicate_pct": 22.4, "mad_threshold": 0.1, "mad_median": 0.5158}
+[job 08:43:34] stage 9: AUDIO PROOF -- engine->bridge 'audio IN' = 950 frames, LiveKit 'audio published' = 900 frames
+[job 08:43:34] stage 9: waiting up to 15 min for /root/in/GO (the real take)
+[job 08:46:09] stage 9: RECORDING take 1 (engine=ditto, max 110s)
+[job 08:48:02] stage 9: take 1 harness rc=0 -- [  112.8s] DONE mp4=2665814 bytes  her lines=6  my lines=3  max_volume=-4.0dB  dup=71.1%  frames=284
+[job 08:48:02] stage 9: take 1 mp4 = 2665814 bytes
+[job 08:48:02] stage 9: take 1 VERIFY {"mean_volume_db": -32.8, "max_volume_db": -4.0, "video_frames": 284, "bitexact_dupes": 1, "bitexact_pct": 0.35, "mad_transitions": 353, "duplicate_frames": 251, "duplicate_pct": 71.1, "mad_threshold": 0.1, "mad_median": 0.0289}
+[job 08:48:02] stage 9: AUDIO PROOF -- engine->bridge 'audio IN' = 9400 frames, LiveKit 'audio published' = 9400 frames
+[job 08:48:02] stage 9: waiting up to 8 min for /root/in/GO2 or /root/in/NO_MORE

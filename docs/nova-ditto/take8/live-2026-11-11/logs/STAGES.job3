@@ -1,0 +1,60 @@
+[job 03:57:25] stage 0b: CMD channel is job2's (/root/in/CMD_<name>.sh)
+[job 03:57:25] stage 0: waiting for the payload
+[job 03:57:25] stage 0 OK: 23 files, body body_t8.mp4 = 7665205 bytes
+[job 03:57:25] stage 1a: measuring the volume's torch tree
+[job 03:57:32] stage 1a: torch/lib exists? NO ; .so under torch = 1
+[job 03:57:32] stage 1b: BRANCH C -- torch onto the CONTAINER disk at /root/torchfix (the volume is never written)
+[job 03:58:44] stage 1b: pip rc=0 -- 7.4G on the container disk
+[job 03:58:49] stage 1b: BRANCH C OK -- 2.9.1+cu129 0.24.1+cu129
+[job 03:58:49] stage 1 DONE: branch=C  PYTHONPATH=/root/torchfix:/workspace/_sys/pylibs311_good/dist-packages
+[job 03:58:49] stage 1c: boot_wrap rc=0 -- [boot_wrap] rewrites: PYTHONPATH=1 deploy_calls_neutralised=3 bridge_launches=2 (tagged 2) [boot_wrap] WROTE /root/boot_novaditto.sh, valid bash 
+[job 03:58:49] stage 1c: booting with /root/boot_novaditto.sh
+[job 03:58:49] stage 1d: commercial greeting present in the volume's rt_lk.py? lines matching 'magical' = 2
+[job 03:58:49] stage 2: apt python3.10-dev + build-essential (foreground -- owns the dpkg lock)
+[job 03:58:51] stage 2 OK: Python.h present
+[job 03:58:53] stage 3: ditto_up.sh (take-8 server, nova_take8.env) in the background -- src body_t8.mp4
+[job 03:58:53] stage 4: playwright + chromium + numpy (serial, after apt released the lock)
+[job 03:59:17] stage 4: CHROMIUM OK 158.0.8127.18 numpy 1.26.3
+[job 03:59:17] stage 5: repairing /workspace/_sys/pylibs311_good/dist-packages (container pip, PYTHONPATH unset)
+[job 03:59:36] stage 5: repair rc=6
+[job 03:59:51] stage 5: 13 of 13 import OK under PYTHONPATH=/root/torchfix:/workspace/_sys/pylibs311_good/dist-packages
+[job 03:59:51] stage 6: --revert to the pristine original (a previous session may have left it patched)
+[job 03:59:51] stage 6: revert rc=1 --    no .bak-ditto-* backup next to /workspace/lk_bridge.py
+[job 03:59:51] stage 6: waiting for Ditto to be ready before touching the bridge
+[job 03:59:51] stage 6: Ditto ready after 5s
+[job 03:59:51] stage 6: probe rc=0
+[job 03:59:51] stage 6: apply rc=0 --    already patched: no
+[job 03:59:51] stage 6 DONE: face engine = ditto
+[job 03:59:51] stage 6b: installing the ?commercial=1 page over /workspace/pages/beta/freeze.html (original kept at /root/freeze.html.orig)
+[job 03:59:51] stage 6b: 147542 -> 148832 bytes
+[job 03:59:51] stage 6b: COMMERCIAL guard occurrences in the served page = 6
+[job 03:59:51] stage 7: boot (bridge NOVA_FACE=ditto, brain env -u NOVA_FACE)
+[job 04:00:49]     boot 60s: :8010=000 :8765=000 gpu=3189 MiB No module named 'resampy.core' 
+[job 04:01:49]     boot 120s: :8010=000 :8765=000 gpu=3189 MiB No module named 'resampy.core' 
+[job 04:02:49]     boot 180s: :8010=000 :8765=000 gpu=3189 MiB No module named 'resampy.core' 
+[job 04:03:50]     boot 240s: :8010=000 :8765=000 gpu=3189 MiB No module named 'resampy.core' 
+[job 04:04:50]     boot 300s: :8010=000 :8765=000 gpu=3189 MiB No module named 'resampy.core' 
+[job 04:05:50]     boot 360s: :8010=000 :8765=000 gpu=3181 MiB No module named 'resampy.core' 
+[job 04:06:50]     boot 420s: :8010=000 :8765=000 gpu=3189 MiB No module named 'resampy.core' 
+[job 04:07:50]     boot 480s: :8010=000 :8765=000 gpu=3189 MiB No module named 'resampy.core' 
+[job 04:08:15] stage 7: round 1 did not come up. missing: resampy 
+[job 04:08:15] stage 7: healing -> pip install resampy (container AND tree)
+[job 04:08:19] stage 7: boot round 2
+[job 04:09:17]     boot 60s: :8010=000 :8765=000 gpu=3189 MiB No module named 'resampy.core' 
+[job 04:10:17]     boot 120s: :8010=000 :8765=000 gpu=3189 MiB No module named 'resampy.core' 
+[job 04:11:17]     boot 180s: :8010=000 :8765=000 gpu=3189 MiB No module named 'resampy.core' 
+[job 04:12:17]     boot 240s: :8010=000 :8765=000 gpu=3189 MiB No module named 'resampy.core' 
+[job 04:13:17]     boot 300s: :8010=000 :8765=000 gpu=3189 MiB No module named 'resampy.core' 
+[job 04:14:17]     boot 360s: :8010=000 :8765=000 gpu=3189 MiB No module named 'resampy.core' 
+[job 04:15:17]     boot 420s: :8010=000 :8765=000 gpu=3185 MiB No module named 'resampy.core' 
+[job 04:16:18]     boot 480s: :8010=000 :8765=000 gpu=3189 MiB No module named 'resampy.core' 
+[job 04:16:43] stage 7 FAILED: :8765 never answered 200
+[job 04:16:43]     [NOVA_FACE] ditto
+[job 04:16:43]     [DITTO 04:08:32] ready: chunk 25f/16000smp prime 35 (3100 ms audio delay) info={"src": "body_t8.mp4", "src_frames": 122, "src_wh": [1080, 1920], "amp": 0.6, "amp_x": null, "mask": "lower", "gate_flags": {"DITTO_FAST_CLOSE": "1", "DITTO_DEBT_FIX": "1", "DITTO_PASTE_GATE": "1"}, "gate_frames": 0, "out_wh": [1080, 1920], "setup_s": 6.4, "bank": null, "zoom": false, "eye_holds": 0, "prime_frames_out": 20, "prime_s": 7.0}
+[job 04:16:43]     [DITTO 04:08:32] timeline started -- frames go on screen 1700 ms later; audio must be delayed 3100 ms[DITTO 04:08:32] pump started
+[job 04:16:43]     [NOVA_FACE] ditto ready -- delay the audio by 3100 ms (DITTO_PRIME 35 + slack 10)
+[job 04:16:43] stage 7: 'NOVA_FACE] ditto' lines -- bridge=2 (want >=1)  brain= (want 0)
+[job 04:16:43] stage 8: curling the page the brain serves
+[job 04:16:43] stage 8: PAGE_ASSERT FAIL 0 bytes JUDGE-TRUTH x0 COMMERCIAL x0
+[job 04:16:43] stage 9: no stack -> NO RECORDING. Not pretending otherwise.
+[job 04:16:43] ALL DONE -- waiting up to 25 min for /root/in/PULLED, then putting everything back

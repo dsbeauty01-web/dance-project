@@ -1,0 +1,49 @@
+[job 04:35:42] stage 0b: CMD channel open (PUT /put/CMD -> runs once -> novarec_out/CMD_OUT.<hhmmss>)
+[job 04:35:42] stage 0: waiting for the payload
+[job 04:35:42] stage 0 OK
+[job 04:35:42] stage 1a: measuring the volume's torch tree
+[job 04:35:45] stage 1a: torch/lib exists? NO ; .so files under torch = 1
+[job 04:35:45] stage 1b: BRANCH C -- torch onto the CONTAINER disk at /root/torchfix (the volume is never written)
+[job 04:37:09] stage 1b: pip rc=0 -- 7.4G on the container disk
+[job 04:37:09]     ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+[job 04:37:09]     torchaudio 2.4.1+cu124 requires torch==2.4.1, but you have torch 2.9.1+cu129 which is incompatible.
+[job 04:37:12] stage 1b: BRANCH C OK -- 2.9.1+cu129 0.24.1+cu129
+[job 04:37:12] stage 1 DONE: branch=C  PYTHONPATH=/root/torchfix:/workspace/_sys/pylibs311_good/dist-packages
+[job 04:37:12] stage 1: boot wrapper /root/boot_novarec.sh -- the ONE PYTHONPATH line rewritten, diff:
+[job 04:37:12]     8c8
+[job 04:37:12]     < export PYTHONPATH=/workspace/_sys/pylibs311_good/dist-packages
+[job 04:37:12]     ---
+[job 04:37:12]     > export PYTHONPATH=/root/torchfix:/workspace/_sys/pylibs311_good/dist-packages
+[job 04:37:12] stage 1: booting with /root/boot_novarec.sh
+[job 04:37:12] stage 2: apt python3.10-dev + build-essential (foreground -- owns the dpkg lock)
+[job 04:37:17] stage 2 OK: Python.h present
+[job 04:37:17] stage 3: ditto_up.sh in the background (ready in 150-175 s on this volume)
+[job 04:37:17] stage 4: playwright + chromium (serial, after apt released the lock)
+[job 04:37:42] stage 4: CHROMIUM OK 156.0.8078.4
+[job 04:37:42] stage 5: repairing /workspace/_sys/pylibs311_good/dist-packages (container pip, PYTHONPATH unset)
+[job 04:37:53] stage 5: repair rc=6
+[job 04:38:03] stage 5: 13 of 13 import OK under PYTHONPATH=/root/torchfix:/workspace/_sys/pylibs311_good/dist-packages
+[job 04:38:03] stage 6: --revert to the pristine original (a previous session left it patched)
+[job 04:38:03] stage 6: revert rc=0 --    REVERTED
+[job 04:38:03] stage 6: waiting for Ditto to be ready before touching the bridge
+[job 04:43:04] stage 6: Ditto NOT ready -- MuseTalk
+[job 04:43:04] stage 6 DONE: face engine = musetalk
+[job 04:43:04] stage 7: boot (NOVA_FACE=musetalk)
+[job 04:44:02]     boot 60s: :8010=000 :8765=000 gpu=3189 MiB No module named 'resampy.core' 
+[job 04:45:02]     boot 120s: :8010=000 :8765=000 gpu=3189 MiB No module named 'resampy.core' 
+[job 04:46:02]     boot 180s: :8010=000 :8765=000 gpu=3189 MiB 
+[job 04:46:37] stage 7: BRAIN_UP
+[job 04:46:37]     page guard: beta/freeze.html = 147542 bytes
+[job 04:46:37]     [NOVA_FACE] musetalk
+[job 04:46:37] stage 8: curling the page the brain serves
+[job 04:46:37] stage 8: PAGE_ASSERT PASS 147542 bytes JUDGE-TRUTH x1
+[job 04:46:37] stage 9: waiting up to 15 min for /root/in/GO
+[job 04:52:32] stage 9: RECORDING take 1 (engine=ditto)
+[job 04:53:47] stage 9: take 1 harness rc=0 -- [   75.0s] DONE mp4=980881 bytes  her lines=7  my lines=2
+[job 04:53:47] stage 9: take 1 mp4 = 980881 bytes
+[job 04:53:47] stage 9: waiting up to 8 min for /root/in/GO2 (another take) or /root/in/NO_MORE
+[job 04:57:17] stage 9: second take requested, engine=same
+[job 04:57:17] stage 9: RECORDING take 2 (engine=ditto)
+[job 04:58:49] stage 9: take 2 harness rc=0 -- [   91.5s] DONE mp4=1431661 bytes  her lines=9  my lines=3
+[job 04:58:49] stage 9: take 2 mp4 = 1431661 bytes
+[job 04:58:49] ALL DONE -- waiting up to 25 min for /root/in/PULLED, then reverting

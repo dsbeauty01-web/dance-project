@@ -1,0 +1,789 @@
+{
+ "volume": "/workspace",
+ "t": "2026-11-02T03:03:09Z",
+ "df_h": "Filesystem                  Size  Used Avail Use% Mounted on\nmfs#euro-3.runpod.net:9421  2.2P  1.8P  493T  78% /workspace",
+ "df_note": "df reports the underlying cluster, NOT the volume quota -- see tools/pod/quota_guard.sh. Trust du_total and the write probe.",
+ "du_total_bytes": 53969596132,
+ "du_total": "50.3G",
+ "largest_dirs": [
+  {
+   "bytes": 53969596132,
+   "h": "50.3G",
+   "path": "/workspace"
+  },
+  {
+   "bytes": 19321299256,
+   "h": "18.0G",
+   "path": "/workspace/LiveTalking"
+  },
+  {
+   "bytes": 15368352422,
+   "h": "14.3G",
+   "path": "/workspace/_sys"
+  },
+  {
+   "bytes": 15365351505,
+   "h": "14.3G",
+   "path": "/workspace/_sys/pylibs311_good"
+  },
+  {
+   "bytes": 15362350588,
+   "h": "14.3G",
+   "path": "/workspace/_sys/pylibs311_good/dist-packages"
+  },
+  {
+   "bytes": 14361036131,
+   "h": "13.4G",
+   "path": "/workspace/LiveTalking/data"
+  },
+  {
+   "bytes": 14358034341,
+   "h": "13.4G",
+   "path": "/workspace/LiveTalking/data/avatars"
+  },
+  {
+   "bytes": 13352948571,
+   "h": "12.4G",
+   "path": "/workspace/opentalking"
+  },
+  {
+   "bytes": 12347085984,
+   "h": "11.5G",
+   "path": "/workspace/opentalking/.venv"
+  },
+  {
+   "bytes": 12311032759,
+   "h": "11.5G",
+   "path": "/workspace/opentalking/.venv/lib"
+  },
+  {
+   "bytes": 12308032071,
+   "h": "11.5G",
+   "path": "/workspace/opentalking/.venv/lib/python3.11"
+  },
+  {
+   "bytes": 4905231062,
+   "h": "4.6G",
+   "path": "/workspace/_sys/pylibs311_good/dist-packages/nvidia"
+  },
+  {
+   "bytes": 4872006527,
+   "h": "4.5G",
+   "path": "/workspace/LiveTalking/models"
+  },
+  {
+   "bytes": 3403075988,
+   "h": "3.2G",
+   "path": "/workspace/LiveTalking/models/musetalkV15"
+  },
+  {
+   "bytes": 3122752717,
+   "h": "2.9G",
+   "path": "/workspace/_sys/pylibs311_good/dist-packages/torch"
+  },
+  {
+   "bytes": 2015057494,
+   "h": "1.9G",
+   "path": "/workspace/_repo"
+  },
+  {
+   "bytes": 1835892080,
+   "h": "1.7G",
+   "path": "/workspace/LiveTalking/data/avatars/fullwave10sec"
+  },
+  {
+   "bytes": 1524146031,
+   "h": "1.4G",
+   "path": "/workspace/ditto"
+  },
+  {
+   "bytes": 1266213244,
+   "h": "1.2G",
+   "path": "/workspace/_repo/.git"
+  },
+  {
+   "bytes": 1255009864,
+   "h": "1.2G",
+   "path": "/workspace/_repo/.git/objects"
+  },
+  {
+   "bytes": 1080052716,
+   "h": "1.0G",
+   "path": "/workspace/_repo/.git/objects/pack"
+  },
+  {
+   "bytes": 1014620381,
+   "h": "967.6M",
+   "path": "/workspace/LiveTalking/data/avatars/maya_rapa_full"
+  },
+  {
+   "bytes": 853692429,
+   "h": "814.1M",
+   "path": "/workspace/ditto/env"
+  },
+  {
+   "bytes": 850587911,
+   "h": "811.2M",
+   "path": "/workspace/ditto/env/lib"
+  },
+  {
+   "bytes": 848516180,
+   "h": "809.2M",
+   "path": "/workspace/ditto/env/lib/python3.10"
+  },
+  {
+   "bytes": 847675521,
+   "h": "808.4M",
+   "path": "/workspace/LiveTalking/data/avatars/nova_prewave_a"
+  },
+  {
+   "bytes": 711746835,
+   "h": "678.8M",
+   "path": "/workspace/LiveTalking/data/avatars/maya_serum_close"
+  },
+  {
+   "bytes": 710083065,
+   "h": "677.2M",
+   "path": "/workspace/_sys/pylibs311_good/dist-packages/transformers"
+  },
+  {
+   "bytes": 701689544,
+   "h": "669.2M",
+   "path": "/workspace/_sys/pylibs311_good/dist-packages/triton"
+  },
+  {
+   "bytes": 701592443,
+   "h": "669.1M",
+   "path": "/workspace/_sys/pylibs311_good/dist-packages/onnxruntime"
+  }
+ ],
+ "largest_files": [
+  {
+   "bytes": 3400074924,
+   "h": "3.2G",
+   "path": "/workspace/LiveTalking/models/musetalkV15/unet.pth",
+   "denied": false
+  },
+  {
+   "bytes": 1475967737,
+   "h": "1.4G",
+   "path": "/workspace/_sys/pylibs311_good/dist-packages/torch/lib/libtorch_cuda.so",
+   "denied": false
+  },
+  {
+   "bytes": 751771728,
+   "h": "716.9M",
+   "path": "/workspace/opentalking/.venv/lib/python3.11/site-packages/nvidia/cublas/lib/libcublasLt.so.12",
+   "denied": false
+  },
+  {
+   "bytes": 749205904,
+   "h": "714.5M",
+   "path": "/workspace/_sys/pylibs311_good/dist-packages/nvidia/cublas/lib/libcublasLt.so.12",
+   "denied": false
+  },
+  {
+   "bytes": 601785480,
+   "h": "573.9M",
+   "path": "/workspace/_sys/pylibs311_good/dist-packages/onnxruntime/capi/libonnxruntime_providers_cuda.so",
+   "denied": false
+  },
+  {
+   "bytes": 547383096,
+   "h": "522.0M",
+   "path": "/workspace/opentalking/.venv/lib/python3.11/site-packages/nvidia/cudnn/lib/libcudnn_engines_precompiled.so.9",
+   "denied": false
+  },
+  {
+   "bytes": 547383096,
+   "h": "522.0M",
+   "path": "/workspace/_sys/pylibs311_good/dist-packages/nvidia/cudnn/lib/libcudnn_engines_precompiled.so.9",
+   "denied": false
+  },
+  {
+   "bytes": 486556368,
+   "h": "464.0M",
+   "path": "/workspace/_sys/pylibs311_good/dist-packages/nvidia/cusparse/lib/libcusparse.so.12",
+   "denied": false
+  },
+  {
+   "bytes": 451980513,
+   "h": "431.0M",
+   "path": "/workspace/opentalking/.venv/lib/python3.11/site-packages/nvidia/cusparselt/lib/libcusparseLt.so.0",
+   "denied": false
+  },
+  {
+   "bytes": 451980513,
+   "h": "431.0M",
+   "path": "/workspace/_sys/pylibs311_good/dist-packages/nvidia/cusparselt/lib/libcusparseLt.so.0",
+   "denied": false
+  },
+  {
+   "bytes": 436938961,
+   "h": "416.7M",
+   "path": "/workspace/_sys/pylibs311_good/dist-packages/torch/lib/libtorch_cpu.so",
+   "denied": false
+  },
+  {
+   "bytes": 429628328,
+   "h": "409.7M",
+   "path": "/workspace/opentalking/.venv/lib/python3.11/site-packages/nvidia/nccl/lib/libnccl.so.2",
+   "denied": false
+  },
+  {
+   "bytes": 429628328,
+   "h": "409.7M",
+   "path": "/workspace/_sys/pylibs311_good/dist-packages/nvidia/nccl/lib/libnccl.so.2",
+   "denied": false
+  },
+  {
+   "bytes": 415583664,
+   "h": "396.3M",
+   "path": "/workspace/opentalking/.venv/lib/python3.11/site-packages/triton/_C/libtriton.so",
+   "denied": false
+  },
+  {
+   "bytes": 406878486,
+   "h": "388.0M",
+   "path": "/workspace/LiveTalking/models/dwpose/dw-ll_ucoco_384.pth",
+   "denied": false
+  },
+  {
+   "bytes": 401087752,
+   "h": "382.5M",
+   "path": "/workspace/_sys/pylibs311_good/dist-packages/triton/_C/libtriton.so",
+   "denied": false
+  },
+  {
+   "bytes": 387990224,
+   "h": "370.0M",
+   "path": "/workspace/opentalking/.venv/lib/python3.11/site-packages/nvidia/cusparse/lib/libcusparse.so.12",
+   "denied": false
+  },
+  {
+   "bytes": 336721080,
+   "h": "321.1M",
+   "path": "/workspace/opentalking/.venv/lib/python3.11/site-packages/jaxlib/libjax_common.so",
+   "denied": false
+  },
+  {
+   "bytes": 334707217,
+   "h": "319.2M",
+   "path": "/workspace/LiveTalking/models/sd-vae/diffusion_pytorch_model.bin",
+   "denied": false
+  },
+  {
+   "bytes": 320676602,
+   "h": "305.8M",
+   "path": "/workspace/opentalking/.git/objects/pack/pack-e6e131270b4a6c5fbc35779a6ef7347c766eef57.pack",
+   "denied": false
+  },
+  {
+   "bytes": 302024152,
+   "h": "288.0M",
+   "path": "/workspace/_sys/pylibs311_good/dist-packages/nvidia/cusolver/lib/libcusolver.so.11",
+   "denied": false
+  },
+  {
+   "bytes": 296222485,
+   "h": "282.5M",
+   "path": "/workspace/_repo/.git/objects/pack/pack-8a79eb7337bdd4bdb1c3bc539b323ff41d106fbf.pack",
+   "denied": false
+  },
+  {
+   "bytes": 291507928,
+   "h": "278.0M",
+   "path": "/workspace/_sys/pylibs311_good/dist-packages/nvidia/cufft/lib/libcufft.so.11",
+   "denied": false
+  },
+  {
+   "bytes": 285226600,
+   "h": "272.0M",
+   "path": "/workspace/opentalking/.venv/lib/python3.11/site-packages/nvidia/cudnn/lib/libcudnn_adv.so.9",
+   "denied": false
+  },
+  {
+   "bytes": 285226600,
+   "h": "272.0M",
+   "path": "/workspace/_sys/pylibs311_good/dist-packages/nvidia/cudnn/lib/libcudnn_adv.so.9",
+   "denied": false
+  },
+  {
+   "bytes": 278925016,
+   "h": "266.0M",
+   "path": "/workspace/opentalking/.venv/lib/python3.11/site-packages/nvidia/cufft/lib/libcufft.so.11",
+   "denied": false
+  },
+  {
+   "bytes": 251616632,
+   "h": "240.0M",
+   "path": "/workspace/ditto/env/lib/python3.10/site-packages/nvidia/nccl/lib/libnccl.so.2",
+   "denied": false
+  },
+  {
+   "bytes": 243303872,
+   "h": "232.0M",
+   "path": "/workspace/opentalking/.venv/lib/python3.11/site-packages/nvidia/cusolver/lib/libcusolver.so.11",
+   "denied": false
+  },
+  {
+   "bytes": 238114449,
+   "h": "227.1M",
+   "path": "/workspace/_repo/.git/objects/pack/pack-a1345545d80de3648ec05d133b3ea2f7c98490bb.pack",
+   "denied": false
+  },
+  {
+   "bytes": 216119331,
+   "h": "206.1M",
+   "path": "/workspace/_repo/.git/objects/pack/pack-baf87aa8e6301def114dc586fc6faccd3fc4cb9d.pack",
+   "denied": false
+  }
+ ],
+ "zero_byte_under_pages": [
+  {
+   "path": "/workspace/pages/animal-freeze.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/copy.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/demo.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/freeze-nova.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/freeze.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/freeze.html.novalive-new",
+   "mtime": "2026-11-01 11:56"
+  },
+  {
+   "path": "/workspace/pages/beta/freeze2/hold.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/freeze2/judges.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/freeze2/lines-en.json",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/freeze2/lines-he-f.json",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/freeze2/lines-he-m.json",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/freeze2/script.json",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/freeze3.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/groove.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/hello.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/index.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/lib/arms.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/lib/brain-local.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/lib/copy-game.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/lib/doctor.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/lib/events.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/lib/freeze-game.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/lib/groove-game.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/lib/kp.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/lib/play.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/lights-demo-v2.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/lights-demo-v3.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/lights-demo-v4.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/lights-demo-v5.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/lights-demo.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/lights-wave-proof.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/novasays-music.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/novasays.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/novasays.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/play.css",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/sources/groove-1080/B-take1.mp4",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/sources/groove-1080/README.md",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/sources/groove-1080/analysis.json",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/sources/groove-1080/gen.json",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/sources/groove-1080/preview/contact-sheet.png",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/sources/groove-1080/round2/analysis.json",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/sources/groove-1080/round2/gen.json",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/sources/groove-1080/tests/rec60/round-60s-page.mp4",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/sources/groove-1080/tests/rec70-beta/console.log",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/sources/groove-1080/tests/rec70-beta/page-g30s.jpg",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/sources/groove-1080/tests/rec70-beta/page-g55s.jpg",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/sources/groove-1080/tests/rec70-beta/page-g5s.jpg",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/sources/groove-1080/tests/rec70-beta/page-g68s.jpg",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/sources/talk-test/console.log",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/sources/talk-test/ws-transcript.txt",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/tiers.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/upgroove-game.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/upgroove.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/upperbody.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/wave-live.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/wave-test.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/beta/wave.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/models/pose_landmarker_lite.task",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/models/pose_landmarker_lite.task.novalive-new",
+   "mtime": "2026-11-01 11:56"
+  },
+  {
+   "path": "/workspace/pages/shared/cue-window.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/shared/cue-window.js.novalive-new",
+   "mtime": "2026-11-01 11:56"
+  },
+  {
+   "path": "/workspace/pages/shared/freeze-fx.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/shared/freeze-fx.js.novalive-new",
+   "mtime": "2026-11-01 11:56"
+  },
+  {
+   "path": "/workspace/pages/shared/game-kit.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/shared/game-kit.js.novalive-new",
+   "mtime": "2026-11-01 11:56"
+  },
+  {
+   "path": "/workspace/pages/shared/light-engine.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/shared/light-engine.js.novalive-new",
+   "mtime": "2026-11-01 11:56"
+  },
+  {
+   "path": "/workspace/pages/shared/mover-engine.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/shared/mover-engine.js.novalive-new",
+   "mtime": "2026-11-01 11:56"
+  },
+  {
+   "path": "/workspace/pages/shared/mover-rules.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/shared/mover-rules.js.novalive-new",
+   "mtime": "2026-11-01 11:56"
+  },
+  {
+   "path": "/workspace/pages/shared/nova-bridge.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/shared/nova-bridge.js.novalive-new",
+   "mtime": "2026-11-01 11:56"
+  },
+  {
+   "path": "/workspace/pages/shared/nova-lang.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/shared/nova-lang.js.novalive-new",
+   "mtime": "2026-11-01 11:56"
+  },
+  {
+   "path": "/workspace/pages/shared/nova-lights.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/shared/nova-lights.js.novalive-new",
+   "mtime": "2026-11-01 11:56"
+  },
+  {
+   "path": "/workspace/pages/shared/pose-adapter.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/shared/pose-adapter.js.novalive-new",
+   "mtime": "2026-11-01 11:56"
+  },
+  {
+   "path": "/workspace/pages/shared/pose-engine.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/shared/pose-engine.js.novalive-new",
+   "mtime": "2026-11-01 11:56"
+  },
+  {
+   "path": "/workspace/pages/shared/pulse.js",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/shared/pulse.js.novalive-new",
+   "mtime": "2026-11-01 11:56"
+  },
+  {
+   "path": "/workspace/pages/up-groove.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/upperbody.html",
+   "mtime": "2026-11-01 11:53"
+  },
+  {
+   "path": "/workspace/pages/wave.html",
+   "mtime": "2026-11-01 11:53"
+  }
+ ],
+ "zero_byte_count": 86,
+ "write_probe": {
+  "1MB": {
+   "mb_asked": 1,
+   "ok": false,
+   "errno": 122,
+   "err": "OSError: [Errno 122] Disk quota exceeded"
+  },
+  "64MB": {
+   "mb_asked": 64,
+   "ok": false,
+   "errno": 122,
+   "err": "OSError: [Errno 122] Disk quota exceeded"
+  },
+  "512MB": {
+   "mb_asked": 512,
+   "ok": false,
+   "errno": 122,
+   "err": "OSError: [Errno 122] Disk quota exceeded"
+  }
+ },
+ "candidates": {
+  "caches": {
+   "bytes": 21802,
+   "h": "21.3K",
+   "n": 5,
+   "sample": [
+    "/workspace/ditto/ckpt/.cache",
+    "/workspace/LiveTalking/models/dwpose/.cache",
+    "/workspace/LiveTalking/models/whisper/.cache",
+    "/workspace/LiveTalking/models/sd-vae/.cache",
+    "/workspace/LiveTalking/models/.cache"
+   ]
+  },
+  "pycache": {
+   "bytes": 300377809,
+   "h": "286.5M",
+   "n": 1810,
+   "sample": [
+    "/workspace/in/__pycache__",
+    "/workspace/facebench/__pycache__",
+    "/workspace/opentalking/.venv/lib/python3.11/site-packages/numpy/distutils/__pycache__",
+    "/workspace/qa/pod/__pycache__",
+    "/workspace/__pycache__",
+    "/workspace/_sys/pylibs311_good/dist-packages/av-18.1.0.dist-info/licenses/__pycache__",
+    "/workspace/_sys/pylibs311_good/dist-packages/av/__pycache__",
+    "/workspace/_sys/pylibs311_good/dist-packages/av/video/__pycache__",
+    "/workspace/_sys/pylibs311_good/dist-packages/av/subtitles/__pycache__",
+    "/workspace/_sys/pylibs311_good/dist-packages/av/sidedata/__pycache__",
+    "/workspace/_sys/pylibs311_good/dist-packages/av/filter/__pycache__",
+    "/workspace/_sys/pylibs311_good/dist-packages/av/container/__pycache__"
+   ]
+  },
+  "logs": {
+   "bytes": 18123930,
+   "h": "17.3M",
+   "n": 221,
+   "sample": [
+    "/workspace/logs_rtspeak.log",
+    "/workspace/logs_bringup.log",
+    "/workspace/logs_push.log",
+    "/workspace/logs_rtmpout.log",
+    "/workspace/logs_mediamtx.log",
+    "/workspace/logs_engine.log",
+    "/workspace/host.log",
+    "/workspace/fb_demo.log",
+    "/workspace/ytpush.log",
+    "/workspace/fbpush.log",
+    "/workspace/FIX.log",
+    "/workspace/BUILD.log"
+   ]
+  },
+  "stale": {
+   "bytes": 0,
+   "h": "0B",
+   "n": 0,
+   "sample": []
+  },
+  "tmp": {
+   "bytes": 0,
+   "h": "0B",
+   "n": 1,
+   "sample": [
+    "/workspace/tmp"
+   ]
+  },
+  "scratch": {
+   "bytes": 7604876,
+   "h": "7.3M",
+   "n": 7,
+   "sample": [
+    "/workspace/opentalking/.venv/lib/python3.11/site-packages/types_pyyaml-6.0.12.20260906.dist-info",
+    "/workspace/opentalking/examples/avatars/custom-\u89c6\u9891\u521b\u4f5c-\u751f\u6210\u53cc\u4eba\u7728\u773c\u89c6\u9891-20260703-155851-393",
+    "/workspace/opentalking/examples/avatars/custom-\u89c6\u9891\u521b\u4f5c-\u751f\u6210\u53cc\u4eba\u7728\u773c\u89c6\u9891-1-20260703-155817-381",
+    "/workspace/gallery/groove-1080-20261020",
+    "/workspace/gallery/nova-fix-20261020",
+    "/workspace/_sys/pylibs311_good/dist-packages/types_protobuf-7.34.1.20260518.dist-info",
+    "/workspace/_sys/pylibs311_good/dist-packages/types_python_dateutil-2.9.0.20240906.dist-info"
+   ]
+  }
+ }
+}

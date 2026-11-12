@@ -1,0 +1,20 @@
+== ditto renders so far (did any AUDIO-driven frame render?) ==
+ready True renders 211 late 0 ms_p95 596.2 err None
+== bridge pid / engine state ==
+8758 python3 -u lk_bridge.py
+7797 python3 -u app.py --transport livekit --model musetalk --avatar_id nova_idle --max_session 1 --batch_size 8 --listenport 8010
+rt_lk pid=8234
+== restarting app.py so it attaches to the CURRENT bridge ==
+APP_UP 403 after 35s
+== bridge.log, engine lines only ==
+bridge: video track published 720x1288
+bridge: engine connected
+bridge: engine connected
+BRIDGE_DROP: IncompleteReadError errno= msg=expected=1 partial=0 since_last_frame=0.00s frames_this_conn=0
+bridge: engine disconnected
+BRIDGE_DROP: IncompleteReadError errno= msg=expected=1 partial=0 since_last_frame=0.00s frames_this_conn=5300
+bridge: engine disconnected
+bridge: engine connected
+== ports ==
+:8010=403  :8765=200
+rc=0

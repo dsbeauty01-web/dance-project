@@ -1,0 +1,50 @@
+[    0.0s] chunk sink up on 127.0.0.1:8099 -> /root/rec
+[    0.1s] page repair: restored 0, left alone 1
+[    0.1s]   . beta/freeze.html (148832 >= 148832)
+[    0.7s] goto http://127.0.0.1:8765/beta/freeze?commercial=1
+[    1.2s]   body text 523 chars, html 146192 bytes: '❄ ANIMAL FREEZE v3 · LIVE Nova (V2V) · full-figure · she becomes the animal · one-mic ❄\n🌟\nNova is waking up…\ngetting her ready for you ✨\n🌟 Nova\n⭐\n🐻\n🦩\n🐸\n⭐\n�'
+[    1.2s]   clicked Let's Play on http://127.0.0.1:8765/beta/freeze?commercial=1
+[    1.2s] rec frames=0 vfc=0 chunks=0 bytes=0 src=0x0 draw=None push=None err=None
+[    1.6s] brain ws open
+[    2.2s] RECORDING started mime=video/webm;codecs=vp8,opus audio_track=True audio_mix={"n": 1, "tracks": [{"tag": "AUDIO#", "label": "remote audio", "muted": false, "local": true, "id": "4a331048"}], "ctx": "running"} video={"tag": "VIDEO#nova-live-video", "label": "remote video", "w": 180, "h": 322}
+[    2.2s] brain ws open
+[    4.7s] SHE: Hi! I'm Nova, your magical AI dance teacher! What's your name?
+[   16.4s] SHE: I'm right here, no rush at all.
+[   16.7s] rec frames=83 vfc=82 chunks=9 bytes=785036 src=360x644 draw=requestVideoFrameCallback push=captureStream(0)+requestFrame err=None
+[   32.2s] rec frames=139 vfc=138 chunks=22 bytes=1417440 src=360x644 draw=requestVideoFrameCallback push=captureStream(0)+requestFrame err=None
+[   49.3s] recorder final: {"started": true, "frames": 192, "chunks": 36, "bytes": 2023066, "err": null, "w": 360, "h": 644, "vfc": 191, "drawMode": "requestVideoFrameCallback", "pushMode": "captureStream(0)+requestFrame", "stopped": true, "mime": "video/webm;codecs=vp8,opus", "audio": true, "mix": {"n": 1, "tracks": [{"tag": "AUDIO#", "label": "remote audio", "muted": false, "local": true, "id": "4a331048"}], "ctx": "running"}, "vpick": {"n": 2, "cands": [{"tag": "VIDEO#nova-live-video", "label": "remote video", "w": 180, "h": 322, "score": 14}, {"tag": "VIDEO#cam", "label": "fake_device_0", "w": 960, "h": 720, "score": -24}], "chosen": {"tag": "VIDEO#nova-live-video", "label": "remote video", "w": 180, "h": 322}}}
+[   53.9s] webm: 36 chunks, 2023066 bytes
+[   56.1s] VERIFY {"mean_volume_db": -30.6, "max_volume_db": -4.9, "video_frames": 149, "bitexact_dupes": 0, "bitexact_pct": 0.0, "mad_transitions": 192, "duplicate_frames": 43, "duplicate_pct": 22.4, "mad_threshold": 0.1, "mad_median": 0.5158}
+[   56.1s] DONE mp4=2068368 bytes  her lines=2  my lines=0  max_volume=-4.9dB  dup=22.4%  frames=149
+[    0.0s] chunk sink up on 127.0.0.1:8099 -> /root/rec
+[    0.0s] page repair: restored 0, left alone 1
+[    0.0s]   . beta/freeze.html (148832 >= 148832)
+[    0.5s] goto http://127.0.0.1:8765/beta/freeze?commercial=1
+[    0.8s]   body text 523 chars, html 146192 bytes: '❄ ANIMAL FREEZE v3 · LIVE Nova (V2V) · full-figure · she becomes the animal · one-mic ❄\n🌟\nNova is waking up…\ngetting her ready for you ✨\n🌟 Nova\n⭐\n🐻\n🦩\n🐸\n⭐\n�'
+[    0.9s]   clicked Let's Play on http://127.0.0.1:8765/beta/freeze?commercial=1
+[    0.9s] rec frames=0 vfc=0 chunks=0 bytes=0 src=0x0 draw=None src_el=None guard=None skip=0 err=None
+[    1.4s] RECORDING started mime=video/webm;codecs=vp8,opus audio_track=True audio_mix={"n": 1, "tracks": [{"tag": "AUDIO#", "label": "remote audio", "muted": true, "local": true, "id": "64eb6cc1"}], "ctx": "running"} video={"tag": "VIDEO#nova-live-video", "label": "remote video", "w": 0, "h": 0}
+[    1.4s] brain ws open
+[    1.4s] brain ws open
+[    4.0s] SHE: Hi! I'm Nova, your magical AI dance teacher! What's your name?
+[   16.3s] rec frames=101 vfc=87 chunks=10 bytes=940231 src=360x644 draw=requestVideoFrameCallback+poll(10ms) src_el=page element VIDEO#nova-live-video guard=totalVideoFrames skip=501 err=None
+[   17.3s] SHE: I'm right here, no rush at all.
+[   26.8s] TYPED: im Noam!
+[   27.5s] KID(echo): im Noam!
+[   28.7s] SHE: Noam—so awesome to meet you! What’s your favorite animal?
+[   31.8s] rec frames=162 vfc=143 chunks=22 bytes=1473456 src=360x644 draw=requestVideoFrameCallback+poll(10ms) src_el=page element VIDEO#nova-live-video guard=totalVideoFrames skip=566 err=None
+[   42.5s] SHE: Still right here.
+[   47.7s] TYPED: a tiger! i like how it jumps
+[   47.9s] rec frames=218 vfc=193 chunks=35 bytes=1766964 src=360x644 draw=requestVideoFrameCallback+poll(10ms) src_el=page element VIDEO#nova-live-video guard=totalVideoFrames skip=629 err=None
+[   48.7s] KID(echo): a tiger! i like how it jumps
+[   49.2s] SHE: Tigers are epic jumpers—love that!
+[   63.1s] rec frames=280 vfc=250 chunks=48 bytes=2005687 src=360x644 draw=requestVideoFrameCallback+poll(10ms) src_el=page element VIDEO#nova-live-video guard=totalVideoFrames skip=703 err=None
+[   67.7s] TYPED: can you dance like a tiger?
+[   68.3s] KID(echo): can you dance like a tiger?
+[   70.5s] SHE: I can’t dance myself, but I can help you dance with tiger energy—want to try?
+[   78.7s] rec frames=323 vfc=287 chunks=57 bytes=2235345 src=180x322 draw=requestVideoFrameCallback+poll(10ms) src_el=page element VIDEO#nova-live-video guard=totalVideoFrames skip=747 err=None
+[   90.7s] STOP seen
+[   94.1s] recorder final: {"started": true, "frames": 352, "chunks": 69, "bytes": 2371551, "err": null, "w": 180, "h": 322, "vfc": 315, "skipped": 792, "drawMode": "requestVideoFrameCallback+poll(10ms)", "pushMode": "captureStream(0)+requestFrame", "paintSource": "page element VIDEO#nova-live-video", "frameGuard": "totalVideoFrames", "stopped": true, "mime": "video/webm;codecs=vp8,opus", "audio": true, "mix": {"n": 1, "tracks": [{"tag": "AUDIO#", "label": "remote audio", "muted": true, "local": true, "id": "64eb6cc1"}], "ctx": "running"}, "vpick": {"n": 2, "cands": [{"tag": "VIDEO#nova-live-video", "label": "remote video", "w": 0, "h": 0, "score": 12}, {"tag": "VIDEO#cam", "label": "fake_device_0", "w": 960, "h": 720, "score": -24}], "chosen": {"tag": "VIDEO#nova-live-video", "label": "remote video", "w": 0, "h": 0}}}
+[   98.7s] webm: 69 chunks, 2371551 bytes
+[  112.8s] VERIFY {"mean_volume_db": -32.8, "max_volume_db": -4.0, "video_frames": 284, "bitexact_dupes": 1, "bitexact_pct": 0.35, "mad_transitions": 353, "duplicate_frames": 251, "duplicate_pct": 71.1, "mad_threshold": 0.1, "mad_median": 0.0289}
+[  112.8s] DONE mp4=2665814 bytes  her lines=6  my lines=3  max_volume=-4.0dB  dup=71.1%  frames=284

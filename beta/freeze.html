@@ -355,6 +355,44 @@ const ASSETS = {
    founder approved and what the page plays are the same math. Change the array ONLY
    together with the render generator, and re-approve by ear. */
 const Q0 = k => new URLSearchParams(location.search).get(k);
+
+/* ═══ NOVA_FACE (2026-10-30, branch nova-ditto) — which engine draws her lips ═══
+   musetalk (default, and anything that is not 'ditto') — nothing below changes. The pose
+   clips stay the ones that ship today; this whole block is inert.
+   ditto — Ditto needs her face 200-470 px tall, which forces a ~1.72x KNEES-UP reframe of
+   the LIVE body (measured: at today's full-body framing MediaPipe finds her face in 0.0% of
+   frames, so Ditto cannot even start — docs/DITTO-TRY.md). PoseClip is a FULL-STAGE overlay
+   (inset:0, object-fit:contain, z6 over the live video at z3), so a full-body pose clip
+   dropped over a knees-up body is a visible scale jump at every single freeze.
+   freezegame/knees/ holds the same four clips cut to the body's own crop box.
+   MEASURED on the exact held frames (freezegame/knees/manifest.json): only FLAMINGO
+   survives. Star loses both hands, bear loses a raised paw and the top of the pose, frog
+   loses both knees — the landmarks that MAKE each pose fall outside the crop.
+   So the set is NOT approved: ditto mode banners and refuses to show a chopped pose to a
+   kid, instead of quietly showing one. No silent fallbacks (Nova law 4). */
+const NOVA_FACE = (Q0('face') || 'musetalk').toLowerCase();
+let POSE_SET_OK = true;
+if(NOVA_FACE === 'ditto'){
+  POSE_SET_OK = false;                       // until the manifest says otherwise
+  for(const k of ['star','frog','bear','flamingo']){
+    const c = ASSETS.clips[k];
+    if(c) c.file = 'freezegame/knees/' + c.file.split('/').pop();
+  }
+  const stop = (why)=>{
+    const b = document.getElementById('banner');
+    if(b){ b.style.background='#f59f00'; b.style.color='#2b1a00';
+           b.textContent = '⛔ NOVA_FACE=ditto · knees-up freeze set BLOCKED — ' + why; }
+    try{ console.error('[NOVA_FACE] ditto pose set blocked:', why); }catch(_){}
+  };
+  fetch('freezegame/knees/manifest.json', {cache:'no-store'})
+    .then(r => r.ok ? r.json() : Promise.reject(new Error('manifest ' + r.status)))
+    .then(m => {
+      const cut = Object.entries(m.poses || {}).filter(([,p]) => p.verdict !== 'OK').map(([k]) => k);
+      if(m.set_verdict === 'OK' && !cut.length){ POSE_SET_OK = true; try{ console.log('[NOVA_FACE] ditto pose set approved'); }catch(_){} }
+      else stop(cut.join(', ') + ' cut off by the crop (freezegame/knees/manifest.json)');
+    })
+    .catch(e => stop('manifest unreadable: ' + e.message));
+}
 const BPM = 129.2, BEAT = 60/BPM;
 const BEAT_OFFSET = Math.max(0, parseFloat(Q0('beatoffset')) || 0.151);   // grid phase, from the analyzer
 const FREEZES = [
@@ -510,7 +548,17 @@ const SARAY_BASE = location.origin + '/';
    generic onboarding opener that asks for a name and mentions no game. The kid already
    chose freeze by opening this page; asking "what's your name / which game?" restarts an
    onboarding they finished. nova-pick still fires later as the belt-and-braces switch. */
-const SARAY = SARAY_BASE + (SARAY_BASE.indexOf('?')>=0 ? '&' : '?') + 'intro=freeze';
+/* COMMERCIAL INTRO (2026-11-02, ?commercial=1 — default OFF, this page is unchanged without it).
+   The brain picks her opening line from ?intro=<game> on the websocket URL (pod/rt_lk.py ~L686).
+   With NO intro= it runs the COMMERCIAL greeting — "Hi! I'm Nova, your magical AI dance teacher!
+   What's your name?" and the full intro choreography. This page hardcodes intro=freeze in TWO
+   places and also registers the [GAME-MODE] persona + nova-pick, which together REPLACE that
+   intro script. ?commercial=1 suppresses exactly those three things and nothing else: the brain's
+   own words are untouched, we just stop telling it we are a game. Without the flag every branch
+   below is byte-identical to before. */
+const COMMERCIAL = Q.get('commercial') === '1';
+const SARAY = COMMERCIAL ? SARAY_BASE
+            : SARAY_BASE + (SARAY_BASE.indexOf('?')>=0 ? '&' : '?') + 'intro=freeze';
 const LIVE_OFF = Q.get('nolive') === '1';
 
 /* ═══ Speech log — kid bubble + Nova's line under her panel ═══ */
@@ -739,6 +787,13 @@ const Live = {
       const _adapt = Q0('adapt')!=='0';
       const room=new LK.Room({adaptiveStream:_adapt, dynacast:_adapt});
       this.room=room;
+      /* FACE (2026-11-11, nova-take8c): Ditto lips everywhere + WIDE before the game — the shared engine decides
+         (shared/nova-face.js): pod not on Ditto -> red banner; her video pinned to the whole figure, never a head crop. */
+      import(new URL('../shared/nova-face.js', location.href).href)
+        .then(m=>{ self.face=m; m.watchFace(room, LK, {video:self.video}); })
+        .catch(e=>{ const b=document.createElement('div'); b.textContent='⛔ shared/nova-face.js failed to load — Nova\'s face engine is unchecked: '+(e&&e.message);
+                    b.style.cssText='position:fixed;left:0;right:0;top:0;z-index:2147483647;padding:10px;background:#b00020;color:#fff;font:600 15px system-ui;text-align:center';
+                    document.body.appendChild(b); });
       room.on(LK.RoomEvent.TrackSubscribed,(track,pub,p)=>{
         if(p.identity!=='nova-avatar')return;
         if(track.kind==='video'){ track.attach(self.video); }
@@ -808,7 +863,8 @@ const Live = {
   _connectWS(){
     const self=this;
     const qs=new URLSearchParams(location.search);
-    qs.set('intro','freeze');                            // her FIRST line is the freeze intro
+    if(!COMMERCIAL) qs.set('intro','freeze');            // her FIRST line is the freeze intro
+                                                         // (?commercial=1: no intro= -> the brain's commercial greeting)
     if(this._wsConns++) qs.set('rc','1');                // seamless reconnect: no re-greet
     const ws=new WebSocket(SARAY_BASE.replace('http','ws')+'rt?'+qs.toString());
     this.ws=ws;
@@ -926,7 +982,8 @@ const Live = {
   post(msg){ try{
     const t=(msg&&msg.type)||'';
     if(t==='set-avatar'){ if(msg.id) fetch(SARAY_BASE+'set_avatar?id='+encodeURIComponent(msg.id)).catch(()=>{}); return; }
-    if(t==='frame'){ if(this.video) this.video.style.objectFit=(msg.mode==='closeup')?'cover':'contain'; return; }
+    if(t==='frame'){ if(this.video){ if(this.face && this.face.faceState().face==='ditto') this.face.wide(this.video);   /* Ditto: WIDE, never a head crop (nova-take8c) */
+                     else this.video.style.objectFit=(msg.mode==='closeup')?'cover':'contain'; } return; }
     if(t==='auto-start') return;                        // no gate to wake — we ARE the page
     const map={
       'nova-say':     m=>({type:'nova-say',  text:m.text}),
@@ -1015,6 +1072,10 @@ const Live = {
      brain ACKs, max 10 tries. Every try and every ack is logged to the console. */
   _ackPersona:false, _ackPick:false, _introTries:0, _introTimer:null,
   armIntro(){
+    /* ?commercial=1: the [GAME-MODE] persona REPLACES the brain's intro script (rt_lk.py
+       ~L1257) and nova-pick declares the intro over, so arming either one would cancel the
+       commercial intro we came for. Default (no flag) is unchanged. */
+    if(COMMERCIAL){ console.log('[INTRO] COMMERCIAL mode — no game persona, no nova-pick'); return; }
     if(this._introTimer) return;                       // already arming
     const send = ()=>{
       if(this._ackPersona && this._ackPick){
@@ -1312,6 +1373,9 @@ const PoseClip = {
      hide() now clear EVERY overlay, not just the remembered one. */
   show(k){
     if(this.showing===k) return true;   // same round re-fire (swap timer + startFreeze): already up
+    /* NOVA_FACE=ditto: never put an unapproved (cut-off) pose on a kid's screen. The banner
+       set by the NOVA_FACE block says why; this is the refusal, not a silent fallback. */
+    if(!POSE_SET_OK){ try{ console.error('[BODY] poseclip:'+k+' REFUSED — knees-up set not approved'); }catch(_){} return false; }
     const v=this.vids[k]; if(!v) return false;
     for(const [kk,vv] of Object.entries(this.vids)){
       if(kk!==k){ vv.style.opacity='0'; try{ vv.pause(); }catch(_){} }

@@ -1,0 +1,20 @@
+[job 11:29:46] stage 0: waiting for the payload
+[job 11:29:46] stage 0 OK: payload complete
+[job 11:29:46] stage 1: python3.10-dev + build-essential
+[job 11:29:51] stage 1 OK: Python.h present
+[job 11:29:51] stage 2: playwright + chromium (background)
+[job 11:29:51] stage 3: ditto_up.sh  src=nova_fb_bank.mp4 bank=nova_fb_bank.json box=263,215,763,715
+[job 11:33:02] stage 3: ditto_up rc=0 health={"ready": true, "chunk_frames": 25, "chunk_samples": 16000, "fps": 25, "prime": 35, "info": {"src": "nova_fb_bank.mp4", "src_frames": 344, "src_wh": [1076, 1924], "amp": 0.6, "gate_frames": 0, "out_wh": [1074, 1920], "setup_s": 7.2, "bank": "/root/in/nova_fb_bank.json", "zoom": false, "eye_holds": 0, "prime_s": 121.3}, "renders": 0, "late": 0, "ms_p50": 0, "ms_p95": 0, "error": null, "motion": {"c
+[job 11:33:03] stage 4: probing the REAL /workspace/lk_bridge.py
+[job 11:33:03] stage 4: probe rc=0
+[job 11:33:03] stage 4: apply rc=1
+[job 11:33:03] stage 4: apply refused -- staying on MuseTalk
+[job 11:33:03] stage 4 DONE: face engine = musetalk
+[job 11:33:03] stage 5: staged this branch's rt_lk.py onto the volume (original kept at /root/novalive_out/rt_lk.volume.before.py)
+[job 11:33:03] stage 6: boot.sh (LAW-PODS-9-COLDLOAD: silence under 15 min is loading, not dead)
+[job 11:33:58] stage 6: waiting 120s... boot.log=35634 app=0 bridge=301
+[job 11:34:43] stage 6: BRAIN_UP after 105s
+[job 11:34:43] stage 7: waiting for /workspace/in/GO (up to 20 min)
+[job 11:41:23] stage 7: RECORDING -- live_intro_harness.py
+[job 11:49:13] stage 7: harness rc=5 [  469.2s] DONE mp4=0 bytes  her lines=0  my lines=0
+[job 11:49:13] ALL DONE -- waiting up to 20 min for /workspace/in/PULLED, then cleaning up

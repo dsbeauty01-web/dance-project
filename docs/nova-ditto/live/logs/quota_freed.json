@@ -1,0 +1,89 @@
+{
+ "volume": "/workspace",
+ "freed": {
+  "caches": {
+   "bytes": 12280001,
+   "h": "11.7M",
+   "deleted": 5,
+   "failed": 0
+  },
+  "pycache": {
+   "bytes": 2053852962,
+   "h": "1.9G",
+   "deleted": 1810,
+   "failed": 0
+  },
+  "logs": {
+   "bytes": 18123930,
+   "h": "17.3M",
+   "deleted": 221,
+   "failed": 0
+  },
+  "stale": {
+   "bytes": 0,
+   "h": "0B",
+   "deleted": 0,
+   "failed": 0
+  },
+  "tmp": {
+   "bytes": 1,
+   "h": "1B",
+   "deleted": 1,
+   "failed": 0
+  }
+ },
+ "errors": [],
+ "skipped_scratch": [
+  {
+   "path": "/workspace/opentalking/.venv/lib/python3.11/site-packages/types_pyyaml-6.0.12.20260906.dist-info",
+   "h": "1.9M"
+  },
+  {
+   "path": "/workspace/opentalking/examples/avatars/custom-\u89c6\u9891\u521b\u4f5c-\u751f\u6210\u53cc\u4eba\u7728\u773c\u89c6\u9891-20260703-155851-393",
+   "h": "9.6M"
+  },
+  {
+   "path": "/workspace/opentalking/examples/avatars/custom-\u89c6\u9891\u521b\u4f5c-\u751f\u6210\u53cc\u4eba\u7728\u773c\u89c6\u9891-1-20260703-155817-381",
+   "h": "4.4M"
+  },
+  {
+   "path": "/workspace/gallery/groove-1080-20261020",
+   "h": "978.5K"
+  },
+  {
+   "path": "/workspace/gallery/nova-fix-20261020",
+   "h": "1014.4K"
+  },
+  {
+   "path": "/workspace/_sys/pylibs311_good/dist-packages/types_protobuf-7.34.1.20260518.dist-info",
+   "h": "1.9M"
+  },
+  {
+   "path": "/workspace/_sys/pylibs311_good/dist-packages/types_python_dateutil-2.9.0.20240906.dist-info",
+   "h": "980.6K"
+  }
+ ],
+ "du_before": 53969596132,
+ "du_after": 51726291250,
+ "du_delta_bytes": 2243304882,
+ "du_delta": "2.1G",
+ "write_probe_after": {
+  "1MB": {
+   "mb_asked": 1,
+   "bytes_written": 1048576,
+   "ok": true
+  },
+  "512MB": {
+   "mb_asked": 512,
+   "bytes_written": 536870912,
+   "ok": true
+  },
+  "2048MB": {
+   "mb_asked": 2048,
+   "ok": false,
+   "errno": 122,
+   "err": "OSError: [Errno 122] Disk quota exceeded"
+  }
+ },
+ "two_gb_free": false
+}
