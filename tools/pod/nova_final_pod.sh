@@ -42,7 +42,9 @@ R=/root/repo; stage "repo $(cd $R && git rev-parse --short HEAD) body $(ls -la $
 #     tools/pod/ditto_take8/nova_take8.env). [CLI-FILL] DITTO_CHUNK=10 / DITTO_TAKE_TIMEOUT=0.35: the co-host's live chunk
 #     (ditto_up log 2026-11-10: chunk_frames 10), so the render thread can stay one chunk ahead in 0.4 s steps.
 export MAYA_LOGS=$OUT/ditto DITTO_PACK=${DITTO_PACK:-ditto-pack-v2} DITTO_SRC=$R/tools/pod/assets/nova_talk_wide.mp4
-export DITTO_AMP=${DITTO_AMP:-0.6} DITTO_GRAIN=0 DITTO_MASK=lower DITTO_PASTE_GATE=1 DITTO_PASTE_OFF_MS=80 DITTO_PASTE_XFADE_MS=120 \
+# DITTO_FACE_ROBUST=1: her face is 205 px in a 1080x1920 frame -> the full-frame detector at 0.5 misses frame 0 (pod run
+#   2026-11-12 #1: "mediapipe: no face in the first source frame"; the chef bank's same 205 px case, ditto_wide.py). Local: 118/121.
+export DITTO_FACE_ROBUST=1 DITTO_AMP=${DITTO_AMP:-0.6} DITTO_GRAIN=0 DITTO_MASK=lower DITTO_PASTE_GATE=1 DITTO_PASTE_OFF_MS=80 DITTO_PASTE_XFADE_MS=120 \
        DITTO_ON_RMS=0.012 DITTO_FAST_CLOSE=1 DITTO_DEBT_FIX=1 DITTO_FAST_PRIME=1 DITTO_PRIME=${DITTO_PRIME:-35} DITTO_CHUNK=${DITTO_CHUNK:-10} \
        DITTO_TAKE_TIMEOUT=${DITTO_TAKE_TIMEOUT:-0.35} DITTO_VAD=1 DITTO_EYE_HOLD=1 DITTO_THREADS=${DITTO_THREADS:-6} DITTO_STATS_EVERY=25
 mkdir -p $MAYA_LOGS
@@ -84,6 +86,7 @@ stage "screen+sound+lines: $(ls /root/line_*.wav | wc -l) lines"
 
 wait $DPID; stage "ditto: $(tail -2 $OUT/ditto_up.log | tr '\n' ' ' | cut -c1-300)"
 curl -s -m5 http://127.0.0.1:8031/health > $OUT/ditto_health_boot.json
+grep -q '"ready": *true' $OUT/ditto_health_boot.json || { stage "FAILED: Ditto not ready ($(cut -c1-200 $OUT/ditto_health_boot.json))"; stage "DONE"; touch $OUT/DONE; sleep infinity; }
 wait $WPID; stage "weights: $(head -1 $OUT/weights.txt)"
 [ -s "$SOULX_ROOT/ACTIVATE.sh" ] && . "$SOULX_ROOT/ACTIVATE.sh"
 cd $R/tools/pod
