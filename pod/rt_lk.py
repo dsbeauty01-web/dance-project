@@ -69,6 +69,10 @@ MODEL = os.environ.get("RT_MODEL", "gpt-realtime-2")
 # Then an 'air' line goes to that engine too (face + voice from one renderer, in sync) instead of voice_air to
 # the page — the lips land on the SIDE FACE, never on her dancing body. Default OFF: nothing changes for any other page.
 FACE_SOULX = os.environ.get("NOVA_FACE_SOULX", "0") == "1"
+# NOVA-FINAL (2026-11-12): NOVA_FACE_DUAL=1 = the face server runs FACE_RENDERER=dual (Ditto wide body + SoulX face, one at a
+# time). The page's speak-gate already says which phase it is: gate OFF (intro/ending) = she talks WIDE with Ditto lips on her
+# body; gate ON (game: air / hold) = the small SoulX face (PiP). This file only forwards that to GET /face_mode. Default OFF.
+FACE_DUAL = os.environ.get("NOVA_FACE_DUAL", "0") == "1"
 VOICE = os.environ.get("NOVA_VOICE", "marin")   # 2026-08-08 founder decision: marin IS Nova's voice (shimmer too adult, coral weird). ?voice= still overrides per-session for A/B
 RT_URL = f"wss://api.openai.com/v1/realtime?model={MODEL}"
 
@@ -1370,6 +1374,13 @@ async def relay(request):
                             await remember("[phase] The game section just ended. The ending has the "
                                            "floor now — speak only the lines you are given.")
                             await boundary_open("phase-end")
+                        if FACE_DUAL:
+                            _fm = "pip" if sgate["on"] else "wide"
+                            try:
+                                async with http.get(ENGINE + "/face_mode?m=" + _fm, timeout=aiohttp.ClientTimeout(total=3)) as _r:
+                                    print("[FACE-DUAL] face_mode", _fm, "->", _r.status, flush=True)
+                            except Exception as _e:
+                                print("[FACE-DUAL] face_mode err", _e, flush=True)
                         try: await ws_client.send_json({"type": "ack", "of": "speak_gate"})
                         except Exception: pass
                     elif t == "nova-pick":

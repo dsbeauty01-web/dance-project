@@ -11,6 +11,9 @@
 //   attachNova({onFace})   — [b0.27 freeze4] OPTIONAL: the live FACE stream (SoulX-FlashHead close-up), published as a
 //                            second LiveKit participant `nova-face`. onFace(MediaStream) when it arrives,
 //                            onFace(null) when it goes away. Pages that pass no onFace behave exactly as before.
+//   attachNova({onWide})   — [NOVA-FINAL 2026-11-12] OPTIONAL: her WIDE talking body (Ditto lips on her body in her
+//                            room), a second video track `nova-wide-video` of the same `nova-face` participant
+//                            (tools/pod/nova_face.py FACE_RENDERER=dual). onWide(MediaStream) / onWide(null).
 //   bridgeState()          — [b0.27 freeze4] { room, ws, face, voice } booleans, so a page can show the red banner
 //                            (no silent fallbacks) instead of guessing what is missing.
 //
@@ -22,14 +25,6 @@
 // FACE: tools/pod/nova_face.py publishes `nova-face` (SoulX face video + her voice audio) when the pod runs with
 // NOVA_FACE_SOULX=1 (docs/FREEZE4-SOULX-FACE.md). Change FACE_ID HERE only if that identity ever changes.
 
-// FACE (2026-11-11, nova-take8c): Ditto draws her lips everywhere. shared/nova-face.js reads which engine the pod's
-// bridge reports and raises the red banner when it is not Ditto. Under Ditto the live track is ALWAYS her talking
-// body (the Ditto source, her room, full figure): a non-talk body asked through setBody() is NOT drawn by the pod,
-// so it is said out loud (red banner) instead of silently showing the talk body.
-import { watchFace, faceState, faceOK, onFace, redBanner } from './nova-face.js';
-export { faceState, faceOK, onFace };
-const TALK_BODIES = new Set(['nova_idle2', 'nova_idle']);   // beta/freeze.html TALK_BODY + the Ditto pack's idle
-
 const BASE = location.origin + '/';
 const WSBASE = BASE.replace(/^http/, 'ws');
 
@@ -37,23 +32,18 @@ let ws = null, room = null, voiceGain = null, audioEl = null, ctx = null;
 let speakGated = false, micGated = false, wsConns = 0, wsDelay = 1500;
 const herAudio = { playing: () => {}, ended: () => {} };
 const FACE_ID = 'nova-face';                         // = FACE_IDENTITY in tools/pod/nova_face.py
-const state = { room: false, ws: false, face: false, voice: false };
+const state = { room: false, ws: false, face: false, voice: false, wide: false };
 export function bridgeState() { return { ...state }; }
 
 // ── public API ──────────────────────────────────────────────────────────────
-export async function attachNova({ onVideo, onFace, intro = '' } = {}) {
-  await joinLiveKit(onVideo, onFace);
+export async function attachNova({ onVideo, onFace, onWide, intro = '' } = {}) {
+  await joinLiveKit(onVideo, onFace, onWide);
   connectWS(intro);
   try { await startMic(); } catch (e) { console.warn('[BRIDGE] mic blocked', e && e.message); }
 }
 
 export function setBody(id) {
   if (!id) return;
-  if (faceState().face === 'ditto' && !TALK_BODIES.has(id)) {
-    // QUESTION (founder): under Ditto the pod shows only the talking body; game bodies must come from the page
-    // (clips) or the in-game face engine. Until that exists for this page, say so — never a silent stand-in.
-    redBanner(`⛔ body "${id}" is not drawn under Ditto — this page still asks the pod for it.`);
-  }
   fetch(BASE + 'set_avatar?id=' + encodeURIComponent(id), { mode: 'no-cors', cache: 'no-store' }).catch(() => {});
 }
 
@@ -78,17 +68,18 @@ export function onHerAudio({ playing, ended } = {}) {
 }
 
 // ── internals (faithful to beta/freeze.html Live) ────────────────────────────
-async function joinLiveKit(onVideo, onFace) {
+async function joinLiveKit(onVideo, onFace, onWide) {
   try {
     const LK = window.LivekitClient || window.LiveKitClient;
     if (!LK) { console.warn('[BRIDGE] LiveKit client not loaded'); return; }
     const r = await (await fetch(BASE + 'token')).json();
     room = new LK.Room({ adaptiveStream: false, dynacast: false });
-    watchFace(room, LK);
     room.on(LK.RoomEvent.TrackSubscribed, (track, pub, p) => {
       if (p.identity === FACE_ID) {                  // the live face (SoulX): its video is her face, its audio is her voice —
         // tools/pod/nova_face.py renders the face FROM those very samples, so voice and face leave the pod together.
         // Only pages that pass onFace take her voice from here (a freeze4 pod has no nova-avatar participant).
+        const wideTrack = pub && pub.trackName === 'nova-wide-video';   // NOVA-FINAL: her Ditto body, not the SoulX face
+        if (track.kind === 'video' && wideTrack) { if (onWide) { state.wide = true; onWide(new MediaStream([track.mediaStreamTrack])); } return; }
         if (track.kind === 'video' && onFace) { state.face = true; onFace(new MediaStream([track.mediaStreamTrack])); }
         if (track.kind === 'audio' && onFace) { state.voice = true; routeHerAudio(track); }
         return;
@@ -98,7 +89,10 @@ async function joinLiveKit(onVideo, onFace) {
       if (track.kind === 'audio') { state.voice = true; routeHerAudio(track); }
     });
     if (LK.RoomEvent.TrackUnsubscribed) room.on(LK.RoomEvent.TrackUnsubscribed, (track, pub, p) => {
-      if (p.identity === FACE_ID && track.kind === 'video') { state.face = false; if (onFace) onFace(null); }
+      if (p.identity === FACE_ID && track.kind === 'video') {
+        if (pub && pub.trackName === 'nova-wide-video') { state.wide = false; if (onWide) onWide(null); }
+        else { state.face = false; if (onFace) onFace(null); }
+      }
     });
     let rc = 2000;
     const resub = async () => {

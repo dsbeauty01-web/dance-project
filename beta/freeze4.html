@@ -26,7 +26,6 @@
      her figure needs 56.2vh of width; on a 16:9 screen Nova's half is 88.9vh wide, which leaves 32.7vh = 18.4vw free.
      small = min(18vw, 32vh) → her figure keeps its full height. big = 24vw → her figure is still whole, drawn at 82 %.
      Stacked (phone, portrait): her half is 100vw x 50vh, the figure needs 28.1vh; small = 34vw, big = 46vw. */
-:root{ --rail: min(18vw, 32vh); --rail-big: 24vw; }
 #stage{display:flex;flex-direction:row}
 #novaSide{display:flex;flex:0 0 50%;min-width:0;min-height:0;background:#1b1030}
 #camPane{position:relative;flex:0 0 50%;min-width:0;min-height:0;overflow:hidden}
@@ -37,59 +36,36 @@
 #novaAmb{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(2.2);filter:blur(28px);z-index:1}
 #camPane #cam,#camPane #fx{position:absolute;inset:0;width:100%;height:100%}
 
-#faceRail{flex:0 0 var(--rail);min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
-  padding:64px 8px 12px;background:linear-gradient(180deg,#241544,#1b1030);transition:flex-basis .5s ease}
-#faceRail[data-size=big]{flex-basis:var(--rail-big)}
-/* the tile is square: SoulX-FlashHead renders a square head close-up. [CLI-FILL] the pod's real track size is not
-   known until a pod runs (QUESTION in the spec) — object-fit:cover keeps the tile full either way, no bars. */
-#faceTile{position:relative;width:100%;aspect-ratio:1/1;max-height:100%;border-radius:22px;overflow:hidden;background:#2a1a4a;
-  outline:3px solid rgba(255,255,255,.14);transition:outline-color .25s,box-shadow .25s}
-#faceRail[data-state=talking] #faceTile{outline-color:var(--gold);box-shadow:0 0 26px rgba(255,214,90,.45)}   /* gold = the only colour that glows */
-#faceRail[data-state=freeze] #faceTile{outline-color:#aee8ff}                                                  /* ice only at freezes */
-#face{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#2a1a4a}
-#faceRail[data-live="0"] #face{visibility:hidden}
-/* the state badge — lexi-ux-patterns Pattern 2: "a small pill at the bottom of Nova's tile", "Talking — green pulse" */
-#faceBadge{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);z-index:3;white-space:nowrap;
-  font:800 clamp(11px,1.3vw,15px)/1 'Baloo 2',Nunito,system-ui;padding:6px 12px;border-radius:999px;background:rgba(0,0,0,.72);color:#fff}
-#faceBadge[data-state=talking]{background:#1f7a4a;animation:talkpulse 1s ease-in-out infinite}
-#faceBadge[data-state=freeze]{background:#aee8ff;color:#12324a}
-#faceBadge[data-state=thinking]::after{content:' …'}
-@keyframes talkpulse{50%{box-shadow:0 0 0 6px rgba(125,219,163,.35)}}
-/* no silent fallback: the stream is missing → red, in the panel (colours of beta/wave.html #banner) */
-#faceBanner{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;text-align:center;padding:10px;
-  background:#3a0d0d;color:#ffb3b3;font:800 clamp(11px,1.4vw,16px)/1.25 Nunito,system-ui}
-#faceBanner[hidden]{display:none}
-#faceName{font:800 clamp(12px,1.4vw,16px) 'Baloo 2',Nunito,system-ui;color:var(--gold)}
-
-/* what she says, under her face in the rail — never over her baked body (founder 2026-11-11: the body stays untouched) */
-#novaSay{width:100%;min-height:2.6em;background:rgba(255,255,255,.93);color:#2a1a4a;border-radius:14px;padding:6px 8px;
-  font:800 clamp(11px,1.3vw,16px)/1.2 'Baloo 2',Nunito,system-ui;text-align:center;opacity:0;transform:translateY(6px);transition:opacity .25s,transform .25s;pointer-events:none}
-#novaSay.on{opacity:1;transform:none}
+/* NOVA-FINAL (2026-11-12, Refael's spec items 2-3): the side rail is gone. Her face is a small PiP TOP-LEFT INSIDE her
+   room (shared/face-pip.js, the same tile in every game), shown only in the game. Before the music starts and at the end
+   she talks WIDE: her live Ditto body (#novaWide — her talk body in her room, Ditto lips) fills her pane instead of the
+   clip. The child's pane keeps exactly 50 % (unchanged). */
+#novaWide{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:3;background:transparent}
+#novaPane[data-stage=wide] #nova{visibility:hidden}
+#novaPane[data-stage=game] #novaWide{visibility:hidden}
+#novaPane[data-live-wide="0"] #novaWide{visibility:hidden}
+#wideBanner{position:absolute;left:8%;right:8%;top:40%;z-index:8;padding:12px;border-radius:14px;text-align:center;
+  background:#3a0d0d;color:#ffb3b3;font:800 clamp(12px,1.5vw,17px)/1.25 Nunito,system-ui}
+#wideBanner[hidden]{display:none}
+#wideBadge{display:none}
 #novaTag{position:absolute;left:12px;top:56px;z-index:7;font:800 16px 'Baloo 2',Nunito,system-ui;color:var(--gold);background:rgba(0,0,0,.35);padding:4px 10px;border-radius:999px}
 /* the whole-screen red banner: something the game needs is missing → it refuses to start (CLAUDE.md law 4) */
 #banner{position:fixed;inset:0;z-index:95;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:24px;
   background:#3a0d0d;color:#ffb3b3;font:800 clamp(18px,3vw,26px)/1.3 Nunito,system-ui}
 #banner small{font:600 clamp(13px,1.8vw,16px)/1.4 Nunito,system-ui;color:#ffd0d0;max-width:720px}
 #banner.hidden{display:none}
-/* the medal screen leaves the face rail uncovered: her ending lines are said by that face (pod run 2026-11-11: the
-   full-screen medal hid her face for the whole ending) */
-#end{left:var(--rail-big)}
+/* the medal screen leaves Nova's half uncovered: her ending lines are said there (pod run 2026-11-11: the full-screen
+   medal hid her face for the whole ending) */
+#end{left:50%}   /* NOVA-FINAL: the medal screen covers the child's half only — her WIDE ending is said in her room */
 @media (max-aspect-ratio: 1/1){
   #end{left:0;top:50vh}
-  :root{ --rail: 34vw; --rail-big: 46vw; }
   #stage{flex-direction:column}
-  #faceRail{padding-top:56px}
 }
 </style>
 </head><body>
 <div id="stage">
   <div id="novaSide">
-    <aside id="faceRail" data-size="small" data-live="0" aria-label="Nova">
-      <div id="faceTile"><video id="face" playsinline muted autoplay></video><div id="faceBanner" hidden></div><div id="faceBadge"></div></div>
-      <div id="faceName">Nova</div>
-      <div id="novaSay"></div>
-    </aside>
-    <div id="novaPane"><video id="novaAmb" playsinline muted loop></video><video id="nova" playsinline muted loop></video></div>
+    <div id="novaPane" data-stage="wide" data-live-wide="0"><video id="novaAmb" playsinline muted loop></video><video id="nova" playsinline muted loop></video><video id="novaWide" playsinline muted autoplay></video><div id="wideBanner" hidden></div><div id="wideBadge"></div></div>
   </div>
   <div id="camPane"><video id="cam" playsinline muted></video><canvas id="fx"></canvas></div>
 </div>
@@ -110,6 +86,7 @@ import { createLocalBrain } from './lib/brain-local.js';
 import { runDoctor } from './lib/doctor.js';
 import { attachNova, routeVoice, note, onHerAudio, bridgeState } from '../shared/nova-bridge.js';
 import { createFacePanel } from '../shared/face-panel.js';
+import { mountFacePip } from '../shared/face-pip.js';
 
 const $ = id => document.getElementById(id);
 const lang = getLang(); applyLang(lang);
@@ -163,8 +140,19 @@ const rec = createRecorder('freeze4', lang);
 const brain = createNovaEvents('freeze', ev => rec.nova(ev));     // reaction triggers for the avatar: window.novaEvents
 
 /* ── her FACE: the side panel. The stream comes from the bridge (onFace); the panel only shows it. ── */
-const face = createFacePanel({ root: $('faceRail'), video: $('face'), badge: $('faceBadge'), banner: $('faceBanner'), lang, log,
-  onHealth: live => { if (!live) rec.event('face_missing', {}, performance.now() / 1000); } });
+const pip = mountFacePip($('novaPane'), { lang, log, onHealth: live => { if (!live) rec.event('face_missing', {}, performance.now() / 1000); } });
+pip.video.id = 'face';                                                        // the proof probe reads #face (mouth motion)
+const face = pip.panel;
+/* her WIDE talking body (Ditto) — same watchdog/red-banner engine as the face, on her pane */
+const wide = createFacePanel({ root: $('novaPane'), video: $('novaWide'), badge: $('wideBadge'), banner: $('wideBanner'), lang, log: (k, d) => log('wide-' + k, d),
+  missingTag: 'Ditto', missingText: lang === 'he' ? 'הגוף החי של נובה (דיטו) לא משודר' : "Nova's live talking body is not streaming",
+  onHealth: live => { $('novaPane').dataset.liveWide = live ? '1' : '0'; if (!live) rec.event('wide_missing', {}, performance.now() / 1000); } });
+window.freeze4Wide = wide;
+let dual = false;                                                             // the pod runs FACE_RENDERER=dual (a wide track exists)
+/* the stage: 'wide' = intro/ending (she talks on her body in her room, Ditto lips) · 'game' = her clips + the PiP face.
+   It follows the voice routing exactly (routeVoice is the phase machine's one switch): engine = wide, air/mute = game. */
+function stage(st){ if (!dual) { pip.show(true); return; }
+  $('novaPane').dataset.stage = st; pip.show(st === 'game'); face.setActive(st === 'game'); wide.setActive(st === 'wide'); log('stage', st); }
 window.freeze4Face = face;
 
 /* ── her VOICE: live V2V only, through the bridge. What she is asked to say is chosen by the same Truth-Law brain as
@@ -172,12 +160,11 @@ window.freeze4Face = face;
       (pod/rt_lk.py SPEAK-GATE: one staged line per gap in 'air', none in a hold). ── */
 const mind = createLocalBrain({ lang, g: Q.get('g') === 'm' ? 'm' : 'f' });
 window.novaBrainLog = [];
-const sayEl = $('novaSay'); if (lang === 'he') sayEl.dir = 'rtl';
-let sayTimer = null, voiceMode = 'engine', holding = false, gapLine = false;
+let voiceMode = 'engine', holding = false, gapLine = false;
 /* In the game ('air') she gets ONE line per gap (game-cues-lights juice checklist: "≤1 line/gap"; pod speak-gate: "this
    gap's ONE allowed line"). A gap = from the end of one hold to the start of the next. The first line asked for wins —
    that is the one about what the judge just saw; a second one is held back, never stacked on top of her own voice. */
-function setVoice(mode){ if (mode === voiceMode && setVoice.sent) return; setVoice.sent = true; voiceMode = mode; routeVoice(mode); log('voice', mode); }      // routeVoice() is the only thing that changes routing
+function setVoice(mode){ if (mode === voiceMode && setVoice.sent) return; setVoice.sent = true; voiceMode = mode; routeVoice(mode); log('voice', mode); stage(mode === 'engine' ? 'wide' : 'game'); }      // routeVoice() is the only thing that changes routing
 /* SHE TALKS LESS (founder, 2026-11-11: "she should talk a bit less"). In the game a line is cut to its first sentence and
    said only if that is ≤ 6 words — beta/tiers.js kids `maxWordsMidGame: 6`; game-cues-lights juice checklist "voice or
    badge (fact-fed, ≤6 words, not every hit — ≤1 line/gap)". A longer line is not said at all: the badge, the card and the
@@ -201,8 +188,7 @@ function novaSays(text, delayMs = 0){
     if (holding){ entry.sent = false; log('line-held-back', 'hold: ' + text); return; }        // HOLDS = hard mute: nothing is asked for during a freeze
     if (voiceMode === 'air'){ if (gapLine){ entry.sent = false; log('line-held-back', 'one per gap: ' + text); return; } gapLine = true; }
     note(`say exactly: "${text}"`); face.thinking(); log('line', text);
-    sayEl.textContent = text; sayEl.classList.add('on'); clearTimeout(sayTimer);
-    sayTimer = setTimeout(() => sayEl.classList.remove('on'), Math.max(2600, 120 * text.length));
+    pip.say(text);
   }, delayMs);
 }
 /* No 'fact:' notes in v4: on the pod (2026-11-11) every note in the game's 'air' mode was credited as the gap's spoken
@@ -269,12 +255,20 @@ async function begin(){
   if (missingClips.length) return refuse(missingClips.map(u => TXT.noBody + u));
   /* her live face + live voice — both must be really there, or the game does not start (no silent fallbacks) */
   log('attach', 'start');
-  try { await attachNova({ intro: 'freeze4', onFace: s => face.attach(s) }); } catch (e) { log('attach-error', String(e?.message || e)); }
+  try { await attachNova({ intro: 'freeze4', onFace: s => face.attach(s), onWide: s => { dual = dual || !!s; wide.attach(s); } }); } catch (e) { log('attach-error', String(e?.message || e)); }
   const deadline = performance.now() + FACE_WAIT_MS;
-  const faceOk = await face.waitLive(FACE_WAIT_MS);
+  /* NOVA-FINAL: a dual pod starts on the WIDE body (the SoulX face is not rendered until the game) — wait for whichever
+     face this pod streams first; with no wide track it is the freeze4 pod (face only) exactly as before. */
+  let faceOk = false;
+  while (performance.now() < deadline){
+    if (wide.state.live){ dual = true; faceOk = true; break; }
+    if (face.state.live && !bridgeState().wide){ faceOk = true; break; }
+    await new Promise(r => setTimeout(r, 200));
+  }
+  if (dual){ face.setActive(false); stage('wide'); } else { wide.setActive(false); $('novaPane').dataset.stage = 'game'; pip.show(true); }
   let st = bridgeState();
   while (!(st.ws && st.voice) && performance.now() < deadline){ await new Promise(r => setTimeout(r, 200)); st = bridgeState(); }
-  log('attach', JSON.stringify({ face: faceOk, ...st }));
+  log('attach', JSON.stringify({ face: faceOk, dual, ...st }));
   const why = []; if (!faceOk) why.push(TXT.noFace); if (!st.ws || !st.voice) why.push(TXT.noVoice);
   if (why.length) return refuse(why);
 

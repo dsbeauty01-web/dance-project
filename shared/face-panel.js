@@ -21,7 +21,10 @@
 //   P.setBase('watching'|'listening'|'freeze')   what she is doing when she is not talking (the page's phase)
 //   P.speaking(true|false)       the bridge's onHerAudio playing / ended
 //   P.thinking()                 a line was asked for and her voice has not started yet
-//   P.state → { live, badge, size, frames, missing }
+//   P.setActive(on)              [NOVA-FINAL] the pod renders this face only in its phase (FACE_RENDERER=dual: the SoulX
+//                                face in the game, the Ditto body in intro/ending). While inactive the stall watchdog is
+//                                off and no red banner shows; turning it on gives the stream one stall window to arrive.
+//   P.state → { live, badge, size, frames, missing, active }
 
 const TXT = {
   en: { watching: 'Watching', listening: 'Listening', talking: 'Talking', thinking: 'Thinking', freeze: 'FREEZE!',
@@ -44,9 +47,9 @@ const THINK_GIVE_UP_MS = 6000;
 // between two lines. QUESTION for the founder.
 const TALK_HOLD_MS = 700;
 
-export function createFacePanel({ root, video, badge, banner, lang = 'en', stallMs = FACE_STALL_MS, onHealth = () => {}, log = () => {} }) {
-  const T = TXT[lang] || TXT.en;
-  const S = { live: false, badge: 'watching', size: 'small', frames: 0, missing: true, base: 'watching', talking: false, thinkAt: 0, lastFrameAt: 0, stream: null };
+export function createFacePanel({ root, video, badge, banner, lang = 'en', stallMs = FACE_STALL_MS, onHealth = () => {}, log = () => {}, missingText = '', missingTag = 'SoulX' }) {
+  const T = { ...(TXT[lang] || TXT.en), ...(missingText ? { missing: missingText } : {}) };
+  const S = { live: false, badge: 'watching', size: 'small', frames: 0, missing: true, base: 'watching', talking: false, thinkAt: 0, lastFrameAt: 0, stream: null, active: true };
   let waiters = [];
 
   video.muted = true; video.playsInline = true; video.autoplay = true;      // her VOICE never comes from this element (bridge owns it)
@@ -62,8 +65,9 @@ export function createFacePanel({ root, video, badge, banner, lang = 'en', stall
     badge.textContent = T[b]; badge.dataset.state = b;
     root.dataset.size = size; root.dataset.state = b;
     root.dataset.live = S.live ? '1' : '0';
-    banner.textContent = S.missing ? T.missing + ' (SoulX)' : '';
-    banner.hidden = !S.missing;
+    banner.textContent = S.missing ? T.missing + (missingTag ? ' (' + missingTag + ')' : '') : '';
+    const grace = !S.live && S.activeAt && now - S.activeAt < stallMs;      // just switched on: one stall window to arrive
+    banner.hidden = !S.missing || !S.active || grace;
   }
 
   function setLive(live, why) {
@@ -89,7 +93,7 @@ export function createFacePanel({ root, video, badge, banner, lang = 'en', stall
 
   // watchdog on a timer, not rAF: a hidden tab stops rAF, and a stream that died must still be noticed when the tab returns
   const dog = setInterval(() => {
-    if (S.live && performance.now() - S.lastFrameAt > stallMs) setLive(false, 'no new frame for ' + stallMs + ' ms');
+    if (S.active && S.live && performance.now() - S.lastFrameAt > stallMs) setLive(false, 'no new frame for ' + stallMs + ' ms');
     paint();
   }, 250);
 
@@ -109,7 +113,9 @@ export function createFacePanel({ root, video, badge, banner, lang = 'en', stall
       if (on) { S.talking = true; S.thinkAt = 0; paint(); }
       else S.offT = setTimeout(() => { S.talking = false; paint(); }, TALK_HOLD_MS); },
     thinking() { if (!S.talking) { S.thinkAt = performance.now(); } },
+    setActive(on) { on = !!on; if (on === S.active) return; S.active = on; log('face-active', on ? 'on' : 'off');
+      if (on) { S.lastFrameAt = performance.now(); S.activeAt = performance.now(); } paint(); },
     destroy() { clearInterval(dog); },
-    get state() { return { live: S.live, badge: S.badge, size: S.size, frames: S.frames, missing: S.missing }; },
+    get state() { return { live: S.live, badge: S.badge, size: S.size, frames: S.frames, missing: S.missing, active: S.active }; },
   };
 }
