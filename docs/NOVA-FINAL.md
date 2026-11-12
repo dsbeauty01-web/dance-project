@@ -87,6 +87,27 @@ core silence motion 2.54, 106 pucker frames — the same silence numbers her clo
 | Freeze v4 (`beta/freeze4.html`) | done (own wiring, same behaviour) |
 | Upper Body (`beta/upperbody.html`) | done through `shared/game-kit.js` (every kit page gets it); intro line [CLI-FILL] |
 | Wave (`beta/wave.html`) | done; intro line [CLI-FILL]; each timed line is its own beat |
-| Nova Says (`beta/novasays.html`) | NOT converted: her gestures are bodies the old MuseTalk pod draws (`setBody`), the dual face server draws none. QUESTION: page-side gesture clips first |
-| Up Groove (`beta/upgroove.html`) | NOT converted: its own legacy `Live` (nova-avatar, `intro=joined`, no speak-gate). Needs a port onto nova-live.js — next task |
+| Nova Says (`beta/novasays.html`) | done (run #5): WIDE intro said, game = page body clips + PiP. Bodies are page clips now: groove = `freezegame/dance-active.mp4`, `gest_star` = `freeze-star.mp4`, `gest_bear` = `freezebear.mp4`; `gest_lefthand/righthand/clap` have no clip in the repo → spoken + lit only (NOVA-SAYS.md rule). QUESTION: bake those three |
+| Up Groove (`beta/upgroove.html`) | done (run #6): on `nova-live.js`; bodies = its own clip bank (`nova-joined-small.mp4`), WIDE intro, PiP in game, freezes = hard mute; `?legacy=1` = old SARAY path. Run #5 found the page's `#nova-stage video{opacity:0}` rule hid both live videos — fixed |
 | Freeze (`beta/freeze.html`, the certified one) | not touched (main is frozen; Freeze v4 is its successor) |
+
+
+## Runs #5-#6 (2026-11-12 evening, Refael "finish all")
+| pod | what | time | cost |
+|---|---|---|---|
+| 8s4vc8jykjv1w1 | Upper Body (round-end fix), Nova Says, Up Groove | 17:41-18:01 | ~$0.30 |
+| 8i30io3jrbr9rl | Up Groove (visibility fix) + Nova Says again | 18:02-18:18 | ~$0.23 |
+
+Upper Body fix verified: one hold → between, no flapping (run #4 flapped every second).
+Nova Says on run #6 did not reach her intro inside the 95 s cap: Chrome on the pod has no WebGL, pose runs at 1 fps on the
+CPU and the start-up took ~60 s (run #5 made it in time). Also found: the Ditto "not streaming" red line showed from page
+load until attach — fixed in `nova-live.js` after the run (not re-run).
+
+| Ditto Gold take gate (knees-up) | corr | speaking jitter | pause jitter (noise) | core silence | pucker | open in silence | verdict |
+|---|---|---|---|---|---|---|---|
+| Freeze v4 (run #4) | 0.661 | 1.64 | 2.90 (2.77) | 2.54 | 106 | 0 | BLOCK |
+| Upper Body (run #5) | 0.752 | 2.53 | 2.98 (2.70) | 2.53 | 107 | 0 | BLOCK |
+| Nova Says (run #5, intro part) | 0.664 | 1.48 | 3.24 (2.90) | 2.60 | 70 | 1 | BLOCK |
+| Up Groove (run #6) | 0.655 | 1.44 | 3.31 (2.95) | 2.47 | 75 | 0 | BLOCK |
+| her closed body, no Ditto (control) | 0.054 | 0.18 | 3.61 (3.44) | 2.50 | 54 | 0 | BLOCK |
+| gold knees-up | 0.52-0.58 | 2.28-2.82 | 1.73-1.86 (1.1) | 0.71-0.97 | 0 | 0 | — |

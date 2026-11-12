@@ -1,0 +1,261 @@
+{
+ "input": "/tmp/claude-0/-home-claude/ec07b738-fd1d-5694-a361-d49569153bfc/scratchpad/deliver/nova-final/pod5/ns_cut.mp4",
+ "kind": "video",
+ "mode": "result",
+ "wh": [
+  1080,
+  1920
+ ],
+ "fps": 25.0,
+ "frames_scanned": 704,
+ "frames_total": 704,
+ "framing": {
+  "shot": "knees-up",
+  "seen_frac": {
+   "shoulders": 1.0,
+   "hips": 1.0,
+   "knees": 1.0,
+   "ankles": 0.0
+  },
+  "frames": 6
+ },
+ "canvas": [
+  1080,
+  1920
+ ],
+ "height_frac": 1.0,
+ "prebake_gate": {
+  "verdict": "REJECT",
+  "summary": {
+   "frames": 704,
+   "secs": 28.16,
+   "face_found_pct": 100.0,
+   "no_face_run_ms": 0,
+   "face_px_p5": 200,
+   "face_px_p50": 205,
+   "face_px_p95": 224,
+   "yaw_rest_deg": -4.6,
+   "yaw_abs_p99_deg": 8.5,
+   "yaw_range_deg": 8.0,
+   "pitch_range_deg": 15.7,
+   "roll_range_deg": 14.4,
+   "yaw_proxy_p50": 0.014,
+   "yaw_proxy_max": 0.059,
+   "disp_p95_pct": 5.65,
+   "disp_max_pct": 6.35,
+   "rot_v_p95_deg": 2.74,
+   "rot_v_max_deg": 4.69,
+   "smo_res_p95_deg": 3.98,
+   "smo_res_max_deg": 5.0,
+   "mouth_p50": 0.0068,
+   "mouth_p95": 0.0442,
+   "hand_pct": 0.0,
+   "hand_run_ms": 0,
+   "blur_p05_rel": 0.82
+  },
+  "non_pass": {
+   "pitch_range_deg": "SOFTEN",
+   "roll_range_deg": "SOFTEN",
+   "disp_p95_pct": "REJECT",
+   "rot_v_p95_deg": "SOFTEN",
+   "smo_res_p95_deg": "REJECT",
+   "mouth_p95": "REJECT"
+  }
+ },
+ "lips": {
+  "has_voice_track": true,
+  "take5_gate": {
+   "lip_motion_speaking": 3.49,
+   "lip_motion_silent": 2.6,
+   "lipmove_silent_motion": 2.63,
+   "silent_frames": 588,
+   "silent_open_frames_total": 1,
+   "pucker_frames": 70,
+   "corr_best": 0.664,
+   "corr_lag": 1,
+   "early_open_frames": 0,
+   "pass": false
+  },
+  "voiced_pct": 12.5,
+  "open_pct_gap002": 11.1,
+  "open_pct_gap003": 8.2,
+  "gap_p95": 0.0442,
+  "lip_motion_all": 2.71,
+  "lip_motion_p50": 2.12,
+  "lip_motion_p90": 5.24,
+  "lip_motion_posefree": 2.75,
+  "pucker_pct": 1.6,
+  "resting_width": 0.3678
+ },
+ "motion": {
+  "whole_frame": 3.74,
+  "picture_area": {
+   "mean": 3.74,
+   "moving_pct": 97.2,
+   "box_frac": [
+    0.0,
+    0.0,
+    1.0,
+    1.0
+   ]
+  }
+ },
+ "ghost": {
+  "ghost_frames": 0,
+  "events_at_s": [],
+  "jump_cuts": 0,
+  "jumps_at_s": []
+ },
+ "live_budget": "Ditto must draw 1 s of voice in well under 1 s on the pod (co-host 0.35-0.5 s on L40S; Nova 1.1-1.2 s = lips fall behind).",
+ "verdict": "FIX FIRST",
+ "engine": {
+  "engine": "Ditto",
+  "why": "knees-up shot: Ditto repaints only the lips on top of a moving body video (body, hands, hair untouched). SoulX-FlashHead draws a 512 head only - it cannot keep a body.",
+  "shot": "knees-up"
+ },
+ "face_src_px": 205,
+ "face_screen_px": 205,
+ "items": [
+  {
+   "level": "OK",
+   "check": "face found",
+   "measured": "100.0 % (longest loss 0 ms)",
+   "threshold": ">= 99.0 % (live banks 99.5-100)",
+   "why": "Frames without a face get no lips (her own mouth shows, or a frozen frame).",
+   "fix": ""
+  },
+  {
+   "level": "FIX",
+   "check": "head motion for Ditto's tracker (prebake_gate)",
+   "measured": "pitch_range_deg SOFTEN, roll_range_deg SOFTEN, disp_p95_pct REJECT, rot_v_p95_deg SOFTEN, smo_res_p95_deg REJECT",
+   "threshold": "prebake_gate TH (PASS)",
+   "why": "Fast turns/nods make Ditto's face crop jump and the lips slide (clips >= 3.9 % disp lost the face).",
+   "fix": "Use the calmer stretches (bank segments that PASS) or ask for slower movement; SOFTEN alone is usable (Nova went live on SOFTEN)."
+  },
+  {
+   "level": "OK",
+   "check": "engine choice",
+   "measured": "knees-up, face 10.7% of frame height",
+   "threshold": "body shot or moving video -> Ditto; bust/face still (face >= 20 % of H) or face-filling video (>= 35 %) -> SoulX",
+   "why": "knees-up shot: Ditto repaints only the lips on top of a moving body video (body, hands, hair untouched). SoulX-FlashHead draws a 512 head only - it cannot keep a body.",
+   "fix": ""
+  },
+  {
+   "level": "OK",
+   "check": "face height in the source",
+   "measured": "205 px",
+   "threshold": ">= 200 px",
+   "why": "enough real lip detail for Ditto",
+   "fix": ""
+  },
+  {
+   "level": "OK",
+   "check": "face height ON SCREEN",
+   "measured": "205 px (source 205 x 1.000; canvas 1080x1920, body at 1 x H)",
+   "threshold": ">= 200 px (150-200 borderline; Maya co-host Large 118 px = 'horrible')",
+   "why": "Viewers judge lips at the size they see them. A small on-screen mouth reads as mush however good the engine.",
+   "fix": ""
+  },
+  {
+   "level": "OK",
+   "check": "source resolution",
+   "measured": "1080x1920",
+   "threshold": "short side >= 720",
+   "why": "keep it NATIVE (take 8: no 860 downscale)",
+   "fix": ""
+  },
+  {
+   "level": "WARN",
+   "check": "face sharpness",
+   "measured": "Laplacian var 21 at a 300 px face (mouth @256 0.14)",
+   "threshold": ">= 80 OK, 20-80 WARN, < 20 FIX (Seyzar bank 8s 99 vs bank 7 52; take-7 cut 1080 54 / 720 36; Nova dance raw 14). Skin texture matters (beard high, smooth make-up low): compare against the SAME person's native file.",
+   "why": "A soft source gives soft lips; Ditto copies the texture around the mouth. Take 8 doubled it (bank 7 -> 8s) by going native-res + light unsharp.",
+   "fix": "Use the native-res file; light sharpen only: ffmpeg -vf unsharp=5:5:0.7:5:5:0.0 (never stronger, never GFPGAN/CodeFormer)."
+  },
+  {
+   "level": "OK",
+   "check": "lips follow the voice",
+   "measured": "corr 0.664 (lag 1 fr)",
+   "threshold": ">= 0.5 (take 8 0.70; take 2 0.36 'weird')",
+   "why": "Low corr = mouth not shaped by the words.",
+   "fix": "Check AV offset / DITTO_PRIME delay line, then the body's mouth (closed patch)."
+  },
+  {
+   "level": "FIX",
+   "check": "lip motion in silence",
+   "measured": "core silence 2.6; with transitions (lipmove def) 2.63; speaking 3.49",
+   "threshold": "core <= 1.2 (take5_gate PASS; take 8 0.84-0.89 core / 1.94-1.98 lipmove = 'so-so')",
+   "why": "Above ~1.2 the mouth reads as moving when they are not talking.",
+   "fix": "Fix the SOURCE: build_bank_v3.py --ref <closed frame> --crf 12; calmer head; DITTO_PASTE_GATE=1."
+  },
+  {
+   "level": "FIX",
+   "check": "open / pucker in silence",
+   "measured": "1 open, 70 pucker of 588 silent frames",
+   "threshold": "0 open, <= 2 pucker frames (single-frame landmark blips)",
+   "why": "An open or pursed mouth in a pause is the 'deaf / chewing' look Refael rejected (takes 2-4).",
+   "fix": "Closed-mouth patch on the body (build_bank_v3.py), DITTO_PASTE_GATE=1, DITTO_MASK=lower."
+  },
+  {
+   "level": "OK",
+   "check": "body motion (mean frame diff, picture area)",
+   "measured": "3.74 (97.2 % frames moving; whole frame 3.74; area [0.0, 0.0, 1.0, 1.0])",
+   "threshold": ">= 1.0 (jewellery lead real clip 4.77 / Seyzar real 1.73; Kling statue 0.92; take-1 loop 0.07)",
+   "why": "A still body with a moving mouth reads as a dead puppet (Refael: 'the body is still', 'frozen').",
+   "fix": ""
+  },
+  {
+   "level": "WARN",
+   "check": "blinks per minute",
+   "measured": "36.2 (17 in 28.2 s)",
+   "threshold": "6-25 (Maya 28-31 = flagged)",
+   "why": "No blinks = doll; constant blinking = nervous, and it was on Refael's error sheet.",
+   "fix": "Pick a calmer stretch / re-record; do not fix with warps."
+  },
+  {
+   "level": "WARN",
+   "check": "head sway (nose std)",
+   "measured": "56.9 / 16.1 px = 27.7 % of face height",
+   "threshold": "<= 6.0 % (Maya 9.0 px at a 118 px face = 7.6 %, flagged)",
+   "why": "Too much sway reads as nervous and moves Ditto's crop; zero reads as a statue (judge with body motion).",
+   "fix": "Use a calmer recording/stretch."
+  },
+  {
+   "level": "OK",
+   "check": "baked crossfades / ghost frames",
+   "measured": "0 frames (events at []); hard jumps 0",
+   "threshold": "<= 2 (Maya talk bank 24 = double images on air; morph rebuild 1)",
+   "why": "A pixel crossfade inside the body shows two faces at once; Ditto then draws lips on a ghost.",
+   "fix": ""
+  }
+ ],
+ "thresholds": {
+  "face_src_go": 200,
+  "face_src_nogo": 150,
+  "screen_go": 200,
+  "screen_fix": 150,
+  "upscale_fix": 2.0,
+  "ditto_face_hi": 520,
+  "src_short_side": 720,
+  "open_gap": 0.02,
+  "open_pct_go": 1.0,
+  "open_pct_nogo": 50.0,
+  "lip_motion_go": 1.2,
+  "body_lip_p50": 1.5,
+  "pucker_pct_go": 1.0,
+  "pucker_w": 0.9,
+  "motion_statue": 1.0,
+  "motion_dead": 0.3,
+  "ghost_go": 2,
+  "blink_lo": 6,
+  "blink_hi": 25,
+  "sway_pct_fix": 6.0,
+  "eyes_closed_s": 0.6,
+  "face_found_go": 99.0,
+  "face_found_nogo": 95.0,
+  "sharp_go": 80.0,
+  "sharp_fix": 20.0,
+  "bg_de_fix": 12.0,
+  "corr_go": 0.5
+ }
+}

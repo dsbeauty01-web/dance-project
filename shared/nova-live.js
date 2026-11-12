@@ -53,6 +53,7 @@ export function createNovaLive({ pane, hide = [], lang = 'en', log = () => {}, i
   const wide = createFacePanel({ root: wv, video: wv, badge: wbadge, banner: wb, lang, log: (k, d) => log('wide-' + k, d), missingTag: 'Ditto',
     missingText: lang === 'he' ? 'הגוף החי של נובה (דיטו) לא משודר' : "Nova's live talking body is not streaming",
     onHealth: live => { wv.dataset.live = live ? '1' : '0'; } });
+  wide.setActive(false); face.setActive(false);   // nothing to watch until ready() attaches (pod run #6: red 'not streaming' line from page load on Nova Says)
   const S = { dual: false, phase: '', mode: '', gapLine: false, herOn: false, startedAt: 0, endedAt: 0 };
   onHerAudio({ playing: () => { S.herOn = true; S.startedAt = performance.now(); face.speaking(true); log('her-voice', 'start'); },
                ended: () => { S.herOn = false; S.endedAt = performance.now(); face.speaking(false); log('her-voice', 'end'); } });
