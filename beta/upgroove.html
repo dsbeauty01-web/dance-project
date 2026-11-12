@@ -841,7 +841,8 @@ async function nfStart(){
   try { if (window.Pose && !Pose._started){ Pose._started = true; Pose.init(); } } catch(_){}
   Clips.init(); Clips.playIdle(); $('nova-static').style.display = 'none';
   const st = document.createElement('style');                         // WIDE: her clip bank hides under the live Ditto body
-  st.textContent = '#nova-stage[data-nova-stage=wide] > video:not(.nova-live-wide){visibility:hidden}';
+  st.textContent = '#nova-stage[data-nova-stage=wide] > video:not(.nova-live-wide){visibility:hidden}'
+    + ' #nova-stage video.nova-live-wide, #nova-stage .nova-pip video{opacity:1}';   // this page's clip rule is "#nova-stage video{opacity:0}" until .on (pod run 2026-11-12 #5: wide never live, PiP tile empty)
   document.head.appendChild(st);
   const m = await import(location.origin + '/shared/nova-live.js');   // the page has a <base> to GitHub Pages: the live piece comes from the pod
   NF = m.createNovaLive({ pane: novaStage, hide: [], lang: 'en', log: nfLog, intro: 'page:upgroove' });

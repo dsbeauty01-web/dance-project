@@ -67,6 +67,7 @@ export function createNovaLive({ pane, hide = [], lang = 'en', log = () => {}, i
     get dual(){ return S.dual; }, face, wide, pip,
     async ready(waitMs = 30000){
       log('attach', 'start'); pane.dataset.novaStage = 'wide';
+      face.setActive(false); wide.setActive(false); wide.setActive(true);   // one stall window of grace while the tracks arrive (no red flash at attach)
       if (!(window.LivekitClient || window.LiveKitClient)) await new Promise(res => {      // same client line as beta/freeze4.html
         const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js';
         sc.onload = res; sc.onerror = () => { log('attach-error', 'livekit-client failed to load'); res(); }; document.head.appendChild(sc); });
