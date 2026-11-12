@@ -172,7 +172,12 @@ def pending_take(n):
 def render_loop(R):
     import cv2
     global DUAL
-    if isinstance(R, Dual): DUAL = R; S["mode"] = R.mode
+    if isinstance(R, Dual):
+        DUAL = R; S["mode"] = R.mode
+        try:   # one real SoulX frame before the game, so the first moment of the PiP is her face, never a black tile (pod run #2)
+            fr = R.r["pip"].render(np.zeros(getattr(R.r["pip"], "samples", SAMPLES), np.float32))
+            S["pip_first"] = (fr[0] if isinstance(fr, tuple) else fr)[-1]
+        except Exception as e: log("pip warm frame failed:", e)
     while True:
         mode = S["mode"] if DUAL else "pip"
         r = DUAL.r[mode] if DUAL else R
@@ -272,7 +277,7 @@ async def publisher():
         if ch is None:                                  # renderer late: hold the last frame, silence — never a black frame
             S["underruns"] += 1
             m = S["mode"] if DUAL else "pip"; n = 4 if m == "wide" else CHUNK
-            lf = last[m] if last[m] is not None else (np.zeros((512, 512, 3), np.uint8) if m == "pip" else None)
+            lf = last[m] if last[m] is not None else (S.get("pip_first", np.zeros((512, 512, 3), np.uint8)) if m == "pip" else None)
             if lf is None: await asyncio.sleep(0.04); t0 = loop.time() - i / FPS; continue
             ch = {"frames": [lf] * n, "audio": np.zeros(n * STEP, np.float32), "speech": False, "t_arr": None, "mode": m, "n": n}
         if ch["speech"] and ch["t_arr"] is not None:

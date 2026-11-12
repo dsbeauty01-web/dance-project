@@ -103,7 +103,8 @@ stage "speed: $(python3 -c "import json;d=json.load(open('$OUT/speed_face.json')
 
 # 5) W — her real voice through the live face server, wide (Ditto) — the cut for the gold gate
 curl -s -m60 -X POST "http://127.0.0.1:8010/finish?tag=speed" > /dev/null
-python3 - <<'PYW' >> $OUT/W.log 2>&1
+[ "${NF_SKIP_W:-0}" = 1 ] && echo skip > /root/skipw
+[ -f /root/skipw ] || python3 - <<'PYW' >> $OUT/W.log 2>&1
 import time, wave, urllib.request
 def post(f):
     b = open(f, "rb").read(); bnd = "NFW"

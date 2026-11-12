@@ -195,7 +195,22 @@ function novaSays(text, delayMs = 0){
    line (pod/rt_lk.py SPEAK-GATE, nova-cue arm), so a "silent" fact could make her talk on her own. Everything she says
    about the round is already in the exact line the page stages (Truth Law: only what the judge saw). */
 function mindReact(type, d){ const r = mind.react(type, d); if (r) novaSays(r.text, r.delayMs); }
-onHerAudio({ playing: () => { face.speaking(true); log('her-voice', 'start'); }, ended: () => { face.speaking(false); log('her-voice', 'end'); } });
+const herV = { on: false, startedAt: 0, endedAt: 0 };
+onHerAudio({ playing: () => { herV.on = true; herV.startedAt = performance.now(); face.speaking(true); log('her-voice', 'start'); },
+             ended: () => { herV.on = false; herV.endedAt = performance.now(); face.speaking(false); log('her-voice', 'end'); } });
+/* NOVA-FINAL: the intro is hers — the game waits until she has really said it (her voice started after the line was asked,
+   then 1.2 s of quiet), instead of a fixed 3.4 s. Pod run 2026-11-12 #2: with Ditto's constant delay (DITTO_PRIME 35 =
+   1.4 s) the fixed wait cut her intro off and the rest of it was said by the in-game face. [CLI-FILL] 1.2 s quiet (longer
+   than the gaps between her words, ≤ 0.5 s measured in face-panel.js) and a 20 s cap so the game always starts. */
+async function waitHerLine(capMs = 20000){
+  const t0 = performance.now();
+  while (performance.now() - t0 < capMs){
+    const started = herV.startedAt > t0;
+    if (started && !herV.on && performance.now() - herV.endedAt > 1200) return true;
+    await new Promise(r => setTimeout(r, 100));
+  }
+  return false;
+}
 addEventListener('nova:kid', () => face.thinking());                          // the child said something → she is about to answer
 
 const animalByRound = {};
@@ -273,7 +288,7 @@ async function begin(){
   if (why.length) return refuse(why);
 
   setVoice('engine'); face.setBase('listening');                              // INTRO = she talks, the child may answer
-  if (!fast){ mindReact('intro'); await new Promise(r => setTimeout(r, 3400)); }     // she explains the game first (skipped with ?fast=1) — freeze-nova timing
+  if (!fast){ mindReact('intro'); if (dual) log('intro-said', String(await waitHerLine())); else await new Promise(r => setTimeout(r, 3400)); }     // she explains the game first (skipped with ?fast=1)
   game = createFreezeGame({ tune, pace, on: onEvent });
   hud = createHud(game.pace.rounds);
   src = await createSource($('cam'), (frame, t) => {
