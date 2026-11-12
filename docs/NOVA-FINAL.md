@@ -56,4 +56,37 @@ SoulX PiP: 387 / 396 ms per 0.96 s chunk.
 |---|---|---|---|
 | 2z5b80ww49hqka | run #1: Ditto "no face in the first source frame" (205 px face) -> DITTO_FACE_ROBUST=1 | 03:34-03:43 | ~$0.13 |
 | d2vsgzkcpfovfr | run #2: speed + W + real run A | 03:43-03:59 | ~$0.23 |
-| df9maejzjmm1a0 | run #3: real run A with the intro fix + PiP warm frame | see below | see below |
+| df9maejzjmm1a0 | run #3: closed while still booting (Refael: close pods when not rendering; all games went into one run) | 04:05-04:09 | ~$0.05 |
+| h0q82hhzwbwi50 | run #4: speed + Freeze v4 run (intro fix, PiP warm frame) + Wave + Upper Body runs; 17 min of it was the image pull on a slow host | 04:14-04:45 | ~$0.46 |
+| **total** | | | **~$0.87** |
+
+## Run #4 numbers
+| | Ditto wide p50/p95 per 0.4 s | late | SoulX PiP p50/p95 per 0.96 s |
+|---|---|---|---|
+| speed (silence) | 124 / 166 ms | 1/118 | — |
+| Freeze v4 run | 122 / 149 ms | 1/219 | 363 / 413 ms |
+| + Wave + Upper Body | 122 / 143 ms | 1/413 | 365 / 412 ms |
+
+Freeze v4: her intro line said WIDE in full (asked 5.4 s, her voice 9.8-14.9 s, game at 18.1 s), PiP face in the game,
+ending WIDE. Wave: intro WIDE 14.0-23.5 s, then the clip + PiP, 3 timed lines, ending WIDE. Upper Body: intro WIDE
+13.7-23.6 s, round 1 with PiP, between card WIDE — then the page's own round-end bug made the phase flap hold/between
+every second (the paused clip sat past FINISH_AT and re-fired the hold). Fixed in `beta/upperbody.html` (the clock only
+drives game/hold); NOT re-run on a pod.
+
+Gold take gate on the Freeze v4 live Ditto cut (intro + ending, 39.7 s, face 237 px): **BLOCK** — corr 0.661, speaking
+jitter 1.64 (gold knees 2.28-2.82), 0 open frames in silence; blocks: pause jitter 2.90 (its landmark noise alone 2.77),
+core silence motion 2.54, 106 pucker frames — the same silence numbers her closed body gives with no Ditto at all
+(control above).
+
+## All games (Refael 2026-11-12: "make sure ALL of Nova is like this now")
+`shared/nova-live.js` = the Freeze v4 setup as one engine: `createNovaLive({ pane, hide })` · `ready()` · `phase('intro'|'between'|'ending'|'game'|'hold')`
+· `say()` (game: first sentence ≤ 6 words, one per gap) · `waitLine()`. The brain takes `?intro=page:<game>` (page owns every beat, PAGE_RULES = FREEZE_RULES without the freeze words).
+
+| game | status |
+|---|---|
+| Freeze v4 (`beta/freeze4.html`) | done (own wiring, same behaviour) |
+| Upper Body (`beta/upperbody.html`) | done through `shared/game-kit.js` (every kit page gets it); intro line [CLI-FILL] |
+| Wave (`beta/wave.html`) | done; intro line [CLI-FILL]; each timed line is its own beat |
+| Nova Says (`beta/novasays.html`) | NOT converted: her gestures are bodies the old MuseTalk pod draws (`setBody`), the dual face server draws none. QUESTION: page-side gesture clips first |
+| Up Groove (`beta/upgroove.html`) | NOT converted: its own legacy `Live` (nova-avatar, `intro=joined`, no speak-gate). Needs a port onto nova-live.js — next task |
+| Freeze (`beta/freeze.html`, the certified one) | not touched (main is frozen; Freeze v4 is its successor) |

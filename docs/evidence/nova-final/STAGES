@@ -1,0 +1,27 @@
+04:31:35 boot (watchdog 55 min) nproc=96 
+NVIDIA GeForce RTX 4090, 24564 MiB
+04:31:47 repo fb48f8b body 11329444
+04:32:12 apt done 0
+04:32:50 chrome: Google Chrome 157.0.8103.78 
+04:33:27 pip done 0 (ok)
+04:33:28 deployed 0
+04:33:30 screen+sound+lines: 2 lines
+04:33:30 ditto: [ditto_up 04:33:07] ready after 80 s: {"ready": true, "chunk_frames": 10, "chunk_samples": 6400, "fps": 25, "prime": 35, "info": {"src": "nova_talk_wide.mp4", "src_frames": 121, "src_wh": [1080, 1920], "amp": 0.6, "amp_x": null, "mask": "lower", "gate_flags": {"DITTO_FAST_CLOSE": "1", "DITTO_DEBT_FI
+04:35:58 weights: weights NOT baked - fetching
+04:39:36 face :8010 http=200 {"ok": true, "ready": true, "room": true, "room_name": "nova-final", "identity": "nova-face", "renderer": "dual", "chunks": 5, "speech_chunks": 0, "frames_published": 0, "underruns": 0, "lines": 0, "r
+04:40:22 speed: {'wide_render_ms_p50': 123.8, 'wide_render_ms_p95': 166.2, 'wide_chunks_late': 1, 'wide_chunks': 118, 'underruns': 0}
+04:40:23 W: {"code": 0, "files": ["/root/out/face/wide_published_W.mp4"]}
+04:41:27 A exit 0
+04:41:28 A finish: {"code": 0, "files": ["/root/out/face/face_published_A.mp4", "/root/out/face/wide_published_A.mp4"]}
+04:42:41 G wave exit 0 wave recorded 66.3 s; shots ['pip', 'wide']
+04:44:07 G upperbody exit 0 upperbody recorded 77.1 s; shots ['pip', 'wide']
+-rw-r--r-- 1 root root  2941068 Nov 12 04:41 /root/out/nova-final-run.mp4
+-rw-r--r-- 1 root root  1624798 Nov 12 04:44 /root/out/nova-final-upperbody.mp4
+-rw-r--r-- 1 root root  1390990 Nov 12 04:42 /root/out/nova-final-wave.mp4
+-rw-r--r-- 1 root root  1027443 Nov 12 04:45 /root/out/nova-pip-soulx-A.mp4
+-rw-r--r-- 1 root root 38666714 Nov 12 04:44 /root/out/nova-wide-ditto-A-1080.mp4
+-rw-r--r-- 1 root root   125587 Nov 12 04:44 /root/out/nova-wide-ditto-W-1080.mp4
+-rw-r--r-- 1 root root 35304676 Nov 12 04:45 /root/out/nova-wide-ditto-upperbody-1080.mp4
+-rw-r--r-- 1 root root 38751847 Nov 12 04:44 /root/out/nova-wide-ditto-wave-1080.mp4
+9496 MiB, 0 %
+04:45:19 DONE

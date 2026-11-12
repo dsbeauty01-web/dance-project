@@ -69,7 +69,7 @@ function startRound(i){ round=i; const R=ROUNDS[i]; K.hud.tag(R.label); K.hud.do
   K.say(i===0 ? 'Hands on your waist. Watch first — then copy.' : R.rate>1 ? 'Faster now. Same slides, hips frozen.' : 'Again — cleaner. Ribs only.');
   K.refVid.play().catch(()=>{}); }
 
-K.onClock = (t) => { if (done) return; const R=ROUNDS[round];
+K.onClock = (t) => { if (done) return; if (K.phase==='between' || K.phase==='ending' || K.phase==='intro') return;   /* NOVA-FINAL fix: the paused clip sat past FINISH_AT, so hold->endRound re-fired every second (pod run 2026-11-12: phase flapped hold/between 1 Hz) */ const R=ROUNDS[round];
   if (round===0 && !calDone && t>=DEMO_END){ K.E.finishCal(); calDone=true; K.say('Now you — slide RIGHT... LEFT... hips frozen.'); }
   const vt = t;                                                                                    // targets are in VIDEO time (playbackRate handled by the video itself)
   const nxt = targets[ti];
