@@ -35,7 +35,7 @@ export FACE_RENDERER_DIR=$MO
 BR=${NF_BRANCH:-nova-final}
 git clone -q --depth 1 --filter=blob:none --no-checkout -b "$BR" https://github.com/dsbeauty01-web/dance-project /root/repo \
  && cd /root/repo && git sparse-checkout set --no-cone '/beta/*.html' '/beta/*.css' '/beta/*.js' '/beta/lib/' '/beta/freeze2/' '/shared/' \
-      '/freezegame/' '/audio/freeze2/' '/audio/intro/*.mp4' '/test/clips/' '/pod/' '/tools/pod/' && git checkout -q "$BR"
+      '/freezegame/' '/audio/freeze2/' '/audio/intro/*.mp4' '/test/clips/' '/pod/' '/tools/pod/' '/media/wave-ref.mp4' '/media/upperbody-ref.mp4' && git checkout -q "$BR"
 R=/root/repo; stage "repo $(cd $R && git rev-parse --short HEAD) body $(ls -la $R/tools/pod/assets/nova_talk_wide.mp4 | awk '{print $5}')"
 
 # 2a) Ditto: prebuilt pack (ditto_up.sh DITTO_PACK) — Ditto Gold recipe flags (ditto-lips skill §5.6, Nova values from
@@ -65,6 +65,7 @@ stage "chrome: $(google-chrome --version 2>&1)"
 $PY -m pip install -q --no-cache-dir livekit livekit-api aiohttp playwright >/dev/null 2>&1; stage "pip done $? ($($PY -c 'import livekit.rtc,livekit.api,aiohttp,playwright;print("ok")' 2>&1 | tail -1))"
 
 P=/workspace/pages; mkdir -p $P/beta $P/test /workspace/audio
+mkdir -p /workspace/media && cp $R/media/*.mp4 /workspace/media/ ; cp $R/beta/wave.html $R/beta/upperbody.html $P/beta/
 cp $R/beta/freeze4.html $R/beta/play.css $P/beta/ && cp -r $R/beta/lib $R/beta/freeze2 $P/beta/ && cp -r $R/shared $P/shared \
  && cp -r $R/freezegame $P/freezegame && cp -r $R/audio/freeze2 /workspace/audio/freeze2 && cp -r $R/test/clips $P/test/clips \
  && cp $R/pod/rt_lk.py /workspace/rt_lk.py
@@ -128,9 +129,16 @@ curl -s -m5 http://127.0.0.1:8010/ > $OUT/A_face.json; curl -s -m5 http://127.0.
 curl -s -m120 -X POST "http://127.0.0.1:8010/finish?tag=A" > $OUT/A_finish.json
 stage "A finish: $(cut -c1-200 $OUT/A_finish.json)"
 
+# 6b) G — every other converted game: a short real run each (the child = her own reference clip as a fake camera)
+for g in ${NF_GAMES:-wave upperbody}; do
+  ffmpeg -loglevel error -y -i /workspace/media/$g-ref.mp4 -vf "scale=640:-2,fps=25" -t 90 -q:v 5 /root/kid_$g.mjpeg
+  cd $R/tools/pod && timeout 240 $PY nova_final_proof.py $g /root/kid_$g.mjpeg > $OUT/G_$g.log 2>&1; stage "G $g exit $? $(grep recorded $OUT/G_$g.log)"
+  curl -s -m5 http://127.0.0.1:8010/ > $OUT/G_${g}_face.json; curl -s -m120 -X POST "http://127.0.0.1:8010/finish?tag=$g" > $OUT/G_${g}_finish.json
+done
+
 # 7) small copies to pull (the 1080 Ditto cuts at CRF 18; the page recording as recorded)
 cd $OUT/face
-for t in W A; do [ -s wide_published_$t.mp4 ] && ffmpeg -loglevel error -y -i wide_published_$t.mp4 -c:v libx264 -preset medium -crf 18 -c:a aac -b:a 128k -movflags +faststart $OUT/nova-wide-ditto-$t-1080.mp4; done
+for t in W A ${NF_GAMES:-wave upperbody}; do [ -s wide_published_$t.mp4 ] && ffmpeg -loglevel error -y -i wide_published_$t.mp4 -c:v libx264 -preset medium -crf 18 -c:a aac -b:a 128k -movflags +faststart $OUT/nova-wide-ditto-$t-1080.mp4; done
 [ -s face_published_A.mp4 ] && cp face_published_A.mp4 $OUT/nova-pip-soulx-A.mp4
 ls -la $OUT/*.mp4 >> $OUT/STAGES
 cp $OUT/rtlk.log $OUT/rtlk_copy.log 2>/dev/null

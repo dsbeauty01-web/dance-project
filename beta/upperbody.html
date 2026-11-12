@@ -29,6 +29,7 @@ body[data-phase=intro] #camWrap,body[data-phase=between] #camWrap,body[data-phas
 #scorecard{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(26,15,46,.9);z-index:95;font-family:'Baloo 2'}
 #scorecard h1{font-size:64px;color:var(--amber);margin:0}#scorecard p{font-size:24px;margin:8px 0}#scorecard button{font:800 24px 'Baloo 2';padding:14px 36px;border:0;border-radius:16px;background:var(--amber);color:var(--ink);margin-top:20px;cursor:pointer}
 .hidden{display:none!important}
+@media (min-aspect-ratio:1/1){#card,#scorecard{left:62vw}}  /* NOVA-FINAL: her WIDE between/ending talk stays visible (her pane is 62vw then) */
 </style></head><body data-phase="intro">
 <div id="stage">
   <div id="refWrap"><video id="refAmbient" muted playsinline loop></video><video id="refVid" playsinline preload="auto"></video><canvas id="fxRef"></canvas><div class="tagc">NOVA — copy the torso slides · hips frozen</div></div>
@@ -45,7 +46,7 @@ body[data-phase=intro] #camWrap,body[data-phase=between] #camWrap,body[data-phas
 /* UPPER BODY — adult tier · video-led (her 38s routine) · rib slide with true isolation · hoop lights · 4 rounds (slow, slow, fast, fast) */
 import { createKit, RULES, grade } from '/shared/game-kit.js';
 const $ = id => document.getElementById(id);
-const K = await createKit({ tier:'adult', mirror:true, game:'upperbody', detectRef:false, refCandidates:['/media/upperbody-ref.mp4','/media/rapa_src.mp4','/media/rapa.mp4'] });
+const K = await createKit({ tier:'adult', mirror:true, game:'upperbody', detectRef:false, introLine:'Upper body time! Hands on your waist — watch me first, then copy my ribs.', refCandidates:['/media/upperbody-ref.mp4','/media/rapa_src.mp4','/media/rapa.mp4'] });
 
 // ── the measured map (frame-verified, sides = screen-space of the kid's mirrored camera) ──
 const DEMO_END = 13.5, FINISH_AT = 35.2;

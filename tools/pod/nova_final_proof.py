@@ -57,7 +57,53 @@ def run_A(p):
     return data
 
 
+def browser_cam(p, cam_file):
+    """F.browser + the child's camera = a video file (Chrome fake capture), for the MoveNet games (getUserMedia, no ?replay=)"""
+    import tempfile
+    ctx = p.chromium.launch_persistent_context(tempfile.mkdtemp(prefix="nfchrome-"), executable_path=F.CHROME, headless=False,
+        no_viewport=True, permissions=["microphone", "camera"], args=[
+        "--autoplay-policy=no-user-gesture-required", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream",
+        f"--use-file-for-fake-audio-capture={F.SILENCE}", f"--use-file-for-fake-video-capture={cam_file}",
+        f"--window-size={F.W},{F.H}", "--window-position=0,0", "--kiosk",
+        "--no-first-run", "--disable-infobars", "--password-store=basic", "--no-sandbox", "--noerrdialogs"])
+    return F._B(ctx)
+
+
+def run_G(p, game, cam_file, cap_s=150):
+    """one short proof per game: start -> she talks WIDE (intro) -> the game with the PiP face -> first between/ending"""
+    b = browser_cam(p, cam_file); ctx, pg, logs = F.page_of(b)
+    pg.goto(f"{BASE}/beta/{game}?lang=en")
+    time.sleep(3)
+    rec = F.recorder_start(os.path.join(OUT, f"nova-final-{game}.mp4")); t_rec = time.time()
+    time.sleep(1.0); pg.click("#start")
+    got, marks, t_end = {}, [], time.time() + cap_s
+    while time.time() < t_end:
+        s = pg.evaluate("""() => { const L = window.novaLive; const pane = document.querySelector('[data-nova-stage]');
+            return { stage: pane ? pane.dataset.novaStage : null, wide: L ? L.wide.state.live : null, face: L ? L.face.state : null,
+              card: !!(document.getElementById('card') && !document.getElementById('card').classList.contains('hidden')),
+              score: (document.getElementById('scorecard') || {}).style ? document.getElementById('scorecard').style.display === 'flex' : false,
+              banner: !!(document.getElementById('banner') && !document.getElementById('banner').classList.contains('hidden')) }; }""")
+        t = round(time.time() - t_rec, 2); key = (s["stage"], (s["face"] or {}).get("badge"), s["card"], s["score"])
+        if not marks or marks[-1][1] != list(key): marks.append([t, list(key)])
+        if s["banner"] and "banner" not in got: got["banner"] = F.shot(pg, f"{game}-unexpected-banner.png")
+        if s["stage"] == "wide" and s["wide"] and "wide" not in got and t > 5: got["wide"] = F.shot(pg, f"{game}-1-intro-wide-ditto.png")
+        if s["stage"] == "game" and (s["face"] or {}).get("live") and "pip" not in got:
+            time.sleep(1.5); got["pip"] = F.shot(pg, f"{game}-2-game-pip-face.png")
+        if (s["card"] or s["score"]) and "end" not in got: got["end"] = time.time()
+        if "end" in got and time.time() - got["end"] > 12:
+            F.shot(pg, f"{game}-3-after-round.png"); break
+        time.sleep(0.2)
+    F.recorder_stop(rec)
+    data = pg.evaluate("() => ({ live: window.novaLiveLog || [] })")
+    with open(os.path.join(OUT, f"{game}-page.json"), "w") as fh: json.dump({"live": data["live"], "stages": marks}, fh)
+    with open(os.path.join(OUT, f"{game}-console.log"), "w") as fh: fh.write("\n".join(logs) + "\n")
+    b.close()
+    print(game, "recorded", round(time.time() - t_rec, 1), "s; shots", sorted(k for k in got if k != "end"), flush=True)
+    print("stages", json.dumps(marks)[:1500], flush=True)
+
+
 if __name__ == "__main__":
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
-        {"A": run_A}[sys.argv[1]](p)
+        if sys.argv[1] == "A": run_A(p)
+        else: run_G(p, sys.argv[1], sys.argv[2])

@@ -14,6 +14,7 @@ import { MoverEngine } from '/shared/mover-engine.js';
 import { RULES, WaveRule } from '/shared/mover-rules.js';
 import { grade } from '/shared/cue-window.js';
 import { LightEngine } from '/shared/light-engine.js';
+import { createNovaLive } from '/shared/nova-live.js';
 
 export { RULES, WaveRule, grade };
 
@@ -39,11 +40,15 @@ export async function createKit(opts){
   K.CH = { R:['rShoulder','rElbow','rWrist'], L:['lShoulder','lElbow','lWrist'] };
 
   // ── optional pod bridge (voice/lips) — the game must run without it ──
-  K.bridge=null; try { const m = await import('/shared/nova-bridge.js'); K.bridge=m; } catch(e){ K.bridge=null; }
-  K.say = async (text) => { if (K.cap) K.cap.textContent=text; try { await fetch(o.noteUrl,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({say:text,lang:o.lang})}); } catch(e){} };
+  /* NOVA-FINAL (2026-11-12, Refael: "make sure ALL of Nova is like this now"): her live layer = shared/nova-live.js —
+     intro/between/ending she talks WIDE (Ditto body in her room over the ref clip), in the game the ref clip + the small
+     SoulX face PiP top-left; game lines ≤ 6 words, one per gap. The game still runs if the pod has no face (red line in her pane). */
+  K.log = (k, d='') => { (window.novaLiveLog ||= []).push({ t:+(performance.now()/1000).toFixed(2), k, d }); console.log('[NOVA-LIVE]', k, d); };
+  K.live = (K.refVid && K.refVid.parentElement) ? createNovaLive({ pane:K.refVid.parentElement, hide:[K.refVid], lang:o.lang, log:K.log, intro:'page:'+o.game }) : null;
+  K.say = async (text) => { if (K.cap) K.cap.textContent=text; if (K.live) K.live.say(text); };
   K.note = async (text) => { try { await fetch(o.noteUrl,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({note:text})}); } catch(e){} };
   K.setPhase = (p) => { K.phase=p; document.body.dataset.phase=p; K.dbg();
-    try { if (K.bridge?.routeVoice){ if (p==='intro'||p==='between'||p==='ending') K.bridge.routeVoice('engine'); else if (p==='hold') K.bridge.routeVoice('mute'); else K.bridge.routeVoice('air'); } } catch(e){} };
+    try { if (K.live) K.live.phase(p); } catch(e){} };
 
   // ── pose ──
   K.det=null;
@@ -83,10 +88,14 @@ export async function createKit(opts){
   // ── standard boot: gate → camera → pose → ref video → presence → go ──
   K.boot = async (onGo) => { const start=$('start'); if(!start) return onGo();
     start.onclick = async () => { $('gate')?.classList.add('hidden');
+      const liveReady = K.live ? K.live.ready(30000) : Promise.resolve({ ok:false, why:['no pane'] });
       const ref = o.refCandidates.length ? await K.pickRef() : null; if (o.refCandidates.length && !ref) return K.banner('Reference video missing: '+o.refCandidates.join(' | '));
       if (!(await K.startCamera())) return;
       try { await K.initPose(); } catch(e){ return K.banner('Pose engine (MoveNet) failed: '+e.message); }
       if (ref){ K.refVid.src=ref; if(K.amb){ K.amb.src=ref; K.amb.muted=true; K.amb.loop=true; K.amb.play().catch(()=>{}); } }
-      await K.presenceGate(); onGo(ref); }; };
+      await K.presenceGate();
+      const lr = await liveReady; K.log('live-ready', JSON.stringify(lr));
+      if (K.live && lr.ok && o.introLine){ K.setPhase('intro'); K.say(o.introLine); K.log('intro-said', String(await K.live.waitLine())); }   // she talks WIDE before the music
+      onGo(ref); }; };
   return K;
 }

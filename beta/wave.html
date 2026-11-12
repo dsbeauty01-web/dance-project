@@ -27,6 +27,7 @@ html,body{margin:0;height:100%;background:#1a0f2e;font-family:Nunito,system-ui;c
 #scorecard p{font-size:24px;margin:8px 0}
 #scorecard button{font:800 24px 'Baloo 2';padding:14px 36px;border:0;border-radius:16px;background:var(--amber);color:var(--ink);margin-top:20px;cursor:pointer}
 .hidden{display:none!important}
+@media (min-aspect-ratio:1/1){#scorecard{left:50vw}}  /* NOVA-FINAL: her WIDE ending stays visible in her half */
 </style></head><body>
 <div id="stage">
   <div id="novaWrap"><video id="novaAmbient" muted playsinline loop></video><video id="novaVid" playsinline preload="auto"></video><canvas id="fxNova"></canvas><div class="tag">NOVA — copy her wave</div></div>
@@ -45,6 +46,7 @@ html,body{margin:0;height:100%;background:#1a0f2e;font-family:Nunito,system-ui;c
 import { MoverEngine } from '/shared/mover-engine.js';
 import { WaveRule } from '/shared/mover-rules.js';
 import { LightEngine } from '/shared/light-engine.js';
+import { createNovaLive } from '/shared/nova-live.js';
 // POSE BACKEND: MoveNet (TF.js, pure WebGL — no wasm glue) by default. MediaPipe only with ?mp=1.
 /* [FIX 2026-09-13] console-named (same as game-kit.js): pose-detection +esm wrapper throws
    "SyntaxError: '/npm/@mediapipe/pose/+esm' does not provide an export named 'Pose'".
@@ -89,7 +91,14 @@ let score=0, streak=0, hits=0, pending=[], stats={R:[],L:[]}, running=false, end
 const WINDOW_MS = 1800;                                                                     // copy her within 1.8s
 const LINES = [[0.5,'Copy her wave — let it travel: fingers, wrist, elbow.'],[13,'Other arm too — pass it across.'],[24,'Last one — make it smooth.']];
 let li=0;
-function say(t){ cap.textContent=t; fetch(NOTE,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({say:t})}).catch(()=>{}); }
+/* NOVA-FINAL (2026-11-12, Refael: "make sure ALL of Nova is like this now"): her live layer (shared/nova-live.js) —
+   before the wave video starts she talks WIDE (live Ditto body over this pane), in the game this clip + the small SoulX
+   face PiP top-left, game lines ≤ 6 words. [CLI-FILL] the intro line text: no spec gives her Wave intro words. */
+const LANG = new URLSearchParams(location.search).get('lang') || 'en';
+const liveLog = (k, d='') => { (window.novaLiveLog ||= []).push({ t:+(performance.now()/1000).toFixed(2), k, d }); console.log('[NOVA-LIVE]', k, d); };
+const nova = createNovaLive({ pane:$('novaWrap'), hide:[novaVid], lang:LANG, log:liveLog, intro:'page:wave' });
+const INTRO = 'Wave time! Watch my arm — let the wave travel, then copy me.';
+function say(t){ cap.textContent=t; nova.say(t); }
 
 // ── 5 · loops ──
 const DBG={nova:0,kid:0,novaJ:0,kidJ:0,cues:0,hits:0,err:''}; const dbgEl=document.getElementById('dbg');
@@ -116,7 +125,7 @@ function onKidWave(arm, w){
   $('score').textContent=score; document.querySelectorAll('#flow i').forEach((el,n)=>el.classList.toggle('on', n<Math.min(8,hits)));
 }
 function loopClock(){ if(!running) return; try{ const t=novaVid.currentTime;
-  if (li<LINES.length && t>=LINES[li][0]){ say(LINES[li][1]); li++; }
+  if (li<LINES.length && t>=LINES[li][0]){ nova.gap(); say(LINES[li][1]); li++; }     // each timed line is its own beat
   pending = pending.filter(p=>performance.now()-p.t0<=WINDOW_MS);
   if (novaVid.ended || t>=novaVid.duration-0.05) return finish();
   }catch(e){ DBG.err='clock:'+e.message; dbg(); } requestAnimationFrame(loopClock); }
@@ -124,6 +133,7 @@ function loopClock(){ if(!running) return; try{ const t=novaVid.currentTime;
 // ── 6 · flow ──
 $('start').onclick = async () => {
   $('gate').classList.add('hidden');
+  const liveReady = nova.ready(30000);
   const ref = await pickRef(); if (!ref) return banner('No wave video found in /media (need wave-ref.mp4). Ask the CLI to place a real arm-wave clip there.');
   try { const s = await navigator.mediaDevices.getUserMedia({ video:{ width:{ideal:1280}, height:{ideal:720} }, audio:false }); cam.srcObject=s; } catch(e){ return banner('Camera blocked — allow the camera and reload.'); }
   novaVid.src=ref; amb.src=ref; amb.play().catch(()=>{});
@@ -135,6 +145,9 @@ $('start').onclick = async () => {
     $('ring').classList.toggle('ok', !!ok); if (ok){ okSince ??= performance.now(); if (performance.now()-okSince>1000) return res(); } else okSince=null; requestAnimationFrame(tick); }; tick(); });
   $('gateArms').classList.add('hidden');
   await new Promise(r=>{ if(cam.videoWidth>0) r(); else cam.onloadedmetadata=()=>r(); });
+  const lr = await liveReady; liveLog('live-ready', JSON.stringify(lr));
+  if (lr.ok){ nova.phase('intro'); say(INTRO); liveLog('intro-said', String(await nova.waitLine())); }   // she talks WIDE before the music
+  nova.phase('game');
   say('Watch Nova — copy every wave.'); running=true; novaVid.volume=0.6; await novaVid.play();
   loopNova(); loopKid(); loopClock();
 };
@@ -142,7 +155,7 @@ function finish(){ if (ended) return; ended=true; running=false; novaVid.pause()
   const q=a=>({smooth:a.filter(x=>x==='smooth').length,good:a.filter(x=>x==='good').length,rough:a.filter(x=>x==='rough').length});
   const weak = stats.L.length<stats.R.length ? 'left' : 'right';
   $('finalScore').textContent=score; $('finalLine').textContent = hits ? `${hits} waves · smoother on the ${weak==='left'?'right':'left'} — next time lead the ${weak} with the wrist.` : 'Next time — let the wave travel from your fingers.';
-  $('scorecard').style.display='flex'; say(`${score} points.`);
+  $('scorecard').style.display='flex'; nova.phase('ending'); say(`${score} points! ${$('finalLine').textContent}`);
   fetch('/pulse',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({game:'wave',score,hits,stats,at:Date.now()})}).catch(()=>{});
 }
 $('again').onclick=()=>location.reload();

@@ -260,10 +260,21 @@ GENDER_HE = {
 def gender_line(g):
     return " " + GENDER_HE.get(g or "", GENDER_HE[""])
 
-def session_update(freeze=False, voice=None, lang="en", gender=""):
+# NOVA-FINAL (2026-11-12): a game page that runs her through shared/nova-live.js connects with ?intro=page:<game>. The
+# page owns every beat (as freeze4 does) and stages each line; these rules are FREEZE_RULES without the freeze specifics.
+PAGE_RULES = (
+    "\n\nGAME MODE - overrides the whole intro script above: you are ONLY the voice of the game on screen. "
+    "NEVER ask their name. NEVER mention other games or magic lights.\n"
+    "BREVITY LAW: EVERY reply is ONE short sentence, maximum 10 words. Never explain, never tell stories, never offer choices.\n"
+    "THE GAME ENGINE RUNS THE GAME - NOT YOU. You NEVER start a round, NEVER count down, NEVER announce what comes next. "
+    "Speak ONLY the lines you are given, or answer the kid in one tiny line. During a hold: TOTAL silence. "
+    "Voice style: bright, warm, quick - never slow, never calm-narrator.")
+
+
+def session_update(freeze=False, voice=None, lang="en", gender="", page=False):
     return {"type": "session.update", "session": {
         "type": "realtime", "output_modalities": ["audio"],
-        "instructions": PROMPT + (FREEZE_RULES if freeze else "")
+        "instructions": PROMPT + (PAGE_RULES if page else FREEZE_RULES if freeze else "")
                         + ((HEBREW_RULES + gender_line(gender)) if lang == "he" else ""),
         "audio": {
             "input": {"format": {"type": "audio/pcm", "rate": 24000},
@@ -665,13 +676,14 @@ async def relay(request):
         async with http.ws_connect(RT_URL, headers={"Authorization": f"Bearer {KEY}"}, heartbeat=20) as oai:
             _intro = (request.query.get("intro") or "").strip().lower()
             _voice = (request.query.get("voice") or "").strip() or None   # V2: ?voice=coral etc. for instant A/B
-            _freeze_mode = (_intro in ("freeze", "freeze4"))   # V2.1: page owns the game -> brain self-triggers OFF
+            _freeze_mode = (_intro in ("freeze", "freeze4") or _intro.startswith("page"))   # V2.1: page owns the game -> brain self-triggers OFF
             # b0.27 FREEZE4: the page owns EVERY beat, intro and ending included — it stages her welcome itself and starts
             # the game without waiting for a name. So no name-asking greet (its ASK-LOCK then held the ending recap and she
             # said a re-invite instead — pod run 2026-11-11) and no silence invites. She speaks only the lines she is staged.
-            _page_owns = (_intro == "freeze4")
+            _page_owns = (_intro == "freeze4" or _intro.startswith("page"))
             await oai.send_json(session_update(freeze=_freeze_mode, voice=_voice,
-                                               lang=("he" if _hebrew else "en"), gender=_gender))
+                                               lang=("he" if _hebrew else "en"), gender=_gender,
+                                               page=_intro.startswith("page")))
             await log("connected to " + MODEL + " (voice " + VOICE + ")")
             # TRANSCRIPTION WARM-UP (he-17): the session's FIRST Hebrew transcription
             # keeps costing 12-14s — a cold path on the provider side that hits the name
@@ -696,7 +708,7 @@ async def relay(request):
                 race_tasks.add(_wt); _wt.add_done_callback(race_tasks.discard)
             # GREET FIRST — but only on the FIRST connect, not on a seamless reconnect
             # (browser sends ?rc=1 when re-establishing after an OpenAI session drop / 55min cap).
-            if not request.query.get("rc") and _intro != "freeze4":
+            if not request.query.get("rc") and not _page_owns:
                 # GAME-SPECIFIC INTRO (2026-08-05). The generic opener asks for the child's
                 # name and never mentions a game, which is wrong inside a game that has
                 # already been chosen: the kid clicked FREEZE, so asking "which game?" or
