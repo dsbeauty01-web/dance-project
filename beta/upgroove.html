@@ -826,9 +826,30 @@ const TIER_AVATAR = { calm:'nova_upgroove', sub:'nova_upgroove', active:'nova_up
 let CUR_TIER = 'calm';
 
 /* ═══ Nova facade — the game calls these; they route live-avatar vs clip-bank ═══ */
+/* NOVA-FINAL (2026-11-12, Refael "finish all"): Up Groove on the shared live piece (shared/nova-live.js) — the Freeze v4
+   setup. Her BODY is this page's own clip bank (Clips: nova-joined-small.mp4 parts, the same moves), her VOICE is live V2V,
+   intro + ending she talks WIDE (live Ditto body over her pane), in the game the clips + the small SoulX PiP face, holds
+   mute, game lines ≤ 6 words (staged exact lines from the Fallback pools — the page owns every beat). ?legacy=1 = the old
+   SARAY/MuseTalk path, unchanged. */
+const NF_ON = Q.get('legacy') !== '1';
+let NF = null;
+const NF_INTRO = 'Up Groove! Dance with me — when the music stops, FREEZE like the animal!';   // [CLI-FILL] her intro words
+const nfLog = (k, d='') => { (window.novaLiveLog ||= []).push({ t:+(performance.now()/1000).toFixed(2), k, d }); console.log('[NOVA-LIVE]', k, d); };
+async function nfStart(){
+  Live.dead = true; Live.on = false;                                  // the old iframe-era path stays off
+  const w = document.getElementById('nova-wait'); if (w) w.classList.add('gone');
+  try { if (window.Pose && !Pose._started){ Pose._started = true; Pose.init(); } } catch(_){}
+  Clips.init(); Clips.playIdle(); $('nova-static').style.display = 'none';
+  const st = document.createElement('style');                         // WIDE: her clip bank hides under the live Ditto body
+  st.textContent = '#nova-stage[data-nova-stage=wide] > video:not(.nova-live-wide){visibility:hidden}';
+  document.head.appendChild(st);
+  const m = await import(location.origin + '/shared/nova-live.js');   // the page has a <base> to GitHub Pages: the live piece comes from the pod
+  NF = m.createNovaLive({ pane: novaStage, hide: [], lang: 'en', log: nfLog, intro: 'page:upgroove' });
+  return NF.ready(30000);
+}
 const Nova = {
-  say(text){ NovaSay.log(text); if(Live.on) Live.say(text); },      // exact line (rarely needed now)
-  cue(intent, ctx, pool){ if(Live.on) Live.cue(intent, ctx); else NovaSay.log(Fallback.pick(pool)); }, // live=she writes it; clips=varied local text
+  say(text){ NovaSay.log(text); if(NF) NF.say(text); else if(Live.on) Live.say(text); },      // exact line (rarely needed now)
+  cue(intent, ctx, pool){ if(NF){ const t = Fallback.pick(pool); NovaSay.log(t); NF.say(t); } else if(Live.on) Live.cue(intent, ctx); else NovaSay.log(Fallback.pick(pool)); }, // live=she writes it; clips=varied local text
   setTier(t2){ if(!TIER_AVATAR[t2] || CUR_TIER===t2) return; CUR_TIER=t2;   // ENERGY LADDER
     try{ console.log('[TIER] →', t2); }catch(_){}
     // UP GROOVE: the part-rotation owns the live avatar (a/b/c) — tier no longer swaps it,
@@ -1226,6 +1247,7 @@ function startFreeze(def,idx){
   /* V2.1 MUSIC SYNC (2026-08-07): the full stop fires HERE, on the same song-clock tick
      that starts the freeze — music and freeze can never disagree, first round included. */
   try{ Music.duck(0.0, 80); }catch(_){}
+  if (NF) NF.phase('hold');                           // NOVA-FINAL: holds = hard mute (phase machine law)
   Nova.freeze(def.clip);                              // she BECOMES the animal (live) / clip (fallback)
   // FX ride HER pose: live swap takes ~350ms to show — frost/badge fire WITH her, never before
   const fxDelay = (typeof Live!=='undefined' && Live.on) ? 350 : 0;
@@ -1248,6 +1270,7 @@ function endFreeze(){
   const name=ASSETS.clips[f.def.clip].name, secs=(f.stillMs/1000).toFixed(1), pct=Math.round(frac*100);
   const froze = frac>=FULL_AT, moved = frac<MOVE_AT;
   if(Live.on && froze) Live.post({type:'nova-fact', move:'freeze', name, pct});   // FIX 2026-08-02: TRUTH-GATE food — lets her praise the REAL freeze + releases the consent gate
+  if (NF) NF.phase('game');                           // the hold is over: one line may ride this gap
   Nova.melt();                                        // back to current-tier avatar (live) / melt clip (fallback)
   // MELT REACTION — brain writes fresh words from REAL stillness data
   const beatBest = G.best && froze && f.stillMs > G.best.heldMs + 1;
@@ -1357,14 +1380,19 @@ $('start-btn').addEventListener('click', async ()=>{
      clip-fallback path starts it instead, so tracking still works offline. */
   Music.init();
   try{ SFX.init(Music.ctx); }catch(e){ console.warn('[SFX] init failed', e); }   // beeps/horn share the music clock
-  Live.init();                                                       // probe pod → mount V2V iframe (owns mic) or clip fallback
+  const nfReady = NF_ON ? nfStart() : null;
+  if (!NF_ON) Live.init();                                           // probe pod → mount V2V iframe (owns mic) or clip fallback
   statusEl.textContent='warming up…';
   await new Promise(r=>setTimeout(r,900));                          // let the avatar/clips buffer a beat
   $('start-screen').style.display='none';
-  await runReadyGate();                                              // PRE-GAME: Nova asks "ready?"; music waits for the kid's spoken "yes" (or a tap)
+  if (nfReady){ const lr = await nfReady; nfLog('live-ready', JSON.stringify(lr));
+    if (lr.ok){ NF.phase('intro'); NF.say(NF_INTRO); nfLog('intro-said', String(await NF.waitLine())); }   // she talks WIDE before the music
+    else statusEl.textContent = '⛔ ' + lr.why.join(' · '); }
+  else await runReadyGate();                                         // PRE-GAME: Nova asks "ready?"; music waits for the kid's spoken "yes" (or a tap)
   await countdown();                                                 // countdown GATES play — the law
   try{ await Music.ctx.resume(); }catch(e){}
   Music.el.play().catch(()=>{});
+  if (NF) NF.phase('game');
   try{ Live.post({type:'game-start'}); }catch(_){}   // V2: she learns the music is RUNNING at this exact moment
   G.running=true; startUpgRotation(); requestAnimationFrame(tick);   // UP GROOVE: begin the a/b/c part rotation
 });
@@ -1397,6 +1425,7 @@ $('resume-btn').addEventListener('click', async ()=>{
 
 function endGame(){
   G.running=false; stopUpgRotation(); Music.duck(0.0,1500);
+  if (NF) NF.phase('ending');                                        // ENDING: she talks WIDE again
   // SMART ENDING (2026-07-27): the one shared arc — her moment (built from THIS
   // session's real freeze data, by animal name) → feedback faces 😍🙂😕 → hook.
   // NO score/points on the kid's screen; raw numbers go to the session record only.
@@ -1414,7 +1443,7 @@ function endGame(){
         name: null,
         bestMoment: best,
         lang: 'en',
-        mode: (window.Live && Live.on) ? 'live' : 'silent',
+        mode: (NF || (window.Live && Live.on)) ? 'live' : 'silent',
         speak: speak,
         stats: statsRec,
         onAgain: function(){ location.reload(); },

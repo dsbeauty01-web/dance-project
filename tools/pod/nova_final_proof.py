@@ -69,13 +69,19 @@ def browser_cam(p, cam_file):
     return F._B(ctx)
 
 
-def run_G(p, game, cam_file, cap_s=150):
+GAMES = {   # game -> (page url, start button, recording cap s)
+    "wave": ("/beta/wave?lang=en", "#start", 150), "upperbody": ("/beta/upperbody?lang=en", "#start", 150),
+    "novasays": ("/beta/novasays?lang=en&auto=40", "#start", 95), "upgroove": ("/upgroove?lang=en", "#start-btn", 95)}
+
+
+def run_G(p, game, cam_file, cap_s=None):
     """one short proof per game: start -> she talks WIDE (intro) -> the game with the PiP face -> first between/ending"""
     b = browser_cam(p, cam_file); ctx, pg, logs = F.page_of(b)
-    pg.goto(f"{BASE}/beta/{game}?lang=en")
+    url, btn, cap0 = GAMES[game]; cap_s = cap_s or cap0
+    pg.goto(f"{BASE}{url}")
     time.sleep(3)
     rec = F.recorder_start(os.path.join(OUT, f"nova-final-{game}.mp4")); t_rec = time.time()
-    time.sleep(1.0); pg.click("#start")
+    time.sleep(1.0); pg.click(btn)
     got, marks, t_end = {}, [], time.time() + cap_s
     while time.time() < t_end:
         s = pg.evaluate("""() => { const L = window.novaLive; const pane = document.querySelector('[data-nova-stage]');
@@ -90,7 +96,7 @@ def run_G(p, game, cam_file, cap_s=150):
         if s["stage"] == "game" and (s["face"] or {}).get("live") and "pip" not in got:
             time.sleep(1.5); got["pip"] = F.shot(pg, f"{game}-2-game-pip-face.png")
         if (s["card"] or s["score"]) and "end" not in got: got["end"] = time.time()
-        if "end" in got and time.time() - got["end"] > 12:
+        if "end" in got and time.time() - got["end"] > (20 if game == "upperbody" else 12):
             F.shot(pg, f"{game}-3-after-round.png"); break
         time.sleep(0.2)
     F.recorder_stop(rec)

@@ -59,7 +59,8 @@ import { MoverEngine } from '/shared/mover-engine.js';
 import { RULES } from '/shared/mover-rules.js';
 import { LightEngine } from '/shared/light-engine.js';
 import { startPose } from '/shared/pose-engine.js';
-import { attachNova, setBody, routeVoice, note, onHerAudio } from '/shared/nova-bridge.js';
+import { note, onHerAudio } from '/shared/nova-bridge.js';
+import { createNovaLive } from '/shared/nova-live.js';
 import { pulseSend } from '/shared/pulse.js';
 import { CMDS, ROUNDS, buildRound, scoreStep, starsFor, parseCommand, clipName, ALL_CLIPS } from '/beta/novasays.js';
 import { SneakyBed } from '/beta/novasays-music.js';
@@ -70,6 +71,26 @@ const TEST = /[?&]test=1/.test(location.search);
 // TRICK TELL: the guide light glows on tricks too, so the words stay the only tell. ?tricklight=0 reverts.
 const TRICK_LIGHT = !/[?&]tricklight=0/.test(location.search);
 const BODY = { talk:'nova_idle2', groove:'nova_idlegroove_v2' };    // §5: she GROOVES the whole round
+/* NOVA-FINAL (2026-11-12, Refael "finish all"): the Freeze v4 setup. She talks WIDE (her live Ditto body, shared/nova-live.js)
+   in intro / between / boss / ending; in the game her body is a PAGE clip again and her face is the small SoulX PiP top-left.
+   The dual face server draws no bodies, so the bodies the pod used to draw are page clips now — only the ones that exist:
+     groove  = freezegame/dance-active.mp4 (her room, dancing — the Freeze game's dance body)
+     gest_star (arms up wide) = freezegame/freeze-star.mp4 · gest_bear (freeze) = freezegame/freezebear.mp4
+   gest_lefthand / gest_righthand / gest_clap have NO page clip in the repo (they are MuseTalk avatar folders on the old volume):
+   per docs/NOVA-SAYS.md "missing gesture → the command is SPOKEN + lit only, never a wrong body" she keeps grooving.
+   QUESTION for Refael: bake those three as mp4 clips (Bake Factory). */
+const BODY_CLIP = { [BODY.talk]:'/freezegame/idle_sway.mp4', [BODY.groove]:'/freezegame/dance-active.mp4',
+                    gest_star:'/freezegame/freeze-star.mp4', gest_bear:'/freezegame/freezebear.mp4' };
+const liveLog = (k, d='') => { (window.novaLiveLog ||= []).push({ t:+(performance.now()/1000).toFixed(2), k, d }); console.log('[NOVA-LIVE]', k, d); };
+const nova = createNovaLive({ pane:document.getElementById('novaWrap'), hide:[document.getElementById('novaMain')], lang:LANG, log:liveLog, intro:'page:novasays' });
+function setBody(id){
+  const u = BODY_CLIP[id]; if (!u){ liveLog('body-missing', id + ' (spoken + lit only)'); return; }
+  const m = document.getElementById('novaMain'), a = document.getElementById('novaAmbient');
+  const loop = (id === BODY.groove || id === BODY.talk);
+  for (const v of [m, a]){ v.srcObject = null; if (v.dataset.src !== u){ v.src = u; v.dataset.src = u; } v.loop = loop; v.muted = true; v.currentTime = 0; v.play().catch(() => {}); }
+  liveLog('body', id);
+}
+const INTRO = { en:"Nova Says! Only move when I say 'Nova says' — I'll try to trick you!", he:"נובה אומרת! זזים רק כשאני אומרת 'נובה אומרת' — אני אנסה לעבוד עליכם!" };   // [CLI-FILL] her intro words
 const stage = document.getElementById('stage');
 const E = new MoverEngine(), L = new LightEngine(document.getElementById('fx'), { tier:TIER, mirror:MIRROR });
 const audio = { lastOnset:null };                                   // clap onset fusion (page-side detector still [CLI-FILL] absent)
@@ -121,12 +142,9 @@ const tlog = (ev, d) => { if (TEST) T.log.push({ t: actx.currentTime, ev, d }); 
 
 // ── live V2V (intro / between / boss / ending ONLY — §7, v1's proven code) ──
 function sayLive(line) {
-  tlog('say', line); note(`say exactly: "${line}"`);
-  return new Promise(res => {
-    let done = false; const fin = () => { if (!done) { done = true; res(); } };
-    addEventListener('nova:said', fin, { once:true });
-    setTimeout(fin, TEST ? 60 : 5000);
-  });
+  tlog('say', line); nova.say(line);
+  if (TEST) return sleep(60);
+  return nova.waitLine(12000);                                      // her live line (Ditto adds a constant ~1.5 s delay)
 }
 function waitKidCommand(ms) {
   return new Promise(res => {
@@ -145,14 +163,16 @@ let phase = 'intro';
 function setPhase(p) {
   phase = p; stage.dataset.phase = (p === 'boss') ? 'game' : p;
   document.getElementById('badge').textContent = p === 'game' ? 'Watching' : p === 'hold' ? 'FREEZE!' : p === 'boss' ? 'Boss: YOU' : 'Talking';
-  if (p === 'intro' || p === 'between' || p === 'ending' || p === 'boss') { routeVoice('engine'); setBody(BODY.talk); }
-  if (p === 'game') { routeVoice('air'); }                          // her recorded lines ride the page audio; engine gets nothing
-  if (p === 'hold') { routeVoice('mute'); }
+  if (p === 'intro' || p === 'between' || p === 'ending' || p === 'boss') { nova.phase(p === 'boss' ? 'between' : p); setBody(BODY.talk); }   // WIDE (Ditto)
+  if (p === 'game') { nova.phase('game'); }                         // her recorded lines ride the page audio; the PiP face watches
+  if (p === 'hold') { nova.phase('hold'); }
   tlog('phase', p);
 }
 // §5: hard swap to the gesture for ~0.9 bar, back to the groove at the bar line (beat masks both cuts)
 function playGesture(id, durS) { if (!id) return; setBody(id); tlog('body', id); scheduleAt(actx.currentTime + (durS || bed.bar * 0.9), () => { if (phase === 'game') { setBody(BODY.groove); tlog('body', BODY.groove); } }); }
-async function playGestureFull(id) { if (!id) return; setBody(id); tlog('body', id); await sleep(4000); setBody(BODY.talk); tlog('body', BODY.talk); }
+async function playGestureFull(id) { if (!id) return; const w = document.getElementById('novaWrap');
+  if (BODY_CLIP[id]) w.dataset.novaStage = 'game';                  // the boss round: her move is her body clip, then back to WIDE talk
+  setBody(id); tlog('body', id); await sleep(4000); setBody(BODY.talk); tlog('body', BODY.talk); if (nova.dual) w.dataset.novaStage = 'wide'; }
 
 // ── §6 lights (approved language, kids tier, b0.22 floors) ──────────────────
 function lightFor(c, windowMs, chain) {
@@ -350,12 +370,12 @@ document.getElementById('start').onclick = async () => {
   const missingClips = await loadClips();                            // §STEP-0: every clip present or refuse
   if (missingClips.length) { banner(`⛔ missing voice clip${missingClips.length > 1 ? 's' : ''}: ${missingClips.slice(0, 4).join(', ')}${missingClips.length > 4 ? '…' : ''} — cannot start`); return; }
   if (podUp) {
-    const need = [BODY.talk, BODY.groove, ...CMDS.filter(c => c.demo).map(c => c.demo)];
-    let missing = need;
-    try { const r = await fetch(`/avatar_check?ids=${need.join(',')}`, { cache:'no-store' }); if (r.ok) missing = (await r.json()).missing; } catch (_) {}
-    if (missing.length) { banner(`⛔ missing avatar bake${missing.length > 1 ? 's' : ''}: ${missing.join(', ')} — cannot start`); return; }
-    try { await attachNova({ intro:'novasays', onVideo: v => { document.getElementById('novaMain').srcObject = v; document.getElementById('novaAmbient').srcObject = v; } }); }
-    catch (e) { banner('⛔ pod attach failed: ' + (e && e.message || 'error')); return; }
+    const bad = [];                                                  // her page body clips must exist (no silent fallback)
+    await Promise.all([...new Set(Object.values(BODY_CLIP))].map(async u => { try { if (!(await fetch(u, { method:'HEAD' })).ok) bad.push(u); } catch (_) { bad.push(u); } }));
+    if (bad.length) { banner(`⛔ missing body clip${bad.length > 1 ? 's' : ''}: ${bad.join(', ')} — cannot start`); return; }
+    setBody(BODY.talk);
+    const lr = await nova.ready(30000); liveLog('live-ready', JSON.stringify(lr));
+    if (!lr.ok) { banner('⛔ ' + lr.why.join(' · ') + ' — cannot start'); return; }
   } else if (!TEST) {
     document.getElementById('badge').textContent = 'no pod: lights-only';
   }
@@ -367,6 +387,7 @@ function proceedToIntro() {
   if (_introStarted) return; _introStarted = true;
   document.getElementById('presence').classList.add('hidden');
   setPhase('intro');
+  if (podUp && !TEST) sayLive(INTRO[LANG]).then(ok => { liveLog('intro-said', String(ok)); if (phase === 'intro') begin(); });   // she explains WIDE, then the music
   note('fact: persona: NOVA SAYS game. You are SNEAKY and delighted. Between rounds and in the boss round speak the lines you are staged; ' +
        'GOTCHA is a laugh WITH the kid, never a scold. Between rounds: ≤3 lines from the facts. Never negative words at the kid.');
   const safety = (parseInt(new URLSearchParams(location.search).get('auto'), 10) || 12) * 1000;

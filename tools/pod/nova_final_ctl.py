@@ -77,7 +77,7 @@ def create(commit):
         "dockerEntrypoint": ["/bin/bash", "-c"],
         "dockerStartCmd": [f"mkdir -p /root/out; curl -fsSL {url} -o /root/f4.sh >> /root/out/fetch.log 2>&1; "
                            f"NF_BRANCH={os.environ.get('NF_BRANCH', 'nova-final')} bash /root/f4.sh; sleep infinity"],
-        "env": {k: K[k] for k in ("OPENAI_API_KEY", "LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET", "MAYA_ASSETS_TOKEN")} | {"NF_WATCH_MIN": "55", "NF_SKIP_W": os.environ.get("NF_SKIP_W", "0")},
+        "env": {k: K[k] for k in ("OPENAI_API_KEY", "LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET", "MAYA_ASSETS_TOKEN")} | {"NF_WATCH_MIN": "55", "NF_SKIP_W": os.environ.get("NF_SKIP_W", "0"), "NF_SKIP_A": os.environ.get("NF_SKIP_A", "0"), "NF_GAMES": os.environ.get("NF_GAMES", "wave upperbody")},
     }
     s, d = req("POST", REST + "/pods", body, timeout=60)
     if not isinstance(d, dict) or "id" not in d: raise SystemExit(f"CREATE FAILED {s}: {str(d)[:300]}")

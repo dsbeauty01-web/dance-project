@@ -2200,7 +2200,7 @@ async def upperbody_page(request):
 # nova-session-rec.js / nova-ending.js / pod-registry.js and freezegame/* RELATIVE to
 # the pod origin, but rt_lk never served them — so the SONG and the whole session
 # recorder 404'd on every pod ("game with no melody"). Whitelisted files only.
-_PAGE_ASSETS = ("nova-session-rec.js", "nova-ending.js", "pod-registry.js")
+_PAGE_ASSETS = ("nova-session-rec.js", "nova-ending.js", "pod-registry.js", "nova-joined-small.mp4")   # NOVA-FINAL: Up Groove's body/music clip (page-side bodies)
 async def page_asset(request):
     name = request.match_info["name"]
     if name not in _PAGE_ASSETS:
@@ -2240,7 +2240,7 @@ app.router.add_get("/token", token)
 app.router.add_get("/health", health)
 app.router.add_get("/rt", relay)
 app.router.add_get("/set_avatar", set_avatar_proxy)
-app.router.add_get("/{name:nova-session-rec\\.js|nova-ending\\.js|pod-registry\\.js}", page_asset)
+app.router.add_get("/{name:nova-session-rec\\.js|nova-ending\\.js|pod-registry\\.js|nova-joined-small\\.mp4}", page_asset)
 # game assets (song + pose clips) live on the volume next to the pages
 try:
     os.makedirs("/workspace/pages/freezegame", exist_ok=True)

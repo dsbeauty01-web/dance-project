@@ -30,7 +30,10 @@ const WSBASE = BASE.replace(/^http/, 'ws');
 
 let ws = null, room = null, voiceGain = null, audioEl = null, ctx = null;
 let speakGated = false, micGated = false, wsConns = 0, wsDelay = 1500;
-const herAudio = { playing: () => {}, ended: () => {} };
+// NOVA-FINAL: several listeners (a page's music ducking AND shared/nova-live.js's "her line is said" both need it;
+// a second onHerAudio() used to silently replace the first).
+const _herL = { playing: [], ended: [] };
+const herAudio = { playing: () => _herL.playing.forEach(f => { try { f(); } catch (_) {} }), ended: () => _herL.ended.forEach(f => { try { f(); } catch (_) {} }) };
 const FACE_ID = 'nova-face';                         // = FACE_IDENTITY in tools/pod/nova_face.py
 const state = { room: false, ws: false, face: false, voice: false, wide: false };
 export function bridgeState() { return { ...state }; }
@@ -63,8 +66,8 @@ export function note(text) {
 }
 
 export function onHerAudio({ playing, ended } = {}) {
-  if (playing) herAudio.playing = playing;
-  if (ended) herAudio.ended = ended;
+  if (playing) _herL.playing.push(playing);
+  if (ended) _herL.ended.push(ended);
 }
 
 // ── internals (faithful to beta/freeze.html Live) ────────────────────────────
