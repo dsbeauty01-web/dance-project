@@ -78,6 +78,17 @@ FACE_DUAL = os.environ.get("NOVA_FACE_DUAL", "0") == "1"
 # hanging, and an intro that is waiting for his words can move on. Nothing else changes: the page already gets
 # status.hearing, you_delta and you_text. Default off.
 KID_EVENTS = os.environ.get("NOVA_KID_EVENTS", "0") == "1"
+# 2026-11-22 (Refael's play: "Hi Nova, can you hear me?" was heard and got NO answer). Measured on pod iea3fzbf3r3vd8 with
+# his line replayed to this brain: the page's first speak_gate OFF (the INTRO) filed the note "[phase] The game section
+# just ended ... speak only the lines you are given", and with that note her answer to a spoken kid turn came back EMPTY
+# 4 times out of 4 (the one-shot fired, the model said nothing). With the intro note below instead: a short spoken answer
+# 4 out of 4 ("Yes, I hear you loud and clear!"), no name question. NOVA_INTRO_ANSWER=1 = the FIRST gate-off of a session
+# (no game section has run yet) files the intro note; every later gate-off (the real section end) is unchanged. Default off.
+INTRO_ANSWER = os.environ.get("NOVA_INTRO_ANSWER", "0") == "1"
+INTRO_NOTE = ("[phase] The game has NOT started yet - you are saying hello. Speak only the lines you are given, with ONE "
+              "exception: if the child talks to you or asks you something now, answer them warmly in ONE short sentence "
+              "(10 words at most), then stop. Never ask their name, never ask a question, never start the game - the game "
+              "engine starts it.")
 VOICE = os.environ.get("NOVA_VOICE", "marin")   # 2026-08-08 founder decision: marin IS Nova's voice (shimmer too adult, coral weird). ?voice= still overrides per-session for A/B
 RT_URL = f"wss://api.openai.com/v1/realtime?model={MODEL}"
 
@@ -1380,6 +1391,7 @@ async def relay(request):
                         # SPEAK-GATE (2026-08-26): the game phase's structural mute. on=True from
                         # music-start, off at the final verdict. Mic stays open the whole time.
                         sgate["on"] = bool(m.get("on"))
+                        if sgate["on"]: sgate["ever"] = True          # a game section has really run
                         sgate["mode"] = (m.get("mode") or "hard") if sgate["on"] else "hard"
                         sgate["credit"] = 0
                         if sgate["on"] and sgate["mode"] == "hard" and (speaking["resp_active"] or speaking["v"]):
@@ -1390,7 +1402,10 @@ async def relay(request):
                         # END (the game is over, the ending has the floor). That is a boundary —
                         # and the one boundary allowed to drain a whole staged group, so the
                         # ending trio cannot starve behind the one-line rule.
-                        if not sgate["on"]:
+                        if not sgate["on"] and INTRO_ANSWER and not sgate.get("ever"):
+                            await remember(INTRO_NOTE)             # the intro: nothing has ended, she may answer the child
+                            await boundary_open("phase-end")
+                        elif not sgate["on"]:
                             await remember("[phase] The game section just ended. The ending has the "
                                            "floor now — speak only the lines you are given.")
                             await boundary_open("phase-end")
