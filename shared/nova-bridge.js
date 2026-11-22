@@ -17,6 +17,15 @@
 //   bridgeState()          — [b0.27 freeze4] { room, ws, face, voice } booleans, so a page can show the red banner
 //                            (no silent fallbacks) instead of guessing what is missing.
 //
+//   window 'nova:hearing' / 'nova:kid-delta' / 'nova:kid' / 'nova:kid-drop' — [2026-11-22] what the PLAYER says, live:
+//                            the brain heard a voice start (status.hearing) · words as they are recognised (you_delta) ·
+//                            the accepted turn (you_text, as before) · a turn it did not accept (you_drop; only sent by
+//                            a pod started with NOVA_KID_EVENTS=1). Pages that do not listen behave exactly as before.
+//   attachNova({echoGuard:true}) — [2026-11-22] OPTIONAL: also drop the mic while her voice is AUDIBLE in this browser.
+//                            The brain reopens the mic 0.6 s after ITS last audio chunk, but with the Ditto body her
+//                            voice is played DITTO_PRIME (1.4 s) later, so her last words could come back in as a
+//                            "kid turn". Off unless a page asks for it.
+//
 // POD-VERIFY (needs a live pod to confirm against rt_lk): the exact ws message vocabulary.
 // This sends {type:'nova-say'|'nova-cue'|'speak_gate'|'audio'} — the same types beta/freeze.html
 // posts today. `note()` splits on the "say exactly"/"fact" prefix; if rt_lk expects a different
@@ -30,6 +39,9 @@ const WSBASE = BASE.replace(/^http/, 'ws');
 
 let ws = null, room = null, voiceGain = null, audioEl = null, ctx = null;
 let speakGated = false, micGated = false, wsConns = 0, wsDelay = 1500;
+// echoGuard: [CLI-FILL] 300 ms tail after her voice goes quiet (room echo; the level meter below already needs
+// <= 100 ms to notice the quiet). No spec gives it. QUESTION.
+let echoGuard = false, herOn = false, herOffAt = 0; const ECHO_TAIL_MS = 300;
 // NOVA-FINAL: several listeners (a page's music ducking AND shared/nova-live.js's "her line is said" both need it;
 // a second onHerAudio() used to silently replace the first).
 const _herL = { playing: [], ended: [] };
@@ -39,7 +51,8 @@ const state = { room: false, ws: false, face: false, voice: false, wide: false }
 export function bridgeState() { return { ...state }; }
 
 // ── public API ──────────────────────────────────────────────────────────────
-export async function attachNova({ onVideo, onFace, onWide, intro = '' } = {}) {
+export async function attachNova({ onVideo, onFace, onWide, intro = '', echoGuard: eg = false } = {}) {
+  echoGuard = !!eg;
   await joinLiveKit(onVideo, onFace, onWide);
   connectWS(intro);
   try { await startMic(); } catch (e) { console.warn('[BRIDGE] mic blocked', e && e.message); }
@@ -126,8 +139,8 @@ function routeHerAudio(track) {
     setInterval(() => {
       an.getFloatTimeDomainData(buf); let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
       const rms = Math.sqrt(s / buf.length);
-      if (rms > 0.01 && !on) { on = true; herAudio.playing(); }
-      else if (rms <= 0.008 && on) { on = false; herAudio.ended(); }
+      if (rms > 0.01 && !on) { on = true; herOn = true; herAudio.playing(); }
+      else if (rms <= 0.008 && on) { on = false; herOn = false; herOffAt = performance.now(); herAudio.ended(); }
     }, 100);
     console.log('[BRIDGE] her voice routed through shared AudioContext, state=' + ctx.state);
   } catch (e) {
@@ -155,7 +168,10 @@ function connectWS(intro) {
         window.dispatchEvent(new Event('nova:consent'));
       return;
     }
-    if (m.type === 'status') { if (m.speaking === true) micGated = true; else if (m.speaking === false) micGated = false; }
+    if (m.type === 'you_delta') { window.dispatchEvent(new CustomEvent('nova:kid-delta', { detail: m.delta || '' })); return; }
+    if (m.type === 'you_drop') { window.dispatchEvent(new CustomEvent('nova:kid-drop', { detail: { text: m.text || '', why: m.why || '' } })); return; }
+    if (m.type === 'status') { if (m.speaking === true) micGated = true; else if (m.speaking === false) micGated = false;
+      if (m.hearing === true) window.dispatchEvent(new Event('nova:hearing')); }
   };
 }
 
@@ -167,6 +183,7 @@ async function startMic() {
   const ratio = mctx.sampleRate / 24000;
   proc.onaudioprocess = (e) => {
     if (micGated) return;                            // anti-echo: drop mic while she speaks
+    if (echoGuard && (herOn || performance.now() - herOffAt < ECHO_TAIL_MS)) return;   // …and while she is still AUDIBLE here
     const ch = e.inputBuffer.getChannelData(0);
     const n = Math.floor(ch.length / ratio), b = new Int16Array(n);
     for (let i = 0; i < n; i++) { let s = ch[Math.floor(i * ratio)]; if (s > 1) s = 1; if (s < -1) s = -1; b[i] = s * 0x7fff; }

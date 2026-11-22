@@ -74,7 +74,9 @@ stage "deployed $?"
 
 # 3) the brain — its own room; the face engine on :8010 (dual)
 cd /workspace
-LK_ROOM=nova-final ENGINE_URL=http://127.0.0.1:8010 NOVA_FACE_SOULX=1 NOVA_FACE_DUAL=1 NOVA_TEST_CLIPS=1 \
+# NOVA_KID_EVENTS=1 (2026-11-22, this build only; default off in pod/rt_lk.py): the brain tells the page when a heard
+# utterance was not accepted, so the page's live "You: ..." line closes and the intro does not wait for words that never come.
+LK_ROOM=nova-final ENGINE_URL=http://127.0.0.1:8010 NOVA_FACE_SOULX=1 NOVA_FACE_DUAL=1 NOVA_TEST_CLIPS=1 NOVA_KID_EVENTS=${NOVA_KID_EVENTS:-1} \
   setsid nohup $PY -u rt_lk.py > $OUT/rtlk.log 2>&1 < /dev/null &
 Xvfb :99 -screen 0 1280x720x24 -nolisten tcp >/dev/null 2>&1 &
 export DISPLAY=:99
@@ -85,6 +87,18 @@ ffmpeg -loglevel error -y -f lavfi -i anullsrc=r=48000:cl=mono -t 10 /root/silen
 for l in en he; do f=$R/audio/intro/nova-arrival.mp4; [ $l = he ] && f=$R/audio/intro/nova-arrival-he.mp4
   ffmpeg -loglevel error -y -i $f -vn -ac 1 -ar 16000 /root/line_$l.wav; done
 stage "screen+sound+lines: $(ls /root/line_*.wav | wc -l) lines"
+# the proof's CHILD line (2026-11-22): Refael's own first words to her, "Hi Nova, can you hear me?", as a recording the
+# proof browser plays into the page's microphone after her intro. Made with the OpenAI speech API (the key is already
+# this pod's env; it is never echoed), else espeak-ng. No line = the proof says so and runs without it.
+curl -s -m 40 https://api.openai.com/v1/audio/speech -H "Authorization: Bearer $OPENAI_API_KEY" -H "Content-Type: application/json" \
+  -d '{"model":"gpt-4o-mini-tts","voice":"ash","input":"Hi Nova, can you hear me?","response_format":"wav"}' -o /root/kid_raw.wav 2>/dev/null
+ffmpeg -loglevel error -y -i /root/kid_raw.wav -ac 1 -ar 48000 /root/kid_line.wav 2>/dev/null
+KIDSRC=openai-tts
+if [ ! -s /root/kid_line.wav ]; then KIDSRC=espeak-ng
+  timeout 120 apt-get install -y -qq espeak-ng >/dev/null 2>&1; espeak-ng -s 150 -w /root/kid_raw.wav "Hi Nova, can you hear me?" 2>/dev/null
+  ffmpeg -loglevel error -y -i /root/kid_raw.wav -ac 1 -ar 48000 /root/kid_line.wav 2>/dev/null; fi
+[ -s /root/kid_line.wav ] && cp /root/kid_line.wav $OUT/kid_line.wav
+stage "kid line ($KIDSRC): $(ls -la /root/kid_line.wav 2>/dev/null | awk '{print $5}') bytes"
 
 wait $DPID; stage "ditto: $(tail -2 $OUT/ditto_up.log | tr '\n' ' ' | cut -c1-300)"
 curl -s -m5 http://127.0.0.1:8031/health > $OUT/ditto_health_boot.json

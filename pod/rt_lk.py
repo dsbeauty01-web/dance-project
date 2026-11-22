@@ -73,6 +73,11 @@ FACE_SOULX = os.environ.get("NOVA_FACE_SOULX", "0") == "1"
 # time). The page's speak-gate already says which phase it is: gate OFF (intro/ending) = she talks WIDE with Ditto lips on her
 # body; gate ON (game: air / hold) = the small SoulX face (PiP). This file only forwards that to GET /face_mode. Default OFF.
 FACE_DUAL = os.environ.get("NOVA_FACE_DUAL", "0") == "1"
+# 2026-11-22 (Refael: "the text of what I say should appear live"): NOVA_KID_EVENTS=1 = also tell the page when a heard
+# utterance was NOT accepted as a kid turn ({"type":"you_drop"}), so the page's live "You: ..." line can close instead of
+# hanging, and an intro that is waiting for his words can move on. Nothing else changes: the page already gets
+# status.hearing, you_delta and you_text. Default off.
+KID_EVENTS = os.environ.get("NOVA_KID_EVENTS", "0") == "1"
 VOICE = os.environ.get("NOVA_VOICE", "marin")   # 2026-08-08 founder decision: marin IS Nova's voice (shimmer too adult, coral weird). ?voice= still overrides per-session for A/B
 RT_URL = f"wss://api.openai.com/v1/realtime?model={MODEL}"
 
@@ -1003,6 +1008,9 @@ async def relay(request):
                         except Exception: pass
                     try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"[INPUT-LOCK] dropped ("+_drop+"): "+ktxt[:60]+"\n")
                     except Exception: pass
+                    if KID_EVENTS:
+                        try: await ws_client.send_json({"type": "you_drop", "why": _drop, "text": ktxt[:80]})
+                        except Exception: pass
                 else:
                     # real kid input: NOW reset the turn counter, record input, log.
                     inlock["valid_turns"] += 1
@@ -1738,6 +1746,9 @@ async def relay(request):
                     elif et == "conversation.item.input_audio_transcription.failed":
                         utt["handled"].add(utt["n"])   # dead utterance is not "pending" — unblocks the retry gate
                         print("[RACE] rt transcription failed for utt", utt["n"], flush=True)
+                        if KID_EVENTS:
+                            try: await ws_client.send_json({"type": "you_drop", "why": "transcription-failed", "text": ""})
+                            except Exception: pass
                     elif et == "error":
                         await log("ERROR: " + str(e.get("error", {}).get("message", ""))[:120])
 
