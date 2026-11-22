@@ -56,7 +56,7 @@ def run_A(p):
     rec = F.recorder_start(os.path.join(OUT, "nova-final-run.mp4")); t_rec = time.time()
     time.sleep(1.5)
     pg.click("#go")
-    got, marks = {}, []
+    got, marks, under = {}, [], []
     t_end = time.time() + 300
     while time.time() < t_end:
         s = pg.evaluate("""() => ({ stage: document.getElementById('novaPane').dataset.stage, gate: document.body.dataset.gate || '',
@@ -69,7 +69,15 @@ def run_A(p):
             banner: !document.getElementById('banner').classList.contains('hidden') })""")
         t = round(time.time() - t_rec, 2)
         key = (s["gate"] or "open", s["stage"], (s["face"] or {}).get("badge"), s["ended"])
-        if not marks or marks[-1][1] != key: marks.append([t, key])
+        if not marks or marks[-1][1] != key:
+            marks.append([t, key])
+            # STUTTER GUARD: the face server's own counters at every stage change, so a late chunk / an underrun (a held
+            # frame + 0.16 s of silence) can be placed: at a face switch, or inside her speech
+            try:
+                import urllib.request
+                fs = json.loads(urllib.request.urlopen(F.FACE + "/", timeout=1.5).read())
+                under.append([t, key[0] + "/" + str(key[1]) + "/" + str(key[2]), fs.get("underruns"), fs.get("wide_chunks_late"), fs.get("wide_chunks"), fs.get("mode")])
+            except Exception as e: under.append([t, "?", str(e)[:40]])
         # the READY GATE, in order: his own picture (Nova not connected) -> Nova live but still hidden -> she appears talking
         if s["gate"] == "cam" and "own" not in got: time.sleep(0.5); got["own"] = F.shot(pg, "A-0a-own-camera-first.png")
         if s["gate"] == "nova" and "hidden" not in got and ((s["wide"] or {}).get("live") or "t_nova" in got and time.time() - got["t_nova"] > 1.5):
@@ -98,11 +106,13 @@ def run_A(p):
         time.sleep(0.15)
     F.shot(pg, "A-6-after.png")
     F.recorder_stop(rec)
-    data = F.dump(pg, logs, "A")
-    with open(os.path.join(OUT, "A-stages.json"), "w") as fh: json.dump(marks, fh)
-    b.close()
     try: print("kid mic:", json.dumps(pg.evaluate("() => window.__kidMic")), flush=True)
     except Exception as e: print("kid mic: ?", e, flush=True)
+    data = F.dump(pg, logs, "A")
+    with open(os.path.join(OUT, "A-stages.json"), "w") as fh: json.dump(marks, fh)
+    with open(os.path.join(OUT, "A-underruns.json"), "w") as fh: json.dump(under, fh)
+    print("underruns [t, gate/stage/badge, underruns, late, chunks, mode]", json.dumps(under)[:3000], flush=True)
+    b.close()
     print("A recorded", round(time.time() - t_rec, 1), "s; shots", sorted(k for k in got if k not in ("end", "t_nova", "t_open", "kidsaid")), flush=True)
     print("stages", json.dumps(marks)[:1500], flush=True)
     return data
