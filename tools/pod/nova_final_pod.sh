@@ -64,8 +64,9 @@ fi
 
 # 2c) system packages + Chrome + python deps
 export DEBIAN_FRONTEND=noninteractive
-# fast boot (common image): also python3.10 for /opt/ltenv, ffmpeg and the libs the big image carried
-NFB_APT=""; [ -n "$NFB" ] && NFB_APT="python3.10 ffmpeg wget libgl1 libglib2.0-0 libsndfile1"
+# fast boot (common image): also python3.10 for /opt/ltenv (+ -dev: triton compiles a C helper against Python.h at the
+# SoulX warm-up; without it the face server dies with "Python.h: No such file", prep pod 2026-11-22), ffmpeg, libs
+NFB_APT=""; [ -n "$NFB" ] && NFB_APT="python3.10 python3.10-dev ffmpeg wget libgl1 libglib2.0-0 libsndfile1"
 timeout 400 bash -c "apt-get update -qq && apt-get install -y -qq xvfb pulseaudio ca-certificates fonts-noto-color-emoji fonts-dejavu-core $NFB_APT >/dev/null 2>&1"; stage "apt done $?"
 wget -q -O /root/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && timeout 300 apt-get install -y -qq /root/chrome.deb >/dev/null 2>&1
 stage "chrome: $(google-chrome --version 2>&1)"
