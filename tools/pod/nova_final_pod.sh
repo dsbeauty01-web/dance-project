@@ -37,6 +37,9 @@ git clone -q --depth 1 --filter=blob:none --no-checkout -b "$BR" https://github.
  && cd /root/repo && git sparse-checkout set --no-cone '/beta/*.html' '/beta/*.css' '/beta/*.js' '/beta/lib/' '/beta/freeze2/' '/shared/' \
       '/freezegame/' '/audio/freeze2/' '/audio/intro/*.mp4' '/test/clips/' '/pod/' '/tools/pod/' '/media/wave-ref.mp4' '/media/upperbody-ref.mp4' '/audio/says/' '/models/' '/nova-session-rec.js' '/nova-ending.js' '/pod-registry.js' '/nova-joined-small.mp4' && git checkout -q "$BR"
 R=/root/repo; stage "repo $(cd $R && git rev-parse --short HEAD) body $(ls -la $R/tools/pod/assets/nova_talk_wide.mp4 | awk '{print $5}')"
+# NOVA-FASTBOOT (NF_VOLUME_DIR set by the launcher's NF_VOLUME=<id>; unset = the old boot, unchanged): the heavy parts
+# come from Nova's network volume, see tools/pod/nova_fastboot.sh and docs/NOVA-FASTBOOT.md
+NFB=""; [ -n "${NF_VOLUME_DIR:-}" ] && { NFB=1; . $R/tools/pod/nova_fastboot.sh; }
 
 # 2a) Ditto: prebuilt pack (ditto_up.sh DITTO_PACK) — Ditto Gold recipe flags (ditto-lips skill §5.6, Nova values from
 #     tools/pod/ditto_take8/nova_take8.env). [CLI-FILL] DITTO_CHUNK=10 / DITTO_TAKE_TIMEOUT=0.35: the co-host's live chunk
@@ -48,20 +51,25 @@ export DITTO_FACE_ROBUST=1 DITTO_AMP=${DITTO_AMP:-0.6} DITTO_GRAIN=0 DITTO_MASK=
        DITTO_ON_RMS=0.012 DITTO_FAST_CLOSE=1 DITTO_DEBT_FIX=1 DITTO_FAST_PRIME=1 DITTO_PRIME=${DITTO_PRIME:-35} DITTO_CHUNK=${DITTO_CHUNK:-10} \
        DITTO_TAKE_TIMEOUT=${DITTO_TAKE_TIMEOUT:-0.35} DITTO_VAD=1 DITTO_EYE_HOLD=1 DITTO_THREADS=${DITTO_THREADS:-6} DITTO_STATS_EVERY=25
 mkdir -p $MAYA_LOGS
+if [ -n "$NFB" ]; then nfb_ditto_start; else
 ( t=$(date +%s); for i in 1 2; do bash $R/tools/pod/ditto_take8/ditto_up.sh > $OUT/ditto_up.log 2>&1 && break; sleep 5; done
   echo "rc=$? after $(( $(date +%s) - t )) s" >> $OUT/ditto_up.log ) &
 DPID=$!
+fi
 
 # 2b) SoulX weights (baked into the image, else fetch)
-( if [ -s "$SOULX_ROOT/ACTIVATE.sh" ] && [ -d "$SOULX_ROOT/models/SoulX-FlashHead-1_3B" ]; then echo "weights baked" > $OUT/weights.txt
+[ -n "$NFB" ] || ( if [ -s "$SOULX_ROOT/ACTIVATE.sh" ] && [ -d "$SOULX_ROOT/models/SoulX-FlashHead-1_3B" ]; then echo "weights baked" > $OUT/weights.txt
   else echo "weights NOT baked - fetching" > $OUT/weights.txt; timeout 1200 $PY $MO/soulx_fetch.py --root "$SOULX_ROOT" --jobs 4 >> $OUT/weights.txt 2>&1; fi ) &
-WPID=$!
+[ -n "$NFB" ] || WPID=$!
 
 # 2c) system packages + Chrome + python deps
 export DEBIAN_FRONTEND=noninteractive
-timeout 400 bash -c 'apt-get update -qq && apt-get install -y -qq xvfb pulseaudio ca-certificates fonts-noto-color-emoji fonts-dejavu-core >/dev/null 2>&1'; stage "apt done $?"
+# fast boot (common image): also python3.10 for /opt/ltenv, ffmpeg and the libs the big image carried
+NFB_APT=""; [ -n "$NFB" ] && NFB_APT="python3.10 ffmpeg wget libgl1 libglib2.0-0 libsndfile1"
+timeout 400 bash -c "apt-get update -qq && apt-get install -y -qq xvfb pulseaudio ca-certificates fonts-noto-color-emoji fonts-dejavu-core $NFB_APT >/dev/null 2>&1"; stage "apt done $?"
 wget -q -O /root/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && timeout 300 apt-get install -y -qq /root/chrome.deb >/dev/null 2>&1
 stage "chrome: $(google-chrome --version 2>&1)"
+[ -n "$NFB" ] && nfb_wait_ltenv
 $PY -m pip install -q --no-cache-dir livekit livekit-api aiohttp playwright >/dev/null 2>&1; stage "pip done $? ($($PY -c 'import livekit.rtc,livekit.api,aiohttp,playwright;print("ok")' 2>&1 | tail -1))"
 
 P=/workspace/pages; mkdir -p $P/beta $P/test /workspace/audio
@@ -159,5 +167,6 @@ for t in W A ${NF_GAMES:-wave upperbody}; do [ -s wide_published_$t.mp4 ] && ffm
 ls -la $OUT/*.mp4 >> $OUT/STAGES
 cp $OUT/rtlk.log $OUT/rtlk_copy.log 2>/dev/null
 nvidia-smi --query-gpu=memory.used,utilization.gpu --format=csv,noheader >> $OUT/STAGES 2>&1
+[ -n "$NFB" ] && nfb_save
 stage "DONE"; touch $OUT/DONE
 sleep infinity

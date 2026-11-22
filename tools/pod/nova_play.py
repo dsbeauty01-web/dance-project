@@ -4,6 +4,8 @@ nova_final_ctl.py unchanged, except its RunPod calls go through maya-lt's runpod
 and the proof steps are skipped (NF_SKIP_W/A, no extra games): brain + dual face server stay up, the page is served by
 the pod on :8765  ->  https://<pod>-8765.proxy.runpod.net/beta/freeze4?lang=en
   nova_play.py create | status <id> | terminate <id> | mine
+FAST BOOT (2026-11-22, docs/NOVA-FASTBOOT.md): NF_VOLUME=pqbavl4mct NF_BRANCH=nova-fastboot python3 nova_play.py create <sha>
+  = common image + Nova's parts from the network volume nova-vol (EU-RO-1). Unset NF_VOLUME = the old 14.3 GB image boot.
 """
 import importlib.util, os, sys
 # Default = the FULL on-pod proof (W + A): the pod's own Chrome plays the game and saves A-1..A-6 screenshots and
