@@ -20,6 +20,12 @@ def req(method, url, body=None, timeout=30):
     if url.startswith(C.REST):
         path = url[len(C.REST):]
         try:
+            if method == "POST" and path == "/pods":
+                # 2026-11-22: her voice came out chopped (20 gaps of 40-340 ms inside her own sentences, measured on the
+                # pod's OWN recording, so not the network) on a host with 13.6 cores; the renderer also took 259 s to warm
+                # up against 150 s on a 26-core host. Ask for a real machine, as the widget and the co-host launcher do.
+                v = int(os.environ.get("NF_MIN_VCPU", "24"))
+                if v > 0: body = dict(body, minVCPUPerGPU=v)
             d = RA.create_pod(body, C.K["RUNPOD_API_KEY"]) if (method == "POST" and path == "/pods") else RA.call(method, path, body, C.K["RUNPOD_API_KEY"])
             return 200, d
         except RA.RunPodError as e:
