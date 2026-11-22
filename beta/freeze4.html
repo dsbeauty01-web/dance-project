@@ -266,6 +266,19 @@ async function bodyClipsOk(){
 async function begin(){
   $('startScr').classList.remove('on');
   caption(TXT.warming, 'wait');                                               // game-cues-lights: the "Nova's warming up ✨" loading state
+  /* CAMERA FIRST (Refael, 2026-11-21, his first real play of v4: "camera and mic need to start before"). The camera
+     used to open only AFTER her intro: he talked to her next to a black pane and the permission question landed in the
+     middle of the show. Now Play opens the camera at once (the mic opens with her voice bridge just below), so he sees
+     himself while she talks. Nothing is judged yet -- the game does not exist until the intro is over. */
+  src = await createSource($('cam'), (frame, t) => {
+    if (ended) return; lastFrame = frame;
+    const k = toJudge(frame); if (k) lights.feed(k);
+    if (doc){ doc(frame); return; }                       // Camera Doctor first — the game isn't running yet
+    if (!game) return;                                    // intro: picture and lights only, no judge
+    rec.frame(frame, t, src?.state); game.feed(frame, t); game.tick(t);
+    if (game.state.phase === 'freeze') ring(Math.min(1, (t - freezeAt) / holdS));
+  });
+  src.start();
   const missingClips = await bodyClipsOk();
   if (missingClips.length) return refuse(missingClips.map(u => TXT.noBody + u));
   /* her live face + live voice — both must be really there, or the game does not start (no silent fallbacks) */
@@ -291,15 +304,7 @@ async function begin(){
   if (!fast){ mindReact('intro'); if (dual) log('intro-said', String(await waitHerLine())); else await new Promise(r => setTimeout(r, 3400)); }     // she explains the game first (skipped with ?fast=1)
   game = createFreezeGame({ tune, pace, on: onEvent });
   hud = createHud(game.pace.rounds);
-  src = await createSource($('cam'), (frame, t) => {
-    if (ended) return; lastFrame = frame;
-    const k = toJudge(frame); if (k) lights.feed(k);
-    if (doc){ doc(frame); return; }                       // Camera Doctor first — the game isn't running yet
-    rec.frame(frame, t, src?.state); game.feed(frame, t); game.tick(t);
-    if (game.state.phase === 'freeze') ring(Math.min(1, (t - freezeAt) / holdS));
-  });
   if (!src.state.modelOk) caption(src.state.cameraError ? L.noCamera : L.cantSee, 'wait');
-  src.start();
   if (Q.get('checked') !== '1' && Q.get('doctor') !== '0') await runDoctor({ lights, lang, onFrameHook: h => doc = h });
   face.setBase('watching');
   game.start(performance.now() / 1000);
