@@ -182,7 +182,22 @@ let dual = false;                                                             //
 /* the stage: 'wide' = intro/ending (she talks on her body in her room, Ditto lips) · 'game' = her clips + the PiP face.
    It follows the voice routing exactly (routeVoice is the phase machine's one switch): engine = wide, air/mute = game. */
 function stage(st){ if (!dual) { pip.show(true); return; }
+  if (st === 'game' && $('novaPane').dataset.stage !== 'game' && FLAG('pipfresh')) pipFresh();
   $('novaPane').dataset.stage = st; pip.show(st === 'game'); face.setActive(st === 'game'); wide.setActive(st === 'wide'); log('stage', st); }
+/* NOVA-AUDIT · flag `pipfresh` (default off). nova_approve.mp4 35.6-36.4 s: at the first game round her face tile showed
+   an empty grey box, then a BLACK square, and only then her face (the SoulX track restarts when the pod switches faces; the
+   tile still counted as "live" from before). With the flag, the tile's picture stays covered (her room colour) until a
+   NEW, non-black frame of her face has really arrived. [CLI-FILL] "non-black" = mean brightness > 24 of 255 on an 8x8 copy. */
+const pipCss = document.createElement('style'); pipCss.textContent = '.nova-pip.fresh video{visibility:hidden}'; document.head.appendChild(pipCss);
+function pipFresh(){
+  const v = pip.video, root = pip.root, c = document.createElement('canvas'); c.width = c.height = 8; const g = c.getContext('2d', { willReadFrequently: true });
+  root.classList.add('fresh'); const t0 = performance.now();
+  const check = () => { if (!root.classList.contains('fresh')) return;
+    try { g.drawImage(v, 0, 0, 8, 8); const d = g.getImageData(0, 0, 8, 8).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += (d[i] + d[i + 1] + d[i + 2]) / 3;
+      if (s / 64 > 24){ root.classList.remove('fresh'); log('pip-fresh', 'her face shown after ' + Math.round(performance.now() - t0) + ' ms'); return; } } catch (_){}
+    if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(check); else setTimeout(check, 40); };
+  if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(check); else setTimeout(check, 40);
+}
 window.freeze4Face = face;
 
 /* ── her VOICE: live V2V only, through the bridge. What she is asked to say is chosen by the same Truth-Law brain as

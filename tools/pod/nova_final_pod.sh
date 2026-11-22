@@ -83,7 +83,7 @@ cp $R/beta/freeze4.html $R/beta/play.css $P/beta/ && { cp $R/beta/freeze4-flags.
  && cp $R/pod/rt_lk.py /workspace/rt_lk.py
 stage "deployed $?"
 # NOVA-AUDIT page flags for this build (the repo copy has them all off)
-[ "$NF_AUDIT" = 1 ] && echo "window.__F4_FLAGS = { shoulder: ${NF_SHOULDER:-true}, fpsprobe: true };   // written by nova_final_pod.sh (NOVA-AUDIT build)" > $P/beta/freeze4-flags.js
+[ "$NF_AUDIT" = 1 ] && echo "window.__F4_FLAGS = { shoulder: ${NF_SHOULDER:-true}, fpsprobe: true, pipfresh: true };   // written by nova_final_pod.sh (NOVA-AUDIT build)" > $P/beta/freeze4-flags.js
 stage "page flags: $(cat $P/beta/freeze4-flags.js | cut -c1-80)"
 
 # 3) the brain — its own room; the face engine on :8010 (dual)

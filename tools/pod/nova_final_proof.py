@@ -11,6 +11,8 @@ import json, os, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import freeze4_proof as F                                               # noqa: E402
+# NF_PAGE_FLAGS (NOVA-AUDIT): extra page flags for the A run, e.g. "pipfresh=1"; the audit build (NF_REC_FIX=1) adds pipfresh.
+PAGE_EXTRA = "".join("&" + f for f in os.environ.get("NF_PAGE_FLAGS", "pipfresh=1" if os.environ.get("NF_REC_FIX") == "1" else "").split(",") if f)
 
 BASE, OUT = F.BASE, F.OUT
 KID_WAV = os.environ.get("KID_WAV", "/root/kid_line.wav")
@@ -53,7 +55,7 @@ def run_A(p):
     print("kid line:", KID_WAV, "bytes", os.path.getsize(KID_WAV) if os.path.exists(KID_WAV) else None, flush=True)
     # NF_PROOF_REPLAY (NOVA-AUDIT): which recorded children stand in for the camera; the audit build starts with
     # own-right-up (a real lifted right arm/shoulder) so the shoulder light's WIN path is shown, not only its release.
-    pg.goto(f"{BASE}/beta/freeze4?replay={os.environ.get('NF_PROOF_REPLAY', 'frozen-body,dance-hype,still-sway')}&rounds=2&checked=1&facewait=40&lang=en")
+    pg.goto(f"{BASE}/beta/freeze4?replay={os.environ.get('NF_PROOF_REPLAY', 'frozen-body,dance-hype,still-sway')}&rounds=2&checked=1&facewait=40&lang=en" + PAGE_EXTRA)
     time.sleep(3)
     rec = F.recorder_start(os.path.join(OUT, "nova-final-run.mp4")); t_rec = time.time()
     time.sleep(1.5)
