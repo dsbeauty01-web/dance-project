@@ -111,3 +111,42 @@ load until attach — fixed in `nova-live.js` after the run (not re-run).
 | Up Groove (run #6) | 0.655 | 1.44 | 3.31 (2.95) | 2.47 | 75 | 0 | BLOCK |
 | her closed body, no Ditto (control) | 0.054 | 0.18 | 3.61 (3.44) | 2.50 | 54 | 0 | BLOCK |
 | gold knees-up | 0.52-0.58 | 2.28-2.82 | 1.73-1.86 (1.1) | 0.71-0.97 | 0 | 0 | — |
+
+## 2026-11-22 — READY GATE, live "You:" text, she answers in the intro (branch `nova-play-fix`, NOT merged to beta)
+Refael after his first real play: "camera and mic permission first, before Nova; the user fully ready, seeing himself;
+Nova only appears when she is fully ready: visible, full lips and voice; the text of what I say should appear live."
+
+What the player gets after Play (`beta/freeze4.html`):
+1. the browser asks for camera AND microphone. Refused = a red message that names which one and how to allow it, with
+   "Try again". Nothing else starts.
+2. his own picture, whole screen, "This is you! Get ready…" (min 1.5 s [CLI-FILL]).
+3. "Nova is coming…" over his own picture while she connects. She is fully covered until her wide picture has a real
+   frame, her voice is connected and the first sound of her greeting plays; then she appears mid-first-word.
+   Waits: 15 s for picture + voice (FACE_WAIT_MS, unchanged [CLI-FILL]), then 12 s for the greeting (GREET_WAIT_MS
+   [CLI-FILL]: measured 4.2-4.6 s on both pods). Not ready = the red refusal.
+4. after her line the page listens 3 s; if he speaks, his words show as a cyan "You: …" line on his own picture and the
+   game waits for her answer (max 2 turns / 20 s [CLI-FILL]).
+
+Why she did not answer him (measured, pod iea3fzbf3r3vd8, his line replayed to the brain): the page's first
+`speak_gate off` made the brain file "[phase] The game section just ended … speak only the lines you are given"; with
+that note her reply to a spoken turn was EMPTY 4/4. `NOVA_INTRO_ANSWER=1` (pod/rt_lk.py, default off, on in
+nova_final_pod.sh) files an intro note instead: answered 4/4 on the probe and in the proof run ("Yes, I hear you loud and
+clear!"). Second cause, page side: the game used to start 1.2 s after her line whatever the child was doing.
+`NOVA_KID_EVENTS=1` (default off, on in this build): the brain reports a turn it did not accept (`you_drop`).
+
+| pod | commit | speed line | proof |
+|---|---|---|---|
+| iea3fzbf3r3vd8 | 1a0670a | wide p50 103 / p95 235 ms, late 0/116, underruns 0 — PASS | gate order proven; "You:" text shown; NO answer (empty reply) |
+| ktudhh5bspagxo | 6409196 | wide p50 93 / p95 196 ms, late 0/123, underruns 0 — PASS | gate order proven; "You: Hi Nova, can you hear me?"; she answered; game; ending |
+
+Page-log order, pod ktudhh5bspagxo (s): 4.60 permission asked · 4.70 granted · 4.72 own picture has a frame · 6.21 Nova
+connect starts · 6.57 her wide picture's first frame (hidden) · 6.64 voice connected, greeting asked · 10.84 first sound
+= gate opens · 20.46 intro said, listening · 24.87 "Hi Nova, can you hear me?" · 33.47 her answer finished · 38.48 game.
+
+OPEN — her live voice has small holes (found here, not caused by this change): in the stream exactly as sent, her
+8 s intro sentence carries eight to nine 0.16-0.2 s stretches of exact silence on the 0.4 s chunk grid; reproduced with
+NO page open (line staged over the brain socket). Her recorded lines sent whole (stage W) have 1-3 natural pauses.
+Cause in code: `tools/pod/nova_face.py pending_take()` pads a 0.4 s chunk with zeros when only part of it has arrived,
+and the brain sends her voice in 0.2 s pieces. The speed line cannot see it (it measures silence). Proposed fix, not
+built: take a chunk only when a full chunk (or the end of the line) is there. NOT judged by ear.
+Not done: the mishearing in café noise; "cannot see you" when sitting close; a real person in front of the camera.
