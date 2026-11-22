@@ -12,6 +12,7 @@
      beta/freeze-nova.html and beta/freeze.html are NOT touched. -->
 <link rel="stylesheet" href="play.css">
 <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script><!-- same line as beta/novasays.html:4 -->
+<script src="freeze4-flags.js"></script><!-- NOVA-AUDIT build flags (all off in the repo; the pod turns this build's on) -->
 <style>
 /* ── layout ──────────────────────────────────────────────────────────────────────────────────────────────
    [ face rail | Nova's body clips ]  |  [ the child: camera + lights ]
@@ -103,6 +104,7 @@ import { runDoctor } from './lib/doctor.js';
 import { attachNova, routeVoice, note, onHerAudio, bridgeState } from '../shared/nova-bridge.js';
 import { createFacePanel } from '../shared/face-panel.js';
 import { mountFacePip } from '../shared/face-pip.js';
+import { createShoulderBeat, LINES as SHOULDER_LINES } from './lib/shoulder-beat.js';
 
 const $ = id => document.getElementById(id);
 const lang = getLang(); applyLang(lang);
@@ -128,6 +130,8 @@ const TXT = {
         allow: 'איך מאשרים: לוחצים על סמל המנעול (או המצלמה) ליד כתובת האתר, בוחרים "אישור" למצלמה ולמיקרופון, ואז "לנסות שוב". נובה צריכה את שניהם: מצלמה כדי לראות את הקפיאה, מיקרופון כדי לשמוע אתכם.' },
 }[lang];
 const L = COMMON[lang];
+/* NOVA-AUDIT flags: ?name=1 / ?name=0 for one visit, else the build's beta/freeze4-flags.js (all off in the repo) */
+const FLAG = name => Q.get(name) === '1' || (Q.get(name) !== '0' && !!(window.__F4_FLAGS || {})[name]);
 const EMO = { flamingo: '🦩', bear: '🐻', frog: '🐸', star: '⭐', statue: '🗿' };
 $('title').textContent = TXT.title; $('howto').textContent = TXT.howto; $('back').textContent = lang === 'he' ? '→' : '←';
 $('back').onclick = () => location.href = 'index.html' + location.search;
@@ -367,6 +371,46 @@ async function introListen(sinceAsk){
   log('intro-listen', 'closed answered=' + answered);
 }
 
+/* ── NOVA-AUDIT (2026-11-22) · THE SHOULDER LIGHT — flag `shoulder`, default off.
+   Refael on the v4 entry flow: "not the correct intro. The ORIGINAL intro is with the LIGHT ON HER SHOULDER." The intro he
+   approved is origin/main nova-commercial.html INTRO-V2V (75396a4 / d29b13f PROMOTE v1.0.4) + SHOULDER-BEAT §4b (33f83fe):
+   she greets, a golden light lands on the child's right shoulder, she says the exact light line, a REAL shrug pops the light
+   and she celebrates; nobody lifts → one exact retry at 8 s, a silent release at 20 s (never a claimed win — TRUTH LAW,
+   law-shoulder). Then she explains Freeze. All numbers and lines live in beta/lib/shoulder-beat.js with their sources.
+   Phase machine: the whole beat is INTRO = voice 'engine' (her calm wide body, lips on); no judge, no music. */
+const shoulderBeat = {
+  on: false, beat: null, res: null, waiters: [],
+  start(){ const cam = $('cam'); const aspect = cam.videoWidth ? cam.videoHeight / cam.videoWidth : 16 / 9;
+    this.beat = createShoulderBeat({ aspect }); this.beat.start(performance.now()); this.on = true; this.res = null;
+    lights.sparkle('rShoulder'); lights.meter('rShoulder', 0); log('shoulder', 'light on (rShoulder) aspect=' + aspect.toFixed(3));
+    this.timer = setInterval(() => { const e = this.beat.tick(performance.now()); if (e === 'retry'){ log('shoulder', 'retry (8 s, no lift seen)'); novaSays(SHOULDER_LINES[lang].retry); } if (e === 'release') this.end('release'); }, 100); },
+  feed(k){ const r = this.beat.feed(k, performance.now()); lights.meter('rShoulder', this.beat.progress()); if (r === 'win') this.end('win'); },
+  end(res){ if (!this.on) return; this.on = false; clearInterval(this.timer); this.res = res; lights.meter(null); lights.sparkle(null);
+    if (res === 'win'){ lights.flash('rShoulder'); lights.burst('rShoulder', 'gold'); novaSays(SHOULDER_LINES[lang].win); }   // a REAL detected lift, nothing else
+    log('shoulder', res === 'win' ? 'WIN — a real lift was detected' : 'release — no lift seen in 20 s (nothing claimed)');
+    this.waiters.splice(0).forEach(w => w(res)); },
+  done(){ return this.res ? Promise.resolve(this.res) : new Promise(r => this.waiters.push(r)); },
+};
+window.freeze4Shoulder = shoulderBeat;
+/* the shoulder beat's opener: her greeting = her approved commercial first line (c43ea92: "Hi! I'm Nova, your magical AI dance
+   teacher!") + the exact light line. [CLI-FILL] the Hebrew greeting words (the approved Hebrew greet was improvised live). */
+const HELLO = { en: "Hi! I'm Nova, your magical AI dance teacher!", he: 'היי! אני נובה, המורה הקסומה שלך לריקוד!' }[lang];
+
+/* ── NOVA-AUDIT · FPS PROBE — flag `fpsprobe`, default off. Read-only. Once a second: how many NEW pictures of Nova were
+   presented in the browser (requestVideoFrameCallback), for her live wide body (#novaWide) and her clip (#nova), plus the
+   browser's own dropped-frame count. This is what the child really sees — the proof recording (x11grab) cannot tell a
+   picture the browser never got from one the recorder missed. ── */
+function startFpsProbe(){
+  const cnt = { wide: 0, clip: 0 }, vids = { wide: $('novaWide'), clip: $('nova') };
+  for (const [k, v] of Object.entries(vids)){ if (!v.requestVideoFrameCallback) continue;
+    const cb = () => { cnt[k]++; v.requestVideoFrameCallback(cb); }; v.requestVideoFrameCallback(cb); }
+  setInterval(() => { const q = vids.wide.getVideoPlaybackQuality?.();
+    log('fps', JSON.stringify({ stage: $('novaPane').dataset.stage, wide: cnt.wide, clip: cnt.clip, wideDropped: q?.droppedVideoFrames ?? null, wideTotal: q?.totalVideoFrames ?? null }));
+    cnt.wide = cnt.clip = 0; }, 1000);
+  log('fps', 'probe on');
+}
+if (FLAG('fpsprobe')) startFpsProbe();
+
 async function begin(){
   $('startScr').classList.remove('on');
   /* 1 · PERMISSION FIRST — camera and microphone, before anything of Nova. A refusal is said in red, with which one and how
@@ -385,6 +429,7 @@ async function begin(){
     if (ended) return; lastFrame = frame;
     const k = toJudge(frame); if (k) lights.feed(k);
     if (doc){ doc(frame); return; }                       // Camera Doctor first — the game isn't running yet
+    if (shoulderBeat.on && k) shoulderBeat.feed(k);       // NOVA-AUDIT: the intro's shoulder light watches the real shoulders
     if (!game) return;                                    // intro: picture and lights only, no judge
     rec.frame(frame, t, src?.state); game.feed(frame, t); game.tick(t);
     if (game.state.phase === 'freeze') ring(Math.min(1, (t - freezeAt) / holdS));
@@ -425,15 +470,25 @@ async function begin(){
 
   setVoice('engine'); face.setBase('listening');                              // INTRO = she talks, the child may answer
   const tAsk = performance.now();
+  const withShoulder = !fast && FLAG('shoulder');
   if (!fast){                                                                 // she explains the game first (skipped with ?fast=1)
-    mindReact('intro'); log('greeting', 'asked (Nova still hidden)');
+    if (withShoulder) novaSays(HELLO + ' ' + SHOULDER_LINES[lang].arm); else mindReact('intro');   // NOVA-AUDIT: the approved intro opens on the light
+    log('greeting', 'asked (Nova still hidden)' + (withShoulder ? ' — shoulder intro' : ''));
     if (!await waitVoiceStart(GREET_WAIT_MS)) return refuse([TXT.noGreet]);
     log('greeting', 'first sound after ' + Math.round(performance.now() - tAsk) + ' ms');
     if (!(dual ? wide.state.live : face.state.live)) return refuse([TXT.noFace]);
   }
   caption(''); gate(null);                                                    // THE GATE OPENS: she appears with her first word
   log('nova-shown', JSON.stringify({ wideLive: wide.state.live, wideFrames: wide.state.frames, voice: bridgeState().voice, speaking: !fast }));
-  if (!fast){
+  if (withShoulder){
+    shoulderBeat.start();                                                     // the light lands on his shoulder as she appears
+    const res = await shoulderBeat.done();
+    if (dual) log('shoulder-said', String(await waitHerLine(20000, res === 'win' ? performance.now() - 50 : tAsk)));
+    const tExplain = performance.now();
+    mindReact('intro'); log('explain', 'asked');                              // THEN she explains Freeze (the original arc: light → invite to the game)
+    if (dual) log('intro-said', String(await waitHerLine(20000, tExplain))); else await sleep(3400);
+    await introListen(tExplain);
+  } else if (!fast){
     if (dual) log('intro-said', String(await waitHerLine(20000, tAsk))); else await sleep(3400);
     await introListen(tAsk);                                                  // a question said to her now gets its answer before the game
   }

@@ -42,6 +42,17 @@ R=/root/repo; stage "repo $(cd $R && git rev-parse --short HEAD) body $(ls -la $
 #     tools/pod/ditto_take8/nova_take8.env). [CLI-FILL] DITTO_CHUNK=10 / DITTO_TAKE_TIMEOUT=0.35: the co-host's live chunk
 #     (ditto_up log 2026-11-10: chunk_frames 10), so the render thread can stay one chunk ahead in 0.4 s steps.
 export MAYA_LOGS=$OUT/ditto DITTO_PACK=${DITTO_PACK:-ditto-pack-v2} DITTO_SRC=$R/tools/pod/assets/nova_talk_wide.mp4
+# ── NOVA-AUDIT (2026-11-22, branch nova-audit; docs/NOVA-ERRORS-2026-11-22.md). Refael on nova_approve.mp4: "slow like shit,
+#    not the correct intro (the ORIGINAL is with the LIGHT ON HER SHOULDER), she needs to be more calm, not move much".
+#    Every fix is behind its own flag, default off in the code; THIS build turns them on here (NF_AUDIT=0 = the old build).
+#    · NF_CALM=1   her wide talk body = tools/pod/assets/nova_talk_calm.mp4 (the calm full body, docs/nova-ditto/fullbody/
+#                  nova_fullbody_calm.mp4 framed 1.3x like nova_talk_wide) — motion 0.17 vs 4.3 per frame (25x calmer)
+#    · face server FACE_VOICE_PREBUF_MS / FACE_REC_THREAD / FACE_PUB_STEADY (tools/pod/nova_face.py) — voice holes, publish stalls
+#    · page flags shoulder + fpsprobe (beta/freeze4-flags.js written below) · NF_REC_FIX=1 the proof recorder (freeze4_proof.py)
+NF_AUDIT=${NF_AUDIT:-1}
+if [ "$NF_AUDIT" = 1 ] && [ "${NF_CALM:-1}" = 1 ] && [ -s $R/tools/pod/assets/nova_talk_calm.mp4 ]; then export DITTO_SRC=$R/tools/pod/assets/nova_talk_calm.mp4; fi
+[ "$NF_AUDIT" = 1 ] && export NF_PROOF_REPLAY=${NF_PROOF_REPLAY:-own-right-up,frozen-body,dance-hype,still-sway} NF_REC_FIX=${NF_REC_FIX:-1} FACE_VOICE_PREBUF_MS=${FACE_VOICE_PREBUF_MS:-400} FACE_REC_THREAD=${FACE_REC_THREAD:-1} FACE_PUB_STEADY=${FACE_PUB_STEADY:-1}
+stage "audit flags: NF_AUDIT=$NF_AUDIT body=$(basename $DITTO_SRC) prebuf=${FACE_VOICE_PREBUF_MS:-0} rec_thread=${FACE_REC_THREAD:-0} pub_steady=${FACE_PUB_STEADY:-0} rec_fix=${NF_REC_FIX:-0}"
 # DITTO_FACE_ROBUST=1: her face is 205 px in a 1080x1920 frame -> the full-frame detector at 0.5 misses frame 0 (pod run
 #   2026-11-12 #1: "mediapipe: no face in the first source frame"; the chef bank's same 205 px case, ditto_wide.py). Local: 118/121.
 export DITTO_FACE_ROBUST=1 DITTO_AMP=${DITTO_AMP:-0.6} DITTO_GRAIN=0 DITTO_MASK=lower DITTO_PASTE_GATE=1 DITTO_PASTE_OFF_MS=80 DITTO_PASTE_XFADE_MS=120 \
@@ -67,10 +78,13 @@ $PY -m pip install -q --no-cache-dir livekit livekit-api aiohttp playwright >/de
 P=/workspace/pages; mkdir -p $P/beta $P/test /workspace/audio
 mkdir -p /workspace/media && cp $R/media/*.mp4 /workspace/media/ ; cp $R/beta/wave.html $R/beta/upperbody.html $R/beta/novasays.html $P/beta/; cp $R/beta/novasays*.js $P/beta/; cp -r $R/audio/says /workspace/audio/says
 mkdir -p $P/models && cp $R/models/* $P/models/; cp $R/beta/upgroove.html $P/up-groove.html; cp $R/nova-session-rec.js $R/nova-ending.js $R/pod-registry.js $R/nova-joined-small.mp4 $P/
-cp $R/beta/freeze4.html $R/beta/play.css $P/beta/ && cp -r $R/beta/lib $R/beta/freeze2 $P/beta/ && cp -r $R/shared $P/shared \
+cp $R/beta/freeze4.html $R/beta/play.css $P/beta/ && { cp $R/beta/freeze4-flags.js $P/beta/ 2>/dev/null || echo 'window.__F4_FLAGS = {};' > $P/beta/freeze4-flags.js; } && cp -r $R/beta/lib $R/beta/freeze2 $P/beta/ && cp -r $R/shared $P/shared \
  && cp -r $R/freezegame $P/freezegame && cp -r $R/audio/freeze2 /workspace/audio/freeze2 && cp -r $R/test/clips $P/test/clips \
  && cp $R/pod/rt_lk.py /workspace/rt_lk.py
 stage "deployed $?"
+# NOVA-AUDIT page flags for this build (the repo copy has them all off)
+[ "$NF_AUDIT" = 1 ] && echo "window.__F4_FLAGS = { shoulder: ${NF_SHOULDER:-true}, fpsprobe: true };   // written by nova_final_pod.sh (NOVA-AUDIT build)" > $P/beta/freeze4-flags.js
+stage "page flags: $(cat $P/beta/freeze4-flags.js | cut -c1-80)"
 
 # 3) the brain — its own room; the face engine on :8010 (dual)
 cd /workspace
@@ -157,6 +171,8 @@ done
 cd $OUT/face
 for t in W A ${NF_GAMES:-wave upperbody}; do [ -s wide_published_$t.mp4 ] && ffmpeg -loglevel error -y -i wide_published_$t.mp4 -c:v libx264 -preset medium -crf 18 -c:a aac -b:a 128k -movflags +faststart $OUT/nova-wide-ditto-$t-1080.mp4; done
 [ -s face_published_A.mp4 ] && cp face_published_A.mp4 $OUT/nova-pip-soulx-A.mp4
+# NOVA-AUDIT: a small copy of exactly what the pod PUBLISHED in the A run (repeats are measured on it vs the browser recording)
+[ -s wide_published_A.mp4 ] && ffmpeg -loglevel error -y -i wide_published_A.mp4 -vf scale=540:-2 -c:v libx264 -preset medium -crf 20 -an $OUT/nova-wide-published-A-540.mp4
 ls -la $OUT/*.mp4 >> $OUT/STAGES
 cp $OUT/rtlk.log $OUT/rtlk_copy.log 2>/dev/null
 nvidia-smi --query-gpu=memory.used,utilization.gpu --format=csv,noheader >> $OUT/STAGES 2>&1

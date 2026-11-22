@@ -51,7 +51,9 @@ def run_A(p):
         import base64
         with open(KID_WAV, "rb") as fh: kid_b64 = base64.b64encode(fh.read()).decode()
     print("kid line:", KID_WAV, "bytes", os.path.getsize(KID_WAV) if os.path.exists(KID_WAV) else None, flush=True)
-    pg.goto(f"{BASE}/beta/freeze4?replay=frozen-body,dance-hype,still-sway&rounds=2&checked=1&facewait=40&lang=en")
+    # NF_PROOF_REPLAY (NOVA-AUDIT): which recorded children stand in for the camera; the audit build starts with
+    # own-right-up (a real lifted right arm/shoulder) so the shoulder light's WIN path is shown, not only its release.
+    pg.goto(f"{BASE}/beta/freeze4?replay={os.environ.get('NF_PROOF_REPLAY', 'frozen-body,dance-hype,still-sway')}&rounds=2&checked=1&facewait=40&lang=en")
     time.sleep(3)
     rec = F.recorder_start(os.path.join(OUT, "nova-final-run.mp4")); t_rec = time.time()
     time.sleep(1.5)

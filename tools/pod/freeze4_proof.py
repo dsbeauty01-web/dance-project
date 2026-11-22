@@ -97,6 +97,17 @@ def recorder_start(path):
     cmd = ["ffmpeg", "-loglevel", "error", "-y", "-f", "x11grab", "-video_size", f"{W}x{H}", "-framerate", "25", "-i", os.environ.get("DISPLAY", ":99"),
            "-f", "pulse", "-i", os.environ.get("PULSE_MONITOR", "rec.monitor"),
            "-c:v", "libx264", "-preset", "veryfast", "-crf", "30", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", path]
+    if os.environ.get("NF_REC_FIX", "0") == "1":
+        # NOVA-AUDIT 2026-11-22 (default off): the proof recording itself showed a 0.2-0.3 s frozen picture every 2.0 s, ALSO on
+        # Nova's local clip in the game (no WebRTC involved) -> the recorder, not her stream. Two inputs read through ffmpeg's
+        # default 8-packet input queues: x11grab waits behind the pulse reader / the encoder and its missed grabs are written
+        # as repeats. Bigger input queues, no mouse, the fastest x264 preset, and a log of what ffmpeg dropped/duplicated.
+        cmd = ["ffmpeg", "-loglevel", "error", "-stats_period", "5", "-y",
+               "-thread_queue_size", "1024", "-f", "x11grab", "-draw_mouse", "0", "-video_size", f"{W}x{H}", "-framerate", "25", "-i", os.environ.get("DISPLAY", ":99"),
+               "-thread_queue_size", "1024", "-f", "pulse", "-i", os.environ.get("PULSE_MONITOR", "rec.monitor"),
+               "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency", "-crf", "26", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k",
+               "-movflags", "+faststart", path]
+        return subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=open(path + ".ffmpeg.log", "w"))
     return subprocess.Popen(cmd, stdin=subprocess.PIPE)
 
 
