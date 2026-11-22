@@ -395,18 +395,27 @@ async function introListen(sinceAsk){
    Phase machine: the whole beat is INTRO = voice 'engine' (her calm wide body, lips on); no judge, no music. */
 const shoulderBeat = {
   on: false, beat: null, res: null, waiters: [],
+  light(){ lights.sparkle('rShoulder'); lights.meter('rShoulder', 0); log('shoulder', 'light on (rShoulder)'); },
+  /* the shrug check and its clock start only AFTER she has said the light line (main L4016: "light her shoulder AFTER she
+     explains it"). Pod run exarcvmcwq6czb: armed at the light, a lifted arm "won" 1.1 s in, while she was still saying hello. */
   start(){ const cam = $('cam'); const aspect = cam.videoWidth ? cam.videoHeight / cam.videoWidth : 16 / 9;
     this.beat = createShoulderBeat({ aspect }); this.beat.start(performance.now()); this.on = true; this.res = null;
-    lights.sparkle('rShoulder'); lights.meter('rShoulder', 0); log('shoulder', 'light on (rShoulder) aspect=' + aspect.toFixed(3));
-    this.timer = setInterval(() => { const e = this.beat.tick(performance.now()); if (e === 'retry'){ log('shoulder', 'retry (8 s, no lift seen)'); novaSays(SHOULDER_LINES[lang].retry); } if (e === 'release') this.end('release'); }, 100); },
+    lights.sparkle('rShoulder'); lights.meter('rShoulder', 0); log('shoulder', 'armed (rShoulder) aspect=' + aspect.toFixed(3));
+    this.timer = setInterval(() => { const e = this.beat.tick(performance.now()); if (e === 'retry'){ log('shoulder', 'retry (8 s, no lift seen)'); introSay(SHOULDER_LINES[lang].retry); } if (e === 'release') this.end('release'); }, 100); },
   feed(k){ const r = this.beat.feed(k, performance.now()); lights.meter('rShoulder', this.beat.progress()); if (r === 'win') this.end('win'); },
   end(res){ if (!this.on) return; this.on = false; clearInterval(this.timer); this.res = res; lights.meter(null); lights.sparkle(null);
-    if (res === 'win'){ lights.flash('rShoulder'); lights.burst('rShoulder', 'gold'); novaSays(SHOULDER_LINES[lang].win); }   // a REAL detected lift, nothing else
+    if (res === 'win'){ lights.flash('rShoulder'); lights.burst('rShoulder', 'gold'); introSay(SHOULDER_LINES[lang].win); }   // a REAL detected lift, nothing else
     log('shoulder', res === 'win' ? 'WIN — a real lift was detected' : 'release — no lift seen in 20 s (nothing claimed)');
     this.waiters.splice(0).forEach(w => w(res)); },
   done(){ return this.res ? Promise.resolve(this.res) : new Promise(r => this.waiters.push(r)); },
 };
 window.freeze4Shoulder = shoulderBeat;
+/* An intro line after her first one needs a speaking moment from the brain (pod/rt_lk.py PRODUCER-SILENT: a staged line
+   waits for a boundary). Pod run exarcvmcwq6czb: "Yes! The light caught it!" and the Freeze explanation were queued "not a
+   boundary" and came out later IN THE GAME. The page reports the section change the way it reports every intro/ending
+   (speak-gate off = routeVoice('engine'), a phase-end boundary; with NOVA_INTRO_ANSWER it files the intro note, not "the
+   game ended"), then stages the exact line. */
+function introSay(text){ if (voiceMode !== 'engine') return novaSays(text); routeVoice('engine'); log('intro-boundary', text.slice(0, 40)); novaSays(text); }
 /* the shoulder beat's opener: her greeting = her approved commercial first line (c43ea92: "Hi! I'm Nova, your magical AI dance
    teacher!") + the exact light line. [CLI-FILL] the Hebrew greeting words (the approved Hebrew greet was improvised live). */
 const HELLO = { en: "Hi! I'm Nova, your magical AI dance teacher!", he: 'היי! אני נובה, המורה הקסומה שלך לריקוד!' }[lang];
@@ -496,11 +505,13 @@ async function begin(){
   caption(''); gate(null);                                                    // THE GATE OPENS: she appears with her first word
   log('nova-shown', JSON.stringify({ wideLive: wide.state.live, wideFrames: wide.state.frames, voice: bridgeState().voice, speaking: !fast }));
   if (withShoulder){
-    shoulderBeat.start();                                                     // the light lands on his shoulder as she appears
+    shoulderBeat.light();                                                     // the light lands on his shoulder as she appears
+    if (dual) log('light-line-said', String(await waitHerLine(15000, tAsk)));
+    shoulderBeat.start();                                                     // now he has heard what to do: the check starts
     const res = await shoulderBeat.done();
     if (dual) log('shoulder-said', String(await waitHerLine(20000, res === 'win' ? performance.now() - 50 : tAsk)));
     const tExplain = performance.now();
-    mindReact('intro'); log('explain', 'asked');                              // THEN she explains Freeze (the original arc: light → invite to the game)
+    { const r = mind.react('intro'); if (r) introSay(r.text); } log('explain', 'asked');                              // THEN she explains Freeze (the original arc: light → invite to the game)
     if (dual) log('intro-said', String(await waitHerLine(20000, tExplain))); else await sleep(3400);
     await introListen(tExplain);
   } else if (!fast){

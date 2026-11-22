@@ -273,6 +273,7 @@ REC_THREAD = E("FACE_REC_THREAD", "0") == "1"
 # FACE_PUB_STEADY (default 0 = off, unchanged): the publisher used to catch up after a late chunk by sending up to 0.5 s of
 # frames with no wait — a burst the browser shows as a stall then a jump, and a burst that pulls the next voice chunk early
 # (a padded take = a voice hole). On: more than FACE_PUB_STEADY_MS (80 = 2 frames) behind -> re-anchor the clock instead.
+WIDE_TS = E("FACE_WIDE_TS", "0") == "1"           # NOVA-AUDIT (default off): stamp wide frames on the publish clock
 PUB_STEADY = E("FACE_PUB_STEADY", "0") == "1"; PUB_STEADY_S = float(E("FACE_PUB_STEADY_MS", "80")) / 1000
 S.update({"pub_late_frames": 0, "pub_max_lag_ms": 0, "pub_reanchors": 0})
 S["rec_dropped"] = 0
@@ -324,7 +325,11 @@ async def publisher():
     if DUAL is not None or E("FACE_RENDERER") == "dual":         # NOVA-FINAL: her wide Ditto body, a second video track
         wsrc = rtc.VideoSource(WIDE_W, WIDE_H)
         wtr = rtc.LocalVideoTrack.create_video_track("nova-wide-video", wsrc)
-        wo = rtc.TrackPublishOptions(source=rtc.TrackSource.SOURCE_SCREENSHARE)
+        # NOVA-AUDIT FACE_WIDE_SOURCE (default screenshare = unchanged). Pod run exarcvmcwq6czb: the pod PUBLISHED 25 fps
+        # (wide_published_A: 1962 frames in ~78 s) but the browser PRESENTED 9-15 a second (page fps probe) and counted ~5
+        # dropped a second. A screen-share track is allowed to trade frame rate for sharpness; she is a camera-like video.
+        wo = rtc.TrackPublishOptions(source=rtc.TrackSource.SOURCE_CAMERA if E("FACE_WIDE_SOURCE", "screenshare") == "camera"
+                                     else rtc.TrackSource.SOURCE_SCREENSHARE)
         try: wo.video_encoding = rtc.VideoEncoding(max_framerate=FPS, max_bitrate=int(E("WIDE_MAX_BITRATE", "4000000")))
         except Exception as e: log("wide video_encoding not set:", e)
         try: wo.stream = "nova-face"
@@ -372,8 +377,9 @@ async def publisher():
             if time.time() >= S["paused_until"]:
                 if mode == "wide":
                     g = cv2.resize(f, (WIDE_W, WIDE_H), interpolation=cv2.INTER_AREA) if f.shape[1] != WIDE_W else f
-                    wsrc.capture_frame(rtc.VideoFrame(WIDE_W, WIDE_H, rtc.VideoBufferType.RGBA,
-                                                      cv2.cvtColor(g, cv2.COLOR_BGR2RGBA).tobytes()))
+                    vf = rtc.VideoFrame(WIDE_W, WIDE_H, rtc.VideoBufferType.RGBA, cv2.cvtColor(g, cv2.COLOR_BGR2RGBA).tobytes())
+                    if WIDE_TS: wsrc.capture_frame(vf, timestamp_us=int((t0 + i / FPS) * 1_000_000))   # the frame's slot on the publish clock, not "when we got here"
+                    else: wsrc.capture_frame(vf)
                     S["wide_frames"] += 1
                 else:
                     rgba = np.dstack([f[:, :, ::-1], np.full(f.shape[:2], 255, np.uint8)])
