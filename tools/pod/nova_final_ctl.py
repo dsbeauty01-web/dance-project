@@ -25,7 +25,7 @@ NF_VOLUME = os.environ.get("NF_VOLUME", "").strip()
 NF_IMAGE = os.environ.get("NF_IMAGE", "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04")
 # the newest ghcr credential; the oldest (ghcr-maya-lt, Sept) left 3 pods "Exited by Runpod" within 1-16 s on 2026-11-11
 REG = os.environ.get("FREEZE4_REGISTRY", "ghcr-2026-10-30")
-FLOOR = 5.0
+FLOOR = float(os.environ.get("NF_FLOOR", "5.0"))   # Refael 2026-11-23: "fuck the rule, go to work" at $4.76 -> NF_FLOOR=2 for that run; default unchanged
 REST = "https://rest.runpod.io/v1"
 
 
