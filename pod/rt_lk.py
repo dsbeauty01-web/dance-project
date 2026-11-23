@@ -2364,7 +2364,63 @@ async def cors_mw(request, handler):
     resp.headers["Access-Control-Allow-Headers"] = "*"
     return resp
 
+# ── NOVA-GO4 · NOVA_REC=1 (default off): the player's own recording of the whole game (page flag `rec`) arrives here in
+# 2-second pieces, POST /rec/<session>/<n>, and is appended to <NOVA_REC_DIR>/play/<session>.<webm|mp4>. POST
+# /rec/<session>/end - or 20 s with no new piece - turns it into <NOVA_REC_DIR>/play-<session>.mp4 (h264 + aac, plays
+# everywhere), which the pod's results server shows on :8099. Pieces must come in order (the page sends them one by one).
+REC_ON = os.environ.get("NOVA_REC", "0") == "1"
+REC_DIR = os.environ.get("NOVA_REC_DIR", "/root/out")
+_rec = {}
+def _rec_sid(request):
+    import re as _r
+    sid = request.match_info["sid"]; ext = "mp4" if request.query.get("ext") == "mp4" else "webm"
+    return (sid, ext) if _r.fullmatch(r"[A-Za-z0-9\-]{6,40}", sid) else (None, ext)
+async def _rec_finalize(sid):
+    st = _rec.get(sid)
+    if not st or st.get("done"): return
+    st["done"] = True
+    src, out = st["path"], os.path.join(REC_DIR, "play-" + sid + ".mp4")
+    cmds = []
+    if src.endswith(".mp4"): cmds.append(["ffmpeg", "-loglevel", "error", "-y", "-i", src, "-c", "copy", "-movflags", "+faststart", out])
+    cmds.append(["nice", "-n", "15", "ffmpeg", "-loglevel", "error", "-y", "-i", src, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+                 "-pix_fmt", "yuv420p", "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-r", "30", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", out])
+    for c in cmds:
+        try:
+            p = await asyncio.create_subprocess_exec(*c, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE)
+            _, err = await p.communicate()
+            if p.returncode == 0 and os.path.getsize(out) > 10000:
+                print("[REC] ready:", out, os.path.getsize(out), "bytes from", st["n"], "pieces", flush=True); return
+            print("[REC] ffmpeg failed:", (err or b"")[-200:].decode("utf-8", "replace"), flush=True)
+        except Exception as _e:
+            print("[REC] finalize err", str(_e)[:120], flush=True)
+async def _rec_watch(sid):
+    while sid in _rec and not _rec[sid].get("done"):
+        await asyncio.sleep(5)
+        if time.time() - _rec[sid]["last"] > 20: await _rec_finalize(sid)
+async def rec_piece(request):
+    if not REC_ON: return web.Response(status=404)
+    sid, ext = _rec_sid(request)
+    if not sid: return web.Response(status=400, text="bad session")
+    part = request.match_info["n"]
+    if part == "end":
+        asyncio.create_task(_rec_finalize(sid)); return web.json_response({"ok": True, "file": "play-" + sid + ".mp4"})
+    if not part.isdigit(): return web.Response(status=400)
+    n = int(part); st = _rec.get(sid)
+    if st is None:
+        os.makedirs(os.path.join(REC_DIR, "play"), exist_ok=True)
+        st = _rec[sid] = {"path": os.path.join(REC_DIR, "play", sid + "." + ext), "n": 0, "last": time.time(), "bytes": 0}
+        asyncio.create_task(_rec_watch(sid)); print("[REC] session", sid, ext, flush=True)
+    if st.get("done"): return web.Response(status=409, text="closed")
+    if n != st["n"]: return web.json_response({"ok": n < st["n"], "want": st["n"]}, status=200 if n < st["n"] else 409)
+    with open(st["path"], "ab") as f:
+        async for chunk in request.content.iter_chunked(1 << 16):
+            f.write(chunk); st["bytes"] += len(chunk)
+    st["n"] += 1; st["last"] = time.time()
+    if st["n"] % 15 == 1: print("[REC]", sid, "pieces", st["n"], "bytes", st["bytes"], flush=True)
+    return web.json_response({"ok": True, "n": st["n"]})
+
 app = web.Application(middlewares=[cors_mw])
+app.router.add_post("/rec/{sid}/{n}", rec_piece)
 app.router.add_get("/", index)
 app.router.add_get("/freeze", freeze_page)
 app.router.add_get("/wave", wave_page)

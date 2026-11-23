@@ -104,6 +104,14 @@ body.f-split[data-gate] #novaCurtain{display:flex;position:absolute;inset:0;z-in
 #mic[data-s=ok]{color:var(--mint);border-color:var(--mint)}
 #mic[data-s=dead]{color:var(--amber);border-color:var(--amber);pointer-events:auto;cursor:pointer;opacity:1}
 #mic[data-s=dead] i{display:none} #mic[data-s=dead] b{margin-inline-start:4px}
+/* ── NOVA-GO4 · flag `rec`: the whole game as ONE video (both halves, her voice, the music, his voice). A small red dot
+   while it records; if he says no to the browser's share question the game still runs and a red "not recording" says so. ── */
+#recDot{position:fixed;right:12px;bottom:10px;z-index:60;display:none;align-items:center;gap:6px;font:800 12px/1 Nunito,system-ui;color:#ff6b6b;pointer-events:none}
+#recDot.on,#recDot.off{display:flex}
+#recDot i{width:10px;height:10px;border-radius:50%;background:#ff3b3b;animation:f4rec 1.2s ease-in-out infinite}
+#recDot.off{background:#3a0d0d;color:#ffb3b3;padding:5px 9px;border-radius:999px} #recDot.off i{display:none}
+@keyframes f4rec{0%,100%{opacity:1}50%{opacity:.25}}
+#recDl{display:none;text-decoration:none} #recDl.on{display:inline-block}
 #end{left:50%}   /* NOVA-FINAL: the medal screen covers the child's half only — her WIDE ending is said in her room */
 @media (max-aspect-ratio: 1/1){
   #end{left:0;top:50vh}
@@ -122,8 +130,8 @@ body.f-split[data-gate] #novaCurtain{display:flex;position:absolute;inset:0;z-in
 <div id="ring"></div><div id="card"></div><div id="cap"></div>
 <div class="screen on" id="startScr"><h1 id="title">Freeze!</h1><p id="howto"></p><button class="big" id="go">▶</button></div>
 <div class="screen" id="end"><div id="medal"></div><div id="medalStars"></div><p id="endLine"></p>
-  <div class="row"><button class="big" id="again"></button><button class="big alt" id="back2"></button></div><button class="save" id="save"></button></div>
-<div id="banner" class="hidden"></div>
+  <div class="row"><button class="big" id="again"></button><button class="big alt" id="back2"></button></div><button class="save" id="save"></button><a class="save" id="recDl"></a></div>
+<div id="banner" class="hidden"></div><div id="recDot"><i></i><b></b></div>
 <script type="module">
 import { createFreezeGame } from './lib/freeze-game.js';
 import { toJudge } from './lib/kp.js';
@@ -468,6 +476,7 @@ function finish(d){
   ended = true; holding = false; music.pause(); src.stop(); card(null); ring(null); caption(''); lights.clearAll(); novaPlay(NOVA.idle);
   setVoice('engine'); face.setBase('listening');                              // ENDING = she has the floor again
   rec.end(d, src.state);
+  if (FLAG('rec')) setTimeout(() => recStop('25 s after the medal'), 25000);
   /* the after-game story: at most 2 lines — the verdict and the choice (ai-companion-presence "Conversation: 2 sentences MAX";
      founder 2026-11-11 "talk a bit less"). freeze-nova says all 2–3. Timing as freeze-nova. */
   /* TRUTH: the judge's result rows carry no animal, so brain-local's recap named "the statue" as her best freeze whatever
@@ -630,8 +639,50 @@ function micChip(){
   m.onclick = async () => { if (m.dataset.s !== 'dead') return; log('mic', 'restart asked'); log('mic', 'restart ' + await restartMic()); };
   setInterval(() => { if (!ended) log('mic', JSON.stringify(micState())); }, 5000);
 }
+/* ── NOVA-GO4 · flag `rec`, default off (Refael 2026-11-23: "the WHOLE GAME as one mp4 for marketing - both halves, her
+   voice, the music AND my own voice, when I play"). At the Play tap the browser asks once to share THIS tab (picture + tab
+   sound). The tab's sound and his microphone are mixed into one track; the recording goes to the pod in 2-second pieces as
+   it is made (POST /rec/<session>/<n>, pod NOVA_REC=1 - nothing is lost if the tab is closed) and is also kept here for a
+   download button on the medal screen. The pod turns it into play-<session>.mp4. Desktop Chrome/Edge only: a phone
+   browser cannot share its tab - there, and after a "no", the game runs and a red "not recording" is shown.
+   [CLI-FILL] 6 Mbps, 2 s pieces, stops 25 s after the medal (her ending lines) or when the page is left. ── */
+const vrec = { on: false, sid: '', mr: null, mime: '', chunks: [], n: 0, q: Promise.resolve(), sent: 0, failed: 0, actx: null, dest: null, stream: null, stopped: false };
+window.freeze4Rec = vrec;
+function recBadge(on, text){ const d = $('recDot'); d.className = on ? 'on' : 'off'; d.querySelector('b').textContent = text; }
+async function recStart(){
+  const md = navigator.mediaDevices;
+  if (!md?.getDisplayMedia){ recBadge(false, 'not recording'); log('rec', 'NOT RECORDING: this browser cannot share its tab'); return; }
+  let disp;
+  try { disp = await md.getDisplayMedia({ video: { frameRate: 30 }, audio: true, preferCurrentTab: true, selfBrowserSurface: 'include', systemAudio: 'include' }); }
+  catch (e){ recBadge(false, 'not recording'); log('rec', 'NOT RECORDING: ' + (e?.name || e)); return; }
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext; vrec.actx = new AC(); if (vrec.actx.state === 'suspended') vrec.actx.resume().catch(() => {});
+    vrec.dest = vrec.actx.createMediaStreamDestination();
+    const tabAudio = disp.getAudioTracks()[0];
+    if (tabAudio) vrec.actx.createMediaStreamSource(new MediaStream([tabAudio])).connect(vrec.dest);
+    vrec.stream = new MediaStream([disp.getVideoTracks()[0], vrec.dest.stream.getAudioTracks()[0]]);
+    vrec.mime = ['video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find(m => MediaRecorder.isTypeSupported(m)) || '';
+    vrec.sid = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14) + '-' + Math.random().toString(36).slice(2, 6);
+    const mr = vrec.mr = new MediaRecorder(vrec.stream, { mimeType: vrec.mime, videoBitsPerSecond: 6000000, audioBitsPerSecond: 160000 });
+    const ext = vrec.mime.startsWith('video/mp4') ? 'mp4' : 'webm';
+    const post = (path, body) => fetch(location.origin + '/rec/' + vrec.sid + '/' + path + '?ext=' + ext, { method: 'POST', body, keepalive: !body });
+    mr.ondataavailable = ev => { if (!ev.data || !ev.data.size) return; vrec.chunks.push(ev.data); const n = vrec.n++, blob = ev.data;
+      vrec.q = vrec.q.then(async () => { for (let k = 0; k < 3; k++){ try { const r = await post(n, blob); if (r.ok){ vrec.sent++; return; } } catch (_){ } await sleep(700); } vrec.failed++; log('rec', 'piece ' + n + ' did not reach the pod'); }); };
+    mr.onstop = () => { vrec.on = false; recBadge(false, 'saved'); const blob = new Blob(vrec.chunks, { type: vrec.mime.split(';')[0] }), a = $('recDl');
+      a.href = URL.createObjectURL(blob); a.download = 'nova-play-' + vrec.sid + '.' + ext; a.textContent = '⬇ video'; a.classList.add('on');
+      vrec.q = vrec.q.then(() => post('end', null)).then(() => log('rec', 'closed on the pod: play-' + vrec.sid + '.mp4 (pieces ' + vrec.sent + '/' + vrec.n + ', lost ' + vrec.failed + ')')).catch(() => {});
+      disp.getTracks().forEach(t => t.stop()); log('rec', 'stopped, ' + vrec.n + ' pieces, ' + Math.round(blob.size / 1e6) + ' MB here'); };
+    disp.getVideoTracks()[0].addEventListener('ended', () => recStop('sharing was stopped'));
+    addEventListener('pagehide', () => { try { if (mr.state !== 'inactive') mr.stop(); navigator.sendBeacon(location.origin + '/rec/' + vrec.sid + '/end?ext=' + ext); } catch (_){ } });
+    mr.start(2000); vrec.on = true; recBadge(true, 'REC');
+    log('rec', 'RECORDING ' + JSON.stringify({ session: vrec.sid, mime: vrec.mime, tabAudio: !!tabAudio, w: disp.getVideoTracks()[0].getSettings().width, h: disp.getVideoTracks()[0].getSettings().height }));
+  } catch (e){ recBadge(false, 'not recording'); log('rec', 'NOT RECORDING: ' + (e?.message || e)); try { disp.getTracks().forEach(t => t.stop()); } catch (_){ } }
+}
+function recMic(track){ try { if (vrec.on && track){ vrec.actx.createMediaStreamSource(new MediaStream([track.clone()])).connect(vrec.dest); log('rec', 'his microphone is in the recording'); } } catch (e){ log('rec', 'microphone not mixed: ' + (e?.message || e)); } }
+function recStop(why){ if (vrec.stopped || !vrec.mr) return; vrec.stopped = true; log('rec', 'stop: ' + why); try { if (vrec.mr.state !== 'inactive') vrec.mr.stop(); } catch (_){ } }
 async function begin(){
   $('startScr').classList.remove('on');
+  if (FLAG('rec')) await recStart();          // first thing in the tap: the browser's one "share this tab" question
   /* NOVA-GO4 flag `hear`: still inside the tap - her voice's audio and the microphone's are unlocked by this gesture */
   const HEARF = FLAG('hear'); if (HEARF) log('audio-unlock', JSON.stringify(primeAudio()));
 
@@ -645,6 +696,7 @@ async function begin(){
   const micTrack = HEARF ? perm.streams.flatMap(st => st.getAudioTracks()).find(t => t.readyState === 'live') : null;
   const micStream = micTrack ? new MediaStream([micTrack]) : null;
   const dropPerm = () => { perm.streams.forEach(st => st.getTracks().forEach(t => { if (t !== micTrack) t.stop(); })); perm.streams = []; };
+  if (FLAG('rec')) recMic(perm.streams.flatMap(st => st.getAudioTracks()).find(t => t.readyState === 'live'));
   log('permission', JSON.stringify({ cam: perm.cam, mic: perm.mic, err: perm.err }));
   if (!perm.cam || !perm.mic){ dropPerm();
     return refuse(perm.err.all ? [TXT.noMedia] : [!perm.cam && TXT.noCam, !perm.mic && TXT.noMic].filter(Boolean), { help: TXT.allow, retry: true }); }

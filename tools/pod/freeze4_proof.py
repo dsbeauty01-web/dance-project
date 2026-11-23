@@ -60,7 +60,9 @@ def browser(p):
         no_viewport=True, permissions=["microphone", "camera"], args=[
         "--autoplay-policy=no-user-gesture-required", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream",
         f"--use-file-for-fake-audio-capture={SILENCE}", f"--window-size={W},{H}", "--window-position=0,0", "--kiosk",
-        "--no-first-run", "--disable-infobars", "--password-store=basic", "--no-sandbox", "--noerrdialogs"])
+        "--no-first-run", "--disable-infobars", "--password-store=basic", "--no-sandbox", "--noerrdialogs"]
+        # NOVA-GO4 rec: the page asks to share its own tab at Play; the proof says yes for it (a player clicks Share)
+        + (["--auto-accept-this-tab-capture", "--auto-select-tab-capture-source-by-title=Freeze v4"] if os.environ.get("NF_REC_PROOF") == "1" else []))
     return _B(ctx)
 
 

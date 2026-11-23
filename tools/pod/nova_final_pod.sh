@@ -107,8 +107,11 @@ stage "deployed $?"
 #                         guard, "Ready?" waits for his yes, his words outrank her game line, the page log goes to the brain
 #    · NOVA_HEAR=1      — pod/rt_lk.py: she answers the child in the intro, in the game's gaps and at the ending
 NF_GO4=${NF_GO4:-1}
-[ "$NF_AUDIT" = 1 ] && [ "$NF_GO2" = 1 ] && [ "$NF_GO4" = 1 ] && echo "window.__F4_FLAGS = { shoulder: ${NF_SHOULDER:-true}, fpsprobe: true, pipfresh: true, warmgate: true, matchcut: true, heneutral: true, ambstill: true, noblink: true, split: true, hear: true };   // written by nova_final_pod.sh (NOVA-GO4 build)" > $P/beta/freeze4-flags.js
+[ "$NF_AUDIT" = 1 ] && [ "$NF_GO2" = 1 ] && [ "$NF_GO4" = 1 ] && echo "window.__F4_FLAGS = { shoulder: ${NF_SHOULDER:-true}, fpsprobe: true, pipfresh: true, warmgate: true, matchcut: true, heneutral: true, ambstill: true, noblink: true, split: true, hear: true, rec: ${NF_REC:-true} };   // written by nova_final_pod.sh (NOVA-GO4 build)" > $P/beta/freeze4-flags.js
+#    · page flag rec + NOVA_REC=1 — the player's whole game as one mp4: the tab (both halves + sound + his voice) is recorded in
+#      his browser, sent here in pieces, and served as https://<pod>-8099.proxy.runpod.net/play-<session>.mp4  (NF_REC=false = off)
 [ "$NF_GO4" = 1 ] && export NOVA_HEAR=${NOVA_HEAR:-1}
+[ "$NF_GO4" = 1 ] && [ "${NF_REC:-true}" = true ] && export NOVA_REC=1 NOVA_REC_DIR=$OUT NF_REC_PROOF=1
 stage "page flags: $(cat $P/beta/freeze4-flags.js | cut -c1-200) | NOVA_HEAR=${NOVA_HEAR:-0}"
 
 # 3) the brain — its own room; the face engine on :8010 (dual)
@@ -116,7 +119,7 @@ cd /workspace
 # NOVA_KID_EVENTS=1 (2026-11-22, this build only; default off in pod/rt_lk.py): the brain tells the page when a heard
 # utterance was not accepted, so the page's live "You: ..." line closes and the intro does not wait for words that never come.
 # NOVA_INTRO_ANSWER=1 (same): in the intro she may answer the child in one short sentence (see pod/rt_lk.py INTRO_NOTE).
-LK_ROOM=nova-final ENGINE_URL=http://127.0.0.1:8010 NOVA_FACE_SOULX=1 NOVA_FACE_DUAL=1 NOVA_TEST_CLIPS=1 NOVA_KID_EVENTS=${NOVA_KID_EVENTS:-1} NOVA_INTRO_ANSWER=${NOVA_INTRO_ANSWER:-1} NOVA_HEAR=${NOVA_HEAR:-0} \
+LK_ROOM=nova-final ENGINE_URL=http://127.0.0.1:8010 NOVA_FACE_SOULX=1 NOVA_FACE_DUAL=1 NOVA_TEST_CLIPS=1 NOVA_KID_EVENTS=${NOVA_KID_EVENTS:-1} NOVA_INTRO_ANSWER=${NOVA_INTRO_ANSWER:-1} NOVA_HEAR=${NOVA_HEAR:-0} NOVA_REC=${NOVA_REC:-0} NOVA_REC_DIR=$OUT \
   setsid nohup $PY -u rt_lk.py > $OUT/rtlk.log 2>&1 < /dev/null &
 Xvfb :99 -screen 0 1280x720x24 -nolisten tcp >/dev/null 2>&1 &
 export DISPLAY=:99
@@ -191,6 +194,14 @@ export OUT
 curl -s -m5 http://127.0.0.1:8010/ > $OUT/A_face.json; curl -s -m5 http://127.0.0.1:8031/health > $OUT/A_ditto.json
 curl -s -m120 -X POST "http://127.0.0.1:8010/finish?tag=A" > $OUT/A_finish.json
 stage "A finish: $(cut -c1-200 $OUT/A_finish.json)"
+# NOVA-GO4 rec: the proof browser recorded its own tab like a player would; the brain closes the file 20 s after the last piece
+if [ "${NOVA_REC:-0}" = 1 ] && [ "${NF_SKIP_A:-0}" != 1 ]; then
+  for i in $(seq 1 30); do ls $OUT/play-*.mp4 >/dev/null 2>&1 && break; sleep 4; done; sleep 3
+  PM=$(ls -t $OUT/play-*.mp4 2>/dev/null | head -1)
+  stage "player recording: ${PM:-NONE} $(ls $OUT/play 2>/dev/null | tr '\n' ' ') $([ -n "$PM" ] && ffprobe -v error -show_entries stream=codec_type,codec_name,width,height:format=duration,size -of csv=p=0 $PM 2>&1 | tr '\n' ' ') | $(grep -a '\[REC\]' $OUT/rtlk.log | tail -2 | tr '\n' ' ' | cut -c1-200)"
+  [ -n "$PM" ] && ffmpeg -loglevel error -y -i $PM -af volumedetect -vn -f null - 2> $OUT/play_volume.txt; ffmpeg -loglevel info -y -i $PM -af volumedetect -vn -f null - 2>&1 | grep -a "mean_volume\|max_volume" | tr '\n' ' ' > $OUT/play_volume.txt
+  stage "player recording sound: $(cat $OUT/play_volume.txt | cut -c1-160)"
+fi
 
 # 6b) G — every other converted game: a short real run each (the child = her own reference clip as a fake camera)
 for g in ${NF_GAMES:-wave upperbody}; do
