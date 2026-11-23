@@ -8,5 +8,9 @@
      matchcut  — NOVA-GO2: no size jump wide <-> game: matched-frame cut + a camera pull-back / push-in
      ambstill  — NOVA-GO2: while her live body is shown, the blurred room behind her is a still picture (smoother live video)
      noblink   — NOVA-GO3: no dark frame when her clip changes (last picture held until the next is drawn)
-     heneutral — NOVA-GO2: the Hebrew shoulder lines and greeting in the plural (not boy-only) */
+     heneutral — NOVA-GO2: the Hebrew shoulder lines and greeting in the plural (not boy-only)
+     split     — NOVA-GO4: split screen from the first second (Nova's half behind a curtain of her room until she is ready)
+     hear      — NOVA-GO4: the player is HEARD: one microphone stream, audio unlocked in the Play tap, microphone chip + watch,
+                 tight echo guard, "Ready?" waits for his yes, his words outrank her game line, page log sent to the brain
+                 (pair it with NOVA_HEAR=1 on the pod: she answers in the intro, in the game's gaps and at the ending) */
 window.__F4_FLAGS = {};
