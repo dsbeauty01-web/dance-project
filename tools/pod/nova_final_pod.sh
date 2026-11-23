@@ -85,7 +85,10 @@ export DEBIAN_FRONTEND=noninteractive
 # fast boot (common image): also python3.10 for /opt/ltenv (+ -dev: triton compiles a C helper against Python.h at the
 # SoulX warm-up; without it the face server dies with "Python.h: No such file", prep pod 2026-11-22), ffmpeg, libs
 NFB_APT=""; [ -n "$NFB" ] && NFB_APT="python3.10 python3.10-dev ffmpeg wget libgl1 libglib2.0-0 libsndfile1"
-timeout 400 bash -c "apt-get update -qq && apt-get install -y -qq xvfb pulseaudio ca-certificates fonts-noto-color-emoji fonts-dejavu-core $NFB_APT >/dev/null 2>&1"; stage "apt done $?"
+timeout 400 bash -c "apt-get update -qq && apt-get install -y -qq xvfb pulseaudio ca-certificates fonts-noto-color-emoji fonts-dejavu-core $NFB_APT >/dev/null 2>&1"; AE=$?; stage "apt done $AE"
+# pod alkbue4ll59ugx 2026-11-23: apt timed out (124) on a slow mirror -> no Xvfb / ffmpeg, the proof and the recordings died. One more try.
+if [ $AE != 0 ] || ! command -v Xvfb >/dev/null || ! command -v ffmpeg >/dev/null; then
+  timeout 600 bash -c "dpkg --configure -a >/dev/null 2>&1; apt-get update -qq; apt-get install -y -qq xvfb pulseaudio ca-certificates fonts-noto-color-emoji fonts-dejavu-core $NFB_APT >/dev/null 2>&1"; stage "apt retry done $? xvfb=$(command -v Xvfb) ffmpeg=$(command -v ffmpeg)"; fi
 wget -q -O /root/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && timeout 300 apt-get install -y -qq /root/chrome.deb >/dev/null 2>&1
 stage "chrome: $(google-chrome --version 2>&1)"
 [ -n "$NFB" ] && nfb_wait_ltenv
