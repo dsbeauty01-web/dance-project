@@ -248,8 +248,12 @@ def render_loop(R):
                 S["sharp"].append(float(cv2.Laplacian(g[96:416, 96:416], cv2.CV_64F).var()))   # centre of the face
             if S["speech_chunks"] <= 3 or S["speech_chunks"] % 15 == 0:
                 cv2.imwrite(os.path.join(OUT, f"published_{mode}_speech_{S['speech_chunks']:03d}.jpg"), frames[n_f // 2])
+        rgba = None
+        if WIDE_PREP and mode == "wide":                    # NOVA-GO2: the publisher's per-frame resize+convert, done here
+            rgba = [cv2.cvtColor(cv2.resize(f, (WIDE_W, WIDE_H), interpolation=cv2.INTER_AREA) if f.shape[1] != WIDE_W else f,
+                                 cv2.COLOR_BGR2RGBA).tobytes() for f in frames]
         with lock:
-            ready.append({"frames": frames, "audio": pub_audio, "speech": speech, "t_arr": t_arr, "mode": mode, "n": n_f})
+            ready.append({"frames": frames, "audio": pub_audio, "speech": speech, "t_arr": t_arr, "mode": mode, "n": n_f, "rgba": rgba})
         S["chunks"] += 1
 
 
@@ -273,6 +277,10 @@ REC_THREAD = E("FACE_REC_THREAD", "0") == "1"
 # FACE_PUB_STEADY (default 0 = off, unchanged): the publisher used to catch up after a late chunk by sending up to 0.5 s of
 # frames with no wait — a burst the browser shows as a stall then a jump, and a burst that pulls the next voice chunk early
 # (a padded take = a voice hole). On: more than FACE_PUB_STEADY_MS (80 = 2 frames) behind -> re-anchor the clock instead.
+# NOVA-GO2 FACE_WIDE_PREP (default 0 = off, unchanged). Pod run jtp2b3rclx5hv6: pub_late_frames 1101 of ~4400, 273
+# re-anchors — the 25 fps publish loop (asyncio) itself resized + colour-converted every 1080x1920 wide frame. On: the render
+# thread hands over ready 720x1280 RGBA bytes, the loop only sends them.
+WIDE_PREP = E("FACE_WIDE_PREP", "0") == "1"
 WIDE_TS = E("FACE_WIDE_TS", "0") == "1"           # NOVA-AUDIT (default off): stamp wide frames on the publish clock
 PUB_STEADY = E("FACE_PUB_STEADY", "0") == "1"; PUB_STEADY_S = float(E("FACE_PUB_STEADY_MS", "80")) / 1000
 S.update({"pub_late_frames": 0, "pub_max_lag_ms": 0, "pub_reanchors": 0})
@@ -387,8 +395,10 @@ async def publisher():
                 f = vq.popleft() if len(vq) > vdelay else vq[0]
             if time.time() >= S["paused_until"]:
                 if mode == "wide":
-                    g = cv2.resize(f, (WIDE_W, WIDE_H), interpolation=cv2.INTER_AREA) if f.shape[1] != WIDE_W else f
-                    vf = rtc.VideoFrame(WIDE_W, WIDE_H, rtc.VideoBufferType.RGBA, cv2.cvtColor(g, cv2.COLOR_BGR2RGBA).tobytes())
+                    if ch.get("rgba") and k < len(ch["rgba"]): vf = rtc.VideoFrame(WIDE_W, WIDE_H, rtc.VideoBufferType.RGBA, ch["rgba"][k])
+                    else:
+                        g = cv2.resize(f, (WIDE_W, WIDE_H), interpolation=cv2.INTER_AREA) if f.shape[1] != WIDE_W else f
+                        vf = rtc.VideoFrame(WIDE_W, WIDE_H, rtc.VideoBufferType.RGBA, cv2.cvtColor(g, cv2.COLOR_BGR2RGBA).tobytes())
                     if WIDE_TS: wsrc.capture_frame(vf, timestamp_us=int((t0 + i / FPS) * 1_000_000))   # the frame's slot on the publish clock, not "when we got here"
                     else: wsrc.capture_frame(vf)
                     S["wide_frames"] += 1

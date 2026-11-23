@@ -159,7 +159,17 @@ function novaPlay(srcUrl, { loop = true, holdEnd = false } = {}){
   novaV.onended = holdEnd ? () => { novaV.pause(); } : null;          // the freeze pose: play once, then HOLD her still frame
   novaV.play().catch(() => {});
   novaAmb.src = srcUrl; novaAmb.play().catch(() => {});               // the blurred room behind her (picture only, never a cue)
+  ambFor($('novaPane').dataset.stage);
 }
+/* NOVA-GO2 · flag `ambstill` (default off). Pod run 8ezbrmtmzsfk1j: her stream ARRIVED at 25 a second while she was hidden
+   and fell to 17-20 the moment she was shown, with her own clip (#nova) also at 13-17 in that stage — the page, not the
+   stream. Measured offline (headless Chrome, software compositing like the proof pod; /tmp bench b.html): her 720x1280 live
+   picture over the PLAYING blurred room (#novaAmb, blur 28px x2.2) = 20.3 / 21.6 pictures a second; the same blurred room
+   PAUSED = 24.9; no room = 24.9. While her live body is shown (stage wide) the room behind her is held as a still blurred
+   picture — same look, nothing moves in a 28 px blur anyway. In the game it plays as before. */
+function ambFor(st){ if (!FLAG('ambstill')) return;
+  if (st === 'wide'){ const hold = () => { novaAmb.pause(); }; if (novaAmb.readyState >= 2) hold(); else novaAmb.addEventListener('loadeddata', hold, { once: true }); }
+  else novaAmb.play().catch(() => {}); }
 novaV.addEventListener('error', () => { if (novaCur) refuse([TXT.noBody + novaCur]); });      // a body clip that will not play is never silent
 novaPlay(NOVA.idle);
 const sting = () => audio(`../audio/freeze2/${voiceDir}/sting.freeze.${1 + Math.floor(Math.random() * 3)}.mp3`);   // the ONE canned sound (law)
@@ -186,7 +196,7 @@ function stage(st){ if (!dual) { pip.show(true); return; }
   if (st === 'game' && from !== 'game' && FLAG('pipfresh')) pipFresh();
   face.setActive(st === 'game'); wide.setActive(st === 'wide'); log('stage', st);
   if (FLAG('matchcut') && from !== st && (st === 'wide' || st === 'game')) return matchCut(from, st);
-  $('novaPane').dataset.stage = st; pip.show(st === 'game'); }
+  $('novaPane').dataset.stage = st; pip.show(st === 'game'); ambFor(st); }
 /* ── NOVA-GO2 (2026-11-23) · MATCH CUT — flag `matchcut`, default off. docs/NOVA-ERRORS-2026-11-22.md #8: at the hand-over
    wide (her live Ditto body) -> game (her room clips) she shrank and her feet appeared. Measured on the assets (SIFT +
    RANSAC similarity, 283-398 inliers, all three of dance-active / dance-sub / idle_sway frame 0 vs nova_talk_calm.mp4
@@ -216,7 +226,7 @@ async function matchCut(from, to){
   v.style.transformOrigin = '0 0';
   if (to === 'game'){
     const k = cutMatrix(); v.style.transition = 'none'; v.style.transform = k.m; v.style.clipPath = k.zin; void v.offsetWidth;
-    pane.dataset.stage = 'game'; pip.show(true); log('matchcut', 'game: matched frame ' + k.m);
+    pane.dataset.stage = 'game'; pip.show(true); ambFor('game'); log('matchcut', 'game: matched frame ' + k.m);
     await sleep(CUT.hold); if (tok !== cutTok) return;
     const ease = `${CUT.pull}ms cubic-bezier(.45,0,.25,1)`; v.style.transition = `transform ${ease}, clip-path ${ease}`;
     v.style.transform = 'none'; v.style.clipPath = k.zout; log('matchcut', 'pull-back');
@@ -232,7 +242,7 @@ async function matchCut(from, to){
     const fresh = wideTimes.filter(t => t > Math.max(n0, performance.now() - 1000)).length;
     if (fresh >= CUT.freshFps) break; await sleep(100); }
   if (tok !== cutTok) return;
-  pane.dataset.stage = 'wide'; pip.show(false); v.style.transition = 'none'; v.style.transform = 'none'; v.style.clipPath = '';
+  pane.dataset.stage = 'wide'; pip.show(false); ambFor('wide'); v.style.transition = 'none'; v.style.transform = 'none'; v.style.clipPath = '';
   log('matchcut', 'wide: cut after ' + Math.round(performance.now() - t0) + ' ms, wide fps ' + wideFps());
 }
 /* every NEW picture of her wide live body (requestVideoFrameCallback) — used by the match cut and the warm gate */
@@ -555,7 +565,7 @@ async function begin(){
     await sleep(200);
   }
   if (faceOk) log('nova-picture', JSON.stringify({ wide: dual, frames: dual ? wide.state.frames : face.state.frames, hidden: document.body.dataset.gate === 'nova' }));
-  if (dual){ face.setActive(false); stage('wide'); } else { wide.setActive(false); $('novaPane').dataset.stage = 'game'; pip.show(true); }
+  if (dual){ face.setActive(false); stage('wide'); } else { wide.setActive(false); $('novaPane').dataset.stage = 'game'; pip.show(true); ambFor('game'); }
   let st = bridgeState();
   while (!(st.ws && st.voice) && performance.now() < deadline){ await sleep(200); st = bridgeState(); }
   log('attach', JSON.stringify({ face: faceOk, dual, ...st }));

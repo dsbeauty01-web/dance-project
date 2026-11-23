@@ -57,10 +57,12 @@ if [ "$NF_AUDIT" = 1 ] && [ "${NF_CALM:-1}" = 1 ] && [ -s $R/tools/pod/assets/no
 [ "$NF_AUDIT" = 1 ] && export NF_PROOF_REPLAY=${NF_PROOF_REPLAY:-own-right-up,frozen-body,dance-hype,still-sway} NF_REC_FIX=${NF_REC_FIX:-1} FACE_VOICE_PREBUF_MS=${FACE_VOICE_PREBUF_MS:-400} FACE_REC_THREAD=${FACE_REC_THREAD:-1} FACE_PUB_STEADY=${FACE_PUB_STEADY:-1} FACE_WIDE_SOURCE=${FACE_WIDE_SOURCE:-camera} FACE_WIDE_TS=${FACE_WIDE_TS:-1}
 # ── NOVA-GO2 (2026-11-23; docs/NOVA-FIX-2026-11-23.md): NF_GO2=1 (default on in this build; 0 = the nova-go build as it was)
 #    · FACE_WIDE_SMOOTH=1  her wide track: one layer (no simulcast), keep the frame rate (tools/pod/nova_face.py)
+#    · FACE_WIDE_PREP=1    wide frames resized/converted in the render thread, not in the 25 fps publish loop
+#    · page flag ambstill  the blurred room behind her live body is held still (the page's own frame-rate cost)
 #    · page flags warmgate (reveal only on a smooth stream) · matchcut (no size jump at the game hand-over) · heneutral (Hebrew plural)
 NF_GO2=${NF_GO2:-1}
-[ "$NF_AUDIT" = 1 ] && [ "$NF_GO2" = 1 ] && export FACE_WIDE_SMOOTH=${FACE_WIDE_SMOOTH:-1}
-stage "audit flags: NF_AUDIT=$NF_AUDIT body=$(basename $DITTO_SRC) prebuf=${FACE_VOICE_PREBUF_MS:-0} rec_thread=${FACE_REC_THREAD:-0} pub_steady=${FACE_PUB_STEADY:-0} wide_source=${FACE_WIDE_SOURCE:-screenshare} wide_ts=${FACE_WIDE_TS:-0} rec_fix=${NF_REC_FIX:-0} go2=${NF_GO2} wide_smooth=${FACE_WIDE_SMOOTH:-0}"
+[ "$NF_AUDIT" = 1 ] && [ "$NF_GO2" = 1 ] && export FACE_WIDE_SMOOTH=${FACE_WIDE_SMOOTH:-1} FACE_WIDE_PREP=${FACE_WIDE_PREP:-1}
+stage "audit flags: NF_AUDIT=$NF_AUDIT body=$(basename $DITTO_SRC) prebuf=${FACE_VOICE_PREBUF_MS:-0} rec_thread=${FACE_REC_THREAD:-0} pub_steady=${FACE_PUB_STEADY:-0} wide_source=${FACE_WIDE_SOURCE:-screenshare} wide_ts=${FACE_WIDE_TS:-0} rec_fix=${NF_REC_FIX:-0} go2=${NF_GO2} wide_smooth=${FACE_WIDE_SMOOTH:-0} wide_prep=${FACE_WIDE_PREP:-0}"
 # DITTO_FACE_ROBUST=1: her face is 205 px in a 1080x1920 frame -> the full-frame detector at 0.5 misses frame 0 (pod run
 #   2026-11-12 #1: "mediapipe: no face in the first source frame"; the chef bank's same 205 px case, ditto_wide.py). Local: 118/121.
 export DITTO_FACE_ROBUST=1 DITTO_AMP=${DITTO_AMP:-0.6} DITTO_GRAIN=0 DITTO_MASK=lower DITTO_PASTE_GATE=1 DITTO_PASTE_OFF_MS=80 DITTO_PASTE_XFADE_MS=120 \
@@ -98,7 +100,7 @@ cp $R/beta/freeze4.html $R/beta/play.css $P/beta/ && { cp $R/beta/freeze4-flags.
 stage "deployed $?"
 # NOVA-AUDIT page flags for this build (the repo copy has them all off)
 [ "$NF_AUDIT" = 1 ] && echo "window.__F4_FLAGS = { shoulder: ${NF_SHOULDER:-true}, fpsprobe: true, pipfresh: true };   // written by nova_final_pod.sh (NOVA-AUDIT build)" > $P/beta/freeze4-flags.js
-[ "$NF_AUDIT" = 1 ] && [ "$NF_GO2" = 1 ] && echo "window.__F4_FLAGS = { shoulder: ${NF_SHOULDER:-true}, fpsprobe: true, pipfresh: true, warmgate: true, matchcut: true, heneutral: true };   // written by nova_final_pod.sh (NOVA-GO2 build)" > $P/beta/freeze4-flags.js
+[ "$NF_AUDIT" = 1 ] && [ "$NF_GO2" = 1 ] && echo "window.__F4_FLAGS = { shoulder: ${NF_SHOULDER:-true}, fpsprobe: true, pipfresh: true, warmgate: true, matchcut: true, heneutral: true, ambstill: true };   // written by nova_final_pod.sh (NOVA-GO2 build)" > $P/beta/freeze4-flags.js
 stage "page flags: $(cat $P/beta/freeze4-flags.js | cut -c1-80)"
 
 # 3) the brain — its own room; the face engine on :8010 (dual)
