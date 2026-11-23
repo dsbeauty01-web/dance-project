@@ -7,5 +7,6 @@
      warmgate  — NOVA-GO2: her greeting is asked (so she is revealed) only once her live wide picture flows smoothly
      matchcut  — NOVA-GO2: no size jump wide <-> game: matched-frame cut + a camera pull-back / push-in
      ambstill  — NOVA-GO2: while her live body is shown, the blurred room behind her is a still picture (smoother live video)
+     noblink   — NOVA-GO3: no dark frame when her clip changes (last picture held until the next is drawn)
      heneutral — NOVA-GO2: the Hebrew shoulder lines and greeting in the plural (not boy-only) */
 window.__F4_FLAGS = {};

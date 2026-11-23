@@ -163,13 +163,22 @@ PREBUF_MS = float(E("FACE_VOICE_PREBUF_MS", "0"))
 PREBUF_IDLE_MS = float(E("FACE_VOICE_PREBUF_IDLE_MS", "300"))
 HOLE_MS = float(E("FACE_VOICE_HOLE_MS", "600"))
 VS = {"mid": False, "last_in": 0.0, "pad_at": None}
-S.update({"voice_pads": 0, "voice_holes": 0, "voice_prebuf_waits": 0, "voice_lines": []})
+S.update({"voice_pads": 0, "voice_holes": 0, "voice_prebuf_waits": 0, "voice_lines": [], "voice_hole_log": [], "voice_holes_midline": 0})
 
 
 def voice_arrived(t, n=0):
     """called by /humanaudio under the lock: counts a hole when a padded take is followed by more of her line, and how fast
     her voice ARRIVES per line (S["voice_lines"]: [audio s, arrival span s, pieces] — audio s > span s = faster than real time)."""
-    if VS["pad_at"] is not None and t - VS["pad_at"] < HOLE_MS / 1000: S["voice_holes"] += 1
+    if VS["pad_at"] is not None and t - VS["pad_at"] < HOLE_MS / 1000:
+        S["voice_holes"] += 1
+        # NOVA-GO3 (read-only): WHERE the hole was. new_line = this voice started >1 s after the last piece arrived, i.e. a
+        # NEW line that followed the previous one closely (a pause between two lines, not a gap inside her sentence).
+        new_line = t - VS["last_in"] > 1.0; ln0 = VS.get("line")
+        S["voice_hole_log"].append({"t": round(t - S["t_start"], 2), "after_pad_ms": round((t - VS["pad_at"]) * 1000),
+                                    "since_last_in_ms": round((t - VS["last_in"]) * 1000), "new_line": new_line,
+                                    "line_audio_s": round(ln0[1] / SR, 2) if ln0 else None, "underruns": S["underruns"]})
+        if not new_line: S["voice_holes_midline"] += 1
+        log("VOICE HOLE", S["voice_hole_log"][-1])
     ln = VS.get("line")
     if ln is None or t - VS["last_in"] > 1.0:
         if ln and ln[2] > 1: S["voice_lines"].append([round(ln[1] / SR, 2), round(VS["last_in"] - ln[0], 2), ln[2]]); del S["voice_lines"][:-12]
@@ -477,7 +486,7 @@ def stats():
             "wide_chunks_late": S["wide_late"], "wide_chunks": len(S["wide_ms"]),
             "pub_late_frames": S["pub_late_frames"], "pub_max_lag_ms": S["pub_max_lag_ms"], "pub_reanchors": S["pub_reanchors"],
             "rec_dropped": S["rec_dropped"], "rec_thread": REC_THREAD, "pub_steady": PUB_STEADY,
-            "voice_prebuf_ms": PREBUF_MS, "voice_pads": S["voice_pads"], "voice_holes": S["voice_holes"], "voice_prebuf_waits": S["voice_prebuf_waits"], "voice_lines": S["voice_lines"]}
+            "voice_prebuf_ms": PREBUF_MS, "voice_pads": S["voice_pads"], "voice_holes": S["voice_holes"], "voice_prebuf_waits": S["voice_prebuf_waits"], "voice_lines": S["voice_lines"], "voice_holes_midline": S["voice_holes_midline"], "voice_hole_log": S["voice_hole_log"][-10:]}
 
 
 async def health(req):

@@ -43,6 +43,10 @@
    clip. The child's pane keeps exactly 50 % (unchanged). */
 #novaWide{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:3;background:transparent}
 #novaPane[data-stage=wide] #nova{visibility:hidden}
+/* NOVA-GO3 flag noblink: the last picture of her clip / of the blurred room, held on a canvas while the next clip loads */
+#novaHold{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;display:none}
+#novaAmbHold{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(2.2);filter:blur(28px);z-index:1;pointer-events:none;display:none}
+#novaPane[data-stage=wide] #novaHold{visibility:hidden}
 #novaPane[data-stage=game] #novaWide{visibility:hidden}
 #novaPane[data-live-wide="0"] #novaWide{visibility:hidden}
 #wideBanner{position:absolute;left:8%;right:8%;top:40%;z-index:8;padding:12px;border-radius:14px;text-align:center;
@@ -82,7 +86,7 @@ body[data-gate] #camPane{position:fixed;inset:0;z-index:30;background:var(--bg)}
 </head><body>
 <div id="stage">
   <div id="novaSide">
-    <div id="novaPane" data-stage="wide" data-live-wide="0"><video id="novaAmb" playsinline muted loop></video><video id="nova" playsinline muted loop></video><video id="novaWide" playsinline muted autoplay></video><div id="wideBanner" hidden></div><div id="wideBadge"></div></div>
+    <div id="novaPane" data-stage="wide" data-live-wide="0"><video id="novaAmb" playsinline muted loop></video><canvas id="novaAmbHold"></canvas><video id="nova" playsinline muted loop></video><canvas id="novaHold"></canvas><video id="novaWide" playsinline muted autoplay></video><div id="wideBanner" hidden></div><div id="wideBadge"></div></div>
   </div>
   <div id="camPane"><video id="cam" playsinline muted></video><canvas id="fx"></canvas><div id="you"></div></div>
 </div>
@@ -155,6 +159,7 @@ const NOVA = { idle: '../freezegame/idle_sway.mp4', dance: ['../freezegame/dance
 const novaV = $('nova'), novaAmb = $('novaAmb'); let novaCur = '';
 function novaPlay(srcUrl, { loop = true, holdEnd = false } = {}){
   if (novaCur === srcUrl && !novaV.paused && !novaV.ended) return;
+  if (FLAG('noblink')){ holdOn(novaV, $('novaHold'), 'contain'); holdOn(novaAmb, $('novaAmbHold'), 'cover'); }
   novaCur = srcUrl; novaV.loop = loop && !holdEnd; novaV.src = srcUrl; novaV.currentTime = 0;
   novaV.onended = holdEnd ? () => { novaV.pause(); } : null;          // the freeze pose: play once, then HOLD her still frame
   novaV.play().catch(() => {});
@@ -167,6 +172,31 @@ function novaPlay(srcUrl, { loop = true, holdEnd = false } = {}){
    picture over the PLAYING blurred room (#novaAmb, blur 28px x2.2) = 20.3 / 21.6 pictures a second; the same blurred room
    PAUSED = 24.9; no room = 24.9. While her live body is shown (stage wide) the room behind her is held as a still blurred
    picture — same look, nothing moves in a 28 px blur anyway. In the game it plays as before. */
+/* NOVA-GO3 · flag `noblink` (default off). Coordinator on nova_fixed_8s.mp4: her half went DARK for 2 frames (luma 36 vs
+   ~150) at the intro->game hand-over. A new src empties a <video> until its first frame is decoded, so her pane showed
+   its bare background (#1b1030) — both her clip and the blurred room switch src at that moment (and at every clip change
+   in the game, and at the ending). On: the last picture of each is drawn on a canvas on top, kept until the new clip has
+   a decoded frame and it has been painted; the hand-over itself waits for that (see matchCut). Cap 2 s. */
+function holdOn(v, c, fit){
+  if (v.readyState < 2 || !v.videoWidth) return;
+  const W = v.clientWidth, H = v.clientHeight; if (!W || !H) return;
+  c.width = W; c.height = H; const g = c.getContext('2d'), ar = v.videoWidth / v.videoHeight;
+  let w = W, h = W / ar; if (fit === 'contain' ? h > H : h < H){ h = H; w = H * ar; }
+  try { g.clearRect(0, 0, W, H); g.drawImage(v, (W - w) / 2, (H - h) / 2, w, h); } catch (_){ return; }
+  if (fit === 'contain'){ c.style.transformOrigin = v.style.transformOrigin; c.style.transform = v.style.transform; c.style.clipPath = v.style.clipPath; }
+  const tok = c._tok = (c._tok || 0) + 1; c.style.display = 'block';
+  const off = () => { if (c._tok === tok){ c.style.display = 'none'; } };
+  v.addEventListener('loadeddata', () => requestAnimationFrame(() => requestAnimationFrame(off)), { once: true });
+  setTimeout(off, 2000);
+}
+function holdOff(){ for (const id of ['novaHold', 'novaAmbHold']){ const c = $(id); c._tok = (c._tok || 0) + 1; c.style.display = 'none'; } }
+/* wait until her clip and the blurred room both have a decoded picture of their CURRENT src, then two paints */
+async function clipReady(cap = 1500){
+  const t0 = performance.now();
+  while (performance.now() - t0 < cap && !(novaV.readyState >= 2 && novaAmb.readyState >= 2 && !novaV.seeking)) await new Promise(r => setTimeout(r, 15));
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  return Math.round(performance.now() - t0);
+}
 function ambFor(st){ if (!FLAG('ambstill')) return;
   if (st === 'wide'){ const hold = () => { novaAmb.pause(); }; if (novaAmb.readyState >= 2) hold(); else novaAmb.addEventListener('loadeddata', hold, { once: true }); }
   else novaAmb.play().catch(() => {}); }
@@ -225,6 +255,7 @@ async function matchCut(from, to){
   const tok = ++cutTok, v = $('nova'), pane = $('novaPane');
   v.style.transformOrigin = '0 0';
   if (to === 'game'){
+    if (FLAG('noblink')){ await sleep(0); if (tok !== cutTok) return; const ms = await clipReady(); if (tok !== cutTok) return; holdOff(); log('noblink', 'game clip ready after ' + ms + ' ms (her wide body stayed on meanwhile)'); }
     const k = cutMatrix(); v.style.transition = 'none'; v.style.transform = k.m; v.style.clipPath = k.zin; void v.offsetWidth;
     pane.dataset.stage = 'game'; pip.show(true); ambFor('game'); log('matchcut', 'game: matched frame ' + k.m);
     await sleep(CUT.hold); if (tok !== cutTok) return;
@@ -234,6 +265,7 @@ async function matchCut(from, to){
     return;
   }
   /* to wide: push in on the clip, then cut when her live body is flowing */
+  if (FLAG('noblink')){ const ms = await clipReady(); if (tok !== cutTok) return; holdOff(); log('noblink', 'ending clip ready after ' + ms + ' ms'); }
   { const k = cutMatrix(), ease = `${CUT.push}ms cubic-bezier(.45,0,.25,1)`; v.style.transition = 'none'; v.style.clipPath = k.zout; void v.offsetWidth;
     v.style.transition = `transform ${ease}, clip-path ${ease}`; v.style.transform = k.m; v.style.clipPath = k.zin; } log('matchcut', 'push-in');
   const t0 = performance.now(), n0 = wideTimes.length ? wideTimes[wideTimes.length - 1] : 0;
