@@ -332,6 +332,17 @@ async def publisher():
                                      else rtc.TrackSource.SOURCE_SCREENSHARE)
         try: wo.video_encoding = rtc.VideoEncoding(max_framerate=FPS, max_bitrate=int(E("WIDE_MAX_BITRATE", "4000000")))
         except Exception as e: log("wide video_encoding not set:", e)
+        # NOVA-GO2 (2026-11-23) FACE_WIDE_SMOOTH (default 0 = off, unchanged). Pod run jtp2b3rclx5hv6 (fpsprobe): the browser
+        # RECEIVED only 14-20 of her 25 wide pictures a second for the first ~15 s after she appeared and again for ~15 s
+        # after the ending switch, then 20-25. The track was SIMULCAST (the SDK default): the server starts a new viewer on
+        # a low layer (fewer pictures a second) and climbs as its bandwidth guess grows. On: ONE layer (720x1280, 25 fps,
+        # nothing to climb) and, when the link is tight, keep the frame rate and soften the picture instead of dropping frames.
+        if E("FACE_WIDE_SMOOTH", "0") == "1":
+            try: wo.simulcast = False
+            except Exception as e: log("wide simulcast not set:", e)
+            try: wo.degradation_preference = rtc.TrackPublishOptions.DESCRIPTOR.fields_by_name["degradation_preference"].enum_type.values_by_name["DEGRADATION_PREFERENCE_MAINTAIN_FRAMERATE"].number
+            except Exception as e: log("wide degradation_preference not set:", e)
+            log("wide smooth: simulcast off, maintain framerate, max", E("WIDE_MAX_BITRATE", "4000000"), "bps")
         try: wo.stream = "nova-face"
         except Exception: pass
         await room.local_participant.publish_track(wtr, wo)

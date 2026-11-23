@@ -104,7 +104,7 @@ import { runDoctor } from './lib/doctor.js';
 import { attachNova, routeVoice, note, onHerAudio, bridgeState } from '../shared/nova-bridge.js';
 import { createFacePanel } from '../shared/face-panel.js';
 import { mountFacePip } from '../shared/face-pip.js';
-import { createShoulderBeat, LINES as SHOULDER_LINES } from './lib/shoulder-beat.js';
+import { createShoulderBeat, LINES as SHOULDER_LINES, HE_NEUTRAL } from './lib/shoulder-beat.js';
 
 const $ = id => document.getElementById(id);
 const lang = getLang(); applyLang(lang);
@@ -182,8 +182,77 @@ let dual = false;                                                             //
 /* the stage: 'wide' = intro/ending (she talks on her body in her room, Ditto lips) · 'game' = her clips + the PiP face.
    It follows the voice routing exactly (routeVoice is the phase machine's one switch): engine = wide, air/mute = game. */
 function stage(st){ if (!dual) { pip.show(true); return; }
-  if (st === 'game' && $('novaPane').dataset.stage !== 'game' && FLAG('pipfresh')) pipFresh();
-  $('novaPane').dataset.stage = st; pip.show(st === 'game'); face.setActive(st === 'game'); wide.setActive(st === 'wide'); log('stage', st); }
+  const from = $('novaPane').dataset.stage;
+  if (st === 'game' && from !== 'game' && FLAG('pipfresh')) pipFresh();
+  face.setActive(st === 'game'); wide.setActive(st === 'wide'); log('stage', st);
+  if (FLAG('matchcut') && from !== st && (st === 'wide' || st === 'game')) return matchCut(from, st);
+  $('novaPane').dataset.stage = st; pip.show(st === 'game'); }
+/* ── NOVA-GO2 (2026-11-23) · MATCH CUT — flag `matchcut`, default off. docs/NOVA-ERRORS-2026-11-22.md #8: at the hand-over
+   wide (her live Ditto body) -> game (her room clips) she shrank and her feet appeared. Measured on the assets (SIFT +
+   RANSAC similarity, 283-398 inliers, all three of dance-active / dance-sub / idle_sway frame 0 vs nova_talk_calm.mp4
+   frame 0): the wide body IS the game clips' own shot, zoomed x1.299 about (52.6 %, 42.5 %) of the frame — same room,
+   same camera. So the cut is made on a MATCHED frame: the game clip first appears zoomed exactly like the wide body (her
+   size and place do not change), holds, then the camera pulls back to the whole figure in one deliberate move. At the
+   ending the reverse: the clip pushes in to the wide framing, and only when her live wide picture is really flowing again
+   (not the frozen frame from before the game) the hard cut to her live body. Never a crossfade (two faces = ghost).
+   [CLI-FILL] hold 0.6 s, pull-back 1.4 s, push-in 1.0 s (game-cues-lights "adaptive width transition 0.5s" is for panels,
+   no spec gives a camera move); fresh wide = >= 15 pictures in the last second, cap 4 s. QUESTION for the founder. */
+const CUT = { s: 1.299, tx: -170.0 / 1080, ty: -244.3 / 1920, hold: 600, pull: 1400, push: 1000, freshFps: 15, freshCap: 4000 };
+let cutTok = 0;
+function cutMatrix(){
+  const v = $('nova'), w = $('novaWide'), W = v.clientWidth, H = v.clientHeight;
+  const box = ar => { let bw = W, bh = W / ar; if (bh > H){ bh = H; bw = H * ar; } return { x: (W - bw) / 2, y: (H - bh) / 2, w: bw, h: bh }; };
+  const c = box((v.videoWidth || 1076) / (v.videoHeight || 1924)), d = box((w.videoWidth || 720) / (w.videoHeight || 1280));
+  const sx = CUT.s * d.w / c.w, sy = CUT.s * d.h / c.h;                 // clip px -> wide px: d + dw*(s*(x-c)/cw + t)
+  const tx = d.x + d.w * CUT.tx - sx * c.x, ty = d.y + d.h * CUT.ty - sy * c.y, f = n => n.toFixed(2) + 'px';
+  /* what is visible: zoomed = exactly the wide picture's box (its margins stay the blurred room, as in the wide stage);
+     un-zoomed = the clip's own box. Both in the clip's own (untransformed) pixels, so clip-path moves with the camera. */
+  const L = (d.x - tx) / sx, T = (d.y - ty) / sy, R = W - (d.x + d.w - tx) / sx, B = H - (d.y + d.h - ty) / sy;
+  return { m: `matrix(${sx.toFixed(5)},0,0,${sy.toFixed(5)},${tx.toFixed(2)},${ty.toFixed(2)})`,
+           zin: `inset(${f(T)} ${f(R)} ${f(B)} ${f(L)})`, zout: `inset(${f(c.y)} ${f(W - c.x - c.w)} ${f(H - c.y - c.h)} ${f(c.x)})` };
+}
+async function matchCut(from, to){
+  const tok = ++cutTok, v = $('nova'), pane = $('novaPane');
+  v.style.transformOrigin = '0 0';
+  if (to === 'game'){
+    const k = cutMatrix(); v.style.transition = 'none'; v.style.transform = k.m; v.style.clipPath = k.zin; void v.offsetWidth;
+    pane.dataset.stage = 'game'; pip.show(true); log('matchcut', 'game: matched frame ' + k.m);
+    await sleep(CUT.hold); if (tok !== cutTok) return;
+    const ease = `${CUT.pull}ms cubic-bezier(.45,0,.25,1)`; v.style.transition = `transform ${ease}, clip-path ${ease}`;
+    v.style.transform = 'none'; v.style.clipPath = k.zout; log('matchcut', 'pull-back');
+    await sleep(CUT.pull + 100); if (tok === cutTok){ v.style.transition = 'none'; v.style.clipPath = ''; }
+    return;
+  }
+  /* to wide: push in on the clip, then cut when her live body is flowing */
+  { const k = cutMatrix(), ease = `${CUT.push}ms cubic-bezier(.45,0,.25,1)`; v.style.transition = 'none'; v.style.clipPath = k.zout; void v.offsetWidth;
+    v.style.transition = `transform ${ease}, clip-path ${ease}`; v.style.transform = k.m; v.style.clipPath = k.zin; } log('matchcut', 'push-in');
+  const t0 = performance.now(), n0 = wideTimes.length ? wideTimes[wideTimes.length - 1] : 0;
+  await sleep(CUT.push);
+  while (performance.now() - t0 < CUT.freshCap){ if (tok !== cutTok) return;
+    const fresh = wideTimes.filter(t => t > Math.max(n0, performance.now() - 1000)).length;
+    if (fresh >= CUT.freshFps) break; await sleep(100); }
+  if (tok !== cutTok) return;
+  pane.dataset.stage = 'wide'; pip.show(false); v.style.transition = 'none'; v.style.transform = 'none'; v.style.clipPath = '';
+  log('matchcut', 'wide: cut after ' + Math.round(performance.now() - t0) + ' ms, wide fps ' + wideFps());
+}
+/* every NEW picture of her wide live body (requestVideoFrameCallback) — used by the match cut and the warm gate */
+const wideTimes = [];
+{ const wv = $('novaWide'); if (wv.requestVideoFrameCallback){ const cb = () => { wideTimes.push(performance.now()); if (wideTimes.length > 400) wideTimes.splice(0, 200); wv.requestVideoFrameCallback(cb); }; wv.requestVideoFrameCallback(cb); } }
+const wideFps = (ms = 1000) => { const now = performance.now(); let n = 0; for (let i = wideTimes.length - 1; i >= 0 && now - wideTimes[i] <= ms; i--) n++; return Math.round(n * 1000 / ms); };
+/* ── NOVA-GO2 · WARM GATE — flag `warmgate`, default off. Pod run jtp2b3rclx5hv6: she appeared (gate open 11.9 s) while her
+   wide stream was still warming up — 15, 17, 16, 13, 15 pictures a second for the first 5 s, 25 only after ~12 s. With the
+   flag her greeting is asked only once her live wide picture has flowed smoothly (>= 22 pictures a second, three checks in
+   a row, 0.5 s apart), so she is revealed already moving at full speed. Cap 8 s, then she comes anyway (logged).
+   [CLI-FILL] 22 of 25 / 3 checks / 8 s: no spec gives them. QUESTION */
+const WARM = { fps: 22, checks: 3, cap: 8000 };
+async function waitWarm(tag){
+  const t0 = performance.now(), hist = []; let ok = 0;
+  while (performance.now() - t0 < WARM.cap){
+    await sleep(500); const f = wideFps(); hist.push(f); ok = f >= WARM.fps ? ok + 1 : 0;
+    if (ok >= WARM.checks){ log('warm', tag + ' smooth after ' + Math.round(performance.now() - t0) + ' ms ' + hist.join(',')); return true; }
+  }
+  log('warm', tag + ' cap ' + WARM.cap + ' ms ' + hist.join(',')); return false;
+}
 /* NOVA-AUDIT · flag `pipfresh` (default off). nova_approve.mp4 35.6-36.4 s: at the first game round her face tile showed
    an empty grey box, then a BLACK square, and only then her face (the SoulX track restarts when the pod switches faces; the
    tile still counted as "live" from before). With the flag, the tile's picture stays covered (her room colour) until a
@@ -401,10 +470,10 @@ const shoulderBeat = {
   start(){ const cam = $('cam'); const aspect = cam.videoWidth ? cam.videoHeight / cam.videoWidth : 16 / 9;
     this.beat = createShoulderBeat({ aspect }); this.beat.start(performance.now()); this.on = true; this.res = null;
     lights.sparkle('rShoulder'); lights.meter('rShoulder', 0); log('shoulder', 'armed (rShoulder) aspect=' + aspect.toFixed(3));
-    this.timer = setInterval(() => { const e = this.beat.tick(performance.now()); if (e === 'retry'){ log('shoulder', 'retry (8 s, no lift seen)'); introSay(SHOULDER_LINES[lang].retry); } if (e === 'release') this.end('release'); }, 100); },
+    this.timer = setInterval(() => { const e = this.beat.tick(performance.now()); if (e === 'retry'){ log('shoulder', 'retry (8 s, no lift seen)'); introSay(SL.retry); } if (e === 'release') this.end('release'); }, 100); },
   feed(k){ const r = this.beat.feed(k, performance.now()); lights.meter('rShoulder', this.beat.progress()); if (r === 'win') this.end('win'); },
   end(res){ if (!this.on) return; this.on = false; clearInterval(this.timer); this.res = res; lights.meter(null); lights.sparkle(null);
-    if (res === 'win'){ lights.flash('rShoulder'); lights.burst('rShoulder', 'gold'); introSay(SHOULDER_LINES[lang].win); }   // a REAL detected lift, nothing else
+    if (res === 'win'){ lights.flash('rShoulder'); lights.burst('rShoulder', 'gold'); introSay(SL.win); }   // a REAL detected lift, nothing else
     log('shoulder', res === 'win' ? 'WIN — a real lift was detected' : 'release — no lift seen in 20 s (nothing claimed)');
     this.waiters.splice(0).forEach(w => w(res)); },
   done(){ return this.res ? Promise.resolve(this.res) : new Promise(r => this.waiters.push(r)); },
@@ -418,7 +487,9 @@ window.freeze4Shoulder = shoulderBeat;
 function introSay(text){ if (voiceMode !== 'engine') return novaSays(text); routeVoice('engine'); log('intro-boundary', text.slice(0, 40)); novaSays(text); }
 /* the shoulder beat's opener: her greeting = her approved commercial first line (c43ea92: "Hi! I'm Nova, your magical AI dance
    teacher!") + the exact light line. [CLI-FILL] the Hebrew greeting words (the approved Hebrew greet was improvised live). */
-const HELLO = { en: "Hi! I'm Nova, your magical AI dance teacher!", he: 'היי! אני נובה, המורה הקסומה שלך לריקוד!' }[lang];
+const HE_N = lang === 'he' && FLAG('heneutral');                             // NOVA-GO2: Hebrew lines in the plural (no boy-only form)
+const SL = HE_N ? { ...SHOULDER_LINES.he, ...HE_NEUTRAL } : SHOULDER_LINES[lang];
+const HELLO = HE_N ? HE_NEUTRAL.hello : { en: "Hi! I'm Nova, your magical AI dance teacher!", he: 'היי! אני נובה, המורה הקסומה שלך לריקוד!' }[lang];
 
 /* ── NOVA-AUDIT · FPS PROBE — flag `fpsprobe`, default off. Read-only. Once a second: how many NEW pictures of Nova were
    presented in the browser (requestVideoFrameCallback), for her live wide body (#novaWide) and her clip (#nova), plus the
@@ -429,7 +500,7 @@ function startFpsProbe(){
   for (const [k, v] of Object.entries(vids)){ if (!v.requestVideoFrameCallback) continue;
     const cb = () => { cnt[k]++; v.requestVideoFrameCallback(cb); }; v.requestVideoFrameCallback(cb); }
   setInterval(() => { const q = vids.wide.getVideoPlaybackQuality?.();
-    log('fps', JSON.stringify({ stage: $('novaPane').dataset.stage, wide: cnt.wide, clip: cnt.clip, wideDropped: q?.droppedVideoFrames ?? null, wideTotal: q?.totalVideoFrames ?? null }));
+    log('fps', JSON.stringify({ stage: $('novaPane').dataset.stage, wide: cnt.wide, clip: cnt.clip, wideDropped: q?.droppedVideoFrames ?? null, wideTotal: q?.totalVideoFrames ?? null, wideRes: vids.wide.videoWidth + 'x' + vids.wide.videoHeight }));
     cnt.wide = cnt.clip = 0; }, 1000);
   log('fps', 'probe on');
 }
@@ -492,11 +563,12 @@ async function begin(){
   if (why.length) return refuse(why);
   log('nova-voice', 'connected');
 
+  if (dual && FLAG('warmgate')) await waitWarm('intro');                      // NOVA-GO2: she is revealed only on a smooth stream
   setVoice('engine'); face.setBase('listening');                              // INTRO = she talks, the child may answer
   const tAsk = performance.now();
   const withShoulder = !fast && FLAG('shoulder');
   if (!fast){                                                                 // she explains the game first (skipped with ?fast=1)
-    if (withShoulder) novaSays(HELLO + ' ' + SHOULDER_LINES[lang].arm); else mindReact('intro');   // NOVA-AUDIT: the approved intro opens on the light
+    if (withShoulder) novaSays(HELLO + ' ' + SL.arm); else mindReact('intro');   // NOVA-AUDIT: the approved intro opens on the light
     log('greeting', 'asked (Nova still hidden)' + (withShoulder ? ' — shoulder intro' : ''));
     if (!await waitVoiceStart(GREET_WAIT_MS)) return refuse([TXT.noGreet]);
     log('greeting', 'first sound after ' + Math.round(performance.now() - tAsk) + ' ms');

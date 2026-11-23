@@ -30,6 +30,16 @@ export const LINES = {
         retry: 'עוד לא ראיתי — נסה להרים את הכתף עם האור, גבוה!',                                     // 33f83fe sayLightRetry (he)
         win: 'יש! האור תפס את זה!' },                                                                // factShrug: ≤ 5 words [CLI-FILL]
 };
+/* NOVA-GO2 (2026-11-23) · flag `heneutral` (beta/freeze4.html, default off): the approved Hebrew lines above speak to a BOY
+   only ("תראה", "תרים", "נסה" — docs/NOVA-ERRORS-2026-11-22.md #14). Same words in the PLURAL, the form freeze4 already uses
+   for every Hebrew line it shows the player ("רוקדים", "זה אתם!", "מתכוננים"), so a girl is never spoken to as a boy.
+   [CLI-FILL] the plural wording; "על הכתף שלך" -> "על הכתף" (שלך is read shelcha/shelach = gendered aloud). QUESTION for the founder. */
+export const HE_NEUTRAL = {
+  arm: 'תראו — אור קסם על הכתף! תרימו אותה גבוה, רק אותה!',
+  retry: 'עוד לא ראיתי — נסו להרים את הכתף עם האור, גבוה!',
+  win: 'יש! האור תפס את זה!',
+  hello: 'היי! אני נובה, המורה הקסומה שלכם לריקוד!',
+};
 
 /* createShoulderBeat({ aspect }) — aspect = camera height / width (normalised x and y have different pixel sizes).
    start(tMs) · feed(k, tMs) -> null | 'win'  · tick(tMs) -> null | 'retry' | 'release' · progress() 0..1 for the light's meter */
