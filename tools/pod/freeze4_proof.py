@@ -58,8 +58,12 @@ def browser(p):
     import tempfile
     ctx = p.chromium.launch_persistent_context(tempfile.mkdtemp(prefix="f4chrome-"), executable_path=CHROME, headless=False,
         no_viewport=True, permissions=["microphone", "camera"], args=[
-        "--autoplay-policy=no-user-gesture-required", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream",
-        f"--use-file-for-fake-audio-capture={SILENCE}", f"--window-size={W},{H}", "--window-position=0,0", "--kiosk",
+        "--autoplay-policy=no-user-gesture-required"]
+        # NOVA-GO4 rec proof: Chrome's fake devices AND its fake media UI also fake getDisplayMedia (a green test card, or
+        # "Could not start video source") - measured 2026-11-23. That proof runs with neither; nova_final_proof.py's
+        # stand-in supplies camera + microphone itself, and --auto-accept-this-tab-capture answers the share question.
+        + ([] if os.environ.get("NF_REC_PROOF") == "1" else ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", f"--use-file-for-fake-audio-capture={SILENCE}"])
+        + [f"--window-size={W},{H}", "--window-position=0,0", "--kiosk",
         "--no-first-run", "--disable-infobars", "--password-store=basic", "--no-sandbox", "--noerrdialogs"]
         # NOVA-GO4 rec: the page asks to share its own tab at Play; the proof says yes for it (a player clicks Share)
         + (["--auto-accept-this-tab-capture", "--auto-select-tab-capture-source-by-title=Freeze v4"] if os.environ.get("NF_REC_PROOF") == "1" else []))

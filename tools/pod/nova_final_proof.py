@@ -35,6 +35,11 @@ KIDMIC = r"""
   window.__kidMic = { asked: [], given: 0, said: 0 };
   md.getUserMedia = async (c) => {
     window.__kidMic.asked.push(JSON.stringify(c).slice(0, 120));
+    if (window.__SYNTH_MEDIA) {   // NOVA-GO4 rec proof: no fake devices at all (Chrome's fake devices also fake the TAB capture - a green test card): camera = a canvas, microphone = the stand-in
+      const out = new MediaStream(); window.__kidMic.given++;
+      if (c && c.video) { const cv = document.createElement('canvas'); cv.width = 320; cv.height = 240; const g = cv.getContext('2d'); setInterval(() => { g.fillStyle = '#223'; g.fillRect(0, 0, 320, 240); g.fillStyle = '#7df'; g.fillRect((Date.now() / 20) % 320, 100, 20, 20); }, 100); out.addTrack(cv.captureStream(10).getVideoTracks()[0]); }
+      if (c && c.audio) out.addTrack(ensure().stream.getAudioTracks()[0].clone());
+      return out; }
     const s = await real(c);                                   // the real permission path (fake devices) still runs
     // NOVA-GO4: with the page flag `hear` the game keeps the microphone of its ONE camera+microphone request, so the
     // stand-in voice is put into every stream that carries audio (before: only an audio-only request)
@@ -54,6 +59,7 @@ KIDMIC = r"""
 
 def run_A(p):
     b = F.browser(p); ctx, pg, logs = F.page_of(b)
+    if os.environ.get("NF_REC_PROOF") == "1": ctx.add_init_script("window.__SYNTH_MEDIA = 1;")
     ctx.add_init_script(KIDMIC)
     kid_b64 = None
     if os.path.exists(KID_WAV) and os.path.getsize(KID_WAV) > 2000:

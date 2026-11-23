@@ -2381,7 +2381,8 @@ async def _rec_finalize(sid):
     st["done"] = True
     src, out = st["path"], os.path.join(REC_DIR, "play-" + sid + ".mp4")
     cmds = []
-    if src.endswith(".mp4"): cmds.append(["ffmpeg", "-loglevel", "error", "-y", "-i", src, "-c", "copy", "-movflags", "+faststart", out])
+    # Chrome's mp4 recording = h264 picture (kept as is) + Opus sound, which phones and editors do not play in an mp4 -> aac
+    if src.endswith(".mp4"): cmds.append(["ffmpeg", "-loglevel", "error", "-y", "-i", src, "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", out])
     cmds.append(["nice", "-n", "15", "ffmpeg", "-loglevel", "error", "-y", "-i", src, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
                  "-pix_fmt", "yuv420p", "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-r", "30", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", out])
     for c in cmds:

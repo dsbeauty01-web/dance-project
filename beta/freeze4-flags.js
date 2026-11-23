@@ -12,5 +12,7 @@
      split     — NOVA-GO4: split screen from the first second (Nova's half behind a curtain of her room until she is ready)
      hear      — NOVA-GO4: the player is HEARD: one microphone stream, audio unlocked in the Play tap, microphone chip + watch,
                  tight echo guard, "Ready?" waits for his yes, his words outrank her game line, page log sent to the brain
-                 (pair it with NOVA_HEAR=1 on the pod: she answers in the intro, in the game's gaps and at the ending) */
+                 (pair it with NOVA_HEAR=1 on the pod: she answers in the intro, in the game's gaps and at the ending)
+     rec       — NOVA-GO4: the whole game recorded as one video in the player's browser (tab + sound + his voice), sent to
+                 the pod in pieces (NOVA_REC=1) -> play-<session>.mp4 on :8099; desktop Chrome/Edge only */
 window.__F4_FLAGS = {};

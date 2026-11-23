@@ -11,6 +11,11 @@
   window.__kidMic = { asked: [], given: 0, said: 0 };
   md.getUserMedia = async (c) => {
     window.__kidMic.asked.push(JSON.stringify(c).slice(0, 120));
+    if (window.__SYNTH_MEDIA) {   // no fake devices at all (they would also fake the tab capture): camera = a canvas, microphone = the stand-in
+      const out = new MediaStream(); window.__kidMic.given++;
+      if (c && c.video) { const cv = document.createElement('canvas'); cv.width = 320; cv.height = 240; const g = cv.getContext('2d'); setInterval(() => { g.fillStyle = '#223'; g.fillRect(0, 0, 320, 240); g.fillStyle = '#7df'; g.fillRect((Date.now() / 20) % 320, 100, 20, 20); }, 100); out.addTrack(cv.captureStream(10).getVideoTracks()[0]); }
+      if (c && c.audio) out.addTrack(ensure().stream.getAudioTracks()[0].clone());
+      return out; }
     const s = await real(c);
     if (c && c.audio) { s.getAudioTracks().forEach(t => { t.stop(); s.removeTrack(t); }); window.__kidMic.given++;
       const t = ensure().stream.getAudioTracks()[0].clone(); if (!c.video) return new MediaStream([t]); s.addTrack(t); }
