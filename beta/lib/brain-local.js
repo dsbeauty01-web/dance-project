@@ -70,11 +70,11 @@ const L = {
     starWobble: ['ניד קטן, אבל {held} את ה{a}!', '{held}! ה{a} שלך!',
                  'יש! ה{a} נשאר!', 'איזה {a}! עוד אחד!'],
     almost:     ['{froze} כמו {a}… ואז {moved} ממש בסוף!', 'כמעט {a}! {hold} עוד רגע!'],
-    missed:     ['לא הפעם, {a}! המוזיקה נעצרה ו{kept}!', 'אופס, המשכת לזוז. {freeze} כשזה נעצר!'],
-    skip:       ['לא ראיתי אותך — לאן נעלמת?', '{comeBack} לתמונה!'],
-    endGold:    ['איזה סיבוב! {froze} כמו {best} אמיתי, ולא הפסקת לנסות.'],
+    missed:     ['לא הפעם, {a}! המוזיקה נעצרה ו{kept}!', 'אופס, {keptMoving}. {freeze} כשזה נעצר!'],
+    skip:       ['לא ראיתי אותך — לאן {vanished}?', '{comeBack} לתמונה!'],
+    endGold:    ['איזה סיבוב! {froze} כמו {best} אמיתי, ולא {quit} לנסות.'],
     endSilver:  ['סיבוב מעולה! ההקפאה הכי טובה שלך הייתה ה{best}.'],
-    endBronze:  ['קיבלת כוכבים, ולמדת את הטריק: המוזיקה נעצרת — פסל!'],
+    endBronze:  ['{got} כוכבים, ו{learned} את הטריק: המוזיקה נעצרת — פסל!'],
     endNone:    ['המוזיקה הייתה טריקית היום. בפעם הבאה: כשהיא נעצרת, {stop} קודם את הידיים.'],
     trendUp:    ['{started} בתזוזה, ואז {froze} פעמיים ברצף — זה נקרא ללמוד!'],
     again:      ['עוד פעם? או {try} את "חקה את נובה"?', 'עוד סיבוב? אני מוכנה כש{you} {ready2}.'],
@@ -82,11 +82,11 @@ const L = {
 };
 /* Hebrew gender slots */
 const HE_G = {
-  f: { dance: 'תרקדי', freeze: 'תקפאי', ready: 'מוכנה', show: 'תראי', keepDancing: 'תמשיכי לרקוד', champion: 'אלופה', master: 'מלכת', can: 'תצליחי', froze: 'קפאת', moved: 'זזת', hold: 'תחזיקי', stay: 'תישארי', stop: 'תעצרי', become: 'תהפכי ל', stepBack: 'תתרחקי קצת', come: 'תבואי', held: 'החזקת', kept: 'המשכת לרקוד', comeBack: 'תחזרי', started: 'התחלת', try: 'תנסי', you: 'את', ready2: 'מוכנה' },
+  f: { keptMoving: 'המשכת לזוז', vanished: 'נעלמת', quit: 'הפסקת', got: 'קיבלת', learned: 'למדת', dance: 'תרקדי', freeze: 'תקפאי', ready: 'מוכנה', show: 'תראי', keepDancing: 'תמשיכי לרקוד', champion: 'אלופה', master: 'מלכת', can: 'תצליחי', froze: 'קפאת', moved: 'זזת', hold: 'תחזיקי', stay: 'תישארי', stop: 'תעצרי', become: 'תהפכי ל', stepBack: 'תתרחקי קצת', come: 'תבואי', held: 'החזקת', kept: 'המשכת לרקוד', comeBack: 'תחזרי', started: 'התחלת', try: 'תנסי', you: 'את', ready2: 'מוכנה' },
   /* NOVA-GO5 (2026-11-24): g:'n' = the PLURAL, for a player whose gender is not known (flag heneutral in beta/freeze4.html,
      the same form as the shoulder lines: "תראו", "תרימו"). Hear rig he1: the boy Shuki was told "תרקדי… תקפאי". */
-  n: { dance: 'תרקדו', freeze: 'תקפאו', ready: 'מוכנים', show: 'תראו', keepDancing: 'תמשיכו לרקוד', champion: 'אלופים', master: 'אלופי', can: 'תצליחו', froze: 'קפאתם', moved: 'זזתם', hold: 'תחזיקו', stay: 'תישארו', stop: 'תעצרו', become: 'תהפכו ל', stepBack: 'תתרחקו קצת', come: 'תבואו', held: 'החזקתם', kept: 'המשכתם לרקוד', comeBack: 'תחזרו', started: 'התחלתם', try: 'תנסו', you: 'אתם', ready2: 'מוכנים' },
-  m: { dance: 'תרקוד', freeze: 'תקפא', ready: 'מוכן', show: 'תראה', keepDancing: 'תמשיך לרקוד', champion: 'אלוף', master: 'מלך', can: 'תצליח', froze: 'קפאת', moved: 'זזת', hold: 'תחזיק', stay: 'תישאר', stop: 'תעצור', become: 'תהפוך ל', stepBack: 'תתרחק קצת', come: 'תבוא', held: 'החזקת', kept: 'המשכת לרקוד', comeBack: 'תחזור', started: 'התחלת', try: 'תנסה', you: 'אתה', ready2: 'מוכן' },
+  n: { keptMoving: 'המשכתם לזוז', vanished: 'נעלמתם', quit: 'הפסקתם', got: 'קיבלתם', learned: 'למדתם', dance: 'תרקדו', freeze: 'תקפאו', ready: 'מוכנים', show: 'תראו', keepDancing: 'תמשיכו לרקוד', champion: 'אלופים', master: 'אלופי', can: 'תצליחו', froze: 'קפאתם', moved: 'זזתם', hold: 'תחזיקו', stay: 'תישארו', stop: 'תעצרו', become: 'תהפכו ל', stepBack: 'תתרחקו קצת', come: 'תבואו', held: 'החזקתם', kept: 'המשכתם לרקוד', comeBack: 'תחזרו', started: 'התחלתם', try: 'תנסו', you: 'אתם', ready2: 'מוכנים' },
+  m: { keptMoving: 'המשכת לזוז', vanished: 'נעלמת', quit: 'הפסקת', got: 'קיבלת', learned: 'למדת', dance: 'תרקוד', freeze: 'תקפא', ready: 'מוכן', show: 'תראה', keepDancing: 'תמשיך לרקוד', champion: 'אלוף', master: 'מלך', can: 'תצליח', froze: 'קפאת', moved: 'זזת', hold: 'תחזיק', stay: 'תישאר', stop: 'תעצור', become: 'תהפוך ל', stepBack: 'תתרחק קצת', come: 'תבוא', held: 'החזקת', kept: 'המשכת לרקוד', comeBack: 'תחזור', started: 'התחלת', try: 'תנסה', you: 'אתה', ready2: 'מוכן' },
 };
 
 export function createLocalBrain({ lang = 'en', g = 'f', rng = Math.random } = {}){
