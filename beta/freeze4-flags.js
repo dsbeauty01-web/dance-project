@@ -15,4 +15,8 @@
                  (pair it with NOVA_HEAR=1 on the pod: she answers in the intro, in the game's gaps and at the ending)
      rec       — NOVA-GO4: the whole game recorded as one video in the player's browser (tab + sound + his voice), sent to
                  the pod in pieces (NOVA_REC=1) -> play-<session>.mp4 on :8099; desktop Chrome/Edge only */
+/*   v2vintro  — NOVA-GO5: her APPROVED live intro (needs shoulder; pair it with NOVA_V2V_INTRO=1 on the pod): she greets and
+                 asks the name, waits for the answer, gives the name back and chats in her own words, and only the NAME
+                 arms the shoulder light (two exchanges without a name, or 45 s, also arm it). Without the pod flag the
+                 page says so in its log and falls back to the staged greeting. */
 window.__F4_FLAGS = {};

@@ -130,6 +130,49 @@ def hear_reply_instr(where, hebrew):
               "their name, do NOT ask a question, do NOT explain or start the game, do NOT mention a light or a shoulder, "
               "and never say you saw them do a move. Use your OWN words - never just repeat their sentence back.")
     return base + (" Speak HEBREW only, with no English word, in a form that fits a boy or a girl." if hebrew else " English only.")
+# ── NOVA-GO5 (2026-11-24) · NOVA_V2V_INTRO=1, default off · Freeze v4 gets the APPROVED live intro back ───────────────
+# Refael after his play of nova-go4: "she was monologuing ... the game starts with her intro: she asks a name, and the
+# live shoulder light cue. It is in the repo." It is: origin/main INTRO-V2V (75396a4, founder spec 2026-09-14, promoted
+# d29b13f v1.0.4) + law-shoulder (LAWS.md): she greets and asks the name, STOPS, the child answers, she echoes the exact
+# name and chats (PROMPT steps 1-2, live voice-to-voice, in the conversation), and only then the PAGE arms the shoulder
+# light. nova-go4 had kept the light but replaced the conversation: the page staged "Hi! I'm Nova ... Look - a magic
+# light ..." as ONE exact 9-second line, and FREEZE_RULES + INTRO_NOTE told her "never ask their name / speak only the
+# lines you are given". With the flag, for ?intro=freeze4 only:
+#   a. the INTRO runs on PROMPT (the approved intro script) + V2V_F4_RULES, not on FREEZE_RULES; the first time the page
+#      opens the game (speak-gate on) the session moves to FREEZE_RULES - one session.update at a phase boundary;
+#   b. the page asks for the greeting with {"type":"v2v-greet"} (it owns WHEN she appears) and the brain says the approved
+#      greet + name question INSIDE the conversation, so she knows she asked;
+#   c. a child's turn in the intro gets her own bare answer under PROMPT (name echo, real chat) - not the go4 template;
+#   d. while the name is awaited, the ONE verbatim 13 s re-invite is allowed again (page-owned mode had switched it off);
+#   e. the exact lines the page still stages in the intro (the approved light lines, the game explanation) are said out of
+#      band as before, and are then written into her memory, so she knows what she has just said.
+# The page half is beta/freeze4.html flag `v2vintro` + beta/lib/name-catch.js. INPUT-LOCK, truth gates, holds: unchanged.
+V2V_INTRO = os.environ.get("NOVA_V2V_INTRO", "0") == "1"
+V2V_F4_RULES = (
+    "\n\nFREEZE V4 - how the intro script above runs on THIS page:\n"
+    "Steps 1, 2 and 3 are yours exactly as written: greet + name, then the exact name back and a short real chat, and "
+    "the magic light ONLY when you are told it is glowing.\n"
+    "Steps 4, 5 and 6 are NOT yours here. The child already chose Freeze - it is the only game. Never offer a game, "
+    "never ask them to show a freeze, never start the game, never count down, never say GO: the game engine explains "
+    "Freeze and starts it. Now and then you are handed one exact line to say (the light line, the game explanation) - "
+    "those are yours too; treat them as things you said.\n"
+    "Every line 12 words at most. ONE line per turn, then stop and wait. Use the child's own words and their name. "
+    "Never say you saw them move unless a director note reports it.")
+V2V_GREET = {   # the approved generic greets, word for word (this file, GREET FIRST, 2026-09-15)
+    "en": ("Greet the kid in ONE short excited line and say exactly these words "
+           "and NOTHING more: "
+           "Hi! I'm Nova, your magical AI dance teacher! What's your name? "
+           "Then STOP. Say nothing at all until the child answers — no second "
+           "line, no encouragement, no explaining, no light, no game. Their "
+           "answer is the only thing that lets you speak again."),
+    "he": ("Speak HEBREW ONLY, and keep speaking Hebrew for the whole "
+           "conversation — never switch to English. Greet the kid in ONE "
+           "short excited line and say exactly these words and NOTHING more: "
+           "היי! אני נובה, מורת הריקוד הקסומה שלך! איך קוראים לך? "
+           "Then STOP. Say nothing at all until the child answers — no second "
+           "line, no encouragement, no explaining, no light, no game. Their "
+           "answer is the only thing that lets you speak again."),
+}
 VOICE = os.environ.get("NOVA_VOICE", "marin")   # 2026-08-08 founder decision: marin IS Nova's voice (shimmer too adult, coral weird). ?voice= still overrides per-session for A/B
 RT_URL = f"wss://api.openai.com/v1/realtime?model={MODEL}"
 
@@ -328,10 +371,10 @@ PAGE_RULES = (
     "Voice style: bright, warm, quick - never slow, never calm-narrator.")
 
 
-def session_update(freeze=False, voice=None, lang="en", gender="", page=False):
+def session_update(freeze=False, voice=None, lang="en", gender="", page=False, v2v=False):
     return {"type": "session.update", "session": {
         "type": "realtime", "output_modalities": ["audio"],
-        "instructions": PROMPT + (PAGE_RULES if page else FREEZE_RULES if freeze else "")
+        "instructions": PROMPT + (V2V_F4_RULES if v2v else PAGE_RULES if page else FREEZE_RULES if freeze else "")
                         + ((HEBREW_RULES + gender_line(gender)) if lang == "he" else ""),
         "audio": {
             "input": {"format": {"type": "audio/pcm", "rate": 24000},
@@ -739,9 +782,12 @@ async def relay(request):
             # the game without waiting for a name. So no name-asking greet (its ASK-LOCK then held the ending recap and she
             # said a re-invite instead — pod run 2026-11-11) and no silence invites. She speaks only the lines she is staged.
             _page_owns = (_intro == "freeze4" or _intro.startswith("page"))
+            _v2v = V2V_INTRO and _intro == "freeze4"          # NOVA-GO5: the approved live intro on Freeze v4
+            v2v = {"greeted": False, "await_name": False}
+            if _v2v: print("[V2V-INTRO] on: the intro runs on PROMPT (greet + name, live chat); the page arms the light", flush=True)
             await oai.send_json(session_update(freeze=_freeze_mode, voice=_voice,
                                                lang=("he" if _hebrew else "en"), gender=_gender,
-                                               page=_intro.startswith("page")))
+                                               page=_intro.startswith("page"), v2v=_v2v))
             await log("connected to " + MODEL + " (voice " + VOICE + ")")
             # TRANSCRIPTION WARM-UP (he-17): the session's FIRST Hebrew transcription
             # keeps costing 12-14s — a cold path on the provider side that hits the name
@@ -851,8 +897,8 @@ async def relay(request):
                     # statue regex on her OWN words -> whisper + invented praise pre-yes).
                     if _freeze_mode and sgate["on"]:
                         continue     # game phase: the page owns every beat, brain never self-fires
-                    if _page_owns:
-                        continue     # FREEZE4: the page owns intro and ending too
+                    if _page_owns and not (_v2v and v2v["await_name"] and not sgate["on"]):
+                        continue     # FREEZE4: the page owns intro and ending too (NOVA-GO5 d: except the name wait)
                     if speaking["v"] or speaking["resp_active"]:
                         continue
                     # WAIT LAW (INTRO-V2V): she asked the child something. Nothing fires into
@@ -1113,7 +1159,7 @@ async def relay(request):
                             print("[HEAR] game: the child spoke in a hold - her answer waits for the next gap |", ktxt[:50], flush=True)
                     elif sgate["on"]:
                         print("[SPEAK-GATE] kid turn stored, no reply (game phase)", flush=True)
-                    elif HEAR and _page_owns:
+                    elif HEAR and _page_owns and not (_v2v and not sgate.get("ever")):
                         # NOVA_HEAR (a): her answer to THIS child, said with an instruction (bare = the greeting again)
                         await boundary_open("kid-turn", pump=False)
                         print("[INPUT-LOCK] one-shot fired for turn", inlock["valid_turns"], "(hear)", flush=True)
@@ -1283,6 +1329,20 @@ async def relay(request):
                             time.strftime("%H:%M:%S ")+"KID:  "+m["text"]+"   [typed]\n")
                         except Exception: pass
                         print("[TYPED] kid text:", m["text"][:60], flush=True)
+                    elif t == "v2v-greet":
+                        # NOVA-GO5 (b): the page reveals her and asks for the approved greeting; said IN the conversation
+                        if _v2v and not v2v["greeted"]:
+                            v2v["greeted"] = True; v2v["await_name"] = True
+                            turn["kid_ts"] = time.time(); turn["retried"] = False
+                            print("[V2V-INTRO] greet + name question", flush=True)
+                            await boundary_open("connect")
+                            await speak_now(instructions=V2V_GREET["he" if _hebrew else "en"], origin="greet")
+                        try: await ws_client.send_json({"type": "ack", "of": "v2v-greet", "on": bool(_v2v)})
+                        except Exception: pass
+                    elif t == "v2v-armed":
+                        # the page has its name (or its safety ran out) and takes the light beat: no re-invite from here
+                        v2v["await_name"] = False
+                        print("[V2V-INTRO] name wait over:", str(m.get("why", ""))[:40], flush=True)
                     elif t == "page_log":
                         if HEAR: print("[PAGE]", str(m.get("t", ""))[:8], str(m.get("kind", ""))[:24], str(m.get("detail", ""))[:300], flush=True)
                     elif t == "nova-say":
@@ -1472,6 +1532,17 @@ async def relay(request):
                         # music-start, off at the final verdict. Mic stays open the whole time.
                         _was = (sgate["on"], sgate["mode"])
                         sgate["on"] = bool(m.get("on"))
+                        if _v2v and sgate["on"] and not sgate.get("ever"):
+                            # NOVA-GO5 (a): the intro is over - from the first game section on she is the freeze-game voice
+                            v2v["await_name"] = False
+                            try:
+                                await oai.send_json({"type": "session.update", "session": {
+                                    "type": "realtime",
+                                    "instructions": PROMPT + FREEZE_RULES
+                                                    + ((HEBREW_RULES + gender_line(_gender)) if _hebrew else "")}})
+                                print("[V2V-INTRO] intro over - session moved to FREEZE_RULES", flush=True)
+                            except Exception as _e:
+                                print("[V2V-INTRO] session switch failed:", _e, flush=True)
                         if sgate["on"]: sgate["ever"] = True          # a game section has really run
                         # NOVA_HEAR (h): a game line that missed its gap is never said later. Rig run go4final2: "Show me
                         # your moves!" and "You are a freeze champion." waited in the queue through the game and came out
@@ -1501,7 +1572,9 @@ async def relay(request):
                         # END (the game is over, the ending has the floor). That is a boundary —
                         # and the one boundary allowed to drain a whole staged group, so the
                         # ending trio cannot starve behind the one-line rule.
-                        if not sgate["on"] and INTRO_ANSWER and not sgate.get("ever"):
+                        if not sgate["on"] and _v2v and not sgate.get("ever"):
+                            await boundary_open("phase-end")       # NOVA-GO5: the live intro - no "speak only the lines" note
+                        elif not sgate["on"] and INTRO_ANSWER and not sgate.get("ever"):
                             await remember(INTRO_NOTE)             # the intro: nothing has ended, she may answer the child
                             await boundary_open("phase-end")
                         elif not sgate["on"]:
@@ -1731,6 +1804,8 @@ async def relay(request):
                         _org = resp["origin"] or "auto"
                         resp["origin"] = None
                         print("[ORIGIN]", _org, "|", txt[:60], flush=True)
+                        if _v2v and _org == "say" and not sgate["on"] and not sgate.get("ever") and txt.strip():
+                            await remember("[you just said this to the child, out loud] " + txt.strip()[:220])   # NOVA-GO5 (e)
                         # WAIT LAW: she just asked something -> nobody may speak into the gap
                         # until the child answers. (Game phase runs on the director's clock,
                         # where her cue lines are statements, so the lock is intro-only.)

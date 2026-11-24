@@ -146,6 +146,13 @@ export function note(text) {
   else send({ type: 'nova-cue', intent: 'note', ctx: text });   // facts / staging = silent context
 }
 
+// [NOVA-GO5 2026-11-24] the approved live intro (pod/rt_lk.py NOVA_V2V_INTRO=1, page flag `v2vintro`):
+//   liveIntro('greet')        — ask the brain for her greeting + name question, said INSIDE the conversation.
+//                               window 'nova:v2v' { detail: true|false } = the brain's answer (false / no event = a brain
+//                               without the flag: the page falls back to its staged greeting).
+//   liveIntro('armed', why)   — the page has the name (or its safety ran out) and takes the shoulder-light beat.
+export function liveIntro(what, why = '') { send({ type: what === 'greet' ? 'v2v-greet' : 'v2v-armed', why }); }
+
 export function onHerAudio({ playing, ended } = {}) {
   if (playing) _herL.playing.push(playing);
   if (ended) _herL.ended.push(ended);
@@ -237,6 +244,7 @@ function connectWS(intro) {
         window.dispatchEvent(new Event('nova:consent'));
       return;
     }
+    if (m.type === 'ack' && m.of === 'v2v-greet') { window.dispatchEvent(new CustomEvent('nova:v2v', { detail: !!m.on })); return; }
     if (m.type === 'you_delta') { window.dispatchEvent(new CustomEvent('nova:kid-delta', { detail: m.delta || '' })); return; }
     if (m.type === 'you_drop') { window.dispatchEvent(new CustomEvent('nova:kid-drop', { detail: { text: m.text || '', why: m.why || '' } })); return; }
     if (m.type === 'status') { if (m.speaking === true) micGated = true; else if (m.speaking === false) micGated = false;

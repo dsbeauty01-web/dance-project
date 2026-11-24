@@ -140,7 +140,8 @@ import { Q, getLang, applyLang, COMMON, createHud, caption, card, ring, medalScr
 import { createNovaEvents } from './lib/events.js';
 import { createLocalBrain } from './lib/brain-local.js';
 import { runDoctor } from './lib/doctor.js';
-import { attachNova, routeVoice, note, onHerAudio, bridgeState, primeAudio, micState, restartMic, pageLog } from '../shared/nova-bridge.js';
+import { attachNova, routeVoice, note, onHerAudio, bridgeState, primeAudio, micState, restartMic, pageLog, liveIntro } from '../shared/nova-bridge.js';
+import { catchName } from './lib/name-catch.js';
 import { createFacePanel } from '../shared/face-panel.js';
 import { mountFacePip } from '../shared/face-pip.js';
 import { createShoulderBeat, LINES as SHOULDER_LINES, HE_NEUTRAL } from './lib/shoulder-beat.js';
@@ -594,6 +595,54 @@ const shoulderBeat = {
   done(){ return this.res ? Promise.resolve(this.res) : new Promise(r => this.waiters.push(r)); },
 };
 window.freeze4Shoulder = shoulderBeat;
+/* ── NOVA-GO5 (2026-11-24) · THE APPROVED LIVE INTRO — flag `v2vintro` (needs `shoulder`; pod: NOVA_V2V_INTRO=1), default off.
+   Refael on nova-go4: "she was monologuing ... the game starts with her intro: she asks a name, and the live shoulder
+   light cue". nova-go4 staged "Hi! I'm Nova ... Look — a magic light ..." as ONE exact line and never asked anything.
+   The intro he approved (origin/main nova-commercial.html INTRO-V2V 75396a4, LAWS.md law-shoulder), in order:
+     1. she greets and asks the name (the brain says it, in the conversation) and STOPS;
+     2. the child answers; she gives the exact name back and chats — her own live words, one line per turn;
+     3. the NAME arms the shoulder light. The page sends nothing before it. A child who gives no name still gets a game:
+        after two exchanges (the freeze greet's "after their name or two exchanges") or the one 45 s no-name safety;
+     4. the light lands, she says the approved light line, a REAL lift wins or it is released (unchanged, shoulder-beat.js).
+   Numbers: 45 s and the 1.2 s pause before the light = main L7560-7575. [CLI-FILL] 5 s for the child to answer her one
+   chat question before the light (INTRO TEMPO: the whole intro under 40 s) — no spec gives it. QUESTION. */
+const V2V_NO_NAME_MS = 45000, V2V_ARM_DELAY_MS = 1200, V2V_MAX_TURNS = 2, V2V_CHAT_LISTEN_MS = 5000;
+const v2vIntro = { on: false, name: null, why: '' };
+window.freeze4V2V = v2vIntro;
+function v2vGreetAck(capMs){ return new Promise(res => { const t = setTimeout(() => res(null), capMs);
+  addEventListener('nova:v2v', e => { clearTimeout(t); res(!!e.detail); }, { once: true }); }); }
+async function v2vNameBeat(tAsk){
+  const t0 = performance.now(); let seenAt = tAsk, turns = 0;
+  log('v2v', 'greeting said=' + await waitHerLine(15000, tAsk) + ' — waiting for the name');
+  while (true){
+    if (kid.textAt > seenAt){ seenAt = kid.textAt; turns++;
+      const name = catchName(kid.text, { asked: turns === 1 });
+      log('v2v-kid', JSON.stringify({ text: kid.text, name, turns }));
+      log('v2v-answer', String(await waitHerLine(INTRO_ANSWER_MS, seenAt)));           // HER words: the name back, a real chat
+      if (name){ v2vIntro.name = name; v2vIntro.why = 'name captured'; break; }
+      if (turns >= V2V_MAX_TURNS){ v2vIntro.why = turns + ' exchanges, no name'; break; }
+      continue; }
+    if (kid.pending && performance.now() - kid.hearingAt > INTRO_TURN_MS) kid.pending = false;
+    if (performance.now() - t0 > V2V_NO_NAME_MS && !kid.pending && !herV.on){ v2vIntro.why = '45s no-name safety'; break; }
+    await sleep(100);
+  }
+  if (v2vIntro.name){                                    // she may have asked him ONE light question: it is his turn first
+    const tq = performance.now();
+    while (performance.now() - tq < V2V_CHAT_LISTEN_MS || kid.pending){
+      if (kid.textAt > seenAt){ seenAt = kid.textAt; log('v2v-chat', kid.text); log('v2v-chat-answer', String(await waitHerLine(INTRO_ANSWER_MS, seenAt))); break; }
+      if (kid.pending && performance.now() - kid.hearingAt > INTRO_TURN_MS) kid.pending = false;
+      await sleep(100);
+    }
+  }
+  liveIntro('armed', v2vIntro.why);
+  log('v2v', 'shoulder ARM (' + v2vIntro.why + ') at ' + Math.round((performance.now() - t0) / 1000) + ' s' + (v2vIntro.name ? ' name=' + v2vIntro.name : ''));
+  await sleep(V2V_ARM_DELAY_MS);
+  const tArm = performance.now();
+  shoulderBeat.light();                                  // the light lands, then she says the approved light line
+  note('The magic light is glowing on the child\'s shoulder now, and you are asking them to lift that shoulder. You cannot see whether they did — only a director note can tell you.');
+  introSay(SL.arm);
+  return tArm;
+}
 /* An intro line after her first one needs a speaking moment from the brain (pod/rt_lk.py PRODUCER-SILENT: a staged line
    waits for a boundary). Pod run exarcvmcwq6czb: "Yes! The light caught it!" and the Freeze explanation were queued "not a
    boundary" and came out later IN THE GAME. The page reports the section change the way it reports every intro/ending
@@ -754,8 +803,14 @@ async function begin(){
   setVoice('engine'); face.setBase('listening');                              // INTRO = she talks, the child may answer
   const tAsk = performance.now();
   const withShoulder = !fast && FLAG('shoulder');
+  if (withShoulder && FLAG('v2vintro')){                                      // NOVA-GO5: her approved live intro (greet + name, then the light)
+    liveIntro('greet'); const ack = await v2vGreetAck(1500);
+    v2vIntro.on = ack === true;
+    if (!v2vIntro.on) log('v2v', 'THE BRAIN DID NOT TAKE THE LIVE INTRO (' + (ack === false ? 'NOVA_V2V_INTRO is off' : 'no answer') + ') — staged greeting instead');
+  }
   if (!fast){                                                                 // she explains the game first (skipped with ?fast=1)
-    if (withShoulder) novaSays(HELLO + ' ' + SL.arm); else mindReact('intro');   // NOVA-AUDIT: the approved intro opens on the light
+    if (v2vIntro.on) log('v2v', 'greeting + name question asked (live, in the conversation)');
+    else if (withShoulder) novaSays(HELLO + ' ' + SL.arm); else mindReact('intro');   // NOVA-AUDIT: the approved intro opens on the light
     log('greeting', 'asked (Nova still hidden)' + (withShoulder ? ' — shoulder intro' : ''));
     if (!await waitVoiceStart(GREET_WAIT_MS)) return refuse([TXT.noGreet]);
     log('greeting', 'first sound after ' + Math.round(performance.now() - tAsk) + ' ms');
@@ -764,10 +819,14 @@ async function begin(){
   caption(''); gate(null);                                                    // THE GATE OPENS: she appears with her first word
   log('nova-shown', JSON.stringify({ wideLive: wide.state.live, wideFrames: wide.state.frames, voice: bridgeState().voice, speaking: !fast }));
   if (withShoulder){
-    shoulderBeat.light();                                                     // the light lands on his shoulder as she appears
-    if (dual) log('light-line-said', String(await waitHerLine(15000, tAsk)));
+    let tLight = tAsk;
+    if (v2vIntro.on) tLight = await v2vNameBeat(tAsk);                         // NOVA-GO5: name first — the name arms the light
+    else shoulderBeat.light();                                                // the light lands on his shoulder as she appears
+    if (dual) log('light-line-said', String(await waitHerLine(15000, tLight))); else if (v2vIntro.on) await sleep(3400);
     shoulderBeat.start();                                                     // now he has heard what to do: the check starts
     const res = await shoulderBeat.done();
+    if (v2vIntro.on) note(res === 'win' ? 'REAL, detected: the child lifted the shoulder and the light caught it. You are celebrating it right now.'
+                                        : 'Nobody lifted the shoulder. Don\u2019t mention it again — the game comes next.');   // main T.releaseShoulder
     if (dual) log('shoulder-said', String(await waitHerLine(20000, res === 'win' ? performance.now() - 50 : tAsk)));
     const tExplain = performance.now();
     { const r = mind.react('intro'); if (r) introSay(r.text); } log('explain', 'asked');                              // THEN she explains Freeze (the original arc: light → invite to the game)
