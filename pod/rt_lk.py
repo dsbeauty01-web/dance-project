@@ -154,6 +154,13 @@ V2V_INTRO = os.environ.get("NOVA_V2V_INTRO", "0") == "1"
 # the first two words - so from her 3rd word on, the audio streams. Intro/ending only (the game keeps its own path).
 # [CLI-FILL] 3 words: the refusal shapes are <= 2 words. Not measured yet: the gain must be read on a pod (handoff §5.2).
 FAST_KID = os.environ.get("NOVA_FAST_KID", "0") == "1"
+# NOVA-GO5 (2026-11-24) · NOVA_UTT_MAP=1, default off: each realtime transcript is matched to ITS OWN utterance by item_id.
+# Found on the hear rig (run go5b): the child said "Hi ... I'm Shuki" with a pause. The turn number moves on at
+# speech_started, and the realtime transcript of "Hi" arrived after "I'm Shuki" had started, so "Hi" was filed under the
+# SECOND turn's number - and the REST transcript "I'm Shuki." was then dropped as already handled. The name was lost and
+# she answered "Hi" twice. The same off-by-one pairs two different sentences in the logs (handoff §5.3 "transcripts
+# disagree") - some of those were never noise. speech_started carries the item_id of the utterance it opens.
+UTT_MAP = os.environ.get("NOVA_UTT_MAP", "0") == "1"
 # NOVA-GO5: her answers to the child stop sounding like an assistant (handoff §6.3: banned strings WITH replacements,
 # examples at the target length). The four banned lines are the ones she said in Refael's play 2026-11-23.
 REPLY_STYLE = (
@@ -1894,6 +1901,7 @@ async def relay(request):
                     elif et == "input_audio_buffer.speech_started":
                         turn["kid_ts"] = time.time(); turn["retried"] = False   # TURN-GATE: real voice
                         utt["n"] += 1; utt["start"] = max(0, len(kidbuf) - UTT_PREROLL)   # TRANSCRIPT-RACE
+                        if UTT_MAP and e.get("item_id"): utt.setdefault("item", {})[e["item_id"]] = utt["n"]   # NOVA-GO5
                         # PRODUCER-SILENT: BARGE-IN is the one interruption a child is allowed to
                         # make. NOTE (flagged for the founder, not a bug in this file): today the
                         # ANTI-ECHO GATE discards every mic frame while she speaks, so OpenAI's VAD
@@ -1968,7 +1976,9 @@ async def relay(request):
                         # counter — a separate rt counter drifted from the rest one, so the fast
                         # rest result and the slow rt result got different dedup keys and the
                         # slow one still ran. completed refers to the most-recently-armed utt.
-                        await kid_transcript((e.get("transcript", "") or "").strip(), "rt", utt["n"],
+                        _n = utt.get("item", {}).get(e.get("item_id"), utt["n"]) if UTT_MAP else utt["n"]   # NOVA-GO5 UTT_MAP
+                        if UTT_MAP and _n != utt["n"]: print("[RACE] rt transcript belongs to utt", _n, "(now", utt["n"], ")", flush=True)
+                        await kid_transcript((e.get("transcript", "") or "").strip(), "rt", _n,
                                              item_id=e.get("item_id"))
                     elif et == "conversation.item.input_audio_transcription.failed":
                         utt["handled"].add(utt["n"])   # dead utterance is not "pending" — unblocks the retry gate
