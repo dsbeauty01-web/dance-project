@@ -1,0 +1,26 @@
+name = "nova-gate"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+
+# every 5 minutes: close any Nova pod that is idle, over time, failed, or never became ready (logs saved first)
+[triggers]
+crons = ["*/5 * * * *"]
+
+# game logs (free tier: 1 GB, 1,000 writes a day). Create once:  npx wrangler kv namespace create LOGS
+[[kv_namespaces]]
+binding = "LOGS"
+id = "REPLACE_WITH_KV_ID"
+
+[vars]
+POD_NAME = "nova-play"
+NOVA_BRANCH = "nova-go4"
+NOVA_COMMIT = "77055579e5d3e0c1b9ee473bce5b5032fb7c3be9"
+NOVA_VOLUME = "pqbavl4mct"
+FLOOR = "3"
+MAX_MIN = "30"
+IDLE_MIN = "10"
+BOOT_MIN = "20"
+MIN_VCPU_TRIES = "24,16,0"
+DRY_RUN = "1"
+# secrets (npx wrangler secret put <NAME>): RUNPOD_API_KEY OPENAI_API_KEY LIVEKIT_URL LIVEKIT_API_KEY
+# LIVEKIT_API_SECRET MAYA_ASSETS_TOKEN ACCESS_CODE ADMIN_CODE
