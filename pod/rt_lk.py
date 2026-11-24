@@ -161,11 +161,27 @@ FAST_KID = os.environ.get("NOVA_FAST_KID", "0") == "1"
 # she answered "Hi" twice. The same off-by-one pairs two different sentences in the logs (handoff §5.3 "transcripts
 # disagree") - some of those were never noise. speech_started carries the item_id of the utterance it opens.
 UTT_MAP = os.environ.get("NOVA_UTT_MAP", "0") == "1"
+# NOVA-GO5 (2026-11-24) · NOVA_TX_CONF=1, default off: both transcribers return their confidence (token log-probabilities)
+# and the brain logs it per turn as [CONF]. Step 1 of the phantom-answer fix (handoff §5.3): measure noise vs real words.
+TX_CONF = os.environ.get("NOVA_TX_CONF", "0") == "1"
+# The cut, measured on the hear rig 2026-11-24 (docs/NOVA-GO5-2026-11-24.md part 5): real words mean -0.00 .. -0.82
+# (worst = a half-word "Ha"), noise (hum, garble, music, breath, her voice at echo 0.5) -2.42 .. -4.57. Halfway = -1.6.
+# A transcript under it is noise: dropped like garble, never answered. [CLI-FILL] the midpoint; Hebrew checked separately.
+TX_CONF_MIN = float(os.environ.get("NOVA_TX_CONF_MIN", "-1.6"))
+def tx_conf(lps):
+    """mean and min token log-probability of a transcript, or None"""
+    try:
+        v = [float(x.get("logprob")) for x in (lps or []) if x.get("logprob") is not None]
+        return (sum(v) / len(v), min(v)) if v else None
+    except Exception:
+        return None
 # NOVA-GO5: her answers to the child stop sounding like an assistant (handoff §6.3: banned strings WITH replacements,
 # examples at the target length). The four banned lines are the ones she said in Refael's play 2026-11-23.
 REPLY_STYLE = (
     " NEVER say: 'I'm here and listening', 'you're doing just fine', 'loud and clear', 'no worries', 'that's okay', "
-    "'that's perfectly okay', 'how can I help' - that is a helper talking, not Nova. Instead pick up THEIR words and "
+    "'that's perfectly okay', 'how can I help' - that is a helper talking, not Nova. No pet names ('superstar', 'buddy', "
+    "'champ'): once you know their name, use the name. Never tell them how to dance, freeze or get ready - the game "
+    "explains that itself. Instead pick up THEIR words and "
     "answer like a playful big sister. Examples, at exactly this length:\n"
     "child: Can you hear me? -> Nova: Every word! Hi there!\n"
     "child: What's up? -> Nova: Just dancing - and watching you!\n"
@@ -418,7 +434,8 @@ def session_update(freeze=False, voice=None, lang="en", gender="", page=False, v
                                          "create_response": False, "interrupt_response": False},
                       "transcription": {"model": "gpt-4o-transcribe", "language": lang}},
             "output": {"format": {"type": "audio/pcm", "rate": 24000}, "voice": (voice or VOICE)}},
-        "max_output_tokens": "inf"}}
+        "max_output_tokens": "inf",
+        **({"include": ["item.input_audio_transcription.logprobs"]} if TX_CONF else {})}}
 
 def pcm24_to_wav16(pcm_bytes):
     src = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
@@ -1074,7 +1091,7 @@ async def relay(request):
                 # the 5-word limit is in the instruction and MIDGAME-BAN still cancels a 7th word / a question
                 await speak_now(instructions=hear_reply_instr("game", _hebrew), origin="kid")
 
-            async def kid_transcript(ktxt, src, n, item_id=None):
+            async def kid_transcript(ktxt, src, n, item_id=None, conf=None):
                 # TRANSCRIPT-RACE: first transcript per utterance wins; the loser is a no-op.
                 if n in utt["handled"]:
                     return
@@ -1121,6 +1138,8 @@ async def relay(request):
                 # In Hebrew mode a transcript with ZERO Hebrew letters is mis-heard noise,
                 # not speech (STICKY-HEBREW's own reasoning) — drop it. Single-word
                 # sound-alike yes-words (can/ken/ok...) stay valid: that's a real kid's כן.
+                if TX_CONF and _drop is None and conf is not None and conf[0] < TX_CONF_MIN:
+                    _drop = "low-confidence %.2f" % conf[0]          # NOVA-GO5: noise heard as words (handoff §5.3)
                 if _hebrew and _drop is None:
                     if not _re.search(r"[א-ת]", ktxt) and not (len(_words) == 1 and _words[0].lower() in (
                             "yes", "yeah", "yep", "no", "ok", "okay", "ready", "sure", "hi", "hey",
@@ -1240,6 +1259,7 @@ async def relay(request):
                         # sentence. (The model upgrade mini -> full stays; only the hint is gone.)
                         f.add_field("model", "gpt-4o-transcribe")
                         f.add_field("language", "he" if _hebrew else "en")
+                        if TX_CONF: f.add_field("include[]", "logprobs"); f.add_field("response_format", "json")
                         return f
                     async with aiohttp.ClientSession() as _s:
                         for _attempt in (1, 2):   # he-12: one retry on 429 — the bye died when
@@ -1250,7 +1270,11 @@ async def relay(request):
                                 if r.status == 200:
                                     j = await r.json()
                                     print("[RACE] rest got utt", n, ":", (j.get("text") or "")[:40], flush=True)
-                                    await kid_transcript((j.get("text") or "").strip(), "rest", n)
+                                    if TX_CONF:
+                                        _c = tx_conf(j.get("logprobs"))
+                                        print("[CONF] rest utt", n, ("mean %.2f min %.2f" % _c) if _c else "none", "| peak", _peak, "|", (j.get("text") or "")[:40], flush=True)
+                                    await kid_transcript((j.get("text") or "").strip(), "rest", n,
+                                                         conf=tx_conf(j.get("logprobs")) if TX_CONF else None)
                                     break
                                 print("[RACE] rest http", r.status, "attempt", _attempt, flush=True)
                                 if r.status != 429: break
@@ -1745,8 +1769,14 @@ async def relay(request):
                         # the model REFUSE ("I'm sorry, but I can't fulfill that request") and the
                         # refusal AIRED as a spoken intro line. Any assistant-refusal shape dies
                         # the moment it forms, any phase — SAY-ENFORCE then requeues the real line.
-                        if (not resp["killed"]) and _re.match(
-                                r"\s*(i'?m sorry|i can'?t|i cannot|sorry,|מצטערת|אני לא יכולה)", resp["buf"], _re.I):
+                        if (not resp["killed"]) and (_re.match(
+                                r"\s*(i'?m sorry|i can'?t|i cannot|sorry,|מצטערת|אני לא יכולה)", resp["buf"], _re.I)
+                                # NOVA-GO5 (V2V_INTRO): META talk about the line instead of the line. Hear rig he1
+                                # 2026-11-24, a game line: "בסדר, אני אגיד את זה בדיוק כמו שביקשת" ("OK, I'll say it exactly
+                                # as you asked") aired, then the line. Same kill, same SAY-ENFORCE requeue.
+                                or (V2V_INTRO and resp["origin"] == "say" and _re.match(
+                                r"\s*[\"'“]?(sure|ok(ay)?|alright|got it)?[,.!]?\s*(i'?ll|i will|here'?s|here is) (say|repeat|the line|it)"
+                                r"|\s*[\"'“]?(בסדר|אוקיי|טוב)?[,.!]?\s*(אני )?(אגיד|אחזור על)", resp["buf"], _re.I))):
                             # PRODUCER-SILENT: no cancel here any more — a started line finishes.
                             # killed=True is what protects the child: every audio delta is buffered
                             # pre-synthesis, so a killed line never reaches the engine or the page.
@@ -1977,9 +2007,12 @@ async def relay(request):
                         # rest result and the slow rt result got different dedup keys and the
                         # slow one still ran. completed refers to the most-recently-armed utt.
                         _n = utt.get("item", {}).get(e.get("item_id"), utt["n"]) if UTT_MAP else utt["n"]   # NOVA-GO5 UTT_MAP
+                        if TX_CONF:
+                            _c = tx_conf(e.get("logprobs"))
+                            print("[CONF] rt utt", _n, ("mean %.2f min %.2f" % _c) if _c else "none", "|", (e.get("transcript") or "")[:40], flush=True)
                         if UTT_MAP and _n != utt["n"]: print("[RACE] rt transcript belongs to utt", _n, "(now", utt["n"], ")", flush=True)
                         await kid_transcript((e.get("transcript", "") or "").strip(), "rt", _n,
-                                             item_id=e.get("item_id"))
+                                             item_id=e.get("item_id"), conf=tx_conf(e.get("logprobs")) if TX_CONF else None)
                     elif et == "conversation.item.input_audio_transcription.failed":
                         utt["handled"].add(utt["n"])   # dead utterance is not "pending" — unblocks the retry gate
                         print("[RACE] rt transcription failed for utt", utt["n"], flush=True)

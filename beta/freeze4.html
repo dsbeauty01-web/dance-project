@@ -355,7 +355,7 @@ window.freeze4Face = face;
 /* ── her VOICE: live V2V only, through the bridge. What she is asked to say is chosen by the same Truth-Law brain as
       freeze-nova (beta/lib/brain-local.js — only what the judge really saw); the pod's speak-gate is the rate limiter
       (pod/rt_lk.py SPEAK-GATE: one staged line per gap in 'air', none in a hold). ── */
-const mind = createLocalBrain({ lang, g: Q.get('g') === 'm' ? 'm' : 'f' });
+const mind = createLocalBrain({ lang, g: Q.get('g') === 'm' ? 'm' : Q.get('g') === 'f' ? 'f' : (lang === 'he' && FLAG('heneutral')) ? 'n' : 'f' });   // NOVA-GO5: plural when unknown
 window.novaBrainLog = [];
 let voiceMode = 'engine', holding = false, gapLine = false;
 /* In the game ('air') she gets ONE line per gap (game-cues-lights juice checklist: "≤1 line/gap"; pod speak-gate: "this

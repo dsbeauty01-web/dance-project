@@ -119,7 +119,7 @@ NF_GO4=${NF_GO4:-1}
 #    · page flag v2vintro + NOVA_V2V_INTRO=1 — her APPROVED live intro: she greets and asks the name, waits, gives the name
 #      back and chats in her own words, and the NAME arms the shoulder light (origin/main INTRO-V2V, LAWS.md law-shoulder)
 NF_GO5=${NF_GO5:-1}
-[ "$NF_GO5" = 1 ] && [ "$NF_GO4" = 1 ] && grep -q 'hear: true' $P/beta/freeze4-flags.js && sed -i 's/ };/, v2vintro: true };/' $P/beta/freeze4-flags.js && export NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-1} NOVA_FAST_KID=${NOVA_FAST_KID:-1} NOVA_UTT_MAP=${NOVA_UTT_MAP:-1}
+[ "$NF_GO5" = 1 ] && [ "$NF_GO4" = 1 ] && grep -q 'hear: true' $P/beta/freeze4-flags.js && sed -i 's/ };/, v2vintro: true };/' $P/beta/freeze4-flags.js && export NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-1} NOVA_FAST_KID=${NOVA_FAST_KID:-1} NOVA_UTT_MAP=${NOVA_UTT_MAP:-1} NOVA_TX_CONF=${NOVA_TX_CONF:-1}
 stage "page flags: $(cat $P/beta/freeze4-flags.js | cut -c1-230) | NOVA_HEAR=${NOVA_HEAR:-0} NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-0} NOVA_FAST_KID=${NOVA_FAST_KID:-0}"
 
 # 3) the brain — its own room; the face engine on :8010 (dual)
@@ -127,7 +127,7 @@ cd /workspace
 # NOVA_KID_EVENTS=1 (2026-11-22, this build only; default off in pod/rt_lk.py): the brain tells the page when a heard
 # utterance was not accepted, so the page's live "You: ..." line closes and the intro does not wait for words that never come.
 # NOVA_INTRO_ANSWER=1 (same): in the intro she may answer the child in one short sentence (see pod/rt_lk.py INTRO_NOTE).
-LK_ROOM=nova-final ENGINE_URL=http://127.0.0.1:8010 NOVA_FACE_SOULX=1 NOVA_FACE_DUAL=1 NOVA_TEST_CLIPS=1 NOVA_KID_EVENTS=${NOVA_KID_EVENTS:-1} NOVA_INTRO_ANSWER=${NOVA_INTRO_ANSWER:-1} NOVA_HEAR=${NOVA_HEAR:-0} NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-0} NOVA_FAST_KID=${NOVA_FAST_KID:-0} NOVA_UTT_MAP=${NOVA_UTT_MAP:-0} NOVA_REC=${NOVA_REC:-0} NOVA_REC_DIR=$OUT \
+LK_ROOM=nova-final ENGINE_URL=http://127.0.0.1:8010 NOVA_FACE_SOULX=1 NOVA_FACE_DUAL=1 NOVA_TEST_CLIPS=1 NOVA_KID_EVENTS=${NOVA_KID_EVENTS:-1} NOVA_INTRO_ANSWER=${NOVA_INTRO_ANSWER:-1} NOVA_HEAR=${NOVA_HEAR:-0} NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-0} NOVA_FAST_KID=${NOVA_FAST_KID:-0} NOVA_UTT_MAP=${NOVA_UTT_MAP:-0} NOVA_TX_CONF=${NOVA_TX_CONF:-0} NOVA_REC=${NOVA_REC:-0} NOVA_REC_DIR=$OUT \
   setsid nohup $PY -u rt_lk.py > $OUT/rtlk.log 2>&1 < /dev/null &
 Xvfb :99 -screen 0 1280x720x24 -nolisten tcp >/dev/null 2>&1 &
 export DISPLAY=:99
@@ -151,11 +151,14 @@ if [ ! -s /root/kid_line.wav ]; then KIDSRC=espeak-ng
 [ -s /root/kid_line.wav ] && cp /root/kid_line.wav $OUT/kid_line.wav
 # NOVA-GO4: the child also speaks in the GAME and at the ENDING (same voice, same API; no file = that line is skipped)
 if [ "${NF_GO4:-1}" = 1 ]; then
-  for kl in "game|Nova, can you hear me?" "end|Thank you Nova, that was fun!"; do kn=${kl%%|*}; kt=${kl#*|}
+  # NOVA-GO5: + the NAME answer; NF_PROOF_LANG=he = the child speaks Hebrew
+  if [ "${NF_PROOF_LANG:-en}" = he ]; then KL1="game|נובה, את שומעת אותי?"; KL2="end|תודה נובה, היה כיף!"; KL3="name|היי נובה! קוראים לי שוקי."
+  else KL1="game|Nova, can you hear me?"; KL2="end|Thank you Nova, that was fun!"; KL3="name|Hi Nova! My name is Shuki."; fi
+  for kl in "$KL1" "$KL2" "$KL3"; do kn=${kl%%|*}; kt=${kl#*|}
     curl -s -m 40 https://api.openai.com/v1/audio/speech -H "Authorization: Bearer $OPENAI_API_KEY" -H "Content-Type: application/json" \
       -d "{\"model\":\"gpt-4o-mini-tts\",\"voice\":\"ash\",\"input\":\"$kt\",\"response_format\":\"wav\"}" -o /root/kid_raw_$kn.wav 2>/dev/null
     ffmpeg -loglevel error -y -i /root/kid_raw_$kn.wav -ac 1 -ar 48000 /root/kid_$kn.wav 2>/dev/null; done
-  stage "kid game/end lines: $(ls -la /root/kid_game.wav /root/kid_end.wav 2>/dev/null | awk '{print $5}' | tr '\n' ' ') bytes"
+  stage "kid game/end/name lines: $(ls -la /root/kid_game.wav /root/kid_end.wav /root/kid_name.wav 2>/dev/null | awk '{print $5}' | tr '\n' ' ') bytes"
 fi
 stage "kid line ($KIDSRC): $(ls -la /root/kid_line.wav 2>/dev/null | awk '{print $5}') bytes"
 

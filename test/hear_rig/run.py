@@ -21,7 +21,7 @@ try:
     ctx.route("**/livekit-client*", lambda r: r.fulfill(status=200, content_type="application/javascript", body=open(os.path.join(HERE, "lk_shim.js")).read()))
     ctx.add_init_script(f"window.__RIG_ECHO = {echo};"); ctx.add_init_script(open(os.path.join(HERE, "kidmic.js")).read())
     pg = ctx.new_page(); logs = []; pg.on("console", lambda m: logs.append(m.text)); pg.on("pageerror", lambda e: logs.append("PAGEERROR " + str(e)))
-    pg.goto(f"http://127.0.0.1:8765/beta/freeze4?replay={replay}&rounds=2&checked=1&facewait=40&lang=en{extra}")
+    pg.goto(f"http://127.0.0.1:8765/beta/freeze4?replay={replay}&rounds=2&checked=1&facewait=40&lang={A.get("lang","en")}{extra}")
     time.sleep(2); pg.screenshot(path=os.path.join(out, "0-start.png")); pg.click("#go"); t0 = time.time(); got = {}; said = {}
     def kid(tag):
         if tag in say and tag not in said:

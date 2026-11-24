@@ -73,9 +73,11 @@ def run_A(p):
             with open(f, "rb") as fh: return base64.b64encode(fh.read()).decode()
     kid_game, kid_end = _b64(os.environ.get("KID_WAV_GAME", "/root/kid_game.wav")), _b64(os.environ.get("KID_WAV_END", "/root/kid_end.wav"))
     print("kid game/end lines:", bool(kid_game), bool(kid_end), flush=True)
+    # NOVA-GO5: the child answers her name question ("Hi Nova! My name is Shuki."), 0.8 s after her question ends
+    kid_name = _b64(os.environ.get("KID_WAV_NAME", "/root/kid_name.wav")); print("kid name line:", bool(kid_name), flush=True)
     # NF_PROOF_REPLAY (NOVA-AUDIT): which recorded children stand in for the camera; the audit build starts with
     # own-right-up (a real lifted right arm/shoulder) so the shoulder light's WIN path is shown, not only its release.
-    pg.goto(f"{BASE}/beta/freeze4?replay={os.environ.get('NF_PROOF_REPLAY', 'frozen-body,dance-hype,still-sway')}&rounds=2&checked=1&facewait=40&lang=en" + PAGE_EXTRA)
+    pg.goto(f"{BASE}/beta/freeze4?replay={os.environ.get('NF_PROOF_REPLAY', 'frozen-body,dance-hype,still-sway')}&rounds=2&checked=1&facewait=40&lang={os.environ.get('NF_PROOF_LANG', 'en')}" + PAGE_EXTRA)
     time.sleep(3)
     rec = F.recorder_start(os.path.join(OUT, "nova-final-run.mp4")); t_rec = time.time()
     time.sleep(1.5)
@@ -86,6 +88,7 @@ def run_A(p):
         s = pg.evaluate("""() => ({ stage: document.getElementById('novaPane').dataset.stage, gate: document.body.dataset.gate || '',
             you: (document.getElementById('you') || {}).className || '', youText: (document.getElementById('you') || {}).textContent || '',
             listen: (window.freeze4Log || []).some(e => e.kind === 'intro-listen' && e.detail === 'open'),
+            named: (window.freeze4Log || []).some(e => e.kind === 'v2v' && String(e.detail).startsWith('greeting said')),
             answered: (window.freeze4Log || []).some(e => e.kind === 'intro-answer'),
             wide: window.freeze4Wide ? window.freeze4Wide.state : null, face: window.freeze4Face ? window.freeze4Face.state : null,
             ended: document.getElementById('end').classList.contains('on'),
@@ -95,6 +98,10 @@ def run_A(p):
                                return !h || (h.kind === 'her-voice' && h.detail === 'end' && L[L.length - 1].t - h.t > 3.5); })(),   // nothing asked, nothing heard for 3.5 s
             banner: !document.getElementById('banner').classList.contains('hidden') })""")
         t = round(time.time() - t_rec, 2)
+        if kid_name and s.get("named") and "kidname" not in got:                         # NOVA-GO5
+            got.setdefault("t_named", time.time())
+            if time.time() - got["t_named"] > 0.8:
+                got["kidname"] = round(pg.evaluate("b => window.__kidSay(b)", kid_name), 2); print("kid said (name) at", t, flush=True)
         key = (s["gate"] or "open", s["stage"], (s["face"] or {}).get("badge"), s["ended"])
         if not marks or marks[-1][1] != key:
             marks.append([t, key])

@@ -83,6 +83,9 @@ const L = {
 /* Hebrew gender slots */
 const HE_G = {
   f: { dance: 'תרקדי', freeze: 'תקפאי', ready: 'מוכנה', show: 'תראי', keepDancing: 'תמשיכי לרקוד', champion: 'אלופה', master: 'מלכת', can: 'תצליחי', froze: 'קפאת', moved: 'זזת', hold: 'תחזיקי', stay: 'תישארי', stop: 'תעצרי', become: 'תהפכי ל', stepBack: 'תתרחקי קצת', come: 'תבואי', held: 'החזקת', kept: 'המשכת לרקוד', comeBack: 'תחזרי', started: 'התחלת', try: 'תנסי', you: 'את', ready2: 'מוכנה' },
+  /* NOVA-GO5 (2026-11-24): g:'n' = the PLURAL, for a player whose gender is not known (flag heneutral in beta/freeze4.html,
+     the same form as the shoulder lines: "תראו", "תרימו"). Hear rig he1: the boy Shuki was told "תרקדי… תקפאי". */
+  n: { dance: 'תרקדו', freeze: 'תקפאו', ready: 'מוכנים', show: 'תראו', keepDancing: 'תמשיכו לרקוד', champion: 'אלופים', master: 'אלופי', can: 'תצליחו', froze: 'קפאתם', moved: 'זזתם', hold: 'תחזיקו', stay: 'תישארו', stop: 'תעצרו', become: 'תהפכו ל', stepBack: 'תתרחקו קצת', come: 'תבואו', held: 'החזקתם', kept: 'המשכתם לרקוד', comeBack: 'תחזרו', started: 'התחלתם', try: 'תנסו', you: 'אתם', ready2: 'מוכנים' },
   m: { dance: 'תרקוד', freeze: 'תקפא', ready: 'מוכן', show: 'תראה', keepDancing: 'תמשיך לרקוד', champion: 'אלוף', master: 'מלך', can: 'תצליח', froze: 'קפאת', moved: 'זזת', hold: 'תחזיק', stay: 'תישאר', stop: 'תעצור', become: 'תהפוך ל', stepBack: 'תתרחק קצת', come: 'תבוא', held: 'החזקת', kept: 'המשכת לרקוד', comeBack: 'תחזור', started: 'התחלת', try: 'תנסה', you: 'אתה', ready2: 'מוכן' },
 };
 
