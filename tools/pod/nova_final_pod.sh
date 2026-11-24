@@ -119,15 +119,15 @@ NF_GO4=${NF_GO4:-1}
 #    · page flag v2vintro + NOVA_V2V_INTRO=1 — her APPROVED live intro: she greets and asks the name, waits, gives the name
 #      back and chats in her own words, and the NAME arms the shoulder light (origin/main INTRO-V2V, LAWS.md law-shoulder)
 NF_GO5=${NF_GO5:-1}
-[ "$NF_GO5" = 1 ] && [ "$NF_GO4" = 1 ] && grep -q 'hear: true' $P/beta/freeze4-flags.js && sed -i 's/ };/, v2vintro: true };/' $P/beta/freeze4-flags.js && export NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-1}
-stage "page flags: $(cat $P/beta/freeze4-flags.js | cut -c1-230) | NOVA_HEAR=${NOVA_HEAR:-0} NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-0}"
+[ "$NF_GO5" = 1 ] && [ "$NF_GO4" = 1 ] && grep -q 'hear: true' $P/beta/freeze4-flags.js && sed -i 's/ };/, v2vintro: true };/' $P/beta/freeze4-flags.js && export NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-1} NOVA_FAST_KID=${NOVA_FAST_KID:-1}
+stage "page flags: $(cat $P/beta/freeze4-flags.js | cut -c1-230) | NOVA_HEAR=${NOVA_HEAR:-0} NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-0} NOVA_FAST_KID=${NOVA_FAST_KID:-0}"
 
 # 3) the brain — its own room; the face engine on :8010 (dual)
 cd /workspace
 # NOVA_KID_EVENTS=1 (2026-11-22, this build only; default off in pod/rt_lk.py): the brain tells the page when a heard
 # utterance was not accepted, so the page's live "You: ..." line closes and the intro does not wait for words that never come.
 # NOVA_INTRO_ANSWER=1 (same): in the intro she may answer the child in one short sentence (see pod/rt_lk.py INTRO_NOTE).
-LK_ROOM=nova-final ENGINE_URL=http://127.0.0.1:8010 NOVA_FACE_SOULX=1 NOVA_FACE_DUAL=1 NOVA_TEST_CLIPS=1 NOVA_KID_EVENTS=${NOVA_KID_EVENTS:-1} NOVA_INTRO_ANSWER=${NOVA_INTRO_ANSWER:-1} NOVA_HEAR=${NOVA_HEAR:-0} NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-0} NOVA_REC=${NOVA_REC:-0} NOVA_REC_DIR=$OUT \
+LK_ROOM=nova-final ENGINE_URL=http://127.0.0.1:8010 NOVA_FACE_SOULX=1 NOVA_FACE_DUAL=1 NOVA_TEST_CLIPS=1 NOVA_KID_EVENTS=${NOVA_KID_EVENTS:-1} NOVA_INTRO_ANSWER=${NOVA_INTRO_ANSWER:-1} NOVA_HEAR=${NOVA_HEAR:-0} NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-0} NOVA_FAST_KID=${NOVA_FAST_KID:-0} NOVA_REC=${NOVA_REC:-0} NOVA_REC_DIR=$OUT \
   setsid nohup $PY -u rt_lk.py > $OUT/rtlk.log 2>&1 < /dev/null &
 Xvfb :99 -screen 0 1280x720x24 -nolisten tcp >/dev/null 2>&1 &
 export DISPLAY=:99

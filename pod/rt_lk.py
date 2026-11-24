@@ -129,7 +129,7 @@ def hear_reply_instr(where, hebrew):
             + "If they ask whether you can hear them: yes, you hear them. Do NOT introduce yourself again, do NOT ask "
               "their name, do NOT ask a question, do NOT explain or start the game, do NOT mention a light or a shoulder, "
               "and never say you saw them do a move. Use your OWN words - never just repeat their sentence back.")
-    return base + (" Speak HEBREW only, with no English word, in a form that fits a boy or a girl." if hebrew else " English only.")
+    return base + (REPLY_STYLE if V2V_INTRO else "") + (" Speak HEBREW only, with no English word, in a form that fits a boy or a girl." if hebrew else " English only.")
 # ── NOVA-GO5 (2026-11-24) · NOVA_V2V_INTRO=1, default off · Freeze v4 gets the APPROVED live intro back ───────────────
 # Refael after his play of nova-go4: "she was monologuing ... the game starts with her intro: she asks a name, and the
 # live shoulder light cue. It is in the repo." It is: origin/main INTRO-V2V (75396a4, founder spec 2026-09-14, promoted
@@ -148,6 +148,23 @@ def hear_reply_instr(where, hebrew):
 #      band as before, and are then written into her memory, so she knows what she has just said.
 # The page half is beta/freeze4.html flag `v2vintro` + beta/lib/name-catch.js. INPUT-LOCK, truth gates, holds: unchanged.
 V2V_INTRO = os.environ.get("NOVA_V2V_INTRO", "0") == "1"
+# NOVA-GO5 (2026-11-24) · NOVA_FAST_KID=1, default off: her answer to a child starts sooner. Today a line's audio waits
+# for its first sentence end (or, within 6 s of a kid turn, its first comma) before it goes to the face. Within 6 s of a
+# REAL kid turn the truth gates do not fire anyway (FIRST-CLAUSE RELEASE, en-13 below), and the refusal check fires on
+# the first two words - so from her 3rd word on, the audio streams. Intro/ending only (the game keeps its own path).
+# [CLI-FILL] 3 words: the refusal shapes are <= 2 words. Not measured yet: the gain must be read on a pod (handoff §5.2).
+FAST_KID = os.environ.get("NOVA_FAST_KID", "0") == "1"
+# NOVA-GO5: her answers to the child stop sounding like an assistant (handoff §6.3: banned strings WITH replacements,
+# examples at the target length). The four banned lines are the ones she said in Refael's play 2026-11-23.
+REPLY_STYLE = (
+    " NEVER say: 'I'm here and listening', 'you're doing just fine', 'loud and clear', 'no worries', 'that's okay', "
+    "'that's perfectly okay', 'how can I help' - that is a helper talking, not Nova. Instead pick up THEIR words and "
+    "answer like a playful big sister. Examples, at exactly this length:\n"
+    "child: Can you hear me? -> Nova: Every word! Hi there!\n"
+    "child: What's up? -> Nova: Just dancing - and watching you!\n"
+    "child: I'm tired. -> Nova: Tired legs? Shake them out!\n"
+    "child: This is fun! -> Nova: Fun for me too!\n"
+    "child: Bye! -> Nova: Bye! Come dance again soon!")
 V2V_F4_RULES = (
     "\n\nFREEZE V4 - how the intro script above runs on THIS page:\n"
     "Steps 1, 2 and 3 are yours exactly as written: greet + name, then the exact name back and a short real chat, and "
@@ -157,7 +174,7 @@ V2V_F4_RULES = (
     "Freeze and starts it. Now and then you are handed one exact line to say (the light line, the game explanation) - "
     "those are yours too; treat them as things you said.\n"
     "Every line 12 words at most. ONE line per turn, then stop and wait. Use the child's own words and their name. "
-    "Never say you saw them move unless a director note reports it.")
+    "Never say you saw them move unless a director note reports it." + REPLY_STYLE)
 V2V_GREET = {   # the approved generic greets, word for word (this file, GREET FIRST, 2026-09-15)
     "en": ("Greet the kid in ONE short excited line and say exactly these words "
            "and NOTHING more: "
@@ -1788,7 +1805,10 @@ async def relay(request):
                               # aired at 3.6s — 0.1s over the law. Within 6s of a real kid turn
                               # the truth-gates can't fire anyway (praise-within-6s is legit),
                               # so the first comma is a safe earlier release point.
-                              or (time.time() - kidinput["ts"] <= 6.0 and resp["buf"].rstrip()[-1:] == ",")):
+                              or (time.time() - kidinput["ts"] <= 6.0 and resp["buf"].rstrip()[-1:] == ",")
+                              # NOVA-GO5 FAST_KID: from her 3rd word on, a reply to a real kid turn streams
+                              or (FAST_KID and resp["origin"] == "kid" and time.time() - kidinput["ts"] <= 6.0
+                                  and len(resp["buf"].split()) >= 3)):
                             # SENTENCE-LEVEL PRE-SYNTH RELEASE (low latency): this full sentence just
                             # passed the gate clean -> release ITS buffered audio now (don't wait for the
                             # whole line). A later fabricated sentence is still caught + dropped before synth.
