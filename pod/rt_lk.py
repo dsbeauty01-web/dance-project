@@ -1874,36 +1874,56 @@ async def relay(request):
             # its audio comes back as the same "response.output_audio.delta" events, so every gate below is unchanged.
             evq = asyncio.Queue()
             tts = {"ws": None, "done": None, "text": "", "flushed": False, "pend": "", "gen": 0}
+            tts_sem = asyncio.Semaphore(int(os.environ.get("NOVA_EL_PAR", "2")))   # parallel clauses (plan limit) [CLI-FILL]
             async def tts_open():
                 if EL_HTTP:
                     # NOVA_EL_HTTP: clauses go out one by one, in order, on the HTTP streaming endpoint (eleven_v4)
                     q = asyncio.Queue(); done = asyncio.Event(); tts["gen"] += 1; mygen = tts["gen"]
                     tts.update(ws=q, done=done, text="", flushed=False, pend="")
                     tr("tts.open")
-                    async def worker():
-                        first = True
-                        try:
-                            while True:
-                                seg = await q.get()
-                                if seg is None: break
+                    def fetch(seg):
+                        """NOVA-LIVE2 (pod dbqdq 2026-11-25: 12 mid-line voice holes): every clause is fetched the moment
+                        it exists, in parallel; the worker plays them in order. Clause 2 is ready while clause 1 plays."""
+                        cq = asyncio.Queue()
+                        async def go():
+                          for _try in range(3):     # ElevenLabs starter plan: concurrency limit -> 429; never lose a clause
+                            try:
+                              async with tts_sem:
                                 async with http.post(
                                         f"https://api.elevenlabs.io/v1/text-to-speech/{EL_VOICE}/stream?output_format=pcm_24000",
                                         headers={"xi-api-key": EL_KEY, "Content-Type": "application/json"},
                                         json={"text": seg, "model_id": EL_MODEL, "language_code": "en",
                                               "voice_settings": {"stability": 0.5, "similarity_boost": 0.8}},
                                         timeout=aiohttp.ClientTimeout(total=20)) as r:
+                                    if r.status == 429:
+                                        print("[TTS] 429 busy - retry", _try + 1, flush=True); await asyncio.sleep(0.25); continue
                                     if r.status != 200:
-                                        print("[TTS] http", r.status, (await r.text())[:120], flush=True); continue
+                                        print("[TTS] http", r.status, (await r.text())[:120], flush=True); break
                                     carry = b""
                                     async for chunk in r.content.iter_chunked(4800):
                                         chunk = carry + chunk; cut = len(chunk) // 2 * 2; carry = chunk[cut:]
-                                        if not cut: continue
-                                        if tts["gen"] != mygen: break          # a newer line took over: never mix two
-                                        if first: first = False; tr("tts.first_audio")
-                                        await evq.put({"type": "response.output_audio.delta",
-                                                       "delta": base64.b64encode(chunk[:cut]).decode()})
+                                        if cut: await cq.put(chunk[:cut])
+                                    break
+                            except Exception as _e:
+                                print("[TTS] http err", str(_e)[:100], flush=True); break
+                          await cq.put(None)
+                        asyncio.create_task(go())
+                        return cq
+                    tts["fetch"] = fetch
+                    async def worker():
+                        first = True
+                        try:
+                            while True:
+                                cq = await q.get()
+                                if cq is None: break
+                                while True:
+                                    c = await cq.get()
+                                    if c is None: break
+                                    if tts["gen"] != mygen: continue           # a newer line took over: never mix two
+                                    if first: first = False; tr("tts.first_audio")
+                                    await evq.put({"type": "response.output_audio.delta", "delta": base64.b64encode(c).decode()})
                         except Exception as _e:
-                            print("[TTS] http err", str(_e)[:100], flush=True)
+                            print("[TTS] worker err", str(_e)[:100], flush=True)
                         finally:
                             done.set()
                     asyncio.create_task(worker())
@@ -1942,7 +1962,7 @@ async def relay(request):
                     _end = bool(_re.search(r"[.!?;:\u2014]\s*$", tts["pend"])) or (
                         not tts["flushed"] and _re.search(r",\s*$", tts["pend"]) and len(tts["pend"].split()) >= 2)
                     if _end and tts["pend"].strip():
-                        tts["flushed"] = True; await tts["ws"].put(tts["pend"].strip()); tts["pend"] = ""
+                        tts["flushed"] = True; await tts["ws"].put(tts["fetch"](tts["pend"].strip())); tts["pend"] = ""
                     return
                 # first audio as soon as there are 3 words or a pause mark; then at every pause mark
                 _p = bool(_re.search(r"[,.!?;:\u2014]\s*$", delta))
@@ -1961,7 +1981,7 @@ async def relay(request):
                 if tts["ws"] is not None:
                     try:
                         if EL_HTTP:
-                            if tts.get("pend", "").strip(): await tts["ws"].put(tts["pend"].strip())
+                            if tts.get("pend", "").strip(): await tts["ws"].put(tts["fetch"](tts["pend"].strip()))
                             tts["pend"] = ""; await tts["ws"].put(None)
                         else:
                             await tts["ws"].send_json({"text": ""})
