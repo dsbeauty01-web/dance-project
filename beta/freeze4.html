@@ -426,9 +426,10 @@ const herV = { on: false, startedAt: 0, endedAt: 0 };
    1.4 s of it Ditto's lip delay — anything she says live arrives that late. So, in the WIDE phases only (intro, ending):
    · the child starts talking → she leans in (#novaPane.listening) until her voice starts (8 s safety);
    · the child's turn is complete → SOMETIMES a short closed-mouth hum in her own voice (audio/react/hum1-3, made once with
-     the same voice `marin`), played here at once, the mic held for it. A hum needs no lips. Never two turns in a row,
-     ~70% of the other turns, never while she talks, never with another voice (?voice=). This is the ONE exception to the
-     live-voice law, approved by Refael 2026-11-24 for this sound only. [CLI-FILL] 70% / never twice in a row. */
+     the same voice `marin`), played here at once, the mic held for it. A hum needs no lips. EVERY OTHER turn, starting
+     with the first (a 70 % random draw hummed 0 of 3 turns on pod i6klyju0twlhzl), never while she talks, never with
+     another voice (?voice=). This is the ONE exception to the live-voice law, approved by Refael 2026-11-24 for this
+     sound only. [CLI-FILL] every other turn. */
 const react = { on: FLAG('react'), lastHum: false, hums: [1, 2, 3].map(i => '../audio/react/hum' + i + '.mp3'), n: 0, timer: 0 };
 function leanIn(on, why){ if (!react.on) return; const p = $('novaPane'); if (!p) return;
   if (p.classList.contains('listening') === !!on) return;                       // log only real changes
@@ -437,7 +438,7 @@ function leanIn(on, why){ if (!react.on) return; const p = $('novaPane'); if (!p
 function maybeHum(){
   if (!react.on || $('novaPane')?.dataset.stage !== 'wide' || herV.on) return;
   if ((Q.get('voice') || 'marin') !== 'marin') return;
-  if (react.lastHum || Math.random() > 0.7){ react.lastHum = false; log('react', 'no hum this turn'); return; }
+  if (react.lastHum){ react.lastHum = false; log('react', 'no hum this turn'); return; }   // every other turn, from the first
   react.lastHum = true; const src = react.hums[react.n++ % react.hums.length];
   try { const a = new Audio(src); a.volume = 0.8; holdMicFor(1100); a.play().then(() => log('react', 'hum ' + src.split('/').pop())).catch(e => log('react', 'hum failed: ' + e)); }
   catch (e) { log('react', 'hum failed: ' + e); }
