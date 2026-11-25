@@ -1,0 +1,33 @@
+09:07:39 boot (watchdog 55 min) nproc=32 
+NVIDIA GeForce RTX 4090, 24564 MiB
+09:07:50 repo d55e813 body 11329444
+09:07:50 nfb volume /nfb: 2.3P size, 1.8P used, 469T free; top: nova-fastboot ; packs: ditto.ok ditto.tar ltenv.ok ltenv.tar 
+09:07:50 audit flags: NF_AUDIT=1 body=nova_talk_calm.mp4 prebuf=400 rec_thread=1 pub_steady=1 wide_source=camera wide_ts=1 rec_fix=1 go2=1 wide_smooth=1 wide_prep=1
+09:08:09 nfb ltenv: volume pack 6.4G unpacked in 19 s
+09:08:15 nfb ditto: volume pack 11G unpacked in 25 s
+09:11:06 apt done 0
+09:11:20 chrome: Google Chrome 158.0.8127.36 
+09:11:22 nfb ltenv check: torch 2.6.0+cu124 cuda True diffusers 0.34.0
+09:11:22 pip done 0 (ok)
+09:11:22 deployed 0
+09:11:23 page flags: window.__F4_FLAGS = { shoulder: true, fpsprobe: true, pipfresh: true, warmgate: true, matchcut: true, heneutral: true, ambstill: true, noblink: true, split: true, hear: true };   // written by nova_fi | NOVA_HEAR=1
+09:11:25 screen+sound+lines: 2 lines
+09:11:29 kid game/end lines: 316878 201678  bytes
+09:11:29 kid line (openai-tts): 292878 bytes
+09:11:29 ditto: [ditto_up 09:08:27] ready after 12 s: {"ready": true, "chunk_frames": 10, "chunk_samples": 6400, "fps": 25, "prime": 35, "info": {"src": "nova_talk_calm.mp4", "src_frames": 252, "src_wh": [1080, 1920], "amp": 0.6, "amp_x": null, "mask": "lower", "gate_flags": {"DITTO_FAST_CLOSE": "1", "DITTO_DEBT_FI
+09:11:29 weights: weights baked (volume /nfb/nova-fastboot/soulxroot)
+09:13:00 face :8010 http=200 {"ok": true, "ready": true, "room": true, "room_name": "nova-final", "identity": "nova-face", "renderer": "dual", "chunks": 5, "speech_chunks": 0, "frames_published": 0, "underruns": 0, "lines": 0, "r
+09:13:45 speed: {'wide_render_ms_p50': 68.3, 'wide_render_ms_p95': 90.3, 'wide_chunks_late': 0, 'wide_chunks': 118, 'underruns': 0}
+09:14:34 W: {"code": 0, "files": ["/root/out/face/wide_published_W.mp4"]}
+09:16:34 A exit 0
+09:16:34 A finish: {"code": 0, "files": ["/root/out/face/face_published_A.mp4", "/root/out/face/wide_published_A.mp4"]}
+09:16:35 G none exit 1 
+-rw-r--r-- 1 root root 18542731 Nov 23 09:16 /root/out/nova-final-run.mp4
+-rw-r--r-- 1 root root  1066997 Nov 23 09:17 /root/out/nova-pip-soulx-A.mp4
+-rw-r--r-- 1 root root 41957263 Nov 23 09:17 /root/out/nova-wide-ditto-A-1080.mp4
+-rw-r--r-- 1 root root 21080686 Nov 23 09:16 /root/out/nova-wide-ditto-W-1080.mp4
+-rw-r--r-- 1 root root   255370 Nov 23 09:17 /root/out/nova-wide-ditto-none-1080.mp4
+-rw-r--r-- 1 root root  4961611 Nov 23 09:17 /root/out/nova-wide-published-A-540.mp4
+9522 MiB, 0 %
+09:17:11 nfb volume after: 1.8P used, 469T free; nova-fastboot 26G; caches inductor 329M triton 823M
+09:17:11 DONE

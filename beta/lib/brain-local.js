@@ -36,8 +36,10 @@ const L = {
                  'Next time: music stops, you turn into a statue. Even your fingers!'],
     afterSkip:  ['I lost you for a moment. Step back so I can see all of you.',
                  'Come to the middle of the picture, I want to see your whole body!'],
-    starLow:    ['Not even a wobble — you held the {a} the whole time!', 'Perfect {a}! Totally still!'],
-    starWobble: ['A tiny wobble, but you held the {a}!', 'You held it! The {a} is yours!'],
+    starLow:    ['Not even a wobble — you held the {a} the whole time!', 'Perfect {a}! Totally still!',
+                 'Frozen solid! What a {a}!', 'Statue {a}! Not one wiggle!', 'Wow — a still {a}!', 'Ice cold {a}!'],
+    starWobble: ['A tiny wobble, but you held the {a}!', 'You held it! The {a} is yours!',
+                 'Held it! Nice {a}!', 'You kept the {a}!', 'Got the {a}! Keep going!'],
     almost:     ['You froze like a {a}… and then moved right at the end!', 'Almost a {a}! Hold it a moment longer!'],
     missed:     ['The {a} got away — the music stopped and you kept dancing!', 'Oops, you kept moving. Freeze when it stops!'],
     skip:       ['I could not see you — where did you go?', 'Come back into the picture!'],
@@ -63,14 +65,16 @@ const L = {
                  'בפעם הבאה: המוזיקה נעצרת — {become}פסל. אפילו האצבעות!'],
     afterSkip:  ['איבדתי אותך לרגע. {stepBack} כדי שאראה את כולך.',
                  '{come} לאמצע התמונה, אני רוצה לראות את כל הגוף!'],
-    starLow:    ['אפילו לא ניד — {held} את ה{a} כל הזמן!', '{a} מושלם! לגמרי בלי לזוז!'],
-    starWobble: ['ניד קטן, אבל {held} את ה{a}!', '{held}! ה{a} שלך!'],
+    starLow:    ['אפילו לא ניד — {held} את ה{a} כל הזמן!', '{a} מושלם! לגמרי בלי לזוז!',
+                 'איזה {a}! קפוא לגמרי!', 'וואו — {a} בלי תזוזה!', 'יש! {a} של קרח!'],
+    starWobble: ['ניד קטן, אבל {held} את ה{a}!', '{held}! ה{a} שלך!',
+                 'יש! ה{a} נשאר!', 'איזה {a}! עוד אחד!'],
     almost:     ['{froze} כמו {a}… ואז {moved} ממש בסוף!', 'כמעט {a}! {hold} עוד רגע!'],
-    missed:     ['לא הפעם, {a}! המוזיקה נעצרה ו{kept}!', 'אופס, המשכת לזוז. {freeze} כשזה נעצר!'],
-    skip:       ['לא ראיתי אותך — לאן נעלמת?', '{comeBack} לתמונה!'],
-    endGold:    ['איזה סיבוב! {froze} כמו {best} אמיתי, ולא הפסקת לנסות.'],
+    missed:     ['לא הפעם, {a}! המוזיקה נעצרה ו{kept}!', 'אופס, {keptMoving}. {freeze} כשזה נעצר!'],
+    skip:       ['לא ראיתי אותך — לאן {vanished}?', '{comeBack} לתמונה!'],
+    endGold:    ['איזה סיבוב! {froze} כמו {best} אמיתי, ולא {quit} לנסות.'],
     endSilver:  ['סיבוב מעולה! ההקפאה הכי טובה שלך הייתה ה{best}.'],
-    endBronze:  ['קיבלת כוכבים, ולמדת את הטריק: המוזיקה נעצרת — פסל!'],
+    endBronze:  ['{got} כוכבים, ו{learned} את הטריק: המוזיקה נעצרת — פסל!'],
     endNone:    ['המוזיקה הייתה טריקית היום. בפעם הבאה: כשהיא נעצרת, {stop} קודם את הידיים.'],
     trendUp:    ['{started} בתזוזה, ואז {froze} פעמיים ברצף — זה נקרא ללמוד!'],
     again:      ['עוד פעם? או {try} את "חקה את נובה"?', 'עוד סיבוב? אני מוכנה כש{you} {ready2}.'],
@@ -78,18 +82,30 @@ const L = {
 };
 /* Hebrew gender slots */
 const HE_G = {
-  f: { dance: 'תרקדי', freeze: 'תקפאי', ready: 'מוכנה', show: 'תראי', keepDancing: 'תמשיכי לרקוד', champion: 'אלופה', master: 'מלכת', can: 'תצליחי', froze: 'קפאת', moved: 'זזת', hold: 'תחזיקי', stay: 'תישארי', stop: 'תעצרי', become: 'תהפכי ל', stepBack: 'תתרחקי קצת', come: 'תבואי', held: 'החזקת', kept: 'המשכת לרקוד', comeBack: 'תחזרי', started: 'התחלת', try: 'תנסי', you: 'את', ready2: 'מוכנה' },
-  m: { dance: 'תרקוד', freeze: 'תקפא', ready: 'מוכן', show: 'תראה', keepDancing: 'תמשיך לרקוד', champion: 'אלוף', master: 'מלך', can: 'תצליח', froze: 'קפאת', moved: 'זזת', hold: 'תחזיק', stay: 'תישאר', stop: 'תעצור', become: 'תהפוך ל', stepBack: 'תתרחק קצת', come: 'תבוא', held: 'החזקת', kept: 'המשכת לרקוד', comeBack: 'תחזור', started: 'התחלת', try: 'תנסה', you: 'אתה', ready2: 'מוכן' },
+  f: { keptMoving: 'המשכת לזוז', vanished: 'נעלמת', quit: 'הפסקת', got: 'קיבלת', learned: 'למדת', dance: 'תרקדי', freeze: 'תקפאי', ready: 'מוכנה', show: 'תראי', keepDancing: 'תמשיכי לרקוד', champion: 'אלופה', master: 'מלכת', can: 'תצליחי', froze: 'קפאת', moved: 'זזת', hold: 'תחזיקי', stay: 'תישארי', stop: 'תעצרי', become: 'תהפכי ל', stepBack: 'תתרחקי קצת', come: 'תבואי', held: 'החזקת', kept: 'המשכת לרקוד', comeBack: 'תחזרי', started: 'התחלת', try: 'תנסי', you: 'את', ready2: 'מוכנה' },
+  /* NOVA-GO5 (2026-11-24): g:'n' = the PLURAL, for a player whose gender is not known (flag heneutral in beta/freeze4.html,
+     the same form as the shoulder lines: "תראו", "תרימו"). Hear rig he1: the boy Shuki was told "תרקדי… תקפאי". */
+  n: { keptMoving: 'המשכתם לזוז', vanished: 'נעלמתם', quit: 'הפסקתם', got: 'קיבלתם', learned: 'למדתם', dance: 'תרקדו', freeze: 'תקפאו', ready: 'מוכנים', show: 'תראו', keepDancing: 'תמשיכו לרקוד', champion: 'אלופים', master: 'אלופי', can: 'תצליחו', froze: 'קפאתם', moved: 'זזתם', hold: 'תחזיקו', stay: 'תישארו', stop: 'תעצרו', become: 'תהפכו ל', stepBack: 'תתרחקו קצת', come: 'תבואו', held: 'החזקתם', kept: 'המשכתם לרקוד', comeBack: 'תחזרו', started: 'התחלתם', try: 'תנסו', you: 'אתם', ready2: 'מוכנים' },
+  m: { keptMoving: 'המשכת לזוז', vanished: 'נעלמת', quit: 'הפסקת', got: 'קיבלת', learned: 'למדת', dance: 'תרקוד', freeze: 'תקפא', ready: 'מוכן', show: 'תראה', keepDancing: 'תמשיך לרקוד', champion: 'אלוף', master: 'מלך', can: 'תצליח', froze: 'קפאת', moved: 'זזת', hold: 'תחזיק', stay: 'תישאר', stop: 'תעצור', become: 'תהפוך ל', stepBack: 'תתרחק קצת', come: 'תבוא', held: 'החזקת', kept: 'המשכת לרקוד', comeBack: 'תחזור', started: 'התחלת', try: 'תנסה', you: 'אתה', ready2: 'מוכן' },
 };
 
 export function createLocalBrain({ lang = 'en', g = 'f', rng = Math.random } = {}){
   const T = L[lang] || L.en, A = ANIMAL[lang] || ANIMAL.en, G = HE_G[g] || HE_G.f;
-  const M = { results: [], streak: 0, lastSaid: {}, animal: null };
+  const M = { results: [], streak: 0, lastSaid: {}, animal: null, heads: new Set() };
   const fill = (s, vars = {}) => s.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? G[k] ?? '');
-  const say = (key, vars, delayMs = 0) => {   // never the same sentence twice in a row for one key
-    let arr = T[key]; if (!arr) return null;
-    let text = fill(pick(rng, arr), vars); if (arr.length > 1 && text === M.lastSaid[key]) text = fill(pick(rng, arr.filter(x => fill(x, vars) !== text)) || arr[0], vars);
-    M.lastSaid[key] = text; return { key, text, delayMs };
+  /* NOVA-GO5 (2026-11-24): never the same OPENING twice in a session. In the game the page keeps only a line's first
+     sentence (beta/freeze4.html gameLine, <= 6 words), and the brain drops a line she already said (pod/rt_lk.py DE-CAN).
+     Refael's play 2026-11-23 (docs/HANDOFF-nova-2026-11-23.md §5.1): "Not even a wobble!" was asked 4 times, said once,
+     then she was silent for 3 rounds. So a line whose opening was already said this session is picked last. */
+  const head = t => (String(t).split(/(?<=[.!?…])\s|\s[—–-]\s/)[0] || '').trim().toLowerCase();
+  const say = (key, vars, delayMs = 0) => {
+    const arr = T[key]; if (!arr) return null;
+    const all = arr.map(x => fill(x, vars));
+    let pool = all.filter(t => !M.heads.has(head(t)) && t !== M.lastSaid[key]);
+    if (!pool.length) pool = all.filter(t => t !== M.lastSaid[key]);
+    if (!pool.length) pool = all;
+    const text = pick(rng, pool);
+    M.lastSaid[key] = text; M.heads.add(head(text)); return { key, text, delayMs };
   };
 
   /* react(type, d) — the same events freeze-game.js emits (and the page's 'intro' before START) */

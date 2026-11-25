@@ -73,6 +73,153 @@ FACE_SOULX = os.environ.get("NOVA_FACE_SOULX", "0") == "1"
 # time). The page's speak-gate already says which phase it is: gate OFF (intro/ending) = she talks WIDE with Ditto lips on her
 # body; gate ON (game: air / hold) = the small SoulX face (PiP). This file only forwards that to GET /face_mode. Default OFF.
 FACE_DUAL = os.environ.get("NOVA_FACE_DUAL", "0") == "1"
+# 2026-11-22 (Refael: "the text of what I say should appear live"): NOVA_KID_EVENTS=1 = also tell the page when a heard
+# utterance was NOT accepted as a kid turn ({"type":"you_drop"}), so the page's live "You: ..." line can close instead of
+# hanging, and an intro that is waiting for his words can move on. Nothing else changes: the page already gets
+# status.hearing, you_delta and you_text. Default off.
+KID_EVENTS = os.environ.get("NOVA_KID_EVENTS", "0") == "1"
+# 2026-11-22 (Refael's play: "Hi Nova, can you hear me?" was heard and got NO answer). Measured on pod iea3fzbf3r3vd8 with
+# his line replayed to this brain: the page's first speak_gate OFF (the INTRO) filed the note "[phase] The game section
+# just ended ... speak only the lines you are given", and with that note her answer to a spoken kid turn came back EMPTY
+# 4 times out of 4 (the one-shot fired, the model said nothing). With the intro note below instead: a short spoken answer
+# 4 out of 4 ("Yes, I hear you loud and clear!"), no name question. NOVA_INTRO_ANSWER=1 = the FIRST gate-off of a session
+# (no game section has run yet) files the intro note; every later gate-off (the real section end) is unchanged. Default off.
+INTRO_ANSWER = os.environ.get("NOVA_INTRO_ANSWER", "0") == "1"
+INTRO_NOTE = ("[phase] The game has NOT started yet - you are saying hello. Speak only the lines you are given, with ONE "
+              "exception: if the child talks to you or asks you something now, answer them warmly in ONE short sentence "
+              "(10 words at most), then stop. Never ask their name, never ask a question, never start the game - the game "
+              "engine starts it.")
+# ── NOVA-GO4 (2026-11-23, docs/NOVA-FIX-2026-11-23b.md) · NOVA_HEAR=1, default off ─────────────────────────────────────
+# Refael after his live play of the hybrid Ditto build: "she talks well, her lips are good, but she did NOT hear me: no
+# response to anything I said". The commercial page's hearing (READY.md Part 1 "intro = a real conversation: she listens and
+# ANSWERS ANYTHING", PROMPT "the kid's words always come first", INPUT-LOCK one-shot per validated turn) is all still in
+# this file, but the page-owned mode (?intro=freeze4 / page:<game>) switched most of it off. Replayed on the real brain
+# with a spoken child (test/hear_rig, no pod), nova-go3:
+#   · a child's "Hi Nova, can you hear me?" in the intro was answered with her GREETING again + "What's your name?"
+#     (the bare one-shot fell back on the commercial intro script in PROMPT);
+#   · in the GAME every child turn is "stored, no reply" (speak-gate) although her game voice now has its own face (PiP);
+#   · at the ENDING the note says "speak only the lines you are given", and her recap lines could be left in the queue
+#     for good ("queued (not a boundary)") when the last game line was still in flight;
+#   · one-word turns "Hello", "Nova", "Thanks", "Bye" are dropped by INPUT-LOCK (not in the single-word list).
+# With the flag, in page-owned mode only:
+#   a. a validated child turn is answered with an explicit one-sentence instruction (never the greeting, never a name
+#      question) in the intro AND the ending;
+#   b. in the game's AIR gaps a child turn that is addressed to her (her name, or a question) buys ONE tiny line through
+#      the same air credit as a page line (≤ 5 words, MIDGAME-BAN still applies); a HOLD stays a hard mute - a reply that
+#      a hold cut off is said once in the next air gap (within HEAR_OWED_S);
+#   c. the ending note carries the same "answer the child" exception as the intro note;
+#   d. every line the page stages while the gate is off (intro / ending) has a boundary, so the recap cannot be stranded;
+#   e. "hello / nova / thanks / bye" (+ Hebrew) count as one-word turns;
+#   f. {"type":"page_log"} from the page is printed as [PAGE] (what the browser saw: permission, microphone level, UA),
+#      so a live session can be read back from rtlk.log.
+# INPUT-LOCK is unchanged: nothing is generated without a validated turn, a page line or a tap. The mic pipe is untouched.
+HEAR = os.environ.get("NOVA_HEAR", "0") == "1"
+HEAR_GAME = (os.environ.get("NOVA_HEAR_GAME", "addressed") or "addressed").strip().lower()   # addressed | all | off  [CLI-FILL] addressed
+HEAR_PIP_LAT_S = float(os.environ.get("NOVA_HEAR_PIP_LAT_S", "2.0"))   # measured on pod k52iq5z760fvfj: a game line asked 56.42 / 67.22 s, heard 59.33 / 70.23 s, of which ~1 s is the brain
+HEAR_OWED_S = float(os.environ.get("NOVA_HEAR_OWED_S", "12"))    # [CLI-FILL] a reply cut by a hold is still worth saying this long
+HEAR_ADDR_RE = __import__("re").compile(r"(\bnova\b|נובה|[?？]\s*$)", __import__("re").I)
+END_NOTE_HEAR = ("[phase] The game section just ended. The ending has the floor now - speak only the lines you are given, "
+                 "with ONE exception: if the child talks to you or asks you something, answer THEM warmly in ONE short "
+                 "sentence (10 words at most), then stop. You cannot start another round yourself - the child starts it "
+                 "with the gold button on the screen.")
+def hear_reply_instr(where, hebrew):
+    """the one-shot answer to a validated child turn in page-owned mode (never bare: bare re-ran the greeting)"""
+    base = ("The child just said something to you. Answer exactly what THEY said, warmly, in ONE short sentence - "
+            + ("5 words at most, no question. " if where == "game" else "10 words at most. ")
+            + "If they ask whether you can hear them: yes, you hear them. Do NOT introduce yourself again, do NOT ask "
+              "their name, do NOT ask a question, do NOT explain or start the game, do NOT mention a light or a shoulder, "
+              "and never say you saw them do a move. Use your OWN words - never just repeat their sentence back.")
+    return base + (REPLY_STYLE if V2V_INTRO else "") + (" Speak HEBREW only, with no English word, in a form that fits a boy or a girl." if hebrew else " English only.")
+# ── NOVA-GO5 (2026-11-24) · NOVA_V2V_INTRO=1, default off · Freeze v4 gets the APPROVED live intro back ───────────────
+# Refael after his play of nova-go4: "she was monologuing ... the game starts with her intro: she asks a name, and the
+# live shoulder light cue. It is in the repo." It is: origin/main INTRO-V2V (75396a4, founder spec 2026-09-14, promoted
+# d29b13f v1.0.4) + law-shoulder (LAWS.md): she greets and asks the name, STOPS, the child answers, she echoes the exact
+# name and chats (PROMPT steps 1-2, live voice-to-voice, in the conversation), and only then the PAGE arms the shoulder
+# light. nova-go4 had kept the light but replaced the conversation: the page staged "Hi! I'm Nova ... Look - a magic
+# light ..." as ONE exact 9-second line, and FREEZE_RULES + INTRO_NOTE told her "never ask their name / speak only the
+# lines you are given". With the flag, for ?intro=freeze4 only:
+#   a. the INTRO runs on PROMPT (the approved intro script) + V2V_F4_RULES, not on FREEZE_RULES; the first time the page
+#      opens the game (speak-gate on) the session moves to FREEZE_RULES - one session.update at a phase boundary;
+#   b. the page asks for the greeting with {"type":"v2v-greet"} (it owns WHEN she appears) and the brain says the approved
+#      greet + name question INSIDE the conversation, so she knows she asked;
+#   c. a child's turn in the intro gets her own bare answer under PROMPT (name echo, real chat) - not the go4 template;
+#   d. while the name is awaited, the ONE verbatim 13 s re-invite is allowed again (page-owned mode had switched it off);
+#   e. the exact lines the page still stages in the intro (the approved light lines, the game explanation) are said out of
+#      band as before, and are then written into her memory, so she knows what she has just said.
+# The page half is beta/freeze4.html flag `v2vintro` + beta/lib/name-catch.js. INPUT-LOCK, truth gates, holds: unchanged.
+V2V_INTRO = os.environ.get("NOVA_V2V_INTRO", "0") == "1"
+# NOVA-GO5 (2026-11-24) · NOVA_FAST_KID=1, default off: her answer to a child starts sooner. Today a line's audio waits
+# for its first sentence end (or, within 6 s of a kid turn, its first comma) before it goes to the face. Within 6 s of a
+# REAL kid turn the truth gates do not fire anyway (FIRST-CLAUSE RELEASE, en-13 below), and the refusal check fires on
+# the first two words - so from her 3rd word on, the audio streams. Intro/ending only (the game keeps its own path).
+# [CLI-FILL] 3 words: the refusal shapes are <= 2 words. Not measured yet: the gain must be read on a pod (handoff §5.2).
+FAST_KID = os.environ.get("NOVA_FAST_KID", "0") == "1"
+# NOVA-GO5 (2026-11-24) · NOVA_UTT_MAP=1, default off: each realtime transcript is matched to ITS OWN utterance by item_id.
+# Found on the hear rig (run go5b): the child said "Hi ... I'm Shuki" with a pause. The turn number moves on at
+# speech_started, and the realtime transcript of "Hi" arrived after "I'm Shuki" had started, so "Hi" was filed under the
+# SECOND turn's number - and the REST transcript "I'm Shuki." was then dropped as already handled. The name was lost and
+# she answered "Hi" twice. The same off-by-one pairs two different sentences in the logs (handoff §5.3 "transcripts
+# disagree") - some of those were never noise. speech_started carries the item_id of the utterance it opens.
+UTT_MAP = os.environ.get("NOVA_UTT_MAP", "0") == "1"
+# NOVA-GO5 (2026-11-24) · NOVA_RT_EFFORT=minimal|low|medium|high, default unset (= the model's own default, low).
+# gpt-realtime-2 reasons, and a reply can come in several output items, each with a phase; "commentary" = a spoken
+# PREAMBLE before longer reasoning (OpenAI realtime-2 docs). Hear rig react1: to "Hi" she said "Cool, let me lean into your
+# vibe for a fun quick response." then "Nice to meet you!" (2 items). OpenAI's prompting guide: use the lowest reasoning
+# effort that still works, and no preamble when the answer is direct. Every item's phase is logged as [PHASE].
+RT_EFFORT = os.environ.get("NOVA_RT_EFFORT", "").strip()
+# NOVA-GO5 (2026-11-24) · NOVA_TX_CONF=1, default off: both transcribers return their confidence (token log-probabilities)
+# and the brain logs it per turn as [CONF]. Step 1 of the phantom-answer fix (handoff §5.3): measure noise vs real words.
+TX_CONF = os.environ.get("NOVA_TX_CONF", "0") == "1"
+# The cut, measured on the hear rig 2026-11-24 (docs/NOVA-GO5-2026-11-24.md part 5): real words mean -0.00 .. -0.82
+# (worst = a half-word "Ha"), noise (hum, garble, music, breath, her voice at echo 0.5) -2.42 .. -4.57. Halfway = -1.6.
+# A transcript under it is noise: dropped like garble, never answered. [CLI-FILL] the midpoint; Hebrew checked separately.
+TX_CONF_MIN = float(os.environ.get("NOVA_TX_CONF_MIN", "-1.6"))
+def tx_conf(lps):
+    """mean and min token log-probability of a transcript, or None"""
+    try:
+        v = [float(x.get("logprob")) for x in (lps or []) if x.get("logprob") is not None]
+        return (sum(v) / len(v), min(v)) if v else None
+    except Exception:
+        return None
+# NOVA-GO5: her answers to the child stop sounding like an assistant (handoff §6.3: banned strings WITH replacements,
+# examples at the target length). The four banned lines are the ones she said in Refael's play 2026-11-23.
+REPLY_STYLE = (
+    " NEVER say: 'I'm here and listening', 'you're doing just fine', 'loud and clear', 'no worries', 'that's okay', "
+    "'that's perfectly okay', 'how can I help' - that is a helper talking, not Nova. Never say what you are about to "
+    "do ('let me think', 'here is a quick answer', 'let me respond') - just say it. No pet names ('superstar', 'buddy', "
+    "'champ'): once you know their name, use the name. Never tell them how to dance, freeze or get ready - the game "
+    "explains that itself. Instead pick up THEIR words and "
+    "answer like a playful big sister. Examples, at exactly this length:\n"
+    "child: Can you hear me? -> Nova: Every word! Hi there!\n"
+    "child: What's up? -> Nova: Just dancing - and watching you!\n"
+    "child: I'm tired. -> Nova: Tired legs? Shake them out!\n"
+    "child: This is fun! -> Nova: Fun for me too!\n"
+    "child: Bye! -> Nova: Bye! Come dance again soon!")
+V2V_F4_RULES = (
+    "\n\nFREEZE V4 - how the intro script above runs on THIS page:\n"
+    "Steps 1, 2 and 3 are yours exactly as written: greet + name, then the exact name back and a short real chat, and "
+    "the magic light ONLY when you are told it is glowing.\n"
+    "Steps 4, 5 and 6 are NOT yours here. The child already chose Freeze - it is the only game. Never offer a game, "
+    "never ask them to show a freeze, never start the game, never count down, never say GO: the game engine explains "
+    "Freeze and starts it. Now and then you are handed one exact line to say (the light line, the game explanation) - "
+    "those are yours too; treat them as things you said.\n"
+    "Every line 12 words at most. ONE line per turn, then stop and wait. Use the child's own words and their name. "
+    "Never say you saw them move unless a director note reports it." + REPLY_STYLE)
+V2V_GREET = {   # the approved generic greets, word for word (this file, GREET FIRST, 2026-09-15)
+    "en": ("Greet the kid in ONE short excited line and say exactly these words "
+           "and NOTHING more: "
+           "Hi! I'm Nova, your magical AI dance teacher! What's your name? "
+           "Then STOP. Say nothing at all until the child answers — no second "
+           "line, no encouragement, no explaining, no light, no game. Their "
+           "answer is the only thing that lets you speak again."),
+    "he": ("Speak HEBREW ONLY, and keep speaking Hebrew for the whole "
+           "conversation — never switch to English. Greet the kid in ONE "
+           "short excited line and say exactly these words and NOTHING more: "
+           "היי! אני נובה, מורת הריקוד הקסומה שלך! איך קוראים לך? "
+           "Then STOP. Say nothing at all until the child answers — no second "
+           "line, no encouragement, no explaining, no light, no game. Their "
+           "answer is the only thing that lets you speak again."),
+}
 VOICE = os.environ.get("NOVA_VOICE", "marin")   # 2026-08-08 founder decision: marin IS Nova's voice (shimmer too adult, coral weird). ?voice= still overrides per-session for A/B
 RT_URL = f"wss://api.openai.com/v1/realtime?model={MODEL}"
 
@@ -271,10 +418,10 @@ PAGE_RULES = (
     "Voice style: bright, warm, quick - never slow, never calm-narrator.")
 
 
-def session_update(freeze=False, voice=None, lang="en", gender="", page=False):
+def session_update(freeze=False, voice=None, lang="en", gender="", page=False, v2v=False):
     return {"type": "session.update", "session": {
         "type": "realtime", "output_modalities": ["audio"],
-        "instructions": PROMPT + (PAGE_RULES if page else FREEZE_RULES if freeze else "")
+        "instructions": PROMPT + (V2V_F4_RULES if v2v else PAGE_RULES if page else FREEZE_RULES if freeze else "")
                         + ((HEBREW_RULES + gender_line(gender)) if lang == "he" else ""),
         "audio": {
             "input": {"format": {"type": "audio/pcm", "rate": 24000},
@@ -294,7 +441,9 @@ def session_update(freeze=False, voice=None, lang="en", gender="", page=False):
                                          "create_response": False, "interrupt_response": False},
                       "transcription": {"model": "gpt-4o-transcribe", "language": lang}},
             "output": {"format": {"type": "audio/pcm", "rate": 24000}, "voice": (voice or VOICE)}},
-        "max_output_tokens": "inf"}}
+        "max_output_tokens": "inf",
+        **({"reasoning": {"effort": RT_EFFORT}} if RT_EFFORT else {}),
+        **({"include": ["item.input_audio_transcription.logprobs"]} if TX_CONF else {})}}
 
 def pcm24_to_wav16(pcm_bytes):
     src = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
@@ -471,6 +620,7 @@ async def relay(request):
         # simply runs out of tokens.
         if cap and payload: payload["max_output_tokens"] = cap
         if origin: resp["origin"] = origin
+        speaking["sent"] = time.time()                    # NOVA_HEAR (d): when the last response was asked for
         # ONE send per boundary — with one exception, and it is an old lesson, not a new
         # loophole: the ENDING is a section the page stages as a group (score line + fun
         # question). en-4 showed the tail of that trio silently vanishing. So a phase-end
@@ -681,9 +831,12 @@ async def relay(request):
             # the game without waiting for a name. So no name-asking greet (its ASK-LOCK then held the ending recap and she
             # said a re-invite instead — pod run 2026-11-11) and no silence invites. She speaks only the lines she is staged.
             _page_owns = (_intro == "freeze4" or _intro.startswith("page"))
+            _v2v = V2V_INTRO and _intro == "freeze4"          # NOVA-GO5: the approved live intro on Freeze v4
+            v2v = {"greeted": False, "await_name": False}
+            if _v2v: print("[V2V-INTRO] on: the intro runs on PROMPT (greet + name, live chat); the page arms the light", flush=True)
             await oai.send_json(session_update(freeze=_freeze_mode, voice=_voice,
                                                lang=("he" if _hebrew else "en"), gender=_gender,
-                                               page=_intro.startswith("page")))
+                                               page=_intro.startswith("page"), v2v=_v2v))
             await log("connected to " + MODEL + " (voice " + VOICE + ")")
             # TRANSCRIPTION WARM-UP (he-17): the session's FIRST Hebrew transcription
             # keeps costing 12-14s — a cold path on the provider side that hits the name
@@ -793,8 +946,8 @@ async def relay(request):
                     # statue regex on her OWN words -> whisper + invented praise pre-yes).
                     if _freeze_mode and sgate["on"]:
                         continue     # game phase: the page owns every beat, brain never self-fires
-                    if _page_owns:
-                        continue     # FREEZE4: the page owns intro and ending too
+                    if _page_owns and not (_v2v and v2v["await_name"] and not sgate["on"]):
+                        continue     # FREEZE4: the page owns intro and ending too (NOVA-GO5 d: except the name wait)
                     if speaking["v"] or speaking["resp_active"]:
                         continue
                     # WAIT LAW (INTRO-V2V): she asked the child something. Nothing fires into
@@ -928,10 +1081,25 @@ async def relay(request):
                     # PRODUCER-SILENT: a staged exact line is still speech — it goes out through
                     # speak_now, so it waits for a boundary like everything else.
                     print("PITCH say (flushed):", line[:60], flush=True)
+                    if HEAR and _page_owns and not boundary["on"]:
+                        if time.time() - speaking.get("sent", 0.0) <= 1.0:            # a response was asked for a moment ago:
+                            saylater.insert(0, line); continue                        # wait for it, never two at once
+                        boundary["on"] = True; boundary["why"] = "page-line"          # NOVA_HEAR (d): never stranded
                     await speak_now(verbatim=line, origin="say")
             sayflush_task = asyncio.create_task(say_flush())
 
-            async def kid_transcript(ktxt, src, n, item_id=None):
+            hear = {"owed": 0.0, "sent": 0.0, "text": ""}       # NOVA_HEAR: when the child's unanswered game turn was heard
+            async def hear_game_reply(why):
+                if not (sgate["on"] and sgate["mode"] == "air"): return
+                if time.time() - hear["owed"] > HEAR_OWED_S: hear["owed"] = 0.0; return
+                sgate["credit"] = 1; hear["sent"] = hear["owed"]; hear["owed"] = 0.0
+                await boundary_open("air-credit", pump=False)
+                print("[HEAR] game: answering the child (" + why + ") |", hear["text"][:50], flush=True)
+                # no token cap: with max_output_tokens 60 the reply came back EMPTY ("incomplete: max_output_tokens", rig run go4b);
+                # the 5-word limit is in the instruction and MIDGAME-BAN still cancels a 7th word / a question
+                await speak_now(instructions=hear_reply_instr("game", _hebrew), origin="kid")
+
+            async def kid_transcript(ktxt, src, n, item_id=None, conf=None):
                 # TRANSCRIPT-RACE: first transcript per utterance wins; the loser is a no-op.
                 if n in utt["handled"]:
                     return
@@ -955,7 +1123,10 @@ async def relay(request):
                       "יאללה", "קפוא", "ביי", "קן")
                       # he-2: Whisper heard the Hebrew כן as English "can" — in HE mode
                       # the sound-alikes of כן are the kid saying yes
-                      or (_hebrew and _words[0].lower() in ("can", "ken", "cane", "kein"))):
+                      or (_hebrew and _words[0].lower() in ("can", "ken", "cane", "kein"))
+                      # NOVA_HEAR (e): the words a person says to find out whether she is listening
+                      or (HEAR and _page_owns and _words[0].lower() in (
+                          "hello", "nova", "thanks", "bye", "שלום", "נובה", "תודה", "להתראות"))):
                     _drop = None                     # real single-word answers are turns
                 elif (inlock["valid_turns"] == 0 and len(_words) == 1
                       and (ktxt[:1].isupper() or _hebrew) and len(_words[0]) >= 2 and _words[0].lower() not in
@@ -975,6 +1146,8 @@ async def relay(request):
                 # In Hebrew mode a transcript with ZERO Hebrew letters is mis-heard noise,
                 # not speech (STICKY-HEBREW's own reasoning) — drop it. Single-word
                 # sound-alike yes-words (can/ken/ok...) stay valid: that's a real kid's כן.
+                if TX_CONF and _drop is None and conf is not None and conf[0] < TX_CONF_MIN:
+                    _drop = "low-confidence %.2f" % conf[0]          # NOVA-GO5: noise heard as words (handoff §5.3)
                 if _hebrew and _drop is None:
                     if not _re.search(r"[א-ת]", ktxt) and not (len(_words) == 1 and _words[0].lower() in (
                             "yes", "yeah", "yep", "no", "ok", "okay", "ready", "sure", "hi", "hey",
@@ -1003,6 +1176,9 @@ async def relay(request):
                         except Exception: pass
                     try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"[INPUT-LOCK] dropped ("+_drop+"): "+ktxt[:60]+"\n")
                     except Exception: pass
+                    if KID_EVENTS:
+                        try: await ws_client.send_json({"type": "you_drop", "why": _drop, "text": ktxt[:80]})
+                        except Exception: pass
                 else:
                     # real kid input: NOW reset the turn counter, record input, log.
                     inlock["valid_turns"] += 1
@@ -1023,8 +1199,22 @@ async def relay(request):
                     # ONE-SHOT GENERATION: this validated turn buys exactly one response.
                     # SPEAK-GATE: mid-game the kid's words are context only - no reply
                     # (and no stealing the gap's air credit).
-                    if sgate["on"]:
+                    if sgate["on"] and HEAR and _page_owns and HEAR_GAME != "off" and (
+                            HEAR_GAME == "all" or HEAR_ADDR_RE.search(ktxt.strip())):
+                        # NOVA_HEAR (b): the child spoke TO her in the game. One tiny line in the air (the PiP face says
+                        # it); in a hold nothing is said now - it is owed to the next air gap.
+                        hear["owed"] = time.time(); hear["text"] = ktxt
+                        if sgate["mode"] == "air":
+                            await hear_game_reply("kid-turn")
+                        else:
+                            print("[HEAR] game: the child spoke in a hold - her answer waits for the next gap |", ktxt[:50], flush=True)
+                    elif sgate["on"]:
                         print("[SPEAK-GATE] kid turn stored, no reply (game phase)", flush=True)
+                    elif HEAR and _page_owns and not (_v2v and not sgate.get("ever")):
+                        # NOVA_HEAR (a): her answer to THIS child, said with an instruction (bare = the greeting again)
+                        await boundary_open("kid-turn", pump=False)
+                        print("[INPUT-LOCK] one-shot fired for turn", inlock["valid_turns"], "(hear)", flush=True)
+                        await speak_now(instructions=hear_reply_instr("talk", _hebrew), origin="kid")
                     else:
                         # PRODUCER-SILENT: the kid's finished turn IS the boundary — this is the
                         # natural moment speech belongs to, and everything the producer remembered
@@ -1077,6 +1267,7 @@ async def relay(request):
                         # sentence. (The model upgrade mini -> full stays; only the hint is gone.)
                         f.add_field("model", "gpt-4o-transcribe")
                         f.add_field("language", "he" if _hebrew else "en")
+                        if TX_CONF: f.add_field("include[]", "logprobs"); f.add_field("response_format", "json")
                         return f
                     async with aiohttp.ClientSession() as _s:
                         for _attempt in (1, 2):   # he-12: one retry on 429 — the bye died when
@@ -1087,7 +1278,11 @@ async def relay(request):
                                 if r.status == 200:
                                     j = await r.json()
                                     print("[RACE] rest got utt", n, ":", (j.get("text") or "")[:40], flush=True)
-                                    await kid_transcript((j.get("text") or "").strip(), "rest", n)
+                                    if TX_CONF:
+                                        _c = tx_conf(j.get("logprobs"))
+                                        print("[CONF] rest utt", n, ("mean %.2f min %.2f" % _c) if _c else "none", "| peak", _peak, "|", (j.get("text") or "")[:40], flush=True)
+                                    await kid_transcript((j.get("text") or "").strip(), "rest", n,
+                                                         conf=tx_conf(j.get("logprobs")) if TX_CONF else None)
                                     break
                                 print("[RACE] rest http", r.status, "attempt", _attempt, flush=True)
                                 if r.status != 429: break
@@ -1190,8 +1385,28 @@ async def relay(request):
                             time.strftime("%H:%M:%S ")+"KID:  "+m["text"]+"   [typed]\n")
                         except Exception: pass
                         print("[TYPED] kid text:", m["text"][:60], flush=True)
+                    elif t == "v2v-greet":
+                        # NOVA-GO5 (b): the page reveals her and asks for the approved greeting; said IN the conversation
+                        if _v2v and not v2v["greeted"]:
+                            v2v["greeted"] = True; v2v["await_name"] = True
+                            turn["kid_ts"] = time.time(); turn["retried"] = False
+                            print("[V2V-INTRO] greet + name question", flush=True)
+                            await boundary_open("connect")
+                            await speak_now(instructions=V2V_GREET["he" if _hebrew else "en"], origin="greet")
+                        try: await ws_client.send_json({"type": "ack", "of": "v2v-greet", "on": bool(_v2v)})
+                        except Exception: pass
+                    elif t == "v2v-armed":
+                        # the page has its name (or its safety ran out) and takes the light beat: no re-invite from here
+                        v2v["await_name"] = False
+                        print("[V2V-INTRO] name wait over:", str(m.get("why", ""))[:40], flush=True)
+                    elif t == "page_log":
+                        if HEAR: print("[PAGE]", str(m.get("t", ""))[:8], str(m.get("kind", ""))[:24], str(m.get("detail", ""))[:300], flush=True)
                     elif t == "nova-say":
                         line = (m.get("text") or "").strip()
+                        if (HEAR and _page_owns and not sgate["on"] and not boundary["on"]
+                                and time.time() - speaking.get("sent", 0.0) > 1.0):     # never next to a response just asked for
+                            boundary["on"] = True; boundary["why"] = "page-line"      # NOVA_HEAR (d)
+                            print("[BOUNDARY] page-line (page-owned intro/ending)", flush=True)
                         if ask_lock["on"] and line and not sgate["on"]:
                             saylater.append(line)                # WAIT LAW: stage it, say_flush airs it after his turn
                             print("[ASK-LOCK] queued nova-say:", line[:50], flush=True)
@@ -1371,10 +1586,41 @@ async def relay(request):
                     elif t == "speak_gate":
                         # SPEAK-GATE (2026-08-26): the game phase's structural mute. on=True from
                         # music-start, off at the final verdict. Mic stays open the whole time.
+                        _was = (sgate["on"], sgate["mode"])
                         sgate["on"] = bool(m.get("on"))
+                        if _v2v and sgate["on"] and not sgate.get("ever"):
+                            # NOVA-GO5 (a): the intro is over - from the first game section on she is the freeze-game voice
+                            v2v["await_name"] = False
+                            try:
+                                await oai.send_json({"type": "session.update", "session": {
+                                    "type": "realtime",
+                                    "instructions": PROMPT + FREEZE_RULES
+                                                    + ((HEBREW_RULES + gender_line(_gender)) if _hebrew else "")}})
+                                print("[V2V-INTRO] intro over - session moved to FREEZE_RULES", flush=True)
+                            except Exception as _e:
+                                print("[V2V-INTRO] session switch failed:", _e, flush=True)
+                        if sgate["on"]: sgate["ever"] = True          # a game section has really run
+                        # NOVA_HEAR (h): a game line that missed its gap is never said later. Rig run go4final2: "Show me
+                        # your moves!" and "You are a freeze champion." waited in the queue through the game and came out
+                        # in the ENDING, after her recap. When a gap closes (air -> hold, game -> ending) what the page
+                        # staged for that gap and was not said yet is dropped.
+                        if HEAR and _page_owns and _was[0] and _was[1] == "air" and not (sgate["on"] and (m.get("mode") or "hard") == "air"):
+                            _stale = [q[1] for q in speak_q if q[2] in ("say", "truth-gate")] + list(saylater)
+                            if _stale:
+                                speak_q[:] = [q for q in speak_q if q[2] not in ("say", "truth-gate")]; saylater.clear()
+                                print("[HEAR] gap closed - dropped unsaid game line(s):", " | ".join(str(x)[:40] for x in _stale), flush=True)
                         sgate["mode"] = (m.get("mode") or "hard") if sgate["on"] else "hard"
                         sgate["credit"] = 0
+                        # NOVA_HEAR: her answer was already on its way to the face (the PiP speaks ~HEAR_PIP_LAT_S after the
+                        # brain releases a line) and the hold - a hard mute on the page - swallows more than half of it: owed.
+                        if (HEAR and sgate["on"] and sgate["mode"] == "hard" and hear.get("released")
+                                and time.time() < hear["released"] + HEAR_PIP_LAT_S + 0.5 * hear.get("dur", 0.0)):
+                            hear["owed"] = hear["sent"]; hear["released"] = 0.0
+                            print("[HEAR] game: the hold muted her answer - owed to the next gap", flush=True)
                         if sgate["on"] and sgate["mode"] == "hard" and (speaking["resp_active"] or speaking["v"]):
+                            if HEAR and resp["origin"] == "kid" and speaking["resp_active"]:
+                                hear["owed"] = hear["sent"]                           # the hold cut her answer: owed
+                                print("[HEAR] game: a hold cut her answer - owed to the next gap", flush=True)
                             await cancel_speech("hard speak-gate (freeze hold opened)")
                         print("[SPEAK-GATE]", ("ON (" + sgate["mode"] + ") - engine audio blocked") if sgate["on"]
                               else "OFF - voice open (intro/ending)", flush=True)
@@ -1382,10 +1628,18 @@ async def relay(request):
                         # END (the game is over, the ending has the floor). That is a boundary —
                         # and the one boundary allowed to drain a whole staged group, so the
                         # ending trio cannot starve behind the one-line rule.
-                        if not sgate["on"]:
-                            await remember("[phase] The game section just ended. The ending has the "
+                        if not sgate["on"] and _v2v and not sgate.get("ever"):
+                            await boundary_open("phase-end")       # NOVA-GO5: the live intro - no "speak only the lines" note
+                        elif not sgate["on"] and INTRO_ANSWER and not sgate.get("ever"):
+                            await remember(INTRO_NOTE)             # the intro: nothing has ended, she may answer the child
+                            await boundary_open("phase-end")
+                        elif not sgate["on"]:
+                            await remember(END_NOTE_HEAR if (HEAR and _page_owns) else
+                                           "[phase] The game section just ended. The ending has the "
                                            "floor now — speak only the lines you are given.")
                             await boundary_open("phase-end")
+                        if HEAR and sgate["on"] and sgate["mode"] == "air" and hear["owed"]:
+                            await hear_game_reply("after the hold")
                         if FACE_DUAL:
                             _fm = "pip" if sgate["on"] else "wide"
                             try:
@@ -1476,6 +1730,8 @@ async def relay(request):
                                 print("OAI: error (undecodable)", flush=True)
                         else:
                             print("OAI:", et, flush=True)
+                            if et == "response.output_item.added" and (e.get("item") or {}).get("phase"):
+                                print("[PHASE]", (e.get("item") or {}).get("phase"), flush=True)   # NOVA-GO5
                     if et in ("response.output_audio.delta", "response.audio.delta"):
                         # #1 PRE-SYNTHESIS GATE: buffer ALL audio here — nothing reaches the
                         # voice engine until this line's transcript clears the gate at done.
@@ -1493,6 +1749,8 @@ async def relay(request):
                                 for i in range(0, len(data), FLUSH):
                                     speaking["last_chunk"] = time.time(); await engine_q.put(data[i:i+FLUSH])
                                 print("[SPEAK-GATE] air voice -> face engine:", len(data), "bytes", flush=True)
+                                if HEAR and resp["origin"] == "kid":           # when her answer will be heard, and for how long
+                                    hear["released"] = time.time(); hear["dur"] = len(data) / 48000.0
                             elif sgate["mode"] == "air" and audio_buf:
                                 data = bytes(audio_buf); audio_buf.clear()
                                 try:
@@ -1521,8 +1779,14 @@ async def relay(request):
                         # the model REFUSE ("I'm sorry, but I can't fulfill that request") and the
                         # refusal AIRED as a spoken intro line. Any assistant-refusal shape dies
                         # the moment it forms, any phase — SAY-ENFORCE then requeues the real line.
-                        if (not resp["killed"]) and _re.match(
-                                r"\s*(i'?m sorry|i can'?t|i cannot|sorry,|מצטערת|אני לא יכולה)", resp["buf"], _re.I):
+                        if (not resp["killed"]) and (_re.match(
+                                r"\s*(i'?m sorry|i can'?t|i cannot|sorry,|מצטערת|אני לא יכולה)", resp["buf"], _re.I)
+                                # NOVA-GO5 (V2V_INTRO): META talk about the line instead of the line. Hear rig he1
+                                # 2026-11-24, a game line: "בסדר, אני אגיד את זה בדיוק כמו שביקשת" ("OK, I'll say it exactly
+                                # as you asked") aired, then the line. Same kill, same SAY-ENFORCE requeue.
+                                or (V2V_INTRO and resp["origin"] == "say" and _re.match(
+                                r"\s*[\"'“]?(sure|ok(ay)?|alright|got it)?[,.!]?\s*(i'?ll|i will|here'?s|here is) (say|repeat|the line|it)"
+                                r"|\s*[\"'“]?(בסדר|אוקיי|טוב)?[,.!]?\s*(אני )?(אגיד|אחזור על)", resp["buf"], _re.I))):
                             # PRODUCER-SILENT: no cancel here any more — a started line finishes.
                             # killed=True is what protects the child: every audio delta is buffered
                             # pre-synthesis, so a killed line never reaches the engine or the page.
@@ -1562,7 +1826,12 @@ async def relay(request):
                         # (founder log: "You nailed that freeze" fully audible despite the block).
                         elif (not resp["killed"]) and (time.time() - facts["last_ts"] > FACT_WINDOW) \
                            and (time.time() - kidinput["ts"] > 6.0) \
+                           and not (HEAR and _page_owns and resp["origin"] == "say") \
                            and PRAISE_RE.search(resp["buf"][:40]) and not INVITE_RE.search(resp["buf"]):
+                            # NOVA_HEAR (g): in page-owned mode an exact staged line IS the judge's verdict (beta/lib/
+                            # brain-local.js says only what the judge saw; the page sends no 'fact' notes in v4). Pods
+                            # k52iq5z760fvfj and the rig: "Perfect bear!" was blocked here every time and replaced by
+                            # "Let's GO!", which then landed on top of her ending recap.
                             # (praise within 6s of a REAL kid turn is a legit reaction —
                             #  the disease was praise into silence; torture-1 killed her
                             #  honest name-echo and glued "Let's GO!" on top)
@@ -1583,7 +1852,10 @@ async def relay(request):
                               # aired at 3.6s — 0.1s over the law. Within 6s of a real kid turn
                               # the truth-gates can't fire anyway (praise-within-6s is legit),
                               # so the first comma is a safe earlier release point.
-                              or (time.time() - kidinput["ts"] <= 6.0 and resp["buf"].rstrip()[-1:] == ",")):
+                              or (time.time() - kidinput["ts"] <= 6.0 and resp["buf"].rstrip()[-1:] == ",")
+                              # NOVA-GO5 FAST_KID: from her 3rd word on, a reply to a real kid turn streams
+                              or (FAST_KID and resp["origin"] == "kid" and time.time() - kidinput["ts"] <= 6.0
+                                  and len(resp["buf"].split()) >= 3)):
                             # SENTENCE-LEVEL PRE-SYNTH RELEASE (low latency): this full sentence just
                             # passed the gate clean -> release ITS buffered audio now (don't wait for the
                             # whole line). A later fabricated sentence is still caught + dropped before synth.
@@ -1599,6 +1871,8 @@ async def relay(request):
                         _org = resp["origin"] or "auto"
                         resp["origin"] = None
                         print("[ORIGIN]", _org, "|", txt[:60], flush=True)
+                        if _v2v and _org == "say" and not sgate["on"] and not sgate.get("ever") and txt.strip():
+                            await remember("[you just said this to the child, out loud] " + txt.strip()[:220])   # NOVA-GO5 (e)
                         # WAIT LAW: she just asked something -> nobody may speak into the gap
                         # until the child answers. (Game phase runs on the director's clock,
                         # where her cue lines are statements, so the lock is intro-only.)
@@ -1667,6 +1941,7 @@ async def relay(request):
                     elif et == "input_audio_buffer.speech_started":
                         turn["kid_ts"] = time.time(); turn["retried"] = False   # TURN-GATE: real voice
                         utt["n"] += 1; utt["start"] = max(0, len(kidbuf) - UTT_PREROLL)   # TRANSCRIPT-RACE
+                        if UTT_MAP and e.get("item_id"): utt.setdefault("item", {})[e["item_id"]] = utt["n"]   # NOVA-GO5
                         # PRODUCER-SILENT: BARGE-IN is the one interruption a child is allowed to
                         # make. NOTE (flagged for the founder, not a bug in this file): today the
                         # ANTI-ECHO GATE discards every mic frame while she speaks, so OpenAI's VAD
@@ -1691,6 +1966,9 @@ async def relay(request):
                             # SPEAK-GATE: uncredited generations die at birth (VAD auto-replies,
                             # late cues, fact praise). Air credit = the page's one line per gap.
                             print("[SPEAK-GATE] cancelled response (game phase)", flush=True)
+                            if HEAR and resp["origin"] == "kid" and hear["sent"]:
+                                hear["owed"] = hear["sent"]                           # her answer met a hold: owed to the next gap
+                                print("[HEAR] game: her answer met a hold - owed to the next gap", flush=True)
                             resp["killed"] = True      # belt: no audio may reach page or engine
                             await cancel_speech("uncredited mid-game generation")
                         elif speaking["resp_active"]:
@@ -1718,6 +1996,11 @@ async def relay(request):
                             await ws_client.send_json({"type": "status", "speaking": True, "state": "thinking"})
                     elif et == "response.done":
                         speaking["resp_active"] = False
+                        if HEAR:                                       # an answer that came back empty / cut is said so in the log
+                            _r = e.get("response") or {}
+                            if _r.get("status") != "completed" or not _r.get("output"):
+                                print("[HEAR] response", _r.get("status"), json.dumps(_r.get("status_details"))[:200],
+                                      "| output items:", len(_r.get("output") or []), flush=True)
                         async def reopen():
                             # reopen only once the engine has had NO new audio for 2.0s
                             while time.time() - speaking["last_chunk"] < GATE_COOLDOWN:
@@ -1733,11 +2016,19 @@ async def relay(request):
                         # counter — a separate rt counter drifted from the rest one, so the fast
                         # rest result and the slow rt result got different dedup keys and the
                         # slow one still ran. completed refers to the most-recently-armed utt.
-                        await kid_transcript((e.get("transcript", "") or "").strip(), "rt", utt["n"],
-                                             item_id=e.get("item_id"))
+                        _n = utt.get("item", {}).get(e.get("item_id"), utt["n"]) if UTT_MAP else utt["n"]   # NOVA-GO5 UTT_MAP
+                        if TX_CONF:
+                            _c = tx_conf(e.get("logprobs"))
+                            print("[CONF] rt utt", _n, ("mean %.2f min %.2f" % _c) if _c else "none", "|", (e.get("transcript") or "")[:40], flush=True)
+                        if UTT_MAP and _n != utt["n"]: print("[RACE] rt transcript belongs to utt", _n, "(now", utt["n"], ")", flush=True)
+                        await kid_transcript((e.get("transcript", "") or "").strip(), "rt", _n,
+                                             item_id=e.get("item_id"), conf=tx_conf(e.get("logprobs")) if TX_CONF else None)
                     elif et == "conversation.item.input_audio_transcription.failed":
                         utt["handled"].add(utt["n"])   # dead utterance is not "pending" — unblocks the retry gate
                         print("[RACE] rt transcription failed for utt", utt["n"], flush=True)
+                        if KID_EVENTS:
+                            try: await ws_client.send_json({"type": "you_drop", "why": "transcription-failed", "text": ""})
+                            except Exception: pass
                     elif et == "error":
                         await log("ERROR: " + str(e.get("error", {}).get("message", ""))[:120])
 
@@ -2221,7 +2512,64 @@ async def cors_mw(request, handler):
     resp.headers["Access-Control-Allow-Headers"] = "*"
     return resp
 
+# ── NOVA-GO4 · NOVA_REC=1 (default off): the player's own recording of the whole game (page flag `rec`) arrives here in
+# 2-second pieces, POST /rec/<session>/<n>, and is appended to <NOVA_REC_DIR>/play/<session>.<webm|mp4>. POST
+# /rec/<session>/end - or 20 s with no new piece - turns it into <NOVA_REC_DIR>/play-<session>.mp4 (h264 + aac, plays
+# everywhere), which the pod's results server shows on :8099. Pieces must come in order (the page sends them one by one).
+REC_ON = os.environ.get("NOVA_REC", "0") == "1"
+REC_DIR = os.environ.get("NOVA_REC_DIR", "/root/out")
+_rec = {}
+def _rec_sid(request):
+    import re as _r
+    sid = request.match_info["sid"]; ext = "mp4" if request.query.get("ext") == "mp4" else "webm"
+    return (sid, ext) if _r.fullmatch(r"[A-Za-z0-9\-]{6,40}", sid) else (None, ext)
+async def _rec_finalize(sid):
+    st = _rec.get(sid)
+    if not st or st.get("done"): return
+    st["done"] = True
+    src, out = st["path"], os.path.join(REC_DIR, "play-" + sid + ".mp4")
+    cmds = []
+    # Chrome's mp4 recording = h264 picture (kept as is) + Opus sound, which phones and editors do not play in an mp4 -> aac
+    if src.endswith(".mp4"): cmds.append(["ffmpeg", "-loglevel", "error", "-y", "-i", src, "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", out])
+    cmds.append(["nice", "-n", "15", "ffmpeg", "-loglevel", "error", "-y", "-i", src, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+                 "-pix_fmt", "yuv420p", "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-r", "30", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", out])
+    for c in cmds:
+        try:
+            p = await asyncio.create_subprocess_exec(*c, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE)
+            _, err = await p.communicate()
+            if p.returncode == 0 and os.path.getsize(out) > 10000:
+                print("[REC] ready:", out, os.path.getsize(out), "bytes from", st["n"], "pieces", flush=True); return
+            print("[REC] ffmpeg failed:", (err or b"")[-200:].decode("utf-8", "replace"), flush=True)
+        except Exception as _e:
+            print("[REC] finalize err", str(_e)[:120], flush=True)
+async def _rec_watch(sid):
+    while sid in _rec and not _rec[sid].get("done"):
+        await asyncio.sleep(5)
+        if time.time() - _rec[sid]["last"] > 20: await _rec_finalize(sid)
+async def rec_piece(request):
+    if not REC_ON: return web.Response(status=404)
+    sid, ext = _rec_sid(request)
+    if not sid: return web.Response(status=400, text="bad session")
+    part = request.match_info["n"]
+    if part == "end":
+        asyncio.create_task(_rec_finalize(sid)); return web.json_response({"ok": True, "file": "play-" + sid + ".mp4"})
+    if not part.isdigit(): return web.Response(status=400)
+    n = int(part); st = _rec.get(sid)
+    if st is None:
+        os.makedirs(os.path.join(REC_DIR, "play"), exist_ok=True)
+        st = _rec[sid] = {"path": os.path.join(REC_DIR, "play", sid + "." + ext), "n": 0, "last": time.time(), "bytes": 0}
+        asyncio.create_task(_rec_watch(sid)); print("[REC] session", sid, ext, flush=True)
+    if st.get("done"): return web.Response(status=409, text="closed")
+    if n != st["n"]: return web.json_response({"ok": n < st["n"], "want": st["n"]}, status=200 if n < st["n"] else 409)
+    with open(st["path"], "ab") as f:
+        async for chunk in request.content.iter_chunked(1 << 16):
+            f.write(chunk); st["bytes"] += len(chunk)
+    st["n"] += 1; st["last"] = time.time()
+    if st["n"] % 15 == 1: print("[REC]", sid, "pieces", st["n"], "bytes", st["bytes"], flush=True)
+    return web.json_response({"ok": True, "n": st["n"]})
+
 app = web.Application(middlewares=[cors_mw])
+app.router.add_post("/rec/{sid}/{n}", rec_piece)
 app.router.add_get("/", index)
 app.router.add_get("/freeze", freeze_page)
 app.router.add_get("/wave", wave_page)

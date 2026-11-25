@@ -1,0 +1,24 @@
+/* beta/freeze4-flags.js — NOVA-AUDIT (2026-11-22) build flags for beta/freeze4.html. ALL OFF here (the repo default).
+   tools/pod/nova_final_pod.sh overwrites the deployed copy on the pod with the flags this build turns on.
+   A flag can also be set for one visit with ?<name>=1 (or forced off with ?<name>=0).
+     shoulder  — her approved intro's SHOULDER LIGHT beat (beta/lib/shoulder-beat.js; origin/main nova-commercial.html INTRO-V2V)
+     pipfresh  — her small face tile stays covered until a real (non-black) picture of her face arrives
+     fpsprobe  — the page logs, once a second, how many NEW pictures of Nova really reached the browser (freeze4Log 'fps')
+     warmgate  — NOVA-GO2: her greeting is asked (so she is revealed) only once her live wide picture flows smoothly
+     matchcut  — NOVA-GO2: no size jump wide <-> game: matched-frame cut + a camera pull-back / push-in
+     ambstill  — NOVA-GO2: while her live body is shown, the blurred room behind her is a still picture (smoother live video)
+     noblink   — NOVA-GO3: no dark frame when her clip changes (last picture held until the next is drawn)
+     heneutral — NOVA-GO2: the Hebrew shoulder lines and greeting in the plural (not boy-only)
+     split     — NOVA-GO4: split screen from the first second (Nova's half behind a curtain of her room until she is ready)
+     hear      — NOVA-GO4: the player is HEARD: one microphone stream, audio unlocked in the Play tap, microphone chip + watch,
+                 tight echo guard, "Ready?" waits for his yes, his words outrank her game line, page log sent to the brain
+                 (pair it with NOVA_HEAR=1 on the pod: she answers in the intro, in the game's gaps and at the ending)
+     rec       — NOVA-GO4: the whole game recorded as one video in the player's browser (tab + sound + his voice), sent to
+                 the pod in pieces (NOVA_REC=1) -> play-<session>.mp4 on :8099; desktop Chrome/Edge only */
+/*   v2vintro  — NOVA-GO5: her APPROVED live intro (needs shoulder; pair it with NOVA_V2V_INTRO=1 on the pod): she greets and
+                 asks the name, waits for the answer, gives the name back and chats in her own words, and only the NAME
+                 arms the shoulder light (two exchanges without a name, or 45 s, also arm it). Without the pod flag the
+                 page says so in its log and falls back to the staged greeting. */
+/*   react    — NOVA-GO5: she leans in while the child talks, and sometimes hums "mm-hm" at once when they finish (intro and
+                 ending only; the hum is the one approved exception to the live-voice law). */
+window.__F4_FLAGS = {};

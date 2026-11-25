@@ -1,0 +1,121 @@
+KID says hi_im_shuki at 19.76 dur 2.32
+KID says do_you_like_pizza at 45.1 dur 1.62
+KID says im_ready at 74.1 dur 1.27
+KID says bye at 127.87 dur 1.47
+   2.19 audio-unlock     {"voice":"running","mic":"running"}
+   2.19 gate             perm
+   2.19 permission       ask
+   2.33 permission       {"cam":true,"mic":true,"err":{}}
+   2.33 gate             cam
+   2.39 own-camera       {"frame":true,"w":360,"h":640,"source":"replay","model":true}
+   3.89 gate             nova
+   3.89 attach           start
+   4.15 mic              start {"chunks":0,"sent":0,"heldBrain":0,"heldEcho":0,"peak":0,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"ru
+   4.27 face-live        frame
+   4.27 wide-face-live   frame
+   4.35 nova-picture     {"wide":true,"frames":2,"hidden":true}
+   4.35 face-active      off
+   4.35 stage            wide
+   4.35 attach           {"face":true,"dual":true,"room":true,"ws":true,"voice":true,"wide":true}
+   4.35 nova-voice       connected
+   4.40 mic              working {"chunks":2,"sent":0,"heldBrain":0,"heldEcho":0,"peak":0,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"
+   8.89 mic              {"chunks":51,"sent":49,"heldBrain":0,"heldEcho":0,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"ru
+  12.38 warm             intro cap 8000 ms 13,21,20,20,19,19,17,15,16,18,21,21,20,19,19,20
+  12.39 voice            engine
+  12.39 stage            wide
+  12.41 v2v              greeting + name question asked (live, in the conversation)
+  12.41 greeting         asked (Nova still hidden) — shoulder intro
+  13.89 mic              {"chunks":104,"sent":87,"heldBrain":15,"heldEcho":0,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"
+  15.25 greeting         first sound after 2853 ms
+  15.26 gate             open
+  15.27 nova-shown       {"wideLive":true,"wideFrames":196,"voice":true,"speaking":true}
+  18.89 mic              {"chunks":158,"sent":93,"heldBrain":22,"heldEcho":41,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":
+  21.07 v2v              greeting said=true — waiting for the name
+  22.52 you-hearing      
+  23.56 you-hearing      
+  23.66 you-first-words  Hi
+  23.89 mic              {"chunks":212,"sent":131,"heldBrain":22,"heldEcho":55,"peak":0.8036,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx
+  23.95 you-text         Hi
+  24.01 v2v-kid          {"text":"Hi","name":null,"turns":1}
+  28.16 you-text         I'm Shakey.
+  28.89 mic              {"chunks":266,"sent":140,"heldBrain":59,"heldEcho":63,"peak":0.0977,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx
+  31.84 v2v-answer       true
+  31.84 v2v-kid          {"text":"I'm Shakey.","name":"Shakey","turns":2}
+  31.84 v2v-answer       true
+  33.89 mic              {"chunks":320,"sent":147,"heldBrain":79,"heldEcho":90,"peak":0.0119,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx
+  36.91 v2v              shoulder ARM (name captured) at 22 s name=Shakey
+  38.12 shoulder         light on (rShoulder)
+  38.13 intro-boundary   Look — a magic light on your shoulder! L
+  38.14 line             Look — a magic light on your shoulder! Lift that shoulder up high, just that one!
+  38.89 mic              {"chunks":374,"sent":172,"heldBrain":87,"heldEcho":109,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx
+  43.89 mic              {"chunks":427,"sent":178,"heldBrain":99,"heldEcho":144,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx
+  46.21 light-line-said  true
+  46.21 shoulder         armed (rShoulder) aspect=1.778
+  47.90 you-hearing      
+  48.89 mic              {"chunks":481,"sent":216,"heldBrain":99,"heldEcho":158,"peak":0.6815,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ct
+  49.62 you-first-words  Do
+  49.86 you-text         Do you like pizza?
+  53.89 mic              {"chunks":534,"sent":227,"heldBrain":141,"heldEcho":158,"peak":0.0829,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","c
+  54.23 shoulder         retry (8 s, no lift seen)
+  54.23 intro-boundary   I haven't seen it yet — try lifting the 
+  54.24 line             I haven't seen it yet — try lifting the shoulder with the light, high!
+  58.89 mic              {"chunks":587,"sent":230,"heldBrain":160,"heldEcho":187,"peak":0.0101,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","c
+  63.89 mic              {"chunks":641,"sent":236,"heldBrain":160,"heldEcho":233,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ct
+  66.22 shoulder         release — no lift seen in 20 s (nothing claimed)
+  66.22 shoulder-said    true
+  66.22 intro-boundary   Dance when the music plays. When it stop
+  66.23 explain          asked
+  66.24 line             Dance when the music plays. When it stops — freeze like the animal I show you! Ready?
+  68.89 mic              {"chunks":694,"sent":264,"heldBrain":183,"heldEcho":233,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ct
+  73.89 mic              {"chunks":748,"sent":267,"heldBrain":183,"heldEcho":286,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ct
+  76.25 intro-said       true
+  76.25 intro-listen     open
+  76.82 you-hearing      
+  78.21 you-first-words  I'm
+  78.45 you-text         I'm ready.
+  78.45 you-yes          a real yes
+  78.46 intro-kid        I'm ready.
+  78.89 mic              {"chunks":802,"sent":299,"heldBrain":188,"heldEcho":301,"peak":0.3742,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","c
+  83.89 mic              {"chunks":855,"sent":302,"heldBrain":211,"heldEcho":328,"peak":0.0455,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","c
+  86.72 intro-answer     true
+  86.72 intro-listen     he said yes - the game starts
+  86.73 intro-listen     closed answered=1
+  88.74 voice            air
+  88.75 face-active      on
+  88.75 wide-face-active off
+  88.75 stage            game
+  88.87 pip-fresh        her face shown after 121 ms
+  88.90 mic              {"chunks":908,"sent":331,"heldBrain":211,"heldEcho":350,"peak":0.0055,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","c
+  89.12 noblink          game clip ready after 286 ms (her wide body stayed on meanwhile)
+  89.13 matchcut         game: matched frame matrix(1.31034,0,0,1.29900,-102.51,-91.61)
+  89.73 matchcut         pull-back
+  90.44 line             Got you!
+  92.61 line-held-back   one per gap: Dance, dance, dance!
+  93.89 mic              {"chunks":962,"sent":358,"heldBrain":223,"heldEcho":363,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ct
+  96.84 voice            mute
+  96.84 stage            game
+  98.89 mic              {"chunks":1015,"sent":411,"heldBrain":223,"heldEcho":363,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","c
+  99.34 voice            air
+  99.34 stage            game
+ 100.65 line             Statue flamingo!
+ 101.07 line-held-back   one per gap: Yes!
+ 103.89 mic              {"chunks":1069,"sent":435,"heldBrain":237,"heldEcho":379,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","c
+ 108.91 mic              {"chunks":1123,"sent":482,"heldBrain":237,"heldEcho":384,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","c
+ 109.18 voice            mute
+ 109.18 stage            game
+ 111.70 voice            air
+ 111.70 stage            game
+ 113.01 line             The bear got away!
+ 113.44 voice            engine
+ 113.44 face-active      off
+ 113.45 wide-face-active on
+ 113.45 stage            wide
+ 114.33 noblink          ending clip ready after 880 ms
+ 114.33 matchcut         push-in
+ 114.85 line             You got stars, and you learned the trick: music stops — statue!
+ 115.33 matchcut         wide: cut after 1001 ms, wide fps 20
+ 118.47 line             One more round? I am ready when you are.
+ 130.63 you-hearing      
+ 132.18 you-first-words  Bye
+ 132.42 you-text         Bye bye Nova.
+kid said (s after Play): {'name': 19.76, 'shoulder': 45.1, 'listen': 74.1, 'end': 127.87} | shots {'1-gate-perm': 0.02, '2-gate-cam': 0.35, '3-gate-nova': 4.22, '4-intro': 14.7, '5-game': 89.71, '6-ending': 125.36} | mic {'kid': {'asked': ['{"video":{"facingMode":"user"},"audio":{"echoCancellation":true,"noiseSuppression":true,"autoGainControl":true}}'], 'given': 1, 'said': 4}, 'her': 254}

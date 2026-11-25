@@ -12,6 +12,7 @@
      beta/freeze-nova.html and beta/freeze.html are NOT touched. -->
 <link rel="stylesheet" href="play.css">
 <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script><!-- same line as beta/novasays.html:4 -->
+<script src="freeze4-flags.js"></script><!-- NOVA-AUDIT build flags (all off in the repo; the pod turns this build's on) -->
 <style>
 /* ── layout ──────────────────────────────────────────────────────────────────────────────────────────────
    [ face rail | Nova's body clips ]  |  [ the child: camera + lights ]
@@ -41,7 +42,15 @@
    she talks WIDE: her live Ditto body (#novaWide — her talk body in her room, Ditto lips) fills her pane instead of the
    clip. The child's pane keeps exactly 50 % (unchanged). */
 #novaWide{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:3;background:transparent}
+/* NOVA-GO5 react: while the child talks she LEANS IN (her pane, not a new clip): a small zoom toward her face + a little
+   light. `scale` composes with the matchcut's `transform`. [CLI-FILL] 1.045 / 5% / 300 ms — no spec gives them. */
+#novaWide{transform-origin:50% 32%;transition:scale .3s ease-out,filter .3s ease-out}
+#novaPane.listening[data-stage=wide] #novaWide{scale:1.045;filter:brightness(1.05) saturate(1.05)}
 #novaPane[data-stage=wide] #nova{visibility:hidden}
+/* NOVA-GO3 flag noblink: the last picture of her clip / of the blurred room, held on a canvas while the next clip loads */
+#novaHold{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;display:none}
+#novaAmbHold{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(2.2);filter:blur(28px);z-index:1;pointer-events:none;display:none}
+#novaPane[data-stage=wide] #novaHold{visibility:hidden}
 #novaPane[data-stage=game] #novaWide{visibility:hidden}
 #novaPane[data-live-wide="0"] #novaWide{visibility:hidden}
 #wideBanner{position:absolute;left:8%;right:8%;top:40%;z-index:8;padding:12px;border-radius:14px;text-align:center;
@@ -56,6 +65,57 @@
 #banner.hidden{display:none}
 /* the medal screen leaves Nova's half uncovered: her ending lines are said there (pod run 2026-11-11: the full-screen
    medal hid her face for the whole ending) */
+/* ── READY GATE (Refael after his play, 2026-11-22: "camera and mic permission first, before Nova. The user needs to be
+   fully ready, seeing himself on camera. Nova only appears when she is fully ready: visible, full lips and voice").
+   While body[data-gate] is set the child's own picture fills the whole screen and COVERS Nova's half: her pane stays laid
+   out underneath (so her live video keeps decoding and the frame counter in shared/face-panel.js keeps counting), but
+   nothing of her — no half-loaded picture, no empty box, no red line — can be seen until the gate opens. ── */
+body[data-gate] #camPane{position:fixed;inset:0;z-index:30;background:var(--bg)}
+/* ── what the player says, live (Refael 2026-11-22: "the text of what I say should appear live somewhere"). A small cyan
+   line on the PLAYER's own picture — Nova's captions are the big gold/amber/mint line at the bottom centre (play.css #cap)
+   and the white bubble under her face, so the two can never be confused. [CLI-FILL] size/place: no spec gives them;
+   lexi-ux-patterns conversation UI = the child's words sit on the child's side. QUESTION for the founder. ── */
+#you{position:absolute;left:50%;bottom:24vh;transform:translateX(-50%);z-index:9;width:max-content;max-width:86%;text-align:center;pointer-events:none;
+  font:700 clamp(14px,2vw,22px)/1.25 Nunito,system-ui;color:var(--cyan);background:rgba(8,20,34,.78);border:2px solid rgba(125,240,255,.55);
+  padding:7px 14px;border-radius:14px;opacity:0;transition:opacity .25s}
+#you.on{opacity:1}
+#you.unsure{color:var(--soft);border-color:rgba(215,205,240,.35)}
+#banner button{margin-top:8px}
+/* ── NOVA-GO4 (2026-11-23) · flag `split`, default off. Refael after his live play: "the game started with my camera BIG,
+   full screen" - he wants a SPLIT SCREEN from the very start: Nova on one side, him on the other. With the flag the ready
+   gate no longer blows his picture up over her half: his pane keeps its game size and place from the first second. Her
+   half is her room behind a curtain (a still, blurred picture of her own room + a soft sparkle) until she is fully ready
+   - her live picture is laid out underneath and keeps decoding, exactly as it did under his full-screen picture, and
+   the curtain is dropped at the same moment the gate used to open (her first word). Nothing half-loaded is ever seen. ── */
+body.f-split[data-gate] #camPane{position:relative;inset:auto;z-index:auto;background:transparent}
+#novaCurtain{display:none}
+body.f-split[data-gate] #novaCurtain{display:flex;position:absolute;inset:0;z-index:9;align-items:center;justify-content:center;overflow:hidden;background:#1b1030}
+#novaCurtain canvas{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(2.2);filter:blur(28px)}
+#novaCurtain span{position:relative;font-size:clamp(44px,9vw,90px);animation:f4spark 1.5s ease-in-out infinite;text-shadow:0 0 30px rgba(255,214,90,.6)}
+@keyframes f4spark{0%,100%{transform:scale(.8);opacity:.5}50%{transform:scale(1.12);opacity:1}}
+/* ── NOVA-GO4 · flag `hear`: the microphone chip on the PLAYER's own picture (the commercial page's "HEARD-YOU" ear,
+   d92e252: pulses on voice, green on an accepted turn). No numbers, never red: soft = listening, dim = her turn, cyan =
+   she hears a voice, mint = she got it, amber + one line = the microphone gives nothing (no silent failure). ── */
+#mic{position:absolute;left:10px;top:54px;z-index:9;display:flex;align-items:flex-end;gap:3px;padding:6px 10px;border-radius:999px;pointer-events:none;
+  background:rgba(8,20,34,.7);border:2px solid rgba(215,205,240,.3);font:700 clamp(12px,1.6vw,16px)/1 Nunito,system-ui;color:var(--soft);--l:0;transition:opacity .2s,border-color .2s}
+#mic[hidden]{display:none}
+#mic .ic{font-size:1.15em;margin-inline-end:3px;align-self:center}
+#mic i{width:4px;border-radius:2px;background:currentColor;height:calc(4px + var(--l) * 14px)}
+#mic i:nth-of-type(2){height:calc(4px + var(--l) * 22px)} #mic i:nth-of-type(3){height:calc(4px + var(--l) * 18px)} #mic i:nth-of-type(4){height:calc(4px + var(--l) * 10px)}
+#mic b{align-self:center;font-weight:800}
+#mic[data-s=her]{opacity:.45}
+#mic[data-s=hearing]{color:var(--cyan);border-color:rgba(125,240,255,.8)}
+#mic[data-s=ok]{color:var(--mint);border-color:var(--mint)}
+#mic[data-s=dead]{color:var(--amber);border-color:var(--amber);pointer-events:auto;cursor:pointer;opacity:1}
+#mic[data-s=dead] i{display:none} #mic[data-s=dead] b{margin-inline-start:4px}
+/* ── NOVA-GO4 · flag `rec`: the whole game as ONE video (both halves, her voice, the music, his voice). A small red dot
+   while it records; if he says no to the browser's share question the game still runs and a red "not recording" says so. ── */
+#recDot{position:fixed;right:12px;bottom:10px;z-index:60;display:none;align-items:center;gap:6px;font:800 12px/1 Nunito,system-ui;color:#ff6b6b;pointer-events:none}
+#recDot.on,#recDot.off{display:flex}
+#recDot i{width:10px;height:10px;border-radius:50%;background:#ff3b3b;animation:f4rec 1.2s ease-in-out infinite}
+#recDot.off{background:#3a0d0d;color:#ffb3b3;padding:5px 9px;border-radius:999px} #recDot.off i{display:none}
+@keyframes f4rec{0%,100%{opacity:1}50%{opacity:.25}}
+#recDl{display:none;text-decoration:none} #recDl.on{display:inline-block}
 #end{left:50%}   /* NOVA-FINAL: the medal screen covers the child's half only — her WIDE ending is said in her room */
 @media (max-aspect-ratio: 1/1){
   #end{left:0;top:50vh}
@@ -65,17 +125,17 @@
 </head><body>
 <div id="stage">
   <div id="novaSide">
-    <div id="novaPane" data-stage="wide" data-live-wide="0"><video id="novaAmb" playsinline muted loop></video><video id="nova" playsinline muted loop></video><video id="novaWide" playsinline muted autoplay></video><div id="wideBanner" hidden></div><div id="wideBadge"></div></div>
+    <div id="novaPane" data-stage="wide" data-live-wide="0"><video id="novaAmb" playsinline muted loop></video><canvas id="novaAmbHold"></canvas><video id="nova" playsinline muted loop></video><canvas id="novaHold"></canvas><video id="novaWide" playsinline muted autoplay></video><div id="wideBanner" hidden></div><div id="wideBadge"></div><div id="novaCurtain"><canvas id="novaCurtainRoom"></canvas><span>✨</span></div></div>
   </div>
-  <div id="camPane"><video id="cam" playsinline muted></video><canvas id="fx"></canvas></div>
+  <div id="camPane"><video id="cam" playsinline muted></video><canvas id="fx"></canvas><div id="you"></div><div id="mic" hidden><span class="ic">🎤</span><i></i><i></i><i></i><i></i><b></b></div></div>
 </div>
 <div id="topbar"><button class="back" id="back">←</button><div id="stars"></div><div id="dots"></div></div>
 <div id="doctor"><div class="outline"></div><div class="msg"></div><div class="bar"><i></i></div><button class="big go"></button></div>
 <div id="ring"></div><div id="card"></div><div id="cap"></div>
 <div class="screen on" id="startScr"><h1 id="title">Freeze!</h1><p id="howto"></p><button class="big" id="go">▶</button></div>
 <div class="screen" id="end"><div id="medal"></div><div id="medalStars"></div><p id="endLine"></p>
-  <div class="row"><button class="big" id="again"></button><button class="big alt" id="back2"></button></div><button class="save" id="save"></button></div>
-<div id="banner" class="hidden"></div>
+  <div class="row"><button class="big" id="again"></button><button class="big alt" id="back2"></button></div><button class="save" id="save"></button><a class="save" id="recDl"></a></div>
+<div id="banner" class="hidden"></div><div id="recDot"><i></i><b></b></div>
 <script type="module">
 import { createFreezeGame } from './lib/freeze-game.js';
 import { toJudge } from './lib/kp.js';
@@ -84,9 +144,12 @@ import { Q, getLang, applyLang, COMMON, createHud, caption, card, ring, medalScr
 import { createNovaEvents } from './lib/events.js';
 import { createLocalBrain } from './lib/brain-local.js';
 import { runDoctor } from './lib/doctor.js';
-import { attachNova, routeVoice, note, onHerAudio, bridgeState } from '../shared/nova-bridge.js';
+import { attachNova, routeVoice, note, onHerAudio, bridgeState, primeAudio, micState, restartMic, pageLog, liveIntro } from '../shared/nova-bridge.js';
+import { catchName } from './lib/name-catch.js';
+import { holdMicFor } from '../shared/nova-bridge.js';
 import { createFacePanel } from '../shared/face-panel.js';
 import { mountFacePip } from '../shared/face-pip.js';
+import { createShoulderBeat, LINES as SHOULDER_LINES, HE_NEUTRAL } from './lib/shoulder-beat.js';
 
 const $ = id => document.getElementById(id);
 const lang = getLang(); applyLang(lang);
@@ -96,24 +159,41 @@ const TXT = {
         freeze: a => `FREEZE like a ${a}!`, star: 'Frozen! ⭐', notyet: "Next one's yours!", warming: "Nova's warming up ✨",
         animals: { flamingo: 'flamingo', bear: 'bear', frog: 'frog', star: 'star', statue: 'statue' },
         refuse: 'Freeze v4 cannot start', noFace: "Nova's live face (SoulX) is not streaming", noVoice: "Nova's live voice is not connected", noBody: 'A Nova body clip is missing: ',
-        op: 'For the operator: this page needs the Nova pod — a live voice and a face stream published as "nova-face". Nothing is faked when they are missing.' },
+        op: 'For the operator: this page needs the Nova pod — a live voice and a face stream published as "nova-face". Nothing is faked when they are missing.',
+        asking: 'Please allow the camera and the microphone', getReady: 'This is you! Get ready… ✨', coming: 'Nova is coming… ✨', you: 'You',
+        noCam: 'The camera is not allowed.', noMic: 'The microphone is not allowed.', noMedia: 'This browser gives the page no camera or microphone.',
+        camFail: 'The camera did not start: ', noGreet: 'Nova did not start talking', retry: 'Try again', micDead: "I can't hear you — tap here",
+        allow: 'How to allow it: tap the lock (or camera) icon next to the web address, set Camera and Microphone to "Allow", then press Try again. Nova needs both: the camera to see your freeze, the microphone to hear you.' },
   he: { title: 'קופאים!', howto: 'רוקדים כשיש מוזיקה. כשהיא נעצרת — קופאים כמו החיה!', calib: 'רגע אחד בלי לזוז…', dance: 'רוקדים! 💃',
         freeze: a => `קופאים כמו ${a}!`, star: 'קפאת! ⭐', notyet: 'הפעם הבאה שלך!', warming: 'נובה מתעוררת ✨',
         animals: { flamingo: 'פלמינגו', bear: 'דוב', frog: 'צפרדע', star: 'כוכב', statue: 'פסל' },
         refuse: 'קופאים v4 לא יכול להתחיל', noFace: 'הפנים החיות של נובה (SoulX) לא משודרות', noVoice: 'הקול החי של נובה לא מחובר', noBody: 'חסר קליפ גוף של נובה: ',
-        op: 'למפעיל: הדף צריך את הפוד של נובה — קול חי וזרם פנים בשם "nova-face". כשהם חסרים שום דבר לא מזויף.' },
+        op: 'למפעיל: הדף צריך את הפוד של נובה — קול חי וזרם פנים בשם "nova-face". כשהם חסרים שום דבר לא מזויף.',
+        asking: 'צריך לאשר את המצלמה ואת המיקרופון', getReady: 'זה אתם! מתכוננים… ✨', coming: 'נובה בדרך… ✨', you: 'אמרת',
+        noCam: 'המצלמה לא מאושרת.', noMic: 'המיקרופון לא מאושר.', noMedia: 'הדפדפן הזה לא נותן לדף מצלמה או מיקרופון.',
+        camFail: 'המצלמה לא נפתחה: ', noGreet: 'נובה לא התחילה לדבר', retry: 'לנסות שוב', micDead: 'אני לא שומעת — לחצו כאן',
+        allow: 'איך מאשרים: לוחצים על סמל המנעול (או המצלמה) ליד כתובת האתר, בוחרים "אישור" למצלמה ולמיקרופון, ואז "לנסות שוב". נובה צריכה את שניהם: מצלמה כדי לראות את הקפיאה, מיקרופון כדי לשמוע אתכם.' },
 }[lang];
 const L = COMMON[lang];
+/* NOVA-AUDIT flags: ?name=1 / ?name=0 for one visit, else the build's beta/freeze4-flags.js (all off in the repo) */
+const FLAG = name => Q.get(name) === '1' || (Q.get(name) !== '0' && !!(window.__F4_FLAGS || {})[name]);
+if (FLAG('split')) document.body.classList.add('f-split');
 const EMO = { flamingo: '🦩', bear: '🐻', frog: '🐸', star: '⭐', statue: '🗿' };
 $('title').textContent = TXT.title; $('howto').textContent = TXT.howto; $('back').textContent = lang === 'he' ? '→' : '←';
 $('back').onclick = () => location.href = 'index.html' + location.search;
 
 /* ── the run log: everything the proof harness (and a curious founder) reads back — window.freeze4Log ── */
 const LOG = window.freeze4Log = []; const T0 = performance.now();
-const log = (kind, detail = '') => { const e = { t: +((performance.now() - T0) / 1000).toFixed(2), kind, detail }; LOG.push(e); console.log('[FREEZE4]', e.t, kind, detail); };
-function refuse(reasons){ const b = $('banner'); b.innerHTML = ''; const h = document.createElement('div'); h.textContent = '⛔ ' + TXT.refuse; b.appendChild(h);
+/* NOVA-GO4 flag `hear`: the same lines also go to the brain (pod NOVA_HEAR=1 prints them as [PAGE] in rtlk.log), so what a
+   real player's browser did - permission, microphone level, what was heard - can be read back after a live session. */
+const F_HEAR = Q.get('hear') === '1' || (Q.get('hear') !== '0' && !!(window.__F4_FLAGS || {}).hear);
+const log = (kind, detail = '') => { const e = { t: +((performance.now() - T0) / 1000).toFixed(2), kind, detail }; LOG.push(e); console.log('[FREEZE4]', e.t, kind, detail);
+  if (F_HEAR && kind !== 'fps') pageLog(kind, detail); };
+function refuse(reasons, { help = '', retry = false } = {}){ const b = $('banner'); b.innerHTML = ''; const h = document.createElement('div'); h.textContent = '⛔ ' + TXT.refuse; b.appendChild(h);
   for (const r of reasons){ const d = document.createElement('div'); d.textContent = r; b.appendChild(d); }
-  const s = document.createElement('small'); s.textContent = TXT.op; b.appendChild(s); b.classList.remove('hidden'); caption(''); log('refused', reasons.join(' | ')); }
+  const s = document.createElement('small'); s.textContent = help || TXT.op; b.appendChild(s);
+  if (retry){ const again = document.createElement('button'); again.className = 'big'; again.textContent = TXT.retry; again.onclick = () => location.reload(); b.appendChild(again); }
+  b.classList.remove('hidden'); caption(''); log('refused', reasons.join(' | ')); }
 
 const tune = (await (await fetch('freeze2/script.json')).json()).tune;
 const fast = Q.get('fast') === '1';
@@ -125,11 +205,47 @@ const NOVA = { idle: '../freezegame/idle_sway.mp4', dance: ['../freezegame/dance
 const novaV = $('nova'), novaAmb = $('novaAmb'); let novaCur = '';
 function novaPlay(srcUrl, { loop = true, holdEnd = false } = {}){
   if (novaCur === srcUrl && !novaV.paused && !novaV.ended) return;
+  if (FLAG('noblink')){ holdOn(novaV, $('novaHold'), 'contain'); holdOn(novaAmb, $('novaAmbHold'), 'cover'); }
   novaCur = srcUrl; novaV.loop = loop && !holdEnd; novaV.src = srcUrl; novaV.currentTime = 0;
   novaV.onended = holdEnd ? () => { novaV.pause(); } : null;          // the freeze pose: play once, then HOLD her still frame
   novaV.play().catch(() => {});
   novaAmb.src = srcUrl; novaAmb.play().catch(() => {});               // the blurred room behind her (picture only, never a cue)
+  ambFor($('novaPane').dataset.stage);
 }
+/* NOVA-GO2 · flag `ambstill` (default off). Pod run 8ezbrmtmzsfk1j: her stream ARRIVED at 25 a second while she was hidden
+   and fell to 17-20 the moment she was shown, with her own clip (#nova) also at 13-17 in that stage — the page, not the
+   stream. Measured offline (headless Chrome, software compositing like the proof pod; /tmp bench b.html): her 720x1280 live
+   picture over the PLAYING blurred room (#novaAmb, blur 28px x2.2) = 20.3 / 21.6 pictures a second; the same blurred room
+   PAUSED = 24.9; no room = 24.9. While her live body is shown (stage wide) the room behind her is held as a still blurred
+   picture — same look, nothing moves in a 28 px blur anyway. In the game it plays as before. */
+/* NOVA-GO3 · flag `noblink` (default off). Coordinator on nova_fixed_8s.mp4: her half went DARK for 2 frames (luma 36 vs
+   ~150) at the intro->game hand-over. A new src empties a <video> until its first frame is decoded, so her pane showed
+   its bare background (#1b1030) — both her clip and the blurred room switch src at that moment (and at every clip change
+   in the game, and at the ending). On: the last picture of each is drawn on a canvas on top, kept until the new clip has
+   a decoded frame and it has been painted; the hand-over itself waits for that (see matchCut). Cap 2 s. */
+function holdOn(v, c, fit){
+  if (v.readyState < 2 || !v.videoWidth) return;
+  const W = v.clientWidth, H = v.clientHeight; if (!W || !H) return;
+  c.width = W; c.height = H; const g = c.getContext('2d'), ar = v.videoWidth / v.videoHeight;
+  let w = W, h = W / ar; if (fit === 'contain' ? h > H : h < H){ h = H; w = H * ar; }
+  try { g.clearRect(0, 0, W, H); g.drawImage(v, (W - w) / 2, (H - h) / 2, w, h); } catch (_){ return; }
+  if (fit === 'contain'){ c.style.transformOrigin = v.style.transformOrigin; c.style.transform = v.style.transform; c.style.clipPath = v.style.clipPath; }
+  const tok = c._tok = (c._tok || 0) + 1; c.style.display = 'block';
+  const off = () => { if (c._tok === tok){ c.style.display = 'none'; } };
+  v.addEventListener('loadeddata', () => requestAnimationFrame(() => requestAnimationFrame(off)), { once: true });
+  setTimeout(off, 2000);
+}
+function holdOff(){ for (const id of ['novaHold', 'novaAmbHold']){ const c = $(id); c._tok = (c._tok || 0) + 1; c.style.display = 'none'; } }
+/* wait until her clip and the blurred room both have a decoded picture of their CURRENT src, then two paints */
+async function clipReady(cap = 1500){
+  const t0 = performance.now();
+  while (performance.now() - t0 < cap && !(novaV.readyState >= 2 && novaAmb.readyState >= 2 && !novaV.seeking)) await new Promise(r => setTimeout(r, 15));
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  return Math.round(performance.now() - t0);
+}
+function ambFor(st){ if (!FLAG('ambstill')) return;
+  if (st === 'wide'){ const hold = () => { novaAmb.pause(); }; if (novaAmb.readyState >= 2) hold(); else novaAmb.addEventListener('loadeddata', hold, { once: true }); }
+  else novaAmb.play().catch(() => {}); }
 novaV.addEventListener('error', () => { if (novaCur) refuse([TXT.noBody + novaCur]); });      // a body clip that will not play is never silent
 novaPlay(NOVA.idle);
 const sting = () => audio(`../audio/freeze2/${voiceDir}/sting.freeze.${1 + Math.floor(Math.random() * 3)}.mp3`);   // the ONE canned sound (law)
@@ -152,13 +268,99 @@ let dual = false;                                                             //
 /* the stage: 'wide' = intro/ending (she talks on her body in her room, Ditto lips) · 'game' = her clips + the PiP face.
    It follows the voice routing exactly (routeVoice is the phase machine's one switch): engine = wide, air/mute = game. */
 function stage(st){ if (!dual) { pip.show(true); return; }
-  $('novaPane').dataset.stage = st; pip.show(st === 'game'); face.setActive(st === 'game'); wide.setActive(st === 'wide'); log('stage', st); }
+  const from = $('novaPane').dataset.stage;
+  if (st === 'game' && from !== 'game' && FLAG('pipfresh')) pipFresh();
+  face.setActive(st === 'game'); wide.setActive(st === 'wide'); log('stage', st);
+  if (FLAG('matchcut') && from !== st && (st === 'wide' || st === 'game')) return matchCut(from, st);
+  $('novaPane').dataset.stage = st; pip.show(st === 'game'); ambFor(st); }
+/* ── NOVA-GO2 (2026-11-23) · MATCH CUT — flag `matchcut`, default off. docs/NOVA-ERRORS-2026-11-22.md #8: at the hand-over
+   wide (her live Ditto body) -> game (her room clips) she shrank and her feet appeared. Measured on the assets (SIFT +
+   RANSAC similarity, 283-398 inliers, all three of dance-active / dance-sub / idle_sway frame 0 vs nova_talk_calm.mp4
+   frame 0): the wide body IS the game clips' own shot, zoomed x1.299 about (52.6 %, 42.5 %) of the frame — same room,
+   same camera. So the cut is made on a MATCHED frame: the game clip first appears zoomed exactly like the wide body (her
+   size and place do not change), holds, then the camera pulls back to the whole figure in one deliberate move. At the
+   ending the reverse: the clip pushes in to the wide framing, and only when her live wide picture is really flowing again
+   (not the frozen frame from before the game) the hard cut to her live body. Never a crossfade (two faces = ghost).
+   [CLI-FILL] hold 0.6 s, pull-back 1.4 s, push-in 1.0 s (game-cues-lights "adaptive width transition 0.5s" is for panels,
+   no spec gives a camera move); fresh wide = >= 15 pictures in the last second, cap 4 s. QUESTION for the founder. */
+const CUT = { s: 1.299, tx: -170.0 / 1080, ty: -244.3 / 1920, hold: 600, pull: 1400, push: 1000, freshFps: 15, freshCap: 4000 };
+let cutTok = 0;
+function cutMatrix(){
+  const v = $('nova'), w = $('novaWide'), W = v.clientWidth, H = v.clientHeight;
+  const box = ar => { let bw = W, bh = W / ar; if (bh > H){ bh = H; bw = H * ar; } return { x: (W - bw) / 2, y: (H - bh) / 2, w: bw, h: bh }; };
+  const c = box((v.videoWidth || 1076) / (v.videoHeight || 1924)), d = box((w.videoWidth || 720) / (w.videoHeight || 1280));
+  const sx = CUT.s * d.w / c.w, sy = CUT.s * d.h / c.h;                 // clip px -> wide px: d + dw*(s*(x-c)/cw + t)
+  const tx = d.x + d.w * CUT.tx - sx * c.x, ty = d.y + d.h * CUT.ty - sy * c.y, f = n => n.toFixed(2) + 'px';
+  /* what is visible: zoomed = exactly the wide picture's box (its margins stay the blurred room, as in the wide stage);
+     un-zoomed = the clip's own box. Both in the clip's own (untransformed) pixels, so clip-path moves with the camera. */
+  const L = (d.x - tx) / sx, T = (d.y - ty) / sy, R = W - (d.x + d.w - tx) / sx, B = H - (d.y + d.h - ty) / sy;
+  return { m: `matrix(${sx.toFixed(5)},0,0,${sy.toFixed(5)},${tx.toFixed(2)},${ty.toFixed(2)})`,
+           zin: `inset(${f(T)} ${f(R)} ${f(B)} ${f(L)})`, zout: `inset(${f(c.y)} ${f(W - c.x - c.w)} ${f(H - c.y - c.h)} ${f(c.x)})` };
+}
+async function matchCut(from, to){
+  const tok = ++cutTok, v = $('nova'), pane = $('novaPane');
+  v.style.transformOrigin = '0 0';
+  if (to === 'game'){
+    if (FLAG('noblink')){ await sleep(0); if (tok !== cutTok) return; const ms = await clipReady(); if (tok !== cutTok) return; holdOff(); log('noblink', 'game clip ready after ' + ms + ' ms (her wide body stayed on meanwhile)'); }
+    const k = cutMatrix(); v.style.transition = 'none'; v.style.transform = k.m; v.style.clipPath = k.zin; void v.offsetWidth;
+    pane.dataset.stage = 'game'; pip.show(true); ambFor('game'); log('matchcut', 'game: matched frame ' + k.m);
+    await sleep(CUT.hold); if (tok !== cutTok) return;
+    const ease = `${CUT.pull}ms cubic-bezier(.45,0,.25,1)`; v.style.transition = `transform ${ease}, clip-path ${ease}`;
+    v.style.transform = 'none'; v.style.clipPath = k.zout; log('matchcut', 'pull-back');
+    await sleep(CUT.pull + 100); if (tok === cutTok){ v.style.transition = 'none'; v.style.clipPath = ''; }
+    return;
+  }
+  /* to wide: push in on the clip, then cut when her live body is flowing */
+  if (FLAG('noblink')){ const ms = await clipReady(); if (tok !== cutTok) return; holdOff(); log('noblink', 'ending clip ready after ' + ms + ' ms'); }
+  { const k = cutMatrix(), ease = `${CUT.push}ms cubic-bezier(.45,0,.25,1)`; v.style.transition = 'none'; v.style.clipPath = k.zout; void v.offsetWidth;
+    v.style.transition = `transform ${ease}, clip-path ${ease}`; v.style.transform = k.m; v.style.clipPath = k.zin; } log('matchcut', 'push-in');
+  const t0 = performance.now(), n0 = wideTimes.length ? wideTimes[wideTimes.length - 1] : 0;
+  await sleep(CUT.push);
+  while (performance.now() - t0 < CUT.freshCap){ if (tok !== cutTok) return;
+    const fresh = wideTimes.filter(t => t > Math.max(n0, performance.now() - 1000)).length;
+    if (fresh >= CUT.freshFps) break; await sleep(100); }
+  if (tok !== cutTok) return;
+  pane.dataset.stage = 'wide'; pip.show(false); ambFor('wide'); v.style.transition = 'none'; v.style.transform = 'none'; v.style.clipPath = '';
+  log('matchcut', 'wide: cut after ' + Math.round(performance.now() - t0) + ' ms, wide fps ' + wideFps());
+}
+/* every NEW picture of her wide live body (requestVideoFrameCallback) — used by the match cut and the warm gate */
+const wideTimes = [];
+{ const wv = $('novaWide'); if (wv.requestVideoFrameCallback){ const cb = () => { wideTimes.push(performance.now()); if (wideTimes.length > 400) wideTimes.splice(0, 200); wv.requestVideoFrameCallback(cb); }; wv.requestVideoFrameCallback(cb); } }
+const wideFps = (ms = 1000) => { const now = performance.now(); let n = 0; for (let i = wideTimes.length - 1; i >= 0 && now - wideTimes[i] <= ms; i--) n++; return Math.round(n * 1000 / ms); };
+/* ── NOVA-GO2 · WARM GATE — flag `warmgate`, default off. Pod run jtp2b3rclx5hv6: she appeared (gate open 11.9 s) while her
+   wide stream was still warming up — 15, 17, 16, 13, 15 pictures a second for the first 5 s, 25 only after ~12 s. With the
+   flag her greeting is asked only once her live wide picture has flowed smoothly (>= 22 pictures a second, three checks in
+   a row, 0.5 s apart), so she is revealed already moving at full speed. Cap 8 s, then she comes anyway (logged).
+   [CLI-FILL] 22 of 25 / 3 checks / 8 s: no spec gives them. QUESTION */
+const WARM = { fps: 22, checks: 3, cap: 8000 };
+async function waitWarm(tag){
+  const t0 = performance.now(), hist = []; let ok = 0;
+  while (performance.now() - t0 < WARM.cap){
+    await sleep(500); const f = wideFps(); hist.push(f); ok = f >= WARM.fps ? ok + 1 : 0;
+    if (ok >= WARM.checks){ log('warm', tag + ' smooth after ' + Math.round(performance.now() - t0) + ' ms ' + hist.join(',')); return true; }
+  }
+  log('warm', tag + ' cap ' + WARM.cap + ' ms ' + hist.join(',')); return false;
+}
+/* NOVA-AUDIT · flag `pipfresh` (default off). nova_approve.mp4 35.6-36.4 s: at the first game round her face tile showed
+   an empty grey box, then a BLACK square, and only then her face (the SoulX track restarts when the pod switches faces; the
+   tile still counted as "live" from before). With the flag, the tile's picture stays covered (her room colour) until a
+   NEW, non-black frame of her face has really arrived. [CLI-FILL] "non-black" = mean brightness > 24 of 255 on an 8x8 copy. */
+const pipCss = document.createElement('style'); pipCss.textContent = '.nova-pip.fresh video{visibility:hidden}'; document.head.appendChild(pipCss);
+function pipFresh(){
+  const v = pip.video, root = pip.root, c = document.createElement('canvas'); c.width = c.height = 8; const g = c.getContext('2d', { willReadFrequently: true });
+  root.classList.add('fresh'); const t0 = performance.now();
+  const check = () => { if (!root.classList.contains('fresh')) return;
+    try { g.drawImage(v, 0, 0, 8, 8); const d = g.getImageData(0, 0, 8, 8).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += (d[i] + d[i + 1] + d[i + 2]) / 3;
+      if (s / 64 > 24){ root.classList.remove('fresh'); log('pip-fresh', 'her face shown after ' + Math.round(performance.now() - t0) + ' ms'); return; } } catch (_){}
+    if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(check); else setTimeout(check, 40); };
+  if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(check); else setTimeout(check, 40);
+}
 window.freeze4Face = face;
 
 /* ── her VOICE: live V2V only, through the bridge. What she is asked to say is chosen by the same Truth-Law brain as
       freeze-nova (beta/lib/brain-local.js — only what the judge really saw); the pod's speak-gate is the rate limiter
       (pod/rt_lk.py SPEAK-GATE: one staged line per gap in 'air', none in a hold). ── */
-const mind = createLocalBrain({ lang, g: Q.get('g') === 'm' ? 'm' : 'f' });
+const mind = createLocalBrain({ lang, g: Q.get('g') === 'm' ? 'm' : Q.get('g') === 'f' ? 'f' : (lang === 'he' && FLAG('heneutral')) ? 'n' : 'f' });   // NOVA-GO5: plural when unknown
 window.novaBrainLog = [];
 let voiceMode = 'engine', holding = false, gapLine = false;
 /* In the game ('air') she gets ONE line per gap (game-cues-lights juice checklist: "≤1 line/gap"; pod speak-gate: "this
@@ -177,9 +379,32 @@ function gameLine(text){
   const clause = first.split(/\s+—\s+/)[0].trim();                          // "The bear got away — the music…" → "The bear got away!"
   return clause !== first && words(clause) <= MAX_GAME_WORDS ? clause.replace(/[,;:]$/, '') + '!' : null;
 }
+/* NOVA-GO4 flag `hear` — THE CHILD'S WORDS COME FIRST (pod/rt_lk.py PROMPT: "the kid's words always come first"; the
+   commercial say-queue pauses around a kid turn). Rig run on nova-go3: the child said "Nova, can you hear me?" as the round
+   began, her own gap line ("I can see you!") was generated on top of it, the brain closed the microphone for her line and
+   his sentence reached it as "Nova, can". With the flag a game line that is due while the brain is hearing a voice waits
+   for that voice to become words - at most until 4 s after the voice began [CLI-FILL] (rig: a 2.1 s sentence became words
+   3.6 s after it began: 0.6 s of quiet ends the turn, then the transcript; a first cap of 2.5 s let her line through):
+   words -> the line is not said, her ANSWER has this gap (pod NOVA_HEAR); no words -> the line is said as planned. */
+const kidLive = () => kid.pending && performance.now() - kid.hearingAt < 4000;
+/* her answer takes the gap only when the brain will give one: the child's words were said TO her (her name, or a question)
+   - the same test as pod/rt_lk.py HEAR_ADDR_RE - in the last 2.5 s [CLI-FILL] */
+const KID_TO_HER = /(\bnova\b|נובה|[?？]\s*$)/i;
+const kidOwnsGap = () => kid.textAt > 0 && performance.now() - kid.textAt < 2500 && KID_TO_HER.test((kid.text || '').trim());
+function afterKid(go){
+  const n0 = kid.textAt; log('line-waits', 'the child is talking');
+  const iv = setInterval(() => {
+    if (kid.textAt > n0){ clearInterval(iv); if (kidOwnsGap()) log('line-held-back', 'the child spoke to her - her answer has this gap'); else go(); return; }
+    if (!kidLive()){ clearInterval(iv); go(); } }, 100);
+}
 function novaSays(text, delayMs = 0){
   if (!text) return;
-  setTimeout(() => {
+  setTimeout(() => { const hearGame = FLAG('hear') && voiceMode === 'air' && !holding;
+    if (hearGame && kidOwnsGap()){ log('line-held-back', 'the child spoke to her - her answer has this gap'); return; }
+    if (hearGame && kidLive()) afterKid(() => novaSay1(text, delayMs)); else novaSay1(text, delayMs); }, delayMs);
+}
+function novaSay1(text, delayMs){
+  {
     if (voiceMode === 'air' && !holding){ const short = gameLine(text);
       if (!short){ log('line-held-back', 'over ' + MAX_GAME_WORDS + ' words: ' + text); window.novaBrainLog.push({ t: performance.now() / 1000, text, delayMs, mode: voiceMode, sent: false }); return; }
       text = short; }
@@ -189,29 +414,67 @@ function novaSays(text, delayMs = 0){
     if (voiceMode === 'air'){ if (gapLine){ entry.sent = false; log('line-held-back', 'one per gap: ' + text); return; } gapLine = true; }
     note(`say exactly: "${text}"`); face.thinking(); log('line', text);
     pip.say(text);
-  }, delayMs);
+  }
 }
 /* No 'fact:' notes in v4: on the pod (2026-11-11) every note in the game's 'air' mode was credited as the gap's spoken
    line (pod/rt_lk.py SPEAK-GATE, nova-cue arm), so a "silent" fact could make her talk on her own. Everything she says
    about the round is already in the exact line the page stages (Truth Law: only what the judge saw). */
 function mindReact(type, d){ const r = mind.react(type, d); if (r) novaSays(r.text, r.delayMs); }
 const herV = { on: false, startedAt: 0, endedAt: 0 };
+/* ── NOVA-GO5 (2026-11-24) · flag `react`: she shows she is LISTENING, at once (Refael: "sometimes yes").
+   Measured on the real machine (docs/NOVA-GO5-2026-11-24.md part 7): her answer starts 3.7-4.8 s after the child's words,
+   1.4 s of it Ditto's lip delay — anything she says live arrives that late. So, in the WIDE phases only (intro, ending):
+   · the child starts talking → she leans in (#novaPane.listening) until her voice starts (8 s safety);
+   · the child's turn is complete → SOMETIMES a short closed-mouth hum in her own voice (audio/react/hum1-3, made once with
+     the same voice `marin`), played here at once, the mic held for it. A hum needs no lips. EVERY OTHER turn, starting
+     with the first (a 70 % random draw hummed 0 of 3 turns on pod i6klyju0twlhzl), never while she talks, never with
+     another voice (?voice=). This is the ONE exception to the live-voice law, approved by Refael 2026-11-24 for this
+     sound only. [CLI-FILL] every other turn. */
+const react = { on: FLAG('react'), lastHum: false, hums: [1, 2, 3].map(i => '../audio/react/hum' + i + '.mp3'), n: 0, timer: 0 };
+function leanIn(on, why){ if (!react.on) return; const p = $('novaPane'); if (!p) return;
+  if (p.classList.contains('listening') === !!on) return;                       // log only real changes
+  clearTimeout(react.timer); p.classList.toggle('listening', !!on); if (on) react.timer = setTimeout(() => p.classList.remove('listening'), 8000);
+  log('react', (on ? 'lean in' : 'lean back') + (why ? ' (' + why + ')' : '')); }
+function maybeHum(){
+  if (!react.on || $('novaPane')?.dataset.stage !== 'wide' || herV.on) return;
+  if ((Q.get('voice') || 'marin') !== 'marin') return;
+  if (react.lastHum){ react.lastHum = false; log('react', 'no hum this turn'); return; }   // every other turn, from the first
+  react.lastHum = true; const src = react.hums[react.n++ % react.hums.length];
+  try { const a = new Audio(src); a.volume = 0.8; holdMicFor(1100); a.play().then(() => log('react', 'hum ' + src.split('/').pop())).catch(e => log('react', 'hum failed: ' + e)); }
+  catch (e) { log('react', 'hum failed: ' + e); }
+}
+onHerAudio({ playing: () => { if (react.on) leanIn(false, 'her voice'); } });
 onHerAudio({ playing: () => { herV.on = true; herV.startedAt = performance.now(); face.speaking(true); log('her-voice', 'start'); },
              ended: () => { herV.on = false; herV.endedAt = performance.now(); face.speaking(false); log('her-voice', 'end'); } });
 /* NOVA-FINAL: the intro is hers — the game waits until she has really said it (her voice started after the line was asked,
    then 1.2 s of quiet), instead of a fixed 3.4 s. Pod run 2026-11-12 #2: with Ditto's constant delay (DITTO_PRIME 35 =
    1.4 s) the fixed wait cut her intro off and the rest of it was said by the in-game face. [CLI-FILL] 1.2 s quiet (longer
    than the gaps between her words, ≤ 0.5 s measured in face-panel.js) and a 20 s cap so the game always starts. */
-async function waitHerLine(capMs = 20000){
+async function waitHerLine(capMs = 20000, since = performance.now()){
   const t0 = performance.now();
   while (performance.now() - t0 < capMs){
-    const started = herV.startedAt > t0;
+    const started = herV.on || herV.startedAt > since;      // `since`: the moment the line was asked (her voice may already be on)
     if (started && !herV.on && performance.now() - herV.endedAt > 1200) return true;
     await new Promise(r => setTimeout(r, 100));
   }
   return false;
 }
-addEventListener('nova:kid', () => face.thinking());                          // the child said something → she is about to answer
+/* ── WHAT THE PLAYER SAYS, LIVE. The brain already sends the page everything needed (pod/rt_lk.py): `status hearing`
+      when its voice detector hears him start, `you_delta` while the words are recognised, `you_text` when the turn is
+      accepted (INPUT-LOCK). shared/nova-bridge.js now hands all three on as events. With the pod flag NOVA_KID_EVENTS=1
+      a turn the brain did NOT accept (noise, a mis-heard word) arrives as `nova:kid-drop`, so the line never hangs. ── */
+const YOU_HOLD_MS = 6000;       // [CLI-FILL] how long his finished line stays: no spec; pip.say keeps her bubble >= 2.6 s, his line is read by an adult too. QUESTION
+const youEl = $('you'); let youOpen = false, youTxt = '', youT = null;
+const kid = { pending: false, hearingAt: 0, text: '', textAt: 0, consentAt: 0 };
+addEventListener('nova:consent', () => { kid.consentAt = performance.now(); log('you-yes', 'a real yes'); });   // the bridge: a validated "yes / ready / ok" (EN + HE)
+function youShow(text, cls, holdMs){ youEl.textContent = TXT.you + ': ' + text; youEl.className = 'on ' + cls; clearTimeout(youT); youT = setTimeout(() => { youEl.className = ''; }, holdMs); }
+addEventListener('nova:hearing', () => { if ($('novaPane')?.dataset.stage === 'wide' && !herV.on) leanIn(true, 'child talking'); });
+addEventListener('nova:kid', () => { maybeHum(); });
+addEventListener('nova:hearing', () => { youOpen = true; youTxt = ''; kid.pending = true; kid.hearingAt = performance.now(); youShow('…', 'live', 8000); log('you-hearing'); });
+addEventListener('nova:kid-delta', e => { if (!youOpen || !e.detail) return; if (!youTxt) log('you-first-words', e.detail); youTxt += e.detail; youShow(youTxt + ' …', 'live', 8000); });
+addEventListener('nova:kid', e => { youOpen = false; kid.pending = false; kid.text = e.detail; kid.textAt = performance.now(); youShow(e.detail, 'final', YOU_HOLD_MS); log('you-text', e.detail);
+  face.thinking(); });                                                        // the child said something → she is about to answer
+addEventListener('nova:kid-drop', e => { const t = youTxt || e.detail?.text || ''; youOpen = false; kid.pending = false; youShow((t ? t + ' ' : '') + '…?', 'unsure', 2500); log('you-unclear', (e.detail?.why || '') + ' | ' + t); });
 
 const animalByRound = {};
 let doc = null, game, hud, src, phaseCap = ['', ''], freezeAt = 0, holdS = 2.5, animal = 'statue', ended = false, lastFrame = null;
@@ -244,6 +507,7 @@ function finish(d){
   ended = true; holding = false; music.pause(); src.stop(); card(null); ring(null); caption(''); lights.clearAll(); novaPlay(NOVA.idle);
   setVoice('engine'); face.setBase('listening');                              // ENDING = she has the floor again
   rec.end(d, src.state);
+  if (FLAG('rec')) setTimeout(() => recStop('25 s after the medal'), 25000);
   /* the after-game story: at most 2 lines — the verdict and the choice (ai-companion-presence "Conversation: 2 sentences MAX";
      founder 2026-11-11 "talk a bit less"). freeze-nova says all 2–3. Timing as freeze-nova. */
   /* TRUTH: the judge's result rows carry no animal, so brain-local's recap named "the statue" as her best freeze whatever
@@ -255,7 +519,10 @@ function finish(d){
 }
 
 /* How long the page waits for her face + voice before it refuses. [CLI-FILL] 15 s — no spec gives it; the pod is
-   already warm when a page is opened (the tester package's "waking-up" state covers a cold pod). QUESTION. ?facewait=<s> overrides. */
+   already warm when a page is opened (the tester package's "waking-up" state covers a cold pod). QUESTION. ?facewait=<s> overrides.
+   2026-11-22 READY GATE: kept at 15 s. The clock now starts when Nova is connected (after the camera and the pose model
+   are up), so their loading no longer eats into it, and the player watches himself meanwhile. Her greeting has its own
+   wait after this one (GREET_WAIT_MS). */
 const FACE_WAIT_MS = (+Q.get('facewait') > 0 ? +Q.get('facewait') : 15) * 1000;
 async function bodyClipsOk(){
   const all = [NOVA.idle, ...NOVA.dance, ...new Set(Object.values(NOVA.freeze))], bad = [];
@@ -263,14 +530,287 @@ async function bodyClipsOk(){
   return bad;
 }
 
+/* ── READY GATE helpers ── */
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const gate = st => { if (st) document.body.dataset.gate = st; else delete document.body.dataset.gate; log('gate', st || 'open'); };
+/* Camera AND microphone are asked for FIRST, in one question; if that is refused each is asked alone so the red message
+   can say which one. The streams are only the permission: the game opens its own (createSource, the bridge's mic). */
+async function askPermissions(hear = false){
+  const md = navigator.mediaDevices, out = { cam: false, mic: false, streams: [], err: {} };
+  if (!md?.getUserMedia){ out.err.all = 'no mediaDevices'; return out; }
+  /* flag `hear`: this stream's microphone is the one the game keeps, so it is asked for with the bridge's own settings */
+  const audio = hear ? { echoCancellation: true, noiseSuppression: true, autoGainControl: true } : true;
+  try { out.streams.push(await md.getUserMedia({ video: { facingMode: 'user' }, audio })); out.cam = out.mic = true; return out; }
+  catch (e){ out.err.both = e?.name || String(e); }
+  try { out.streams.push(await md.getUserMedia({ video: { facingMode: 'user' } })); out.cam = true; } catch (e){ out.err.cam = e?.name || String(e); }
+  try { out.streams.push(await md.getUserMedia({ audio })); out.mic = true; } catch (e){ out.err.mic = e?.name || String(e); }
+  return out;
+}
+/* her greeting is really coming out: the first audible sample of her live voice (0.01 rms = the bridge's own "she is
+   speaking" level, shared/nova-bridge.js routeHerAudio), looked at every 20 ms instead of the bridge's 100 ms so she
+   appears WITH her first word. The face server sends her voice and her Ditto lips together (docs/NOVA-FINAL.md: "voice
+   delayed by DITTO_PRIME with the Ditto frames"), so first voice = first lips. */
+async function waitVoiceStart(capMs){
+  const t0 = performance.now(); let buf = null;
+  while (performance.now() - t0 < capMs){
+    const an = window.__novaVoiceAnalyser;
+    if (an){ if (!buf || buf.length !== an.fftSize) buf = new Float32Array(an.fftSize); an.getFloatTimeDomainData(buf);
+      let q = 0; for (let i = 0; i < buf.length; i++) q += buf[i] * buf[i]; if (Math.sqrt(q / buf.length) > 0.01) return true; }
+    if (herV.startedAt > t0) return true;
+    await sleep(20);
+  }
+  return false;
+}
+/* [CLI-FILL] the "get ready" beat: he looks at himself for at least 1.5 s before anything else happens (no spec gives it;
+   long enough to see the picture is him, short enough not to feel stuck). In practice the pose model's load is longer. QUESTION */
+const READY_BEAT_MS = 1500;
+/* [CLI-FILL] how long her greeting may take to become audible once it is asked for: measured 4.4 s on the pod
+   (docs/NOVA-FINAL.md run #4: "asked 5.4 s, her voice 9.8"), her worst measured reply 7.0 s (docs/TALK-TEST.md, quoted in
+   shared/face-panel.js) + Ditto's 1.4 s constant delay = 8.4 s -> 12 s. No spec gives it. QUESTION */
+const GREET_WAIT_MS = 12000;
+/* ── SHE ANSWERS IN THE INTRO (Refael 2026-11-22: his "Hi Nova, can you hear me?" was heard and got no answer).
+   Why: the page started the game 1.2 s after her intro line, whatever the child was doing; his question was still being
+   recognised when the music phase switched the brain's speak-gate on, and from then on the brain (correctly, by the phase
+   law) stores a kid turn without answering. The laws stay as they are; the INTRO simply does not end while a child's turn
+   is in flight: after her line the page listens, and if he speaks it waits for her answer (said WIDE, on the calm body,
+   voice mode 'engine') before the game starts.
+   [CLI-FILL] all four numbers, no spec gives them, QUESTION for the founder:
+     LISTEN 3 s of quiet after her line / after her answer (on top of waitHerLine's 1.2 s) = time for a person to start talking
+     TURN 6 s for a heard voice to become words (the brain's own transcription timeout is 8 s, pod/rt_lk.py rest_transcribe)
+     ANSWER 12 s cap for her reply (= GREET_WAIT_MS) · at most 2 answered turns and 20 s in total, so the game always starts. */
+const INTRO_LISTEN_MS = 3000, INTRO_TURN_MS = 6000, INTRO_ANSWER_MS = 12000, INTRO_MAX_TURNS = 2, INTRO_TALK_CAP_MS = 20000;
+/* NOVA-GO4 flag `hear` — her "Ready?" really waits for him (the commercial intro: READY.md Part 1 "consent gate (real yes
+   / tap) -> startGame()", 0471c0e "music waits for the kid's yes"). nova-go3 gave him 3 s and started whatever happened.
+   With the flag: 6 s of quiet instead of 3, a real "yes / ready" ends the wait at once (after her answer), up to 3 answered
+   turns / 30 s. Nobody speaks -> the game still starts (DUAL-INPUT law: "a kid NEVER fails here"). [CLI-FILL] 6 s / 3 / 30 s. */
+async function introListen(sinceAsk){
+  const HEARF = FLAG('hear'), LISTEN_MS = HEARF ? 6000 : INTRO_LISTEN_MS, MAX_TURNS = HEARF ? 3 : INTRO_MAX_TURNS, CAP_MS = HEARF ? 30000 : INTRO_TALK_CAP_MS;
+  const t0 = performance.now(); let quietFrom = t0, handledAt = sinceAsk, answered = 0;
+  log('intro-listen', 'open');
+  while (true){
+    const now = performance.now();
+    if (kid.textAt > handledAt){ handledAt = kid.textAt; log('intro-kid', kid.text);
+      const ok = await waitHerLine(INTRO_ANSWER_MS, kid.textAt); log('intro-answer', String(ok)); answered++; quietFrom = performance.now();
+      if (HEARF && kid.consentAt >= handledAt - 100){ log('intro-listen', 'he said yes - the game starts'); break; }
+      if (answered >= MAX_TURNS) break; continue; }
+    if (kid.pending){ if (now - kid.hearingAt > INTRO_TURN_MS){ kid.pending = false; log('intro-listen', 'a heard voice gave no words'); } quietFrom = now; }
+    else if (now - quietFrom > LISTEN_MS) break;
+    if (now - t0 > CAP_MS){ log('intro-listen', 'cap'); break; }
+    await sleep(100);
+  }
+  log('intro-listen', 'closed answered=' + answered);
+}
+
+/* ── NOVA-AUDIT (2026-11-22) · THE SHOULDER LIGHT — flag `shoulder`, default off.
+   Refael on the v4 entry flow: "not the correct intro. The ORIGINAL intro is with the LIGHT ON HER SHOULDER." The intro he
+   approved is origin/main nova-commercial.html INTRO-V2V (75396a4 / d29b13f PROMOTE v1.0.4) + SHOULDER-BEAT §4b (33f83fe):
+   she greets, a golden light lands on the child's right shoulder, she says the exact light line, a REAL shrug pops the light
+   and she celebrates; nobody lifts → one exact retry at 8 s, a silent release at 20 s (never a claimed win — TRUTH LAW,
+   law-shoulder). Then she explains Freeze. All numbers and lines live in beta/lib/shoulder-beat.js with their sources.
+   Phase machine: the whole beat is INTRO = voice 'engine' (her calm wide body, lips on); no judge, no music. */
+const shoulderBeat = {
+  on: false, beat: null, res: null, waiters: [],
+  light(){ lights.sparkle('rShoulder'); lights.meter('rShoulder', 0); log('shoulder', 'light on (rShoulder)'); },
+  /* the shrug check and its clock start only AFTER she has said the light line (main L4016: "light her shoulder AFTER she
+     explains it"). Pod run exarcvmcwq6czb: armed at the light, a lifted arm "won" 1.1 s in, while she was still saying hello. */
+  start(){ const cam = $('cam'); const aspect = cam.videoWidth ? cam.videoHeight / cam.videoWidth : 16 / 9;
+    this.beat = createShoulderBeat({ aspect }); this.beat.start(performance.now()); this.on = true; this.res = null;
+    lights.sparkle('rShoulder'); lights.meter('rShoulder', 0); log('shoulder', 'armed (rShoulder) aspect=' + aspect.toFixed(3));
+    this.timer = setInterval(() => { const e = this.beat.tick(performance.now()); if (e === 'retry'){ log('shoulder', 'retry (8 s, no lift seen)'); introSay(SL.retry); } if (e === 'release') this.end('release'); }, 100); },
+  feed(k){ const r = this.beat.feed(k, performance.now()); lights.meter('rShoulder', this.beat.progress()); if (r === 'win') this.end('win'); },
+  end(res){ if (!this.on) return; this.on = false; clearInterval(this.timer); this.res = res; lights.meter(null); lights.sparkle(null);
+    if (res === 'win'){ lights.flash('rShoulder'); lights.burst('rShoulder', 'gold'); introSay(SL.win); }   // a REAL detected lift, nothing else
+    log('shoulder', res === 'win' ? 'WIN — a real lift was detected' : 'release — no lift seen in 20 s (nothing claimed)');
+    this.waiters.splice(0).forEach(w => w(res)); },
+  done(){ return this.res ? Promise.resolve(this.res) : new Promise(r => this.waiters.push(r)); },
+};
+window.freeze4Shoulder = shoulderBeat;
+/* ── NOVA-GO5 (2026-11-24) · THE APPROVED LIVE INTRO — flag `v2vintro` (needs `shoulder`; pod: NOVA_V2V_INTRO=1), default off.
+   Refael on nova-go4: "she was monologuing ... the game starts with her intro: she asks a name, and the live shoulder
+   light cue". nova-go4 staged "Hi! I'm Nova ... Look — a magic light ..." as ONE exact line and never asked anything.
+   The intro he approved (origin/main nova-commercial.html INTRO-V2V 75396a4, LAWS.md law-shoulder), in order:
+     1. she greets and asks the name (the brain says it, in the conversation) and STOPS;
+     2. the child answers; she gives the exact name back and chats — her own live words, one line per turn;
+     3. the NAME arms the shoulder light. The page sends nothing before it. A child who gives no name still gets a game:
+        after two exchanges (the freeze greet's "after their name or two exchanges") or the one 45 s no-name safety;
+     4. the light lands, she says the approved light line, a REAL lift wins or it is released (unchanged, shoulder-beat.js).
+   Numbers: 45 s and the 1.2 s pause before the light = main L7560-7575. [CLI-FILL] 5 s for the child to answer her one
+   chat question before the light (INTRO TEMPO: the whole intro under 40 s) — no spec gives it. QUESTION. */
+const V2V_NO_NAME_MS = 45000, V2V_ARM_DELAY_MS = 1200, V2V_MAX_TURNS = 2, V2V_CHAT_LISTEN_MS = 5000;
+const v2vIntro = { on: false, name: null, why: '' };
+window.freeze4V2V = v2vIntro;
+function v2vGreetAck(capMs){ return new Promise(res => { const t = setTimeout(() => res(null), capMs);
+  addEventListener('nova:v2v', e => { clearTimeout(t); res(!!e.detail); }, { once: true }); }); }
+async function v2vNameBeat(tAsk){
+  const t0 = performance.now(); let seenAt = tAsk, turns = 0;
+  log('v2v', 'greeting said=' + await waitHerLine(15000, tAsk) + ' — waiting for the name');
+  while (true){
+    if (kid.textAt > seenAt){ seenAt = kid.textAt; turns++;
+      const name = catchName(kid.text, { asked: turns === 1 });
+      log('v2v-kid', JSON.stringify({ text: kid.text, name, turns }));
+      log('v2v-answer', String(await waitHerLine(INTRO_ANSWER_MS, seenAt)));           // HER words: the name back, a real chat
+      if (name){ v2vIntro.name = name; v2vIntro.why = 'name captured'; break; }
+      if (turns >= V2V_MAX_TURNS){ v2vIntro.why = turns + ' exchanges, no name'; break; }
+      continue; }
+    if (kid.pending && performance.now() - kid.hearingAt > INTRO_TURN_MS) kid.pending = false;
+    if (performance.now() - t0 > V2V_NO_NAME_MS && !kid.pending && !herV.on){ v2vIntro.why = '45s no-name safety'; break; }
+    await sleep(100);
+  }
+  if (v2vIntro.name){                                    // she may have asked him ONE light question: it is his turn first
+    const tq = performance.now();
+    while (performance.now() - tq < V2V_CHAT_LISTEN_MS || kid.pending){
+      if (kid.textAt > seenAt){ seenAt = kid.textAt; log('v2v-chat', kid.text); log('v2v-chat-answer', String(await waitHerLine(INTRO_ANSWER_MS, seenAt))); break; }
+      if (kid.pending && performance.now() - kid.hearingAt > INTRO_TURN_MS) kid.pending = false;
+      await sleep(100);
+    }
+  }
+  liveIntro('armed', v2vIntro.why);
+  log('v2v', 'shoulder ARM (' + v2vIntro.why + ') at ' + Math.round((performance.now() - t0) / 1000) + ' s' + (v2vIntro.name ? ' name=' + v2vIntro.name : ''));
+  await sleep(V2V_ARM_DELAY_MS);
+  const tArm = performance.now();
+  shoulderBeat.light();                                  // the light lands, then she says the approved light line
+  note('The magic light is glowing on the child\'s shoulder now, and you are asking them to lift that shoulder. You cannot see whether they did — only a director note can tell you.');
+  introSay(SL.arm);
+  return tArm;
+}
+/* An intro line after her first one needs a speaking moment from the brain (pod/rt_lk.py PRODUCER-SILENT: a staged line
+   waits for a boundary). Pod run exarcvmcwq6czb: "Yes! The light caught it!" and the Freeze explanation were queued "not a
+   boundary" and came out later IN THE GAME. The page reports the section change the way it reports every intro/ending
+   (speak-gate off = routeVoice('engine'), a phase-end boundary; with NOVA_INTRO_ANSWER it files the intro note, not "the
+   game ended"), then stages the exact line. */
+function introSay(text){ if (voiceMode !== 'engine') return novaSays(text); routeVoice('engine'); log('intro-boundary', text.slice(0, 40)); novaSays(text); }
+/* the shoulder beat's opener: her greeting = her approved commercial first line (c43ea92: "Hi! I'm Nova, your magical AI dance
+   teacher!") + the exact light line. [CLI-FILL] the Hebrew greeting words (the approved Hebrew greet was improvised live). */
+const HE_N = lang === 'he' && FLAG('heneutral');                             // NOVA-GO2: Hebrew lines in the plural (no boy-only form)
+const SL = HE_N ? { ...SHOULDER_LINES.he, ...HE_NEUTRAL } : SHOULDER_LINES[lang];
+const HELLO = HE_N ? HE_NEUTRAL.hello : { en: "Hi! I'm Nova, your magical AI dance teacher!", he: 'היי! אני נובה, המורה הקסומה שלך לריקוד!' }[lang];
+
+/* ── NOVA-AUDIT · FPS PROBE — flag `fpsprobe`, default off. Read-only. Once a second: how many NEW pictures of Nova were
+   presented in the browser (requestVideoFrameCallback), for her live wide body (#novaWide) and her clip (#nova), plus the
+   browser's own dropped-frame count. This is what the child really sees — the proof recording (x11grab) cannot tell a
+   picture the browser never got from one the recorder missed. ── */
+function startFpsProbe(){
+  const cnt = { wide: 0, clip: 0 }, vids = { wide: $('novaWide'), clip: $('nova') };
+  for (const [k, v] of Object.entries(vids)){ if (!v.requestVideoFrameCallback) continue;
+    const cb = () => { cnt[k]++; v.requestVideoFrameCallback(cb); }; v.requestVideoFrameCallback(cb); }
+  setInterval(() => { const q = vids.wide.getVideoPlaybackQuality?.();
+    log('fps', JSON.stringify({ stage: $('novaPane').dataset.stage, wide: cnt.wide, clip: cnt.clip, wideDropped: q?.droppedVideoFrames ?? null, wideTotal: q?.totalVideoFrames ?? null, wideRes: vids.wide.videoWidth + 'x' + vids.wide.videoHeight }));
+    cnt.wide = cnt.clip = 0; }, 1000);
+  log('fps', 'probe on');
+}
+if (FLAG('fpsprobe')) startFpsProbe();
+
+/* NOVA-GO4 flag `split`: her room, still and blurred, on the curtain (the same look as the margins around her). */
+function curtainRoom(){
+  const v = novaAmb, c = $('novaCurtainRoom'), W = c.clientWidth, H = c.clientHeight;
+  if (v.readyState < 2 || !v.videoWidth || !W || !H) return false;
+  c.width = W; c.height = H; const ar = v.videoWidth / v.videoHeight; let w = W, h = W / ar; if (h < H){ h = H; w = H * ar; }
+  try { c.getContext('2d').drawImage(v, (W - w) / 2, (H - h) / 2, w, h); return true; } catch (_){ return false; }
+}
+/* NOVA-GO4 flag `hear`: the microphone chip + the watch on the microphone itself (shared/nova-bridge.js 'nova:mic') */
+function micChip(){
+  const m = $('mic'); let okUntil = 0, deadShown = null;
+  addEventListener('nova:mic', e => { const d = e.detail, now = performance.now(); m.hidden = false; m.style.setProperty('--l', d.level.toFixed(2));
+    const st = d.dead ? 'dead' : now < okUntil ? 'ok' : kidLive() ? 'hearing' : d.open ? 'open' : 'her';
+    if (m.dataset.s !== st) m.dataset.s = st;
+    if (d.dead !== deadShown){ deadShown = d.dead; m.querySelector('b').textContent = d.dead ? TXT.micDead : ''; log('mic', (d.dead ? 'NOT WORKING (' + d.dead + ') ' : 'working ') + JSON.stringify(micState())); } });
+  addEventListener('nova:kid', () => { okUntil = performance.now() + 1500; });
+  m.onclick = async () => { if (m.dataset.s !== 'dead') return; log('mic', 'restart asked'); log('mic', 'restart ' + await restartMic()); };
+  setInterval(() => { if (!ended) log('mic', JSON.stringify(micState())); }, 5000);
+}
+/* ── NOVA-GO4 · flag `rec`, default off (Refael 2026-11-23: "the WHOLE GAME as one mp4 for marketing - both halves, her
+   voice, the music AND my own voice, when I play"). At the Play tap the browser asks once to share THIS tab (picture + tab
+   sound). The tab's sound and his microphone are mixed into one track; the recording goes to the pod in 2-second pieces as
+   it is made (POST /rec/<session>/<n>, pod NOVA_REC=1 - nothing is lost if the tab is closed) and is also kept here for a
+   download button on the medal screen. The pod turns it into play-<session>.mp4. Desktop Chrome/Edge only: a phone
+   browser cannot share its tab - there, and after a "no", the game runs and a red "not recording" is shown.
+   [CLI-FILL] 6 Mbps, 2 s pieces, stops 25 s after the medal (her ending lines) or when the page is left. ── */
+const vrec = { on: false, sid: '', mr: null, mime: '', chunks: [], n: 0, q: Promise.resolve(), sent: 0, failed: 0, actx: null, dest: null, stream: null, stopped: false };
+window.freeze4Rec = vrec;
+function recBadge(on, text){ const d = $('recDot'); d.className = on ? 'on' : 'off'; d.querySelector('b').textContent = text; }
+async function recStart(){
+  const md = navigator.mediaDevices;
+  if (!md?.getDisplayMedia){ recBadge(false, 'not recording'); log('rec', 'NOT RECORDING: this browser cannot share its tab'); return; }
+  let disp;
+  try { disp = await md.getDisplayMedia({ video: { frameRate: 30 }, audio: true, preferCurrentTab: true, selfBrowserSurface: 'include', systemAudio: 'include' }); }
+  catch (e){ recBadge(false, 'not recording'); log('rec', 'NOT RECORDING: ' + (e?.name || e)); return; }
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext; vrec.actx = new AC(); if (vrec.actx.state === 'suspended') vrec.actx.resume().catch(() => {});
+    vrec.dest = vrec.actx.createMediaStreamDestination();
+    const tabAudio = disp.getAudioTracks()[0];
+    if (tabAudio) vrec.actx.createMediaStreamSource(new MediaStream([tabAudio])).connect(vrec.dest);
+    vrec.stream = new MediaStream([disp.getVideoTracks()[0], vrec.dest.stream.getAudioTracks()[0]]);
+    vrec.mime = ['video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find(m => MediaRecorder.isTypeSupported(m)) || '';
+    vrec.sid = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14) + '-' + Math.random().toString(36).slice(2, 6);
+    const mr = vrec.mr = new MediaRecorder(vrec.stream, { mimeType: vrec.mime, videoBitsPerSecond: 6000000, audioBitsPerSecond: 160000 });
+    const ext = vrec.mime.startsWith('video/mp4') ? 'mp4' : 'webm';
+    const post = (path, body) => fetch(location.origin + '/rec/' + vrec.sid + '/' + path + '?ext=' + ext, { method: 'POST', body, keepalive: !body });
+    mr.ondataavailable = ev => { if (!ev.data || !ev.data.size) return; vrec.chunks.push(ev.data); const n = vrec.n++, blob = ev.data;
+      vrec.q = vrec.q.then(async () => { for (let k = 0; k < 3; k++){ try { const r = await post(n, blob); if (r.ok){ vrec.sent++; return; } } catch (_){ } await sleep(700); } vrec.failed++; log('rec', 'piece ' + n + ' did not reach the pod'); }); };
+    mr.onstop = () => { vrec.on = false; recBadge(false, 'saved'); const blob = new Blob(vrec.chunks, { type: vrec.mime.split(';')[0] }), a = $('recDl');
+      a.href = URL.createObjectURL(blob); a.download = 'nova-play-' + vrec.sid + '.' + ext; a.textContent = '⬇ video'; a.classList.add('on');
+      vrec.q = vrec.q.then(() => post('end', null)).then(() => log('rec', 'closed on the pod: play-' + vrec.sid + '.mp4 (pieces ' + vrec.sent + '/' + vrec.n + ', lost ' + vrec.failed + ')')).catch(() => {});
+      disp.getTracks().forEach(t => t.stop()); log('rec', 'stopped, ' + vrec.n + ' pieces, ' + Math.round(blob.size / 1e6) + ' MB here'); };
+    disp.getVideoTracks()[0].addEventListener('ended', () => recStop('sharing was stopped'));
+    addEventListener('pagehide', () => { try { if (mr.state !== 'inactive') mr.stop(); navigator.sendBeacon(location.origin + '/rec/' + vrec.sid + '/end?ext=' + ext); } catch (_){ } });
+    mr.start(2000); vrec.on = true; recBadge(true, 'REC');
+    log('rec', 'RECORDING ' + JSON.stringify({ session: vrec.sid, mime: vrec.mime, tabAudio: !!tabAudio, w: disp.getVideoTracks()[0].getSettings().width, h: disp.getVideoTracks()[0].getSettings().height }));
+  } catch (e){ recBadge(false, 'not recording'); log('rec', 'NOT RECORDING: ' + (e?.message || e)); try { disp.getTracks().forEach(t => t.stop()); } catch (_){ } }
+}
+function recMic(track){ try { if (vrec.on && track){ vrec.actx.createMediaStreamSource(new MediaStream([track.clone()])).connect(vrec.dest); log('rec', 'his microphone is in the recording'); } } catch (e){ log('rec', 'microphone not mixed: ' + (e?.message || e)); } }
+function recStop(why){ if (vrec.stopped || !vrec.mr) return; vrec.stopped = true; log('rec', 'stop: ' + why); try { if (vrec.mr.state !== 'inactive') vrec.mr.stop(); } catch (_){ } }
 async function begin(){
   $('startScr').classList.remove('on');
-  caption(TXT.warming, 'wait');                                               // game-cues-lights: the "Nova's warming up ✨" loading state
+  if (FLAG('rec')) await recStart();          // first thing in the tap: the browser's one "share this tab" question
+  /* NOVA-GO4 flag `hear`: still inside the tap - her voice's audio and the microphone's are unlocked by this gesture */
+  const HEARF = FLAG('hear'); if (HEARF) log('audio-unlock', JSON.stringify(primeAudio()));
+
+  /* 1 · PERMISSION FIRST — camera and microphone, before anything of Nova. A refusal is said in red, with which one and how
+     to allow it, and nothing continues (no silent fallback: the old path went on with a black pane / a deaf Nova). */
+  gate('perm'); caption(TXT.asking, 'wait'); log('permission', 'ask');
+  if (FLAG('split')){ let n = 0; const draw = () => { if (!curtainRoom() && n++ < 40 && document.body.dataset.gate) setTimeout(draw, 150); }; requestAnimationFrame(draw); }   // the curtain is laid out now
+  const perm = await askPermissions(HEARF);
+  /* NOVA-GO4 flag `hear`: ONE microphone. The track the permission question returned IS the game's microphone (handed to
+     the bridge); it is never stopped and no second capture is opened next to it. */
+  const micTrack = HEARF ? perm.streams.flatMap(st => st.getAudioTracks()).find(t => t.readyState === 'live') : null;
+  const micStream = micTrack ? new MediaStream([micTrack]) : null;
+  const dropPerm = () => { perm.streams.forEach(st => st.getTracks().forEach(t => { if (t !== micTrack) t.stop(); })); perm.streams = []; };
+  if (FLAG('rec')) recMic(perm.streams.flatMap(st => st.getAudioTracks()).find(t => t.readyState === 'live'));
+  log('permission', JSON.stringify({ cam: perm.cam, mic: perm.mic, err: perm.err }));
+  if (!perm.cam || !perm.mic){ dropPerm();
+    return refuse(perm.err.all ? [TXT.noMedia] : [!perm.cam && TXT.noCam, !perm.mic && TXT.noMic].filter(Boolean), { help: TXT.allow, retry: true }); }
+  /* 2 · HIS OWN PICTURE, large (the whole screen), with a short "get ready" — Nova is not connected yet.
+     Nothing is judged: the game does not exist until the intro is over. (?replay= proof runs: the recorded child stands
+     in for the camera picture; the permission question above is still the real one.) */
+  gate('cam'); caption(TXT.getReady, 'gold'); const tCam = performance.now();
+  src = await createSource($('cam'), (frame, t) => {
+    if (ended) return; lastFrame = frame;
+    const k = toJudge(frame); if (k) lights.feed(k);
+    if (doc){ doc(frame); return; }                       // Camera Doctor first — the game isn't running yet
+    if (shoulderBeat.on && k) shoulderBeat.feed(k);       // NOVA-AUDIT: the intro's shoulder light watches the real shoulders
+    if (!game) return;                                    // intro: picture and lights only, no judge
+    rec.frame(frame, t, src?.state); game.feed(frame, t); game.tick(t);
+    if (game.state.phase === 'freeze') ring(Math.min(1, (t - freezeAt) / holdS));
+  });
+  src.start();
+  if (src.state.cameraError){ dropPerm(); return refuse([TXT.camFail + src.state.cameraError], { help: TXT.allow, retry: true }); }
+  const camV = $('cam'); let camOk = false;
+  for (const t0 = performance.now(); performance.now() - t0 < 8000 && !(camOk = camV.videoWidth > 0 && camV.readyState >= 2); ) await sleep(100);   // [CLI-FILL] 8 s for the first real camera frame; no spec. QUESTION
+  log('own-camera', JSON.stringify({ frame: camOk, w: camV.videoWidth, h: camV.videoHeight, source: src.state.kind, model: !!src.state.modelOk }));
+  if (!camOk){ dropPerm(); return refuse([TXT.camFail + 'no picture'], { help: TXT.allow, retry: true }); }
+  await sleep(Math.max(0, READY_BEAT_MS - (performance.now() - tCam)));
   const missingClips = await bodyClipsOk();
-  if (missingClips.length) return refuse(missingClips.map(u => TXT.noBody + u));
-  /* her live face + live voice — both must be really there, or the game does not start (no silent fallbacks) */
+  if (missingClips.length){ dropPerm(); return refuse(missingClips.map(u => TXT.noBody + u)); }
+  /* 3 · ONLY NOW Nova is connected — and she stays completely hidden (his own picture covers her half, ONE loading line)
+     until ALL are true: her wide live picture has delivered a real frame · her voice bridge is connected · the first
+     sound (= first lips) of her greeting is playing. Not ready in time = the red refusal, as before. */
+  gate('nova'); caption(TXT.coming, 'wait');
   log('attach', 'start');
-  try { await attachNova({ intro: 'freeze4', onFace: s => face.attach(s), onWide: s => { dual = dual || !!s; wide.attach(s); } }); } catch (e) { log('attach-error', String(e?.message || e)); }
+  if (HEARF) micChip();
+  try { await attachNova({ intro: 'freeze4', echoGuard: true, onFace: s => face.attach(s), onWide: s => { dual = dual || !!s; wide.attach(s); },
+                           ...(HEARF ? { micStream, micMeter: true } : {}) }); } catch (e) { log('attach-error', String(e?.message || e)); }
+  if (HEARF){ pageLog('browser', navigator.userAgent + ' | ' + innerWidth + 'x' + innerHeight); LOG.filter(e => e.kind !== 'fps').forEach(e => pageLog(e.kind, e.detail)); log('mic', 'start ' + JSON.stringify(micState())); }
+  dropPerm();                                             // the game's own camera + mic are open now; the permission streams go
   const deadline = performance.now() + FACE_WAIT_MS;
   /* NOVA-FINAL: a dual pod starts on the WIDE body (the SoulX face is not rendered until the game) — wait for whichever
      face this pod streams first; with no wide track it is the freeze4 pod (face only) exactly as before. */
@@ -278,28 +818,57 @@ async function begin(){
   while (performance.now() < deadline){
     if (wide.state.live){ dual = true; faceOk = true; break; }
     if (face.state.live && !bridgeState().wide){ faceOk = true; break; }
-    await new Promise(r => setTimeout(r, 200));
+    await sleep(200);
   }
-  if (dual){ face.setActive(false); stage('wide'); } else { wide.setActive(false); $('novaPane').dataset.stage = 'game'; pip.show(true); }
+  if (faceOk) log('nova-picture', JSON.stringify({ wide: dual, frames: dual ? wide.state.frames : face.state.frames, hidden: document.body.dataset.gate === 'nova' }));
+  if (dual){ face.setActive(false); stage('wide'); } else { wide.setActive(false); $('novaPane').dataset.stage = 'game'; pip.show(true); ambFor('game'); }
   let st = bridgeState();
-  while (!(st.ws && st.voice) && performance.now() < deadline){ await new Promise(r => setTimeout(r, 200)); st = bridgeState(); }
+  while (!(st.ws && st.voice) && performance.now() < deadline){ await sleep(200); st = bridgeState(); }
   log('attach', JSON.stringify({ face: faceOk, dual, ...st }));
   const why = []; if (!faceOk) why.push(TXT.noFace); if (!st.ws || !st.voice) why.push(TXT.noVoice);
   if (why.length) return refuse(why);
+  log('nova-voice', 'connected');
 
+  if (dual && FLAG('warmgate')) await waitWarm('intro');                      // NOVA-GO2: she is revealed only on a smooth stream
   setVoice('engine'); face.setBase('listening');                              // INTRO = she talks, the child may answer
-  if (!fast){ mindReact('intro'); if (dual) log('intro-said', String(await waitHerLine())); else await new Promise(r => setTimeout(r, 3400)); }     // she explains the game first (skipped with ?fast=1)
+  const tAsk = performance.now();
+  const withShoulder = !fast && FLAG('shoulder');
+  if (withShoulder && FLAG('v2vintro')){                                      // NOVA-GO5: her approved live intro (greet + name, then the light)
+    liveIntro('greet'); const ack = await v2vGreetAck(1500);
+    v2vIntro.on = ack === true;
+    if (!v2vIntro.on) log('v2v', 'THE BRAIN DID NOT TAKE THE LIVE INTRO (' + (ack === false ? 'NOVA_V2V_INTRO is off' : 'no answer') + ') — staged greeting instead');
+  }
+  if (!fast){                                                                 // she explains the game first (skipped with ?fast=1)
+    if (v2vIntro.on) log('v2v', 'greeting + name question asked (live, in the conversation)');
+    else if (withShoulder) novaSays(HELLO + ' ' + SL.arm); else mindReact('intro');   // NOVA-AUDIT: the approved intro opens on the light
+    log('greeting', 'asked (Nova still hidden)' + (withShoulder ? ' — shoulder intro' : ''));
+    if (!await waitVoiceStart(GREET_WAIT_MS)) return refuse([TXT.noGreet]);
+    log('greeting', 'first sound after ' + Math.round(performance.now() - tAsk) + ' ms');
+    if (!(dual ? wide.state.live : face.state.live)) return refuse([TXT.noFace]);
+  }
+  caption(''); gate(null);                                                    // THE GATE OPENS: she appears with her first word
+  log('nova-shown', JSON.stringify({ wideLive: wide.state.live, wideFrames: wide.state.frames, voice: bridgeState().voice, speaking: !fast }));
+  if (withShoulder){
+    let tLight = tAsk;
+    if (v2vIntro.on) tLight = await v2vNameBeat(tAsk);                         // NOVA-GO5: name first — the name arms the light
+    else shoulderBeat.light();                                                // the light lands on his shoulder as she appears
+    if (dual) log('light-line-said', String(await waitHerLine(15000, tLight))); else if (v2vIntro.on) await sleep(3400);
+    shoulderBeat.start();                                                     // now he has heard what to do: the check starts
+    const res = await shoulderBeat.done();
+    if (v2vIntro.on) note(res === 'win' ? 'REAL, detected: the child lifted the shoulder and the light caught it. You are celebrating it right now.'
+                                        : 'Nobody lifted the shoulder. Don\u2019t mention it again — the game comes next.');   // main T.releaseShoulder
+    if (dual) log('shoulder-said', String(await waitHerLine(20000, res === 'win' ? performance.now() - 50 : tAsk)));
+    const tExplain = performance.now();
+    { const r = mind.react('intro'); if (r) introSay(r.text); } log('explain', 'asked');                              // THEN she explains Freeze (the original arc: light → invite to the game)
+    if (dual) log('intro-said', String(await waitHerLine(20000, tExplain))); else await sleep(3400);
+    await introListen(tExplain);
+  } else if (!fast){
+    if (dual) log('intro-said', String(await waitHerLine(20000, tAsk))); else await sleep(3400);
+    await introListen(tAsk);                                                  // a question said to her now gets its answer before the game
+  }
   game = createFreezeGame({ tune, pace, on: onEvent });
   hud = createHud(game.pace.rounds);
-  src = await createSource($('cam'), (frame, t) => {
-    if (ended) return; lastFrame = frame;
-    const k = toJudge(frame); if (k) lights.feed(k);
-    if (doc){ doc(frame); return; }                       // Camera Doctor first — the game isn't running yet
-    rec.frame(frame, t, src?.state); game.feed(frame, t); game.tick(t);
-    if (game.state.phase === 'freeze') ring(Math.min(1, (t - freezeAt) / holdS));
-  });
   if (!src.state.modelOk) caption(src.state.cameraError ? L.noCamera : L.cantSee, 'wait');
-  src.start();
   if (Q.get('checked') !== '1' && Q.get('doctor') !== '0') await runDoctor({ lights, lang, onFrameHook: h => doc = h });
   face.setBase('watching');
   game.start(performance.now() / 1000);

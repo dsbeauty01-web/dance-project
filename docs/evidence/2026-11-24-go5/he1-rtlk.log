@@ -1,0 +1,719 @@
+/home/claude/dance-project/test/hear_rig/brain_rig.py:12: DeprecationWarning: Inheritance class CS from ClientSession is discouraged
+  class CS(_CS):
+[NOVA_FACE] musetalk
+browser connected
+[V2V-INTRO] on: the intro runs on PROMPT (greet + name, live chat); the page arms the light
+[WARMUP] err [Errno 2] No such file or directory: '/tmp/nova-hear-rig/ws/
+[PAGE] 4.45 face-live frame
+[PAGE] 4.45 wide-face-live frame
+[PAGE] 4.56 nova-picture {"wide":true,"frames":3,"hidden":true}
+[PAGE] 4.56 face-active off
+[PAGE] 4.56 stage wide
+[PAGE] 4.57 attach {"face":true,"dual":true,"room":true,"ws":true,"voice":true,"wide":true}
+[PAGE] 4.57 nova-voice connected
+[PAGE] 4.59 mic working {"chunks":2,"sent":0,"heldBrain":0,"heldEcho":0,"peak":0,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+OAI: session.created
+OAI: session.updated
+[PAGE] 9.14 mic {"chunks":51,"sent":49,"heldBrain":0,"heldEcho":0,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+MIC recv: 50 chunks, ~297200 b64 bytes
+[PAGE] 12.59 warm intro cap 8000 ms 11,17,16,16,14,15,16,16,17,18,18,19,19,19,20,20
+[SPEAK-GATE] OFF - voice open (intro/ending)
+[BOUNDARY] phase-end
+[FACE-DUAL] face_mode wide -> 200
+[PAGE] 12.59 voice engine
+[PAGE] 12.59 stage wide
+[PAGE] 12.59 badge listening
+[V2V-INTRO] greet + name question
+[BOUNDARY] connect
+[SPEAK] (connect) Speak HEBREW ONLY, and keep speaking Hebrew for the whole conversation — never s
+[PAGE] 12.6 v2v greeting + name question asked (live, in the conversation)
+[PAGE] 12.6 greeting asked (Nova still hidden) — shoulder intro
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: conversation.item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] greet | היי! אני נובה, מורת הריקוד הקסומה שלך! איך קוראים לך?
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+[PAGE] 13.86 her-voice end
+OAI: rate_limits.updated
+[PAGE] 14.13 mic {"chunks":105,"sent":87,"heldBrain":16,"heldEcho":0,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":false}
+GATE OPEN: mic live (0.6s after last chunk)
+[PAGE] 15.37 greeting first sound after 2779 ms
+[PAGE] 15.37 gate open
+[PAGE] 15.37 nova-shown {"wideLive":true,"wideFrames":180,"voice":true,"speaking":true}
+[PAGE] 15.45 badge talking
+[PAGE] 15.46 size big
+[PAGE] 15.46 her-voice start
+[PAGE] 15.74 her-voice end
+[PAGE] 16.13 her-voice start
+[PAGE] 16.73 her-voice end
+[PAGE] 16.94 her-voice start
+[PAGE] 17.44 her-voice end
+[PAGE] 17.53 her-voice start
+[PAGE] 17.84 her-voice end
+[PAGE] 17.94 her-voice start
+[PAGE] 18.43 her-voice end
+[PAGE] 18.73 her-voice start
+[PAGE] 18.83 her-voice end
+[PAGE] 18.93 her-voice start
+[PAGE] 19.14 mic {"chunks":159,"sent":94,"heldBrain":20,"heldEcho":43,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":false}
+[PAGE] 19.44 her-voice end
+[PAGE] 20.14 badge listening
+[PAGE] 20.14 size small
+MIC recv: 100 chunks, ~594400 b64 bytes
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[PAGE] 20.64 v2v greeting said=true — waiting for the name
+OAI: input_audio_buffer.speech_started
+[PAGE] 22.06 you-hearing 
+[PAGE] 24.13 mic {"chunks":213,"sent":139,"heldBrain":20,"heldEcho":50,"peak":0.4785,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+MIC recv: 150 chunks, ~891600 b64 bytes
+OAI: input_audio_buffer.speech_stopped
+[RACE] armed utt 1 bytes 174888
+[RACE] rest start utt 1
+[MIC-LEVEL] utt 1 peak 20822 (64% full scale) boost x1.1
+OAI: input_audio_buffer.committed
+OAI: conversation.item.added
+OAI: conversation.item.done
+[PAGE] 25.53 you-first-words ה
+OAI: conversation.item.input_audio_transcription.completed
+[CONF] rt utt 1 mean -0.01 min -0.10 | היי, נובה. קוראים לי שוקי.
+[BOUNDARY] kid-turn
+[INPUT-LOCK] one-shot fired for turn 1
+[SPEAK] (kid-turn) bare
+[PAGE] 25.81 you-text היי, נובה. קוראים לי שוקי.
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+[PAGE] 25.89 v2v-kid {"text":"היי, נובה. קוראים לי שוקי.","name":"שוקי","turns":1}
+[RACE] rest got utt 1 : היי, נובה. קוראים לי שוקי.
+[CONF] rest utt 1 mean -0.04 min -0.47 | peak 20822 | היי, נובה. קוראים לי שוקי.
+[PAGE] 26.45 badge thinking
+OAI: response.output_item.added
+OAI: conversation.item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] kid | שוקי, נעים להכיר! אתה אוהב מוזיקה קצבית?
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+[PAGE] 28.07 her-voice end
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+[PAGE] 29.13 mic {"chunks":266,"sent":160,"heldBrain":50,"heldEcho":50,"peak":0.0582,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+[PAGE] 29.34 badge talking
+[PAGE] 29.35 size big
+[PAGE] 29.35 her-voice start
+[PAGE] 29.54 her-voice end
+[PAGE] 29.64 her-voice start
+[PAGE] 29.84 her-voice end
+[PAGE] 30.04 her-voice start
+[PAGE] 30.44 her-voice end
+[PAGE] 30.54 her-voice start
+[PAGE] 30.73 her-voice end
+[PAGE] 31.33 her-voice start
+[PAGE] 32.04 her-voice end
+[PAGE] 32.13 her-voice start
+[PAGE] 32.44 her-voice end
+[PAGE] 33.13 badge listening
+[PAGE] 33.14 size small
+[PAGE] 33.67 v2v-answer true
+[PAGE] 34.13 mic {"chunks":320,"sent":173,"heldBrain":50,"heldEcho":91,"peak":0.0071,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+MIC recv: 200 chunks, ~1188800 b64 bytes
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[V2V-INTRO] name wait over: name captured
+[PAGE] 38.75 v2v shoulder ARM (name captured) at 23 s name=שוקי
+[PAGE] 39.13 mic {"chunks":374,"sent":227,"heldBrain":50,"heldEcho":91,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+[PAGE] 39.95 shoulder light on (rShoulder)
+[REMEMBER] system: [director] note Facts you may use: The magic light is glowing on the child's sho
+[SPEAK-GATE] OFF - voice open (intro/ending)
+[BOUNDARY] phase-end
+[FACE-DUAL] face_mode wide -> 200
+[PAGE] 39.95 intro-boundary תראו — אור קסם על הכתף! תרימו אותה גבוה,
+PITCH say: תראו — אור קסם על הכתף! תרימו אותה גבוה, רק אותה!
+[SPEAK] (phase-end) תראו — אור קסם על הכתף! תרימו אותה גבוה, רק אותה!
+[PAGE] 39.96 line תראו — אור קסם על הכתף! תרימו אותה גבוה, רק אותה!
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: response.content_part.added
+[PAGE] 40.7 badge thinking
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] say | תראו — אור קסם על הכתף! תרימו אותה גבוה, רק אותה!
+[REMEMBER] system: [you just said this to the child, out loud] תראו — אור קסם על הכתף! תרימו אותה ג
+[DE-CAN] she repeated a line verbatim: תראו — אור קסם על הכתף! תרימו אותה גבוה, רק אותה!
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+[PAGE] 41.37 her-voice end
+OAI: rate_limits.updated
+OAI: conversation.item.added
+OAI: conversation.item.done
+GATE OPEN: mic live (0.6s after last chunk)
+[PAGE] 42.83 badge talking
+[PAGE] 42.83 size big
+[PAGE] 42.83 her-voice start
+[PAGE] 43.35 her-voice end
+[PAGE] 43.75 her-voice start
+[PAGE] 44.04 her-voice end
+[PAGE] 44.13 mic {"chunks":426,"sent":243,"heldBrain":70,"heldEcho":107,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":false}
+[PAGE] 44.15 her-voice start
+[PAGE] 44.34 her-voice end
+[PAGE] 44.43 her-voice start
+[PAGE] 44.64 her-voice end
+[PAGE] 44.73 her-voice start
+[PAGE] 44.84 her-voice end
+[PAGE] 45.04 her-voice start
+[PAGE] 45.23 her-voice end
+[PAGE] 45.83 her-voice start
+[PAGE] 46.23 her-voice end
+[PAGE] 46.34 her-voice start
+[PAGE] 46.94 her-voice end
+[PAGE] 47.34 her-voice start
+[PAGE] 47.73 her-voice end
+[PAGE] 47.83 her-voice start
+[PAGE] 48.03 her-voice end
+[PAGE] 48.73 badge listening
+[PAGE] 48.74 size small
+MIC recv: 250 chunks, ~1486000 b64 bytes
+[PAGE] 49.13 mic {"chunks":480,"sent":250,"heldBrain":70,"heldEcho":152,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+[PAGE] 49.24 light-line-said true
+[PAGE] 49.24 shoulder armed (rShoulder) aspect=1.778
+OAI: input_audio_buffer.speech_started
+[PAGE] 50.86 you-hearing 
+OAI: input_audio_buffer.speech_stopped
+[RACE] armed utt 2 bytes 130308
+[RACE] rest start utt 2
+[MIC-LEVEL] utt 2 peak 18646 (57% full scale) boost x1.2
+OAI: input_audio_buffer.committed
+OAI: conversation.item.added
+OAI: conversation.item.done
+[PAGE] 53.35 you-first-words את
+OAI: conversation.item.input_audio_transcription.completed
+[CONF] rt utt 2 mean -0.00 min -0.00 | את אוהבת פיצה?
+[BOUNDARY] kid-turn
+[INPUT-LOCK] one-shot fired for turn 2
+[SPEAK] (kid-turn) bare
+[PAGE] 53.62 you-text את אוהבת פיצה?
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+[PAGE] 54.13 mic {"chunks":533,"sent":299,"heldBrain":74,"heldEcho":152,"peak":0.2159,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":false}
+[PAGE] 54.2 badge thinking
+[RACE] rest got utt 2 : את אוהבת פיצה?
+[CONF] rest utt 2 mean -0.00 min -0.00 | peak 18646 | את אוהבת פיצה?
+OAI: response.output_item.added
+OAI: conversation.item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] kid | כן, אני אוהבת פיצה, ועכשיו חוזרים לקצב הקסום!
+OAI: response.content_part.done
+OAI: conversation.item.done
+[PAGE] 56.16 her-voice end
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+MIC recv: 300 chunks, ~1783200 b64 bytes
+[PAGE] 57.26 shoulder retry (8 s, no lift seen)
+[SPEAK-GATE] OFF - voice open (intro/ending)
+[BOUNDARY] phase-end
+[FACE-DUAL] face_mode wide -> 200
+[PAGE] 57.27 intro-boundary עוד לא ראיתי — נסו להרים את הכתף עם האור
+PITCH say: עוד לא ראיתי — נסו להרים את הכתף עם האור, גבוה!
+[SPEAK] (phase-end) עוד לא ראיתי — נסו להרים את הכתף עם האור, גבוה!
+[PAGE] 57.27 line עוד לא ראיתי — נסו להרים את הכתף עם האור, גבוה!
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[PAGE] 57.34 badge talking
+[PAGE] 57.34 size big
+[PAGE] 57.34 her-voice start
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: response.content_part.added
+[PAGE] 57.68 her-voice end
+[PAGE] 58.03 her-voice start
+[PAGE] 58.63 her-voice end
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] say | עוד לא ראיתי — נסו להרים את הכתף עם האור, גבוה!
+[REMEMBER] system: [you just said this to the child, out loud] עוד לא ראיתי — נסו להרים את הכתף עם 
+[DE-CAN] she repeated a line verbatim: עוד לא ראיתי — נסו להרים את הכתף עם האור, גבוה!
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+[PAGE] 58.71 her-voice end
+[PAGE] 58.74 her-voice start
+OAI: conversation.item.added
+OAI: conversation.item.done
+[PAGE] 58.84 her-voice end
+[PAGE] 58.93 her-voice start
+[PAGE] 59.13 mic {"chunks":585,"sent":301,"heldBrain":121,"heldEcho":155,"peak":0.0263,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":false}
+[PAGE] 59.14 her-voice end
+GATE OPEN: mic live (0.6s after last chunk)
+[PAGE] 59.34 her-voice start
+[PAGE] 59.86 her-voice end
+[PAGE] 59.94 her-voice start
+[PAGE] 60.13 her-voice end
+[PAGE] 60.24 her-voice start
+[PAGE] 60.44 her-voice end
+[PAGE] 60.53 her-voice start
+[PAGE] 60.93 her-voice end
+[PAGE] 61.03 her-voice start
+[PAGE] 61.33 her-voice end
+[PAGE] 61.53 her-voice start
+[PAGE] 62.74 her-voice end
+[PAGE] 63.34 her-voice start
+[PAGE] 64.14 mic {"chunks":638,"sent":301,"heldBrain":123,"heldEcho":206,"peak":0.0032,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":false}
+[PAGE] 64.44 her-voice end
+[PAGE] 64.54 her-voice start
+[PAGE] 64.63 her-voice end
+[PAGE] 64.74 her-voice start
+[PAGE] 64.83 her-voice end
+[PAGE] 65.04 her-voice start
+[PAGE] 65.34 her-voice end
+[PAGE] 65.45 her-voice start
+[PAGE] 65.64 her-voice end
+[PAGE] 66.04 her-voice start
+[PAGE] 66.54 her-voice end
+[PAGE] 67.25 badge listening
+[PAGE] 67.25 size small
+[PAGE] 69.13 mic {"chunks":692,"sent":323,"heldBrain":123,"heldEcho":236,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+[PAGE] 69.24 shoulder release — no lift seen in 20 s (nothing claimed)
+[REMEMBER] system: [director] note Facts you may use: Nobody lifted the shoulder. Don’t mention it 
+[PAGE] 69.25 shoulder-said true
+[SPEAK-GATE] OFF - voice open (intro/ending)
+[BOUNDARY] phase-end
+[FACE-DUAL] face_mode wide -> 200
+[PAGE] 69.25 intro-boundary תרקדי כשהמוזיקה מתנגנת. כשהיא נעצרת — תק
+[PAGE] 69.25 explain asked
+PITCH say: תרקדי כשהמוזיקה מתנגנת. כשהיא נעצרת — תקפאי כמו החיה שאני מראה! מוכנה?
+[SPEAK] (phase-end) תרקדי כשהמוזיקה מתנגנת. כשהיא נעצרת — תקפאי כמו החיה שאני מראה! מוכנה?
+[PAGE] 69.26 line תרקדי כשהמוזיקה מתנגנת. כשהיא נעצרת — תקפאי כמו החיה שאני מראה! מוכנה?
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: response.content_part.added
+[PAGE] 69.95 badge thinking
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] say | "תרקדי כשהמוזיקה מתנגנת. כשהיא נעצרת — תקפאי כמו החיה שאני מ
+[REMEMBER] system: [you just said this to the child, out loud] "תרקדי כשהמוזיקה מתנגנת. כשהיא נעצרת
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+[PAGE] 71.47 her-voice end
+OAI: rate_limits.updated
+OAI: conversation.item.added
+OAI: conversation.item.done
+GATE OPEN: mic live (0.6s after last chunk)
+[PAGE] 72.74 badge talking
+[PAGE] 72.74 size big
+[PAGE] 72.74 her-voice start
+[PAGE] 73.25 her-voice end
+[PAGE] 73.35 her-voice start
+[PAGE] 74.06 her-voice end
+[PAGE] 74.13 mic {"chunks":742,"sent":330,"heldBrain":149,"heldEcho":253,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":false}
+[PAGE] 74.13 her-voice start
+[PAGE] 74.44 her-voice end
+[PAGE] 75.04 her-voice start
+[PAGE] 75.53 her-voice end
+[PAGE] 75.64 her-voice start
+[PAGE] 75.94 her-voice end
+[PAGE] 76.44 her-voice start
+[PAGE] 76.53 her-voice end
+[PAGE] 76.84 her-voice start
+[PAGE] 76.93 her-voice end
+[PAGE] 77.14 her-voice start
+[PAGE] 78.23 her-voice end
+[PAGE] 78.64 her-voice start
+[PAGE] 79.13 mic {"chunks":795,"sent":330,"heldBrain":149,"heldEcho":306,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":false}
+[PAGE] 79.13 her-voice end
+[PAGE] 79.84 badge listening
+[PAGE] 79.84 size small
+[PAGE] 80.4 intro-said true
+[PAGE] 80.4 intro-listen open
+MIC recv: 350 chunks, ~2080400 b64 bytes
+OAI: input_audio_buffer.speech_started
+[PAGE] 82.02 you-hearing 
+OAI: input_audio_buffer.speech_stopped
+[RACE] armed utt 3 bytes 90186
+OAI: input_audio_buffer.committed
+OAI: conversation.item.added
+OAI: conversation.item.done
+[RACE] rest start utt 3
+[MIC-LEVEL] utt 3 peak 21930 (67% full scale) boost x1.0
+[PAGE] 83.63 you-first-words אני
+OAI: conversation.item.input_audio_transcription.completed
+[CONF] rt utt 3 mean -0.00 min -0.01 | אני מוכן.
+[CONSENT] real yes: אני מוכן.
+[BOUNDARY] kid-turn
+[INPUT-LOCK] one-shot fired for turn 3
+[SPEAK] (kid-turn) bare
+[PAGE] 83.9 you-text אני מוכן.
+[PAGE] 83.9 you-yes a real yes
+[PAGE] 83.98 intro-kid אני מוכן.
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+[PAGE] 84.13 mic {"chunks":847,"sent":375,"heldBrain":150,"heldEcho":310,"peak":0.2791,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":false}
+OAI: response.output_item.added
+OAI: conversation.item.added
+OAI: response.content_part.added
+[RACE] rest got utt 3 : אני מוכן.
+[CONF] rest utt 3 mean -0.01 min -0.03 | peak 21930 | אני מוכן.
+[PAGE] 84.45 badge thinking
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] kid | יאללה, רוקדים ועוצרים כמו פסל כשיש שקט!
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+[PAGE] 84.96 her-voice end
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+[PAGE] 86.43 badge talking
+[PAGE] 86.43 size big
+[PAGE] 86.43 her-voice start
+[PAGE] 86.84 her-voice end
+[PAGE] 87.14 her-voice start
+[PAGE] 88.04 her-voice end
+[PAGE] 88.14 her-voice start
+[PAGE] 88.23 her-voice end
+[PAGE] 88.34 her-voice start
+[PAGE] 88.43 her-voice end
+[PAGE] 88.53 her-voice start
+[PAGE] 88.64 her-voice end
+[PAGE] 88.74 her-voice start
+[PAGE] 89.13 mic {"chunks":900,"sent":381,"heldBrain":166,"heldEcho":341,"peak":0.0339,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":false}
+[PAGE] 89.44 her-voice end
+[PAGE] 90.14 badge listening
+[PAGE] 90.14 size small
+[PAGE] 90.72 intro-answer true
+[PAGE] 90.72 intro-listen he said yes - the game starts
+[PAGE] 90.72 intro-listen closed answered=1
+[PAGE] 90.72 badge watching
+MIC recv: 400 chunks, ~2377600 b64 bytes
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[V2V-INTRO] intro over - session moved to FREEZE_RULES
+[SPEAK-GATE] ON (air) - engine audio blocked
+[FACE-DUAL] face_mode pip -> 200
+[PAGE] 92.73 voice air
+[PAGE] 92.74 face-active on
+[PAGE] 92.74 wide-face-active off
+[PAGE] 92.74 stage game
+OAI: session.updated
+[PAGE] 92.92 pip-fresh her face shown after 188 ms
+[PAGE] 93.13 noblink game clip ready after 297 ms (her wide body stayed on meanwhile)
+[PAGE] 93.14 matchcut game: matched frame matrix(1.31034,0,0,1.29900,-102.51,-91.61)
+[PAGE] 93.74 matchcut pull-back
+[PAGE] 94.13 mic {"chunks":953,"sent":424,"heldBrain":166,"heldEcho":349,"peak":0.245,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+OAI: input_audio_buffer.speech_started
+[PAGE] 94.23 you-hearing 
+[PAGE] 94.43 line-waits the child is talking
+OAI: input_audio_buffer.speech_stopped
+[RACE] armed utt 4 bytes 67896
+[RACE] rest start utt 4
+[MIC-LEVEL] utt 4 peak 8343 (25% full scale) boost x2.6
+OAI: input_audio_buffer.committed
+OAI: conversation.item.added
+OAI: conversation.item.done
+[PAGE] 95.49 you-first-words כן
+OAI: conversation.item.input_audio_transcription.completed
+[CONF] rt utt 4 mean -0.02 min -0.03 | כן.
+[CONSENT] real yes: כן.
+[SPEAK-GATE] kid turn stored, no reply (game phase)
+[PAGE] 95.77 you-text כן.
+[PAGE] 95.77 you-yes a real yes
+[SPEAK-GATE] air line credited: nova-say
+[BOUNDARY] air-credit
+PITCH queued (busy): מעולה!
+[PAGE] 95.83 line מעולה!
+[RACE] rest got utt 4 : Ken
+[CONF] rest utt 4 mean -0.92 min -0.92 | peak 8343 | Ken
+[PAGE] 96.45 badge thinking
+MIC recv: 450 chunks, ~2674800 b64 bytes
+[PAGE] 96.62 line-held-back one per gap: תרקדי, תרקדי, תרקדי!
+[PAGE] 99.13 mic {"chunks":1007,"sent":478,"heldBrain":166,"heldEcho":349,"peak":0.0298,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+[HEAR] gap closed - dropped unsaid game line(s): מעולה!
+[SPEAK-GATE] ON (hard) - engine audio blocked
+[FACE-DUAL] face_mode pip -> 200
+[PAGE] 99.63 voice mute
+[PAGE] 99.63 stage game
+MIC recv: 500 chunks, ~2972000 b64 bytes
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[PAGE] 101.95 badge freeze
+[SPEAK-GATE] ON (air) - engine audio blocked
+[FACE-DUAL] face_mode pip -> 200
+[PAGE] 102.17 voice air
+[PAGE] 102.17 stage game
+[PAGE] 102.17 badge watching
+[SPEAK-GATE] air line credited: nova-say
+[BOUNDARY] air-credit
+PITCH say: איזה פלמינגו!
+[SPEAK] (air-credit) איזה פלמינגו!
+[PAGE] 103.48 line איזה פלמינגו!
+OAI: response.created
+[SPEAK-GATE] air line generating (credit spent)
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: response.content_part.added
+[PAGE] 103.89 line-held-back one per gap: כן!
+OAI: response.output_audio.done
+[SPEAK-GATE] air voice -> face engine: 76800 bytes
+OAI: response.output_audio_transcript.done
+[ORIGIN] say | איזה פלמינגו!
+[DE-CAN] she repeated a line verbatim: איזה פלמינגו!
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+[PAGE] 104.13 her-voice end
+[PAGE] 104.13 mic {"chunks":1060,"sent":525,"heldBrain":172,"heldEcho":349,"peak":0.0036,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":false}
+OAI: rate_limits.updated
+[PAGE] 104.21 badge thinking
+GATE OPEN: mic live (0.6s after last chunk)
+[PAGE] 105.33 badge talking
+[PAGE] 105.33 size big
+[PAGE] 105.34 her-voice start
+[PAGE] 105.63 her-voice end
+[PAGE] 105.74 her-voice start
+[PAGE] 105.84 her-voice end
+[PAGE] 105.93 her-voice start
+[PAGE] 106.64 her-voice end
+[PAGE] 107.34 badge watching
+[PAGE] 107.34 size small
+MIC recv: 550 chunks, ~3269200 b64 bytes
+[PAGE] 109.14 mic {"chunks":1114,"sent":550,"heldBrain":179,"heldEcho":369,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+[SPEAK-GATE] ON (hard) - engine audio blocked
+[FACE-DUAL] face_mode pip -> 200
+[PAGE] 109.93 voice mute
+[PAGE] 109.93 stage game
+[PAGE] 109.94 badge freeze
+[SPEAK-GATE] ON (air) - engine audio blocked
+[FACE-DUAL] face_mode pip -> 200
+[PAGE] 112.43 voice air
+[PAGE] 112.43 stage game
+[PAGE] 112.44 badge watching
+[SPEAK-GATE] air line credited: nova-say
+[BOUNDARY] air-credit
+PITCH say: לא הפעם, דוב!
+[SPEAK] (air-credit) לא הפעם, דוב!
+[PAGE] 113.74 line לא הפעם, דוב!
+MIC recv: 600 chunks, ~3566400 b64 bytes
+OAI: response.created
+[SPEAK-GATE] air line generating (credit spent)
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+OAI: response.content_part.added
+[SPEAK-GATE] OFF - voice open (intro/ending)
+[REMEMBER] system: [phase] The game section just ended. The ending has the floor now - speak only t
+[BOUNDARY] phase-end
+[FACE-DUAL] face_mode wide -> 200
+[PAGE] 114.12 voice engine
+[PAGE] 114.12 face-active off
+[PAGE] 114.12 wide-face-active on
+[PAGE] 114.12 stage wide
+[PAGE] 114.12 badge listening
+OAI: conversation.item.added
+OAI: conversation.item.done
+[PAGE] 114.46 badge thinking
+[PAGE] 115.25 noblink ending clip ready after 1133 ms
+[PAGE] 115.27 matchcut push-in
+OAI: response.output_item.added
+OAI: response.content_part.added
+PITCH queued (busy): קיבלת כוכבים, ולמדת את הטריק: המוזיקה נעצרת — פסל!
+[PAGE] 115.53 line קיבלת כוכבים, ולמדת את הטריק: המוזיקה נעצרת — פסל!
+[PAGE] 115.7 badge listening
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] say | בסדר, אני אגיד את זה בדיוק כמו שביקשת.
+[SAY-ENFORCE] paraphrase detected, requeued: לא הפעם, דוב!
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.output_audio.done
+[PAGE] 115.91 her-voice end
+OAI: response.output_audio_transcript.done
+[ORIGIN] auto | "לא הפעם, דוב!"
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+[PAGE] 115.93 her-voice end
+OAI: rate_limits.updated
+[PAGE] 116.23 badge thinking
+[PAGE] 116.29 matchcut wide: cut after 1021 ms, wide fps 17
+GATE OPEN: mic live (0.6s after last chunk)
+[PAGE] 116.58 badge talking
+[PAGE] 116.58 size big
+[PAGE] 116.58 her-voice start
+PITCH say (flushed): לא הפעם, דוב!
+[SPEAK] (phase-end) לא הפעם, דוב!
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+[PAGE] 117.04 her-voice end
+OAI: response.output_item.added
+[PAGE] 117.64 her-voice start
+OAI: response.content_part.added
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] say | "לא הפעם, דוב!"
+[DE-CAN] she repeated a line verbatim: "לא הפעם, דוב!"
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+[PAGE] 118.11 her-voice end
+[PAGE] 118.33 her-voice end
+[PAGE] 118.45 her-voice start
+GATE OPEN: mic live (0.6s after last chunk)
+[PAGE] 118.85 her-voice end
+PITCH say (flushed): קיבלת כוכבים, ולמדת את הטריק: המוזיקה נעצרת — פסל!
+[SPEAK] (page-line) קיבלת כוכבים, ולמדת את הטריק: המוזיקה נעצרת — פסל!
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+PITCH queued (busy): עוד פעם? או תנסי את "חקה את נובה"?
+[PAGE] 119.13 line עוד פעם? או תנסי את "חקה את נובה"?
+[PAGE] 119.14 her-voice start
+OAI: response.output_item.added
+OAI: response.content_part.added
+[PAGE] 119.45 her-voice end
+[PAGE] 119.65 her-voice start
+[PAGE] 119.85 her-voice end
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] say | "קיבלת כוכבים, ולמדת את הטריק: המוזיקה נעצרת — פסל!"
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+[PAGE] 120.31 her-voice end
+OAI: rate_limits.updated
+[PAGE] 120.33 her-voice start
+GATE OPEN: mic live (0.6s after last chunk)
+[PAGE] 121.03 her-voice end
+[PAGE] 121.15 her-voice start
+PITCH say (flushed): עוד פעם? או תנסי את "חקה את נובה"?
+[SPEAK] (page-line) עוד פעם? או תנסי את "חקה את נובה"?
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+[PAGE] 121.54 her-voice end
+OAI: response.output_item.added
+OAI: response.content_part.added
+[PAGE] 122.14 her-voice start
+[PAGE] 122.44 her-voice end
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] say | "עוד פעם? או תנסי את "חקה את נובה"?"
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+[PAGE] 122.47 her-voice end
+OAI: rate_limits.updated
+[PAGE] 122.54 her-voice start
+[PAGE] 122.93 her-voice end
+GATE OPEN: mic live (0.6s after last chunk)
+[PAGE] 123.14 her-voice start
+[PAGE] 123.45 her-voice end
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0
+[PAGE] 124.04 her-voice start
+[PAGE] 124.44 her-voice end
+[PAGE] 124.54 her-voice start
+[PAGE] 125.03 her-voice end
+[PAGE] 125.33 her-voice start
+[PAGE] 125.64 her-voice end
+[PAGE] 125.73 her-voice start
+[PAGE] 125.84 her-voice end
+[PAGE] 125.94 her-voice start
+[PAGE] 126.34 her-voice end
+[PAGE] 126.74 her-voice start
+[PAGE] 127.03 her-voice end
+[PAGE] 127.14 her-voice start
+[PAGE] 127.44 her-voice end
+[PAGE] 127.54 her-voice start
+[PAGE] 127.73 her-voice end
+[PAGE] 128.13 her-voice start
+[PAGE] 128.53 her-voice end
+[PAGE] 129.04 her-voice start
+[PAGE] 129.23 her-voice end
+[PAGE] 129.33 her-voice start
+[PAGE] 129.63 her-voice end
+[PAGE] 130.04 her-voice start
+[PAGE] 130.34 her-voice end
+[PAGE] 130.43 her-voice start
+[PAGE] 131.14 her-voice end
+[PAGE] 131.24 her-voice start
+[PAGE] 131.74 her-voice end
+[PAGE] 131.83 her-voice start
+[PAGE] 132.24 her-voice end
+[PAGE] 132.94 badge listening
+[PAGE] 132.94 size small
+OAI: input_audio_buffer.speech_started
+[PAGE] 136.82 you-hearing 
+MIC recv: 650 chunks, ~3863600 b64 bytes
+OAI: input_audio_buffer.speech_stopped
+[RACE] armed utt 5 bytes 103560
+OAI: input_audio_buffer.committed
+[RACE] rest start utt 5
+[MIC-LEVEL] utt 5 peak 23187 (71% full scale) boost x1.0
+OAI: conversation.item.added
+OAI: conversation.item.done
+[PAGE] 138.78 you-first-words בי
+OAI: conversation.item.input_audio_transcription.completed
+[CONF] rt utt 5 mean -0.15 min -0.48 | בי נובה.
+[BOUNDARY] kid-turn
+[INPUT-LOCK] one-shot fired for turn 5 (hear)
+[SPEAK] (kid-turn) The child just said something to you. Answer exactly what THEY said, warmly, in 
+[PAGE] 139.01 you-text בי נובה.
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+[RACE] rest got utt 5 : Bye Nova.
+[CONF] rest utt 5 mean -0.61 min -0.94 | peak 23187 | Bye Nova.
+[PAGE] 139.7 badge thinking
+OAI: response.output_item.added
+OAI: conversation.item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] kid | ביי שוקי, היה כיף לרקוד יחד!
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+[PAGE] 140.54 her-voice end
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+[PAGE] 142.03 badge talking
+[PAGE] 142.03 size big
+[PAGE] 142.04 her-voice start
+[PAGE] 142.73 her-voice end
+[PAGE] 143.03 her-voice start
+[PAGE] 143.34 her-voice end
+[PAGE] 143.44 her-voice start
+[PAGE] 143.53 her-voice end
+[PAGE] 143.63 her-voice start
+[PAGE] 143.83 her-voice end
+[PAGE] 143.93 her-voice start
+[PAGE] 144.43 her-voice end
+[PAGE] 145.13 badge listening
+[PAGE] 145.13 size small
+MIC recv: 700 chunks, ~4160800 b64 bytes
+[MIC-GAIN] envelope 0 (0% full scale) live boost x1.0

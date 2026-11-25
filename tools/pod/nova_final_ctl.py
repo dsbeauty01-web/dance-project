@@ -17,10 +17,15 @@ import json, os, sys, time, urllib.request, urllib.error
 
 ENVF = os.environ.get("FREEZE4_ENV", "/root/.maya/host.env")
 IMAGE = os.environ.get("FREEZE4_IMAGE", "ghcr.io/dsbeauty01-web/maya-lt:soulx-wide-v2")
-NAME = "nova-final"
+NAME = os.environ.get("NF_NAME", "nova-final")
+# NOVA-FASTBOOT (2026-11-22, docs/NOVA-FASTBOOT.md). NF_VOLUME=<network volume id> (default unset = today's boot): the pod
+# boots the COMMON image below (cached on RunPod hosts: no 9-31 min pull of the 14.3 GB private image), is placed in the
+# volume's data center, mounts the volume at /nfb, and nova_final_pod.sh takes Nova's heavy parts from it.
+NF_VOLUME = os.environ.get("NF_VOLUME", "").strip()
+NF_IMAGE = os.environ.get("NF_IMAGE", "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04")
 # the newest ghcr credential; the oldest (ghcr-maya-lt, Sept) left 3 pods "Exited by Runpod" within 1-16 s on 2026-11-11
 REG = os.environ.get("FREEZE4_REGISTRY", "ghcr-2026-10-30")
-FLOOR = 5.0
+FLOOR = float(os.environ.get("NF_FLOOR", "5.0"))   # Refael 2026-11-23: "fuck the rule, go to work" at $4.76 -> NF_FLOOR=2 for that run; default unchanged
 REST = "https://rest.runpod.io/v1"
 
 
@@ -56,6 +61,14 @@ def pods():
     return d if isinstance(d, list) else []
 
 
+def volume(vid):
+    """the network volume's record (id, name, size, dataCenterId) from GraphQL; refuses an unknown id"""
+    s, d = req("POST", "https://api.runpod.io/graphql", {"query": "query { myself { networkVolumes { id name size dataCenterId } } }"})
+    for v in ((d or {}).get("data", {}).get("myself", {}) or {}).get("networkVolumes", []) if isinstance(d, dict) else []:
+        if v["id"] == vid: return v
+    raise SystemExit(f"REFUSED: network volume {vid} not found on the account")
+
+
 def registry_auth_id():
     s, d = req("GET", REST + "/containerregistryauth")
     for a in d if isinstance(d, list) else []:
@@ -69,6 +82,7 @@ def create(commit):
     if bal is None or float(bal) < FLOOR: raise SystemExit(f"REFUSED: balance {bal} < ${FLOOR}")
     if any(p.get("name") == NAME for p in pods()): raise SystemExit("REFUSED: a pod named nova-final already exists")
     url = f"https://raw.githubusercontent.com/dsbeauty01-web/dance-project/{commit}/tools/pod/nova_final_pod.sh"
+    vol = volume(NF_VOLUME) if NF_VOLUME else None
     body = {
         # field set mirrors maya-lt maya_launch/providers/runpod.py create() (the body Maya's lives boot with)
         "name": NAME, "imageName": IMAGE, "computeType": "GPU", "gpuTypeIds": ["NVIDIA GeForce RTX 4090"], "gpuCount": 1,
@@ -77,8 +91,15 @@ def create(commit):
         "dockerEntrypoint": ["/bin/bash", "-c"],
         "dockerStartCmd": [f"mkdir -p /root/out; curl -fsSL {url} -o /root/f4.sh >> /root/out/fetch.log 2>&1; "
                            f"NF_BRANCH={os.environ.get('NF_BRANCH', 'nova-final')} bash /root/f4.sh; sleep infinity"],
-        "env": {k: K[k] for k in ("OPENAI_API_KEY", "LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET", "MAYA_ASSETS_TOKEN")} | {"NF_WATCH_MIN": "55", "NF_SKIP_W": os.environ.get("NF_SKIP_W", "0"), "NF_SKIP_A": os.environ.get("NF_SKIP_A", "0"), "NF_GAMES": os.environ.get("NF_GAMES", "wave upperbody")},
+        "env": {k: K[k] for k in ("OPENAI_API_KEY", "LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET", "MAYA_ASSETS_TOKEN")} | {"NF_WATCH_MIN": "55", "NF_SKIP_W": os.environ.get("NF_SKIP_W", "0"), "NF_SKIP_A": os.environ.get("NF_SKIP_A", "0"), "NF_GAMES": os.environ.get("NF_GAMES", "wave upperbody"),
+                **({"NF_PROOF_LANG": os.environ["NF_PROOF_LANG"]} if os.environ.get("NF_PROOF_LANG") else {}),   # NOVA-GO5
+                **({"DITTO_PRIME": os.environ["DITTO_PRIME"]} if os.environ.get("DITTO_PRIME") else {})},   # NOVA-GO5: shorter lip delay trial
     }
+    if vol:
+        body.pop("containerRegistryAuthId")
+        body |= {"imageName": NF_IMAGE, "networkVolumeId": vol["id"], "dataCenterIds": [vol["dataCenterId"]], "volumeMountPath": "/nfb"}
+        body["env"]["NF_VOLUME_DIR"] = "/nfb"
+        print("fast boot: volume", vol["id"], vol["name"], vol["size"], "GB", vol["dataCenterId"], "| image", NF_IMAGE)
     s, d = req("POST", REST + "/pods", body, timeout=60)
     if not isinstance(d, dict) or "id" not in d: raise SystemExit(f"CREATE FAILED {s}: {str(d)[:300]}")
     print("pod", d["id"], "costPerHr", d.get("costPerHr"), "created", time.strftime("%H:%M:%S", time.gmtime()), "UTC")

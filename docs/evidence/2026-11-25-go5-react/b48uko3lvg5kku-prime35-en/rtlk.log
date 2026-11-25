@@ -1,0 +1,646 @@
+[NOVA_FACE] musetalk
+browser connected
+[V2V-INTRO] on: the intro runs on PROMPT (greet + name, live chat); the page arms the light
+[PAGE] 6.97 wide-face-live frame
+[PAGE] 7.04 face-live frame
+[PAGE] 7.11 nova-picture {"wide":true,"frames":3,"hidden":true}
+[PAGE] 7.11 face-active off
+[PAGE] 7.11 stage wide
+[PAGE] 7.11 attach {"face":true,"dual":true,"room":true,"ws":true,"voice":true,"wide":true}
+[PAGE] 7.11 nova-voice connected
+[PAGE] 7.16 mic working {"chunks":2,"sent":0,"heldBrain":0,"heldEcho":0,"peak":0,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+OAI: session.created
+OAI: session.updated
+[PAGE] 11.57 mic {"chunks":50,"sent":48,"heldBrain":0,"heldEcho":0,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+MIC recv: 50 chunks, ~297200 b64 bytes
+[REC] session 20261125042143-dvbj mp4
+[REC] 20261125042143-dvbj pieces 1 bytes 1222
+[PAGE] 15.12 warm intro cap 8000 ms 9,13,12,13,15,14,14,14,13,11,12,13,12,13,15,13
+[SPEAK-GATE] OFF - voice open (intro/ending)
+[BOUNDARY] phase-end
+[FACE-DUAL] face_mode wide -> 200
+[PAGE] 15.12 voice engine
+[PAGE] 15.12 stage wide
+[PAGE] 15.12 badge listening
+[V2V-INTRO] greet + name question
+[BOUNDARY] connect
+[SPEAK] (connect) Greet the kid in ONE short excited line and say exactly these words and NOTHING 
+[PAGE] 15.13 v2v greeting + name question asked (live, in the conversation)
+[PAGE] 15.13 greeting asked (Nova still hidden) — shoulder intro
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+[PHASE] final_answer
+OAI: conversation.item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] greet | Hi! I'm Nova, your magical AI dance teacher! What's your nam
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+[PAGE] 16.23 her-voice end
+OAI: response.done
+OAI: rate_limits.updated
+[PAGE] 16.58 mic {"chunks":104,"sent":88,"heldBrain":14,"heldEcho":0,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":false}
+GATE OPEN: mic live (0.6s after last chunk)
+MIC recv: 100 chunks, ~594400 b64 bytes
+[MIC-GAIN] envelope 65 (0% full scale) live boost x8.0
+[PAGE] 18.42 greeting first sound after 3294 ms
+[PAGE] 18.42 gate open
+[PAGE] 18.42 nova-shown {"wideLive":true,"wideFrames":148,"voice":true,"speaking":true}
+[PAGE] 18.5 badge talking
+[PAGE] 18.51 size big
+[PAGE] 18.51 her-voice start
+[PAGE] 19.21 her-voice end
+[PAGE] 19.3 her-voice start
+[PAGE] 20.8 her-voice end
+[PAGE] 20.9 her-voice start
+[PAGE] 21.01 her-voice end
+[PAGE] 21.1 her-voice start
+[PAGE] 21.3 her-voice end
+[PAGE] 21.57 mic {"chunks":158,"sent":102,"heldBrain":17,"heldEcho":37,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":false}
+[PAGE] 21.6 her-voice start
+[PAGE] 22.2 her-voice end
+[PAGE] 22.91 badge listening
+[PAGE] 22.91 size small
+[PAGE] 23.43 v2v greeting said=true — waiting for the name
+OAI: input_audio_buffer.speech_started
+[PAGE] 25.08 react lean in (child talking)
+[PAGE] 25.08 you-hearing 
+[PAGE] 26.57 mic {"chunks":211,"sent":143,"heldBrain":17,"heldEcho":47,"peak":0.3993,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+MIC recv: 150 chunks, ~891600 b64 bytes
+OAI: input_audio_buffer.speech_stopped
+[RACE] armed utt 1 bytes 174888
+OAI: input_audio_buffer.committed
+OAI: conversation.item.added
+OAI: conversation.item.done
+[RACE] rest start utt 1
+[MIC-LEVEL] utt 1 peak 24000 (73% full scale) boost x1.0
+[PAGE] 28.73 you-first-words Hi
+OAI: conversation.item.input_audio_transcription.completed
+[CONF] rt utt 1 mean -0.10 min -0.70 | Hi Nova. My name is Shuki.
+[BOUNDARY] kid-turn
+[INPUT-LOCK] one-shot fired for turn 1
+[SPEAK] (kid-turn) bare
+[PAGE] 28.94 you-text Hi Nova. My name is Shuki.
+[PAGE] 28.95 v2v-kid {"text":"Hi Nova. My name is Shuki.","name":"Shuki","turns":1}
+[PAGE] 28.95 react hum hum1.mp3
+[RACE] rest got utt 1 : Hi Nova. My name is Shuki.
+[CONF] rest utt 1 mean -0.22 min -1.51 | peak 24000 | Hi Nova. My name is Shuki.
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+[PHASE] final_answer
+OAI: conversation.item.added
+OAI: response.content_part.added
+[PAGE] 29.57 badge thinking
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] kid | Shuki, nice to meet you! What's your favorite song to move t
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+[PAGE] 30.19 her-voice end
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+[PAGE] 31.57 mic {"chunks":265,"sent":175,"heldBrain":25,"heldEcho":59,"peak":0.0485,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+[PAGE] 32.5 react lean back (her voice)
+[PAGE] 32.51 badge talking
+[PAGE] 32.51 size big
+[PAGE] 32.51 her-voice start
+[PAGE] 32.71 her-voice end
+[PAGE] 32.8 her-voice start
+[PAGE] 33 her-voice end
+[PAGE] 33.1 her-voice start
+[PAGE] 33.9 her-voice end
+[PAGE] 34.1 her-voice start
+[PAGE] 34.4 her-voice end
+[PAGE] 34.5 her-voice start
+[PAGE] 34.7 her-voice end
+[PAGE] 34.8 her-voice start
+[PAGE] 35.6 her-voice end
+[PAGE] 36.3 badge listening
+[PAGE] 36.3 size small
+[PAGE] 36.57 mic {"chunks":319,"sent":189,"heldBrain":25,"heldEcho":99,"peak":0.0059,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+[PAGE] 36.87 v2v-answer true
+MIC recv: 200 chunks, ~1188800 b64 bytes
+[MIC-GAIN] envelope 2216 (7% full scale) live boost x8.0
+[PAGE] 41.57 mic {"chunks":373,"sent":243,"heldBrain":25,"heldEcho":99,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+[V2V-INTRO] name wait over: name captured
+[PAGE] 41.88 v2v shoulder ARM (name captured) at 23 s name=Shuki
+MIC recv: 250 chunks, ~1486000 b64 bytes
+[PAGE] 43.08 shoulder light on (rShoulder)
+[REMEMBER] system: [director] note Facts you may use: The magic light is glowing on the child's sho
+[SPEAK-GATE] OFF - voice open (intro/ending)
+[BOUNDARY] phase-end
+[FACE-DUAL] face_mode wide -> 200
+[PAGE] 43.08 intro-boundary Look — a magic light on your shoulder! L
+PITCH say: Look — a magic light on your shoulder! Lift that shoulder up high, just that one!
+[SPEAK] (phase-end) Look — a magic light on your shoulder! Lift that shoulder up high, just that one
+[PAGE] 43.08 line Look — a magic light on your shoulder! Lift that shoulder up high, just that one!
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+[PHASE] final_answer
+OAI: response.content_part.added
+[PAGE] 43.82 badge thinking
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] say | Look — a magic light on your shoulder! Lift that shoulder up
+[REMEMBER] system: [you just said this to the child, out loud] Look — a magic light on your shoulde
+[DE-CAN] she repeated a line verbatim: Look — a magic light on your shoulder! Lift that s
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+[PAGE] 44.5 her-voice end
+OAI: rate_limits.updated
+OAI: conversation.item.added
+OAI: conversation.item.done
+GATE OPEN: mic live (0.6s after last chunk)
+[PAGE] 46.1 badge talking
+[PAGE] 46.1 size big
+[PAGE] 46.11 her-voice start
+[PAGE] 46.3 her-voice end
+[PAGE] 46.57 mic {"chunks":427,"sent":269,"heldBrain":45,"heldEcho":107,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":false}
+[PAGE] 47 badge listening
+[PAGE] 47 size small
+[PAGE] 47.4 badge talking
+[PAGE] 47.41 size big
+[PAGE] 47.41 her-voice start
+[PAGE] 47.8 her-voice end
+[PAGE] 47.9 her-voice start
+[PAGE] 48.91 her-voice end
+[PAGE] 49.6 her-voice start
+[PAGE] 49.7 her-voice end
+[PAGE] 49.8 her-voice start
+[PAGE] 50.9 her-voice end
+[PAGE] 51.41 her-voice start
+[PAGE] 51.5 her-voice end
+[PAGE] 51.57 mic {"chunks":481,"sent":272,"heldBrain":45,"heldEcho":158,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":false}
+[PAGE] 51.6 her-voice start
+[PAGE] 52 her-voice end
+[PAGE] 52.7 badge listening
+[PAGE] 52.7 size small
+[PAGE] 53.21 light-line-said true
+[PAGE] 53.21 shoulder armed (rShoulder) aspect=1.778
+[SPEAK-GATE] OFF - voice open (intro/ending)
+[BOUNDARY] phase-end
+[FACE-DUAL] face_mode wide -> 200
+[PAGE] 53.83 intro-boundary Yes! The light caught it!
+[PAGE] 53.83 shoulder WIN — a real lift was detected
+[REMEMBER] system: [director] note Facts you may use: REAL, detected: the child lifted the shoulder
+PITCH say: Yes! The light caught it!
+[SPEAK] (phase-end) Yes! The light caught it!
+[PAGE] 53.84 line Yes! The light caught it!
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+[PHASE] final_answer
+OAI: response.content_part.added
+[PAGE] 54.57 badge thinking
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] say | Yes! The light caught it!
+[REMEMBER] system: [you just said this to the child, out loud] Yes! The light caught it!
+[DE-CAN] she repeated a line verbatim: Yes! The light caught it!
+OAI: response.content_part.done
+[PAGE] 54.64 her-voice end
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+OAI: conversation.item.added
+OAI: conversation.item.done
+GATE OPEN: mic live (0.6s after last chunk)
+MIC recv: 300 chunks, ~1783200 b64 bytes
+[MIC-GAIN] envelope 105 (0% full scale) live boost x8.0
+[PAGE] 56.58 mic {"chunks":535,"sent":301,"heldBrain":58,"heldEcho":166,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+[PAGE] 57.8 badge talking
+[PAGE] 57.8 size big
+[PAGE] 57.81 her-voice start
+[PAGE] 58.2 her-voice end
+[PAGE] 58.3 her-voice start
+[PAGE] 58.7 her-voice end
+[PAGE] 58.8 her-voice start
+[PAGE] 59.1 her-voice end
+[PAGE] 59.8 badge listening
+[PAGE] 59.81 size small
+[PAGE] 60.36 shoulder-said true
+[SPEAK-GATE] OFF - voice open (intro/ending)
+[BOUNDARY] phase-end
+[FACE-DUAL] face_mode wide -> 200
+[PAGE] 60.36 intro-boundary Here is the game: music on, you dance. M
+[PAGE] 60.36 explain asked
+PITCH say: Here is the game: music on, you dance. Music off, you freeze! Let us go!
+[SPEAK] (phase-end) Here is the game: music on, you dance. Music off, you freeze! Let us go!
+[PAGE] 60.36 line Here is the game: music on, you dance. Music off, you freeze! Let us go!
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+[PHASE] final_answer
+OAI: response.content_part.added
+[PAGE] 61.07 badge thinking
+[PAGE] 61.57 mic {"chunks":588,"sent":322,"heldBrain":69,"heldEcho":187,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":false}
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] say | Here is the game: music on, you dance. Music off, you freeze
+[REMEMBER] system: [you just said this to the child, out loud] Here is the game: music on, you danc
+[DE-CAN] she repeated a line verbatim: Here is the game: music on, you dance. Music off, 
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+[PAGE] 61.91 her-voice end
+OAI: response.done
+OAI: rate_limits.updated
+OAI: conversation.item.added
+OAI: conversation.item.done
+GATE OPEN: mic live (0.6s after last chunk)
+[PAGE] 63.9 badge talking
+[PAGE] 63.9 size big
+[PAGE] 63.91 her-voice start
+[PAGE] 64.8 her-voice end
+[PAGE] 65.2 her-voice start
+[PAGE] 65.4 her-voice end
+[PAGE] 65.6 her-voice start
+[PAGE] 65.9 her-voice end
+[PAGE] 66.1 her-voice start
+[PAGE] 66.5 her-voice end
+[PAGE] 66.57 mic {"chunks":642,"sent":333,"heldBrain":80,"heldEcho":219,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":false}
+[PAGE] 67.1 her-voice start
+[PAGE] 67.4 her-voice end
+[PAGE] 67.5 her-voice start
+[PAGE] 67.7 her-voice end
+[PAGE] 68.01 her-voice start
+[PAGE] 68.2 her-voice end
+[PAGE] 68.3 her-voice start
+[PAGE] 68.7 her-voice end
+[PAGE] 69.1 her-voice start
+[PAGE] 69.4 her-voice end
+[PAGE] 69.5 her-voice start
+[PAGE] 69.7 her-voice end
+[PAGE] 70.4 badge listening
+[PAGE] 70.41 size small
+[PAGE] 70.97 intro-said true
+[PAGE] 70.97 intro-listen open
+[PAGE] 71.58 mic {"chunks":696,"sent":347,"heldBrain":80,"heldEcho":257,"peak":0.0021,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+MIC recv: 350 chunks, ~2080400 b64 bytes
+OAI: input_audio_buffer.speech_started
+[PAGE] 71.88 react lean in (child talking)
+[PAGE] 71.88 you-hearing 
+OAI: input_audio_buffer.speech_stopped
+[RACE] armed utt 2 bytes 134766
+[RACE] rest start utt 2
+[MIC-LEVEL] utt 2 peak 24000 (73% full scale) boost x1.0
+OAI: input_audio_buffer.committed
+OAI: conversation.item.added
+OAI: conversation.item.done
+[PAGE] 74.67 you-first-words Hi
+OAI: conversation.item.input_audio_transcription.completed
+[CONF] rt utt 2 mean -0.00 min -0.00 | Hi Nova, can you hear me?
+[BOUNDARY] kid-turn
+[INPUT-LOCK] one-shot fired for turn 2
+[SPEAK] (kid-turn) bare
+[PAGE] 74.87 react no hum this turn
+[PAGE] 74.87 you-text Hi Nova, can you hear me?
+[PAGE] 74.88 intro-kid Hi Nova, can you hear me?
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+[RACE] rest got utt 2 : Hi Nova, can you hear me?
+[CONF] rest utt 2 mean -0.00 min -0.01 | peak 24000 | Hi Nova, can you hear me?
+[PAGE] 75.57 badge thinking
+OAI: response.output_item.added
+[PHASE] final_answer
+OAI: conversation.item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] kid | Every word, Shuki! Hi there!
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+[PAGE] 76.12 her-voice end
+OAI: response.done
+OAI: rate_limits.updated
+[PAGE] 76.57 mic {"chunks":750,"sent":384,"heldBrain":97,"heldEcho":257,"peak":0.0633,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":false}
+GATE OPEN: mic live (0.6s after last chunk)
+MIC recv: 400 chunks, ~2377600 b64 bytes
+[MIC-GAIN] envelope 2820 (9% full scale) live boost x8.0
+[PAGE] 78.6 react lean back (her voice)
+[PAGE] 78.6 badge talking
+[PAGE] 78.61 size big
+[PAGE] 78.61 her-voice start
+[PAGE] 79.3 her-voice end
+[PAGE] 79.4 her-voice start
+[PAGE] 79.6 her-voice end
+[PAGE] 79.7 her-voice start
+[PAGE] 79.9 her-voice end
+[PAGE] 80.1 her-voice start
+[PAGE] 80.5 her-voice end
+[PAGE] 81.2 badge listening
+[PAGE] 81.2 size small
+[PAGE] 81.57 mic {"chunks":804,"sent":409,"heldBrain":98,"heldEcho":283,"peak":0.0077,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+[PAGE] 81.79 intro-answer true
+[REC] 20261125042143-dvbj pieces 16 bytes 5105122
+MIC recv: 450 chunks, ~2674800 b64 bytes
+[PAGE] 86.57 mic {"chunks":858,"sent":463,"heldBrain":98,"heldEcho":283,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+[PAGE] 87.8 intro-listen closed answered=1
+[PAGE] 87.8 badge watching
+[V2V-INTRO] intro over - session moved to FREEZE_RULES
+[SPEAK-GATE] ON (air) - engine audio blocked
+[FACE-DUAL] face_mode pip -> 200
+[PAGE] 89.81 voice air
+[PAGE] 89.81 face-active on
+[PAGE] 89.81 wide-face-active off
+[PAGE] 89.81 stage game
+OAI: session.updated
+MIC recv: 500 chunks, ~2972000 b64 bytes
+[MIC-GAIN] envelope 134 (0% full scale) live boost x8.0
+[PAGE] 90.06 noblink game clip ready after 216 ms (her wide body stayed on meanwhile)
+[PAGE] 90.07 matchcut game: matched frame matrix(1.31034,0,0,1.29900,-102.26,-84.36)
+[PAGE] 90.67 matchcut pull-back
+[PAGE] 90.67 pip-fresh her face shown after 864 ms
+OAI: input_audio_buffer.speech_started
+[PAGE] 90.73 you-hearing 
+[PAGE] 91.51 line-waits the child is talking
+[PAGE] 91.57 mic {"chunks":911,"sent":516,"heldBrain":98,"heldEcho":283,"peak":0.2513,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+OAI: input_audio_buffer.speech_stopped
+[RACE] armed utt 3 bytes 148140
+[RACE] rest start utt 3
+[MIC-LEVEL] utt 3 peak 24001 (73% full scale) boost x1.0
+OAI: input_audio_buffer.committed
+OAI: conversation.item.added
+OAI: conversation.item.done
+[PAGE] 93.64 line-waits the child is talking
+[PAGE] 93.74 you-first-words Nova
+OAI: conversation.item.input_audio_transcription.completed
+[CONF] rt utt 3 mean -0.00 min -0.00 | Nova, can you hear me?
+[BOUNDARY] air-credit
+[HEAR] game: answering the child (kid-turn) | Nova, can you hear me?
+[SPEAK] (air-credit) The child just said something to you. Answer exactly what THEY said, warmly, in 
+[PAGE] 93.99 you-text Nova, can you hear me?
+[PAGE] 94.01 line-held-back the child spoke to her - her answer has this gap
+[PAGE] 94.04 line-held-back the child spoke to her - her answer has this gap
+OAI: response.created
+[SPEAK-GATE] air line generating (credit spent)
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+[PHASE] final_answer
+OAI: conversation.item.added
+OAI: response.content_part.added
+[PAGE] 94.57 badge thinking
+OAI: response.output_audio.done
+[SPEAK-GATE] air voice -> face engine: 69600 bytes
+OAI: response.output_audio_transcript.done
+[ORIGIN] kid | Yes, I hear you!
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+[PAGE] 94.84 her-voice end
+OAI: response.done
+OAI: rate_limits.updated
+[RACE] rest got utt 3 : Nova, can you hear me?
+[CONF] rest utt 3 mean -0.00 min -0.00 | peak 24001 | Nova, can you hear me?
+GATE OPEN: mic live (0.6s after last chunk)
+MIC recv: 550 chunks, ~3269200 b64 bytes
+[PAGE] 96.57 mic {"chunks":965,"sent":554,"heldBrain":112,"heldEcho":283,"peak":0.0434,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+[PAGE] 96.7 badge talking
+[PAGE] 96.7 size big
+[PAGE] 96.71 her-voice start
+[HEAR] game: the hold muted her answer - owed to the next gap
+[SPEAK-GATE] ON (hard) - engine audio blocked
+[FACE-DUAL] face_mode pip -> 200
+[PAGE] 96.87 voice mute
+[PAGE] 96.87 stage game
+[PAGE] 96.91 her-voice end
+[PAGE] 97.61 badge freeze
+[PAGE] 97.61 size small
+[SPEAK-GATE] ON (air) - engine audio blocked
+[BOUNDARY] air-credit
+[HEAR] game: answering the child (after the hold) | Nova, can you hear me?
+[SPEAK] (air-credit) The child just said something to you. Answer exactly what THEY said, warmly, in 
+[FACE-DUAL] face_mode pip -> 200
+[PAGE] 99.4 voice air
+[PAGE] 99.4 stage game
+[PAGE] 99.4 badge watching
+OAI: response.created
+[SPEAK-GATE] air line generating (credit spent)
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+[PHASE] final_answer
+OAI: conversation.item.added
+OAI: response.content_part.added
+OAI: response.output_audio.done
+[SPEAK-GATE] air voice -> face engine: 84000 bytes
+OAI: response.output_audio_transcript.done
+[ORIGIN] kid | Yes, I hear you!
+[DE-CAN] she repeated a line verbatim: Yes, I hear you!
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+[PAGE] 100.29 her-voice end
+OAI: rate_limits.updated
+[SPEAK-GATE] air line credited: nova-say
+[BOUNDARY] air-credit
+PITCH queued (busy): You kept the flamingo!
+[PAGE] 100.7 line You kept the flamingo!
+GATE OPEN: mic live (0.6s after last chunk)
+[PAGE] 101.06 line-held-back one per gap: You are a freeze champion.
+[PAGE] 101.32 badge thinking
+[PAGE] 101.57 mic {"chunks":1019,"sent":583,"heldBrain":127,"heldEcho":291,"peak":0.0053,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+[PAGE] 102.9 badge talking
+[PAGE] 102.9 size big
+[PAGE] 102.91 her-voice start
+[PAGE] 103.1 her-voice end
+[PAGE] 103.5 her-voice start
+[PAGE] 104.3 her-voice end
+[PAGE] 105 badge watching
+[PAGE] 105 size small
+MIC recv: 600 chunks, ~3566400 b64 bytes
+[MIC-GAIN] envelope 861 (3% full scale) live boost x8.0
+[PAGE] 106.57 mic {"chunks":1073,"sent":616,"heldBrain":127,"heldEcho":312,"peak":0.002,"dead":"","error":"","track":"live","label":"MediaStreamAudioDestinationNode","ctx":"running","rate":44100,"voiceCtx":"running","ws":true,"open":true}
+[HEAR] gap closed - dropped unsaid game line(s): You kept the flamingo!
+[SPEAK-GATE] ON (hard) - engine audio blocked
+[FACE-DUAL] face_mode pip -> 200
+[PAGE] 107.07 voice mute
+[PAGE] 107.07 stage game
+[PAGE] 107.07 badge freeze
+[SPEAK-GATE] ON (air) - engine audio blocked
+[FACE-DUAL] face_mode pip -> 200
+[PAGE] 109.57 voice air
+[PAGE] 109.57 stage game
+[PAGE] 109.57 badge watching
+MIC recv: 650 chunks, ~3863600 b64 bytes
+[SPEAK-GATE] air line credited: nova-say
+[BOUNDARY] air-credit
+PITCH say: Wow — a still bear!
+[SPEAK] (air-credit) Wow — a still bear!
+[PAGE] 110.88 line Wow — a still bear!
+OAI: response.created
+[SPEAK-GATE] air line generating (credit spent)
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+[PHASE] final_answer
+OAI: response.content_part.added
+[SPEAK-GATE] OFF - voice open (intro/ending)
+[REMEMBER] system: [phase] The game section just ended. The ending has the floor now - speak only t
+[BOUNDARY] phase-end
+[FACE-DUAL] face_mode wide -> 200
+[PAGE] 111.24 voice engine
+[PAGE] 111.24 face-active off
+[PAGE] 111.24 wide-face-active on
+[PAGE] 111.24 stage wide
+[PAGE] 111.24 badge listening
+[PAGE] 111.48 noblink ending clip ready after 243 ms
+[PAGE] 111.48 matchcut push-in
+[PAGE] 111.57 badge thinking
+OAI: conversation.item.added
+OAI: conversation.item.done
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] say | Wow — a still bear!
+[DE-CAN] she repeated a line verbatim: Wow — a still bear!
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+OAI: response.done
+[PAGE] 112.1 her-voice end
+OAI: rate_limits.updated
+[PAGE] 112.49 matchcut wide: cut after 1001 ms, wide fps 20
+PITCH queued (busy): What a round! You froze like a real bear, and you 
+[PAGE] 112.64 line What a round! You froze like a real bear, and you never stopped trying.
+GATE OPEN: mic live (0.6s after last chunk)
+[PAGE] 112.8 badge listening
+PITCH say (flushed): What a round! You froze like a real bear, and you never stop
+[SPEAK] (phase-end) What a round! You froze like a real bear, and you never stopped trying.
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+[PAGE] 113.32 badge thinking
+OAI: response.output_item.added
+[PHASE] final_answer
+OAI: response.content_part.added
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] say | What a round! You froze like a real bear, and you never stop
+[DE-CAN] she repeated a line verbatim: What a round! You froze like a real bear, and you 
+OAI: response.content_part.done
+OAI: conversation.item.done
+[PAGE] 114.42 her-voice end
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+[PAGE] 114.8 badge talking
+[PAGE] 114.81 size big
+[PAGE] 114.81 her-voice start
+GATE OPEN: mic live (0.6s after last chunk)
+[PAGE] 115.3 her-voice end
+[PAGE] 115.5 her-voice start
+[PAGE] 115.6 her-voice end
+[PAGE] 115.7 her-voice start
+[BOUNDARY] page-line (page-owned intro/ending)
+PITCH say: One more round? I am ready when you are.
+[SPEAK] (page-line) One more round? I am ready when you are.
+[PAGE] 116.24 line One more round? I am ready when you are.
+[PAGE] 116.3 her-voice end
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+OAI: response.output_item.added
+[PHASE] final_answer
+OAI: response.content_part.added
+[PAGE] 117 her-voice start
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] say | One more round? I am ready when you are.
+[DE-CAN] she repeated a line verbatim: One more round? I am ready when you are.
+OAI: response.content_part.done
+OAI: conversation.item.done
+OAI: response.output_item.done
+[PAGE] 117.29 her-voice end
+OAI: response.done
+OAI: rate_limits.updated
+[PAGE] 117.9 her-voice end
+GATE OPEN: mic live (0.6s after last chunk)
+[PAGE] 118.2 her-voice start
+[PAGE] 118.4 her-voice end
+[PAGE] 118.5 her-voice start
+[PAGE] 120.6 her-voice end
+[PAGE] 120.7 her-voice start
+[PAGE] 121.2 her-voice end
+[PAGE] 121.6 her-voice start
+[PAGE] 122.5 her-voice end
+[PAGE] 123.2 badge listening
+[PAGE] 123.2 size small
+[PAGE] 123.3 badge talking
+[PAGE] 123.31 size big
+[PAGE] 123.31 her-voice start
+[PAGE] 124.4 her-voice end
+[PAGE] 125.1 badge listening
+[PAGE] 125.11 size small
+MIC recv: 700 chunks, ~4160800 b64 bytes
+[MIC-GAIN] envelope 65 (0% full scale) live boost x8.0
+OAI: input_audio_buffer.speech_started
+[PAGE] 129.09 react lean in (child talking)
+[PAGE] 129.09 you-hearing 
+OAI: input_audio_buffer.speech_stopped
+[RACE] armed utt 4 bytes 165972
+[RACE] rest start utt 4
+[MIC-LEVEL] utt 4 peak 24000 (73% full scale) boost x1.0
+OAI: input_audio_buffer.committed
+OAI: conversation.item.added
+OAI: conversation.item.done
+MIC recv: 750 chunks, ~4458000 b64 bytes
+[PAGE] 132.55 you-first-words Thank
+OAI: conversation.item.input_audio_transcription.completed
+[CONF] rt utt 4 mean -0.02 min -0.16 | Thank you, Nova. That was fun.
+[BOUNDARY] kid-turn
+[INPUT-LOCK] one-shot fired for turn 4 (hear)
+[SPEAK] (kid-turn) The child just said something to you. Answer exactly what THEY said, warmly, in 
+[PAGE] 132.71 you-text Thank you, Nova. That was fun.
+[PAGE] 132.72 react hum hum2.mp3
+OAI: response.created
+GATE CLOSED: mic discarded (Nova speaking)
+[PAGE] 133.32 badge thinking
+OAI: response.output_item.added
+[PHASE] final_answer
+OAI: conversation.item.added
+OAI: response.content_part.added
+[RACE] rest got utt 4 : Thank you, Nova. That was fun.
+[CONF] rest utt 4 mean -0.04 min -0.25 | peak 24000 | Thank you, Nova. That was fun.
+OAI: response.output_audio.done
+OAI: response.output_audio_transcript.done
+[ORIGIN] kid | So fun dancing with you, Shuki!
+OAI: response.content_part.done
+OAI: conversation.item.done
+[PAGE] 133.94 her-voice end
+OAI: response.output_item.done
+OAI: response.done
+OAI: rate_limits.updated
+GATE OPEN: mic live (0.6s after last chunk)
+[PAGE] 136.1 react lean back (her voice)
+[PAGE] 136.11 badge talking
+[PAGE] 136.11 size big
+[PAGE] 136.11 her-voice start
+[PAGE] 136.24 rec stop: 25 s after the medal
+[PAGE] 136.25 rec stopped, 29 pieces, 9 MB here
+[PAGE] 136.26 rec closed on the pod: play-20261125042143-dvbj.mp4 (pieces 29/29, lost 0)
+[PAGE] 136.41 her-voice end
+[PAGE] 136.6 her-voice start
+[PAGE] 137 her-voice end
+[PAGE] 137.1 her-voice start
+[PAGE] 137.3 her-voice end
+[PAGE] 137.41 her-voice start
+[PAGE] 137.7 her-voice end
+[PAGE] 137.8 her-voice start
+[REC] ready: /root/out/play-20261125042143-dvbj.mp4 9419279 bytes from 29 pieces
+[PAGE] 138 her-voice end
+[PAGE] 138.7 badge listening
+[PAGE] 138.71 size small
+MIC recv: 800 chunks, ~4755200 b64 bytes
+[MIC-GAIN] envelope 2077 (6% full scale) live boost x8.0

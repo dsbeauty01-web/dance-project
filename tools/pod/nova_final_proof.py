@@ -11,30 +11,126 @@ import json, os, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import freeze4_proof as F                                               # noqa: E402
+# NF_PAGE_FLAGS (NOVA-AUDIT): extra page flags for the A run, e.g. "pipfresh=1"; the audit build (NF_REC_FIX=1) adds pipfresh.
+PAGE_EXTRA = "".join("&" + f for f in os.environ.get("NF_PAGE_FLAGS", "pipfresh=1" if os.environ.get("NF_REC_FIX") == "1" else "").split(",") if f)
 
 BASE, OUT = F.BASE, F.OUT
+KID_WAV = os.environ.get("KID_WAV", "/root/kid_line.wav")
+
+# READY GATE proof (2026-11-22). The page now asks for camera + microphone first; Chrome's fake devices answer that
+# question for real. The proof's "child" must also be able to SAY something at a chosen moment (Refael's own line, "Hi
+# Nova, can you hear me?"), which a looping fake-microphone file cannot do. So for the microphone only, after the real
+# getUserMedia has succeeded, the page is handed a stream the proof can play a recording into (window.__kidSay). From
+# there on it is the page's real path: bridge mic -> brain -> its recogniser -> the live "You: ..." line -> her answer.
+# The recording is also played to the speakers so the proof video has his question in it.
+KIDMIC = r"""
+(() => {
+  const md = navigator.mediaDevices; if (!md || !md.getUserMedia) return;
+  const real = md.getUserMedia.bind(md); let ctx = null, dest = null;
+  // NOVA-GO4: a real microphone is never digitally silent - a low noise floor, so the page's microphone watch (flag hear)
+  // sees a living microphone, as it would on a phone
+  const ensure = () => { if (!ctx) { ctx = new AudioContext(); dest = ctx.createMediaStreamDestination();
+      const n = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate), d = n.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * 0.002;
+      const ns = ctx.createBufferSource(); ns.buffer = n; ns.loop = true; ns.connect(dest); ns.start(); } return dest; };
+  window.__kidMic = { asked: [], given: 0, said: 0 };
+  md.getUserMedia = async (c) => {
+    window.__kidMic.asked.push(JSON.stringify(c).slice(0, 120));
+    if (window.__SYNTH_MEDIA) {   // NOVA-GO4 rec proof: no fake devices at all (Chrome's fake devices also fake the TAB capture - a green test card): camera = a canvas, microphone = the stand-in
+      const out = new MediaStream(); window.__kidMic.given++;
+      if (c && c.video) { const cv = document.createElement('canvas'); cv.width = 320; cv.height = 240; const g = cv.getContext('2d'); setInterval(() => { g.fillStyle = '#223'; g.fillRect(0, 0, 320, 240); g.fillStyle = '#7df'; g.fillRect((Date.now() / 20) % 320, 100, 20, 20); }, 100); out.addTrack(cv.captureStream(10).getVideoTracks()[0]); }
+      if (c && c.audio) out.addTrack(ensure().stream.getAudioTracks()[0].clone());
+      return out; }
+    const s = await real(c);                                   // the real permission path (fake devices) still runs
+    // NOVA-GO4: with the page flag `hear` the game keeps the microphone of its ONE camera+microphone request, so the
+    // stand-in voice is put into every stream that carries audio (before: only an audio-only request)
+    if (c && c.audio) { s.getAudioTracks().forEach(t => { t.stop(); s.removeTrack(t); }); window.__kidMic.given++;
+      const t = ensure().stream.getAudioTracks()[0].clone(); if (!c.video) return new MediaStream([t]); s.addTrack(t); }
+    return s;
+  };
+  window.__kidSay = async (b64) => {
+    ensure(); if (ctx.state === 'suspended') await ctx.resume();
+    const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    const buf = await ctx.decodeAudioData(u.buffer), n = ctx.createBufferSource();
+    n.buffer = buf; n.connect(dest); n.connect(ctx.destination); n.start(); window.__kidMic.said++; return buf.duration;
+  };
+})();
+"""
 
 
 def run_A(p):
     b = F.browser(p); ctx, pg, logs = F.page_of(b)
-    pg.goto(f"{BASE}/beta/freeze4?replay=frozen-body,dance-hype,still-sway&rounds=2&checked=1&facewait=40&lang=en")
+    if os.environ.get("NF_REC_PROOF") == "1": ctx.add_init_script("window.__SYNTH_MEDIA = 1;")
+    ctx.add_init_script(KIDMIC)
+    kid_b64 = None
+    if os.path.exists(KID_WAV) and os.path.getsize(KID_WAV) > 2000:
+        import base64
+        with open(KID_WAV, "rb") as fh: kid_b64 = base64.b64encode(fh.read()).decode()
+    print("kid line:", KID_WAV, "bytes", os.path.getsize(KID_WAV) if os.path.exists(KID_WAV) else None, flush=True)
+    # NOVA-GO4: two more spoken lines - one in the GAME (as the first round begins), one at the ENDING (after her recap)
+    def _b64(f):
+        if os.path.exists(f) and os.path.getsize(f) > 2000:
+            import base64
+            with open(f, "rb") as fh: return base64.b64encode(fh.read()).decode()
+    kid_game, kid_end = _b64(os.environ.get("KID_WAV_GAME", "/root/kid_game.wav")), _b64(os.environ.get("KID_WAV_END", "/root/kid_end.wav"))
+    print("kid game/end lines:", bool(kid_game), bool(kid_end), flush=True)
+    # NOVA-GO5: the child answers her name question ("Hi Nova! My name is Shuki."), 0.8 s after her question ends
+    kid_name = _b64(os.environ.get("KID_WAV_NAME", "/root/kid_name.wav")); print("kid name line:", bool(kid_name), flush=True)
+    # NF_PROOF_REPLAY (NOVA-AUDIT): which recorded children stand in for the camera; the audit build starts with
+    # own-right-up (a real lifted right arm/shoulder) so the shoulder light's WIN path is shown, not only its release.
+    pg.goto(f"{BASE}/beta/freeze4?replay={os.environ.get('NF_PROOF_REPLAY', 'frozen-body,dance-hype,still-sway')}&rounds=2&checked=1&facewait=40&lang={os.environ.get('NF_PROOF_LANG', 'en')}" + PAGE_EXTRA)
     time.sleep(3)
     rec = F.recorder_start(os.path.join(OUT, "nova-final-run.mp4")); t_rec = time.time()
     time.sleep(1.5)
     pg.click("#go")
-    got, marks = {}, []
+    got, marks, under = {}, [], []
     t_end = time.time() + 300
     while time.time() < t_end:
-        s = pg.evaluate("""() => ({ stage: document.getElementById('novaPane').dataset.stage,
+        s = pg.evaluate("""() => ({ stage: document.getElementById('novaPane').dataset.stage, gate: document.body.dataset.gate || '',
+            you: (document.getElementById('you') || {}).className || '', youText: (document.getElementById('you') || {}).textContent || '',
+            listen: (window.freeze4Log || []).some(e => e.kind === 'intro-listen' && e.detail === 'open'),
+            named: (window.freeze4Log || []).some(e => e.kind === 'v2v' && String(e.detail).startsWith('greeting said')),
+            answered: (window.freeze4Log || []).some(e => e.kind === 'intro-answer'),
             wide: window.freeze4Wide ? window.freeze4Wide.state : null, face: window.freeze4Face ? window.freeze4Face.state : null,
             ended: document.getElementById('end').classList.contains('on'),
             started: (window.novaEvents||[]).some(e => e.event === 'round_start'),
+            air: (window.freeze4Log || []).some(e => e.kind === 'voice' && e.detail === 'air'),
+            herQuiet: (() => { const L = window.freeze4Log || [], h = L.filter(e => e.kind === 'her-voice' || e.kind === 'line').slice(-1)[0];
+                               return !h || (h.kind === 'her-voice' && h.detail === 'end' && L[L.length - 1].t - h.t > 3.5); })(),   // nothing asked, nothing heard for 3.5 s
             banner: !document.getElementById('banner').classList.contains('hidden') })""")
         t = round(time.time() - t_rec, 2)
-        key = (s["stage"], (s["face"] or {}).get("badge"), s["ended"])
-        if not marks or marks[-1][1] != key: marks.append([t, key])
+        if kid_name and s.get("named") and "kidname" not in got:                         # NOVA-GO5
+            got.setdefault("t_named", time.time())
+            if time.time() - got["t_named"] > 0.8:
+                got["kidname"] = round(pg.evaluate("b => window.__kidSay(b)", kid_name), 2); print("kid said (name) at", t, flush=True)
+        key = (s["gate"] or "open", s["stage"], (s["face"] or {}).get("badge"), s["ended"])
+        if not marks or marks[-1][1] != key:
+            marks.append([t, key])
+            # STUTTER GUARD: the face server's own counters at every stage change, so a late chunk / an underrun (a held
+            # frame + 0.16 s of silence) can be placed: at a face switch, or inside her speech
+            try:
+                import urllib.request
+                fs = json.loads(urllib.request.urlopen(F.FACE + "/", timeout=1.5).read())
+                under.append([t, key[0] + "/" + str(key[1]) + "/" + str(key[2]), fs.get("underruns"), fs.get("wide_chunks_late"), fs.get("wide_chunks"), fs.get("mode")])
+            except Exception as e: under.append([t, "?", str(e)[:40]])
+        # the READY GATE, in order: his own picture (Nova not connected) -> Nova live but still hidden -> she appears talking
+        if s["gate"] == "cam" and "own" not in got: time.sleep(0.5); got["own"] = F.shot(pg, "A-0a-own-camera-first.png")
+        if s["air"] and kid_game and "kidgame" not in got:
+            if "t_air" not in got: got["t_air"] = time.time()
+            if time.time() - got["t_air"] > 0.3: got["kidgame"] = round(pg.evaluate("b => window.__kidSay(b)", kid_game), 2); print("kid said (game) at", t, flush=True)
+        if s["ended"] and kid_end and "kidend" not in got and "end" in got and time.time() - got["end"] > 11 and s["herQuiet"]:
+            got["kidend"] = round(pg.evaluate("b => window.__kidSay(b)", kid_end), 2); got["t_kidend"] = time.time(); print("kid said (ending) at", t, flush=True)
+        if s["gate"] == "nova" and "hidden" not in got and ((s["wide"] or {}).get("live") or "t_nova" in got and time.time() - got["t_nova"] > 1.5):
+            got["hidden"] = F.shot(pg, "A-0b-nova-live-but-hidden.png")
+        if s["gate"] == "nova" and "t_nova" not in got: got["t_nova"] = time.time()
+        if not s["gate"] and "t_open" not in got and "t_nova" in got:
+            got["t_open"] = time.time(); got["shown"] = F.shot(pg, "A-0c-nova-appears.png")
+        # the child's line, said once, the moment the page starts listening after her intro
+        if s["listen"] and kid_b64 and "kidsaid" not in got:
+            got["kidsaid"] = round(pg.evaluate("b => window.__kidSay(b)", kid_b64), 2); print("kid said at", t, "dur", got["kidsaid"], flush=True)
+        if "final" in s["you"] and "youtext" not in got: got["youtext"] = F.shot(pg, "A-1b-you-text.png"); print("you text:", s["youText"], flush=True)
+        if s["answered"] and "answer" not in got: got["answer"] = F.shot(pg, "A-1c-after-her-answer.png")
         if s["banner"] and "banner" not in got: got["banner"] = F.shot(pg, "A-unexpected-banner.png")
-        if s["stage"] == "wide" and (s["wide"] or {}).get("live") and not s["ended"] and "wide" not in got and t > 6:
+        if s["stage"] == "wide" and (s["wide"] or {}).get("live") and not s["ended"] and "wide" not in got and "t_open" in got and time.time() - got["t_open"] > 1.5:
             got["wide"] = F.shot(pg, "A-1-intro-wide-ditto.png")
         if s["stage"] == "game" and s["started"] and (s["face"] or {}).get("live") and "pip" not in got:
             got["pip"] = F.shot(pg, "A-2-game-pip-face.png")
@@ -45,14 +141,19 @@ def run_A(p):
         if s["ended"] and "end" not in got: got["end"] = time.time()
         if s["ended"] and s["stage"] == "wide" and time.time() - got["end"] > 5 and "endwide" not in got:
             got["endwide"] = F.shot(pg, "A-5-ending-wide.png")
-        if s["ended"] and time.time() - got["end"] > 18: break
+        if s["ended"] and time.time() - got["end"] > (18 if not kid_end else 40 if "t_kidend" not in got else 0):
+            if not kid_end or "t_kidend" not in got or time.time() - got["t_kidend"] > 12: break
         time.sleep(0.15)
     F.shot(pg, "A-6-after.png")
     F.recorder_stop(rec)
+    try: print("kid mic:", json.dumps(pg.evaluate("() => window.__kidMic")), flush=True)
+    except Exception as e: print("kid mic: ?", e, flush=True)
     data = F.dump(pg, logs, "A")
     with open(os.path.join(OUT, "A-stages.json"), "w") as fh: json.dump(marks, fh)
+    with open(os.path.join(OUT, "A-underruns.json"), "w") as fh: json.dump(under, fh)
+    print("underruns [t, gate/stage/badge, underruns, late, chunks, mode]", json.dumps(under)[:3000], flush=True)
     b.close()
-    print("A recorded", round(time.time() - t_rec, 1), "s; shots", sorted(k for k in got if k != "end"), flush=True)
+    print("A recorded", round(time.time() - t_rec, 1), "s; shots", sorted(k for k in got if k not in ("end", "t_nova", "t_open", "kidsaid", "t_air", "kidgame", "kidend", "t_kidend")), flush=True)
     print("stages", json.dumps(marks)[:1500], flush=True)
     return data
 

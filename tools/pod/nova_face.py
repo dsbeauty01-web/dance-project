@@ -151,10 +151,52 @@ ready = collections.deque()          # rendered chunks waiting to be published
 have_speech = threading.Event()
 
 
-def pending_take(n):
+# NOVA-AUDIT 2026-11-22 · VOICE HOLES. Her live voice reaches us in 0.2 s pieces as it is spoken (pod/rt_lk.py FLUSH), the
+# renderer takes 0.4 s (Ditto) / 0.96 s (SoulX) at a time, and a take that found only part of a chunk was padded with zeros —
+# 8-9 holes of 0.16-0.2 s in every 8 s sentence (docs/NOVA-FINAL.md "OPEN — her live voice has small holes").
+# FACE_VOICE_PREBUF_MS (default 0 = off, unchanged): at the START of a line, wait until one chunk + this much voice is queued
+# (or the line has stopped arriving for FACE_VOICE_PREBUF_IDLE_MS, i.e. it is shorter than that), then speak from that cushion.
+# Pieces keep arriving at speaking speed, so the cushion stays and a take mid-line finds a full chunk; only the END of a line is
+# padded. Cost: her first word starts that much later. S["voice_holes"] counts what is left: a padded take followed by more of
+# the same line within FACE_VOICE_HOLE_MS (= a hole the child hears).
+PREBUF_MS = float(E("FACE_VOICE_PREBUF_MS", "0"))
+PREBUF_IDLE_MS = float(E("FACE_VOICE_PREBUF_IDLE_MS", "300"))
+HOLE_MS = float(E("FACE_VOICE_HOLE_MS", "600"))
+VS = {"mid": False, "last_in": 0.0, "pad_at": None}
+S.update({"voice_pads": 0, "voice_holes": 0, "voice_prebuf_waits": 0, "voice_lines": [], "voice_hole_log": [], "voice_holes_midline": 0})
+
+
+def voice_arrived(t, n=0):
+    """called by /humanaudio under the lock: counts a hole when a padded take is followed by more of her line, and how fast
+    her voice ARRIVES per line (S["voice_lines"]: [audio s, arrival span s, pieces] — audio s > span s = faster than real time)."""
+    if VS["pad_at"] is not None and t - VS["pad_at"] < HOLE_MS / 1000:
+        S["voice_holes"] += 1
+        # NOVA-GO3 (read-only): WHERE the hole was. new_line = this voice started >1 s after the last piece arrived, i.e. a
+        # NEW line that followed the previous one closely (a pause between two lines, not a gap inside her sentence).
+        new_line = t - VS["last_in"] > 1.0; ln0 = VS.get("line")
+        S["voice_hole_log"].append({"t": round(t - S["t_start"], 2), "after_pad_ms": round((t - VS["pad_at"]) * 1000),
+                                    "since_last_in_ms": round((t - VS["last_in"]) * 1000), "new_line": new_line,
+                                    "line_audio_s": round(ln0[1] / SR, 2) if ln0 else None, "underruns": S["underruns"]})
+        if not new_line: S["voice_holes_midline"] += 1
+        log("VOICE HOLE", S["voice_hole_log"][-1])
+    ln = VS.get("line")
+    if ln is None or t - VS["last_in"] > 1.0:
+        if ln and ln[2] > 1: S["voice_lines"].append([round(ln[1] / SR, 2), round(VS["last_in"] - ln[0], 2), ln[2]]); del S["voice_lines"][:-12]
+        VS["line"] = ln = [t, 0, 0]
+    ln[1] += n; ln[2] += 1
+    VS["pad_at"] = None; VS["last_in"] = t
+
+
+def pending_take(n, now=None):
     """Take up to n samples of queued voice. Returns (audio, t_first_arrival or None)."""
     got, t0, need = [], None, n
+    now = time.time() if now is None else now
     with lock:
+        if PREBUF_MS > 0 and pending and not VS["mid"]:
+            have = sum(len(a) for a, _ in pending)
+            if have < n + int(PREBUF_MS * SR / 1000) and (now - VS["last_in"]) * 1000 < PREBUF_IDLE_MS:
+                S["voice_prebuf_waits"] += 1
+                return None, None                     # the line has started arriving: build the cushion first (silence meanwhile)
         while need and pending:
             a, t = pending[0]
             if t0 is None: t0 = t
@@ -163,6 +205,9 @@ def pending_take(n):
             else:
                 got.append(a[:need]); pending[0] = [a[need:], t]; need = 0
         if not pending: have_speech.clear()
+        if got and not need: VS["mid"] = True         # a full take: we are inside her line (until a padded take ends it)
+        if got and need:                              # a padded take: the end of her line — or a hole if more follows
+            S["voice_pads"] += 1; VS["pad_at"] = now; VS["mid"] = False
     if not got: return None, None
     a = np.concatenate(got)
     if len(a) < n: a = np.concatenate([a, np.zeros(n - len(a), np.float32)])
@@ -212,8 +257,12 @@ def render_loop(R):
                 S["sharp"].append(float(cv2.Laplacian(g[96:416, 96:416], cv2.CV_64F).var()))   # centre of the face
             if S["speech_chunks"] <= 3 or S["speech_chunks"] % 15 == 0:
                 cv2.imwrite(os.path.join(OUT, f"published_{mode}_speech_{S['speech_chunks']:03d}.jpg"), frames[n_f // 2])
+        rgba = None
+        if WIDE_PREP and mode == "wide":                    # NOVA-GO2: the publisher's per-frame resize+convert, done here
+            rgba = [cv2.cvtColor(cv2.resize(f, (WIDE_W, WIDE_H), interpolation=cv2.INTER_AREA) if f.shape[1] != WIDE_W else f,
+                                 cv2.COLOR_BGR2RGBA).tobytes() for f in frames]
         with lock:
-            ready.append({"frames": frames, "audio": pub_audio, "speech": speech, "t_arr": t_arr, "mode": mode, "n": n_f})
+            ready.append({"frames": frames, "audio": pub_audio, "speech": speech, "t_arr": t_arr, "mode": mode, "n": n_f, "rgba": rgba})
         S["chunks"] += 1
 
 
@@ -225,7 +274,47 @@ def _recorder(name, w, h, crf):
                           "-r", str(FPS), "-i", "-", "-c:v", "libx264", "-preset", "ultrafast", "-crf", str(crf),
                           "-pix_fmt", "yuv420p", vp], stdin=subprocess.PIPE)
     a = wave.open(ap, "wb"); a.setnchannels(1); a.setsampwidth(2); a.setframerate(SR)
+    if REC_THREAD: return _RecWriter(v, a), a, vp, ap
     return v, a, vp, ap
+
+
+# NOVA-AUDIT 2026-11-22 · FACE_REC_THREAD (default 0 = off, unchanged). With FACE_RECORD=1 (every proof pod) the publisher
+# wrote each 1080x1920 frame (6.2 MB) into the recording's ffmpeg pipe INSIDE the 25 fps publish loop; when that encoder is
+# slower than the loop the pipe blocks and the live picture/voice to the child stalls and then bursts. On: a writer thread
+# with a bounded queue takes the frames; a full queue drops the RECORDING's frame (S["rec_dropped"]), never the live one.
+REC_THREAD = E("FACE_REC_THREAD", "0") == "1"
+# FACE_PUB_STEADY (default 0 = off, unchanged): the publisher used to catch up after a late chunk by sending up to 0.5 s of
+# frames with no wait — a burst the browser shows as a stall then a jump, and a burst that pulls the next voice chunk early
+# (a padded take = a voice hole). On: more than FACE_PUB_STEADY_MS (80 = 2 frames) behind -> re-anchor the clock instead.
+# NOVA-GO2 FACE_WIDE_PREP (default 0 = off, unchanged). Pod run jtp2b3rclx5hv6: pub_late_frames 1101 of ~4400, 273
+# re-anchors — the 25 fps publish loop (asyncio) itself resized + colour-converted every 1080x1920 wide frame. On: the render
+# thread hands over ready 720x1280 RGBA bytes, the loop only sends them.
+WIDE_PREP = E("FACE_WIDE_PREP", "0") == "1"
+WIDE_TS = E("FACE_WIDE_TS", "0") == "1"           # NOVA-AUDIT (default off): stamp wide frames on the publish clock
+PUB_STEADY = E("FACE_PUB_STEADY", "0") == "1"; PUB_STEADY_S = float(E("FACE_PUB_STEADY_MS", "80")) / 1000
+S.update({"pub_late_frames": 0, "pub_max_lag_ms": 0, "pub_reanchors": 0})
+S["rec_dropped"] = 0
+class _RecWriter:
+    """looks like the Popen the old code used: .stdin.write / .stdin.close / .wait — the voice wav is written with the frame."""
+    def __init__(self, proc, wav):
+        import queue
+        self.p, self.w, self.q = proc, wav, queue.Queue(maxsize=int(E("FACE_REC_QUEUE", "50")))
+        self.stdin = self; self.th = threading.Thread(target=self._run, daemon=True); self.th.start()
+    def _run(self):
+        while True:
+            item = self.q.get()
+            if item is None: break
+            try: self.p.stdin.write(item[0]); self.w.writeframes(item[1])
+            except Exception: pass
+    def put(self, fb, ab):
+        try: self.q.put_nowait((fb, ab))
+        except Exception: S["rec_dropped"] += 1
+    def write(self, b): pass                           # (the old direct path; unused when threaded)
+    def close(self):
+        self.q.put(None); self.th.join(60)
+        try: self.p.stdin.close()
+        except Exception: pass
+    def wait(self, t=None): return self.p.wait(t)
 
 
 async def publisher():
@@ -253,9 +342,24 @@ async def publisher():
     if DUAL is not None or E("FACE_RENDERER") == "dual":         # NOVA-FINAL: her wide Ditto body, a second video track
         wsrc = rtc.VideoSource(WIDE_W, WIDE_H)
         wtr = rtc.LocalVideoTrack.create_video_track("nova-wide-video", wsrc)
-        wo = rtc.TrackPublishOptions(source=rtc.TrackSource.SOURCE_SCREENSHARE)
+        # NOVA-AUDIT FACE_WIDE_SOURCE (default screenshare = unchanged). Pod run exarcvmcwq6czb: the pod PUBLISHED 25 fps
+        # (wide_published_A: 1962 frames in ~78 s) but the browser PRESENTED 9-15 a second (page fps probe) and counted ~5
+        # dropped a second. A screen-share track is allowed to trade frame rate for sharpness; she is a camera-like video.
+        wo = rtc.TrackPublishOptions(source=rtc.TrackSource.SOURCE_CAMERA if E("FACE_WIDE_SOURCE", "screenshare") == "camera"
+                                     else rtc.TrackSource.SOURCE_SCREENSHARE)
         try: wo.video_encoding = rtc.VideoEncoding(max_framerate=FPS, max_bitrate=int(E("WIDE_MAX_BITRATE", "4000000")))
         except Exception as e: log("wide video_encoding not set:", e)
+        # NOVA-GO2 (2026-11-23) FACE_WIDE_SMOOTH (default 0 = off, unchanged). Pod run jtp2b3rclx5hv6 (fpsprobe): the browser
+        # RECEIVED only 14-20 of her 25 wide pictures a second for the first ~15 s after she appeared and again for ~15 s
+        # after the ending switch, then 20-25. The track was SIMULCAST (the SDK default): the server starts a new viewer on
+        # a low layer (fewer pictures a second) and climbs as its bandwidth guess grows. On: ONE layer (720x1280, 25 fps,
+        # nothing to climb) and, when the link is tight, keep the frame rate and soften the picture instead of dropping frames.
+        if E("FACE_WIDE_SMOOTH", "0") == "1":
+            try: wo.simulcast = False
+            except Exception as e: log("wide simulcast not set:", e)
+            try: wo.degradation_preference = rtc.TrackPublishOptions.DESCRIPTOR.fields_by_name["degradation_preference"].enum_type.values_by_name["DEGRADATION_PREFERENCE_MAINTAIN_FRAMERATE"].number
+            except Exception as e: log("wide degradation_preference not set:", e)
+            log("wide smooth: simulcast off, maintain framerate, max", E("WIDE_MAX_BITRATE", "4000000"), "bps")
         try: wo.stream = "nova-face"
         except Exception: pass
         await room.local_participant.publish_track(wtr, wo)
@@ -291,15 +395,21 @@ async def publisher():
             dt = t0 + i / FPS - loop.time()
             if dt > 0: await asyncio.sleep(dt)
             elif dt < -0.5: t0 = loop.time() - i / FPS             # we fell far behind (stall): re-anchor the clock
+            elif PUB_STEADY and dt < -PUB_STEADY_S:                # NOVA-AUDIT: behind by > 2 frames -> re-anchor, never burst
+                t0 = loop.time() - i / FPS; S["pub_reanchors"] += 1
+            if dt < -0.02: S["pub_late_frames"] += 1; S["pub_max_lag_ms"] = max(S["pub_max_lag_ms"], round(-dt * 1000))
             f = ch["frames"][k]; last[mode] = f
             if mode == "pip" and vdelay:
                 vq.append(f)
                 f = vq.popleft() if len(vq) > vdelay else vq[0]
             if time.time() >= S["paused_until"]:
                 if mode == "wide":
-                    g = cv2.resize(f, (WIDE_W, WIDE_H), interpolation=cv2.INTER_AREA) if f.shape[1] != WIDE_W else f
-                    wsrc.capture_frame(rtc.VideoFrame(WIDE_W, WIDE_H, rtc.VideoBufferType.RGBA,
-                                                      cv2.cvtColor(g, cv2.COLOR_BGR2RGBA).tobytes()))
+                    if ch.get("rgba") and k < len(ch["rgba"]): vf = rtc.VideoFrame(WIDE_W, WIDE_H, rtc.VideoBufferType.RGBA, ch["rgba"][k])
+                    else:
+                        g = cv2.resize(f, (WIDE_W, WIDE_H), interpolation=cv2.INTER_AREA) if f.shape[1] != WIDE_W else f
+                        vf = rtc.VideoFrame(WIDE_W, WIDE_H, rtc.VideoBufferType.RGBA, cv2.cvtColor(g, cv2.COLOR_BGR2RGBA).tobytes())
+                    if WIDE_TS: wsrc.capture_frame(vf, timestamp_us=int((t0 + i / FPS) * 1_000_000))   # the frame's slot on the publish clock, not "when we got here"
+                    else: wsrc.capture_frame(vf)
                     S["wide_frames"] += 1
                 else:
                     rgba = np.dstack([f[:, :, ::-1], np.full(f.shape[:2], 255, np.uint8)])
@@ -309,8 +419,10 @@ async def publisher():
             await asrc.capture_frame(rtc.AudioFrame(seg.tobytes(), SR, 1, len(seg)))
             rv = rec.get(mode)
             if rv:
-                try: rv[0].stdin.write(f.tobytes()); rv[1].writeframes(seg.tobytes())
-                except Exception: pass
+                if REC_THREAD: rv[0].put(f.tobytes(), seg.tobytes())
+                else:
+                    try: rv[0].stdin.write(f.tobytes()); rv[1].writeframes(seg.tobytes())
+                    except Exception: pass
             i += 1
 
 
@@ -338,6 +450,7 @@ async def humanaudio(req):
         return web.json_response({"code": 1, "msg": "bad wav: " + str(e)})
     with lock:
         if not pending: S["lines"] += 1
+        voice_arrived(t, len(a))
         pending.append([a, t])
     have_speech.set()
     return web.json_response({"code": 0, "data": len(a)})
@@ -370,7 +483,10 @@ def stats():
             "error": S["error"], "uptime_s": round(time.time() - S["t_start"]),
             "mode": S["mode"], "mode_switches": S["mode_switches"], "wide_frames_published": S["wide_frames"],
             "wide_render_ms_p50": q(sorted(S["wide_ms"]), .5), "wide_render_ms_p95": q(sorted(S["wide_ms"]), .95),
-            "wide_chunks_late": S["wide_late"], "wide_chunks": len(S["wide_ms"])}
+            "wide_chunks_late": S["wide_late"], "wide_chunks": len(S["wide_ms"]),
+            "pub_late_frames": S["pub_late_frames"], "pub_max_lag_ms": S["pub_max_lag_ms"], "pub_reanchors": S["pub_reanchors"],
+            "rec_dropped": S["rec_dropped"], "rec_thread": REC_THREAD, "pub_steady": PUB_STEADY,
+            "voice_prebuf_ms": PREBUF_MS, "voice_pads": S["voice_pads"], "voice_holes": S["voice_holes"], "voice_prebuf_waits": S["voice_prebuf_waits"], "voice_lines": S["voice_lines"], "voice_holes_midline": S["voice_holes_midline"], "voice_hole_log": S["voice_hole_log"][-10:]}
 
 
 async def health(req):
@@ -407,7 +523,7 @@ async def finish(req):
     for mode, name in (("pip", "face_published"), ("wide", "wide_published")):
         rv = cur.get(mode)
         if not rv: continue
-        try: rv[0].stdin.close(); rv[0].wait(60); rv[1].close()
+        try: (rv[0].close() if REC_THREAD else rv[0].stdin.close()); rv[0].wait(60); rv[1].close()
         except Exception as e: return web.json_response({"code": 1, "msg": str(e)})
         out = os.path.join(OUT, name + ("_" + tag if tag else "") + ".mp4")
         subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", rv[2], "-i", rv[3], "-c:v", "copy", "-c:a", "aac", "-b:a", "128k", "-shortest", out])
