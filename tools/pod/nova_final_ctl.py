@@ -93,7 +93,8 @@ def create(commit):
                            f"NF_BRANCH={os.environ.get('NF_BRANCH', 'nova-final')} bash /root/f4.sh; sleep infinity"],
         "env": {k: K[k] for k in ("OPENAI_API_KEY", "LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET", "MAYA_ASSETS_TOKEN")} | {"NF_WATCH_MIN": "55", "NF_SKIP_W": os.environ.get("NF_SKIP_W", "0"), "NF_SKIP_A": os.environ.get("NF_SKIP_A", "0"), "NF_GAMES": os.environ.get("NF_GAMES", "wave upperbody"),
                 **({"NF_PROOF_LANG": os.environ["NF_PROOF_LANG"]} if os.environ.get("NF_PROOF_LANG") else {}),   # NOVA-GO5
-                **({"DITTO_PRIME": os.environ["DITTO_PRIME"]} if os.environ.get("DITTO_PRIME") else {})},   # NOVA-GO5: shorter lip delay trial
+                **({"DITTO_PRIME": os.environ["DITTO_PRIME"]} if os.environ.get("DITTO_PRIME") else {}),
+                **({"NF_LIVE2": "1", "ELEVENLABS_API_KEY": K.get("ELEVENLABS_API_KEY", "")} if os.environ.get("NF_LIVE2") == "1" else {})},   # NOVA-LIVE2   # NOVA-GO5: shorter lip delay trial
     }
     if vol:
         body.pop("containerRegistryAuthId")

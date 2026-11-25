@@ -128,6 +128,11 @@ NF_GO4=${NF_GO4:-1}
 #      back and chats in her own words, and the NAME arms the shoulder light (origin/main INTRO-V2V, LAWS.md law-shoulder)
 NF_GO5=${NF_GO5:-1}
 [ "$NF_GO5" = 1 ] && [ "$NF_GO4" = 1 ] && grep -q 'hear: true' $P/beta/freeze4-flags.js && sed -i 's/ };/, v2vintro: true, react: true };/' $P/beta/freeze4-flags.js && export NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-1} NOVA_FAST_KID=${NOVA_FAST_KID:-1} NOVA_UTT_MAP=${NOVA_UTT_MAP:-1} NOVA_TX_CONF=${NOVA_TX_CONF:-1} NOVA_RT_EFFORT=${NOVA_RT_EFFORT:-minimal} NOVA_TRACE=${NOVA_TRACE:-1}
+# NOVA-LIVE2 (2026-11-25, docs/NOVA-LIVE2-2026-11-25.md): NF_LIVE2=1 -> early-start answers (held until the turn is validated),
+#   smart listening sounds (page flag live2), her relaxed attitude, her ElevenLabs voice Kymmiee in English (page flag eleven,
+#   brain NOVA_TTS=eleven), and the noise cut moved from -1.6 to -2.2 (real words measured -0.00..-0.92, noise -2.42..-4.57).
+[ "${NF_LIVE2:-0}" = 1 ] && grep -q 'react: true' $P/beta/freeze4-flags.js && sed -i 's/react: true };/react: true, live2: true, eleven: true };/' $P/beta/freeze4-flags.js && export NOVA_LIVE2=1 NOVA_TTS=${NOVA_TTS:-eleven} NOVA_TX_CONF_MIN=${NOVA_TX_CONF_MIN:--2.2}
+[ "${NF_LIVE2:-0}" = 1 ] && stage "live2: flags $(grep -o 'live2[^}]*' $P/beta/freeze4-flags.js) tts=${NOVA_TTS} eleven_key=$([ -n "$ELEVENLABS_API_KEY" ] && echo set || echo MISSING)"
 stage "page flags: $(cat $P/beta/freeze4-flags.js | cut -c1-230) | NOVA_HEAR=${NOVA_HEAR:-0} NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-0} NOVA_FAST_KID=${NOVA_FAST_KID:-0}"
 
 # 3) the brain — its own room; the face engine on :8010 (dual)
@@ -135,7 +140,7 @@ cd /workspace
 # NOVA_KID_EVENTS=1 (2026-11-22, this build only; default off in pod/rt_lk.py): the brain tells the page when a heard
 # utterance was not accepted, so the page's live "You: ..." line closes and the intro does not wait for words that never come.
 # NOVA_INTRO_ANSWER=1 (same): in the intro she may answer the child in one short sentence (see pod/rt_lk.py INTRO_NOTE).
-LK_ROOM=nova-final ENGINE_URL=http://127.0.0.1:8010 NOVA_FACE_SOULX=1 NOVA_FACE_DUAL=1 NOVA_TEST_CLIPS=1 NOVA_KID_EVENTS=${NOVA_KID_EVENTS:-1} NOVA_INTRO_ANSWER=${NOVA_INTRO_ANSWER:-1} NOVA_HEAR=${NOVA_HEAR:-0} NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-0} NOVA_FAST_KID=${NOVA_FAST_KID:-0} NOVA_UTT_MAP=${NOVA_UTT_MAP:-0} NOVA_TX_CONF=${NOVA_TX_CONF:-0} NOVA_RT_EFFORT=${NOVA_RT_EFFORT:-} NOVA_TRACE=${NOVA_TRACE:-0} NOVA_REC=${NOVA_REC:-0} NOVA_REC_DIR=$OUT \
+LK_ROOM=nova-final ENGINE_URL=http://127.0.0.1:8010 NOVA_FACE_SOULX=1 NOVA_FACE_DUAL=1 NOVA_TEST_CLIPS=1 NOVA_KID_EVENTS=${NOVA_KID_EVENTS:-1} NOVA_INTRO_ANSWER=${NOVA_INTRO_ANSWER:-1} NOVA_HEAR=${NOVA_HEAR:-0} NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-0} NOVA_FAST_KID=${NOVA_FAST_KID:-0} NOVA_UTT_MAP=${NOVA_UTT_MAP:-0} NOVA_TX_CONF=${NOVA_TX_CONF:-0} NOVA_RT_EFFORT=${NOVA_RT_EFFORT:-} NOVA_TRACE=${NOVA_TRACE:-0} NOVA_LIVE2=${NOVA_LIVE2:-0} NOVA_TTS=${NOVA_TTS:-} NOVA_TX_CONF_MIN=${NOVA_TX_CONF_MIN:--1.6} NOVA_REC=${NOVA_REC:-0} NOVA_REC_DIR=$OUT \
   setsid nohup $PY -u rt_lk.py > $OUT/rtlk.log 2>&1 < /dev/null &
 Xvfb :99 -screen 0 1280x720x24 -nolisten tcp >/dev/null 2>&1 &
 export DISPLAY=:99

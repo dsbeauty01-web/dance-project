@@ -267,7 +267,9 @@ function connectWS(intro) {
     if (m.type === 'you_delta') { window.dispatchEvent(new CustomEvent('nova:kid-delta', { detail: m.delta || '' })); return; }
     if (m.type === 'you_drop') { window.dispatchEvent(new CustomEvent('nova:kid-drop', { detail: { text: m.text || '', why: m.why || '' } })); return; }
     if (m.type === 'status') { if (m.speaking === true) micGated = true; else if (m.speaking === false) micGated = false;
-      if (m.hearing === true) window.dispatchEvent(new Event('nova:hearing')); }
+      if (m.hearing === true) window.dispatchEvent(new Event('nova:hearing'));
+      // NOVA-LIVE2: the child just stopped talking (the brain's voice detector), with how long he talked, in seconds
+      if (typeof m.kid_stopped === 'number') window.dispatchEvent(new CustomEvent('nova:kid-stopped', { detail: m.kid_stopped })); }
   };
 }
 

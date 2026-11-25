@@ -176,6 +176,44 @@ def tr(ev, *a):
 # NOVA-GO5 (2026-11-24) · NOVA_TX_CONF=1, default off: both transcribers return their confidence (token log-probabilities)
 # and the brain logs it per turn as [CONF]. Step 1 of the phantom-answer fix (handoff §5.3): measure noise vs real words.
 TX_CONF = os.environ.get("NOVA_TX_CONF", "0") == "1"
+# NOVA-LIVE2 (2026-11-25, Refael's approved plan: "test the feeling of live, not the game"; docs/NOVA-LIVE2-2026-11-25.md)
+#   NOVA_LIVE2=1, default off. Talk phases only (intro, ending); the game path is untouched.
+#   (a) EARLY START: her answer is asked for the moment the child's turn is committed (VAD), not after the transcript.
+#       Its audio is HELD until the transcript is validated (INPUT-LOCK still decides); a dropped turn cancels it.
+#       Measured cost of the old order (rig 2026-11-24): transcript 0.4-1.2 s sat in front of every answer.
+#   (b) the page is told when the child stopped and for how long (smart listening sounds, beta/freeze4.html `live2`).
+#   (c) her ATTITUDE block (below), from the commercial skills (ai-companion-presence, voice-agent-presence).
+LIVE2 = os.environ.get("NOVA_LIVE2", "0") == "1"
+# a SHORT piece ("Hi") is often the start of a sentence ("Hi ... I'm Shuki", rig l2c 2026-11-25: she answered "Hi" and the
+# name was lost). Her early answer to a piece under LIVE2_SHORT_S of voice waits until the child has been quiet LIVE2_SHORT_GAP_S;
+# a longer piece LIVE2_GAP_S. The mic stays open meanwhile, so if he goes on, the early answer is dropped. [CLI-FILL] all three.
+LIVE2_SHORT_S = float(os.environ.get("NOVA_LIVE2_SHORT_S", "1.0"))   # of VOICE (the slice minus 0.3 s pre-roll and 0.6 s VAD tail)
+# a piece that is ONLY a greeting / filler ("Hi", "Um", "So") is the start of a sentence, not a turn: she waits for the rest
+# (up to LIVE2_FILLER_WAIT_S of quiet). Rig l2d: the child paused 2.4 s between "Hi" and "I'm Shuki". [CLI-FILL] 2.5 s.
+LIVE2_FILLER_RE = __import__("re").compile(r"^\W*(hi+|hey+|hello|hiya|ha+|um+|uh+|so|well|and|היי|שלום|אממ*|אה+)\W*$", __import__("re").I)
+LIVE2_FILLER_WAIT_S = float(os.environ.get("NOVA_LIVE2_FILLER_WAIT_S", "2.5"))
+LIVE2_SHORT_GAP_S = float(os.environ.get("NOVA_LIVE2_SHORT_GAP_S", "0.0"))
+LIVE2_GAP_S = float(os.environ.get("NOVA_LIVE2_GAP_S", "0.0"))
+LIVE2_SPEC_TIMEOUT_S = float(os.environ.get("NOVA_LIVE2_SPEC_TIMEOUT_S", "4.0"))   # [CLI-FILL] a held answer with no transcript dies
+# NOVA_TTS=eleven (2026-11-25, Refael: "we have ElevenLabs, find the best voice for her"): the brain answers in TEXT and
+#   ElevenLabs speaks it, streamed. English only (Hebrew keeps marin until a Hebrew voice is approved).
+#   Voice Kymmiee (approved by Refael 2026-11-25, "more relaxed"); model turbo v2.5: first byte 0.22 s vs v4 0.81 s
+#   (measured from the session machine 2026-11-25, same line) - speed first, his call "u decide".
+TTS = os.environ.get("NOVA_TTS", "").strip().lower()
+EL_KEY = os.environ.get("ELEVENLABS_API_KEY", "")
+EL_VOICE = os.environ.get("NOVA_EL_VOICE", "KHDywVwjZ97ShJLe4NCr")
+EL_MODEL = os.environ.get("NOVA_EL_MODEL", "eleven_turbo_v2_5")
+LIVE2_ATTITUDE = (
+    "\n\nATTITUDE (this outranks every style line above): you are relaxed, warm and playful - a smiling big sister, "
+    "NOT a hyper cheerleader and NOT a teacher. Every answer = a tiny real reaction to what they JUST said "
+    "(Ooh! / Aww! / Ha! / No way! / Mmm!) + ONE short line that uses THEIR words or their name. 12 words max. "
+    "Ask a question only sometimes - never every turn. Remember what they told you and bring it back later "
+    "('Pizza kid is back!'). Never explain, never coach, never list. Examples, at exactly this length:\n"
+    "child: I like pizza. -> Nova: Ooh, pizza! Me too - extra cheese!\n"
+    "child: My name is Dana. -> Nova: Dana! I love that name.\n"
+    "child: I'm tired. -> Nova: Aww. Sleepy legs? We'll wake them up.\n"
+    "child: I have a dog. -> Nova: No way! What's his name?\n"
+    "child: Can you see me? -> Nova: I see you, Dana! Hi!")
 # The cut, measured on the hear rig 2026-11-24 (docs/NOVA-GO5-2026-11-24.md part 5): real words mean -0.00 .. -0.82
 # (worst = a half-word "Ha"), noise (hum, garble, music, breath, her voice at echo 0.5) -2.42 .. -4.57. Halfway = -1.6.
 # A transcript under it is noise: dropped like garble, never answered. [CLI-FILL] the midpoint; Hebrew checked separately.
@@ -424,10 +462,11 @@ PAGE_RULES = (
     "Voice style: bright, warm, quick - never slow, never calm-narrator.")
 
 
-def session_update(freeze=False, voice=None, lang="en", gender="", page=False, v2v=False):
+def session_update(freeze=False, voice=None, lang="en", gender="", page=False, v2v=False, text_out=False):
     return {"type": "session.update", "session": {
-        "type": "realtime", "output_modalities": ["audio"],
+        "type": "realtime", "output_modalities": (["text"] if text_out else ["audio"]),   # NOVA_TTS=eleven: text out
         "instructions": PROMPT + (V2V_F4_RULES if v2v else PAGE_RULES if page else FREEZE_RULES if freeze else "")
+                        + (LIVE2_ATTITUDE if (LIVE2 and v2v) else "")
                         + ((HEBREW_RULES + gender_line(gender)) if lang == "he" else ""),
         "audio": {
             "input": {"format": {"type": "audio/pcm", "rate": 24000},
@@ -443,7 +482,9 @@ def session_update(freeze=False, voice=None, lang="en", gender="", page=False, v
                                          # 600ms: 500 (cert value) split "Hi Nova! … my name is Shuki"
                                          # at the pause; 800 delayed turn-end enough to gate the name
                                          # behind Nova's re-invite (he-17). 600 threads both.
-                                         "prefix_padding_ms": 300, "silence_duration_ms": 600,
+                                         "prefix_padding_ms": 300, "silence_duration_ms": (450 if LIVE2 else 600),
+                                         # NOVA-LIVE2: 450 - a split sentence no longer costs the name: the early answer to
+                                         # the first piece is dropped when he goes on (rig l2f "Hi ... I'm Shuki"). [CLI-FILL]
                                          "create_response": False, "interrupt_response": False},
                       "transcription": {"model": "gpt-4o-transcribe", "language": lang}},
             "output": {"format": {"type": "audio/pcm", "rate": 24000}, "voice": (voice or VOICE)}},
@@ -756,6 +797,7 @@ async def relay(request):
     kidbuf = bytearray()          # pcm16@24k mirror of exactly what the mic sent OAI
     UTT_PREROLL = 14400           # 300ms pre-VAD audio included in each slice
     utt = {"n": 0, "start": 0, "handled": set()}
+    spec = {"n": None, "t": 0.0}  # NOVA-LIVE2 (a): the utterance whose answer was asked for early, held until validated
     # he-13: bare create_task results get GARBAGE-COLLECTED mid-flight (documented
     # asyncio gotcha) — all 5 racers vanished silently. Pin them until done.
     race_tasks = set()
@@ -844,9 +886,12 @@ async def relay(request):
             _v2v = V2V_INTRO and _intro == "freeze4"          # NOVA-GO5: the approved live intro on Freeze v4
             v2v = {"greeted": False, "await_name": False}
             if _v2v: print("[V2V-INTRO] on: the intro runs on PROMPT (greet + name, live chat); the page arms the light", flush=True)
+            _tts_eleven = TTS == "eleven" and bool(EL_KEY) and not _hebrew and not _voice   # ?voice= keeps the OpenAI A/B
+            if TTS == "eleven": print("[TTS]", ("ElevenLabs " + EL_MODEL + " voice " + EL_VOICE) if _tts_eleven
+                                      else "eleven requested but off (no key / Hebrew / ?voice=) - OpenAI voice", flush=True)
             await oai.send_json(session_update(freeze=_freeze_mode, voice=_voice,
                                                lang=("he" if _hebrew else "en"), gender=_gender,
-                                               page=_intro.startswith("page"), v2v=_v2v))
+                                               page=_intro.startswith("page"), v2v=_v2v, text_out=_tts_eleven))
             await log("connected to " + MODEL + " (voice " + VOICE + ")")
             # TRANSCRIPTION WARM-UP (he-17): the session's FIRST Hebrew transcription
             # keeps costing 12-14s — a cold path on the provider side that hits the name
@@ -1109,6 +1154,60 @@ async def relay(request):
                 # the 5-word limit is in the instruction and MIDGAME-BAN still cancels a 7th word / a question
                 await speak_now(instructions=hear_reply_instr("game", _hebrew), origin="kid")
 
+            async def spec_release():
+                """NOVA-LIVE2 (a): the early answer's turn was validated - her held audio goes to the face now."""
+                resp["spec_hold"] = False
+                speaking["v"] = True                  # her voice is about to play: the anti-echo gate closes now
+                try: await ws_client.send_json({"type": "status", "speaking": True})
+                except Exception: pass
+                if resp.get("killed") or not audio_buf: return
+                if not speaking.get("spoke"):
+                    speaking["spoke"] = True
+                    await ws_client.send_json({"type": "status", "state": "talking"})
+                data = bytes(audio_buf); audio_buf.clear()
+                for i in range(0, len(data), FLUSH):
+                    speaking["last_chunk"] = time.time(); await engine_q.put(data[i:i+FLUSH])
+                if not speaking["resp_active"]:
+                    # the line was already complete when released: response.done's reopen has run, so reopen here
+                    # (rig l2h: the mic stayed shut and every later line queued "busy")
+                    async def _reopen():
+                        while time.time() - speaking["last_chunk"] < GATE_COOLDOWN:
+                            await asyncio.sleep(0.15)
+                        if speaking["resp_active"]: return
+                        speaking["v"] = False
+                        print(f"GATE OPEN: mic live ({GATE_COOLDOWN}s after last chunk, live2 release)", flush=True)
+                        await ws_client.send_json({"type": "status", "speaking": False, "state": "listening"})
+                    asyncio.create_task(_reopen())
+            async def spec_release_after(n, need=None):
+                """NOVA-LIVE2: release once the child has been quiet long enough for a piece of this length."""
+                voice_s = utt.get("dur", 9) - 0.9
+                if need is None: need = LIVE2_SHORT_GAP_S if voice_s < LIVE2_SHORT_S else LIVE2_GAP_S
+                wait = need - (time.time() - utt.get("stop_t", 0))
+                if wait > 0:
+                    print("[LIVE2] short piece (%.2f s of voice) - waiting %.2f s for more" % (voice_s, wait), flush=True)
+                    await asyncio.sleep(wait)
+                if resp.get("killed") or not resp.get("spec_hold") or utt["n"] != n: return   # he went on talking
+                await spec_release()
+            async def spec_start(n):
+                """NOVA-LIVE2 (a): the child's turn is committed - ask for her answer NOW, hold its audio until validated."""
+                if sgate["on"] or n in utt["handled"] or speaking["resp_active"] or speaking["v"]: return
+                if time.time() - speaking["last_chunk"] < 0.8: return
+                await boundary_open("kid-turn", pump=False)
+                _talk_hear = HEAR and _page_owns and not (_v2v and not sgate.get("ever"))
+                ok = await (speak_now(instructions=hear_reply_instr("talk", _hebrew), origin="kid") if _talk_hear
+                            else speak_now(bare=True, origin="kid"))
+                if not ok: return
+                spec["n"] = n; spec["t"] = time.time(); resp["spec_hold"] = True
+                kidinput["ts"] = time.time()          # her reply is TO the child: the 6 s kid-reply windows apply (truth gates)
+                tr("live2.spec_asked", "utt", n); print("[LIVE2] early answer asked for utt", n, flush=True)
+                async def _timeout():
+                    await asyncio.sleep(LIVE2_SPEC_TIMEOUT_S)
+                    if spec["n"] == n:
+                        spec["n"] = None; resp["killed"] = True; resp["spec_hold"] = False; audio_buf.clear()
+                        print("[LIVE2] early answer cancelled - no transcript in", LIVE2_SPEC_TIMEOUT_S, "s", flush=True)
+                        await cancel_speech("live2: no transcript")
+                asyncio.create_task(_timeout())
+
             async def kid_transcript(ktxt, src, n, item_id=None, conf=None):
                 # TRANSCRIPT-RACE: first transcript per utterance wins; the loser is a no-op.
                 if n in utt["handled"]:
@@ -1173,6 +1272,20 @@ async def relay(request):
                 utt["handled"].add(n)
                 if src == "rest":
                     print("[RACE] rest transcript won utt", n, ":", ktxt[:40], flush=True)
+                _spec = LIVE2 and spec["n"] == n                      # NOVA-LIVE2 (a): her answer is already being made
+                # NOVA-LIVE2: a newer utterance has already started - this piece is context; she answers the newest piece
+                _stale = LIVE2 and not _spec and n < utt["n"] and not sgate["on"]
+                if _stale: print("[LIVE2] utt", n, "is context only - the child went on talking (utt", utt["n"], ")", flush=True)
+                if _spec:
+                    spec["n"] = None
+                    if _drop:
+                        resp["killed"] = True; resp["spec_hold"] = False; audio_buf.clear()
+                        tr("live2.spec_dropped"); print("[LIVE2] early answer cancelled - the turn was dropped (", _drop, ")", flush=True)
+                        await cancel_speech("live2: the child's turn was dropped")
+                    else:
+                        tr("live2.spec_released", "%.0f ms after the early ask" % ((time.time() - spec["t"]) * 1000))
+                        print("[LIVE2] early answer released - turn validated:", ktxt[:40], flush=True)
+                        asyncio.create_task(spec_release_after(n, LIVE2_FILLER_WAIT_S if LIVE2_FILLER_RE.match(ktxt) else None))
                 if _drop:
                     print("[INPUT-LOCK] dropped:", _drop, "|", ktxt[:30], flush=True)
                     # Nephew test 2026-09-13: a DROPPED turn still sat in the conversation
@@ -1224,7 +1337,7 @@ async def relay(request):
                         # NOVA_HEAR (a): her answer to THIS child, said with an instruction (bare = the greeting again)
                         await boundary_open("kid-turn", pump=False)
                         print("[INPUT-LOCK] one-shot fired for turn", inlock["valid_turns"], "(hear)", flush=True); tr("kid.turn_accepted")
-                        await speak_now(instructions=hear_reply_instr("talk", _hebrew), origin="kid")
+                        if not (_spec or _stale): await speak_now(instructions=hear_reply_instr("talk", _hebrew), origin="kid")
                     else:
                         # PRODUCER-SILENT: the kid's finished turn IS the boundary — this is the
                         # natural moment speech belongs to, and everything the producer remembered
@@ -1234,7 +1347,7 @@ async def relay(request):
                         # producer line that queued earlier must not jump in front of it.
                         await boundary_open("kid-turn", pump=False)
                         print("[INPUT-LOCK] one-shot fired for turn", inlock["valid_turns"], flush=True); tr("kid.turn_accepted")
-                        await speak_now(bare=True, origin="kid")
+                        if not (_spec or _stale): await speak_now(bare=True, origin="kid")
 
             async def rest_transcribe(audio, n):
                 # TRANSCRIPT-RACE: our own transcription of the tapped utterance (same model).
@@ -1724,10 +1837,87 @@ async def relay(request):
                 try: await oai.close()
                 except Exception: pass
 
+            # NOVA_TTS=eleven: one ordered event queue. OpenAI events pass through; her TEXT is streamed to ElevenLabs and
+            # its audio comes back as the same "response.output_audio.delta" events, so every gate below is unchanged.
+            evq = asyncio.Queue()
+            tts = {"ws": None, "done": None, "text": "", "flushed": False}
+            async def tts_close(why=""):
+                ws = tts["ws"]; tts["ws"] = None
+                if ws is None: return
+                try: await ws.close()
+                except Exception: pass
+                if why: print("[TTS] closed:", why, flush=True)
+            async def tts_open():
+                url = (f"wss://api.elevenlabs.io/v1/text-to-speech/{EL_VOICE}/stream-input"
+                       f"?model_id={EL_MODEL}&output_format=pcm_24000")
+                ws = await http.ws_connect(url, heartbeat=20)
+                await ws.send_json({"text": " ", "xi_api_key": EL_KEY,
+                                    "voice_settings": {"stability": 0.5, "similarity_boost": 0.8, "speed": 1.0},
+                                    "generation_config": {"chunk_length_schedule": [50, 90, 160, 250]}})
+                done = asyncio.Event()
+                tts.update(ws=ws, done=done, text="", flushed=False)
+                tr("tts.open")
+                async def rx():
+                    first = True
+                    try:
+                        async for m in ws:
+                            if m.type != aiohttp.WSMsgType.TEXT: break
+                            d = json.loads(m.data)
+                            if d.get("audio"):
+                                if first: first = False; tr("tts.first_audio")
+                                await evq.put({"type": "response.output_audio.delta", "delta": d["audio"]})
+                            if d.get("isFinal"): break
+                    except Exception as _e:
+                        print("[TTS] rx err", str(_e)[:80], flush=True)
+                    finally:
+                        done.set()
+                asyncio.create_task(rx())
+            async def tts_send(delta):
+                if not delta: return
+                if tts["ws"] is None: await tts_open()
+                tts["text"] += delta
+                # first audio as soon as there are 3 words or a pause mark; then at every pause mark
+                _p = bool(_re.search(r"[,.!?;:\u2014]\s*$", delta))
+                _flush = _p or (not tts["flushed"] and len(tts["text"].split()) >= 3)
+                if _flush: tts["flushed"] = True
+                await tts["ws"].send_json({"text": delta, **({"flush": True} if _flush else {})})
+            async def tts_finish(txt):
+                if tts["ws"] is not None:
+                    try:
+                        await tts["ws"].send_json({"text": ""})
+                        await asyncio.wait_for(tts["done"].wait(), 15)
+                    except Exception as _e:
+                        print("[TTS] finish err", str(_e)[:80], flush=True)
+                    await tts_close()
+                await evq.put({"type": "response.output_audio.done"})
+                await evq.put({"type": "response.output_audio_transcript.done", "transcript": txt})
+            async def oai_pump():
+                try:
+                    async for msg in oai:
+                        if msg.type != aiohttp.WSMsgType.TEXT: continue
+                        e = json.loads(msg.data); et = e.get("type", "")
+                        if _tts_eleven:
+                            if et == "response.output_text.delta":
+                                await evq.put({"type": "response.output_audio_transcript.delta", "delta": e.get("delta", "")})
+                                try: await tts_send(e.get("delta", ""))
+                                except Exception as _e: print("[TTS] send err", str(_e)[:80], flush=True)
+                                continue
+                            if et == "response.output_text.done":
+                                await tts_finish(e.get("text", "") or tts["text"]); continue
+                            if et == "response.created" and tts["ws"] is not None:
+                                await tts_close("a new response started")
+                            if et == "response.done" and tts["ws"] is not None:      # cancelled before its text finished
+                                await tts_finish(tts["text"])
+                        await evq.put(e)
+                finally:
+                    await evq.put(None)
+            asyncio.create_task(oai_pump())
+
             async def from_openai():
-                async for msg in oai:
-                    if msg.type != aiohttp.WSMsgType.TEXT: continue
-                    e = json.loads(msg.data); et = e.get("type", "")
+                while True:
+                    e = await evq.get()
+                    if e is None: break
+                    et = e.get("type", "")
                     if "delta" not in et:
                         # 2026-08-04: log the DETAIL on errors. A bare "OAI: error" hid a rejected
                         # session.update for a whole debugging cycle — the persona silently never
@@ -1774,6 +1964,8 @@ async def relay(request):
                             else:
                                 audio_buf.clear()
                                 print("[SPEAK-GATE] engine feed blocked (audio.done)", flush=True)
+                        elif resp.get("spec_hold"):
+                            print("[LIVE2] line finished before its turn was validated - held", flush=True)   # spec_release() sends it
                         elif audio_buf:
                             if not speaking.get("spoke"):
                                 speaking["spoke"] = True
@@ -1857,7 +2049,7 @@ async def relay(request):
                             hy = NEUTRAL_HYPE[hidx["i"] % len(NEUTRAL_HYPE)]; hidx["i"] += 1
                             await speak_now(verbatim=hy, origin="truth-gate", extra=(
                                 "Say nothing about any move, and never say you saw anything."))
-                        elif (not resp["killed"]) and (not sgate["on"]) and audio_buf and (
+                        elif (not resp["killed"]) and (not sgate["on"]) and audio_buf and not resp.get("spec_hold") and (
                               resp["buf"].rstrip()[-1:] in ".!?"
                               # FIRST-CLAUSE RELEASE (MACHINE-CERTIFY en-13): a fresh direct
                               # kid-reply ("Hey, Shuki! ...") waited for the full sentence and
@@ -1960,7 +2152,12 @@ async def relay(request):
                         # ANTI-ECHO GATE discards every mic frame while she speaks, so OpenAI's VAD
                         # cannot see a child talking over her and this branch cannot fire yet. It
                         # goes live the moment the page sends echo-cancelled mic during her speech.
-                        if speaking["resp_active"] or speaking["v"]:
+                        if LIVE2 and resp.get("spec_hold"):
+                            # NOVA-LIVE2: he is still talking - the early answer (never heard) is dropped; his whole turn is answered
+                            spec["n"] = None; resp["spec_hold"] = False; resp["killed"] = True; audio_buf.clear()
+                            tr("live2.spec_superseded"); print("[LIVE2] the child kept talking - early answer dropped", flush=True)
+                            if speaking["resp_active"]: await cancel_speech("live2: the child kept talking")
+                        elif speaking["resp_active"] or speaking["v"]:
                             await cancel_speech("barge-in (the child started speaking)")
                         if not speaking["v"]:
                             await ws_client.send_json({"type": "status", "hearing": True})
@@ -1969,9 +2166,16 @@ async def relay(request):
                         # TRANSCRIPT-RACE: snapshot the utterance, start our racer
                         _ua = bytes(kidbuf[utt["start"]:])
                         print("[RACE] armed utt", utt["n"], "bytes", len(_ua), flush=True)
+                        utt["stop_t"] = time.time(); utt["dur"] = len(_ua) / 48000.0
+                        if LIVE2:                                        # NOVA-LIVE2 (b): smart listening sounds on the page
+                            try: await ws_client.send_json({"type": "status", "kid_stopped": round(len(_ua) / 48000.0, 2)})
+                            except Exception: pass
                         if len(_ua) > 4800:      # >100ms of real audio
                             _t = asyncio.create_task(rest_transcribe(_ua, utt["n"]))
                             race_tasks.add(_t); _t.add_done_callback(race_tasks.discard)
+                    elif et == "input_audio_buffer.committed" and LIVE2:
+                        _ua_n = len(kidbuf) - utt["start"]
+                        if _ua_n > 24000 * 2 * 0.3: await spec_start(utt["n"])   # >0.3 s of voice  [CLI-FILL]
                     elif et == "conversation.item.input_audio_transcription.delta":
                         await ws_client.send_json({"type": "you_delta", "delta": e.get("delta", "")})
                     elif et == "response.created":
@@ -2002,13 +2206,21 @@ async def relay(request):
                                 print("[SPEAK-GATE] air line generating (credit spent)", flush=True)
                             if statue["allow"]: statue["allow"] = False; print("[STATUE] whisper (allowed)", flush=True)
                             speaking["resp_active"] = True
-                            speaking["v"] = True                 # gate CLOSED (mic discarded)
+                            # NOVA-LIVE2: an early answer keeps the mic OPEN until it is released - the child may still be
+                            # mid-sentence ("Hi ... I'm Shuki", rig l2b 2026-11-25: the name was cut off and lost).
+                            speaking["v"] = not resp.get("spec_hold")   # gate CLOSED (mic discarded)
                             speaking["spoke"] = False
                             speaking["last_chunk"] = time.time()
                             resp["buf"] = ""; resp["killed"] = False   # fresh transcript for TRUTH-GATE
                             audio_buf.clear()                          # #1 fresh pre-synth audio buffer
-                            print("GATE CLOSED: mic discarded (Nova speaking)", flush=True)
-                            await ws_client.send_json({"type": "status", "speaking": True, "state": "thinking"})
+                            if resp.get("spec_hold"):
+                                # NOVA-LIVE2: the page must keep sending the mic too (nova-bridge gates it on speaking:true);
+                                # rig l2e: "I'm Shuki" was cut by the page's own mic gate while the early answer was held.
+                                print("GATE OPEN (live2 early answer held - mic stays live)", flush=True)
+                                await ws_client.send_json({"type": "status", "state": "thinking"})
+                            else:
+                                print("GATE CLOSED: mic discarded (Nova speaking)", flush=True)
+                                await ws_client.send_json({"type": "status", "speaking": True, "state": "thinking"})
                     elif et == "response.done":
                         speaking["resp_active"] = False
                         if HEAR:                                       # an answer that came back empty / cut is said so in the log

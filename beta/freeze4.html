@@ -469,7 +469,29 @@ const kid = { pending: false, hearingAt: 0, text: '', textAt: 0, consentAt: 0 };
 addEventListener('nova:consent', () => { kid.consentAt = performance.now(); log('you-yes', 'a real yes'); });   // the bridge: a validated "yes / ready / ok" (EN + HE)
 function youShow(text, cls, holdMs){ youEl.textContent = TXT.you + ': ' + text; youEl.className = 'on ' + cls; clearTimeout(youT); youT = setTimeout(() => { youEl.className = ''; }, holdMs); }
 addEventListener('nova:hearing', () => { if ($('novaPane')?.dataset.stage === 'wide' && !herV.on) leanIn(true, 'child talking'); });
-addEventListener('nova:kid', () => { maybeHum(); });
+addEventListener('nova:kid', () => { if (!FLAG('live2')) maybeHum(); });
+/* ── NOVA-LIVE2 (2026-11-25, Refael: "smart, not all the time"; skill nova-smart-reactions). The brain tells the page the
+   moment the child STOPS talking and for how long (nova:kid-stopped, seconds) — before any transcript, so the sound lands
+   within ~0.1 s. She hums only when it is what a listening person would do:
+   · the child said a real sentence (>= 1.2 s) — a "yes"/"ok" gets her answer, not a hum;
+   · never two turns in a row, and >= 8 s since the last one;
+   · never over her own voice, only in the wide phases (intro, ending).
+   Voice: Kymmiee's own hums (audio/react/k_hum1-3, ElevenLabs v4) when the page runs her ElevenLabs voice (flag `eleven`). */
+const smart = { last: -1e9, prevTurnHummed: false };
+addEventListener('nova:kid-stopped', e => {
+  if (!FLAG('live2') || !react.on) return;
+  const dur = +e.detail || 0, now = performance.now(), why = [];
+  if ($('novaPane')?.dataset.stage !== 'wide') why.push('not wide');
+  if (herV.on) why.push('she is talking');
+  if (dur < 1.2) why.push('short turn ' + dur + ' s');
+  if (smart.prevTurnHummed) why.push('hummed last turn');
+  if (now - smart.last < 8000) why.push('< 8 s since last');
+  if (why.length){ smart.prevTurnHummed = false; log('react', 'no hum: ' + why.join(', ')); return; }
+  const set = FLAG('eleven') ? [1, 2, 3].map(i => '../audio/react/k_hum' + i + '.mp3') : react.hums;
+  const src = set[react.n++ % set.length]; smart.last = now; smart.prevTurnHummed = true;
+  try { const a = new Audio(src); a.volume = 0.8; holdMicFor(1000); a.play().then(() => log('react', 'hum ' + src.split('/').pop() + ' after ' + dur + ' s')).catch(err => log('react', 'hum failed: ' + err)); }
+  catch (err) { log('react', 'hum failed: ' + err); }
+});
 addEventListener('nova:hearing', () => { youOpen = true; youTxt = ''; kid.pending = true; kid.hearingAt = performance.now(); youShow('…', 'live', 8000); log('you-hearing'); });
 addEventListener('nova:kid-delta', e => { if (!youOpen || !e.detail) return; if (!youTxt) log('you-first-words', e.detail); youTxt += e.detail; youShow(youTxt + ' …', 'live', 8000); });
 addEventListener('nova:kid', e => { youOpen = false; kid.pending = false; kid.text = e.detail; kid.textAt = performance.now(); youShow(e.detail, 'final', YOU_HOLD_MS); log('you-text', e.detail);
