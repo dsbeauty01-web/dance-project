@@ -96,6 +96,9 @@ if [ $AE != 0 ] || ! command -v Xvfb >/dev/null || ! command -v ffmpeg >/dev/nul
   timeout 600 bash -c "dpkg --configure -a >/dev/null 2>&1; apt-get update -qq; apt-get install -y -qq xvfb pulseaudio ca-certificates fonts-noto-color-emoji fonts-dejavu-core $NFB_APT >/dev/null 2>&1"; stage "apt retry done $? xvfb=$(command -v Xvfb) ffmpeg=$(command -v ffmpeg)"; fi
 wget -q -O /root/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && timeout 300 apt-get install -y -qq /root/chrome.deb >/dev/null 2>&1
 stage "chrome: $(google-chrome --version 2>&1)"
+stage "hw: gpu=$(nvidia-smi --query-gpu=name,clocks.max.sm,memory.total,driver_version --format=csv,noheader 2>&1 | head -1) cpu=$(lscpu 2>/dev/null | grep -m1 'Model name' | cut -d: -f2 | xargs) nproc=$(nproc) load=$(cut -d' ' -f1-3 /proc/loadavg)"
+# NOVA-TRACE: GPU/CPU load every 2 s for the whole run (players-per-machine headroom)
+( while true; do echo "$(date +%s) $(nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv,noheader,nounits 2>/dev/null | head -1) $(cut -d' ' -f1 /proc/loadavg)" >> $OUT/load.txt; sleep 2; done ) &
 [ -n "$NFB" ] && nfb_wait_ltenv
 $PY -m pip install -q --no-cache-dir livekit livekit-api aiohttp playwright >/dev/null 2>&1; stage "pip done $? ($($PY -c 'import livekit.rtc,livekit.api,aiohttp,playwright;print("ok")' 2>&1 | tail -1))"
 
@@ -124,7 +127,7 @@ NF_GO4=${NF_GO4:-1}
 #    · page flag v2vintro + NOVA_V2V_INTRO=1 — her APPROVED live intro: she greets and asks the name, waits, gives the name
 #      back and chats in her own words, and the NAME arms the shoulder light (origin/main INTRO-V2V, LAWS.md law-shoulder)
 NF_GO5=${NF_GO5:-1}
-[ "$NF_GO5" = 1 ] && [ "$NF_GO4" = 1 ] && grep -q 'hear: true' $P/beta/freeze4-flags.js && sed -i 's/ };/, v2vintro: true, react: true };/' $P/beta/freeze4-flags.js && export NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-1} NOVA_FAST_KID=${NOVA_FAST_KID:-1} NOVA_UTT_MAP=${NOVA_UTT_MAP:-1} NOVA_TX_CONF=${NOVA_TX_CONF:-1} NOVA_RT_EFFORT=${NOVA_RT_EFFORT:-minimal}
+[ "$NF_GO5" = 1 ] && [ "$NF_GO4" = 1 ] && grep -q 'hear: true' $P/beta/freeze4-flags.js && sed -i 's/ };/, v2vintro: true, react: true };/' $P/beta/freeze4-flags.js && export NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-1} NOVA_FAST_KID=${NOVA_FAST_KID:-1} NOVA_UTT_MAP=${NOVA_UTT_MAP:-1} NOVA_TX_CONF=${NOVA_TX_CONF:-1} NOVA_RT_EFFORT=${NOVA_RT_EFFORT:-minimal} NOVA_TRACE=${NOVA_TRACE:-1}
 stage "page flags: $(cat $P/beta/freeze4-flags.js | cut -c1-230) | NOVA_HEAR=${NOVA_HEAR:-0} NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-0} NOVA_FAST_KID=${NOVA_FAST_KID:-0}"
 
 # 3) the brain — its own room; the face engine on :8010 (dual)
@@ -132,7 +135,7 @@ cd /workspace
 # NOVA_KID_EVENTS=1 (2026-11-22, this build only; default off in pod/rt_lk.py): the brain tells the page when a heard
 # utterance was not accepted, so the page's live "You: ..." line closes and the intro does not wait for words that never come.
 # NOVA_INTRO_ANSWER=1 (same): in the intro she may answer the child in one short sentence (see pod/rt_lk.py INTRO_NOTE).
-LK_ROOM=nova-final ENGINE_URL=http://127.0.0.1:8010 NOVA_FACE_SOULX=1 NOVA_FACE_DUAL=1 NOVA_TEST_CLIPS=1 NOVA_KID_EVENTS=${NOVA_KID_EVENTS:-1} NOVA_INTRO_ANSWER=${NOVA_INTRO_ANSWER:-1} NOVA_HEAR=${NOVA_HEAR:-0} NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-0} NOVA_FAST_KID=${NOVA_FAST_KID:-0} NOVA_UTT_MAP=${NOVA_UTT_MAP:-0} NOVA_TX_CONF=${NOVA_TX_CONF:-0} NOVA_RT_EFFORT=${NOVA_RT_EFFORT:-} NOVA_REC=${NOVA_REC:-0} NOVA_REC_DIR=$OUT \
+LK_ROOM=nova-final ENGINE_URL=http://127.0.0.1:8010 NOVA_FACE_SOULX=1 NOVA_FACE_DUAL=1 NOVA_TEST_CLIPS=1 NOVA_KID_EVENTS=${NOVA_KID_EVENTS:-1} NOVA_INTRO_ANSWER=${NOVA_INTRO_ANSWER:-1} NOVA_HEAR=${NOVA_HEAR:-0} NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-0} NOVA_FAST_KID=${NOVA_FAST_KID:-0} NOVA_UTT_MAP=${NOVA_UTT_MAP:-0} NOVA_TX_CONF=${NOVA_TX_CONF:-0} NOVA_RT_EFFORT=${NOVA_RT_EFFORT:-} NOVA_TRACE=${NOVA_TRACE:-0} NOVA_REC=${NOVA_REC:-0} NOVA_REC_DIR=$OUT \
   setsid nohup $PY -u rt_lk.py > $OUT/rtlk.log 2>&1 < /dev/null &
 Xvfb :99 -screen 0 1280x720x24 -nolisten tcp >/dev/null 2>&1 &
 export DISPLAY=:99

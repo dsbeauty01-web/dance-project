@@ -196,6 +196,21 @@ async function joinLiveKit(onVideo, onFace, onWide) {
     };
     room.on(LK.RoomEvent.Disconnected, () => { state.room = false; setTimeout(resub, rc); });
     await room.connect(r.url, r.token); state.room = true;
+    // NOVA-TRACE (2026-11-25, read-only): the player's network to the media server, every 5 s — measured, not guessed.
+    try {
+      pageLog('net', { region: (room.serverInfo && room.serverInfo.region) || null, edge: (room.serverInfo && room.serverInfo.nodeId) || null });
+      setInterval(async () => {
+        try {
+          const pc = room.engine && room.engine.pcManager && (room.engine.pcManager.subscriber || room.engine.pcManager.publisher);
+          const st = pc && pc.getStats ? await pc.getStats() : null; let rtt = null, jit = null, lost = null;
+          if (st) st.forEach(x => {
+            if (x.type === 'candidate-pair' && x.nominated && x.currentRoundTripTime != null) rtt = Math.round(x.currentRoundTripTime * 1000);
+            if (x.type === 'inbound-rtp' && x.kind === 'audio') { jit = Math.round((x.jitter || 0) * 1000); lost = x.packetsLost; }
+          });
+          pageLog('net', { rtt_ms: rtt, jitter_ms: jit, lost });
+        } catch (e) {}
+      }, 5000);
+    } catch (e) {}
     console.log('[BRIDGE] LiveKit joined', r.room);
   } catch (e) { console.warn('[BRIDGE] room err', e && e.message); }
 }

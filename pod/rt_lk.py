@@ -167,6 +167,12 @@ UTT_MAP = os.environ.get("NOVA_UTT_MAP", "0") == "1"
 # vibe for a fun quick response." then "Nice to meet you!" (2 items). OpenAI's prompting guide: use the lowest reasoning
 # effort that still works, and no preamble when the answer is direct. Every item's phase is logged as [PHASE].
 RT_EFFORT = os.environ.get("NOVA_RT_EFFORT", "").strip()
+# NOVA-GO5 (2026-11-25) · NOVA_TRACE=1, default off: ONE clock (epoch ms) on every stage of a reply, as "[T] <ms> <event>".
+# docs: the Nova real-time map, "Unknowns to measure" (brain-to-face hop, a reply's stages on one clock).
+TRACE = os.environ.get("NOVA_TRACE", "0") == "1"
+_tr_first = {"resp": False}
+def tr(ev, *a):
+    if TRACE: print("[T]", int(time.time() * 1000), ev, *a, flush=True)
 # NOVA-GO5 (2026-11-24) · NOVA_TX_CONF=1, default off: both transcribers return their confidence (token log-probabilities)
 # and the brain logs it per turn as [CONF]. Step 1 of the phantom-answer fix (handoff §5.3): measure noise vs real words.
 TX_CONF = os.environ.get("NOVA_TX_CONF", "0") == "1"
@@ -628,6 +634,7 @@ async def relay(request):
         # closes after exactly one line, which is what stops the 3-line chains.
         boundary["on"] = (boundary["why"] == "phase-end" and bool(speak_q))
         try:
+            tr("response.create", boundary["why"] or "?")
             if payload:
                 await oai.send_json({"type": "response.create", "response": payload})
             else:
@@ -775,8 +782,11 @@ async def relay(request):
                     # the DEFAULT site: feed the engine now and let lk_bridge.py's drain_audio
                     # hold the published audio track back instead — a pure A/V offset, no added
                     # latency on the start of her turn. Falls through to the normal path below.
+                _t0 = time.time()
                 wav = await asyncio.get_event_loop().run_in_executor(None, pcm24_to_wav16, pcm)
+                _t1 = time.time()
                 await feed_engine(http, wav)
+                if TRACE: tr("hop", "ffmpeg_ms=%d" % ((_t1 - _t0) * 1000), "post_ms=%d" % ((time.time() - _t1) * 1000), "audio_ms=%d" % (len(pcm) / 48), "q=%d" % engine_q.qsize())
             except Exception as e:
                 print("worker err", e, flush=True)
     worker = asyncio.create_task(engine_worker())
@@ -1213,7 +1223,7 @@ async def relay(request):
                     elif HEAR and _page_owns and not (_v2v and not sgate.get("ever")):
                         # NOVA_HEAR (a): her answer to THIS child, said with an instruction (bare = the greeting again)
                         await boundary_open("kid-turn", pump=False)
-                        print("[INPUT-LOCK] one-shot fired for turn", inlock["valid_turns"], "(hear)", flush=True)
+                        print("[INPUT-LOCK] one-shot fired for turn", inlock["valid_turns"], "(hear)", flush=True); tr("kid.turn_accepted")
                         await speak_now(instructions=hear_reply_instr("talk", _hebrew), origin="kid")
                     else:
                         # PRODUCER-SILENT: the kid's finished turn IS the boundary — this is the
@@ -1223,7 +1233,7 @@ async def relay(request):
                         # pump=False: this boundary belongs to HER ANSWER TO THIS CHILD. A
                         # producer line that queued earlier must not jump in front of it.
                         await boundary_open("kid-turn", pump=False)
-                        print("[INPUT-LOCK] one-shot fired for turn", inlock["valid_turns"], flush=True)
+                        print("[INPUT-LOCK] one-shot fired for turn", inlock["valid_turns"], flush=True); tr("kid.turn_accepted")
                         await speak_now(bare=True, origin="kid")
 
             async def rest_transcribe(audio, n):
@@ -1401,6 +1411,7 @@ async def relay(request):
                         print("[V2V-INTRO] name wait over:", str(m.get("why", ""))[:40], flush=True)
                     elif t == "page_log":
                         if HEAR: print("[PAGE]", str(m.get("t", ""))[:8], str(m.get("kind", ""))[:24], str(m.get("detail", ""))[:300], flush=True)
+                        if TRACE: tr("page." + str(m.get("kind", ""))[:24], "page_t=" + str(m.get("t", ""))[:8], str(m.get("detail", ""))[:80].replace(" ", "_"))
                     elif t == "nova-say":
                         line = (m.get("text") or "").strip()
                         if (HEAR and _page_owns and not sgate["on"] and not boundary["on"]
@@ -1733,6 +1744,7 @@ async def relay(request):
                             if et == "response.output_item.added" and (e.get("item") or {}).get("phase"):
                                 print("[PHASE]", (e.get("item") or {}).get("phase"), flush=True)   # NOVA-GO5
                     if et in ("response.output_audio.delta", "response.audio.delta"):
+                        if _tr_first["resp"]: _tr_first["resp"] = False; tr("oai.first_audio")
                         # #1 PRE-SYNTHESIS GATE: buffer ALL audio here — nothing reaches the
                         # voice engine until this line's transcript clears the gate at done.
                         audio_buf.extend(base64.b64decode(e["delta"]))
@@ -1939,6 +1951,7 @@ async def relay(request):
                                 time.strftime("%H:%M:%S ")+"[TRUTH-GATE] INVENTED: "+txt+"\n")
                             except Exception: pass
                     elif et == "input_audio_buffer.speech_started":
+                        tr("kid.speech_started")
                         turn["kid_ts"] = time.time(); turn["retried"] = False   # TURN-GATE: real voice
                         utt["n"] += 1; utt["start"] = max(0, len(kidbuf) - UTT_PREROLL)   # TRANSCRIPT-RACE
                         if UTT_MAP and e.get("item_id"): utt.setdefault("item", {})[e["item_id"]] = utt["n"]   # NOVA-GO5
@@ -1952,6 +1965,7 @@ async def relay(request):
                         if not speaking["v"]:
                             await ws_client.send_json({"type": "status", "hearing": True})
                     elif et == "input_audio_buffer.speech_stopped":
+                        tr("kid.speech_stopped", "(includes the VAD silence wait)")
                         # TRANSCRIPT-RACE: snapshot the utterance, start our racer
                         _ua = bytes(kidbuf[utt["start"]:])
                         print("[RACE] armed utt", utt["n"], "bytes", len(_ua), flush=True)
@@ -1961,6 +1975,7 @@ async def relay(request):
                     elif et == "conversation.item.input_audio_transcription.delta":
                         await ws_client.send_json({"type": "you_delta", "delta": e.get("delta", "")})
                     elif et == "response.created":
+                        tr("oai.response.created"); _tr_first["resp"] = True
                         _air_ok = sgate["on"] and sgate["mode"] == "air" and sgate["credit"] > 0
                         if sgate["on"] and not _air_ok:
                             # SPEAK-GATE: uncredited generations die at birth (VAD auto-replies,
