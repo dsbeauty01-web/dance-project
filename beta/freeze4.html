@@ -485,6 +485,7 @@ addEventListener('nova:kid-stopped', e => {
   if (herV.on) why.push('she is talking');
   if (dur < 1.2) why.push('short turn ' + dur + ' s');
   if (smart.prevTurnHummed) why.push('hummed last turn');
+  if (v2vIntro.awaitingName) why.push('waiting for the name (her answer says it)');
   if (now - smart.last < 8000) why.push('< 8 s since last');
   if (why.length){ smart.prevTurnHummed = false; log('react', 'no hum: ' + why.join(', ')); return; }
   const set = FLAG('eleven') ? [1, 2, 3].map(i => '../audio/react/k_hum' + i + '.mp3') : react.hums;
@@ -659,25 +660,27 @@ window.freeze4Shoulder = shoulderBeat;
    Numbers: 45 s and the 1.2 s pause before the light = main L7560-7575. [CLI-FILL] 5 s for the child to answer her one
    chat question before the light (INTRO TEMPO: the whole intro under 40 s) — no spec gives it. QUESTION. */
 const V2V_NO_NAME_MS = 45000, V2V_ARM_DELAY_MS = 1200, V2V_MAX_TURNS = 2, V2V_CHAT_LISTEN_MS = 5000;
-const v2vIntro = { on: false, name: null, why: '' };
+const v2vIntro = { on: false, name: null, why: '', awaitingName: false };   // awaitingName: no hum (skill nova-smart-reactions)
 window.freeze4V2V = v2vIntro;
 function v2vGreetAck(capMs){ return new Promise(res => { const t = setTimeout(() => res(null), capMs);
   addEventListener('nova:v2v', e => { clearTimeout(t); res(!!e.detail); }, { once: true }); }); }
 async function v2vNameBeat(tAsk){
   const t0 = performance.now(); let seenAt = tAsk, turns = 0;
+  v2vIntro.awaitingName = true;
   log('v2v', 'greeting said=' + await waitHerLine(15000, tAsk) + ' — waiting for the name');
   while (true){
     if (kid.textAt > seenAt){ seenAt = kid.textAt; turns++;
       const name = catchName(kid.text, { asked: turns === 1 });
       log('v2v-kid', JSON.stringify({ text: kid.text, name, turns }));
       log('v2v-answer', String(await waitHerLine(INTRO_ANSWER_MS, seenAt)));           // HER words: the name back, a real chat
-      if (name){ v2vIntro.name = name; v2vIntro.why = 'name captured'; break; }
+      if (name){ v2vIntro.name = name; v2vIntro.why = 'name captured'; v2vIntro.awaitingName = false; break; }
       if (turns >= V2V_MAX_TURNS || FLAG('live2')){ v2vIntro.why = turns + ' exchanges, no name'; break; }   // live2: the chat loop below carries on
       continue; }
     if (kid.pending && performance.now() - kid.hearingAt > INTRO_TURN_MS) kid.pending = false;
     if (performance.now() - t0 > V2V_NO_NAME_MS && !kid.pending && !herV.on){ v2vIntro.why = '45s no-name safety'; break; }
     await sleep(100);
   }
+  v2vIntro.awaitingName = false;
   if (FLAG('live2')){
     /* NOVA-LIVE2 (Refael's play 2026-11-25: "did not make conversation" — the light cut in while her music question was
        open). The chat runs until it ends by itself: the light is armed only when she has answered and the child has been

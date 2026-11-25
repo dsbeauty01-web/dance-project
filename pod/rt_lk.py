@@ -2250,7 +2250,8 @@ async def relay(request):
                         print("[RACE] armed utt", utt["n"], "bytes", len(_ua), flush=True)
                         utt["stop_t"] = time.time(); utt["dur"] = len(_ua) / 48000.0
                         if LIVE2:                                        # NOVA-LIVE2 (b): smart listening sounds on the page
-                            try: await ws_client.send_json({"type": "status", "kid_stopped": round(len(_ua) / 48000.0, 2)})
+                            try: await ws_client.send_json({"type": "status", "kid_stopped": round(max(0.0,   # VOICE seconds: minus pre-roll + VAD tail
+                                    len(_ua) / 48000.0 - UTT_PREROLL / 48000.0 - (0.45 if LIVE2 else 0.6)), 2)})   # (skill nova-smart-reactions)
                             except Exception: pass
                         if len(_ua) > 4800:      # >100ms of real audio
                             _t = asyncio.create_task(rest_transcribe(_ua, utt["n"]))
