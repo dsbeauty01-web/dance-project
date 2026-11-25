@@ -72,6 +72,10 @@ let speakGated = false, micGated = false, wsConns = 0, wsDelay = 1500;
 // echoGuard: [CLI-FILL] 300 ms tail after her voice goes quiet (room echo; the level meter below already needs
 // <= 100 ms to notice the quiet). No spec gives it. QUESTION.
 let echoGuard = false, herOn = false, herOffAt = 0; const ECHO_TAIL_MS = 300;
+// [NOVA-GO5 react 2026-11-24] holdMicFor(ms): the page plays a short sound of hers locally (her listening hum) — the mic
+// is held for that long so the hum never reaches the brain as the child's words.
+let localHoldUntil = 0;
+export function holdMicFor(ms) { localHoldUntil = Math.max(localHoldUntil, performance.now() + ms); }
 // NOVA-FINAL: several listeners (a page's music ducking AND shared/nova-live.js's "her line is said" both need it;
 // a second onHerAudio() used to silently replace the first).
 const _herL = { playing: [], ended: [] };
@@ -271,6 +275,7 @@ async function startMic(given) {
       let pk = 0; for (let i = 0; i < ch.length; i += 8) { const a = ch[i] < 0 ? -ch[i] : ch[i]; if (a > pk) pk = a; }
       const now = performance.now(); mic.chunks++; mic.lastCbAt = now; if (pk > 0) mic.lastSoundAt = now; if (pk > mic.peak) mic.peak = pk;
     }
+    if (performance.now() < localHoldUntil) { mic.heldEcho++; micFifo.length = 0; return; }   // NOVA-GO5 react: her local hum
     const look = echoGuard && micMeter;              // NOVA-GO4 echoLook
     if (look) { const now = performance.now(); if (herLoudNow()) herLoudAt = now;
       if (micGated) { mic.heldBrain++; micFifo.length = 0; return; }

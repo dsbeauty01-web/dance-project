@@ -19,4 +19,6 @@
                  asks the name, waits for the answer, gives the name back and chats in her own words, and only the NAME
                  arms the shoulder light (two exchanges without a name, or 45 s, also arm it). Without the pod flag the
                  page says so in its log and falls back to the staged greeting. */
+/*   react    — NOVA-GO5: she leans in while the child talks, and sometimes hums "mm-hm" at once when they finish (intro and
+                 ending only; the hum is the one approved exception to the live-voice law). */
 window.__F4_FLAGS = {};

@@ -35,7 +35,7 @@ export FACE_RENDERER_DIR=$MO
 BR=${NF_BRANCH:-nova-final}
 git clone -q --depth 1 --filter=blob:none --no-checkout -b "$BR" https://github.com/dsbeauty01-web/dance-project /root/repo \
  && cd /root/repo && git sparse-checkout set --no-cone '/beta/*.html' '/beta/*.css' '/beta/*.js' '/beta/lib/' '/beta/freeze2/' '/shared/' \
-      '/freezegame/' '/audio/freeze2/' '/audio/intro/*.mp4' '/test/clips/' '/pod/' '/tools/pod/' '/media/wave-ref.mp4' '/media/upperbody-ref.mp4' '/audio/says/' '/models/' '/nova-session-rec.js' '/nova-ending.js' '/pod-registry.js' '/nova-joined-small.mp4' && git checkout -q "$BR"
+      '/freezegame/' '/audio/freeze2/' '/audio/intro/*.mp4' '/test/clips/' '/pod/' '/tools/pod/' '/media/wave-ref.mp4' '/media/upperbody-ref.mp4' '/audio/says/' '/audio/react/' '/models/' '/nova-session-rec.js' '/nova-ending.js' '/pod-registry.js' '/nova-joined-small.mp4' && git checkout -q "$BR"
 R=/root/repo; stage "repo $(cd $R && git rev-parse --short HEAD) body $(ls -la $R/tools/pod/assets/nova_talk_wide.mp4 | awk '{print $5}')"
 # NOVA-FASTBOOT (NF_VOLUME_DIR set by the launcher's NF_VOLUME=<id>; unset = the old boot, unchanged): the heavy parts
 # come from Nova's network volume, see tools/pod/nova_fastboot.sh and docs/NOVA-FASTBOOT.md
@@ -98,7 +98,7 @@ P=/workspace/pages; mkdir -p $P/beta $P/test /workspace/audio
 mkdir -p /workspace/media && cp $R/media/*.mp4 /workspace/media/ ; cp $R/beta/wave.html $R/beta/upperbody.html $R/beta/novasays.html $P/beta/; cp $R/beta/novasays*.js $P/beta/; cp -r $R/audio/says /workspace/audio/says
 mkdir -p $P/models && cp $R/models/* $P/models/; cp $R/beta/upgroove.html $P/up-groove.html; cp $R/nova-session-rec.js $R/nova-ending.js $R/pod-registry.js $R/nova-joined-small.mp4 $P/
 cp $R/beta/freeze4.html $R/beta/play.css $P/beta/ && { cp $R/beta/freeze4-flags.js $P/beta/ 2>/dev/null || echo 'window.__F4_FLAGS = {};' > $P/beta/freeze4-flags.js; } && cp -r $R/beta/lib $R/beta/freeze2 $P/beta/ && cp -r $R/shared $P/shared \
- && cp -r $R/freezegame $P/freezegame && cp -r $R/audio/freeze2 /workspace/audio/freeze2 && cp -r $R/test/clips $P/test/clips \
+ && cp -r $R/freezegame $P/freezegame && cp -r $R/audio/freeze2 /workspace/audio/freeze2 && cp -r $R/audio/react /workspace/audio/react && cp -r $R/test/clips $P/test/clips \
  && cp $R/pod/rt_lk.py /workspace/rt_lk.py
 stage "deployed $?"
 # NOVA-AUDIT page flags for this build (the repo copy has them all off)
@@ -119,7 +119,7 @@ NF_GO4=${NF_GO4:-1}
 #    · page flag v2vintro + NOVA_V2V_INTRO=1 — her APPROVED live intro: she greets and asks the name, waits, gives the name
 #      back and chats in her own words, and the NAME arms the shoulder light (origin/main INTRO-V2V, LAWS.md law-shoulder)
 NF_GO5=${NF_GO5:-1}
-[ "$NF_GO5" = 1 ] && [ "$NF_GO4" = 1 ] && grep -q 'hear: true' $P/beta/freeze4-flags.js && sed -i 's/ };/, v2vintro: true };/' $P/beta/freeze4-flags.js && export NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-1} NOVA_FAST_KID=${NOVA_FAST_KID:-1} NOVA_UTT_MAP=${NOVA_UTT_MAP:-1} NOVA_TX_CONF=${NOVA_TX_CONF:-1}
+[ "$NF_GO5" = 1 ] && [ "$NF_GO4" = 1 ] && grep -q 'hear: true' $P/beta/freeze4-flags.js && sed -i 's/ };/, v2vintro: true, react: true };/' $P/beta/freeze4-flags.js && export NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-1} NOVA_FAST_KID=${NOVA_FAST_KID:-1} NOVA_UTT_MAP=${NOVA_UTT_MAP:-1} NOVA_TX_CONF=${NOVA_TX_CONF:-1} NOVA_RT_EFFORT=${NOVA_RT_EFFORT:-minimal}
 stage "page flags: $(cat $P/beta/freeze4-flags.js | cut -c1-230) | NOVA_HEAR=${NOVA_HEAR:-0} NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-0} NOVA_FAST_KID=${NOVA_FAST_KID:-0}"
 
 # 3) the brain — its own room; the face engine on :8010 (dual)
@@ -127,7 +127,7 @@ cd /workspace
 # NOVA_KID_EVENTS=1 (2026-11-22, this build only; default off in pod/rt_lk.py): the brain tells the page when a heard
 # utterance was not accepted, so the page's live "You: ..." line closes and the intro does not wait for words that never come.
 # NOVA_INTRO_ANSWER=1 (same): in the intro she may answer the child in one short sentence (see pod/rt_lk.py INTRO_NOTE).
-LK_ROOM=nova-final ENGINE_URL=http://127.0.0.1:8010 NOVA_FACE_SOULX=1 NOVA_FACE_DUAL=1 NOVA_TEST_CLIPS=1 NOVA_KID_EVENTS=${NOVA_KID_EVENTS:-1} NOVA_INTRO_ANSWER=${NOVA_INTRO_ANSWER:-1} NOVA_HEAR=${NOVA_HEAR:-0} NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-0} NOVA_FAST_KID=${NOVA_FAST_KID:-0} NOVA_UTT_MAP=${NOVA_UTT_MAP:-0} NOVA_TX_CONF=${NOVA_TX_CONF:-0} NOVA_REC=${NOVA_REC:-0} NOVA_REC_DIR=$OUT \
+LK_ROOM=nova-final ENGINE_URL=http://127.0.0.1:8010 NOVA_FACE_SOULX=1 NOVA_FACE_DUAL=1 NOVA_TEST_CLIPS=1 NOVA_KID_EVENTS=${NOVA_KID_EVENTS:-1} NOVA_INTRO_ANSWER=${NOVA_INTRO_ANSWER:-1} NOVA_HEAR=${NOVA_HEAR:-0} NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-0} NOVA_FAST_KID=${NOVA_FAST_KID:-0} NOVA_UTT_MAP=${NOVA_UTT_MAP:-0} NOVA_TX_CONF=${NOVA_TX_CONF:-0} NOVA_RT_EFFORT=${NOVA_RT_EFFORT:-} NOVA_REC=${NOVA_REC:-0} NOVA_REC_DIR=$OUT \
   setsid nohup $PY -u rt_lk.py > $OUT/rtlk.log 2>&1 < /dev/null &
 Xvfb :99 -screen 0 1280x720x24 -nolisten tcp >/dev/null 2>&1 &
 export DISPLAY=:99

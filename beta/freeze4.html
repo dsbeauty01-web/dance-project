@@ -42,6 +42,10 @@
    she talks WIDE: her live Ditto body (#novaWide — her talk body in her room, Ditto lips) fills her pane instead of the
    clip. The child's pane keeps exactly 50 % (unchanged). */
 #novaWide{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:3;background:transparent}
+/* NOVA-GO5 react: while the child talks she LEANS IN (her pane, not a new clip): a small zoom toward her face + a little
+   light. `scale` composes with the matchcut's `transform`. [CLI-FILL] 1.045 / 5% / 300 ms — no spec gives them. */
+#novaWide{transform-origin:50% 32%;transition:scale .3s ease-out,filter .3s ease-out}
+#novaPane.listening[data-stage=wide] #novaWide{scale:1.045;filter:brightness(1.05) saturate(1.05)}
 #novaPane[data-stage=wide] #nova{visibility:hidden}
 /* NOVA-GO3 flag noblink: the last picture of her clip / of the blurred room, held on a canvas while the next clip loads */
 #novaHold{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;display:none}
@@ -142,6 +146,7 @@ import { createLocalBrain } from './lib/brain-local.js';
 import { runDoctor } from './lib/doctor.js';
 import { attachNova, routeVoice, note, onHerAudio, bridgeState, primeAudio, micState, restartMic, pageLog, liveIntro } from '../shared/nova-bridge.js';
 import { catchName } from './lib/name-catch.js';
+import { holdMicFor } from '../shared/nova-bridge.js';
 import { createFacePanel } from '../shared/face-panel.js';
 import { mountFacePip } from '../shared/face-pip.js';
 import { createShoulderBeat, LINES as SHOULDER_LINES, HE_NEUTRAL } from './lib/shoulder-beat.js';
@@ -416,6 +421,28 @@ function novaSay1(text, delayMs){
    about the round is already in the exact line the page stages (Truth Law: only what the judge saw). */
 function mindReact(type, d){ const r = mind.react(type, d); if (r) novaSays(r.text, r.delayMs); }
 const herV = { on: false, startedAt: 0, endedAt: 0 };
+/* ── NOVA-GO5 (2026-11-24) · flag `react`: she shows she is LISTENING, at once (Refael: "sometimes yes").
+   Measured on the real machine (docs/NOVA-GO5-2026-11-24.md part 7): her answer starts 3.7-4.8 s after the child's words,
+   1.4 s of it Ditto's lip delay — anything she says live arrives that late. So, in the WIDE phases only (intro, ending):
+   · the child starts talking → she leans in (#novaPane.listening) until her voice starts (8 s safety);
+   · the child's turn is complete → SOMETIMES a short closed-mouth hum in her own voice (audio/react/hum1-3, made once with
+     the same voice `marin`), played here at once, the mic held for it. A hum needs no lips. Never two turns in a row,
+     ~70% of the other turns, never while she talks, never with another voice (?voice=). This is the ONE exception to the
+     live-voice law, approved by Refael 2026-11-24 for this sound only. [CLI-FILL] 70% / never twice in a row. */
+const react = { on: FLAG('react'), lastHum: false, hums: [1, 2, 3].map(i => '../audio/react/hum' + i + '.mp3'), n: 0, timer: 0 };
+function leanIn(on, why){ if (!react.on) return; const p = $('novaPane'); if (!p) return;
+  if (p.classList.contains('listening') === !!on) return;                       // log only real changes
+  clearTimeout(react.timer); p.classList.toggle('listening', !!on); if (on) react.timer = setTimeout(() => p.classList.remove('listening'), 8000);
+  log('react', (on ? 'lean in' : 'lean back') + (why ? ' (' + why + ')' : '')); }
+function maybeHum(){
+  if (!react.on || $('novaPane')?.dataset.stage !== 'wide' || herV.on) return;
+  if ((Q.get('voice') || 'marin') !== 'marin') return;
+  if (react.lastHum || Math.random() > 0.7){ react.lastHum = false; log('react', 'no hum this turn'); return; }
+  react.lastHum = true; const src = react.hums[react.n++ % react.hums.length];
+  try { const a = new Audio(src); a.volume = 0.8; holdMicFor(1100); a.play().then(() => log('react', 'hum ' + src.split('/').pop())).catch(e => log('react', 'hum failed: ' + e)); }
+  catch (e) { log('react', 'hum failed: ' + e); }
+}
+onHerAudio({ playing: () => { if (react.on) leanIn(false, 'her voice'); } });
 onHerAudio({ playing: () => { herV.on = true; herV.startedAt = performance.now(); face.speaking(true); log('her-voice', 'start'); },
              ended: () => { herV.on = false; herV.endedAt = performance.now(); face.speaking(false); log('her-voice', 'end'); } });
 /* NOVA-FINAL: the intro is hers — the game waits until she has really said it (her voice started after the line was asked,
@@ -440,6 +467,8 @@ const youEl = $('you'); let youOpen = false, youTxt = '', youT = null;
 const kid = { pending: false, hearingAt: 0, text: '', textAt: 0, consentAt: 0 };
 addEventListener('nova:consent', () => { kid.consentAt = performance.now(); log('you-yes', 'a real yes'); });   // the bridge: a validated "yes / ready / ok" (EN + HE)
 function youShow(text, cls, holdMs){ youEl.textContent = TXT.you + ': ' + text; youEl.className = 'on ' + cls; clearTimeout(youT); youT = setTimeout(() => { youEl.className = ''; }, holdMs); }
+addEventListener('nova:hearing', () => { if ($('novaPane')?.dataset.stage === 'wide' && !herV.on) leanIn(true, 'child talking'); });
+addEventListener('nova:kid', () => { maybeHum(); });
 addEventListener('nova:hearing', () => { youOpen = true; youTxt = ''; kid.pending = true; kid.hearingAt = performance.now(); youShow('…', 'live', 8000); log('you-hearing'); });
 addEventListener('nova:kid-delta', e => { if (!youOpen || !e.detail) return; if (!youTxt) log('you-first-words', e.detail); youTxt += e.detail; youShow(youTxt + ' …', 'live', 8000); });
 addEventListener('nova:kid', e => { youOpen = false; kid.pending = false; kid.text = e.detail; kid.textAt = performance.now(); youShow(e.detail, 'final', YOU_HOLD_MS); log('you-text', e.detail);

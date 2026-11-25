@@ -161,6 +161,12 @@ FAST_KID = os.environ.get("NOVA_FAST_KID", "0") == "1"
 # she answered "Hi" twice. The same off-by-one pairs two different sentences in the logs (handoff §5.3 "transcripts
 # disagree") - some of those were never noise. speech_started carries the item_id of the utterance it opens.
 UTT_MAP = os.environ.get("NOVA_UTT_MAP", "0") == "1"
+# NOVA-GO5 (2026-11-24) · NOVA_RT_EFFORT=minimal|low|medium|high, default unset (= the model's own default, low).
+# gpt-realtime-2 reasons, and a reply can come in several output items, each with a phase; "commentary" = a spoken
+# PREAMBLE before longer reasoning (OpenAI realtime-2 docs). Hear rig react1: to "Hi" she said "Cool, let me lean into your
+# vibe for a fun quick response." then "Nice to meet you!" (2 items). OpenAI's prompting guide: use the lowest reasoning
+# effort that still works, and no preamble when the answer is direct. Every item's phase is logged as [PHASE].
+RT_EFFORT = os.environ.get("NOVA_RT_EFFORT", "").strip()
 # NOVA-GO5 (2026-11-24) · NOVA_TX_CONF=1, default off: both transcribers return their confidence (token log-probabilities)
 # and the brain logs it per turn as [CONF]. Step 1 of the phantom-answer fix (handoff §5.3): measure noise vs real words.
 TX_CONF = os.environ.get("NOVA_TX_CONF", "0") == "1"
@@ -179,7 +185,8 @@ def tx_conf(lps):
 # examples at the target length). The four banned lines are the ones she said in Refael's play 2026-11-23.
 REPLY_STYLE = (
     " NEVER say: 'I'm here and listening', 'you're doing just fine', 'loud and clear', 'no worries', 'that's okay', "
-    "'that's perfectly okay', 'how can I help' - that is a helper talking, not Nova. No pet names ('superstar', 'buddy', "
+    "'that's perfectly okay', 'how can I help' - that is a helper talking, not Nova. Never say what you are about to "
+    "do ('let me think', 'here is a quick answer', 'let me respond') - just say it. No pet names ('superstar', 'buddy', "
     "'champ'): once you know their name, use the name. Never tell them how to dance, freeze or get ready - the game "
     "explains that itself. Instead pick up THEIR words and "
     "answer like a playful big sister. Examples, at exactly this length:\n"
@@ -435,6 +442,7 @@ def session_update(freeze=False, voice=None, lang="en", gender="", page=False, v
                       "transcription": {"model": "gpt-4o-transcribe", "language": lang}},
             "output": {"format": {"type": "audio/pcm", "rate": 24000}, "voice": (voice or VOICE)}},
         "max_output_tokens": "inf",
+        **({"reasoning": {"effort": RT_EFFORT}} if RT_EFFORT else {}),
         **({"include": ["item.input_audio_transcription.logprobs"]} if TX_CONF else {})}}
 
 def pcm24_to_wav16(pcm_bytes):
@@ -1722,6 +1730,8 @@ async def relay(request):
                                 print("OAI: error (undecodable)", flush=True)
                         else:
                             print("OAI:", et, flush=True)
+                            if et == "response.output_item.added" and (e.get("item") or {}).get("phase"):
+                                print("[PHASE]", (e.get("item") or {}).get("phase"), flush=True)   # NOVA-GO5
                     if et in ("response.output_audio.delta", "response.audio.delta"):
                         # #1 PRE-SYNTHESIS GATE: buffer ALL audio here — nothing reaches the
                         # voice engine until this line's transcript clears the gate at done.
