@@ -104,6 +104,18 @@ Don't do this during dancing — would clutter the screen. Only during conversat
 
 ---
 
+## Pattern 6b: The listening state must show on HER, not only on a badge (added Nov 2026)
+
+The badge (Pattern 2) tells the child whose turn it is. In 2026 the best real-time avatars also SHOW listening on the
+face while the user talks — eyes on the user, small nods, brows reacting to the words as they come (AVTR-1, Anam; see
+the ai-companion-presence skill, "Listening presence"). A badge saying "Listening" over a looped idle clip reads as
+broken. For Nova, in every conversation phase:
+- the moment the mic hears the child, her tile switches to a listening pose (lean in, eyes to the child), not the idle loop;
+- the child's words appear live under her ("You: …") — Nova already does this in the intro (Pattern 6);
+- her reply follows within 1.5 s, or a non-verbal reaction ("mm!", a nod) lands first so the silence is never empty.
+
+---
+
 ## Pattern 7: Translation hints (ignore for Nova)
 
 Lexi shows a yellow `EN-US` tag with the source phrase under each title — because Lexi is a *language tutor for non-English-speaking kids*. Nova is not a language app, so skip this entirely. Listed here only so we don't accidentally copy it.
@@ -117,6 +129,16 @@ Lexi shows a yellow `EN-US` tag with the source phrase under each title — beca
 - **The "Skip Slide (3)" framing.** Nova doesn't have slides. It has phases (arrival → game → end) and songs. Use song-native language.
 - **Heavy gamification (stars per response).** See Pattern 5 — risk of making expressive movement feel like a quiz.
 - **The polished marketing-y aesthetic of the dashboard.** That's a B2C signup funnel. Nova's first parent surface can be much simpler.
+
+---
+
+## Freshness note (Nov 2026)
+
+The Lexi screens above were studied in mid-2026 and were **not re-checked** in Nov 2026 (the lexiteach.com page could not be
+opened in that session). Many unrelated products now use the name "Lexi" (StrongMind's Lexi tutor, Lexi Tutor for IELTS,
+Lexy for dyslexia) — when someone says "Lexi", confirm which one. Other kids' talking-character products to watch in
+2026: Buddy.ai (animated tutor for English as a second language) and Novakid's NovaPals (Apr 2026, ages 13+, built on
+its in-house tutor "Pandy").
 
 ---
 
@@ -138,3 +160,4 @@ Lexi proved the talking-avatar-for-kids market is real and parents will pay for 
 4. Is the parent or the kid looking at this screen? Don't mix.
 5. Am I about to copy a Lexi pattern that's actually language-school metaphor in disguise (units, CEFR, stars-per-response)? Stop.
 6. Does the avatar size match what matters most in this moment, or is it static?
+7. While the child talks, does SHE look like she is listening (not an idle loop), and does her reply or a reaction land within 1.5 s?

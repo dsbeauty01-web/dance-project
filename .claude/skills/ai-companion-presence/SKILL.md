@@ -88,21 +88,84 @@ VOICE RULES:
 
 ---
 
-## Timing — the actual battle
+## Timing — the actual battle (updated Nov 2026 with measured numbers)
 
-| Latency | User experience |
-|---|---|
-| < 0.5 sec | Magic — feels alive |
-| 0.5 - 1.5 sec | Acceptable — feels responsive |
-| > 2 sec | Boring — feels like a bot |
+Measure the wait the child actually has: **from the end of their words to the first sound of her reply**. Vendors often quote
+a single stage (model only, first video frame only); those numbers say nothing about this wait.
 
-Optimize for:
-- Fast LLM (Haiku-class, not Opus-class for reactions)
-- Streaming TTS where possible  
-- Pre-generate fillers ("Wow!", "Yes!") for instant playback while LLM thinks
-- Cache common reaction patterns
+| Wait (end of child's words → her voice) | What it feels like | Who is there (2026, measured) |
+|---|---|---|
+| < 0.9 s | Conversational | Anam's stated goal: under ~0.9 s starts to feel conversational, over ~1.5 s feels slow (anam.ai buyer's guide) |
+| 0.9 – 1.5 s | Responsive | Best avatar product measured: Anam Cara-4.1 1.24 s median reply (Anam benchmark, Oct 2026, 60 raters, vendor-run). Voice-only phone agents: Telnyx 1.30 s median (Openbenchmarks) |
+| 1.5 – 2.5 s | Noticeably slow | Tavus 1.86 s median in the same study; LemonSlice 2.04 s average end-to-end with third-party speech + LLM |
+| > 2.5 s | Feels like a bot | Production voice agents measured 2.4 – 3.8 s median (Cekura, 270 calls). **Nova on the hear rig, Nov 2026: 3.35 s mean** |
 
-The scarce resource is emotional intelligence delivered FAST. Not graphics.
+The old "< 0.5 s = magic" row was never measured; nobody ships that for a full reply today. Keep **< 1.5 s median** as
+Nova's target and the 0.5 s goal only for instant non-verbal reactions (a nod, a smile, a "mm!") that need no LLM.
+
+How to get there (in order of payoff):
+- **React before you answer.** The face and a tiny sound ("mm!", "oh!") can land in < 0.5 s while the reply is still
+  being made. That is the only way to hit "magic" today.
+- **Count every stage.** Waiting for silence + transcript + model + voice + lip render + network. Nova Nov 2026: about
+  1.8 s of it is the face pipeline and buffering, not the model.
+- **Stream the reply** to the face from the first words; never wait for a whole sentence (Nova `NOVA_FAST_KID` saved
+  ~0.5 s).
+- **Pre-render scripted lines** (greeting, rules) — they cost nothing at play time.
+- A smarter model does not fix slowness: Nova already runs `gpt-realtime-2` (OpenAI, May 2026).
+
+---
+
+## Listening presence — the 2026 shift
+
+The best new avatar models animate the face **all the time, including while the user is talking** — brows, eyes and
+small nods react to the user's words and tone as they arrive, not after the sentence ends:
+- **AVTR-1** (Avaturn, open weights, May 2026; report arXiv 2609.22913): takes one photo plus BOTH voices (hers and the
+  user's) and generates head and face motion in 200 ms steps, 153M parameters, one GPU, 390–454 ms from her first
+  speech to her first speaking frame. Weights free under $10M revenue; **the released renderer/streamer code is
+  non-commercial** — check the licence before any product use.
+- **Listener-nodding models** (Kyoto University, arXiv 2507.23298 and 2607.12329) predict when and how to nod in
+  real time from both people's audio.
+- Anam's listening behaviour was singled out as lifelike in Synthesia's Oct 2026 review.
+
+For Nova: a looped idle body while a child talks reads as "not listening". Minimum bar — while the mic hears the child,
+her face/body shows a listening state (lean in, eyes to the child, a nod at pauses), driven live, not a fixed clip.
+
+---
+
+## Children's speech — expect worse ears
+
+Speech recognisers trained on adults do clearly worse on children's voices (ChildVox benchmark, arXiv 2605.29257,
+May 2026). In the DrivenData children's speech challenge (closed Apr 2026), winners cut the best previous children's
+model's word error by more than half, converging on a fine-tuned Qwen3-ASR-1.7B.
+For Nova this means:
+- Never let one transcript decide something big; check its confidence (Nova measured, Nov 2026: real words mean
+  log-prob −0.00 … −0.92, noise −2.4 … −4.6, cut at −1.6).
+- Keep the child's answer short-shaped ("What's your name?" not open questions) where the answer matters.
+- Re-measure with real children's voices before trusting adult-voice numbers.
+
+---
+
+## What the child-development research says (why presence matters)
+
+Calvert et al. (Child Development, 217 children aged 3–6, Georgetown): children learned from an intelligent, talking
+character; they answered faster and more accurately when they treated the character as a **friend**, and when the
+character gave **contingent spoken feedback** on what they had just said. Familiarity with the character predicted
+faster responses. → Name, memory and replies to the child's own words are not decoration; they are the learning effect.
+
+---
+
+## Measured on Nova (Nov 2026 — rules that came from real runs)
+
+- **Name first, light second.** The approved intro asks the name, waits, says it back, then the game cue. A scripted
+  9-second greeting with the cue inside it read as a monologue to the founder.
+- **One beat per turn.** Each turn = one thing (name → chat → light → rules), then she stops.
+- **Match each transcript to its own utterance** (by item id). With a pause ("Hi … I'm Shuki"), counting turns lost the
+  name and made two transcripts look like different sentences.
+- **Ban assistant phrases and pet names** ("I'm here and listening", "loud and clear", "superstar") — pair each ban with
+  an example of the right length; examples beat rules.
+- **Kill meta talk** ("OK, I'll say it exactly as you asked") before it airs.
+- **Never repeat an opening line** in one game; the game cuts lines to their opening, so repeats became silence.
+- **Hebrew with unknown gender → plural** ("תרקדו", "תקפאו"), never a guessed gender.
 
 ---
 
@@ -160,5 +223,5 @@ A product with stunning #5 but generic #1 will feel hollow.
 Always remind the user that:
 - Visual polish is the LAST mile, not the first
 - Test reactions with real kids — they're the only valid feedback
-- Latency under 0.5 sec is worth more than any graphical upgrade
+- A reply under 1.5 s (and an instant non-verbal reaction under 0.5 s) is worth more than any graphical upgrade
 - Specificity in praise is the highest-leverage prompt change
