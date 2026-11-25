@@ -2019,6 +2019,14 @@ async def relay(request):
                         # #1 PRE-SYNTHESIS GATE: buffer ALL audio here — nothing reaches the
                         # voice engine until this line's transcript clears the gate at done.
                         audio_buf.extend(base64.b64decode(e["delta"]))
+                        if (resp.get("stream_ok") and not resp["killed"] and not sgate["on"]
+                                and not resp.get("spec_hold") and len(audio_buf) >= FLUSH):
+                            if not speaking.get("spoke"):
+                                speaking["spoke"] = True
+                                await ws_client.send_json({"type": "status", "state": "talking"})
+                            data = bytes(audio_buf); audio_buf.clear()
+                            for i in range(0, len(data), FLUSH):
+                                speaking["last_chunk"] = time.time(); await engine_q.put(data[i:i+FLUSH])
                     elif et in ("response.output_audio.done", "response.audio.done"):
                         # release the whole buffered line to the engine ONLY if the gate cleared it.
                         if resp["killed"]:
@@ -2130,7 +2138,7 @@ async def relay(request):
                             hy = NEUTRAL_HYPE[hidx["i"] % len(NEUTRAL_HYPE)]; hidx["i"] += 1
                             await speak_now(verbatim=hy, origin="truth-gate", extra=(
                                 "Say nothing about any move, and never say you saw anything."))
-                        elif (not resp["killed"]) and (not sgate["on"]) and audio_buf and not resp.get("spec_hold") and (
+                        elif (not resp["killed"]) and (not sgate["on"]) and (TTS == "eleven" or audio_buf) and (
                               resp["buf"].rstrip()[-1:] in ".!?"
                               # FIRST-CLAUSE RELEASE (MACHINE-CERTIFY en-13): a fresh direct
                               # kid-reply ("Hey, Shuki! ...") waited for the full sentence and
@@ -2144,12 +2152,18 @@ async def relay(request):
                             # SENTENCE-LEVEL PRE-SYNTH RELEASE (low latency): this full sentence just
                             # passed the gate clean -> release ITS buffered audio now (don't wait for the
                             # whole line). A later fabricated sentence is still caught + dropped before synth.
-                            if not speaking.get("spoke"):
-                                speaking["spoke"] = True
-                                await ws_client.send_json({"type": "status", "state": "talking"})
-                            data = bytes(audio_buf); audio_buf.clear()
-                            for i in range(0, len(data), FLUSH):
-                                speaking["last_chunk"] = time.time(); await engine_q.put(data[i:i+FLUSH])
+                            # NOVA-LIVE2 (pod np692 2026-11-25): with ElevenLabs her TEXT arrives before any audio, so this
+                            # check ran on an empty buffer and the whole line waited for its end: +1.95 s measured
+                            # (tts.first_audio -> first hop). Now the line is marked "cleared to stream" and each audio
+                            # piece goes to the face as it arrives (response.output_audio.delta below).
+                            resp["stream_ok"] = True
+                            if audio_buf and not resp.get("spec_hold"):
+                                if not speaking.get("spoke"):
+                                    speaking["spoke"] = True
+                                    await ws_client.send_json({"type": "status", "state": "talking"})
+                                data = bytes(audio_buf); audio_buf.clear()
+                                for i in range(0, len(data), FLUSH):
+                                    speaking["last_chunk"] = time.time(); await engine_q.put(data[i:i+FLUSH])
                     elif et in ("response.output_audio_transcript.done", "response.audio_transcript.done"):
                         txt = e.get("transcript", "") or ""
                         # ORIGIN TAG (he-9 forensics): who asked for this line?
@@ -2294,7 +2308,7 @@ async def relay(request):
                             speaking["v"] = not resp.get("spec_hold")   # gate CLOSED (mic discarded)
                             speaking["spoke"] = False
                             speaking["last_chunk"] = time.time()
-                            resp["buf"] = ""; resp["killed"] = False   # fresh transcript for TRUTH-GATE
+                            resp["buf"] = ""; resp["killed"] = False; resp["stream_ok"] = False   # fresh transcript for TRUTH-GATE
                             if LIVE2:
                                 spec["created"] = True
                                 if spec.pop("kill_next", False):
