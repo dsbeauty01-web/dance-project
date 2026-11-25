@@ -207,8 +207,10 @@ LIVE2_ATTITUDE = (
     "\n\nATTITUDE (this outranks every style line above): you are relaxed, warm and playful - a smiling big sister, "
     "NOT a hyper cheerleader and NOT a teacher. Every answer = a tiny real reaction to what they JUST said "
     "(Ooh! / Aww! / Ha! / No way! / Mmm!) + ONE short line that uses THEIR words or their name. 12 words max. "
-    "Ask a question only sometimes - never every turn. Remember what they told you and bring it back later "
-    "('Pizza kid is back!'). Never explain, never coach, never list. Examples, at exactly this length:\n"
+    "Ask a question only sometimes - never every turn. Bring back ONLY what they really told you ('Pizza kid is back!'). "
+    "NEVER guess or invent anything about them - not a name, a job, a hobby, a place (Refael's play 2026-11-25: she "
+    "called him 'Emma' and said 'your chef hands' - he said neither). If you did not clearly hear their words or name, "
+    "say a warm short 'Hm? Say that again?' instead. Never explain, never coach, never list. Examples, at exactly this length:\n"
     "child: I like pizza. -> Nova: Ooh, pizza! Me too - extra cheese!\n"
     "child: My name is Dana. -> Nova: Dana! I love that name.\n"
     "child: I'm tired. -> Nova: Aww. Sleepy legs? We'll wake them up.\n"
@@ -558,6 +560,10 @@ async def relay(request):
         ("Still right here.",               "אני עדיין כאן."),
         ("I'm not going anywhere.",         "אני לא הולכת לשום מקום."),
     )
+    if LIVE2:   # NOVA-LIVE2: Refael's play 2026-11-25 - "I'm right here, no rush at all" sounded like a helper bot
+        REINVITE_LINES = (("Hm? I didn't catch that!", REINVITE_LINES[0][1]),
+                          ("Say it again? I'm listening!", REINVITE_LINES[1][1]),
+                          ("Ooh, I'm all ears!", REINVITE_LINES[2][1]))
     # Freeze demo: fire the baked freeze gesture on the engine if one exists on
     # the volume (env FREEZE_GESTURE_ID). Empty -> honest words-only fallback.
     gesture = {"freeze_id": os.environ.get("FREEZE_GESTURE_ID", "").strip(), "freeze_fired": False}
@@ -1197,12 +1203,13 @@ async def relay(request):
                 ok = await (speak_now(instructions=hear_reply_instr("talk", _hebrew), origin="kid") if _talk_hear
                             else speak_now(bare=True, origin="kid"))
                 if not ok: return
-                spec["n"] = n; spec["t"] = time.time(); resp["spec_hold"] = True
+                spec["n"] = n; spec["t"] = time.time(); resp["spec_hold"] = True; spec["created"] = False; spec.pop("kill_next", None)
                 kidinput["ts"] = time.time()          # her reply is TO the child: the 6 s kid-reply windows apply (truth gates)
                 tr("live2.spec_asked", "utt", n); print("[LIVE2] early answer asked for utt", n, flush=True)
                 async def _timeout():
                     await asyncio.sleep(LIVE2_SPEC_TIMEOUT_S)
                     if spec["n"] == n:
+                        if not spec.get("created", True): spec["kill_next"] = True
                         spec["n"] = None; resp["killed"] = True; resp["spec_hold"] = False; audio_buf.clear()
                         print("[LIVE2] early answer cancelled - no transcript in", LIVE2_SPEC_TIMEOUT_S, "s", flush=True)
                         await cancel_speech("live2: no transcript")
@@ -1279,6 +1286,7 @@ async def relay(request):
                 if _spec:
                     spec["n"] = None
                     if _drop:
+                        if not spec.get("created", True): spec["kill_next"] = True
                         resp["killed"] = True; resp["spec_hold"] = False; audio_buf.clear()
                         tr("live2.spec_dropped"); print("[LIVE2] early answer cancelled - the turn was dropped (", _drop, ")", flush=True)
                         await cancel_speech("live2: the child's turn was dropped")
@@ -2154,6 +2162,7 @@ async def relay(request):
                         # goes live the moment the page sends echo-cancelled mic during her speech.
                         if LIVE2 and resp.get("spec_hold"):
                             # NOVA-LIVE2: he is still talking - the early answer (never heard) is dropped; his whole turn is answered
+                            if not spec.get("created", True): spec["kill_next"] = True
                             spec["n"] = None; resp["spec_hold"] = False; resp["killed"] = True; audio_buf.clear()
                             tr("live2.spec_superseded"); print("[LIVE2] the child kept talking - early answer dropped", flush=True)
                             if speaking["resp_active"]: await cancel_speech("live2: the child kept talking")
@@ -2212,6 +2221,14 @@ async def relay(request):
                             speaking["spoke"] = False
                             speaking["last_chunk"] = time.time()
                             resp["buf"] = ""; resp["killed"] = False   # fresh transcript for TRUTH-GATE
+                            if LIVE2:
+                                spec["created"] = True
+                                if spec.pop("kill_next", False):
+                                    # NOVA-LIVE2 bug (Refael's play 2026-11-25, "Emma"): the turn was dropped BEFORE OpenAI
+                                    # reported the answer started, and this reset un-killed it - a thrown-away answer aired.
+                                    resp["killed"] = True; resp["spec_hold"] = False
+                                    print("[LIVE2] dropped early answer killed at birth", flush=True)
+                                    await cancel_speech("live2: dropped before it started")
                             audio_buf.clear()                          # #1 fresh pre-synth audio buffer
                             if resp.get("spec_hold"):
                                 # NOVA-LIVE2: the page must keep sending the mic too (nova-bridge gates it on speaking:true);

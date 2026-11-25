@@ -130,8 +130,8 @@ NF_GO5=${NF_GO5:-1}
 [ "$NF_GO5" = 1 ] && [ "$NF_GO4" = 1 ] && grep -q 'hear: true' $P/beta/freeze4-flags.js && sed -i 's/ };/, v2vintro: true, react: true };/' $P/beta/freeze4-flags.js && export NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-1} NOVA_FAST_KID=${NOVA_FAST_KID:-1} NOVA_UTT_MAP=${NOVA_UTT_MAP:-1} NOVA_TX_CONF=${NOVA_TX_CONF:-1} NOVA_RT_EFFORT=${NOVA_RT_EFFORT:-minimal} NOVA_TRACE=${NOVA_TRACE:-1}
 # NOVA-LIVE2 (2026-11-25, docs/NOVA-LIVE2-2026-11-25.md): NF_LIVE2=1 -> early-start answers (held until the turn is validated),
 #   smart listening sounds (page flag live2), her relaxed attitude, her ElevenLabs voice Kymmiee in English (page flag eleven,
-#   brain NOVA_TTS=eleven), and the noise cut moved from -1.6 to -2.2 (real words measured -0.00..-0.92, noise -2.42..-4.57).
-[ "${NF_LIVE2:-0}" = 1 ] && grep -q 'react: true' $P/beta/freeze4-flags.js && sed -i 's/react: true };/react: true, live2: true, eleven: true };/' $P/beta/freeze4-flags.js && export NOVA_LIVE2=1 NOVA_TTS=${NOVA_TTS:-eleven} NOVA_TX_CONF_MIN=${NOVA_TX_CONF_MIN:--2.2}
+#   brain NOVA_TTS=eleven), and the confidence cut OFF (-9, log only): Refael's own clear "Okay" scored -2.80 on his laptop mic 2026-11-25 = inside the noise range, so the cut drops real players.
+[ "${NF_LIVE2:-0}" = 1 ] && grep -q 'react: true' $P/beta/freeze4-flags.js && sed -i 's/react: true };/react: true, live2: true, eleven: true };/' $P/beta/freeze4-flags.js && export NOVA_LIVE2=1 NOVA_TTS=${NOVA_TTS:-eleven} NOVA_TX_CONF_MIN=${NOVA_TX_CONF_MIN:--9}
 [ "${NF_LIVE2:-0}" = 1 ] && stage "live2: flags $(grep -o 'live2[^}]*' $P/beta/freeze4-flags.js) tts=${NOVA_TTS} eleven_key=$([ -n "$ELEVENLABS_API_KEY" ] && echo set || echo MISSING)"
 stage "page flags: $(cat $P/beta/freeze4-flags.js | cut -c1-230) | NOVA_HEAR=${NOVA_HEAR:-0} NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-0} NOVA_FAST_KID=${NOVA_FAST_KID:-0}"
 
