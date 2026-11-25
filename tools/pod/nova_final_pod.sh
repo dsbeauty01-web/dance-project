@@ -54,6 +54,11 @@ export MAYA_LOGS=$OUT/ditto DITTO_PACK=${DITTO_PACK:-ditto-pack-v2} DITTO_SRC=$R
 #    · page flags shoulder + fpsprobe (beta/freeze4-flags.js written below) · NF_REC_FIX=1 the proof recorder (freeze4_proof.py)
 NF_AUDIT=${NF_AUDIT:-1}
 if [ "$NF_AUDIT" = 1 ] && [ "${NF_CALM:-1}" = 1 ] && [ -s $R/tools/pod/assets/nova_talk_calm.mp4 ]; then export DITTO_SRC=$R/tools/pod/assets/nova_talk_calm.mp4; fi
+# NOVA-GO5 (2026-11-24) · NF_CLOSED=1 (default on with NF_GO5): the same calm body with her mouth CLOSED on every frame
+#   (maya-lt bench/lips_pro/close_mouth_stable.py, ref frame 66, sigma 2, face found in an upscaled crop: 252/252).
+#   Ditto Gold: nova_talk_calm.mp4 body BLOCK (mouth open 3.6 % of frames) -> takes BLOCK (87 open frames in silence);
+#   nova_talk_calm_closed.mp4 body PASS (open 0.0 %, jitter 0.07). The original file is kept.
+if [ "${NF_GO5:-1}" = 1 ] && [ "${NF_CLOSED:-1}" = 1 ] && [ "$(basename "$DITTO_SRC")" = nova_talk_calm.mp4 ] && [ -s $R/tools/pod/assets/nova_talk_calm_closed.mp4 ]; then export DITTO_SRC=$R/tools/pod/assets/nova_talk_calm_closed.mp4; fi
 [ "$NF_AUDIT" = 1 ] && export NF_PROOF_REPLAY=${NF_PROOF_REPLAY:-own-right-up,frozen-body,dance-hype,still-sway} NF_REC_FIX=${NF_REC_FIX:-1} FACE_VOICE_PREBUF_MS=${FACE_VOICE_PREBUF_MS:-400} FACE_REC_THREAD=${FACE_REC_THREAD:-1} FACE_PUB_STEADY=${FACE_PUB_STEADY:-1} FACE_WIDE_SOURCE=${FACE_WIDE_SOURCE:-camera} FACE_WIDE_TS=${FACE_WIDE_TS:-1}
 # ── NOVA-GO2 (2026-11-23; docs/NOVA-FIX-2026-11-23.md): NF_GO2=1 (default on in this build; 0 = the nova-go build as it was)
 #    · FACE_WIDE_SMOOTH=1  her wide track: one layer (no simulcast), keep the frame rate (tools/pod/nova_face.py)
