@@ -90,10 +90,18 @@ export DEBIAN_FRONTEND=noninteractive
 # fast boot (common image): also python3.10 for /opt/ltenv (+ -dev: triton compiles a C helper against Python.h at the
 # SoulX warm-up; without it the face server dies with "Python.h: No such file", prep pod 2026-11-22), ffmpeg, libs
 NFB_APT=""; [ -n "$NFB" ] && NFB_APT="python3.10 python3.10-dev ffmpeg wget libgl1 libglib2.0-0 libsndfile1"
-timeout 400 bash -c "apt-get update -qq && apt-get install -y -qq xvfb pulseaudio ca-certificates fonts-noto-color-emoji fonts-dejavu-core $NFB_APT >/dev/null 2>&1"; AE=$?; stage "apt done $AE"
+timeout 400 bash -c "apt-get update -qq && apt-get install -y -qq xvfb pulseaudio ca-certificates fonts-noto-color-emoji fonts-dejavu-core $NFB_APT" > $OUT/apt1.log 2>&1; AE=$?; stage "apt done $AE"
 # pod alkbue4ll59ugx 2026-11-23: apt timed out (124) on a slow mirror -> no Xvfb / ffmpeg, the proof and the recordings died. One more try.
 if [ $AE != 0 ] || ! command -v Xvfb >/dev/null || ! command -v ffmpeg >/dev/null; then
   timeout 600 bash -c "dpkg --configure -a >/dev/null 2>&1; apt-get update -qq; apt-get install -y -qq xvfb pulseaudio ca-certificates fonts-noto-color-emoji fonts-dejavu-core $NFB_APT >/dev/null 2>&1"; stage "apt retry done $? xvfb=$(command -v Xvfb) ffmpeg=$(command -v ffmpeg)"; fi
+# NOVA-LIVE2 pod ut59hiszu2jnsp 2026-11-25: both tries failed in 3 s (exit 100, not a timeout) -> no Xvfb, proof A never ran.
+# A third try that logs the error, sets aside the image's extra apt sources (a broken third-party list fails the whole
+# update), retries downloads, and asks only for what the proof needs.
+if ! command -v Xvfb >/dev/null; then
+  mkdir -p /root/apt-off; mv /etc/apt/sources.list.d/* /root/apt-off/ 2>/dev/null
+  timeout 600 bash -c "rm -f /var/lib/dpkg/lock* /var/lib/apt/lists/lock; dpkg --configure -a; apt-get -o Acquire::Retries=5 update; apt-get -o Acquire::Retries=5 install -y --no-install-recommends xvfb pulseaudio fonts-dejavu-core $NFB_APT" > $OUT/apt3.log 2>&1
+  stage "apt try 3 done $? xvfb=$(command -v Xvfb) | $(grep -E '^(E:|W:)' $OUT/apt3.log | head -3 | tr '\n' ' ' | cut -c1-200)"
+fi
 wget -q -O /root/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && timeout 300 apt-get install -y -qq /root/chrome.deb >/dev/null 2>&1
 stage "chrome: $(google-chrome --version 2>&1)"
 stage "hw: gpu=$(nvidia-smi --query-gpu=name,clocks.max.sm,memory.total,driver_version --format=csv,noheader 2>&1 | head -1) cpu=$(lscpu 2>/dev/null | grep -m1 'Model name' | cut -d: -f2 | xargs) nproc=$(nproc) load=$(cut -d' ' -f1-3 /proc/loadavg)"

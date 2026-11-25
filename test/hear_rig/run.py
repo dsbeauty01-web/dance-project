@@ -31,7 +31,7 @@ try:
     while time.time() - t0 < cap:
         s = pg.evaluate("""() => { const L = window.freeze4Log || [], has = (k, d) => L.find(e => e.kind === k && (d === undefined || String(e.detail).startsWith(d)));
           return { gate: document.body.dataset.gate || '', stage: document.getElementById('novaPane').dataset.stage, now: performance.now() / 1000,
-            shown: (has('nova-shown') || {}).t, named: (has('v2v', 'greeting said') || {}).t, armed: (has('shoulder', 'armed') || {}).t, listen: (has('intro-listen', 'open') || {}).t, air: (has('voice', 'air') || {}).t,
+            shown: (has('nova-shown') || {}).t, named: (has('v2v', 'greeting said') || {}).t, answered: (has('v2v-answer') || {}).t, chatans: (has('v2v-chat-answer') || {}).t, armed: (has('shoulder', 'armed') || {}).t, listen: (has('intro-listen', 'open') || {}).t, air: (has('voice', 'air') || {}).t,
             lines: L.filter(e => e.kind === 'line').length, herQuiet: (() => { const h = L.filter(e => e.kind === 'her-voice' || e.kind === 'line').slice(-1)[0]; return !h || (h.kind === 'her-voice' && h.detail === 'end' && L[L.length - 1].t - h.t > 3.5); })(), ended: document.getElementById('end').classList.contains('on'), banner: !document.getElementById('banner').classList.contains('hidden'),
             t: L.length ? L[L.length - 1].t : 0, T0: (performance.now() / 1000) - (L.length ? 0 : 0) }; }""")
         # page-log time of "now": freeze4Log t = (performance.now() - T0page)/1000; the page exposes no T0, so use deltas from event times via a probe
@@ -45,6 +45,13 @@ try:
         if s.get("named") is not None:                     # NOVA-GO5: her name question is over - the child answers it
             if "t_named" not in got: got["t_named"] = time.time()
             if time.time() - got["t_named"] > 0.8: kid("name")
+        # NOVA-LIVE2: chat:<wav> = his line after her answer to the name; chat2:<wav> after her answer to that
+        if s.get("answered") is not None:
+            if "t_ans" not in got: got["t_ans"] = time.time()
+            if time.time() - got["t_ans"] > 1.5: kid("chat")
+        if s.get("chatans") is not None:
+            if "t_chatans" not in got: got["t_chatans"] = time.time()
+            if time.time() - got["t_chatans"] > 1.5: kid("chat2")
         if s["armed"] is not None:
             if "t_armed" not in got: got["t_armed"] = time.time()
             if time.time() - got["t_armed"] > 1.0: kid("shoulder")

@@ -672,13 +672,36 @@ async function v2vNameBeat(tAsk){
       log('v2v-kid', JSON.stringify({ text: kid.text, name, turns }));
       log('v2v-answer', String(await waitHerLine(INTRO_ANSWER_MS, seenAt)));           // HER words: the name back, a real chat
       if (name){ v2vIntro.name = name; v2vIntro.why = 'name captured'; break; }
-      if (turns >= V2V_MAX_TURNS){ v2vIntro.why = turns + ' exchanges, no name'; break; }
+      if (turns >= V2V_MAX_TURNS || FLAG('live2')){ v2vIntro.why = turns + ' exchanges, no name'; break; }   // live2: the chat loop below carries on
       continue; }
     if (kid.pending && performance.now() - kid.hearingAt > INTRO_TURN_MS) kid.pending = false;
     if (performance.now() - t0 > V2V_NO_NAME_MS && !kid.pending && !herV.on){ v2vIntro.why = '45s no-name safety'; break; }
     await sleep(100);
   }
-  if (v2vIntro.name){                                    // she may have asked him ONE light question: it is his turn first
+  if (FLAG('live2')){
+    /* NOVA-LIVE2 (Refael's play 2026-11-25: "did not make conversation" — the light cut in while her music question was
+       open). The chat runs until it ends by itself: the light is armed only when she has answered and the child has been
+       quiet 5 s (8 s if her last line was a question), or after 4 exchanges, or the 60 s safety. [CLI-FILL] 5 / 8 / 4 / 60. */
+    const LIVE2_QUIET_MS = 5000, LIVE2_QUIET_Q_MS = 8000, LIVE2_MAX_TURNS = 4, LIVE2_CAP_MS = 60000;
+    let lastHer = '', quietFrom = performance.now();
+    const onSaid = e => { lastHer = e.detail || ''; };
+    addEventListener('nova:said', onSaid);
+    while (true){
+      if (kid.textAt > seenAt){ seenAt = kid.textAt; turns++;
+        if (!v2vIntro.name){ const nm = catchName(kid.text, { asked: turns === 1 }); if (nm) v2vIntro.name = nm; }
+        log('v2v-chat', JSON.stringify({ text: kid.text, turns, name: v2vIntro.name }));
+        log('v2v-chat-answer', String(await waitHerLine(INTRO_ANSWER_MS, seenAt)));
+        quietFrom = performance.now(); continue; }
+      if (herV.on || kid.pending) quietFrom = performance.now();
+      if (kid.pending && performance.now() - kid.hearingAt > INTRO_TURN_MS) kid.pending = false;
+      const asked = /\?\s*["”]?\s*$/.test(lastHer), quiet = performance.now() - quietFrom;
+      if (turns >= LIVE2_MAX_TURNS && !herV.on && !kid.pending){ v2vIntro.why = turns + ' exchanges'; break; }
+      if (turns >= 1 && quiet > (asked ? LIVE2_QUIET_Q_MS : LIVE2_QUIET_MS)){ v2vIntro.why = 'chat ended (quiet ' + Math.round(quiet / 1000) + ' s' + (asked ? ', after her question' : '') + ')'; break; }
+      if (performance.now() - t0 > LIVE2_CAP_MS && !herV.on && !kid.pending){ v2vIntro.why = '60s chat safety'; break; }
+      await sleep(100);
+    }
+    removeEventListener('nova:said', onSaid);
+  } else if (v2vIntro.name){                             // she may have asked him ONE light question: it is his turn first
     const tq = performance.now();
     while (performance.now() - tq < V2V_CHAT_LISTEN_MS || kid.pending){
       if (kid.textAt > seenAt){ seenAt = kid.textAt; log('v2v-chat', kid.text); log('v2v-chat-answer', String(await waitHerLine(INTRO_ANSWER_MS, seenAt))); break; }

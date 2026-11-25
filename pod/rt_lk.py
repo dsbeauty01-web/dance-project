@@ -194,6 +194,14 @@ LIVE2_FILLER_RE = __import__("re").compile(r"^\W*(hi+|hey+|hello|hiya|ha+|um+|uh
 LIVE2_FILLER_WAIT_S = float(os.environ.get("NOVA_LIVE2_FILLER_WAIT_S", "2.5"))
 LIVE2_SHORT_GAP_S = float(os.environ.get("NOVA_LIVE2_SHORT_GAP_S", "0.0"))
 LIVE2_GAP_S = float(os.environ.get("NOVA_LIVE2_GAP_S", "0.0"))
+# NOVA-LIVE2 hearing (Refael's play 2026-11-25: "Hi, my name is Shuki" -> "People", "I like hip-hop" -> "I like ok"):
+# the English transcribers get a short prompt of what a child says here, so names and kid words win over look-alikes.
+LIVE2_TX_PROMPT_EN = ("A child talks to Nova, a dance teacher. Hi! Hello Nova. My name is Shuki. I'm Dana. I like hip-hop. "
+                      "I like pizza, dancing, music, my dog. Yes. Okay. I'm ready. Can you see me?")
+# an unclear turn (dropped, but real voice > LIVE2_SAYAGAIN_MIN_S) gets a short warm "say again" instead of silence / a guess.
+LIVE2_SAYAGAIN_MIN_S = float(os.environ.get("NOVA_LIVE2_SAYAGAIN_MIN_S", "0.8"))   # [CLI-FILL]
+LIVE2_SAYAGAIN_EVERY_S = float(os.environ.get("NOVA_LIVE2_SAYAGAIN_EVERY_S", "10"))  # [CLI-FILL] Refael's brief: max once per 10 s
+LIVE2_SAYAGAIN = ({"en": "Hm? Say that again?", "he": "הממ? אפשר שוב?"})
 LIVE2_SPEC_TIMEOUT_S = float(os.environ.get("NOVA_LIVE2_SPEC_TIMEOUT_S", "4.0"))   # [CLI-FILL] a held answer with no transcript dies
 # NOVA_TTS=eleven (2026-11-25, Refael: "we have ElevenLabs, find the best voice for her"): the brain answers in TEXT and
 #   ElevenLabs speaks it, streamed. English only (Hebrew keeps marin until a Hebrew voice is approved).
@@ -202,7 +210,11 @@ LIVE2_SPEC_TIMEOUT_S = float(os.environ.get("NOVA_LIVE2_SPEC_TIMEOUT_S", "4.0"))
 TTS = os.environ.get("NOVA_TTS", "").strip().lower()
 EL_KEY = os.environ.get("ELEVENLABS_API_KEY", "")
 EL_VOICE = os.environ.get("NOVA_EL_VOICE", "KHDywVwjZ97ShJLe4NCr")
-EL_MODEL = os.environ.get("NOVA_EL_MODEL", "eleven_turbo_v2_5")
+# 2026-11-25 (Refael's play): turbo v2.5 gave Kymmiee an Indian-sounding accent - NOT the v4 sample he approved. Back to
+# eleven_v4. v4 is not served on the stream-input websocket (HTTP 400, tested 2026-11-25), so v4 runs on the HTTP streaming
+# endpoint, one request per clause, in order (first byte 0.59 s measured, language_code en locked).
+EL_MODEL = os.environ.get("NOVA_EL_MODEL", "eleven_v4")
+EL_HTTP = EL_MODEL in ("eleven_v4", "eleven_v3") or os.environ.get("NOVA_EL_HTTP", "0") == "1"
 LIVE2_ATTITUDE = (
     "\n\nATTITUDE (this outranks every style line above): you are relaxed, warm and playful - a smiling big sister, "
     "NOT a hyper cheerleader and NOT a teacher. Every answer = a tiny real reaction to what they JUST said "
@@ -488,7 +500,8 @@ def session_update(freeze=False, voice=None, lang="en", gender="", page=False, v
                                          # NOVA-LIVE2: 450 - a split sentence no longer costs the name: the early answer to
                                          # the first piece is dropped when he goes on (rig l2f "Hi ... I'm Shuki"). [CLI-FILL]
                                          "create_response": False, "interrupt_response": False},
-                      "transcription": {"model": "gpt-4o-transcribe", "language": lang}},
+                      "transcription": {"model": "gpt-4o-transcribe", "language": lang,
+                                        **({"prompt": LIVE2_TX_PROMPT_EN} if (LIVE2 and lang == "en") else {})}},
             "output": {"format": {"type": "audio/pcm", "rate": 24000}, "voice": (voice or VOICE)}},
         "max_output_tokens": "inf",
         **({"reasoning": {"effort": RT_EFFORT}} if RT_EFFORT else {}),
@@ -893,7 +906,7 @@ async def relay(request):
             v2v = {"greeted": False, "await_name": False}
             if _v2v: print("[V2V-INTRO] on: the intro runs on PROMPT (greet + name, live chat); the page arms the light", flush=True)
             _tts_eleven = TTS == "eleven" and bool(EL_KEY) and not _hebrew and not _voice   # ?voice= keeps the OpenAI A/B
-            if TTS == "eleven": print("[TTS]", ("ElevenLabs " + EL_MODEL + " voice " + EL_VOICE) if _tts_eleven
+            if TTS == "eleven": print("[TTS]", ("ElevenLabs " + EL_MODEL + (" (http per clause)" if EL_HTTP else " (websocket)") + " voice " + EL_VOICE) if _tts_eleven
                                       else "eleven requested but off (no key / Hebrew / ?voice=) - OpenAI voice", flush=True)
             await oai.send_json(session_update(freeze=_freeze_mode, voice=_voice,
                                                lang=("he" if _hebrew else "en"), gender=_gender,
@@ -1296,6 +1309,17 @@ async def relay(request):
                         asyncio.create_task(spec_release_after(n, LIVE2_FILLER_WAIT_S if LIVE2_FILLER_RE.match(ktxt) else None))
                 if _drop:
                     print("[INPUT-LOCK] dropped:", _drop, "|", ktxt[:30], flush=True)
+                    # NOVA-LIVE2: real voice that came out unclear -> a short warm "say again?" (never a guess, never silence)
+                    _vs = utt.get("dur", 0) - 0.9 if n == utt["n"] else 0
+                    if (LIVE2 and not sgate["on"] and _vs >= LIVE2_SAYAGAIN_MIN_S
+                            and time.time() - spec.get("sayagain_t", 0) > LIVE2_SAYAGAIN_EVERY_S):
+                        spec["sayagain_t"] = time.time(); turn["kid_ts"] = time.time()   # no re-invite on top of it
+                        print("[LIVE2] unclear turn (%.1f s of voice) - asking to say it again" % _vs, flush=True)
+                        async def _sayagain():
+                            await asyncio.sleep(0.3)               # let the cancelled early answer clear
+                            await boundary_open("kid-turn", pump=False)
+                            await speak_now(verbatim=LIVE2_SAYAGAIN["he" if _hebrew else "en"], origin="sayagain")
+                        asyncio.create_task(_sayagain())
                     # Nephew test 2026-09-13: a DROPPED turn still sat in the conversation
                     # history (the API commits the audio item regardless), so a later auto
                     # line answered it — in Russian. Purge the item so dropped noise can
@@ -1398,6 +1422,7 @@ async def relay(request):
                         # sentence. (The model upgrade mini -> full stays; only the hint is gone.)
                         f.add_field("model", "gpt-4o-transcribe")
                         f.add_field("language", "he" if _hebrew else "en")
+                        if LIVE2 and not _hebrew: f.add_field("prompt", LIVE2_TX_PROMPT_EN)   # NOVA-LIVE2 hearing
                         if TX_CONF: f.add_field("include[]", "logprobs"); f.add_field("response_format", "json")
                         return f
                     async with aiohttp.ClientSession() as _s:
@@ -1848,14 +1873,41 @@ async def relay(request):
             # NOVA_TTS=eleven: one ordered event queue. OpenAI events pass through; her TEXT is streamed to ElevenLabs and
             # its audio comes back as the same "response.output_audio.delta" events, so every gate below is unchanged.
             evq = asyncio.Queue()
-            tts = {"ws": None, "done": None, "text": "", "flushed": False}
-            async def tts_close(why=""):
-                ws = tts["ws"]; tts["ws"] = None
-                if ws is None: return
-                try: await ws.close()
-                except Exception: pass
-                if why: print("[TTS] closed:", why, flush=True)
+            tts = {"ws": None, "done": None, "text": "", "flushed": False, "pend": "", "gen": 0}
             async def tts_open():
+                if EL_HTTP:
+                    # NOVA_EL_HTTP: clauses go out one by one, in order, on the HTTP streaming endpoint (eleven_v4)
+                    q = asyncio.Queue(); done = asyncio.Event(); tts["gen"] += 1; mygen = tts["gen"]
+                    tts.update(ws=q, done=done, text="", flushed=False, pend="")
+                    tr("tts.open")
+                    async def worker():
+                        first = True
+                        try:
+                            while True:
+                                seg = await q.get()
+                                if seg is None: break
+                                async with http.post(
+                                        f"https://api.elevenlabs.io/v1/text-to-speech/{EL_VOICE}/stream?output_format=pcm_24000",
+                                        headers={"xi-api-key": EL_KEY, "Content-Type": "application/json"},
+                                        json={"text": seg, "model_id": EL_MODEL, "language_code": "en",
+                                              "voice_settings": {"stability": 0.5, "similarity_boost": 0.8}},
+                                        timeout=aiohttp.ClientTimeout(total=20)) as r:
+                                    if r.status != 200:
+                                        print("[TTS] http", r.status, (await r.text())[:120], flush=True); continue
+                                    carry = b""
+                                    async for chunk in r.content.iter_chunked(4800):
+                                        chunk = carry + chunk; cut = len(chunk) // 2 * 2; carry = chunk[cut:]
+                                        if not cut: continue
+                                        if tts["gen"] != mygen: break          # a newer line took over: never mix two
+                                        if first: first = False; tr("tts.first_audio")
+                                        await evq.put({"type": "response.output_audio.delta",
+                                                       "delta": base64.b64encode(chunk[:cut]).decode()})
+                        except Exception as _e:
+                            print("[TTS] http err", str(_e)[:100], flush=True)
+                        finally:
+                            done.set()
+                    asyncio.create_task(worker())
+                    return
                 url = (f"wss://api.elevenlabs.io/v1/text-to-speech/{EL_VOICE}/stream-input"
                        f"?model_id={EL_MODEL}&output_format=pcm_24000")
                 ws = await http.ws_connect(url, heartbeat=20)
@@ -1884,19 +1936,40 @@ async def relay(request):
                 if not delta: return
                 if tts["ws"] is None: await tts_open()
                 tts["text"] += delta
+                if EL_HTTP:
+                    # a clause goes out at its end mark; the FIRST one already at a comma once it has 2+ words
+                    tts["pend"] += delta
+                    _end = bool(_re.search(r"[.!?;:\u2014]\s*$", tts["pend"])) or (
+                        not tts["flushed"] and _re.search(r",\s*$", tts["pend"]) and len(tts["pend"].split()) >= 2)
+                    if _end and tts["pend"].strip():
+                        tts["flushed"] = True; await tts["ws"].put(tts["pend"].strip()); tts["pend"] = ""
+                    return
                 # first audio as soon as there are 3 words or a pause mark; then at every pause mark
                 _p = bool(_re.search(r"[,.!?;:\u2014]\s*$", delta))
                 _flush = _p or (not tts["flushed"] and len(tts["text"].split()) >= 3)
                 if _flush: tts["flushed"] = True
                 await tts["ws"].send_json({"text": delta, **({"flush": True} if _flush else {})})
+            async def tts_close(why=""):
+                ws = tts["ws"]; tts["ws"] = None
+                if ws is None: return
+                try:
+                    if EL_HTTP: tts["gen"] += 1; ws.put_nowait(None)
+                    else: await ws.close()
+                except Exception: pass
+                if why: print("[TTS] closed:", why, flush=True)
             async def tts_finish(txt):
                 if tts["ws"] is not None:
                     try:
-                        await tts["ws"].send_json({"text": ""})
-                        await asyncio.wait_for(tts["done"].wait(), 15)
+                        if EL_HTTP:
+                            if tts.get("pend", "").strip(): await tts["ws"].put(tts["pend"].strip())
+                            tts["pend"] = ""; await tts["ws"].put(None)
+                        else:
+                            await tts["ws"].send_json({"text": ""})
+                        await asyncio.wait_for(tts["done"].wait(), 20)
                     except Exception as _e:
                         print("[TTS] finish err", str(_e)[:80], flush=True)
-                    await tts_close()
+                    tts["ws"] = None
+                    if not EL_HTTP: pass
                 await evq.put({"type": "response.output_audio.done"})
                 await evq.put({"type": "response.output_audio_transcript.done", "transcript": txt})
             async def oai_pump():
