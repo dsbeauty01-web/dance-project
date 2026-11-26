@@ -30,14 +30,16 @@ def speech_level(r):
     return float(np.percentile(v, 60)) if len(v) else 0.0
 
 
-def gate(x, sr=16000, stats=None):
+def gate(x, sr=16000, stats=None, lvl=None, trim_end=True):
+    """lvl: the line's speech level carried by a streaming caller (nova_face _StreamGate, 2026-11-26); trim_end=False for a
+    chunk that is not the end of the line (the low tail is trimmed only before a quiet gap inside the chunk)."""
     """x float32 mono (16 kHz) -> gated copy, same length."""
     x = np.asarray(x, np.float32)
     if len(x) < HOP * 3 or sr != 16000: return x
     gf = float(E("DITTO_GATE_FRAC", "0.20")); tf = float(E("DITTO_TAIL_FRAC", "0.60"))
     tmax = int(float(E("DITTO_TAIL_MAX_MS", "400")) / 10); gap = max(1, int(float(E("DITTO_GAP_MS", "100")) / 10))
     att = max(1, int(float(E("DITTO_GATE_ATTACK_MS", "10")) * sr / 1000)); rel = max(1, int(float(E("DITTO_GATE_RELEASE_MS", "40")) * sr / 1000))
-    r = frame_rms(x); n = len(r); lvl = speech_level(r)
+    r = frame_rms(x); n = len(r); lvl = speech_level(r) if lvl is None else lvl
     if lvl <= 0: return x
     on = r >= gf * lvl
     # quiet gaps (>= gap frames under the gate) + the line end -> trim the low tail just before each
@@ -47,10 +49,10 @@ def gate(x, sr=16000, stats=None):
         if not on[i]:
             j = i
             while j < n and not on[j]: j += 1
-            if j - i >= gap or j == n: starts.append(i)
+            if j - i >= gap or (j == n and trim_end): starts.append(i)
             i = j
         else: i += 1
-    if on[-1]: starts.append(n)                     # the line ends mid-sound: still trim its tail
+    if on[-1] and trim_end: starts.append(n)        # the line ends mid-sound: still trim its tail
     for s in starts:
         k = s
         while k > 0 and s - k < tmax and r[k - 1] < tf * lvl: k -= 1

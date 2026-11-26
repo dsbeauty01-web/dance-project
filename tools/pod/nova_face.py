@@ -82,6 +82,34 @@ class FakeRenderer:
         return out
 
 
+# NOVA-LIVE2 GOLD FIX (2026-11-26, Zara-chat review of the e59f299 Gold BLOCK): DITTO_GATE=1 - the copy of her voice that
+# DRIVES the lips is gated (tools/pod/ditto_take8/drive_gate.py: noise gate under 20 % of the line's speech level + low tail
+# trimmed before each quiet gap), so ElevenLabs' breath / hum after a word reads as silence and the server's paste gate
+# (DITTO_PASTE_GATE, 80 ms off + 120 ms cross-fade) shows her own closed mouth. Zara runs DITTO_GATE=1 (shows/cohost-zara-
+# sell-en.json); Nova never did. Streaming: the speech level is carried across chunks of one line (reset after 1 s of
+# silence). The voice the child HEARS is not touched (the delay line keeps the original).
+DRIVE_GATE = E("DITTO_GATE", "0") == "1"
+class _StreamGate:
+    def __init__(self):
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "ditto_take8"))
+        import drive_gate as DG
+        self.DG, self.lvl, self.quiet = DG, 0.0, 0
+        S.update({"gate_chunks": 0, "gate_frac_sum": 0.0})
+    def __call__(self, x):
+        r = self.DG.frame_rms(x)
+        if not len(r): return x
+        if r.max() < 0.003: self.quiet += len(r)
+        else: self.quiet = 0
+        if self.quiet >= 100: self.lvl = 0.0                    # 1 s quiet = a new line
+        cl = self.DG.speech_level(r)
+        if cl > 0 and r.max() >= 0.01: self.lvl = max(self.lvl * 0.97, cl) if self.lvl else cl
+        if self.lvl <= 0: return x
+        st = {}
+        y = self.DG.gate(x, 16000, st, lvl=self.lvl, trim_end=False)
+        S["gate_chunks"] += 1; S["gate_frac_sum"] += st.get("gated_frac", 0)
+        return y
+
+
 class DittoRenderer:
     """client of ditto_server.py: render(audio of self.samples) -> (frames BGR at the body's size, the voice delayed by prime)"""
     def __init__(self):
@@ -100,12 +128,15 @@ class DittoRenderer:
         self.chunk, self.samples, self.prime = int(h["chunk_frames"]), int(h["chunk_samples"]), int(h["prime"])
         self.delay = np.zeros(self.prime * STEP, np.float32)
         self.info = h.get("info", {}); log("ditto ready:", json.dumps({k: h.get(k) for k in ("chunk_frames", "prime")}), self.info.get("src"))
+        self.gate = _StreamGate() if DRIVE_GATE else None
+        if self.gate: log("drive gate ON (DITTO_GATE=1): the lips are driven by a gated copy of her voice")
 
     def reset(self):
         self.delay = np.zeros(self.prime * STEP, np.float32)
 
     def render(self, audio):
-        r = self.U.Request(self.url + "/render", data=np.ascontiguousarray(audio, np.float32).tobytes(), method="POST")
+        drive = self.gate(audio) if self.gate is not None else audio
+        r = self.U.Request(self.url + "/render", data=np.ascontiguousarray(drive, np.float32).tobytes(), method="POST")
         m = json.loads(self.U.urlopen(r, timeout=30).read())
         if "path" not in m: raise RuntimeError("ditto render: " + str(m)[:200])
         frames = list(np.load(m["path"]))
@@ -263,6 +294,10 @@ def render_loop(R):
         if (WAIT_MS and VS["mid"]) or _first:         # NOVA-LIVE2: wait a moment for a full chunk instead of rendering
             # silence (a line's start) or padding (mid-line). Start: until the line pauses START_IDLE_MS; mid: WAIT_MS.
             t_w = time.time() + (0.4 if _first else WAIT_MS / 1000)
+            if not _first and mode == "wide" and PUB["due"] > 0:
+                # NOVA-LIVE2 GOLD FIX: never wait past the moment the publisher needs this chunk (minus a render): waiting longer
+                # starved it and it froze a TALKING frame over silence = an open mouth (pod 6478ffe8j3nln5: 14 open frames).
+                t_w = min(t_w, PUB["due"] - float(E("FACE_RENDER_RESERVE_MS", "170")) / 1000)
             while time.time() < t_w:
                 with lock: have = sum(len(a) for a, _ in pending)
                 if have >= n_s: break
@@ -406,6 +441,10 @@ async def publisher():
     log("video delay frames:", vdelay)
     loop = asyncio.get_event_loop()
     t0, i, last = loop.time(), 0, {"pip": None, "wide": None}
+    # NOVA-LIVE2 GOLD FIX: the last frame of a SILENT chunk (her paste gate has closed her mouth by then) per face. On an
+    # underrun right after speech the publisher used to hold the last frame = a talking mouth frozen over silence.
+    closed, last_speech = {"pip": None, "wide": None}, {"pip": False, "wide": False}
+    S.setdefault("underrun_log", [])
     while True:
         with lock:
             ch = ready.popleft() if ready else None
@@ -414,8 +453,13 @@ async def publisher():
             S["underruns"] += 1
             m = S["mode"] if DUAL else "pip"; n = 4 if m == "wide" else CHUNK
             lf = last[m] if last[m] is not None else (S.get("pip_first", np.zeros((512, 512, 3), np.uint8)) if m == "pip" else None)
+            _hold = "last"
+            if last_speech[m] and closed[m] is not None and E("FACE_UNDERRUN_CLOSED", "0") == "1":
+                lf = closed[m]; _hold = "closed"                 # her own closed mouth, never a frozen talking frame
+            S["underrun_log"].append([round(time.time(), 3), m, "after-speech" if last_speech[m] else "after-silence", _hold])
+            del S["underrun_log"][:-40]
             if lf is None: await asyncio.sleep(0.04); t0 = loop.time() - i / FPS; continue
-            ch = {"frames": [lf] * n, "audio": np.zeros(n * STEP, np.float32), "speech": False, "t_arr": None, "mode": m, "n": n}
+            ch = {"frames": [lf] * n, "audio": np.zeros(n * STEP, np.float32), "speech": False, "t_arr": None, "mode": m, "n": n, "held": True}
         if ch["speech"] and ch["t_arr"] is not None:
             S["arrive_to_publish_ms"].append(round((time.time() - ch["t_arr"]) * 1000))
         pcm = (np.clip(ch["audio"], -1, 1) * 32767).astype(np.int16)
@@ -423,6 +467,9 @@ async def publisher():
         if mode not in rec and E("FACE_RECORD", "0") == "1":
             h0, w0 = ch["frames"][0].shape[:2]
             rec[mode] = _recorder("wide_published" if mode == "wide" else "face_published", w0, h0, 14 if mode == "wide" else 24)
+        if not ch.get("held"):                          # NOVA-LIVE2 GOLD FIX bookkeeping (see `closed` above)
+            last_speech[mode] = bool(ch["speech"])
+            if not ch["speech"]: closed[mode] = ch["frames"][-1]
         for k in range(len(ch["frames"])):
             dt = t0 + i / FPS - loop.time()
             if dt > 0: await asyncio.sleep(dt)
@@ -518,7 +565,7 @@ def stats():
             "wide_chunks_late": S["wide_late"], "wide_chunks": len(S["wide_ms"]),
             "pub_late_frames": S["pub_late_frames"], "pub_max_lag_ms": S["pub_max_lag_ms"], "pub_reanchors": S["pub_reanchors"],
             "rec_dropped": S["rec_dropped"], "rec_thread": REC_THREAD, "pub_steady": PUB_STEADY,
-            "voice_prebuf_ms": PREBUF_MS, "start_full": START_FULL, "wait_ms": WAIT_MS, "lead_frames": LEAD_FRAMES, "voice_pads": S["voice_pads"], "voice_holes": S["voice_holes"], "voice_prebuf_waits": S["voice_prebuf_waits"], "voice_lines": S["voice_lines"], "voice_holes_midline": S["voice_holes_midline"], "voice_hole_log": S["voice_hole_log"][-10:]}
+            "voice_prebuf_ms": PREBUF_MS, "start_full": START_FULL, "wait_ms": WAIT_MS, "lead_frames": LEAD_FRAMES, "voice_pads": S["voice_pads"], "voice_holes": S["voice_holes"], "voice_prebuf_waits": S["voice_prebuf_waits"], "voice_lines": S["voice_lines"], "voice_holes_midline": S["voice_holes_midline"], "voice_hole_log": S["voice_hole_log"][-10:], "underrun_log": S.get("underrun_log", [])[-40:], "drive_gate": DRIVE_GATE, "gate_chunks": S.get("gate_chunks", 0), "gate_frac_mean": round(S.get("gate_frac_sum", 0) / max(1, S.get("gate_chunks", 0)), 3)}
 
 
 async def health(req):
