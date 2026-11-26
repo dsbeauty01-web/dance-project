@@ -76,7 +76,7 @@ if [ "${NF_GO5:-1}" = 1 ] && [ "${NF_CLOSED:-1}" = 1 ] && [ "$(basename "$DITTO_
 #   lines (keep 2 per chunk, lips locked) · NOVA_EL_FIRST_WORDS=4 first voice request at 4 words / any punctuation ·
 #   NOVA_EL_PREV / NOVA_EL_ORDER clause seams and order · NOVA_EL_WARM warm TLS at session start · NOVA_EL_CACHE her written
 #   lines from a PCM cache. Browser playout delay 0 is the page flag live2 (?pd=off for an A/B).
-[ "${NF_LIVE2:-0}" = 1 ] && export FACE_BURST=${FACE_BURST:-1} NOVA_EL_FIRST_WORDS=${NOVA_EL_FIRST_WORDS:-4} NOVA_EL_PREV=${NOVA_EL_PREV:-1} \
+[ "${NF_LIVE2:-0}" = 1 ] && export FACE_BURST=${FACE_BURST:-1} NOVA_EL_FIRST_WORDS=${NOVA_EL_FIRST_WORDS:-4} NOVA_EL_FIRST_MIN=${NOVA_EL_FIRST_MIN:-2} NOVA_EL_PREV=${NOVA_EL_PREV:-1} \
   NOVA_EL_ORDER=${NOVA_EL_ORDER:-1} NOVA_EL_WARM=${NOVA_EL_WARM:-1} NOVA_EL_CACHE=${NOVA_EL_CACHE:-1}
 [ "$NF_AUDIT" = 1 ] && export NF_PROOF_REPLAY=${NF_PROOF_REPLAY:-own-right-up,frozen-body,dance-hype,still-sway} NF_REC_FIX=${NF_REC_FIX:-1} FACE_VOICE_PREBUF_MS=${FACE_VOICE_PREBUF_MS:-400} FACE_REC_THREAD=${FACE_REC_THREAD:-1} FACE_PUB_STEADY=${FACE_PUB_STEADY:-1} FACE_WIDE_SOURCE=${FACE_WIDE_SOURCE:-camera} FACE_WIDE_TS=${FACE_WIDE_TS:-1}
 # ── NOVA-GO2 (2026-11-23; docs/NOVA-FIX-2026-11-23.md): NF_GO2=1 (default on in this build; 0 = the nova-go build as it was)

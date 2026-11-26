@@ -51,7 +51,8 @@ try:
             if time.time() - got["t_ans"] > 1.5: kid("chat")
         if s.get("chatans") is not None:
             if "t_chatans" not in got: got["t_chatans"] = time.time()
-            if time.time() - got["t_chatans"] > 1.5: kid("chat2")
+            # rig fix 2026-11-26: chat2 only after chat was said AND answered (run c1: both wavs played at once)
+            if "chat" in said and time.time() - t0 - said["chat"] > 14.0 and time.time() - got["t_chatans"] > 1.5: kid("chat2")
         if s["armed"] is not None:
             if "t_armed" not in got: got["t_armed"] = time.time()
             if time.time() - got["t_armed"] > 1.0: kid("shoulder")

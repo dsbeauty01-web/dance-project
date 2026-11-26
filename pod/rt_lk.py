@@ -116,6 +116,10 @@ INTRO_NOTE = ("[phase] The game has NOT started yet - you are saying hello. Spea
 HEAR = os.environ.get("NOVA_HEAR", "0") == "1"
 HEAR_GAME = (os.environ.get("NOVA_HEAR_GAME", "addressed") or "addressed").strip().lower()   # addressed | all | off  [CLI-FILL] addressed
 HEAR_PIP_LAT_S = float(os.environ.get("NOVA_HEAR_PIP_LAT_S", "2.0"))   # measured on pod k52iq5z760fvfj: a game line asked 56.42 / 67.22 s, heard 59.33 / 70.23 s, of which ~1 s is the brain
+# NOVA-LIVE2 (2026-11-26): with ElevenLabs + the faster face path the small face speaks 1.16 s after the brain releases a line
+# (pod ktzfzx: released ...774.41, page her-voice start page_t 92.16 = ...775.57). With the old 2.0 s the brain believed a
+# hold had swallowed an answer the child had already heard 72 % of, and said it AGAIN after the hold ("Yes, I hear you!" ...
+# "Absolutely, I hear you!" - Refael's and three proof runs). Set after LIVE2 is defined (see LIVE2 block).
 HEAR_OWED_S = float(os.environ.get("NOVA_HEAR_OWED_S", "12"))    # [CLI-FILL] a reply cut by a hold is still worth saying this long
 HEAR_ADDR_RE = __import__("re").compile(r"(\bnova\b|נובה|[?？]\s*$)", __import__("re").I)
 END_NOTE_HEAR = ("[phase] The game section just ended. The ending has the floor now - speak only the lines you are given, "
@@ -196,13 +200,33 @@ LIVE2_SHORT_GAP_S = float(os.environ.get("NOVA_LIVE2_SHORT_GAP_S", "0.0"))
 LIVE2_GAP_S = float(os.environ.get("NOVA_LIVE2_GAP_S", "0.0"))
 # NOVA-LIVE2 hearing (Refael's play 2026-11-25: "Hi, my name is Shuki" -> "People", "I like hip-hop" -> "I like ok"):
 # the English transcribers get a short prompt of what a child says here, so names and kid words win over look-alikes.
-LIVE2_TX_PROMPT_EN = ("A child talks to Nova, a dance teacher. Hi! Hello Nova. My name is Shuki. I'm Dana. I like hip-hop. "
+LIVE2_TX_PROMPT_EN = ("Hi! Hello Nova. My name is Shuki. I'm Dana. I like hip-hop. "
                       "I like pizza, dancing, music, my dog. Yes. Okay. I'm ready. Can you see me?")
+# PROMPT ECHO (rig c2 2026-11-26): on a garbled 2.5 s noise the realtime transcriber returned the prompt itself ("A child talks
+# to Nova, a dance teacher. ...", confidence -0.03) and the REST one a prompt phrase ("I'm ready", -1.75); the turn was validated
+# and she answered noise. The describing sentence is gone from the prompt; a transcript that is only prompt phrases counts as
+# heard only when the transcriber was sure (mean logprob >= LIVE2_ECHO_CONF). Real words measured -0.00 .. -0.92. [CLI-FILL]
+# 2026-11-26, rig c5: even so, the same noise came back as "I'm Dana." (-0.78) - a NAME she would then call the child by (the
+# "Emma" failure again). The prompt is OFF by default now (NOVA_LIVE2_TX_PROMPT=1 turns it back on); the echo guard stays.
+LIVE2_TX_PROMPT = LIVE2 and os.environ.get("NOVA_LIVE2_TX_PROMPT", "0") == "1"
+LIVE2_ECHO_CONF = float(os.environ.get("NOVA_LIVE2_ECHO_CONF", "-1.2"))
+_L2_PH = [__import__("re").sub(r"[^a-z ]", "", x.lower()).strip() for x in __import__("re").split(r"[.!?]", LIVE2_TX_PROMPT_EN) if x.strip()]
+def live2_prompt_echo(text, conf):
+    t = __import__("re").sub(r"[^a-z ]", "", (text or "").lower()).strip()
+    if not t: return False
+    if "talks to nova" in t or "dance teacher" in t: return True          # the old describing sentence, word for word
+    parts = [x.strip() for x in __import__("re").split(r"[.!?]", (text or "").lower()) if x.strip()]
+    parts = [__import__("re").sub(r"[^a-z ]", "", x).strip() for x in parts]
+    if len(parts) >= 4 and all(x in _L2_PH for x in parts): return True   # four or more prompt sentences in a row = the prompt itself
+    return all(x in _L2_PH for x in parts) and conf is not None and conf[0] < LIVE2_ECHO_CONF
 # an unclear turn (dropped, but real voice > LIVE2_SAYAGAIN_MIN_S) gets a short warm "say again" instead of silence / a guess.
 LIVE2_FACE_DELAY_S = float(os.environ.get("NOVA_LIVE2_FACE_DELAY_S", "2.0"))  # her voice reaches the child ~this long after the last chunk leaves (measured 2.6-2.9 s pod dbqdq) [CLI-FILL]
 LIVE2_SAYAGAIN_MIN_S = float(os.environ.get("NOVA_LIVE2_SAYAGAIN_MIN_S", "0.8"))   # [CLI-FILL]
 LIVE2_SAYAGAIN_EVERY_S = float(os.environ.get("NOVA_LIVE2_SAYAGAIN_EVERY_S", "10"))  # [CLI-FILL] Refael's brief: max once per 10 s
 LIVE2_SAYAGAIN = ({"en": "Hm? Say that again?", "he": "הממ? אפשר שוב?"})
+if LIVE2 and "NOVA_HEAR_PIP_LAT_S" not in os.environ: HEAR_PIP_LAT_S = 1.2   # measured 1.16 s (see HEAR_OWED_S note)
+LIVE2_LONG_S = float(os.environ.get("NOVA_LIVE2_LONG_S", "1.8"))
+LIVE2_FAINT_S = float(os.environ.get("NOVA_LIVE2_FAINT_S", "0.5")); LIVE2_FAINT_PEAK = float(os.environ.get("NOVA_LIVE2_FAINT_PEAK", "0.10"))
 LIVE2_SPEC_TIMEOUT_S = float(os.environ.get("NOVA_LIVE2_SPEC_TIMEOUT_S", "4.0"))   # [CLI-FILL] a held answer with no transcript dies
 # NOVA_TTS=eleven (2026-11-25, Refael: "we have ElevenLabs, find the best voice for her"): the brain answers in TEXT and
 #   ElevenLabs speaks it, streamed. English only (Hebrew keeps marin until a Hebrew voice is approved).
@@ -225,25 +249,54 @@ EL_HTTP = EL_MODEL in ("eleven_v4", "eleven_v3") or os.environ.get("NOVA_EL_HTTP
 #  NOVA_EL_CACHE=1: her WRITTEN lines (greeting, re-invites, "say that again", any verbatim line once heard) play from a PCM
 #    cache keyed by voice+model+text: zero voice time (Zara's written lines = 1.38 s).
 EL_FIRST_WORDS = int(os.environ.get("NOVA_EL_FIRST_WORDS", "0"))
+# NOVA_EL_FIRST_MIN=2 (2026-11-26): pods ktzfzx / f18oq7 logged "tts.req clause1_words=1" on most answers ("Yes," / "Ooh,"
+# sent alone): a one-word request, then a hole until clause 2 arrived (4 mid-line voice holes, run ktzfzx) and a prosody seam
+# after the very first word. The first clause now needs 2 words unless it already ends a sentence ("Dana!").
+EL_FIRST_MIN = int(os.environ.get("NOVA_EL_FIRST_MIN", "0"))
 EL_PREV = os.environ.get("NOVA_EL_PREV", "0") == "1"
 EL_ORDER = os.environ.get("NOVA_EL_ORDER", "0") == "1"
 EL_WARM = os.environ.get("NOVA_EL_WARM", "0") == "1"
 EL_CACHE = os.environ.get("NOVA_EL_CACHE", "0") == "1"
 TCACHE = {}        # (voice, model, text) -> pcm16 24 kHz bytes; lives for the whole process (all sessions)
 TCACHE_EXPECT = {"line": None}   # the exact line her next response must say (set when a verbatim/greet line is asked for)
+# LIVE2_ATTITUDE v2 (2026-11-26, Refael: "fully commercial - fast, responsive and smart, with all the skills we have").
+# Built from the skills, rule by rule: ai-companion-presence (react to what the child JUST did, specific praise, memory,
+# 4-6 word reactions), voice-agent-presence (personality = observable speech patterns, never "be friendly"; ban exact
+# strings and pair each with its replacement; examples at exactly the target length beat rules; no trailing wrap-up
+# question - "the single most recognisable tell"), performance-feedback-ai (praise the event, never the trait; never
+# negative words; one thing at a time). Tone stays relaxed-warm (Refael 2026-11-25: "more calm").
 LIVE2_ATTITUDE = (
-    "\n\nATTITUDE (this outranks every style line above): you are relaxed, warm and playful - a smiling big sister, "
-    "NOT a hyper cheerleader and NOT a teacher. Every answer = a tiny real reaction to what they JUST said "
-    "(Ooh! / Aww! / Ha! / No way! / Mmm!) + ONE short line that uses THEIR words or their name. 12 words max. "
-    "Ask a question only sometimes - never every turn. Bring back ONLY what they really told you ('Pizza kid is back!'). "
-    "NEVER guess or invent anything about them - not a name, a job, a hobby, a place (Refael's play 2026-11-25: she "
-    "called him 'Emma' and said 'your chef hands' - he said neither). If you did not clearly hear their words or name, "
-    "say a warm short 'Hm? Say that again?' instead. Never explain, never coach, never list. Examples, at exactly this length:\n"
-    "child: I like pizza. -> Nova: Ooh, pizza! Me too - extra cheese!\n"
+    "\n\nATTITUDE (this outranks every style line above).\n"
+    "WHO: Nova - a relaxed, warm, playful big sister who loves to dance. Calm happy voice with a smile in it. "
+    "Not a cheerleader, not a teacher, not an assistant.\n"
+    "EVERY ANSWER = (1) a tiny real reaction to what they JUST said - Ooh / Aww / Ha! / No way / Mmm / Whoa - a different "
+    "one each time, sometimes none; then (2) ONE short line built from THEIR OWN words. 12 words at most, in all. "
+    "Short everyday words a five-year-old knows. Then stop.\n"
+    "QUESTIONS: at most every second answer, never two answers in a row, and only about the thing they just said. "
+    "Never end with a wrap-up question.\n"
+    "NAME: say it the moment you learn it; after that in about one answer out of three.\n"
+    "MEMORY: when it fits, bring back something they told you earlier ('Pizza AND hip-hop? Best combo.'). Only things "
+    "they really said.\n"
+    "TRUTH: never guess or invent anything about them - not a name, a job, a hobby, a place, a move. If you did not "
+    "clearly hear them, say only: 'Hm? Say that again?'\n"
+    "PRAISE: only for a real thing they said or did, and name that thing. Never praise what they are.\n"
+    "NEVER SAY -> SAY INSTEAD:\n"
+    "- 'Great job!' / 'Good job!' / 'Well done!' -> name the thing: 'Hip-hop! Good pick.'\n"
+    "- 'That's great / awesome / amazing!' -> 'Ooh, ' + their word.\n"
+    "- 'You're amazing / so talented / a superstar' -> say what they did or said.\n"
+    "- 'I'd love to hear...' / 'I'm here to help' / 'How can I help' / 'Tell me more' -> just answer them.\n"
+    "- 'What else?' / 'Anything else?' / 'Are you ready to start?' -> nothing; the game starts by itself.\n"
+    "- 'no' / 'wrong' / 'not quite' / 'don't' -> 'Ooh, close!' / 'Almost!'\n"
+    "- 'buddy' / 'champ' / 'sweetie' / 'kiddo' -> their name, or nothing.\n"
+    "- 'Let me think' / 'I'll say...' / anything about yourself talking -> never; just say the line.\n"
+    "EXAMPLES, at exactly this length:\n"
     "child: My name is Dana. -> Nova: Dana! I love that name.\n"
-    "child: I'm tired. -> Nova: Aww. Sleepy legs? We'll wake them up.\n"
+    "child: I like pizza. -> Nova: Ooh, pizza! Extra cheese for me.\n"
+    "child: I like hip-hop. -> Nova: Ha! Hip-hop makes my feet go.\n"
     "child: I have a dog. -> Nova: No way! What's his name?\n"
-    "child: Can you see me? -> Nova: I see you, Dana! Hi!")
+    "child: I'm tired. -> Nova: Aww, tired. We'll take it easy.\n"
+    "child: Can you see me? -> Nova: I see you! Hi, Dana.\n"
+    "child: I fell down. -> Nova: Whoa. You okay? Up we go.\n")
 # The cut, measured on the hear rig 2026-11-24 (docs/NOVA-GO5-2026-11-24.md part 5): real words mean -0.00 .. -0.82
 # (worst = a half-word "Ha"), noise (hum, garble, music, breath, her voice at echo 0.5) -2.42 .. -4.57. Halfway = -1.6.
 # A transcript under it is noise: dropped like garble, never answered. [CLI-FILL] the midpoint; Hebrew checked separately.
@@ -518,7 +571,7 @@ def session_update(freeze=False, voice=None, lang="en", gender="", page=False, v
                                          # the first piece is dropped when he goes on (rig l2f "Hi ... I'm Shuki"). [CLI-FILL]
                                          "create_response": False, "interrupt_response": False},
                       "transcription": {"model": "gpt-4o-transcribe", "language": lang,
-                                        **({"prompt": LIVE2_TX_PROMPT_EN} if (LIVE2 and lang == "en") else {})}},
+                                        **({"prompt": LIVE2_TX_PROMPT_EN} if (LIVE2_TX_PROMPT and lang == "en") else {})}},
             "output": {"format": {"type": "audio/pcm", "rate": 24000}, "voice": (voice or VOICE)}},
         "max_output_tokens": "inf",
         **({"reasoning": {"effort": RT_EFFORT}} if RT_EFFORT else {}),
@@ -1348,6 +1401,19 @@ async def relay(request):
                 # In Hebrew mode a transcript with ZERO Hebrew letters is mis-heard noise,
                 # not speech (STICKY-HEBREW's own reasoning) — drop it. Single-word
                 # sound-alike yes-words (can/ken/ok...) stay valid: that's a real kid's כן.
+                # NOVA-LIVE2 (rig c2 2026-11-26): a faint scrap - 0.33 s of voice at 7 % of full scale, the tail of a sentence the
+                # half-duplex mic gate had cut - was heard as "Hi!" and she answered "Aww, bye Shuki - come dance again soon!".
+                # A piece that is BOTH under LIVE2_FAINT_S of voice AND under LIVE2_FAINT_PEAK is not a turn. (Refael's own
+                # words on his laptop: page mic peaks 0.13-0.63 of full scale.) [CLI-FILL] both numbers.
+                # NOVA-LIVE2 (rig c4): 2.5 s of garble came back from the REST transcriber as "Hi!" and she answered it. A long
+                # sound (>= LIVE2_LONG_S of voice) that yields one word is unclear, not a turn -> "Hm? Say that again?". [CLI-FILL]
+                if LIVE2 and _drop is None and len(_words) <= 1 and n in utt.get("durs", {}) and utt["durs"][n] - 0.9 >= LIVE2_LONG_S:
+                    _drop = "long sound, one word (%.1f s)" % (utt["durs"][n] - 0.9)
+                if LIVE2 and not _hebrew and _drop is None and live2_prompt_echo(ktxt, conf):
+                    _drop = "prompt echo (%s)" % ("%.2f" % conf[0] if conf else "no conf")
+                if LIVE2 and _drop is None and n in utt.get("peaks", {}):
+                    if utt["durs"][n] - 0.9 < LIVE2_FAINT_S and utt["peaks"][n] < LIVE2_FAINT_PEAK * 32767:
+                        _drop = "faint scrap (%.2f s, peak %.0f%%)" % (utt["durs"][n] - 0.9, utt["peaks"][n] / 327.67)
                 if TX_CONF and _drop is None and conf is not None and conf[0] < TX_CONF_MIN:
                     _drop = "low-confidence %.2f" % conf[0]          # NOVA-GO5: noise heard as words (handoff §5.3)
                 if _hebrew and _drop is None:
@@ -1480,6 +1546,7 @@ async def relay(request):
                             _v = int(_pcm[_i] * _gain)
                             _pcm[_i] = 32767 if _v > 32767 else (-32768 if _v < -32768 else _v)
                         audio = _pcm.tobytes()
+                    utt.setdefault("peaks", {})[n] = _peak; utt.setdefault("durs", {})[n] = len(audio) / 48000.0
                     print("[MIC-LEVEL] utt %d peak %d (%.0f%% full scale) boost x%.1f" %
                           (n, _peak, _peak / 327.67, _gain), flush=True)
                     bio = _io.BytesIO()
@@ -1497,7 +1564,7 @@ async def relay(request):
                         # sentence. (The model upgrade mini -> full stays; only the hint is gone.)
                         f.add_field("model", "gpt-4o-transcribe")
                         f.add_field("language", "he" if _hebrew else "en")
-                        if LIVE2 and not _hebrew: f.add_field("prompt", LIVE2_TX_PROMPT_EN)   # NOVA-LIVE2 hearing
+                        if LIVE2_TX_PROMPT and not _hebrew: f.add_field("prompt", LIVE2_TX_PROMPT_EN)   # NOVA-LIVE2 hearing
                         if TX_CONF: f.add_field("include[]", "logprobs"); f.add_field("response_format", "json")
                         return f
                     async with aiohttp.ClientSession() as _s:
@@ -1631,6 +1698,11 @@ async def relay(request):
                         v2v["await_name"] = False
                         print("[V2V-INTRO] name wait over:", str(m.get("why", ""))[:40], flush=True)
                     elif t == "page_log":
+                        if LIVE2 and str(m.get("kind", "")) in ("v2v-kid", "v2v-chat"):
+                            try:
+                                _nm = (json.loads(m.get("detail") or "{}") if isinstance(m.get("detail"), str) else (m.get("detail") or {})).get("name")
+                                if _nm and isinstance(_nm, str) and 2 <= len(_nm) <= 20: l2n["name"] = _nm
+                            except Exception: pass
                         if HEAR: print("[PAGE]", str(m.get("t", ""))[:8], str(m.get("kind", ""))[:24], str(m.get("detail", ""))[:300], flush=True)
                         if TRACE: tr("page." + str(m.get("kind", ""))[:24], "page_t=" + str(m.get("t", ""))[:8], str(m.get("detail", ""))[:80].replace(" ", "_"))
                     elif t == "nova-say":
@@ -2052,6 +2124,41 @@ async def relay(request):
                     finally:
                         done.set()
                 asyncio.create_task(rx())
+            # NOVA-LIVE2 NAME RULE (2026-11-26; skills: "use the name sparingly"). Rig c4: "Shuki" closed every one of her five
+            # answers, twice in the first ("Ooh, Shuki! Nice to meet you, Shuki.") - the prompt rule alone did not hold. The
+            # page reports the caught name (page_log v2v-kid / v2v-chat); in her spoken answer to the child the name is kept
+            # once when it has not been said in her last 2 answers, and cut as a call-out everywhere else. Her words on
+            # screen and in the gates are untouched; only the voice text is filtered.
+            l2n = {"name": None, "since": 9, "said": False}
+            def l2_name_cut(seg):
+                nm = l2n["name"]
+                if not (LIVE2 and nm and resp.get("origin") == "kid"): return seg
+                # her own spelling of the name drifts from what she heard ("Shukhi" for Shuki, rig c7) and the voice then says
+                # it wrong: a capitalised word that is nearly the caught name IS the name.
+                import difflib as _dl
+                def _fix(mm):
+                    w = mm.group(0)
+                    return nm if (w.lower() != nm.lower() and w[:2].lower() == nm[:2].lower()
+                                  and _dl.SequenceMatcher(None, w.lower(), nm.lower()).ratio() >= 0.75) else w
+                seg = _re.sub(r"\b[A-Z][a-z]{2,}\b", _fix, seg)
+                pat = _re.compile(r"\b" + _re.escape(nm) + r"\b", _re.I)
+                if not pat.search(seg): return seg
+                keep_one = l2n["since"] >= 2 and not l2n["said"]
+                def _cut(txt, keep):
+                    out, pos = "", 0
+                    for mm in pat.finditer(txt):
+                        if keep: keep = False; l2n["said"] = True; continue
+                        a, b = mm.start(), mm.end()
+                        lead = _re.search(r"[\s,\u2014-]*$", txt[pos:a]); a2 = a - len(lead.group(0)) if lead else a
+                        tail = _re.match(r"\s*[,]?\s*", txt[b:]) if a2 == 0 or txt[a2-1:a2] in ".!?" else None
+                        out += txt[pos:a2]; pos = b + (len(tail.group(0)) if tail else 0)
+                        if tail and txt[b:b+1] in "!?." and not tail.group(0): pos = b + 1     # "Shuki! Nice" -> "Nice"
+                    return out + txt[pos:]
+                new = _re.sub(r"\s{2,}", " ", _cut(seg, keep_one)).strip()
+                new = _re.sub(r"^[\s,.!?\u2014-]+", "", new)
+                if new != seg: l2n["cut"] = True
+                if new != seg: print("[LIVE2] name rule:", seg[:50], "->", new[:50], flush=True)
+                return new if _re.search(r"[A-Za-z\u05d0-\u05ea]", new) else ""
             async def tts_send(delta):
                 if not delta: return
                 if tts["ws"] is None: await tts_open()
@@ -2077,8 +2184,12 @@ async def relay(request):
                         _w = tts["pend"].split()
                         _end = _end or bool(_re.search(r"[,.!?;:\u2014]\s*$", tts["pend"])) or (
                             len(_w) > EL_FIRST_WORDS or (len(_w) == EL_FIRST_WORDS and tts["pend"][-1:] in " ,.!?"))
+                    if _end and EL_FIRST_MIN and not tts["flushed"] and len(tts["pend"].split()) < EL_FIRST_MIN \
+                            and not _re.search(r"[.!?]\s*$", tts["pend"]):
+                        _end = False        # NOVA-LIVE2: a lone "Yes," / "Ooh," is not a clause - wait for the next words
                     if _end and tts["pend"].strip():
-                        tts["flushed"] = True; await tts["ws"].put(tts["fetch"](tts["pend"].strip())); tts["pend"] = ""
+                        tts["flushed"] = True; _seg = l2_name_cut(tts["pend"].strip()); tts["pend"] = ""
+                        if _seg: await tts["ws"].put(tts["fetch"](_seg))
                     return
                 # first audio as soon as there are 3 words or a pause mark; then at every pause mark
                 _p = bool(_re.search(r"[,.!?;:\u2014]\s*$", delta))
@@ -2097,8 +2208,13 @@ async def relay(request):
                 if tts["ws"] is not None:
                     try:
                         if EL_HTTP:
-                            if tts.get("pend", "").strip(): await tts["ws"].put(tts["fetch"](tts["pend"].strip()))
+                            _seg = l2_name_cut(tts.get("pend", "").strip()) if tts.get("pend", "").strip() else ""
+                            if _seg: await tts["ws"].put(tts["fetch"](_seg))
                             tts["pend"] = ""; await tts["ws"].put(None)
+                            if LIVE2 and resp.get("origin") == "kid" and l2n["name"]:
+                                # said = kept by the rule, or spoken before the page reported the name (her first answer)
+                                _sd = l2n["said"] or (not l2n.get("cut") and l2n["name"].lower() in (tts.get("text") or "").lower())
+                                l2n["since"] = 0 if _sd else l2n["since"] + 1; l2n["said"] = False; l2n["cut"] = False
                         else:
                             await tts["ws"].send_json({"text": ""})
                         await asyncio.wait_for(tts["done"].wait(), 20)
