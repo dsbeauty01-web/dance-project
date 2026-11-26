@@ -171,6 +171,20 @@ async function joinLiveKit(onVideo, onFace, onWide) {
     room = new LK.Room({ adaptiveStream: false, dynacast: false });
     room.on(LK.RoomEvent.TrackSubscribed, (track, pub, p) => {
       if (p.identity === FACE_ID) {                  // the live face (SoulX): its video is her face, its audio is her voice —
+        // NOVA-LIVE2 SPEED (Zara review 2026-11-26, maya-lt web/join.html attach()): ask the browser for NO extra playout delay
+        // on her audio AND video (same value, so the lips stay in sync). Zara measured 0.5-1.3 s of browser jitter buffer
+        // before this. On when the page flag `live2` is on; `?pd=off` turns it off for an A/B. The browser raises it again
+        // by itself on a bad network.
+        try {
+          const _q = new URLSearchParams(location.search), _f = window.__F4_FLAGS || {};
+          if ((_f.live2 || _q.get('pd') === 'on') && _q.get('pd') !== 'off') {
+            if (track.setPlayoutDelay) track.setPlayoutDelay(0);
+            const rcv = track.receiver;
+            if (rcv && 'playoutDelayHint' in rcv) rcv.playoutDelayHint = 0;
+            if (rcv && 'jitterBufferTarget' in rcv) rcv.jitterBufferTarget = 0;
+            state.pd0 = (state.pd0 || 0) + 1;
+          }
+        } catch (_) {}
         // tools/pod/nova_face.py renders the face FROM those very samples, so voice and face leave the pod together.
         // Only pages that pass onFace take her voice from here (a freeze4 pod has no nova-avatar participant).
         const wideTrack = pub && pub.trackName === 'nova-wide-video';   // NOVA-FINAL: her Ditto body, not the SoulX face
@@ -202,12 +216,13 @@ async function joinLiveKit(onVideo, onFace, onWide) {
       setInterval(async () => {
         try {
           const pc = room.engine && room.engine.pcManager && (room.engine.pcManager.subscriber || room.engine.pcManager.publisher);
-          const st = pc && pc.getStats ? await pc.getStats() : null; let rtt = null, jit = null, lost = null;
+          const st = pc && pc.getStats ? await pc.getStats() : null; let rtt = null, jit = null, lost = null, jbuf = null;
           if (st) st.forEach(x => {
             if (x.type === 'candidate-pair' && x.nominated && x.currentRoundTripTime != null) rtt = Math.round(x.currentRoundTripTime * 1000);
-            if (x.type === 'inbound-rtp' && x.kind === 'audio') { jit = Math.round((x.jitter || 0) * 1000); lost = x.packetsLost; }
+            if (x.type === 'inbound-rtp' && x.kind === 'audio') { jit = Math.round((x.jitter || 0) * 1000); lost = x.packetsLost;
+              if (x.jitterBufferEmittedCount) jbuf = Math.round(1000 * x.jitterBufferDelay / x.jitterBufferEmittedCount); }
           });
-          pageLog('net', { rtt_ms: rtt, jitter_ms: jit, lost });
+          pageLog('net', { rtt_ms: rtt, jitter_ms: jit, lost, audio_jbuf_ms: jbuf, pd0: state.pd0 || 0 });
         } catch (e) {}
       }, 5000);
     } catch (e) {}

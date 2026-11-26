@@ -134,6 +134,16 @@ class DittoRenderer:
     def reset(self):
         self.delay = np.zeros(self.prime * STEP, np.float32)
 
+    def burst_ok(self):
+        """NOVA-LIVE2 BURST (Zara _sync_skip_ok): the head of the delay line is idle silence AND voice is already behind it."""
+        d = self.delay
+        if not len(d) or np.max(np.abs(d[:STEP])) >= SILENT: return False
+        return bool(np.max(np.abs(d)) >= SILENT)
+
+    def burst_behind(self):
+        """after a render: voice is still in the delay line (a line is on its way) - the idle head pairs just returned may go."""
+        return bool(len(self.delay) and np.max(np.abs(self.delay)) >= SILENT)
+
     def render(self, audio):
         drive = self.gate(audio) if self.gate is not None else audio
         r = self.U.Request(self.url + "/render", data=np.ascontiguousarray(drive, np.float32).tobytes(), method="POST")
@@ -207,6 +217,18 @@ START_IDLE_MS = float(E("FACE_START_IDLE_MS", "120"))
 WAIT_MS = float(E("FACE_WAIT_MS", "0"))
 LEAD_FRAMES = int(E("FACE_LEAD_FRAMES", "0"))
 PUB = {"due": 0.0}                    # wall time the publisher will need its next chunk (set when it takes one)
+# NOVA-LIVE2 BURST (Zara review 2026-11-26; maya-lt lane/cohost-live lk_cohost/ditto_avatar.py _burst_on/_sync_skip_ok, Zara
+# LK_SYNC_SKIP=1 LK_SYNC_BURST=1 LK_SYNC_BURST_KEEP=2 LK_SYNC_SKIP_MAX=4). Default OFF = unchanged.
+# Every Ditto frame leaves PRIME frames after its audio went in, so her voice waits PRIME x 40 ms (1.04 s) to stay in sync.
+# When a line starts, the delay line in front of it holds IDLE silence (she was quiet). Those idle (frame, silence) pairs need
+# not be PLAYED at 25 fps: the renderer runs back to back (no LEAD wait, up to BURST_MAX chunks ahead) and the head pairs that
+# are pure idle silence are dropped, keeping BURST_KEEP per chunk so the body never visibly jumps. Pairs are dropped
+# together, so the lip offset stays exactly 0. The moment the head of the line is voiced, bursting stops.
+BURST = E("FACE_BURST", "0") == "1"
+BURST_KEEP = int(E("FACE_BURST_KEEP", "2"))
+BURST_MAX = int(E("FACE_BURST_MAX", "4"))
+SILENT = 1e-5
+BURST_IDLE_F = int(E("FACE_BURST_IDLE_FRAMES", "15"))   # 0.6 s of silence on the output = between lines [CLI-FILL]
 VS = {"mid": False, "last_in": 0.0, "pad_at": None}
 S.update({"voice_pads": 0, "voice_holes": 0, "voice_prebuf_waits": 0, "voice_lines": [], "voice_hole_log": [], "voice_holes_midline": 0})
 
@@ -285,9 +307,15 @@ def render_loop(R):
                 if n and mode == "pip" and have_speech.is_set() and not ready[-1]["speech"] and ready[-1]["mode"] == "pip":
                     ready.pop(); n -= 1
             if n == 0 or (DUAL and S["mode"] != mode): break
+            if BURST and mode == "wide" and n < BURST_MAX and S.get("out_sil", 999) >= BURST_IDLE_F and hasattr(r, "burst_ok") and r.burst_ok(): break   # NOVA-LIVE2 BURST
             have_speech.wait(0.01)
         if DUAL and S["mode"] != mode: continue
-        if LEAD_FRAMES and mode == "wide":            # NOVA-LIVE2: build the next chunk just in time (Zara LEAD_FRAMES)
+        # only between lines: her previous line has been silent on the OUTPUT for >= BURST_IDLE_F frames (Zara: never skip a
+        # frame that belongs to a line - a pause inside her sentence keeps its length)
+        _idle_out = S.get("out_sil", 999) >= BURST_IDLE_F
+        _bursting = BURST and mode == "wide" and _idle_out and hasattr(r, "burst_ok") and r.burst_ok()
+        S["bursting"] = _bursting
+        if LEAD_FRAMES and mode == "wide" and not _bursting:   # NOVA-LIVE2: build the next chunk just in time (Zara LEAD_FRAMES)
             while time.time() < PUB["due"] - LEAD_FRAMES / FPS and not (DUAL and S["mode"] != mode):
                 time.sleep(0.005)
         _first = START_FULL and not VS["mid"] and bool(pending)
@@ -313,16 +341,29 @@ def render_loop(R):
             S["error"] = "render: " + repr(e)[:300]; log("RENDER ERROR", e); time.sleep(0.2); continue
         if isinstance(out, tuple): frames, pub_audio = out          # Ditto: the voice that belongs to these frames
         else: frames, pub_audio = out, audio
+        if mode == "wide" and isinstance(out, tuple) and len(frames) * STEP == len(pub_audio):   # output-side silence count
+            _v = [np.max(np.abs(pub_audio[j * STEP:(j + 1) * STEP])) >= SILENT for j in range(len(frames))]
+            _sil_before = S.get("out_sil", 999)
+            S["out_sil"] = (len(_v) - 1 - max(j for j, x in enumerate(_v) if x)) if any(_v) else _sil_before + len(_v)
+        else: _sil_before = 0
+        if BURST and mode == "wide" and _sil_before >= BURST_IDLE_F and isinstance(out, tuple) and len(frames) * STEP == len(pub_audio) and r.burst_behind():
+            # NOVA-LIVE2 BURST: drop the head (frame, idle-silence) pairs of this chunk, keep BURST_KEEP; never a voiced pair
+            k = 0
+            while k < len(frames) and np.max(np.abs(pub_audio[k * STEP:(k + 1) * STEP])) < SILENT: k += 1
+            drop = max(0, min(k, len(frames)) - BURST_KEEP)
+            if drop:
+                frames = frames[drop:]; pub_audio = pub_audio[drop * STEP:]
+                S["burst_dropped"] = S.get("burst_dropped", 0) + drop; S["burst_chunks"] = S.get("burst_chunks", 0) + 1
         ms = (time.time() - t) * 1000
         (S["wide_ms"] if mode == "wide" else S["render_ms"]).append(ms)
         if mode == "wide" and ms > n_f * 40: S["wide_late"] += 1
         if speech:
             S["speech_chunks"] += 1
             if mode == "pip":
-                g = cv2.cvtColor(frames[n_f // 2], cv2.COLOR_BGR2GRAY)
+                g = cv2.cvtColor(frames[min(n_f // 2, len(frames) - 1)], cv2.COLOR_BGR2GRAY)
                 S["sharp"].append(float(cv2.Laplacian(g[96:416, 96:416], cv2.CV_64F).var()))   # centre of the face
             if S["speech_chunks"] <= 3 or S["speech_chunks"] % 15 == 0:
-                cv2.imwrite(os.path.join(OUT, f"published_{mode}_speech_{S['speech_chunks']:03d}.jpg"), frames[n_f // 2])
+                cv2.imwrite(os.path.join(OUT, f"published_{mode}_speech_{S['speech_chunks']:03d}.jpg"), frames[min(n_f // 2, len(frames) - 1)])
         rgba = None
         if WIDE_PREP and mode == "wide":                    # NOVA-GO2: the publisher's per-frame resize+convert, done here
             rgba = [cv2.cvtColor(cv2.resize(f, (WIDE_W, WIDE_H), interpolation=cv2.INTER_AREA) if f.shape[1] != WIDE_W else f,
@@ -451,7 +492,7 @@ async def publisher():
         PUB["due"] = time.time() + (len(ch["frames"]) if ch else 4) / FPS
         if ch is None:                                  # renderer late: hold the last frame, silence — never a black frame
             S["underruns"] += 1
-            m = S["mode"] if DUAL else "pip"; n = 4 if m == "wide" else CHUNK
+            m = S["mode"] if DUAL else "pip"; n = (1 if S.get("bursting") else 4) if m == "wide" else CHUNK
             lf = last[m] if last[m] is not None else (S.get("pip_first", np.zeros((512, 512, 3), np.uint8)) if m == "pip" else None)
             _hold = "last"
             if last_speech[m] and closed[m] is not None and E("FACE_UNDERRUN_CLOSED", "0") == "1":
@@ -564,6 +605,7 @@ def stats():
             "wide_render_ms_p50": q(sorted(S["wide_ms"]), .5), "wide_render_ms_p95": q(sorted(S["wide_ms"]), .95),
             "wide_chunks_late": S["wide_late"], "wide_chunks": len(S["wide_ms"]),
             "pub_late_frames": S["pub_late_frames"], "pub_max_lag_ms": S["pub_max_lag_ms"], "pub_reanchors": S["pub_reanchors"],
+            "burst": BURST, "burst_dropped": S.get("burst_dropped", 0), "burst_chunks": S.get("burst_chunks", 0),
             "rec_dropped": S["rec_dropped"], "rec_thread": REC_THREAD, "pub_steady": PUB_STEADY,
             "voice_prebuf_ms": PREBUF_MS, "start_full": START_FULL, "wait_ms": WAIT_MS, "lead_frames": LEAD_FRAMES, "voice_pads": S["voice_pads"], "voice_holes": S["voice_holes"], "voice_prebuf_waits": S["voice_prebuf_waits"], "voice_lines": S["voice_lines"], "voice_holes_midline": S["voice_holes_midline"], "voice_hole_log": S["voice_hole_log"][-10:], "underrun_log": S.get("underrun_log", [])[-40:], "drive_gate": DRIVE_GATE, "gate_chunks": S.get("gate_chunks", 0), "gate_frac_mean": round(S.get("gate_frac_sum", 0) / max(1, S.get("gate_chunks", 0)), 3)}
 
