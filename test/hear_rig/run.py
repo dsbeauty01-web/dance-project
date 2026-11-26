@@ -53,6 +53,13 @@ try:
             if "t_chatans" not in got: got["t_chatans"] = time.time()
             # rig fix 2026-11-26: chat2 only after chat was said AND answered (run c1: both wavs played at once)
             if "chat" in said and time.time() - t0 - said["chat"] > 14.0 and time.time() - got["t_chatans"] > 1.5: kid("chat2")
+        # NOVA_BARGE rig: over:<wav> = the child talks OVER her answer to `chat` (0.9 s after her voice starts)
+        if "over" in say and "chat" in said and "over" not in said:
+            nst = pg.evaluate("() => (window.freeze4Log || []).filter(e => e.kind === 'her-voice' && e.detail === 'start').length")
+            if "n_her0" not in got: got["n_her0"] = nst
+            elif nst > got["n_her0"]:
+                if "t_her_over" not in got: got["t_her_over"] = time.time()
+                if time.time() - got["t_her_over"] > 0.9: kid("over")
         if s["armed"] is not None:
             if "t_armed" not in got: got["t_armed"] = time.time()
             if time.time() - got["t_armed"] > 1.0: kid("shoulder")
@@ -69,6 +76,8 @@ try:
         if s["banner"]: shot("X-banner"); time.sleep(1); break
         time.sleep(0.1)
     L = pg.evaluate("() => window.freeze4Log || []"); mic = pg.evaluate("() => ({ kid: window.__kidMic, her: (window.__rigHer || []).length })")
+    try: json.dump(pg.evaluate("() => window.__bargeDbg || []"), open(os.path.join(out, "barge.json"), "w"))
+    except Exception: pass
     json.dump({"log": L, "said": said, "shots": got, "mic": mic}, open(os.path.join(out, "page.json"), "w"))
     open(os.path.join(out, "console.log"), "w").write("\n".join(logs))
     for e in L:

@@ -257,6 +257,32 @@ EL_PREV = os.environ.get("NOVA_EL_PREV", "0") == "1"
 EL_ORDER = os.environ.get("NOVA_EL_ORDER", "0") == "1"
 EL_WARM = os.environ.get("NOVA_EL_WARM", "0") == "1"
 EL_CACHE = os.environ.get("NOVA_EL_CACHE", "0") == "1"
+# NOVA_EL_OPENERS=1 (2026-11-26, Refael "hurry up": back to <= 2.5 s). Pod 054kbp: her first sound came 1.27-1.45 s after
+#   the detector - 0.58-0.76 s of that is ElevenLabs v4's own first byte. Her answers open with a tiny reaction word from a
+#   closed set (ATTITUDE: Ooh / Aww / Ha / No way / Mmm / Whoa). That word is rendered ONCE per process in her voice and
+#   played from memory the moment the model writes it (0 ms voice time); the rest of the line is fetched as before, with
+#   the opener as previous_text. An answer with no opener is unchanged.
+EL_OPENERS = os.environ.get("NOVA_EL_OPENERS", "0") == "1"
+OPENER_WORDS = ("Ooh", "Aww", "Ha", "No way", "Whoa", "Mmm", "Wow", "Oh", "Yay", "Hm")
+OPENER_RE = __import__("re").compile(r"^\s*(ooh|aww|ha|no way|whoa|mmm|wow|oh|yay|hm)\s*([,!.?]|\u2014|-)+\s*(?=\S)", __import__("re").I)
+TOPEN = {}         # opener word (lower) -> pcm16 24 kHz, trimmed
+def _pcm_trim(b, lead_ms=20, tail_ms=90, thr=400):
+    """cut the silence around a rendered opener (keep a short tail so the next clause does not collide)"""
+    import array
+    a = array.array("h", b[:len(b) // 2 * 2]); n = len(a)
+    if not n: return b
+    i = 0
+    while i < n and abs(a[i]) < thr: i += 1
+    j = n - 1
+    while j > i and abs(a[j]) < thr: j -= 1
+    i = max(0, i - 24 * lead_ms); j = min(n, j + 24 * tail_ms)
+    return a[i:j].tobytes()
+# NOVA_BARGE=1 (2026-11-26): the child talks over her -> she stops and listens. The PAGE detects it on its echo-cancelled
+#   microphone (shared/nova-bridge.js, level well above her own echo for >= 0.4 s) and sends {type:"barge"}; the brain
+#   cancels her line, empties the voice queue, cuts the face server's line (/interrupt_talk) and opens the mic. Only her
+#   conversation lines (answers, greeting, re-invites) can be interrupted - never a game line. [CLI-FILL] 0.3 s guard.
+BARGE = os.environ.get("NOVA_BARGE", "0") == "1"
+BARGE_GUARD_S = float(os.environ.get("NOVA_BARGE_GUARD_S", "0.3"))
 TCACHE = {}        # (voice, model, text) -> pcm16 24 kHz bytes; lives for the whole process (all sessions)
 TCACHE_EXPECT = {"line": None}   # the exact line her next response must say (set when a verbatim/greet line is asked for)
 # LIVE2_ATTITUDE v2 (2026-11-26, Refael: "fully commercial - fast, responsive and smart, with all the skills we have").
@@ -297,6 +323,26 @@ LIVE2_ATTITUDE = (
     "child: I'm tired. -> Nova: Aww, tired. We'll take it easy.\n"
     "child: Can you see me? -> Nova: I see you! Hi, Dana.\n"
     "child: I fell down. -> Nova: Whoa. You okay? Up we go.\n")
+# NOVA_ATT_SHORT=1 (2026-11-26): the same rules with the prose cut (examples kept - they set the length), to test whether the
+# long block slows the model's first text (pod 054kbp: 0.58-0.71 s vs 0.33-0.35 s before v2).
+if os.environ.get("NOVA_ATT_SHORT", "0") == "1":
+    LIVE2_ATTITUDE = (
+        "\n\nATTITUDE (outranks every style line above). You are Nova: a relaxed, warm, playful big sister who dances. "
+        "Calm, smiling voice. Each answer: a tiny reaction to what they JUST said (Ooh / Aww / Ha! / No way / Mmm / Whoa - "
+        "vary it, sometimes none), then ONE short line built from THEIR words. 12 words max, words a five-year-old knows. "
+        "A question at most every second answer, never as a wrap-up. Their name: once when you learn it, then about one "
+        "answer in three. Bring back things they really told you. Never guess or invent anything about them; if you did not "
+        "hear clearly say only 'Hm? Say that again?'. Praise only a real thing they said or did, by name. Never: 'Great "
+        "job', 'That's awesome', 'You're amazing', 'I'm here to help', 'Tell me more', 'What else?', 'no', 'wrong', "
+        "'buddy', 'champ', or anything about yourself talking.\n"
+        "EXAMPLES, at exactly this length:\n"
+        "child: My name is Dana. -> Nova: Dana! I love that name.\n"
+        "child: I like pizza. -> Nova: Ooh, pizza! Extra cheese for me.\n"
+        "child: I like hip-hop. -> Nova: Ha! Hip-hop makes my feet go.\n"
+        "child: I have a dog. -> Nova: No way! What's his name?\n"
+        "child: I'm tired. -> Nova: Aww, tired. We'll take it easy.\n"
+        "child: Can you see me? -> Nova: I see you! Hi, Dana.\n"
+        "child: I fell down. -> Nova: Whoa. You okay? Up we go.\n")
 # The cut, measured on the hear rig 2026-11-24 (docs/NOVA-GO5-2026-11-24.md part 5): real words mean -0.00 .. -0.82
 # (worst = a half-word "Ha"), noise (hum, garble, music, breath, her voice at echo 0.5) -2.42 .. -4.57. Halfway = -1.6.
 # A transcript under it is noise: dropped like garble, never answered. [CLI-FILL] the midpoint; Hebrew checked separately.
@@ -779,7 +825,7 @@ async def relay(request):
         # MID-GAME TOKEN CAP (MACHINE-CERTIFY en-5): a model that ignores "very short"
         # simply runs out of tokens.
         if cap and payload: payload["max_output_tokens"] = cap
-        if origin: resp["origin"] = origin
+        if origin: resp["origin"] = origin; resp["last_origin"] = origin   # last_origin: NOVA_BARGE (her line is still AUDIBLE after response.done)
         speaking["sent"] = time.time()                    # NOVA_HEAR (d): when the last response was asked for
         # ONE send per boundary — with one exception, and it is an old lesson, not a new
         # loophole: the ENDING is a section the page stages as a group (score line + fun
@@ -1005,7 +1051,7 @@ async def relay(request):
             await oai.send_json(session_update(freeze=_freeze_mode, voice=_voice,
                                                lang=("he" if _hebrew else "en"), gender=_gender,
                                                page=_intro.startswith("page"), v2v=_v2v, text_out=_tts_eleven))
-            if _tts_eleven and (EL_WARM or EL_CACHE):
+            if _tts_eleven and (EL_WARM or EL_CACHE or EL_OPENERS):
                 async def _el_warm_prefill():
                     """NOVA-LIVE2: warm the TLS connection now; render her written lines into the cache once per process."""
                     t_ = time.time()
@@ -1015,6 +1061,20 @@ async def relay(request):
                                                 timeout=aiohttp.ClientTimeout(total=8)) as r_: await r_.read()
                             print("[TTS] warm-up %d ms" % ((time.time() - t_) * 1000), flush=True)
                         except Exception as _e: print("[TTS] warm-up failed", str(_e)[:80], flush=True)
+                    if EL_OPENERS:
+                        for w_ in OPENER_WORDS:
+                            if w_.lower() in TOPEN: continue
+                            try:
+                                async with http.post(f"https://api.elevenlabs.io/v1/text-to-speech/{EL_VOICE}?output_format=pcm_24000",
+                                                     headers={"xi-api-key": EL_KEY, "Content-Type": "application/json"},
+                                                     json={"text": w_ + "!", "model_id": EL_MODEL, "language_code": "en",
+                                                           "voice_settings": {"stability": 0.5, "similarity_boost": 0.8}},
+                                                     timeout=aiohttp.ClientTimeout(total=20)) as r_:
+                                    if r_.status == 200:
+                                        TOPEN[w_.lower()] = _pcm_trim(await r_.read())
+                                    else: print("[TTS] opener", w_, "http", r_.status, flush=True)
+                            except Exception as _e: print("[TTS] opener failed", w_, str(_e)[:60], flush=True)
+                        print("[TTS] openers ready:", {k: round(len(v) / 48000, 2) for k, v in TOPEN.items()}, flush=True)
                     if EL_CACHE:
                         lines = [V2V_GREET_LINE, LIVE2_SAYAGAIN["en"]] + [a for a, _ in REINVITE_LINES]
                         for ln in lines:
@@ -1697,6 +1757,30 @@ async def relay(request):
                         # the page has its name (or its safety ran out) and takes the light beat: no re-invite from here
                         v2v["await_name"] = False
                         print("[V2V-INTRO] name wait over:", str(m.get("why", ""))[:40], flush=True)
+                    elif t == "barge" and LIVE2 and BARGE:
+                        # NOVA_BARGE: the page heard the child talk OVER her (echo-cancelled mic, well above her echo, >= 0.4 s)
+                        # the PAGE knows she is audible (the brain's line is long done by then: face delay + play-out, rig r5d)
+                        _busy = speaking["resp_active"] or speaking["v"] or not engine_q.empty()
+                        _org = resp.get("origin") or resp.get("last_origin")
+                        _ok = not sgate["on"] and _org in ("kid", "greet", "reinvite")
+                        tr("barge", "ok=%s busy=%s origin=%s lvl=%s floor=%s" % (_ok, _busy, _org, m.get("level"), m.get("floor")))
+                        if not _ok:
+                            print("[BARGE] ignored (busy=%s gate=%s origin=%s)" % (_busy, sgate["on"], _org), flush=True)
+                        else:
+                            print("[BARGE] the child talked over her - she stops and listens", flush=True)
+                            resp["killed"] = True; resp["spec_hold"] = False; audio_buf.clear()
+                            if speaking["resp_active"]: await cancel_speech("barge-in (the child talked over her)")
+                            try: tts["gen"] += 1; await tts_close("barge-in")
+                            except Exception: pass
+                            while not engine_q.empty():
+                                try: engine_q.get_nowait()
+                                except Exception: break
+                            try:
+                                async with http.post(ENGINE + "/interrupt_talk", json={"cut": True},
+                                                     timeout=aiohttp.ClientTimeout(total=2)) as _r: await _r.read()
+                            except Exception as _e: print("[BARGE] face cut failed", str(_e)[:60], flush=True)
+                            speaking["v"] = False; speaking["last_chunk"] = 0.0
+                            await ws_client.send_json({"type": "status", "speaking": False, "state": "listening", "barged": True})
                     elif t == "page_log":
                         if LIVE2 and str(m.get("kind", "")) in ("v2v-kid", "v2v-chat"):
                             try:
@@ -2026,7 +2110,7 @@ async def relay(request):
                 if EL_HTTP:
                     # NOVA_EL_HTTP: clauses go out one by one, in order, on the HTTP streaming endpoint (eleven_v4)
                     q = asyncio.Queue(); done = asyncio.Event(); tts["gen"] += 1; mygen = tts["gen"]
-                    tts.update(ws=q, done=done, text="", flushed=False, pend="", cache_key=None, from_cache=False)
+                    tts.update(ws=q, done=done, text="", flushed=False, pend="", cache_key=None, from_cache=False, opener=None, opener_tried=False)
                     tr("tts.open")
                     first_byte = asyncio.Event()                    # NOVA_EL_ORDER: clause 1 has its first byte
                     tts["nclause"] = 0; tts["sent_text"] = ""
@@ -2039,7 +2123,7 @@ async def relay(request):
                           if EL_ORDER and idx > 0:
                               try: await asyncio.wait_for(first_byte.wait(), 3.0)
                               except asyncio.TimeoutError: pass
-                          use_prev = EL_PREV and idx > 0 and bool(prev)
+                          use_prev = EL_PREV and bool(prev) and (idx > 0 or bool(tts.get("opener")))
                           for _try in range(3):     # ElevenLabs starter plan: concurrency limit -> 429; never lose a clause
                             try:
                               async with tts_sem:
@@ -2087,7 +2171,7 @@ async def relay(request):
                                     c = await cq.get()
                                     if c is None: break
                                     if tts["gen"] != mygen: continue           # a newer line took over: never mix two
-                                    if first: first = False; tr("tts.first_audio", "cached" if tts.get("from_cache") else "")
+                                    if first: first = False; tr("tts.first_audio", "cached" if tts.get("from_cache") else "opener" if tts.get("opener") else "")
                                     if EL_CACHE and tts.get("cache_key"): got += c
                                     await evq.put({"type": "response.output_audio.delta", "delta": base64.b64encode(c).decode()})
                             if EL_CACHE and tts.get("cache_key") and not tts.get("from_cache") and len(got) > 4800 \
@@ -2176,6 +2260,20 @@ async def relay(request):
                     if tts.get("from_cache"): return        # the model's words are kept for the gates; the audio is cached
                     # a clause goes out at its end mark; the FIRST one already at a comma once it has 2+ words
                     tts["pend"] += delta
+                    if EL_OPENERS and not tts["flushed"] and not tts["opener_tried"] and not tts.get("cache_key"):
+                        _m = OPENER_RE.match(tts["pend"])
+                        if _m and TOPEN.get(_m.group(1).lower()):
+                            # NOVA-LIVE2: her reaction word plays from memory NOW; the rest of the line follows as clause 1
+                            tts["opener_tried"] = True; tts["opener"] = _m.group(0).strip()
+                            tts["sent_text"] += " " + tts["opener"]; tts["pend"] = tts["pend"][_m.end():]
+                            tr("tts.opener", _m.group(1).lower())
+                            await tts["ws"].put(tts["cached"](TOPEN[_m.group(1).lower()]))
+                        elif len(tts["pend"].split()) >= 3 or _re.search(r"[.!?]\s*\S", tts["pend"]) or (
+                                len(tts["pend"]) > 8 and not _re.match(r"^\s*(ooh|aww|ha|no way|whoa|mmm|wow|oh|yay|hm)\b", tts["pend"], _re.I)):
+                            tts["opener_tried"] = True
+                        elif not _re.search(r"[.!?]\s*$", tts["pend"]) or _re.match(
+                                r"^\s*(ooh|aww|ha|no way|whoa|mmm|wow|oh|yay|hm)\s*[,!.?\u2014-]+\s*$", tts["pend"], _re.I):
+                            return                      # could still become an opener: wait for the next delta (a few ms)
                     _end = bool(_re.search(r"[.!?;:\u2014]\s*$", tts["pend"])) or (
                         not tts["flushed"] and _re.search(r",\s*$", tts["pend"]) and len(tts["pend"].split()) >= 2)
                     if EL_FIRST_WORDS and not tts["flushed"]:

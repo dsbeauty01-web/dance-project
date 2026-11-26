@@ -13,6 +13,13 @@ async def humanaudio(req):
     w = wave.open(io.BytesIO(b)); pcm = w.readframes(w.getnframes())
     await S["q"].put((time.time(), pcm, S["mode"]))
     return web.json_response({"code": 0, "data": len(pcm) // 2})
+async def interrupt_talk(req):
+    # NOVA_BARGE: cut the line (queued voice dropped, the piece loop stops) - as tools/pod/nova_face.py {"cut": true}
+    S["cut_t"] = time.time(); n = 0
+    while not S["q"].empty():
+        S["q"].get_nowait(); n += 1
+    log("CUT (barge-in): dropped", n, "queued pieces")
+    return web.json_response({"code": 0})
 async def face_mode(req):
     m = req.query.get("m", ""); S["mode"] = m; log("face mode ->", m)
     for c in list(S["clients"]):
@@ -32,17 +39,19 @@ async def pump():
         t_in, pcm, mode = await S["q"].get()
         start = max(t_in + DELAY.get(mode, 1.0), t_free)          # constant pipeline delay, lines never overlap
         if t_free < t_in: log("line starts: fed %.2f, audible in %.2f s (%s)" % (t_in % 1000, start - time.time(), mode))
+        if t_in < S.get("cut_t", 0): continue
         for i in range(0, len(pcm), 6400):                         # 0.2 s pieces, real time
+            if t_in < S.get("cut_t", 0): t_free = time.time(); break
             piece = pcm[i:i + 6400]; due = start + (i / 2) / SR
             d = due - time.time() - 0.15                           # sent 150 ms early: the shim schedules by due time
             if d > 0: await asyncio.sleep(d)
             for c in list(S["clients"]):
                 try: await c.send_bytes(np.float64(due).tobytes() + piece)
                 except Exception: pass
-        t_free = start + (len(pcm) / 2) / SR
+        else: t_free = start + (len(pcm) / 2) / SR
 async def main():
     S["q"] = asyncio.Queue(); app = web.Application(client_max_size=64 * 1024 * 1024)
-    app.router.add_post("/humanaudio", humanaudio); app.router.add_get("/face_mode", face_mode)
+    app.router.add_post("/humanaudio", humanaudio); app.router.add_get("/face_mode", face_mode); app.router.add_post("/interrupt_talk", interrupt_talk)
     app.router.add_get("/", health); app.router.add_get("/rigaudio", rigaudio)
     r = web.AppRunner(app); await r.setup(); await web.TCPSite(r, "127.0.0.1", 8010).start(); log("on 8010")
     await pump()

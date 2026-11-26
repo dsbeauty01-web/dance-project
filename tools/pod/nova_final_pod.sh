@@ -78,6 +78,10 @@ if [ "${NF_GO5:-1}" = 1 ] && [ "${NF_CLOSED:-1}" = 1 ] && [ "$(basename "$DITTO_
 #   lines from a PCM cache. Browser playout delay 0 is the page flag live2 (?pd=off for an A/B).
 [ "${NF_LIVE2:-0}" = 1 ] && export FACE_BURST=${FACE_BURST:-1} NOVA_EL_FIRST_WORDS=${NOVA_EL_FIRST_WORDS:-4} NOVA_EL_FIRST_MIN=${NOVA_EL_FIRST_MIN:-2} NOVA_EL_PREV=${NOVA_EL_PREV:-1} \
   NOVA_EL_ORDER=${NOVA_EL_ORDER:-1} NOVA_EL_WARM=${NOVA_EL_WARM:-1} NOVA_EL_CACHE=${NOVA_EL_CACHE:-1}
+# NOVA-LIVE2 round 5 (2026-11-26, Refael "hurry up"): NOVA_EL_OPENERS=1 her reaction word ("Ooh!") plays from memory at the
+#   model's first text (v4's 0.6-0.75 s first byte no longer sits in front of every answer) · NOVA_BARGE=1 + FACE_CUT=1 +
+#   page flag `barge`: the child talks over her -> she stops within a chunk and listens.
+[ "${NF_LIVE2:-0}" = 1 ] && export NOVA_EL_OPENERS=${NOVA_EL_OPENERS:-1} NOVA_BARGE=${NOVA_BARGE:-1} FACE_CUT=${FACE_CUT:-1}
 [ "$NF_AUDIT" = 1 ] && export NF_PROOF_REPLAY=${NF_PROOF_REPLAY:-own-right-up,frozen-body,dance-hype,still-sway} NF_REC_FIX=${NF_REC_FIX:-1} FACE_VOICE_PREBUF_MS=${FACE_VOICE_PREBUF_MS:-400} FACE_REC_THREAD=${FACE_REC_THREAD:-1} FACE_PUB_STEADY=${FACE_PUB_STEADY:-1} FACE_WIDE_SOURCE=${FACE_WIDE_SOURCE:-camera} FACE_WIDE_TS=${FACE_WIDE_TS:-1}
 # ── NOVA-GO2 (2026-11-23; docs/NOVA-FIX-2026-11-23.md): NF_GO2=1 (default on in this build; 0 = the nova-go build as it was)
 #    · FACE_WIDE_SMOOTH=1  her wide track: one layer (no simulcast), keep the frame rate (tools/pod/nova_face.py)
@@ -158,7 +162,7 @@ NF_GO5=${NF_GO5:-1}
 # NOVA-LIVE2 (2026-11-25, docs/NOVA-LIVE2-2026-11-25.md): NF_LIVE2=1 -> early-start answers (held until the turn is validated),
 #   smart listening sounds (page flag live2), her relaxed attitude, her ElevenLabs voice Kymmiee in English (page flag eleven,
 #   brain NOVA_TTS=eleven), and the confidence cut OFF (-9, log only): Refael's own clear "Okay" scored -2.80 on his laptop mic 2026-11-25 = inside the noise range, so the cut drops real players.
-[ "${NF_LIVE2:-0}" = 1 ] && grep -q 'react: true' $P/beta/freeze4-flags.js && sed -i 's/react: true };/react: true, live2: true, eleven: true };/' $P/beta/freeze4-flags.js && export NOVA_LIVE2=1 NOVA_TTS=${NOVA_TTS:-eleven} NOVA_TX_CONF_MIN=${NOVA_TX_CONF_MIN:--9}
+[ "${NF_LIVE2:-0}" = 1 ] && grep -q 'react: true' $P/beta/freeze4-flags.js && sed -i 's/react: true };/react: true, live2: true, eleven: true, barge: true };/' $P/beta/freeze4-flags.js && export NOVA_LIVE2=1 NOVA_TTS=${NOVA_TTS:-eleven} NOVA_TX_CONF_MIN=${NOVA_TX_CONF_MIN:--9}
 [ "${NF_LIVE2:-0}" = 1 ] && stage "live2: flags $(grep -o 'live2[^}]*' $P/beta/freeze4-flags.js) tts=${NOVA_TTS} eleven_key=$([ -n "$ELEVENLABS_API_KEY" ] && echo set || echo MISSING)"
 stage "page flags: $(cat $P/beta/freeze4-flags.js | cut -c1-230) | NOVA_HEAR=${NOVA_HEAR:-0} NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-0} NOVA_FAST_KID=${NOVA_FAST_KID:-0}"
 

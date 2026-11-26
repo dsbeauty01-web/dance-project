@@ -146,7 +146,7 @@ import { createLocalBrain } from './lib/brain-local.js';
 import { runDoctor } from './lib/doctor.js';
 import { attachNova, routeVoice, note, onHerAudio, bridgeState, primeAudio, micState, restartMic, pageLog, liveIntro } from '../shared/nova-bridge.js';
 import { catchName } from './lib/name-catch.js';
-import { holdMicFor } from '../shared/nova-bridge.js';
+import { holdMicFor, setBarge } from '../shared/nova-bridge.js';
 import { createFacePanel } from '../shared/face-panel.js';
 import { mountFacePip } from '../shared/face-pip.js';
 import { createShoulderBeat, LINES as SHOULDER_LINES, HE_NEUTRAL } from './lib/shoulder-beat.js';
@@ -478,6 +478,10 @@ addEventListener('nova:kid', () => { if (!FLAG('live2')) maybeHum(); });
    · never over her own voice, only in the wide phases (intro, ending).
    Voice: Kymmiee's own hums (audio/react/k_hum1-3, ElevenLabs v4) when the page runs her ElevenLabs voice (flag `eleven`). */
 const smart = { last: -1e9, prevTurnHummed: false };
+/* NOVA_BARGE (flag `barge`, with live2): the child talks over her -> the bridge tells the brain, she stops and listens */
+setBarge(FLAG('live2') && FLAG('barge'));
+addEventListener('nova:barge', e => log('barge', 'child over her: level ' + e.detail.level + ' floor ' + e.detail.floor));
+addEventListener('nova:barged', () => log('barge', 'she stopped - mic open'));
 addEventListener('nova:kid-stopped', e => {
   if (!FLAG('live2') || !react.on) return;
   const dur = +e.detail || 0, now = performance.now(), why = [];

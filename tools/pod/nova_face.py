@@ -307,15 +307,23 @@ def render_loop(R):
                 if n and mode == "pip" and have_speech.is_set() and not ready[-1]["speech"] and ready[-1]["mode"] == "pip":
                     ready.pop(); n -= 1
             if n == 0 or (DUAL and S["mode"] != mode): break
+            if mode == "wide" and (S.get("cut_req") or S.get("cut", 0) > 0): break       # NOVA_BARGE: cut now
             if BURST and mode == "wide" and n < BURST_MAX and S.get("out_sil", 999) >= BURST_IDLE_F and hasattr(r, "burst_ok") and r.burst_ok(): break   # NOVA-LIVE2 BURST
             have_speech.wait(0.01)
         if DUAL and S["mode"] != mode: continue
         # only between lines: her previous line has been silent on the OUTPUT for >= BURST_IDLE_F frames (Zara: never skip a
         # frame that belongs to a line - a pause inside her sentence keeps its length)
+        if S.get("cut_req") and mode == "wide" and hasattr(r, "delay"):                  # NOVA_BARGE: apply the cut here (render thread)
+            S["cut_req"] = False
+            with lock:
+                for _c in list(ready):
+                    if _c["mode"] == "wide": ready.remove(_c)
+            S["cut"] = int(getattr(r, "prime", 0)); r.delay = np.zeros_like(r.delay); S["cuts"] = S.get("cuts", 0) + 1
+        _cutting = mode == "wide" and S.get("cut", 0) > 0
         _idle_out = S.get("out_sil", 999) >= BURST_IDLE_F
         _bursting = BURST and mode == "wide" and _idle_out and hasattr(r, "burst_ok") and r.burst_ok()
         S["bursting"] = _bursting
-        if LEAD_FRAMES and mode == "wide" and not _bursting:   # NOVA-LIVE2: build the next chunk just in time (Zara LEAD_FRAMES)
+        if LEAD_FRAMES and mode == "wide" and not _bursting and not _cutting:   # NOVA-LIVE2: build the next chunk just in time (Zara LEAD_FRAMES)
             while time.time() < PUB["due"] - LEAD_FRAMES / FPS and not (DUAL and S["mode"] != mode):
                 time.sleep(0.005)
         _first = START_FULL and not VS["mid"] and bool(pending)
@@ -357,6 +365,13 @@ def render_loop(R):
             if drop:
                 frames = frames[drop:]; pub_audio = pub_audio[drop * STEP:]
                 S["burst_dropped"] = S.get("burst_dropped", 0) + drop; S["burst_chunks"] = S.get("burst_chunks", 0) + 1
+        if _cutting and isinstance(out, tuple) and len(frames) * STEP == len(pub_audio):
+            # NOVA_BARGE: these frames carry the lips of the cut voice (their sound is already zero): skip them, keep 1
+            k = min(S["cut"], len(frames)); S["cut"] -= k
+            drop = max(0, k - 1)
+            if drop: frames = frames[drop:]; pub_audio = pub_audio[drop * STEP:]
+            S["out_sil"] = 999
+            if S["cut"] <= 0: print("[T]", int(time.time() * 1000), "face.cut_done", flush=True)
         ms = (time.time() - t) * 1000
         (S["wide_ms"] if mode == "wide" else S["render_ms"]).append(ms)
         if mode == "wide" and ms > n_f * 40: S["wide_late"] += 1
@@ -591,6 +606,14 @@ async def set_avatar(req):
 async def interrupt(req):
     with lock: pending.clear()
     have_speech.clear()
+    # NOVA_BARGE (2026-11-26; Zara LK_CUT_SKIP): {"cut": true} = the child talked over her. Besides the voice not yet rendered,
+    # the ~1 s already inside Ditto's delay line is cut too: the render loop zeroes the delay line, drops the chunks waiting
+    # to go on air and skips the frames that belonged to the cut voice (1 kept per chunk), so she stops within one chunk.
+    try: body = await req.json()
+    except Exception: body = {}
+    if body.get("cut") and E("FACE_CUT", "0") == "1":
+        S["cut_req"] = True; VS["mid"] = False
+        print("[T]", int(time.time() * 1000), "face.cut_req", flush=True)
     return web.json_response({"code": 0})
 
 

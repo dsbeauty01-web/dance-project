@@ -75,6 +75,23 @@ let echoGuard = false, herOn = false, herOffAt = 0; const ECHO_TAIL_MS = 300;
 // [NOVA-GO5 react 2026-11-24] holdMicFor(ms): the page plays a short sound of hers locally (her listening hum) — the mic
 // is held for that long so the hum never reaches the brain as the child's words.
 let localHoldUntil = 0;
+// NOVA_BARGE (2026-11-26, Refael: "she doesn't hear me when I talk over her"). While she speaks the mic is held back
+// (anti-echo). The level of the browser's ECHO-CANCELLED mic is still watched: her own leftover echo sets a floor (median
+// of the last ~2 s of quiet-ish buffers); a level above max(BARGE_MIN, BARGE_X x floor) for BARGE_BUFS buffers in a row (~0.43 s at
+// 48 kHz, one miss allowed) = the child is talking over her. Then: tell the brain ({type:'barge'}), open the mic for
+// BARGE_OPEN_MS whatever the echo holds say, and send the last ~0.5 s first so his first words are not lost.
+// Never in the first BARGE_GUARD_MS of her line. Off unless setBarge(true). [CLI-FILL] every number here.
+// Rig r5b 2026-11-26: speech has gaps between words, so the rule is BARGE_BUFS loud buffers out of the last BARGE_WIN (5 of 8,
+// ~0.7 s), not 5 in a row; the rig's child clips sit at rms 0.02-0.03, so BARGE_MIN is 0.01 (the rig's room noise is 0.0012). With a WEAK echo canceller
+// (rig echo=0.3: her echo as loud as the child) the floor rises and nothing fires - she never cuts herself.
+let bargeOn = false; const BARGE_MIN = 0.01, BARGE_X = 2.5, BARGE_LEARN = 10, BARGE_BUFS = 5, BARGE_WIN = 8, BARGE_GUARD_MS = 300, BARGE_OPEN_MS = 2500;
+const barge = { hist: [], seen: 0, win: [], run: 0, miss: 0, lineAt: 0, wasHer: false, openUntil: 0, ring: [], last: 0, n: 0 };
+export function setBarge(on) { bargeOn = !!on; }
+export function bargeState() { return { on: bargeOn, n: barge.n, floor: +bargeFloor().toFixed(4) }; }
+// ECHO FLOOR = the 90th percentile of the mic level in buffers where HER voice is loud on the page (herLoudNow) = what her
+// echo looks like on this device. Rig r5f (echo 0.3, floor from her quiet gaps): she cut herself on every line. The first
+// BARGE_LEARN her-loud buffers of a session only learn (no barge-in yet); later ones are learnt unless a talk-over is building.
+function bargeFloor() { if (!barge.hist.length) return 0; const a = barge.hist.slice().sort((x, y) => x - y); return a[Math.min(a.length - 1, Math.floor(a.length * 0.9))]; }
 export function holdMicFor(ms) { localHoldUntil = Math.max(localHoldUntil, performance.now() + ms); }
 // NOVA-FINAL: several listeners (a page's music ducking AND shared/nova-live.js's "her line is said" both need it;
 // a second onHerAudio() used to silently replace the first).
@@ -281,6 +298,10 @@ function connectWS(intro) {
     if (m.type === 'ack' && m.of === 'v2v-greet') { window.dispatchEvent(new CustomEvent('nova:v2v', { detail: !!m.on })); return; }
     if (m.type === 'you_delta') { window.dispatchEvent(new CustomEvent('nova:kid-delta', { detail: m.delta || '' })); return; }
     if (m.type === 'you_drop') { window.dispatchEvent(new CustomEvent('nova:kid-drop', { detail: { text: m.text || '', why: m.why || '' } })); return; }
+    if (m.type === 'status' && m.barged === true && bargeOn) {       // NOVA_BARGE: the brain stopped her - the child has the floor
+      barge.openUntil = performance.now() + BARGE_OPEN_MS; micFifo.length = 0;
+      for (const d of barge.ring) { mic.sent++; send({ type: 'audio', data: d }); } barge.ring.length = 0;
+      window.dispatchEvent(new CustomEvent('nova:barged')); }
     if (m.type === 'status') { if (m.speaking === true) micGated = true; else if (m.speaking === false) micGated = false;
       if (m.hearing === true) window.dispatchEvent(new Event('nova:hearing'));
       // NOVA-LIVE2: the child just stopped talking (the brain's voice detector), with how long he talked, in seconds
@@ -306,6 +327,31 @@ async function startMic(given) {
     if (micMeter) {                                  // the level is measured on EVERY buffer, sent or held back
       let pk = 0; for (let i = 0; i < ch.length; i += 8) { const a = ch[i] < 0 ? -ch[i] : ch[i]; if (a > pk) pk = a; }
       const now = performance.now(); mic.chunks++; mic.lastCbAt = now; if (pk > 0) mic.lastSoundAt = now; if (pk > mic.peak) mic.peak = pk;
+    }
+    let b64now = null;
+    const enc = () => { if (b64now) return b64now; const n = Math.floor(ch.length / ratio), b = new Int16Array(n);
+      for (let i = 0; i < n; i++) { let s = ch[Math.floor(i * ratio)]; if (s > 1) s = 1; if (s < -1) s = -1; b[i] = s * 0x7fff; }
+      const u = new Uint8Array(b.buffer); let x = ''; for (let i = 0; i < u.length; i++) x += String.fromCharCode(u[i]); return (b64now = btoa(x)); };
+    if (bargeOn) {
+      const now = performance.now(), her = micGated || herOn || now - herOffAt < ECHO_TAIL_MS;
+      if (now < barge.openUntil) { mic.sent++; send({ type: 'audio', data: enc() }); return; }      // the child has the floor
+      if (her && now >= localHoldUntil) {
+        if (!barge.wasHer) { barge.lineAt = now; barge.run = 0; barge.win.length = 0; barge.ring.length = 0; }
+        let s2 = 0, c = 0; for (let i = 0; i < ch.length; i += 4) { s2 += ch[i] * ch[i]; c++; }
+        const rms = Math.sqrt(s2 / c), floor = bargeFloor(), thr = Math.max(BARGE_MIN, BARGE_X * floor);
+        barge.ring.push(enc()); if (barge.ring.length > 7) barge.ring.shift();
+        const herLoud = herLoudNow(); if (herLoud) barge.seen++;
+        const loud = rms > thr && now - barge.lineAt > BARGE_GUARD_MS && barge.seen > BARGE_LEARN;
+        (window.__bargeDbg = window.__bargeDbg || []).push([+(now / 1000).toFixed(2), +rms.toFixed(4), +thr.toFixed(4), barge.run]); if (window.__bargeDbg.length > 600) window.__bargeDbg.shift();
+        barge.win.push(loud ? 1 : 0); if (barge.win.length > BARGE_WIN) barge.win.shift();
+        barge.run = barge.win.reduce((a, x) => a + x, 0);
+        if (herLoud && (barge.seen <= BARGE_LEARN || barge.run < 2)) { barge.hist.push(rms); if (barge.hist.length > 40) barge.hist.shift(); }
+        if (barge.run >= BARGE_BUFS && now - barge.last > 3000) {
+          barge.last = now; barge.n++; barge.run = 0; barge.win.length = 0;      // the BRAIN decides (only her conversation lines): it answers status.barged
+          send({ type: 'barge', level: +rms.toFixed(4), floor: +floor.toFixed(4) });
+          window.dispatchEvent(new CustomEvent('nova:barge', { detail: { level: +rms.toFixed(4), floor: +floor.toFixed(4) } })); }
+      }
+      barge.wasHer = her;
     }
     if (performance.now() < localHoldUntil) { mic.heldEcho++; micFifo.length = 0; return; }   // NOVA-GO5 react: her local hum
     const look = echoGuard && micMeter;              // NOVA-GO4 echoLook
