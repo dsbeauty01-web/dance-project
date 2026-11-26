@@ -333,6 +333,9 @@ def render_loop(R):
                 time.sleep(0.005)
         audio, t_arr = pending_take(n_s)
         speech = audio is not None
+        if speech and not S.get("_rin_prev") and mode == "wide":     # NOVA-LIVE2 one-clock trace: t5 first voiced chunk to Ditto
+            print("[T]", int(time.time() * 1000), "face.render_voiced", "arr_ms=%d" % ((time.time() - t_arr) * 1000 if t_arr else -1), flush=True)
+        S["_rin_prev"] = speech
         if not speech: audio = np.zeros(n_s, np.float32)
         t = time.time()
         try:
@@ -536,6 +539,11 @@ async def publisher():
                     vsrc.capture_frame(rtc.VideoFrame(512, 512, rtc.VideoBufferType.RGBA, rgba.tobytes()))
                     S["frames"] += 1
             seg = pcm[k * STEP:(k + 1) * STEP]
+            if mode == "wide":                                  # NOVA-LIVE2 one-clock trace: t6 first voiced frame on air
+                if seg.any() and np.max(np.abs(seg)) > 30:
+                    if S.get("_pub_sil", 99) >= 15: print("[T]", int(time.time() * 1000), "face.pub_voiced", flush=True)
+                    S["_pub_sil"] = 0
+                else: S["_pub_sil"] = S.get("_pub_sil", 99) + 1
             await asrc.capture_frame(rtc.AudioFrame(seg.tobytes(), SR, 1, len(seg)))
             rv = rec.get(mode)
             if rv:

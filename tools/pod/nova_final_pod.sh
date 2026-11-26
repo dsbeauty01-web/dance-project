@@ -72,6 +72,12 @@ if [ "${NF_GO5:-1}" = 1 ] && [ "${NF_CLOSED:-1}" = 1 ] && [ "$(basename "$DITTO_
 #   (Zara) and the mid-line wait is capped by the publisher's slack · FACE_UNDERRUN_CLOSED=1 an underrun after speech shows
 #   her last closed-mouth frame, never a frozen talking frame.
 [ "${NF_LIVE2:-0}" = 1 ] && export DITTO_GATE=${DITTO_GATE:-1} FACE_UNDERRUN_CLOSED=${FACE_UNDERRUN_CLOSED:-1} FACE_WAIT_MS=${FACE_WAIT_MS_GOLD:-120}
+# NOVA-LIVE2 SPEED round 3 (Zara review 2026-11-26): FACE_BURST=1 the idle head of the Ditto delay line plays fast between
+#   lines (keep 2 per chunk, lips locked) · NOVA_EL_FIRST_WORDS=4 first voice request at 4 words / any punctuation ·
+#   NOVA_EL_PREV / NOVA_EL_ORDER clause seams and order · NOVA_EL_WARM warm TLS at session start · NOVA_EL_CACHE her written
+#   lines from a PCM cache. Browser playout delay 0 is the page flag live2 (?pd=off for an A/B).
+[ "${NF_LIVE2:-0}" = 1 ] && export FACE_BURST=${FACE_BURST:-1} NOVA_EL_FIRST_WORDS=${NOVA_EL_FIRST_WORDS:-4} NOVA_EL_PREV=${NOVA_EL_PREV:-1} \
+  NOVA_EL_ORDER=${NOVA_EL_ORDER:-1} NOVA_EL_WARM=${NOVA_EL_WARM:-1} NOVA_EL_CACHE=${NOVA_EL_CACHE:-1}
 [ "$NF_AUDIT" = 1 ] && export NF_PROOF_REPLAY=${NF_PROOF_REPLAY:-own-right-up,frozen-body,dance-hype,still-sway} NF_REC_FIX=${NF_REC_FIX:-1} FACE_VOICE_PREBUF_MS=${FACE_VOICE_PREBUF_MS:-400} FACE_REC_THREAD=${FACE_REC_THREAD:-1} FACE_PUB_STEADY=${FACE_PUB_STEADY:-1} FACE_WIDE_SOURCE=${FACE_WIDE_SOURCE:-camera} FACE_WIDE_TS=${FACE_WIDE_TS:-1}
 # ── NOVA-GO2 (2026-11-23; docs/NOVA-FIX-2026-11-23.md): NF_GO2=1 (default on in this build; 0 = the nova-go build as it was)
 #    · FACE_WIDE_SMOOTH=1  her wide track: one layer (no simulcast), keep the frame rate (tools/pod/nova_face.py)
@@ -80,7 +86,7 @@ if [ "${NF_GO5:-1}" = 1 ] && [ "${NF_CLOSED:-1}" = 1 ] && [ "$(basename "$DITTO_
 #    · page flags warmgate (reveal only on a smooth stream) · matchcut (no size jump at the game hand-over) · heneutral (Hebrew plural)
 NF_GO2=${NF_GO2:-1}
 [ "$NF_AUDIT" = 1 ] && [ "$NF_GO2" = 1 ] && export FACE_WIDE_SMOOTH=${FACE_WIDE_SMOOTH:-1} FACE_WIDE_PREP=${FACE_WIDE_PREP:-1}
-stage "audit flags: NF_AUDIT=$NF_AUDIT body=$(basename $DITTO_SRC) prebuf=${FACE_VOICE_PREBUF_MS:-0} start_full=${FACE_START_FULL:-0} wait=${FACE_WAIT_MS:-0} lead=${FACE_LEAD_FRAMES:-0} drive_gate=${DITTO_GATE:-0} underrun_closed=${FACE_UNDERRUN_CLOSED:-0} hop_fast=${NOVA_HOP_FAST:-0} prime=${DITTO_PRIME:-} rec_thread=${FACE_REC_THREAD:-0} pub_steady=${FACE_PUB_STEADY:-0} wide_source=${FACE_WIDE_SOURCE:-screenshare} wide_ts=${FACE_WIDE_TS:-0} rec_fix=${NF_REC_FIX:-0} go2=${NF_GO2} wide_smooth=${FACE_WIDE_SMOOTH:-0} wide_prep=${FACE_WIDE_PREP:-0}"
+stage "audit flags: NF_AUDIT=$NF_AUDIT body=$(basename $DITTO_SRC) prebuf=${FACE_VOICE_PREBUF_MS:-0} start_full=${FACE_START_FULL:-0} wait=${FACE_WAIT_MS:-0} lead=${FACE_LEAD_FRAMES:-0} drive_gate=${DITTO_GATE:-0} underrun_closed=${FACE_UNDERRUN_CLOSED:-0} burst=${FACE_BURST:-0} el_first=${NOVA_EL_FIRST_WORDS:-0} el_cache=${NOVA_EL_CACHE:-0} hop_fast=${NOVA_HOP_FAST:-0} prime=${DITTO_PRIME:-} rec_thread=${FACE_REC_THREAD:-0} pub_steady=${FACE_PUB_STEADY:-0} wide_source=${FACE_WIDE_SOURCE:-screenshare} wide_ts=${FACE_WIDE_TS:-0} rec_fix=${NF_REC_FIX:-0} go2=${NF_GO2} wide_smooth=${FACE_WIDE_SMOOTH:-0} wide_prep=${FACE_WIDE_PREP:-0}"
 # DITTO_FACE_ROBUST=1: her face is 205 px in a 1080x1920 frame -> the full-frame detector at 0.5 misses frame 0 (pod run
 #   2026-11-12 #1: "mediapipe: no face in the first source frame"; the chef bank's same 205 px case, ditto_wide.py). Local: 118/121.
 export DITTO_FACE_ROBUST=1 DITTO_AMP=${DITTO_AMP:-0.6} DITTO_GRAIN=0 DITTO_MASK=lower DITTO_PASTE_GATE=1 DITTO_PASTE_OFF_MS=80 DITTO_PASTE_XFADE_MS=120 \

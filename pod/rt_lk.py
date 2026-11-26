@@ -216,6 +216,21 @@ EL_VOICE = os.environ.get("NOVA_EL_VOICE", "KHDywVwjZ97ShJLe4NCr")
 # endpoint, one request per clause, in order (first byte 0.59 s measured, language_code en locked).
 EL_MODEL = os.environ.get("NOVA_EL_MODEL", "eleven_v4")
 EL_HTTP = EL_MODEL in ("eleven_v4", "eleven_v3") or os.environ.get("NOVA_EL_HTTP", "0") == "1"
+# NOVA-LIVE2 VOICE SPEED (Zara review 2026-11-26, section 4). All default off = unchanged; NF_LIVE2=1 turns them on.
+#  NOVA_EL_FIRST_WORDS=4: the FIRST clause of a line goes out at 4 words or any punctuation (was: first end mark, or a comma
+#    with 2+ words) - the punctuation wait cost up to a whole sentence.
+#  NOVA_EL_PREV=1: each clause after the first carries previous_text (smooths the seam); a 400/422 retries without it.
+#  NOVA_EL_ORDER=1: clause 2+ never starts before clause 1 has its first byte (a 429 retry inside clause 1 costs the reply).
+#  NOVA_EL_WARM=1: one tiny request at session start so the first clause finds a warm TLS connection (~150-250 ms).
+#  NOVA_EL_CACHE=1: her WRITTEN lines (greeting, re-invites, "say that again", any verbatim line once heard) play from a PCM
+#    cache keyed by voice+model+text: zero voice time (Zara's written lines = 1.38 s).
+EL_FIRST_WORDS = int(os.environ.get("NOVA_EL_FIRST_WORDS", "0"))
+EL_PREV = os.environ.get("NOVA_EL_PREV", "0") == "1"
+EL_ORDER = os.environ.get("NOVA_EL_ORDER", "0") == "1"
+EL_WARM = os.environ.get("NOVA_EL_WARM", "0") == "1"
+EL_CACHE = os.environ.get("NOVA_EL_CACHE", "0") == "1"
+TCACHE = {}        # (voice, model, text) -> pcm16 24 kHz bytes; lives for the whole process (all sessions)
+TCACHE_EXPECT = {"line": None}   # the exact line her next response must say (set when a verbatim/greet line is asked for)
 LIVE2_ATTITUDE = (
     "\n\nATTITUDE (this outranks every style line above): you are relaxed, warm and playful - a smiling big sister, "
     "NOT a hyper cheerleader and NOT a teacher. Every answer = a tiny real reaction to what they JUST said "
@@ -264,6 +279,7 @@ V2V_F4_RULES = (
     "those are yours too; treat them as things you said.\n"
     "Every line 12 words at most. ONE line per turn, then stop and wait. Use the child's own words and their name. "
     "Never say you saw them move unless a director note reports it." + REPLY_STYLE)
+V2V_GREET_LINE = "Hi! I'm Nova, your magical AI dance teacher! What's your name?"   # NOVA-LIVE2 cache key (en)
 V2V_GREET = {   # the approved generic greets, word for word (this file, GREET FIRST, 2026-09-15)
     "en": ("Greet the kid in ONE short excited line and say exactly these words "
            "and NOTHING more: "
@@ -696,6 +712,8 @@ async def relay(request):
         if pump: await speak_pump()
         return True
     async def _speak_send(instructions, verbatim, origin, extra, bare, cap=None):
+        if EL_CACHE:     # NOVA-LIVE2: her next response will say exactly this (or the greeting), so its audio may come from the cache
+            TCACHE_EXPECT["line"] = verbatim or (V2V_GREET_LINE if origin == "greet" else None)
         if verbatim:
             payload = say_resp(verbatim)                 # the exact-line path (conversation:"none")
             if extra: payload["instructions"] = payload["instructions"] + " " + extra
@@ -934,6 +952,33 @@ async def relay(request):
             await oai.send_json(session_update(freeze=_freeze_mode, voice=_voice,
                                                lang=("he" if _hebrew else "en"), gender=_gender,
                                                page=_intro.startswith("page"), v2v=_v2v, text_out=_tts_eleven))
+            if _tts_eleven and (EL_WARM or EL_CACHE):
+                async def _el_warm_prefill():
+                    """NOVA-LIVE2: warm the TLS connection now; render her written lines into the cache once per process."""
+                    t_ = time.time()
+                    if EL_WARM:
+                        try:
+                            async with http.get("https://api.elevenlabs.io/v1/models", headers={"xi-api-key": EL_KEY},
+                                                timeout=aiohttp.ClientTimeout(total=8)) as r_: await r_.read()
+                            print("[TTS] warm-up %d ms" % ((time.time() - t_) * 1000), flush=True)
+                        except Exception as _e: print("[TTS] warm-up failed", str(_e)[:80], flush=True)
+                    if EL_CACHE:
+                        lines = [V2V_GREET_LINE, LIVE2_SAYAGAIN["en"]] + [a for a, _ in REINVITE_LINES]
+                        for ln in lines:
+                            key = (EL_VOICE, EL_MODEL, ln.strip())
+                            if key in TCACHE: continue
+                            try:
+                                async with http.post(f"https://api.elevenlabs.io/v1/text-to-speech/{EL_VOICE}?output_format=pcm_24000",
+                                                     headers={"xi-api-key": EL_KEY, "Content-Type": "application/json"},
+                                                     json={"text": ln, "model_id": EL_MODEL, "language_code": "en",
+                                                           "voice_settings": {"stability": 0.5, "similarity_boost": 0.8}},
+                                                     timeout=aiohttp.ClientTimeout(total=20)) as r_:
+                                    if r_.status == 200:
+                                        b_ = await r_.read(); TCACHE[key] = b_[:len(b_) // 2 * 2]
+                                    else: print("[TTS] prefill http", r_.status, flush=True)
+                            except Exception as _e: print("[TTS] prefill failed", str(_e)[:80], flush=True)
+                        print("[TTS] written lines cached:", len(TCACHE), flush=True)
+                asyncio.create_task(_el_warm_prefill())
             await log("connected to " + MODEL + " (voice " + VOICE + ")")
             # TRANSCRIPTION WARM-UP (he-17): the session's FIRST Hebrew transcription
             # keeps costing 12-14s — a cold path on the provider side that hits the name
@@ -1909,39 +1954,59 @@ async def relay(request):
                 if EL_HTTP:
                     # NOVA_EL_HTTP: clauses go out one by one, in order, on the HTTP streaming endpoint (eleven_v4)
                     q = asyncio.Queue(); done = asyncio.Event(); tts["gen"] += 1; mygen = tts["gen"]
-                    tts.update(ws=q, done=done, text="", flushed=False, pend="")
+                    tts.update(ws=q, done=done, text="", flushed=False, pend="", cache_key=None, from_cache=False)
                     tr("tts.open")
+                    first_byte = asyncio.Event()                    # NOVA_EL_ORDER: clause 1 has its first byte
+                    tts["nclause"] = 0; tts["sent_text"] = ""
                     def fetch(seg):
                         """NOVA-LIVE2 (pod dbqdq 2026-11-25: 12 mid-line voice holes): every clause is fetched the moment
                         it exists, in parallel; the worker plays them in order. Clause 2 is ready while clause 1 plays."""
-                        cq = asyncio.Queue()
+                        cq = asyncio.Queue(); idx = tts["nclause"]; tts["nclause"] += 1
+                        prev = tts["sent_text"].strip()[-300:]; tts["sent_text"] += " " + seg
                         async def go():
+                          if EL_ORDER and idx > 0:
+                              try: await asyncio.wait_for(first_byte.wait(), 3.0)
+                              except asyncio.TimeoutError: pass
+                          use_prev = EL_PREV and idx > 0 and bool(prev)
                           for _try in range(3):     # ElevenLabs starter plan: concurrency limit -> 429; never lose a clause
                             try:
                               async with tts_sem:
+                                body = {"text": seg, "model_id": EL_MODEL, "language_code": "en",
+                                        "voice_settings": {"stability": 0.5, "similarity_boost": 0.8}}
+                                if use_prev: body["previous_text"] = prev
+                                if idx == 0: tr("tts.req", "clause1_words=%d" % len(seg.split()))
                                 async with http.post(
                                         f"https://api.elevenlabs.io/v1/text-to-speech/{EL_VOICE}/stream?output_format=pcm_24000",
                                         headers={"xi-api-key": EL_KEY, "Content-Type": "application/json"},
-                                        json={"text": seg, "model_id": EL_MODEL, "language_code": "en",
-                                              "voice_settings": {"stability": 0.5, "similarity_boost": 0.8}},
-                                        timeout=aiohttp.ClientTimeout(total=20)) as r:
+                                        json=body, timeout=aiohttp.ClientTimeout(total=20)) as r:
                                     if r.status == 429:
                                         print("[TTS] 429 busy - retry", _try + 1, flush=True); await asyncio.sleep(0.25); continue
+                                    if r.status in (400, 422) and use_prev:
+                                        print("[TTS] previous_text refused (", r.status, ") - retry without", flush=True)
+                                        use_prev = False; continue
                                     if r.status != 200:
                                         print("[TTS] http", r.status, (await r.text())[:120], flush=True); break
                                     carry = b""
                                     async for chunk in r.content.iter_chunked(4800):
                                         chunk = carry + chunk; cut = len(chunk) // 2 * 2; carry = chunk[cut:]
-                                        if cut: await cq.put(chunk[:cut])
+                                        if cut:
+                                            if idx == 0: first_byte.set()
+                                            await cq.put(chunk[:cut])
                                     break
                             except Exception as _e:
                                 print("[TTS] http err", str(_e)[:100], flush=True); break
+                          if idx == 0: first_byte.set()
                           await cq.put(None)
                         asyncio.create_task(go())
                         return cq
-                    tts["fetch"] = fetch
+                    def cached(pcm):
+                        """NOVA_EL_CACHE: a whole written line from the PCM cache, as one 'clause'"""
+                        cq = asyncio.Queue()
+                        for i in range(0, len(pcm), 4800): cq.put_nowait(pcm[i:i + 4800])
+                        cq.put_nowait(None); first_byte.set(); return cq
+                    tts["fetch"] = fetch; tts["cached"] = cached
                     async def worker():
-                        first = True
+                        first = True; got = bytearray()
                         try:
                             while True:
                                 cq = await q.get()
@@ -1950,8 +2015,13 @@ async def relay(request):
                                     c = await cq.get()
                                     if c is None: break
                                     if tts["gen"] != mygen: continue           # a newer line took over: never mix two
-                                    if first: first = False; tr("tts.first_audio")
+                                    if first: first = False; tr("tts.first_audio", "cached" if tts.get("from_cache") else "")
+                                    if EL_CACHE and tts.get("cache_key"): got += c
                                     await evq.put({"type": "response.output_audio.delta", "delta": base64.b64encode(c).decode()})
+                            if EL_CACHE and tts.get("cache_key") and not tts.get("from_cache") and len(got) > 4800 \
+                                    and tts["gen"] == mygen and _re.sub(r"\W+", "", tts["text"].lower()) == _re.sub(r"\W+", "", tts["cache_key"][2].lower()):
+                                TCACHE[tts["cache_key"]] = bytes(got)               # a written line, heard once: cached now
+                                print("[TTS] cached written line:", tts["cache_key"][2][:50], flush=True)
                         except Exception as _e:
                             print("[TTS] worker err", str(_e)[:100], flush=True)
                         finally:
@@ -1987,10 +2057,26 @@ async def relay(request):
                 if tts["ws"] is None: await tts_open()
                 tts["text"] += delta
                 if EL_HTTP:
+                    if EL_CACHE and not tts["flushed"] and not tts.get("cache_key"):
+                        _want = TCACHE_EXPECT["line"]; TCACHE_EXPECT["line"] = None
+                        _d0 = _re.sub(r"\W+", "", delta.lower())[:4]
+                        if _want and _re.sub(r"\W+", "", _want.lower()).startswith(_d0):   # the model IS saying that line
+                            tts["cache_key"] = (EL_VOICE, EL_MODEL, _want.strip())
+                            _pcm = TCACHE.get(tts["cache_key"])
+                            if _pcm:                        # her written line: the whole audio from the cache, no TTS call
+                                tts["from_cache"] = True; tts["flushed"] = True
+                                await tts["ws"].put(tts["cached"](_pcm))
+                    if tts.get("from_cache"): return        # the model's words are kept for the gates; the audio is cached
                     # a clause goes out at its end mark; the FIRST one already at a comma once it has 2+ words
                     tts["pend"] += delta
                     _end = bool(_re.search(r"[.!?;:\u2014]\s*$", tts["pend"])) or (
                         not tts["flushed"] and _re.search(r",\s*$", tts["pend"]) and len(tts["pend"].split()) >= 2)
+                    if EL_FIRST_WORDS and not tts["flushed"]:
+                        # NOVA-LIVE2: the first clause goes at N whole words or any punctuation (never half a word: the
+                        # delta that completes word N must end on a space/punct, else wait one more delta)
+                        _w = tts["pend"].split()
+                        _end = _end or bool(_re.search(r"[,.!?;:\u2014]\s*$", tts["pend"])) or (
+                            len(_w) > EL_FIRST_WORDS or (len(_w) == EL_FIRST_WORDS and tts["pend"][-1:] in " ,.!?"))
                     if _end and tts["pend"].strip():
                         tts["flushed"] = True; await tts["ws"].put(tts["fetch"](tts["pend"].strip())); tts["pend"] = ""
                     return
@@ -2028,6 +2114,8 @@ async def relay(request):
                         if msg.type != aiohttp.WSMsgType.TEXT: continue
                         e = json.loads(msg.data); et = e.get("type", "")
                         if _tts_eleven:
+                            if et == "response.output_text.delta" and tts["ws"] is None:
+                                tr("oai.first_text")
                             if et == "response.output_text.delta":
                                 await evq.put({"type": "response.output_audio_transcript.delta", "delta": e.get("delta", "")})
                                 try: await tts_send(e.get("delta", ""))
