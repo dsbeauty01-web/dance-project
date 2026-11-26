@@ -162,6 +162,20 @@ have_speech = threading.Event()
 PREBUF_MS = float(E("FACE_VOICE_PREBUF_MS", "0"))
 PREBUF_IDLE_MS = float(E("FACE_VOICE_PREBUF_IDLE_MS", "300"))
 HOLE_MS = float(E("FACE_VOICE_HOLE_MS", "600"))
+# NOVA-LIVE2 SPEED (2026-11-25, Refael "DO IT": "make Nova's face as fast as Zara's co-host"). Ported from maya-lt
+# lane/cohost-live lk_cohost/ditto_avatar.py (Zara measured 1.38 s median, Ditto Gold PASS). All default OFF = unchanged.
+#  FACE_START_FULL=1 + FACE_START_IDLE_MS (Zara LK_FACE_START_FULL=1, LK_FACE_START_MS=120): a new line starts as soon as ONE
+#    full chunk of her voice is queued (no extra cushion), or when the line stopped arriving for START_IDLE_MS (a short line).
+#    Replaces FACE_VOICE_PREBUF_MS (pod dbqdq: arrive->publish p50 1287 ms with the 200 ms cushion).
+#  FACE_WAIT_MS (Zara LK_FACE_WAIT_MS=120): inside a line, a take that finds less than a chunk waits up to this long for more
+#    voice before it pads (a padded take mid-line = a hole the child hears; dbqdq: 12 mid-line holes).
+#  FACE_LEAD_FRAMES (Zara LK_FACE_LEAD_FRAMES=8): the next chunk is built only this many frames before the publisher needs
+#    it, not a whole chunk ahead - voice that arrives in that window still makes the next chunk. Render p50 128 ms << 8 x 40.
+START_FULL = E("FACE_START_FULL", "0") == "1"
+START_IDLE_MS = float(E("FACE_START_IDLE_MS", "120"))
+WAIT_MS = float(E("FACE_WAIT_MS", "0"))
+LEAD_FRAMES = int(E("FACE_LEAD_FRAMES", "0"))
+PUB = {"due": 0.0}                    # wall time the publisher will need its next chunk (set when it takes one)
 VS = {"mid": False, "last_in": 0.0, "pad_at": None}
 S.update({"voice_pads": 0, "voice_holes": 0, "voice_prebuf_waits": 0, "voice_lines": [], "voice_hole_log": [], "voice_holes_midline": 0})
 
@@ -192,7 +206,12 @@ def pending_take(n, now=None):
     got, t0, need = [], None, n
     now = time.time() if now is None else now
     with lock:
-        if PREBUF_MS > 0 and pending and not VS["mid"]:
+        if START_FULL and pending and not VS["mid"]:
+            have = sum(len(a) for a, _ in pending)
+            if have < n and (now - VS["last_in"]) * 1000 < START_IDLE_MS:
+                S["voice_prebuf_waits"] += 1
+                return None, None                     # NOVA-LIVE2: one full chunk first (Zara START_FULL), never a padded first word
+        elif PREBUF_MS > 0 and pending and not VS["mid"]:
             have = sum(len(a) for a, _ in pending)
             if have < n + int(PREBUF_MS * SR / 1000) and (now - VS["last_in"]) * 1000 < PREBUF_IDLE_MS:
                 S["voice_prebuf_waits"] += 1
@@ -237,6 +256,18 @@ def render_loop(R):
             if n == 0 or (DUAL and S["mode"] != mode): break
             have_speech.wait(0.01)
         if DUAL and S["mode"] != mode: continue
+        if LEAD_FRAMES and mode == "wide":            # NOVA-LIVE2: build the next chunk just in time (Zara LEAD_FRAMES)
+            while time.time() < PUB["due"] - LEAD_FRAMES / FPS and not (DUAL and S["mode"] != mode):
+                time.sleep(0.005)
+        _first = START_FULL and not VS["mid"] and bool(pending)
+        if (WAIT_MS and VS["mid"]) or _first:         # NOVA-LIVE2: wait a moment for a full chunk instead of rendering
+            # silence (a line's start) or padding (mid-line). Start: until the line pauses START_IDLE_MS; mid: WAIT_MS.
+            t_w = time.time() + (0.4 if _first else WAIT_MS / 1000)
+            while time.time() < t_w:
+                with lock: have = sum(len(a) for a, _ in pending)
+                if have >= n_s: break
+                if _first and (time.time() - VS["last_in"]) * 1000 >= START_IDLE_MS: break
+                time.sleep(0.005)
         audio, t_arr = pending_take(n_s)
         speech = audio is not None
         if not speech: audio = np.zeros(n_s, np.float32)
@@ -378,6 +409,7 @@ async def publisher():
     while True:
         with lock:
             ch = ready.popleft() if ready else None
+        PUB["due"] = time.time() + (len(ch["frames"]) if ch else 4) / FPS
         if ch is None:                                  # renderer late: hold the last frame, silence — never a black frame
             S["underruns"] += 1
             m = S["mode"] if DUAL else "pip"; n = 4 if m == "wide" else CHUNK
@@ -486,7 +518,7 @@ def stats():
             "wide_chunks_late": S["wide_late"], "wide_chunks": len(S["wide_ms"]),
             "pub_late_frames": S["pub_late_frames"], "pub_max_lag_ms": S["pub_max_lag_ms"], "pub_reanchors": S["pub_reanchors"],
             "rec_dropped": S["rec_dropped"], "rec_thread": REC_THREAD, "pub_steady": PUB_STEADY,
-            "voice_prebuf_ms": PREBUF_MS, "voice_pads": S["voice_pads"], "voice_holes": S["voice_holes"], "voice_prebuf_waits": S["voice_prebuf_waits"], "voice_lines": S["voice_lines"], "voice_holes_midline": S["voice_holes_midline"], "voice_hole_log": S["voice_hole_log"][-10:]}
+            "voice_prebuf_ms": PREBUF_MS, "start_full": START_FULL, "wait_ms": WAIT_MS, "lead_frames": LEAD_FRAMES, "voice_pads": S["voice_pads"], "voice_holes": S["voice_holes"], "voice_prebuf_waits": S["voice_prebuf_waits"], "voice_lines": S["voice_lines"], "voice_holes_midline": S["voice_holes_midline"], "voice_hole_log": S["voice_hole_log"][-10:]}
 
 
 async def health(req):

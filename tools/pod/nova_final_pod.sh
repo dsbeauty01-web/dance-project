@@ -60,7 +60,13 @@ if [ "$NF_AUDIT" = 1 ] && [ "${NF_CALM:-1}" = 1 ] && [ -s $R/tools/pod/assets/no
 #   nova_talk_calm_closed.mp4 body PASS (open 0.0 %, jitter 0.07). The original file is kept.
 if [ "${NF_GO5:-1}" = 1 ] && [ "${NF_CLOSED:-1}" = 1 ] && [ "$(basename "$DITTO_SRC")" = nova_talk_calm.mp4 ] && [ -s $R/tools/pod/assets/nova_talk_calm_closed.mp4 ]; then export DITTO_SRC=$R/tools/pod/assets/nova_talk_calm_closed.mp4; fi
 # NOVA-LIVE2 speed (Refael 2026-11-25 "how can you reduce it to 2 s"): the face voice cushion 400 -> 200 ms under NF_LIVE2. [CLI-FILL]
-[ "${NF_LIVE2:-0}" = 1 ] && export FACE_VOICE_PREBUF_MS=${FACE_VOICE_PREBUF_MS:-200}
+# NOVA-LIVE2 SPEED (2026-11-25, Refael "DO IT"): Zara's co-host face timing (maya-lt lane/cohost-live, 1.38 s median):
+#   no cushion, start on one full chunk (FACE_START_FULL, 120 ms idle), wait 250 ms mid-line before padding (Zara 120; offline sim
+#   2026-11-25: her v4 voice arrives near real time, 120 left 6-7 mid-line holes per 6 lines, 250 left 3), build the next
+#   chunk 8 frames before it is due, voice resampled in-process (NOVA_HOP_FAST), Ditto delay 26 frames (Zara: 26).
+[ "${NF_LIVE2:-0}" = 1 ] && export FACE_VOICE_PREBUF_MS=${FACE_VOICE_PREBUF_MS:-0} FACE_START_FULL=${FACE_START_FULL:-1} \
+  FACE_START_IDLE_MS=${FACE_START_IDLE_MS:-120} FACE_WAIT_MS=${FACE_WAIT_MS:-250} FACE_LEAD_FRAMES=${FACE_LEAD_FRAMES:-8} \
+  NOVA_HOP_FAST=${NOVA_HOP_FAST:-1} DITTO_PRIME=${DITTO_PRIME:-26}
 [ "$NF_AUDIT" = 1 ] && export NF_PROOF_REPLAY=${NF_PROOF_REPLAY:-own-right-up,frozen-body,dance-hype,still-sway} NF_REC_FIX=${NF_REC_FIX:-1} FACE_VOICE_PREBUF_MS=${FACE_VOICE_PREBUF_MS:-400} FACE_REC_THREAD=${FACE_REC_THREAD:-1} FACE_PUB_STEADY=${FACE_PUB_STEADY:-1} FACE_WIDE_SOURCE=${FACE_WIDE_SOURCE:-camera} FACE_WIDE_TS=${FACE_WIDE_TS:-1}
 # ── NOVA-GO2 (2026-11-23; docs/NOVA-FIX-2026-11-23.md): NF_GO2=1 (default on in this build; 0 = the nova-go build as it was)
 #    · FACE_WIDE_SMOOTH=1  her wide track: one layer (no simulcast), keep the frame rate (tools/pod/nova_face.py)
@@ -69,7 +75,7 @@ if [ "${NF_GO5:-1}" = 1 ] && [ "${NF_CLOSED:-1}" = 1 ] && [ "$(basename "$DITTO_
 #    · page flags warmgate (reveal only on a smooth stream) · matchcut (no size jump at the game hand-over) · heneutral (Hebrew plural)
 NF_GO2=${NF_GO2:-1}
 [ "$NF_AUDIT" = 1 ] && [ "$NF_GO2" = 1 ] && export FACE_WIDE_SMOOTH=${FACE_WIDE_SMOOTH:-1} FACE_WIDE_PREP=${FACE_WIDE_PREP:-1}
-stage "audit flags: NF_AUDIT=$NF_AUDIT body=$(basename $DITTO_SRC) prebuf=${FACE_VOICE_PREBUF_MS:-0} rec_thread=${FACE_REC_THREAD:-0} pub_steady=${FACE_PUB_STEADY:-0} wide_source=${FACE_WIDE_SOURCE:-screenshare} wide_ts=${FACE_WIDE_TS:-0} rec_fix=${NF_REC_FIX:-0} go2=${NF_GO2} wide_smooth=${FACE_WIDE_SMOOTH:-0} wide_prep=${FACE_WIDE_PREP:-0}"
+stage "audit flags: NF_AUDIT=$NF_AUDIT body=$(basename $DITTO_SRC) prebuf=${FACE_VOICE_PREBUF_MS:-0} start_full=${FACE_START_FULL:-0} wait=${FACE_WAIT_MS:-0} lead=${FACE_LEAD_FRAMES:-0} hop_fast=${NOVA_HOP_FAST:-0} prime=${DITTO_PRIME:-} rec_thread=${FACE_REC_THREAD:-0} pub_steady=${FACE_PUB_STEADY:-0} wide_source=${FACE_WIDE_SOURCE:-screenshare} wide_ts=${FACE_WIDE_TS:-0} rec_fix=${NF_REC_FIX:-0} go2=${NF_GO2} wide_smooth=${FACE_WIDE_SMOOTH:-0} wide_prep=${FACE_WIDE_PREP:-0}"
 # DITTO_FACE_ROBUST=1: her face is 205 px in a 1080x1920 frame -> the full-frame detector at 0.5 misses frame 0 (pod run
 #   2026-11-12 #1: "mediapipe: no face in the first source frame"; the chef bank's same 205 px case, ditto_wide.py). Local: 118/121.
 export DITTO_FACE_ROBUST=1 DITTO_AMP=${DITTO_AMP:-0.6} DITTO_GRAIN=0 DITTO_MASK=lower DITTO_PASTE_GATE=1 DITTO_PASTE_OFF_MS=80 DITTO_PASTE_XFADE_MS=120 \
@@ -188,6 +194,20 @@ stage "kid line ($KIDSRC): $(ls -la /root/kid_line.wav 2>/dev/null | awk '{print
 wait $DPID; stage "ditto: $(tail -2 $OUT/ditto_up.log | tr '\n' ' ' | cut -c1-300)"
 curl -s -m5 http://127.0.0.1:8031/health > $OUT/ditto_health_boot.json
 grep -q '"ready": *true' $OUT/ditto_health_boot.json || { stage "FAILED: Ditto not ready ($(cut -c1-200 $OUT/ditto_health_boot.json))"; stage "DONE"; touch $OUT/DONE; sleep infinity; }
+# NOVA-LIVE2 lip-engine speed gate (Zara's /ditto_burst rule: >= 41 fps, best of 4, the first burst is cold).
+# Before the face server starts: 4 bursts of 10 chunks straight into Ditto's /render, frames per second of wall time.
+python3 - > $OUT/ditto_burst.json 2>&1 <<'PYB'
+import json, time, urllib.request
+h = json.load(urllib.request.urlopen("http://127.0.0.1:8031/health", timeout=5)); n = int(h["chunk_samples"]); f = int(h["chunk_frames"])
+z = bytes(4 * n); res = []
+for b in range(4):
+    t = time.time()
+    for _ in range(10): urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:8031/render", data=z, method="POST"), timeout=30).read()
+    res.append(round(10 * f / (time.time() - t), 1))
+print(json.dumps({"fps_bursts": res, "fps_best": max(res), "need": 41}))
+PYB
+stage "ditto burst: $(tail -1 $OUT/ditto_burst.json)"
+grep -q '"fps_best"' $OUT/ditto_burst.json && python3 -c "import json,sys;d=json.load(open('$OUT/ditto_burst.json'));sys.exit(0 if d['fps_best']>=41 else 1)" || stage "WARNING: LIP ENGINE UNDER 41 FPS - this machine is too slow for Zara's timing"
 wait $WPID; stage "weights: $(head -1 $OUT/weights.txt)"
 [ -s "$SOULX_ROOT/ACTIVATE.sh" ] && . "$SOULX_ROOT/ACTIVATE.sh"
 cd $R/tools/pod

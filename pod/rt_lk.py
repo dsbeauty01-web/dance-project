@@ -199,6 +199,7 @@ LIVE2_GAP_S = float(os.environ.get("NOVA_LIVE2_GAP_S", "0.0"))
 LIVE2_TX_PROMPT_EN = ("A child talks to Nova, a dance teacher. Hi! Hello Nova. My name is Shuki. I'm Dana. I like hip-hop. "
                       "I like pizza, dancing, music, my dog. Yes. Okay. I'm ready. Can you see me?")
 # an unclear turn (dropped, but real voice > LIVE2_SAYAGAIN_MIN_S) gets a short warm "say again" instead of silence / a guess.
+LIVE2_FACE_DELAY_S = float(os.environ.get("NOVA_LIVE2_FACE_DELAY_S", "2.0"))  # her voice reaches the child ~this long after the last chunk leaves (measured 2.6-2.9 s pod dbqdq) [CLI-FILL]
 LIVE2_SAYAGAIN_MIN_S = float(os.environ.get("NOVA_LIVE2_SAYAGAIN_MIN_S", "0.8"))   # [CLI-FILL]
 LIVE2_SAYAGAIN_EVERY_S = float(os.environ.get("NOVA_LIVE2_SAYAGAIN_EVERY_S", "10"))  # [CLI-FILL] Refael's brief: max once per 10 s
 LIVE2_SAYAGAIN = ({"en": "Hm? Say that again?", "he": "הממ? אפשר שוב?"})
@@ -507,7 +508,25 @@ def session_update(freeze=False, voice=None, lang="en", gender="", page=False, v
         **({"reasoning": {"effort": RT_EFFORT}} if RT_EFFORT else {}),
         **({"include": ["item.input_audio_transcription.logprobs"]} if TX_CONF else {})}}
 
+HOP_FAST = os.environ.get("NOVA_HOP_FAST", "0") == "1"
 def pcm24_to_wav16(pcm_bytes):
+    if HOP_FAST:
+        # NOVA-LIVE2 SPEED (2026-11-25): 24k->16k in-process. The ffmpeg subprocess per 0.2 s piece cost 75-85 ms on every
+        # piece (pod dbqdq trace "hop ffmpeg_ms=82") and runs one piece at a time, so the first word waited for it.
+        import numpy as _np
+        a = _np.frombuffer(pcm_bytes, _np.int16).astype(_np.float32)
+        try:
+            from scipy.signal import resample_poly as _rp
+            b = _rp(a, 2, 3)
+        except Exception:
+            n = len(a) * 2 // 3
+            b = _np.interp(_np.arange(n) * 1.5, _np.arange(len(a)), a)
+        b = _np.clip(b, -32768, 32767).astype(_np.int16)
+        import io as _io
+        bio = _io.BytesIO()
+        with wave.open(bio, "wb") as w:
+            w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000); w.writeframes(b.tobytes())
+        return bio.getvalue()
     src = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
     with wave.open(src.name, "wb") as w:
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(24000); w.writeframes(pcm_bytes)
@@ -515,6 +534,10 @@ def pcm24_to_wav16(pcm_bytes):
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", src.name, "-ar", "16000", "-ac", "1", dst], check=True)
     with open(dst, "rb") as f:
         return f.read()
+
+if HOP_FAST:
+    try: pcm24_to_wav16(b"\0" * 960)   # import scipy now (0.8-1.5 s), not on her first word; warm calls 0.2-0.3 ms
+    except Exception as _e: print("[HOP] warm-up failed:", _e, flush=True)
 
 async def feed_engine(sess, wav_bytes):
     data = aiohttp.FormData()
@@ -1064,6 +1087,11 @@ async def relay(request):
                     # own 10s and 20s re-invites on top meant three producers talking at once,
                     # in English, over a child who was still answering.
                     quiet = time.time() - turn["kid_ts"]
+                    if LIVE2:
+                        # NOVA-LIVE2: count the child's silence from the end of HER line (+ her face delay), not from his last
+                        # words. Pod 87x82: "Hm? I didn't catch that!" fired right after her greeting - his last words were
+                        # >13 s old because the greeting itself took that long.
+                        quiet = min(quiet, time.time() - speaking["last_chunk"] - LIVE2_FACE_DELAY_S)
                     if quiet >= SILENCE_RETRY_S and not turn["retried"]:
                         turn["retried"] = True
                         # FALSE-PRAISE FIX (2026-09-17). This used to describe a line and let
@@ -1312,7 +1340,9 @@ async def relay(request):
                     # NOVA-LIVE2: real voice that came out unclear -> a short warm "say again?" (never a guess, never silence)
                     _vs = utt.get("dur", 0) - 0.9 if n == utt["n"] else 0
                     if (LIVE2 and not sgate["on"] and _vs >= LIVE2_SAYAGAIN_MIN_S
-                            and time.time() - spec.get("sayagain_t", 0) > LIVE2_SAYAGAIN_EVERY_S):
+                            and time.time() - spec.get("sayagain_t", 0) > LIVE2_SAYAGAIN_EVERY_S
+                            # never within 4 s after HER line reached the child (her own voice / the room, not the child)
+                            and time.time() - speaking["last_chunk"] - LIVE2_FACE_DELAY_S > 4.0):
                         spec["sayagain_t"] = time.time(); turn["kid_ts"] = time.time()   # no re-invite on top of it
                         print("[LIVE2] unclear turn (%.1f s of voice) - asking to say it again" % _vs, flush=True)
                         async def _sayagain():
