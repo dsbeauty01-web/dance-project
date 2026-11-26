@@ -175,8 +175,23 @@ RT_EFFORT = os.environ.get("NOVA_RT_EFFORT", "").strip()
 # docs: the Nova real-time map, "Unknowns to measure" (brain-to-face hop, a reply's stages on one clock).
 TRACE = os.environ.get("NOVA_TRACE", "0") == "1"
 _tr_first = {"resp": False}
+_SP = {}
 def tr(ev, *a):
-    if TRACE: print("[T]", int(time.time() * 1000), ev, *a, flush=True)
+    if not TRACE: return
+    now = int(time.time() * 1000)
+    print("[T]", now, ev, *a, flush=True)
+    # [SPEED] one line per reply to the child, one clock (round 6: the lines were missing on pod r4ec307, the table was
+    # rebuilt by hand and two rows were wrong). t0 detector, t1 first text, t2 voice request, t3 her first sound made,
+    # t7 the browser heard her (page her-voice start). t4-t6 are in face.log ([T] face.*); tools/pod/nova_speed.py joins them.
+    if ev == "kid.speech_stopped": _SP.clear(); _SP["t0"] = now
+    elif "t0" in _SP:
+        k = {"oai.first_text": "t1", "tts.req": "t2", "tts.first_audio": "t3"}.get(ev)
+        if k and k not in _SP: _SP[k] = now; _SP["how"] = (a[0] if (k == "t3" and a) else _SP.get("how", ""))
+        elif ev == "page.her-voice" and "t3" in _SP and a and str(a[-1]).startswith("start") and now > _SP["t3"]:
+            t0 = _SP["t0"]
+            print("[SPEED] detect->text %s | ->voice req %s | ->her first sound %s%s | ->browser heard %d ms (child's last word ~450 ms before detect)" % (
+                _SP.get("t1", t0) - t0, _SP.get("t2", t0) - t0, _SP["t3"] - t0, (" (" + _SP["how"] + ")") if _SP.get("how") else "", now - t0), flush=True)
+            _SP.clear()
 # NOVA-GO5 (2026-11-24) · NOVA_TX_CONF=1, default off: both transcribers return their confidence (token log-probabilities)
 # and the brain logs it per turn as [CONF]. Step 1 of the phantom-answer fix (handoff §5.3): measure noise vs real words.
 TX_CONF = os.environ.get("NOVA_TX_CONF", "0") == "1"
@@ -263,6 +278,18 @@ EL_CACHE = os.environ.get("NOVA_EL_CACHE", "0") == "1"
 #   played from memory the moment the model writes it (0 ms voice time); the rest of the line is fetched as before, with
 #   the opener as previous_text. An answer with no opener is unchanged.
 EL_OPENERS = os.environ.get("NOVA_EL_OPENERS", "0") == "1"
+# NOVA_EL_JOIN=1 (2026-11-26 round 6, default off). Pod r4ec307 (9ae1f85) failed Gold on 4 open frames at 79.60-79.72 s of
+# wide_published_A: they sit in a 0.2 s hole of her VOICE between two clauses of one line ("...I can hear you," | "loud
+# and clear!") while her lips were already saying the next clause. That line was 5 separate voice requests with a hole
+# between each (face.log: 4 mid-line VOICE HOLEs, 36 after-speech underruns, vs 2 / 25 on the passing 48fe2ee).
+# Fix: a line is at most [opener clip] + [first words] + [ALL the rest in one request]. The rest's first byte lands while
+# the first words still play, so her voice is one unbroken stream. A 12+ word sentence still goes at its end mark.
+EL_JOIN = os.environ.get("NOVA_EL_JOIN", "0") == "1"
+# The opener clip used to go to the face the instant the model wrote it, then silence until clause 1's first byte
+# (0.42-0.68 s) = a hole after "Ha!". With JOIN it is released so that it ENDS about when clause 1 starts:
+# request time + (measured first-byte time of this session - the clip's length). Still earlier than no opener by the clip.
+EL_FB_MARGIN = float(os.environ.get("NOVA_EL_FB_MARGIN", "0.25"))   # [CLI-FILL] measured first bytes 0.42-0.68 s, one 1.1 s
+EL_FB_EST = [float(os.environ.get("NOVA_EL_FB_EST", "0.55"))]   # running first-byte estimate, s (measured 0.42-0.68)
 OPENER_WORDS = ("Ooh", "Aww", "Ha", "No way", "Whoa", "Mmm", "Wow", "Oh", "Yay", "Hm")
 OPENER_RE = __import__("re").compile(r"^\s*(ooh|aww|ha|no way|whoa|mmm|wow|oh|yay|hm)\s*([,!.?]|\u2014|-)+\s*(?=\S)", __import__("re").I)
 TOPEN = {}         # opener word (lower) -> pcm16 24 kHz, trimmed
@@ -1349,6 +1376,10 @@ async def relay(request):
             sayflush_task = asyncio.create_task(say_flush())
 
             hear = {"owed": 0.0, "sent": 0.0, "text": ""}       # NOVA_HEAR: when the child's unanswered game turn was heard
+            hv = {"on": 0.0, "iv": []}                          # page her-voice start/end = her voice as the browser played it
+            def hv_audible(since):
+                now = time.time()
+                return sum(max(0.0, b - max(a, since)) for a, b in hv["iv"] + ([(hv["on"], now)] if hv["on"] else []))
             async def hear_game_reply(why):
                 if not (sgate["on"] and sgate["mode"] == "air"): return
                 if time.time() - hear["owed"] > HEAR_OWED_S: hear["owed"] = 0.0; return
@@ -1357,7 +1388,9 @@ async def relay(request):
                 print("[HEAR] game: answering the child (" + why + ") |", hear["text"][:50], flush=True)
                 # no token cap: with max_output_tokens 60 the reply came back EMPTY ("incomplete: max_output_tokens", rig run go4b);
                 # the 5-word limit is in the instruction and MIDGAME-BAN still cancels a 7th word / a question
-                await speak_now(instructions=hear_reply_instr("game", _hebrew), origin="kid")
+                _fresh = (" The game cut you off just as you began to answer: say it in fresh words, not the same sentence."
+                          if hear.pop("partial", False) else "")
+                await speak_now(instructions=hear_reply_instr("game", _hebrew) + _fresh, origin="kid")
 
             async def spec_release():
                 """NOVA-LIVE2 (a): the early answer's turn was validated - her held audio goes to the face now."""
@@ -1787,6 +1820,10 @@ async def relay(request):
                                 _nm = (json.loads(m.get("detail") or "{}") if isinstance(m.get("detail"), str) else (m.get("detail") or {})).get("name")
                                 if _nm and isinstance(_nm, str) and 2 <= len(_nm) <= 20: l2n["name"] = _nm
                             except Exception: pass
+                        if str(m.get("kind", "")) == "her-voice":       # what the BROWSER really played (round 6, repeat rule)
+                            _d = str(m.get("detail", ""))
+                            if _d.startswith("start"): hv["on"] = time.time()
+                            elif _d.startswith("end") and hv["on"]: hv["iv"].append((hv["on"], time.time())); hv["on"] = 0.0; del hv["iv"][:-40]
                         if HEAR: print("[PAGE]", str(m.get("t", ""))[:8], str(m.get("kind", ""))[:24], str(m.get("detail", ""))[:300], flush=True)
                         if TRACE: tr("page." + str(m.get("kind", ""))[:24], "page_t=" + str(m.get("t", ""))[:8], str(m.get("detail", ""))[:80].replace(" ", "_"))
                     elif t == "nova-say":
@@ -2003,8 +2040,17 @@ async def relay(request):
                         # brain releases a line) and the hold - a hard mute on the page - swallows more than half of it: owed.
                         if (HEAR and sgate["on"] and sgate["mode"] == "hard" and hear.get("released")
                                 and time.time() < hear["released"] + HEAR_PIP_LAT_S + 0.5 * hear.get("dur", 0.0)):
-                            hear["owed"] = hear["sent"]; hear["released"] = 0.0
-                            print("[HEAR] game: the hold muted her answer - owed to the next gap", flush=True)
+                            # round 6 (Refael: "Yes, I hear you, Shuki" twice): decide by what the BROWSER played, not by a
+                            # timer. Heard most of it -> not owed (never said twice). Heard a scrap -> owed, in fresh words.
+                            _aud = hv_audible(hear["released"]) if LIVE2 else 0.0
+                            _need = max(0.6, 0.4 * hear.get("dur", 0.0))
+                            if LIVE2 and _aud >= _need:
+                                print("[HEAR] game: the hold came after the child heard her answer (%.2f s of %.2f s) - not owed" % (_aud, hear.get("dur", 0.0)), flush=True)
+                            else:
+                                hear["owed"] = hear["sent"]; hear["partial"] = _aud >= 0.15
+                                print("[HEAR] game: the hold muted her answer (browser played %.2f s of %.2f s) - owed to the next gap%s" % (
+                                    _aud, hear.get("dur", 0.0), ", in fresh words" if hear["partial"] else ""), flush=True)
+                            hear["released"] = 0.0
                         if sgate["on"] and sgate["mode"] == "hard" and (speaking["resp_active"] or speaking["v"]):
                             if HEAR and resp["origin"] == "kid" and speaking["resp_active"]:
                                 hear["owed"] = hear["sent"]                           # the hold cut her answer: owed
@@ -2110,7 +2156,7 @@ async def relay(request):
                 if EL_HTTP:
                     # NOVA_EL_HTTP: clauses go out one by one, in order, on the HTTP streaming endpoint (eleven_v4)
                     q = asyncio.Queue(); done = asyncio.Event(); tts["gen"] += 1; mygen = tts["gen"]
-                    tts.update(ws=q, done=done, text="", flushed=False, pend="", cache_key=None, from_cache=False, opener=None, opener_tried=False)
+                    tts.update(ws=q, done=done, text="", flushed=False, pend="", cache_key=None, from_cache=False, opener=None, opener_tried=False, req_t=None, fin=False)
                     tr("tts.open")
                     first_byte = asyncio.Event()                    # NOVA_EL_ORDER: clause 1 has its first byte
                     tts["nclause"] = 0; tts["sent_text"] = ""
@@ -2120,7 +2166,7 @@ async def relay(request):
                         cq = asyncio.Queue(); idx = tts["nclause"]; tts["nclause"] += 1
                         prev = tts["sent_text"].strip()[-300:]; tts["sent_text"] += " " + seg
                         async def go():
-                          if EL_ORDER and idx > 0:
+                          if EL_ORDER and idx > 0 and not EL_JOIN:   # JOIN: at most 2 requests a line = the plan's limit
                               try: await asyncio.wait_for(first_byte.wait(), 3.0)
                               except asyncio.TimeoutError: pass
                           use_prev = EL_PREV and bool(prev) and (idx > 0 or bool(tts.get("opener")))
@@ -2130,7 +2176,8 @@ async def relay(request):
                                 body = {"text": seg, "model_id": EL_MODEL, "language_code": "en",
                                         "voice_settings": {"stability": 0.5, "similarity_boost": 0.8}}
                                 if use_prev: body["previous_text"] = prev
-                                if idx == 0: tr("tts.req", "clause1_words=%d" % len(seg.split()))
+                                if idx == 0: tr("tts.req", "clause1_words=%d" % len(seg.split())); tts["req_t"] = time.time()
+                                _tp = time.time()
                                 async with http.post(
                                         f"https://api.elevenlabs.io/v1/text-to-speech/{EL_VOICE}/stream?output_format=pcm_24000",
                                         headers={"xi-api-key": EL_KEY, "Content-Type": "application/json"},
@@ -2146,7 +2193,9 @@ async def relay(request):
                                     async for chunk in r.content.iter_chunked(4800):
                                         chunk = carry + chunk; cut = len(chunk) // 2 * 2; carry = chunk[cut:]
                                         if cut:
-                                            if idx == 0: first_byte.set()
+                                            if idx == 0 and not first_byte.is_set():
+                                                EL_FB_EST[0] = 0.7 * EL_FB_EST[0] + 0.3 * min(1.5, time.time() - _tp)
+                                                first_byte.set()
                                             await cq.put(chunk[:cut])
                                     break
                             except Exception as _e:
@@ -2155,11 +2204,15 @@ async def relay(request):
                           await cq.put(None)
                         asyncio.create_task(go())
                         return cq
-                    def cached(pcm):
-                        """NOVA_EL_CACHE: a whole written line from the PCM cache, as one 'clause'"""
+                    def cached(pcm, hold=False):
+                        """NOVA_EL_CACHE: a whole written line from the PCM cache, as one 'clause'.
+                        hold (NOVA_EL_JOIN, an opener clip): the worker releases it timed to clause 1's first byte."""
                         cq = asyncio.Queue()
                         for i in range(0, len(pcm), 4800): cq.put_nowait(pcm[i:i + 4800])
-                        cq.put_nowait(None); first_byte.set(); return cq
+                        cq.put_nowait(None)
+                        if hold: cq.hold = len(pcm) / 48000.0
+                        else: first_byte.set()
+                        return cq
                     tts["fetch"] = fetch; tts["cached"] = cached
                     async def worker():
                         first = True; got = bytearray()
@@ -2167,10 +2220,28 @@ async def relay(request):
                             while True:
                                 cq = await q.get()
                                 if cq is None: break
+                                _hd = getattr(cq, "hold", 0)
+                                if _hd:                                 # NOVA_EL_JOIN: the opener ends where clause 1 starts
+                                    _t_d = time.time() + 1.5
+                                    while tts.get("req_t") is None and not (tts.get("fin") and tts.get("nclause", 0) == 0) and time.time() < _t_d and tts["gen"] == mygen:
+                                        await asyncio.sleep(0.01)
+                                    if tts.get("req_t") is not None:
+                                        # + EL_FB_MARGIN: aim at a slow first byte, so the clip almost never ends before clause 1 is there
+                                        # (rig r6j1: est 0.60 s, one first byte took 1.1 s = a 0.38 s hole after "Ooh")
+                                        _tg = tts["req_t"] + max(0.0, EL_FB_EST[0] + EL_FB_MARGIN - _hd)
+                                        while time.time() < _tg and not first_byte.is_set() and tts["gen"] == mygen:
+                                            await asyncio.sleep(0.01)
+                                    tr("tts.opener_out", "held_ms=%d" % ((time.time() - getattr(cq, "t_in", time.time())) * 1000), "fb_est_ms=%d" % (EL_FB_EST[0] * 1000))
                                 while True:
                                     c = await cq.get()
                                     if c is None: break
                                     if tts["gen"] != mygen: continue           # a newer line took over: never mix two
+                                    if first: tts["t_first"] = time.time(); tts["emit_s"] = 0.0
+                                    elif time.time() - tts["t_first"] > tts["emit_s"] + 0.06:
+                                        # her voice ran dry mid-line (played audio caught up with what was fetched) = a hole
+                                        tr("tts.hole", "ms=%d" % ((time.time() - tts["t_first"] - tts["emit_s"]) * 1000), "at_s=%.2f" % tts["emit_s"])
+                                        tts["t_first"] = time.time() - tts["emit_s"]
+                                    tts["emit_s"] += len(c) / 48000.0
                                     if first: first = False; tr("tts.first_audio", "cached" if tts.get("from_cache") else "opener" if tts.get("opener") else "")
                                     if EL_CACHE and tts.get("cache_key"): got += c
                                     await evq.put({"type": "response.output_audio.delta", "delta": base64.b64encode(c).decode()})
@@ -2267,13 +2338,17 @@ async def relay(request):
                             tts["opener_tried"] = True; tts["opener"] = _m.group(0).strip()
                             tts["sent_text"] += " " + tts["opener"]; tts["pend"] = tts["pend"][_m.end():]
                             tr("tts.opener", _m.group(1).lower())
-                            await tts["ws"].put(tts["cached"](TOPEN[_m.group(1).lower()]))
+                            _cq = tts["cached"](TOPEN[_m.group(1).lower()], hold=EL_JOIN); _cq.t_in = time.time()
+                            await tts["ws"].put(_cq)
                         elif len(tts["pend"].split()) >= 3 or _re.search(r"[.!?]\s*\S", tts["pend"]) or (
                                 len(tts["pend"]) > 8 and not _re.match(r"^\s*(ooh|aww|ha|no way|whoa|mmm|wow|oh|yay|hm)\b", tts["pend"], _re.I)):
                             tts["opener_tried"] = True
                         elif not _re.search(r"[.!?]\s*$", tts["pend"]) or _re.match(
                                 r"^\s*(ooh|aww|ha|no way|whoa|mmm|wow|oh|yay|hm)\s*[,!.?\u2014-]+\s*$", tts["pend"], _re.I):
                             return                      # could still become an opener: wait for the next delta (a few ms)
+                    if EL_JOIN and tts.get("nclause", 0) >= 1 and not (
+                            len(tts["pend"].split()) >= 12 and _re.search(r"[.!?]\s*$", tts["pend"])):
+                        return                          # NOVA_EL_JOIN: the rest of the line goes out as ONE request (tts_finish)
                     _end = bool(_re.search(r"[.!?;:\u2014]\s*$", tts["pend"])) or (
                         not tts["flushed"] and _re.search(r",\s*$", tts["pend"]) and len(tts["pend"].split()) >= 2)
                     if EL_FIRST_WORDS and not tts["flushed"]:
@@ -2285,6 +2360,10 @@ async def relay(request):
                     if _end and EL_FIRST_MIN and not tts["flushed"] and len(tts["pend"].split()) < EL_FIRST_MIN \
                             and not _re.search(r"[.!?]\s*$", tts["pend"]):
                         _end = False        # NOVA-LIVE2: a lone "Yes," / "Ooh," is not a clause - wait for the next words
+                    if _end and EL_JOIN and tts.get("nclause", 0) == 0 and len(tts["pend"].split()) < 3:
+                        # NOVA_EL_JOIN: a 1-2 word first piece ("Hi!") is over before the rest's first byte is there
+                        # (rig r6k: a 0.41 s hole after "Hi!"). Wait: 3+ words, or the whole line (tts_finish).
+                        _end = False
                     if _end and tts["pend"].strip():
                         tts["flushed"] = True; _seg = l2_name_cut(tts["pend"].strip()); tts["pend"] = ""
                         if _seg: await tts["ws"].put(tts["fetch"](_seg))
@@ -2308,6 +2387,7 @@ async def relay(request):
                         if EL_HTTP:
                             _seg = l2_name_cut(tts.get("pend", "").strip()) if tts.get("pend", "").strip() else ""
                             if _seg: await tts["ws"].put(tts["fetch"](_seg))
+                            tts["fin"] = True
                             tts["pend"] = ""; await tts["ws"].put(None)
                             if LIVE2 and resp.get("origin") == "kid" and l2n["name"]:
                                 # said = kept by the rule, or spoken before the page reported the name (her first answer)

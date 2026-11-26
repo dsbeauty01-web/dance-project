@@ -82,6 +82,10 @@ if [ "${NF_GO5:-1}" = 1 ] && [ "${NF_CLOSED:-1}" = 1 ] && [ "$(basename "$DITTO_
 #   model's first text (v4's 0.6-0.75 s first byte no longer sits in front of every answer) · NOVA_BARGE=1 + FACE_CUT=1 +
 #   page flag `barge`: the child talks over her -> she stops within a chunk and listens.
 [ "${NF_LIVE2:-0}" = 1 ] && export NOVA_EL_OPENERS=${NOVA_EL_OPENERS:-1} NOVA_BARGE=${NOVA_BARGE:-1} FACE_CUT=${FACE_CUT:-1}
+# NOVA-LIVE2 round 6 (2026-11-26): NOVA_EL_JOIN=1 a line's voice is one unbroken stream (opener clip timed to end where the
+#   sentence starts + first words + ALL the rest in one request). Pod r4ec307 failed Gold on 4 open frames inside a 0.2 s
+#   hole between two clauses of one line; that line was 5 separate voice requests.
+[ "${NF_LIVE2:-0}" = 1 ] && export NOVA_EL_JOIN=${NOVA_EL_JOIN:-1}
 [ "$NF_AUDIT" = 1 ] && export NF_PROOF_REPLAY=${NF_PROOF_REPLAY:-own-right-up,frozen-body,dance-hype,still-sway} NF_REC_FIX=${NF_REC_FIX:-1} FACE_VOICE_PREBUF_MS=${FACE_VOICE_PREBUF_MS:-400} FACE_REC_THREAD=${FACE_REC_THREAD:-1} FACE_PUB_STEADY=${FACE_PUB_STEADY:-1} FACE_WIDE_SOURCE=${FACE_WIDE_SOURCE:-camera} FACE_WIDE_TS=${FACE_WIDE_TS:-1}
 # ── NOVA-GO2 (2026-11-23; docs/NOVA-FIX-2026-11-23.md): NF_GO2=1 (default on in this build; 0 = the nova-go build as it was)
 #    · FACE_WIDE_SMOOTH=1  her wide track: one layer (no simulcast), keep the frame rate (tools/pod/nova_face.py)
