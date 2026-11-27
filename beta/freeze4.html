@@ -759,6 +759,7 @@ function leadLine(key, text, opts){ leadS.said.push(key); leadPlayedAt.delete(te
   face.thinking(); log('line', text); pip.say(text); }
 addEventListener('nova:kid-drop', () => { if (leadS.on && leadS.step === 'NAME') leadS.unclear++; });
 addEventListener('nova:played-out', e => log('played-out', JSON.stringify(e.detail)));
+addEventListener('nova:lead-name', e => log('lead', 'name "' + e.detail.name + '": ' + (e.detail.path === 'written' ? 'both transcripts agree - said in the light line' : 'not confirmed by the second transcript - light line without the name')));
 addEventListener('nova:lead-warn', e => { log('lead', 'brain: ' + JSON.stringify(e.detail)); if (e.detail && e.detail.what) leadBackup(e.detail.what); });
 /* a written line has PLAYED OUT: the brain says so from the face server's own count of voiced frames put on air (`lead_played`);
    then her voice in this browser must be quiet tailMs. No word from the brain inside capMs = logged as a backup, never silent. */
@@ -796,21 +797,23 @@ async function leadIntro(tAsk){
   /* LIGHT: the step line replaces her own answer to the name turn; the light and the real-lift check start WITH it */
   step('LIGHT'); const tLight = performance.now();
   leadStep('LIGHT', leadS.name);
-  const lightLine = LEAD_L.light(leadS.name); leadLine('light', lightLine, { kill: !!leadS.name, step: 'LIGHT' });
+  const lightLine = LEAD_L.light(leadS.name); leadLine('light', lightLine, { kill: !!leadS.name, step: 'LIGHT', name: leadS.name });
   log('lead', 'name -> light line asked ' + (leadS.name ? Math.round(tLight - seenAt) + ' ms after the name turn' : '(no name)'));
   shoulderBeat.light(); shoulderBeat.start({ lead: true });
-  let demoed = false, res = null, demoAt = LEAD_T.lightDemoMs, passAt = LEAD_T.lightPassMs; shoulderBeat.done().then(r => { res = r; });
+  let demoed = false, res = null, demoAt = LEAD_T.lightDemoMs, passAt = LEAD_T.lightPassMs, base = 0; shoulderBeat.done().then(r => { res = r; });
+  /* THE LADDER COUNTS FROM THE MOMENT THE LIGHT LINE HAS PLAYED OUT (not from when it was asked for): the child gets a real
+     6 s to lift, then the demo; 12 s, then the pass. A ladder line waits quietMs of open microphone only when her previous
+     line (an answer of hers, the demo) ended less than quietMs ago. No played-out word in 8 s = logged, counted from 4 s in. */
   while (!res){
     const now = performance.now();
+    if (!base && leadPlayedAt.has(lightLine) && !herV.on){ base = Math.max(leadPlayedAt.get(lightLine), herV.endedAt || 0); log('lead', 'light line out ' + Math.round(base - tLight) + ' ms after it was asked - the ladder counts from here'); }
+    if (!base && now - tLight > 8000){ base = tLight + 4000; leadBackup('no played-out for the light line in 8 s (ladder counted from 4 s in)'); }
     if (kid.textAt > seenAt){ seenAt = kid.textAt; log('lead-kid', JSON.stringify({ text: kid.text, step: 'LIGHT' })); leadAnswer();
       /* she is answering him (her answer ends with "lift that shoulder"): the ladder waits for that answer, it never talks over it */
-      demoAt = Math.max(demoAt, now - tLight + LEAD_T.afterAnswerMs); passAt = Math.max(passAt, now - tLight + LEAD_T.afterAnswerMs + 2000); }
-    /* a ladder line never follows her last line back to back: the microphone is closed while she speaks, so the child gets
-       quietMs of open microphone after each line of hers before the next one (on the pod the light line is over ~4.3 s in) */
-    const lastKey = demoed ? LEAD_L.demo : lightLine, heard = leadPlayedAt.has(lastKey) && !herV.on && now - Math.max(leadPlayedAt.get(lastKey), herV.endedAt) > LEAD_T.quietMs;
-    const stuck = now - tLight > passAt + 6000;                                // no played-out word from the brain: the ladder still ends
-    if (!demoed && now - tLight > demoAt && !kid.pending && (heard || stuck)){ demoed = true; leadBackup('light: she shows how (6 s, no lift)'); leadLine('demo', LEAD_L.demo, { step: 'LIGHT' }); }
-    if (now - tLight > passAt && !kid.pending && (heard || stuck)){ leadBackup('light: passed (12 s, no lift - nothing claimed)'); shoulderBeat.end('pass'); break; }
+      if (base){ demoAt = Math.max(demoAt, now - base + LEAD_T.afterAnswerMs); passAt = Math.max(passAt, now - base + LEAD_T.afterAnswerMs + 2000); } }
+    const open = !herV.on && now - (herV.endedAt || 0) > LEAD_T.quietMs;
+    if (base && !demoed && now - base > demoAt && !kid.pending && open){ demoed = true; leadBackup('light: she shows how (' + ((now - base) / 1000).toFixed(1) + ' s, no lift)'); leadLine('demo', LEAD_L.demo, { step: 'LIGHT' }); }
+    if (base && now - base > passAt && !kid.pending && open && (!demoed || leadPlayedAt.has(LEAD_L.demo) || now - base > passAt + 5000)){ leadBackup('light: passed (' + ((now - base) / 1000).toFixed(1) + ' s, no lift - nothing claimed)'); shoulderBeat.end('pass'); break; }
     await sleep(60);
   }
   res = res || 'pass';

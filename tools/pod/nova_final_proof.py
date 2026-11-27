@@ -88,7 +88,9 @@ def run_A(p):
         s = pg.evaluate("""() => ({ stage: document.getElementById('novaPane').dataset.stage, gate: document.body.dataset.gate || '',
             you: (document.getElementById('you') || {}).className || '', youText: (document.getElementById('you') || {}).textContent || '',
             listen: (window.freeze4Log || []).some(e => e.kind === 'intro-listen' && e.detail === 'open'),
-            named: (window.freeze4Log || []).some(e => e.kind === 'v2v' && String(e.detail).startsWith('greeting said')),
+            named: (window.freeze4Log || []).some(e => (e.kind === 'v2v' && String(e.detail).startsWith('greeting said'))
+                                                         || (e.kind === 'lead' && String(e.detail).startsWith('greeting played'))),   // NOVA-LEAD: her greeting has played out
+            lead: (window.freeze4Log || []).filter(e => e.kind === 'lead').map(e => String(e.detail)).slice(-1)[0] || '',
             answered: (window.freeze4Log || []).some(e => e.kind === 'intro-answer'),
             wide: window.freeze4Wide ? window.freeze4Wide.state : null, face: window.freeze4Face ? window.freeze4Face.state : null,
             ended: document.getElementById('end').classList.contains('on'),
@@ -98,6 +100,7 @@ def run_A(p):
                                return !h || (h.kind === 'her-voice' && h.detail === 'end' && L[L.length - 1].t - h.t > 3.5); })(),   // nothing asked, nothing heard for 3.5 s
             banner: !document.getElementById('banner').classList.contains('hidden') })""")
         t = round(time.time() - t_rec, 2)
+        if s.get("lead") and s["lead"] != got.get("_lead"): got["_lead"] = s["lead"]; print("lead:", t, s["lead"], flush=True)   # NOVA-LEAD: every step / backup, timed
         if kid_name and s.get("named") and "kidname" not in got:                         # NOVA-GO5
             got.setdefault("t_named", time.time())
             if time.time() - got["t_named"] > 0.8:

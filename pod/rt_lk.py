@@ -338,8 +338,9 @@ LEAD_CORE = (
     "child: What now? -> Watch the light - lift that shoulder!\n")
 LEAD_STEP = {
     "NAME": ("\nNOW: you asked the child's name and you are waiting for it. NEXT ACTION: tell you their name. Whatever "
-             "they say or ask: one short answer, then ask their name again in fresh words. If you could not understand "
-             "them, say only: 'Hm? Say that again?' Do not mention a light, a shoulder or the game yet."),
+             "they say or ask: one short answer, then ask their name again, friendly, in fresh words - like '...and what's "
+             "your name?' or '...so, who am I dancing with?'. Never a command ('Tell me your name now'). If you could not "
+             "understand them, say only: 'Hm? Say that again?' Do not mention a light, a shoulder or the game yet."),
     "LIGHT": ("\nNOW: a magic light is glowing on the child's shoulder and the game wants them to lift that shoulder. "
               "NEXT ACTION: lift that shoulder. Whatever they say or ask: one short answer that ends by telling them to "
               "lift that shoulder, in fresh words. You cannot see them: never say they lifted it."),
@@ -347,9 +348,40 @@ LEAD_STEP = {
            "answer that ends with 'let's dance!'. Never explain rules, never ask a question."),
 }
 LEAD_STEP["GREET"] = LEAD_STEP["NAME"]
-def lead_instructions(step, name=None):
+# NAME SAFETY (2026-11-26, rig: the page's fast transcript read "Shuki" as "Shaky" / "Shaquille" and the written light line
+# would have said it). The written line carries the name only when BOTH transcripts of the turn agree on it (edit distance
+# <= 1). Otherwise the light line is the written NO-NAME line, and from then on the prompt tells her to use the name only as
+# she heard it herself. (Tried first: she says the light line herself with a per-response instruction "their name as you
+# heard it, then the light line" - rig ld-c 2026-11-26: she answered "Shukee, that's a fun name... what should I call you"
+# instead, i.e. the instruction is not reliable at minimal effort; a written line is.)
+# LEAD_NAME_WAIT_S: how long the light line waits for the second transcript. [CLI-FILL]
+LEAD_NAME_WAIT_S = float(os.environ.get("NOVA_LEAD_NAME_WAIT_S", "0.5"))
+LEAD_LIGHT_TAIL = "Magic light - lift that shoulder!"
+LEAD_LIGHT_NONAME = "Ooh, magic light - lift that shoulder!"
+def _edit1(a, b):
+    """True when a and b are equal or one edit apart (case-insensitive)."""
+    a, b = a.lower(), b.lower()
+    if a == b: return True
+    if abs(len(a) - len(b)) > 1: return False
+    if len(a) > len(b): a, b = b, a
+    i = j = d = 0
+    while i < len(a) and j < len(b):
+        if a[i] == b[j]: i += 1; j += 1; continue
+        d += 1
+        if d > 1: return False
+        if len(a) == len(b): i += 1
+        j += 1
+    return True
+def lead_name_agrees(name, texts):
+    """name is one word-run of the page's catch; texts = the OTHER transcripts of the same turn(s)."""
+    if not name: return False
+    for t in texts:
+        if any(_edit1(name, w) for w in __import__("re").findall(r"[A-Za-z][A-Za-z'\-]*", t or "")): return True
+    return False
+def lead_instructions(step, name=None, ear=False):
     return (LEAD_CORE + LEAD_STEP.get(step, LEAD_STEP["NAME"])
-            + (("\nThe child's name is " + name + ". Say it at most once.") if name else
+            + ("\nYou heard the child's name yourself. Use it only as you heard it, at most once; never a guessed one." if ear else
+               ("\nThe child's name is " + name + ". Say it at most once.") if name else
                "\nYou do not know the child's name" + (" yet." if step in ("NAME", "GREET") else " - never guess one.")))
 BARGE_GUARD_S = float(os.environ.get("NOVA_BARGE_GUARD_S", "0.3"))
 TCACHE = {}        # (voice, model, text) -> pcm16 24 kHz bytes; lives for the whole process (all sessions)
@@ -1030,7 +1062,7 @@ async def relay(request):
     # NOVA-LEAD: step = the page's intro step; want = a step change waiting for the safe moment; verdict/ev = the page's
     # decision on the child's turn ("line" = a written step line replaces her answer, "answer" = her own answer goes out);
     # po_* = playback truth from the face server; outbox = producer notes waiting for the safe window.
-    lead = {"on": False, "step": "NAME", "name": None, "want": None, "verdict": None, "ev": asyncio.Event(),
+    lead = {"on": False, "step": "NAME", "name": None, "want": None, "verdict": None, "ev": asyncio.Event(), "tx": {}, "ear": False,
             "po_ok": None, "po_seq": 0, "po_voiced": False, "po_pending": False, "po_t": 0.0, "outbox": [],
             "kid_talking": False, "kid_stop_t": 0.0, "win": None, "guard": 0, "cuts": 0, "notes": {"sent": 0, "said": 0, "stale": 0}}
     # he-13: bare create_task results get GARBAGE-COLLECTED mid-flight (documented
@@ -1518,7 +1550,7 @@ async def relay(request):
                     lead["guard"] += 1; print("[LEAD] guard: session.update held - a response is active", flush=True); return
                 st, nm = lead["want"]; lead["want"] = None
                 try:
-                    await oai.send_json({"type": "session.update", "session": {"type": "realtime", "instructions": lead_instructions(st, nm)}})
+                    await oai.send_json({"type": "session.update", "session": {"type": "realtime", "instructions": lead_instructions(st, nm, lead["ear"])}})
                     lead["step"] = st; lead["name"] = nm
                     if nm: l2n["name"] = nm
                     tr("lead.step", st); print("[LEAD] step", st, "(name: " + (nm or "-") + ") - prompt swapped", flush=True)
@@ -1531,11 +1563,32 @@ async def relay(request):
                     spec["n"] = None; resp["killed"] = True; resp["spec_hold"] = False; audio_buf.clear()
                     print("[LEAD] her own answer dropped (" + why + ")", flush=True)
                     if speaking["resp_active"]: await cancel_speech("lead: " + why)
-            async def lead_say(line, kill, step):
+            async def lead_say(line, kill, step, name=None):
                 """A written step line, word for word, through the one speech verb. kill = it REPLACES her answer to the
-                   child's turn (name caught -> the light line). Otherwise it queues behind whatever she is saying."""
+                   child's turn (name caught -> the light line). Otherwise it queues behind whatever she is saying.
+                   name = the page's caught name inside this line (the LIGHT line): NAME SAFETY decides how it is said."""
                 lead["verdict"] = "line"; lead["ev"].set()
                 if kill: await lead_kill_answer("the step line replaces it")
+                ear = False
+                if name:
+                    t_ = time.time(); ok = False
+                    while True:
+                        # agreement = the name (or a 1-edit neighbour) is in the transcripts of BOTH sources for one turn
+                        ok = any(len(d_) > 1 and all(lead_name_agrees(name, [tx]) for tx in d_.values())
+                                 for d_ in (lead["tx"][n_] for n_ in sorted(lead["tx"])[-3:]))
+                        if ok or time.time() - t_ >= LEAD_NAME_WAIT_S: break
+                        await asyncio.sleep(0.03)
+                    ear = not ok
+                    print("[LEAD] name '%s': %s (%s; waited %d ms)" % (name, "both transcripts agree - written line" if ok
+                          else "NOT confirmed - the written no-name light line; she may use the name as she heard it later",
+                          " | ".join("%s=%s" % kv for n_ in sorted(lead["tx"])[-3:] for kv in lead["tx"][n_].items())[:120],
+                          (time.time() - t_) * 1000), flush=True)
+                    tr("lead.name", "agree" if ok else "ear")
+                    try: await ws_client.send_json({"type": "lead_name", "name": name, "path": "written" if ok else "ear"})
+                    except Exception: pass
+                    if ear:
+                        lead["ear"] = True                                       # from here on the prompt never carries the unconfirmed name
+                        lead["want"] = ((lead["want"] or (lead["step"], None))[0], None)
                 if not await lead_idle():
                     lead["guard"] += 1; lead["cuts"] += 1
                     print("[LEAD] guard: a response was still active after 2.5 s - cancelled for the step line", flush=True)
@@ -1543,8 +1596,10 @@ async def relay(request):
                 await lead_apply_step()
                 spoken.discard(line.lower()); sayenf["tried"].discard(line)      # a ladder may say a line again by design
                 boundary["on"] = True; boundary["why"] = "lead-step"
-                tr("lead.say", step or "?", line[:30].replace(" ", "_")); print("[LEAD] step line (" + (step or "?") + "):", line, flush=True)
-                await _speak_send(None, line, "say", None, False)
+                said = LEAD_LIGHT_NONAME if ear else line                        # the page still hears "played" for ITS line text
+                tr("lead.say", step or "?", said[:30].replace(" ", "_")); print("[LEAD] step line (" + (step or "?") + "):", said, flush=True)
+                spoken.discard(said.lower()); sayenf["tried"].discard(said)
+                await _speak_send(None, said, "say", None, False)
                 asyncio.create_task(lead_line_played(line, step))
             async def lead_line_played(line, step):
                 """Tell the page when THIS written line has played out (face-server truth; timer if it has none)."""
@@ -1626,6 +1681,8 @@ async def relay(request):
 
             async def kid_transcript(ktxt, src, n, item_id=None, conf=None):
                 # TRANSCRIPT-RACE: first transcript per utterance wins; the loser is a no-op.
+                if lead["on"] and ktxt and not sgate.get("ever"):                # NOVA-LEAD NAME SAFETY: both sources are kept
+                    lead["tx"].setdefault(n, {})[src] = ktxt
                 if n in utt["handled"]:
                     return
                 # LAW-INPUT-LOCK VALIDATION: a kid-turn is real ONLY if the
@@ -1975,11 +2032,13 @@ async def relay(request):
                         try: await ws_client.send_json({"type": "ack", "of": "lead", "on": bool(_lead)})
                         except Exception: pass
                     elif t == "lead-step" and _lead:
-                        lead["want"] = (str(m.get("step") or "NAME").upper(), (str(m.get("name"))[:20] if m.get("name") else None))
+                        lead["want"] = (str(m.get("step") or "NAME").upper(),
+                                        (str(m.get("name"))[:20] if m.get("name") and not lead["ear"] else None))
                         await lead_apply_step()
                     elif t == "lead-say" and _lead:
                         _ln = (m.get("text") or "").strip()
-                        if _ln: asyncio.create_task(lead_say(_ln, bool(m.get("kill")), str(m.get("step") or "")))
+                        if _ln: asyncio.create_task(lead_say(_ln, bool(m.get("kill")), str(m.get("step") or ""),
+                                                             (str(m.get("name"))[:20] if m.get("name") else None)))
                     elif t == "lead-answer" and _lead:
                         lead["verdict"] = "answer"; lead["ev"].set()
                     elif t == "lead-note":

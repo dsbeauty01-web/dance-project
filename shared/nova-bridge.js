@@ -181,7 +181,7 @@ let leadOn = false;
 export function setLead(on) { leadOn = !!on; }
 export function leadHello() { send({ type: 'lead-hello' }); }
 export function leadStep(step, name = null) { send({ type: 'lead-step', step, name }); }
-export function leadSay(text, { kill = false, step = '' } = {}) { send({ type: 'lead-say', text, kill, step }); }
+export function leadSay(text, { kill = false, step = '', name = null } = {}) { send({ type: 'lead-say', text, kill, step, name }); }   // name: NAME SAFETY (the brain says it verbatim only when both transcripts agree)
 export function leadAnswer() { send({ type: 'lead-answer' }); }
 export function leadNote({ fact, ttl_ms = 5000, cls = 'background', say = false } = {}) {
   if (fact) send({ type: 'lead-note', fact, t: Date.now(), ttl_ms, cls, say }); }
@@ -317,6 +317,7 @@ function connectWS(intro) {
     }
     if (m.type === 'ack' && m.of === 'lead') { window.dispatchEvent(new CustomEvent('nova:lead', { detail: !!m.on })); return; }
     if (m.type === 'played_out') { window.dispatchEvent(new CustomEvent('nova:played-out', { detail: { line_id: m.line_id, ms: m.ms } })); return; }
+    if (m.type === 'lead_name') { window.dispatchEvent(new CustomEvent('nova:lead-name', { detail: { name: m.name, path: m.path } })); return; }
     if (m.type === 'lead_played') { window.dispatchEvent(new CustomEvent('nova:lead-played', { detail: { text: m.text, step: m.step, src: m.src } })); return; }
     if (m.type === 'lead_warn' || m.type === 'lead_note') { window.dispatchEvent(new CustomEvent('nova:lead-warn', { detail: m })); return; }
     if (m.type === 'ack' && m.of === 'v2v-greet') { window.dispatchEvent(new CustomEvent('nova:v2v', { detail: !!m.on })); return; }

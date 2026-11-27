@@ -88,6 +88,9 @@ if [ "${NF_GO5:-1}" = 1 ] && [ "${NF_CLOSED:-1}" = 1 ] && [ "$(basename "$DITTO_
 [ "${NF_LIVE2:-0}" = 1 ] && export NOVA_EL_JOIN=${NOVA_EL_JOIN:-1}
 # NOVA-LEAD: the face server logs each played-out line ([T] face.played_out); GET /played_out itself is always there (read-only)
 [ "${NF_LEAD:-0}" = 1 ] && export FACE_PO_LOG=1
+# NOVA-LEAD proof: the camera stand-in starts with a real lifted right shoulder (own-right-up), so the on-pod proof shows the
+# LIGHT step's WIN path (greeting -> game on the happy path); NF_PROOF_REPLAY=frozen-body,... shows the ladder instead.
+[ "${NF_LEAD:-0}" = 1 ] && export NF_PROOF_REPLAY=${NF_PROOF_REPLAY:-own-right-up,frozen-body,dance-hype,still-sway}
 [ "$NF_AUDIT" = 1 ] && export NF_PROOF_REPLAY=${NF_PROOF_REPLAY:-own-right-up,frozen-body,dance-hype,still-sway} NF_REC_FIX=${NF_REC_FIX:-1} FACE_VOICE_PREBUF_MS=${FACE_VOICE_PREBUF_MS:-400} FACE_REC_THREAD=${FACE_REC_THREAD:-1} FACE_PUB_STEADY=${FACE_PUB_STEADY:-1} FACE_WIDE_SOURCE=${FACE_WIDE_SOURCE:-camera} FACE_WIDE_TS=${FACE_WIDE_TS:-1}
 # ── NOVA-GO2 (2026-11-23; docs/NOVA-FIX-2026-11-23.md): NF_GO2=1 (default on in this build; 0 = the nova-go build as it was)
 #    · FACE_WIDE_SMOOTH=1  her wide track: one layer (no simulcast), keep the frame rate (tools/pod/nova_face.py)
