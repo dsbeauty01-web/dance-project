@@ -93,9 +93,9 @@ def run_A(p):
                                                          || (e.kind === 'lead' && String(e.detail).startsWith('greeting played'))),   // NOVA-LEAD: her greeting has played out
             lead: (window.freeze4Log || []).filter(e => e.kind === 'lead').map(e => String(e.detail)).slice(-1)[0] || '',
             chatReady: (() => { const L = window.freeze4Log || [], c = L.filter(e => e.kind === 'lead' && String(e.detail).startsWith('step CHAT')).slice(-1)[0];
-                                if (!c) return false; const H = L.filter(e => e.kind === 'her-voice' && e.t >= c.t - 300), h = H.slice(-1)[0];
+                                if (!c) return false; const H = L.filter(e => e.kind === 'her-voice' && e.t >= c.t - 0.3), h = H.slice(-1)[0];   // log t is in SECONDS
                                 // her question must have STARTED after the CHAT step and ENDED (pod m0sizitlie0617: he spoke 0.66 s into CHAT = over her)
-                                return H.some(e => e.detail === 'start') && !!h && h.detail === 'end' && !L.some(e => e.kind === 'lead' && e.t > c.t && String(e.detail).startsWith('step LIGHT')); })(),   // NOVA-LEAD v2: her question has played out
+                                return H.some(e => e.detail === 'start') && !!h && h.detail === 'end' && ((performance.now() - (window.freeze4T0 || 0)) / 1000 - h.t > 1.0) && !L.some(e => e.kind === 'lead' && e.t > c.t && String(e.detail).startsWith('step LIGHT')); })(),   // NOVA-LEAD v2: her question has played out
             answered: (window.freeze4Log || []).some(e => e.kind === 'intro-answer'),
             wide: window.freeze4Wide ? window.freeze4Wide.state : null, face: window.freeze4Face ? window.freeze4Face.state : null,
             ended: document.getElementById('end').classList.contains('on'),
@@ -113,7 +113,7 @@ def run_A(p):
         if kid_chat and not s.get("chatReady") and "kidchat" not in got: got.pop("t_chat", None)   # she spoke again: wait again
         if kid_chat and s.get("chatReady") and "kidchat" not in got:                    # NOVA-LEAD v2: he answers her question
             got.setdefault("t_chat", time.time())
-            if time.time() - got["t_chat"] > 0.9:
+            if time.time() - got["t_chat"] > 0.2:
                 got["kidchat"] = round(pg.evaluate("b => window.__kidSay(b)", kid_chat), 2); print("kid said (chat) at", t, flush=True)
         key = (s["gate"] or "open", s["stage"], (s["face"] or {}).get("badge"), s["ended"])
         if not marks or marks[-1][1] != key:
