@@ -1,0 +1,191 @@
+NOVA-LEAD v2 - scenario rig transcripts, 2026-11-26. Real page (headless Chrome) + real voice brain (gpt-realtime-2, effort minimal) + engine stand-in. No pod, no camera: the shoulder lift is the rig's own call. t = page seconds; 'said' = the moment her line was made (it is heard ~1.8 s later, the face delay).
+Run: bash test/hear_rig/lead_scenarios.sh <outdir>
+
+=== TRANSCRIPT normal ===
+   9.9  NOVA   (asked)  Hi, I'm Nova, what's your name?
+   9.9  PAGE            step GREET 0
+  10.9  NOVA   (said)   {"step":"","text":"Hi, I'm Nova, what's your name?"}
+  15.0  PAGE            step NAME 5075
+  15.8  CHILD  (audio)  hi_im_shuki
+  17.5  CHILD  (heard)  {"step":"NAME","text":"Hi","name":null,"turns":1,"voiceS":0.3}
+  18.8  CHILD  (heard)  {"step":"NAME","text":"I'm Shuki.","name":"Shuki","turns":1,"voiceS":0.9}
+  18.8  PAGE            step CHAT 8839
+  19.6  NOVA   (said)   {"step":"CHAT","text":"Shuki! I love that name; do you like to dance?"}
+  24.7  CHILD  (audio)  yes_i_love_dancing
+  28.8  CHILD  (heard)  {"step":"CHAT","text":"Yes! I love dancing.","turns":1,"voiceS":2.8}
+  28.8  PAGE            step LIGHT 18892
+  30.8  NOVA   (said)   {"step":"LIGHT","text":"Ooh, same here; your shoulder is glowing, lift that shoulder."}
+  31.7  LIGHT           light on (rShoulder)
+  31.7  LIGHT           armed (rShoulder) aspect=1.778
+  31.7  PAGE            light armed with her invitation, 2882 ms into LIGHT (her own answer)
+  34.9  CHILD  (audio)  (lifts the shoulder)
+  34.9  LIGHT           WIN — a real lift was detected
+  34.9  PAGE            step GO 25001
+  36.2  NOVA   (asked)  [her own words: win] gen:1
+  38.3  NOVA   (said)   {"step":"GO","text":"Yes, shoulder lift! Cool, let's dance!"}
+  43.2  PAGE            step GAME 33274
+  43.2  PAGE            done: greeting -> game 33274 ms, shoulder win, name Shuki, backups 0
+TIME TO GAME: 33.2 s after the greeting was asked | backups used (0): none
+=== TRANSCRIPT silent ===
+  12.4  NOVA   (asked)  Hi, I'm Nova, what's your name?
+  12.4  PAGE            step GREET 0
+  13.5  NOVA   (said)   {"step":"","text":"Hi, I'm Nova, what's your name?"}
+  17.7  PAGE            step NAME 5263
+  23.7  PAGE            backup: name asked again (6 s quiet)
+  23.7  NOVA   (asked)  I'm Nova, and what's your name?
+  24.6  NOVA   (said)   {"step":"NAME","text":"I'm Nova, and what's your name?"}
+  31.1  PAGE            backup: no name (13 s)
+  31.1  NOVA   (asked)  That's okay, let's play!
+  31.9  NOVA   (said)   {"step":"NAME","text":"That's okay, let's play!"}
+  35.6  NOVA   (asked)  [her own words: light] gen:1
+  35.6  PAGE            step LIGHT 23173
+  36.8  NOVA   (said)   {"step":"LIGHT","text":"Look, a magic light on your shoulder—can you lift it?"}
+  38.4  LIGHT           light on (rShoulder)
+  38.4  LIGHT           armed (rShoulder) aspect=1.778
+  38.4  PAGE            light armed with her invitation, 2790 ms into LIGHT (led line gen:1)
+  47.6  PAGE            backup: light: she shows how (6.0 s, no lift)
+  47.6  NOVA   (asked)  Like this, one shoulder up!
+  48.8  NOVA   (said)   {"step":"LIGHT","text":"Like this, one shoulder up!"}
+  54.1  PAGE            backup: light: passed (12.5 s, no lift - nothing claimed)
+  54.1  LIGHT           pass — no lift seen (nothing claimed)
+  54.1  PAGE            step GO 41670
+  54.1  NOVA   (asked)  Magic, let's dance!
+  55.0  NOVA   (said)   {"step":"GO","text":"Magic, let's dance!"}
+  59.4  PAGE            step GAME 46945
+  59.4  PAGE            done: greeting -> game 46946 ms, shoulder pass, name -, backups 4
+TIME TO GAME: 46.9 s after the greeting was asked | backups used (4): name asked again (6 s quiet) · no name (13 s) · light: she shows how (6.0 s, no lift) · light: passed (12.5 s, no lift - nothing claimed)
+=== TRANSCRIPT chatty ===
+  12.3  NOVA   (asked)  Hi, I'm Nova, what's your name?
+  12.3  PAGE            step GREET 0
+  13.3  NOVA   (said)   {"step":"","text":"Hi, I'm Nova, what's your name?"}
+  17.3  PAGE            step NAME 5028
+  18.1  CHILD  (audio)  chatty1
+  26.9  CHILD  (heard)  {"step":"NAME","text":"Hi, I'm Suki, and I have a dog named Max. And he is brown, and he runs in the park with me.","name":"Suki","turns":1,"voiceS":7}
+  26.9  PAGE            step CHAT 14567
+  28.0  NOVA   (said)   {"step":"CHAT","text":"Aww, Suki, I love that name. What music makes you wiggle?"}
+  34.2  CHILD  (audio)  chatty2
+  49.7  CHILD  (heard)  {"step":"CHAT","text":"Yes! I love dancing, and yesterday I danced at my cousin's birthday, and there was a big cake and balloons, and we played games all day long, and i
+  49.7  PAGE            backup: over-talk in CHAT (13.6 s of talk): steered to the light
+  49.7  NOVA   (asked)  [her own words: steer] gen:1
+  49.7  PAGE            step LIGHT 37448
+  51.7  NOVA   (said)   {"step":"LIGHT","text":"Wow, that sounds amazing—tell me more after! Look, a magic light on your shoulder; lift it."}
+  52.6  LIGHT           light on (rShoulder)
+  52.6  LIGHT           armed (rShoulder) aspect=1.778
+  52.6  PAGE            light armed with her invitation, 2831 ms into LIGHT (led line gen:1)
+  55.3  PAGE            backup: light: passed for the clock (43022 ms since the greeting, hard cap 50 s)
+  55.3  LIGHT           pass — no lift seen (nothing claimed)
+  55.3  PAGE            step GO 43025
+  55.3  NOVA   (asked)  Magic, let's dance!
+  56.3  NOVA   (said)   {"step":"GO","text":"Magic, let's dance!"}
+  61.4  PAGE            step GAME 49115
+  61.4  PAGE            done: greeting -> game 49116 ms, shoulder pass, name Suki, backups 2
+TIME TO GAME: 49.1 s after the greeting was asked | backups used (2): over-talk in CHAT (13.6 s of talk): steered to the light · light: passed for the clock (43022 ms since the greeting, hard cap 50 s)
+=== TRANSCRIPT questions ===
+  12.3  NOVA   (asked)  Hi, I'm Nova, what's your name?
+  12.3  PAGE            step GREET 0
+  13.3  NOVA   (said)   {"step":"","text":"Hi, I'm Nova, what's your name?"}
+  17.5  PAGE            step NAME 5157
+  18.2  CHILD  (audio)  can_you_hear_me
+  20.3  CHILD  (heard)  {"step":"NAME","text":"Can you hear me?","name":null,"turns":1,"voiceS":0.7}
+  21.1  NOVA   (said)   {"step":"NAME","text":"Yes, I hear you, and what's your name?"}
+  25.9  CHILD  (audio)  hi_im_shuki
+  27.7  CHILD  (heard)  {"step":"NAME","text":"Hi","name":null,"turns":2,"voiceS":0.3}
+  28.9  CHILD  (heard)  {"step":"NAME","text":"I'm Shukey.","name":"Shukey","turns":2,"voiceS":0.9}
+  28.9  PAGE            step CHAT 16616
+  30.4  NOVA   (said)   {"step":"CHAT","text":"Ooh, Shuki! I love that name. Do you like to dance?"}
+  35.9  CHILD  (audio)  what_now
+  37.7  CHILD  (heard)  {"step":"CHAT","text":"What now?","turns":1,"voiceS":0.5}
+  37.7  PAGE            step LIGHT 25420
+  39.1  NOVA   (said)   {"step":"LIGHT","text":"Ha, now look—your shoulder glows; lift that shoulder up, Shuki."}
+  40.3  LIGHT           light on (rShoulder)
+  40.3  LIGHT           armed (rShoulder) aspect=1.778
+  40.3  PAGE            light armed with her invitation, 2567 ms into LIGHT (her own answer)
+  45.5  CHILD  (audio)  what_do_i_do
+  45.7  CHILD  (audio)  (lifts the shoulder)
+  45.7  LIGHT           WIN — a real lift was detected
+  45.7  PAGE            step GO 33371
+  45.7  NOVA   (asked)  [her own words: win] gen:1
+  47.3  NOVA   (said)   {"step":"GO","text":"Yes, shoulder lift! cool, let's dance!"}
+  52.0  PAGE            step GAME 39730
+  52.0  PAGE            done: greeting -> game 39730 ms, shoulder win, name Shukey, backups 0
+TIME TO GAME: 39.7 s after the greeting was asked | backups used (0): none
+=== TRANSCRIPT refusal ===
+  12.3  NOVA   (asked)  Hi, I'm Nova, what's your name?
+  12.3  PAGE            step GREET 0
+  13.1  NOVA   (said)   {"step":"","text":"Hi, I'm Nova, what's your name?"}
+  17.1  PAGE            step NAME 4820
+  17.9  CHILD  (audio)  hi_im_shuki
+  19.6  CHILD  (heard)  {"step":"NAME","text":"Hi","name":null,"turns":1,"voiceS":0.3}
+  21.0  CHILD  (heard)  {"step":"NAME","text":"I'm Shiki.","name":"Shiki","turns":1,"voiceS":0.9}
+  21.0  PAGE            step CHAT 8679
+  21.5  NOVA   (said)   {"step":"CHAT","text":"Shuki! I love that name—do you like to dance?"}
+  26.6  CHILD  (audio)  i_dont_want_to
+  30.2  CHILD  (heard)  {"step":"CHAT","text":"No, I don't want to.","turns":1,"voiceS":1.9}
+  30.2  PAGE            step GO 17875
+  30.2  PAGE            backup: the child said no ("No, I don't want to."): "just watch me first" and the game
+  30.2  NOVA   (asked)  No problem, just watch me first!
+  31.1  NOVA   (said)   {"step":"GO","text":"No problem, just watch me first!"}
+  35.6  PAGE            step GAME 23305
+  35.6  PAGE            done: greeting -> game 23308 ms, shoulder refused, name Shiki, backups 1
+TIME TO GAME: 23.3 s after the greeting was asked | backups used (1): the child said no ("No, I don't want to."): "just watch me first" and the game
+=== TRANSCRIPT noise ===
+   9.2  NOVA   (asked)  Hi, I'm Nova, what's your name?
+   9.2  PAGE            step GREET 0
+  10.2  NOVA   (said)   {"step":"","text":"Hi, I'm Nova, what's your name?"}
+  14.7  PAGE            step NAME 5461
+  15.4  CHILD  (audio)  garble1
+  20.7  PAGE            backup: name asked again (6 s quiet)
+  20.7  NOVA   (asked)  I'm Nova, and what's your name?
+  21.5  NOVA   (said)   {"step":"NAME","text":"I'm Nova, and what's your name?"}
+  26.5  CHILD  (audio)  hum
+  29.0  CHILD  (heard)  {"unclear":".","why":"garble/empty"}
+  30.3  PAGE            backup: unclear sound in NAME: "say that again?"
+  30.3  NOVA   (asked)  Hm, say that again?
+  31.2  NOVA   (said)   {"step":"NAME","text":"Hm, say that again?"}
+  33.4  PAGE            backup: no name (19 s, NAME closed)
+  33.4  NOVA   (asked)  That's okay, let's play!
+  34.1  NOVA   (said)   {"step":"NAME","text":"That's okay, let's play!"}
+  37.8  NOVA   (asked)  [her own words: light] gen:1
+  37.8  PAGE            step LIGHT 28585
+  38.9  NOVA   (said)   {"step":"LIGHT","text":"Look, a magic light—can you lift your shoulder?"}
+  40.4  LIGHT           light on (rShoulder)
+  40.4  LIGHT           armed (rShoulder) aspect=1.778
+  40.4  PAGE            light armed with her invitation, 2614 ms into LIGHT (led line gen:1)
+  49.9  PAGE            backup: light: she shows how (6.0 s, no lift)
+  49.9  NOVA   (asked)  Like this, one shoulder up!
+  50.7  NOVA   (said)   {"step":"LIGHT","text":"Like this, one shoulder up!"}
+  52.2  PAGE            backup: light: passed for the clock (43050 ms since the greeting, hard cap 50 s)
+  52.2  LIGHT           pass — no lift seen (nothing claimed)
+  52.2  PAGE            step GO 43052
+  52.2  NOVA   (asked)  Magic, let's dance!
+  53.0  NOVA   (said)   {"step":"GO","text":"Magic, let's dance!"}
+  57.5  PAGE            step GAME 48302
+  57.5  PAGE            done: greeting -> game 48302 ms, shoulder pass, name -, backups 5
+TIME TO GAME: 48.3 s after the greeting was asked | backups used (5): name asked again (6 s quiet) · unclear sound in NAME: "say that again?" · no name (19 s, NAME closed) · light: she shows how (6.0 s, no lift) · light: passed for the clock (43050 ms sinc
+=== TRANSCRIPT talkover ===
+   6.9  NOVA   (asked)  Hi, I'm Nova, what's your name?
+   6.9  PAGE            step GREET 0
+   8.0  NOVA   (said)   {"step":"","text":"Hi, I'm Nova, what's your name?"}
+  12.0  PAGE            step NAME 5114
+  12.7  CHILD  (audio)  hi_im_shuki
+  14.7  CHILD  (heard)  {"step":"NAME","text":"Hi","name":null,"turns":1,"voiceS":0.3}
+  15.8  CHILD  (heard)  {"step":"NAME","text":"I'm Shuki.","name":"Shuki","turns":1,"voiceS":0.9}
+  15.8  PAGE            step CHAT 8920
+  16.7  NOVA   (said)   {"step":"CHAT","text":"Shuki! I love that name. Do you like to dance?"}
+  19.1  CHILD  (audio)  wait_wait (over her)
+  22.5  CHILD  (audio)  yes_i_love_dancing
+  26.8  CHILD  (heard)  {"step":"CHAT","text":"Can you hear me? Yes, I love dancing.","turns":1,"voiceS":4}
+  26.8  PAGE            step LIGHT 19874
+  28.1  NOVA   (said)   {"step":"LIGHT","text":"Ooh, nice! Your shoulder is glowing—lift that shoulder up high."}
+  29.1  LIGHT           light on (rShoulder)
+  29.1  LIGHT           armed (rShoulder) aspect=1.778
+  29.1  PAGE            light armed with her invitation, 2287 ms into LIGHT (her own answer)
+  30.0  CHILD  (audio)  what_do_i_do (over her)
+  35.2  CHILD  (audio)  (lifts the shoulder)
+  35.2  LIGHT           WIN — a real lift was detected
+  35.2  PAGE            step GO 28328
+  35.2  NOVA   (asked)  [her own words: win] gen:1
+  37.1  NOVA   (said)   {"step":"GO","text":"Yes! Shoulder lift! Cool, let's dance!"}
+  41.2  PAGE            step GAME 34290
+  41.2  PAGE            done: greeting -> game 34290 ms, shoulder win, name Shuki, backups 0
+TIME TO GAME: 34.3 s after the greeting was asked | backups used (0): none

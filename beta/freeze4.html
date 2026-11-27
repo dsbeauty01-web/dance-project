@@ -147,7 +147,7 @@ import { runDoctor } from './lib/doctor.js';
 import { attachNova, routeVoice, note, onHerAudio, bridgeState, primeAudio, micState, restartMic, pageLog, liveIntro } from '../shared/nova-bridge.js';
 import { catchName } from './lib/name-catch.js';
 import { holdMicFor, setBarge } from '../shared/nova-bridge.js';
-import { setLead, leadHello, leadStep, leadSay, leadAnswer, novaFact } from '../shared/nova-bridge.js';
+import { setLead, leadHello, leadStep, leadSay, leadAnswer, leadGen, leadDrop, novaFact } from '../shared/nova-bridge.js';
 import { createFacePanel } from '../shared/face-panel.js';
 import { mountFacePip } from '../shared/face-pip.js';
 import { createShoulderBeat, LINES as SHOULDER_LINES, HE_NEUTRAL } from './lib/shoulder-beat.js';
@@ -184,7 +184,7 @@ $('title').textContent = TXT.title; $('howto').textContent = TXT.howto; $('back'
 $('back').onclick = () => location.href = 'index.html' + location.search;
 
 /* ── the run log: everything the proof harness (and a curious founder) reads back — window.freeze4Log ── */
-const LOG = window.freeze4Log = []; const T0 = performance.now();
+const LOG = window.freeze4Log = []; const T0 = performance.now(); window.freeze4T0 = T0;
 /* NOVA-GO4 flag `hear`: the same lines also go to the brain (pod NOVA_HEAR=1 prints them as [PAGE] in rtlk.log), so what a
    real player's browser did - permission, microphone level, what was heard - can be read back after a live session. */
 const F_HEAR = Q.get('hear') === '1' || (Q.get('hear') !== '0' && !!(window.__F4_FLAGS || {}).hear);
@@ -683,7 +683,7 @@ async function v2vNameBeat(tAsk){
       if (name){ v2vIntro.name = name; v2vIntro.why = 'name captured'; v2vIntro.awaitingName = false; break; }
       if (turns >= V2V_MAX_TURNS || FLAG('live2')){ v2vIntro.why = turns + ' exchanges, no name'; break; }   // live2: the chat loop below carries on
       continue; }
-    if (kid.pending && performance.now() - kid.hearingAt > INTRO_TURN_MS) kid.pending = false;
+    if (kid.pending && !talking() && performance.now() - kid.hearingAt > INTRO_TURN_MS) kid.pending = false;
     if (performance.now() - t0 > V2V_NO_NAME_MS && !kid.pending && !herV.on){ v2vIntro.why = '45s no-name safety'; break; }
     await sleep(100);
   }
@@ -703,7 +703,7 @@ async function v2vNameBeat(tAsk){
         log('v2v-chat-answer', String(await waitHerLine(INTRO_ANSWER_MS, seenAt)));
         quietFrom = performance.now(); continue; }
       if (herV.on || kid.pending) quietFrom = performance.now();
-      if (kid.pending && performance.now() - kid.hearingAt > INTRO_TURN_MS) kid.pending = false;
+      if (kid.pending && !talking() && performance.now() - kid.hearingAt > INTRO_TURN_MS) kid.pending = false;
       const asked = /\?\s*["”]?\s*$/.test(lastHer), quiet = performance.now() - quietFrom;
       if (turns >= LIVE2_MAX_TURNS && !herV.on && !kid.pending){ v2vIntro.why = turns + ' exchanges'; break; }
       if (turns >= 1 && quiet > (asked ? LIVE2_QUIET_Q_MS : LIVE2_QUIET_MS)){ v2vIntro.why = 'chat ended (quiet ' + Math.round(quiet / 1000) + ' s' + (asked ? ', after her question' : '') + ')'; break; }
@@ -715,7 +715,7 @@ async function v2vNameBeat(tAsk){
     const tq = performance.now();
     while (performance.now() - tq < V2V_CHAT_LISTEN_MS || kid.pending){
       if (kid.textAt > seenAt){ seenAt = kid.textAt; log('v2v-chat', kid.text); log('v2v-chat-answer', String(await waitHerLine(INTRO_ANSWER_MS, seenAt))); break; }
-      if (kid.pending && performance.now() - kid.hearingAt > INTRO_TURN_MS) kid.pending = false;
+      if (kid.pending && !talking() && performance.now() - kid.hearingAt > INTRO_TURN_MS) kid.pending = false;
       await sleep(100);
     }
   }
@@ -731,26 +731,36 @@ async function v2vNameBeat(tAsk){
 /* ── NOVA-LEAD (2026-11-26) · SHE LEADS — flag `lead` (pod NF_LEAD=1: brain NOVA_LEAD=1), default off. English only.
    docs/NOVA-LEAD-2026-11-26.md + skill nova-lead-orchestra. Refael's play 2026-11-26: 97 s, never reached the game; the light
    was armed 58 s after his name; she asked 0 questions. Cause: the live2 chat loop above waits for the child to go quiet.
-   Here the intro is 4 steps, each with ONE exit and a ladder; the page moves on the moment the exit is met:
-     GREET  "Hi! I'm Nova! What's your name?"            exit: line played out
-     NAME   -                                            exit: catchName hit -> LIGHT at once
-            ladder: 6 s quiet -> ask once more · 12 s total or 2 unclear turns -> LIGHT without a name
-     LIGHT  "{Name}! Magic light - lift that shoulder!"   the light AND the real-lift check start WITH the line
-            exit: a real lift -> "Yes! You got it!"
-            ladder: 6 s -> "Like this - one shoulder, up!" · 12 s -> "Magic! Let's go!" (a pass: nothing is claimed)
-     GO     "Music on - dance! Music off - freeze!"      exit: line played out -> game.start (no listening pause)
-   A child's own question in any step gets ONE short answer of hers that ends with the step's next action (brain LEAD_STEP).
-   Every backup is logged (`lead backup: …`) and shown in the debug strip (?debug=1). Budget: greeting -> game <= 30 s.
-   [CLI-FILL] 6 / 12 / 6 / 12 s and every line, for Refael's ear (design table 2a). QUESTION: the Hebrew lines. */
+   v1 was 4 steps of WRITTEN lines, each with ONE exit and a ladder; the page moves on the moment the exit is met.
+     v2 (same day, after Refael heard the first clip: "very weird ... should be like a real convo with fallback"): the APPROVED
+     intro is back (main nova-commercial.html L1900 INTRO LEADER 2026-09-14 + pod/rt_lk.py PROMPT "YOUR INTRO": name, react to
+     that exact name, ONE light question, the light, the game) - but SHE LEADS it. She words her own lines from a small
+     per-step prompt (brain LEAD_STEP / LEAD_GEN); only the greeting and the ladder lines below are written.
+     GREET  written: "Hi, I'm Nova, what's your name?"
+     NAME   her own answer to the name turn = the name back + ONE light question     -> CHAT
+            ladder: 6 s quiet -> ask once more · 12 s or 2 unclear turns -> "That's okay, let's play!" -> LIGHT, no name
+     CHAT   ONE exchange: the child answers; her own answer = a tiny reaction + "look, a light on your shoulder - lift it!"
+            ladder: 5 s unanswered -> she answers her own question in one line and goes to the light
+     LIGHT  the light AND the real-lift check start when her light invitation STARTS (her voice in this browser)
+            ladder (counted from her invitation played out): 6 s -> "Like this, one shoulder up!" · 12 s -> the pass line
+     GO     a real lift: her own "yes, you got it - cool, let's dance!" · no lift: the written "Magic, let's dance!" -> game.start
+   Every step: a child's question -> her own short answer that ends with the step's next action · unclear/noise -> "Hm, say
+   that again?" once, then the ladder moves on · more than 2 child turns, or one turn over 8 s -> a 5-word reaction + "tell me
+   more after - look at your shoulder!" · "I don't want to" -> "No problem, just watch me first!" and the game (never negative)
+   · talk-over: she stops and listens (brain barge-in covers step lines). Every backup is logged (`lead backup: …`) and shown
+   in the debug strip (?debug=1). Budget: greeting -> game typical 30-35 s, hard cap 50 s (the pass is forced at 43 s).
+   [CLI-FILL] 6 / 12 / 5 / 6 / 12 / 43 s, 2 turns, 8 s and every written line - from Refael's brief 2026-11-26, for his ear.
+   QUESTION: the Hebrew lines. */
 /* LINES THAT FLOW (pod u2sxm5up5hy5kd 2026-11-26, Gold BLOCK): the native voice made a 0.4 s pause between "I'm Nova!" and
    "What's your name?" and Ditto's mouth was still open one frame into it (open frame in silence at 19.4 s), pause jitter 2.07.
-   Each step line is ONE flowing sentence now - commas, no full stop or "!" in the middle. Same words, same meaning. */
-const LEAD_L = { greet: "Hi, I'm Nova, what's your name?", reask: "I'm Nova, and what's your name?",
-  light: n => n ? n + ', magic light, lift that shoulder!' : 'Ooh, magic light, lift that shoulder!',
-  demo: 'Like this, one shoulder up!', win: 'Yes, you got it!', pass: "Magic, let's go!", go: 'Music on we dance, music off we freeze!' };
-const LEAD_T = { nameQuietMs: 6000, nameCapMs: 12000, unclearMax: 2, lightDemoMs: 6000, lightPassMs: 12000, tailMs: 350,
-  answerGraceMs: 2500, afterAnswerMs: 4500, quietMs: 1500 };   // [CLI-FILL] her answer needs up to ~2.5 s to reach the speaker (measured live2: 1.8-2.6 s); quiet is not counted meanwhile; afterAnswerMs [CLI-FILL]: that delay + a ~2 s answer; quietMs [CLI-FILL]: one child reaction time with the microphone open
-const leadS = { on: false, step: '', name: null, backups: [], t: {}, unclear: 0, said: [] };
+   Each written line is ONE flowing sentence - commas, no full stop or "!" in the middle. */
+const LEAD_L = { greet: "Hi, I'm Nova, what's your name?", reask: "I'm Nova, and what's your name?", noname: "That's okay, let's play!",
+  again: 'Hm, say that again?', demo: 'Like this, one shoulder up!', pass: "Magic, let's dance!",
+  refuse: 'No problem, just watch me first!' };
+const LEAD_T = { nameQuietMs: 6000, nameCapMs: 12000, unclearMax: 2, chatQuietMs: 5000, turnsMax: 2, monoS: 8, lightDemoMs: 6000, lightPassMs: 12000,
+  hardMs: 43000, tailMs: 350, answerGraceMs: 2500, afterAnswerMs: 4500, quietMs: 1500, herStartMs: 3500, herSaidMs: 7000, pieceGapMs: 2500, againMs: 1200, afterStopMs: 1000, nameHardMs: 18000 };   // [CLI-FILL] afterStopMs: his words reach the page ~0.5-0.7 s after he stops (rig); nameHardMs: NAME never lasts longer, whatever was said   // [CLI-FILL] answerGraceMs: her answer needs up to ~2.5 s to reach the speaker (measured live2: 1.8-2.6 s), quiet is not counted meanwhile; afterAnswerMs: that delay + a ~2 s answer; quietMs: one child reaction time with the microphone open; herStartMs / herSaidMs: the same delay + margin, then a logged backup
+const LEAD_REFUSE_RE = /\b(i\s+(really\s+)?(don'?t|do\s+not)\s+(want|wanna)|don'?t\s+wanna|no\s+thank|leave\s+me|go\s+away|i\s+won'?t)\b/i;   // [CLI-FILL] a plain refusal; a bare "no" is an answer, not a refusal
+const leadS = { on: false, step: '', name: null, backups: [], t: {}, unclear: 0, turns: 0, drops: 0, stopS: 0, stopAt: 0, talking: false, hearAt: 0, her: { text: '', at: 0 }, said: [] };
 window.freeze4Lead = leadS;
 function leadAck(capMs){ return new Promise(res => { const t = setTimeout(() => res(null), capMs);
   addEventListener('nova:lead', e => { clearTimeout(t); res(!!e.detail); }, { once: true }); }); }
@@ -759,12 +769,24 @@ function leadDbg(txt){ if (Q.get('debug') !== '1') return; let d = $('leadDbg');
   d.textContent = txt; }
 function leadBackup(what){ leadS.backups.push(what); log('lead', 'backup: ' + what); leadDbg('lead backup: ' + leadS.backups.join(' · ')); }
 function leadLine(key, text, opts){ leadS.said.push(key); leadPlayedAt.delete(text); leadSay(text, opts); window.novaBrainLog.push({ t: performance.now() / 1000, text, delayMs: 0, mode: 'lead', sent: true });
-  face.thinking(); log('line', text); pip.say(text); }
-addEventListener('nova:kid-drop', () => { if (leadS.on && leadS.step === 'NAME') leadS.unclear++; });
+  face.thinking(); log('line', text); pip.say(text); return text; }
+/* a line SHE words herself (brain LEAD_GEN[kind]); the brain reports `gen:<id>` when it has played out */
+let leadGenN = 0;
+function leadMake(kind, opts){ const key = 'gen:' + (++leadGenN); leadS.said.push(kind); leadGen(kind, { ...opts, id: leadGenN });
+  face.thinking(); log('line', '[her own words: ' + kind + '] ' + key); return key; }
+addEventListener('nova:kid-drop', e => { if (leadS.on){ leadS.drops++; log('lead-kid', JSON.stringify({ unclear: (e.detail && e.detail.text) || '', why: (e.detail && e.detail.why) || '' })); } });
+/* ONE SPEECH = voice pieces less than pieceGapMs apart (the brain cuts a child's sentence at each breath: rig 2026-11-26,
+   "Yes! I love dancing" arrived as "Yes!" + "Dancing"). stopS = seconds of talk in the speech so far. */
+/* talking = he is talking NOW (brain: speech started .. speech stopped). kid.pending alone times out after 6 s - rig
+   2026-11-26: a 13.7 s speech looked "idle" after 6 s and the clock cut the chat over him. */
+addEventListener('nova:hearing', () => { leadS.talking = true; leadS.hearAt = performance.now(); });
+addEventListener('nova:kid-stopped', e => { const d = +e.detail || 0, now = performance.now(); leadS.talking = false;
+  leadS.stopS = (now - d * 1000 - leadS.stopAt < LEAD_T.pieceGapMs) ? leadS.stopS + d : d; leadS.stopAt = now; });
+addEventListener('nova:said', e => { if (leadS.on){ leadS.her = { text: String(e.detail || ''), at: performance.now() }; log('lead-her', JSON.stringify({ step: leadS.step, text: leadS.her.text })); } });
 addEventListener('nova:played-out', e => log('played-out', JSON.stringify(e.detail)));
-addEventListener('nova:lead-name', e => log('lead', 'name "' + e.detail.name + '": ' + (e.detail.path === 'written' ? 'both transcripts agree - said in the light line' : 'not confirmed by the second transcript - light line without the name')));
+addEventListener('nova:lead-name', e => log('lead', 'name "' + e.detail.name + '": ' + e.detail.path));
 addEventListener('nova:lead-warn', e => { log('lead', 'brain: ' + JSON.stringify(e.detail)); if (e.detail && e.detail.what) leadBackup(e.detail.what); });
-/* a written line has PLAYED OUT: the brain says so from the face server's own count of voiced frames put on air (`lead_played`);
+/* a line has PLAYED OUT: the brain says so from the face server's own count of voiced frames put on air (`lead_played`);
    then her voice in this browser must be quiet tailMs. No word from the brain inside capMs = logged as a backup, never silent. */
 const leadPlayedAt = new Map();
 addEventListener('nova:lead-played', e => { leadPlayedAt.set(e.detail.text, performance.now()); log('lead', 'played out (' + e.detail.src + '): ' + e.detail.text); });
@@ -773,64 +795,153 @@ async function leadPlayed(text, capMs){ const t0 = performance.now();
     if (leadPlayedAt.has(text) && !herV.on && performance.now() - herV.endedAt > LEAD_T.tailMs) return true;
     await sleep(40); }
   leadBackup('no played-out for "' + text.slice(0, 18) + '…" in ' + Math.round(capMs / 1000) + ' s'); return false; }
+/* her OWN answer (no line id): what she said (nova:said) and when her voice started in this browser, both after tFrom */
+async function leadHerSaid(tFrom, capMs){ const t0 = performance.now();
+  while (performance.now() - t0 < capMs){ if (leadS.her.at > tFrom) return leadS.her.text; await sleep(40); } return null; }
+async function leadHerStarted(tFrom, capMs){ const t0 = performance.now();
+  while (performance.now() - t0 < capMs){ if (herV.startedAt > tFrom) return true; await sleep(30); } return false; }
 async function leadIntro(tAsk){
-  const ms = () => Math.round(performance.now() - tAsk), step = st => { leadS.step = st; leadS.t[st] = ms(); log('lead', 'step ' + st + ' ' + ms()); leadDbg('lead: ' + st + (leadS.backups.length ? ' · backup: ' + leadS.backups.join(' · ') : '')); };
+  const ms = () => Math.round(performance.now() - tAsk);
+  const step = st => { leadS.step = st; leadS.t[st] = ms(); leadS.turns = 0; leadS.unclear = 0; log('lead', 'step ' + st + ' ' + ms()); leadDbg('lead: ' + st + (leadS.backups.length ? ' · backup: ' + leadS.backups.join(' · ') : '')); };
+  const mono = () => leadS.stopS > LEAD_T.monoS && performance.now() - leadS.stopAt < 6000;      // his last turn was one long speech
+  const talking = () => leadS.talking && performance.now() - leadS.hearAt < 20000;                 // [CLI-FILL] 20 s: a stuck 'talking' flag never blocks the intro
+  const idleNow = () => !herV.on && !kid.pending && !talking();
+  let lastKidAt = 0; const fresh = () => { const f = kid.textAt - lastKidAt > LEAD_T.pieceGapMs; lastKidAt = kid.textAt; return f; };   // a new turn, not the next piece of the same speech
+  let seenAt = tAsk, dropSeen = leadS.drops, to = null, invite = null, res = null, tV = 0;
+  /* invite = how the light invitation reaches the child: { from } her own answer to his turn (asked at `from`), or { key } a
+     led line the page asked for. Either way the light is armed when that line STARTS. */
+  const ledInvite = (kind, kill) => { leadStep('LIGHT'); invite = { key: leadMake(kind, { kill: !!kill, step: 'LIGHT' }), at: performance.now() }; to = 'LIGHT'; };
   v2vIntro.awaitingName = true;                                               // no hum while the name is awaited (skill nova-smart-reactions)
   log('lead', 'greeting played=' + await leadPlayed(LEAD_L.greet, 15000));
+  /* ── NAME ── */
   step('NAME');
-  const tName = performance.now(); let seenAt = tAsk, quietFrom = tName, reasked = false, turns = 0;
-  while (true){
-    const now = performance.now();
-    if (kid.textAt > seenAt){ seenAt = kid.textAt; turns++;
-      const name = catchName(kid.text, { asked: turns === 1 });
-      log('lead-kid', JSON.stringify({ text: kid.text, name, turns }));
-      if (name){ leadS.name = name; break; }
-      leadAnswer();                                                           // her own short answer; it ends by asking the name again
-      quietFrom = performance.now() + LEAD_T.answerGraceMs; continue; }           // never blocks: his next words are judged the moment they land
-    if ((herV.on || kid.pending) && quietFrom < now) quietFrom = now;
-    if (kid.pending && now - kid.hearingAt > INTRO_TURN_MS) kid.pending = false;
-    const idle = !herV.on && !kid.pending;
-    if (leadS.unclear >= LEAD_T.unclearMax && idle && now - quietFrom > 1500){ leadBackup('no name (' + leadS.unclear + ' unclear turns)'); break; }
-    if (!reasked && idle && now - quietFrom > LEAD_T.nameQuietMs){ reasked = true; leadBackup('name asked again (6 s quiet)');
-      leadLine('reask', LEAD_L.reask, { step: 'NAME' }); quietFrom = performance.now() + LEAD_T.answerGraceMs; continue; }
-    if (idle && now - tName > LEAD_T.nameCapMs && now - quietFrom > 2500){ leadBackup('no name (' + Math.round((now - tName) / 1000) + ' s)'); break; }
-    await sleep(60);
+  { const tName = performance.now(); let quietFrom = tName, reasked = false, pendHer = 0, againAt = 0, herSeen = leadS.her.at, wroteAgainAt = 0;
+    while (!to){
+      const now = performance.now();
+      if (kid.textAt > seenAt){ seenAt = kid.textAt; againAt = 0; if (fresh()) leadS.turns++;
+        const name = /\?\s*$/.test(kid.text) ? null : catchName(kid.text, { asked: leadS.turns === 1 });   // a question is not a name (rig: "Ha?" was caught as the name Ha)
+        log('lead-kid', JSON.stringify({ step: 'NAME', text: kid.text, name, turns: leadS.turns, voiceS: +leadS.stopS.toFixed(1) }));
+        if (LEAD_REFUSE_RE.test(kid.text)){ to = 'REFUSE'; break; }
+        if (mono()){ leadS.name = name; leadBackup('over-talk in NAME (' + leadS.stopS.toFixed(1) + ' s of talk): steered to the light'); ledInvite('steer', true); break; }
+        if (name){ leadS.name = name; tV = now; leadAnswer(); to = 'CHAT'; break; }      // her own answer: the name back + ONE light question
+        if (leadS.turns > LEAD_T.turnsMax){ leadBackup('over-talk in NAME (' + leadS.turns + ' turns, no name): steered to the light'); ledInvite('steer', true); break; }
+        leadAnswer(); pendHer = tV = now;                                         // her own short answer; it ends by asking the name again
+        quietFrom = now + LEAD_T.answerGraceMs; continue; }
+      if (leadS.her.at > herSeen){ herSeen = leadS.her.at;                         // her OWN "say that again?" counts as the one ask of this step
+        if (/say that again/i.test(leadS.her.text) && herSeen - wroteAgainAt > 4000){ leadS.unclear++; log('lead', 'she asked "say that again?" herself (' + leadS.unclear + ')'); } }
+      if (pendHer && leadS.her.at > pendHer){ const h = leadS.her.text; pendHer = 0;
+        if (/say that again/i.test(h)){ }
+        else if (/\?/.test(h) && !/your name/i.test(h)){ log('lead', 'she heard a name herself and asked her question - CHAT (the page caught no name)'); to = 'CHAT'; break; } }
+      /* an unclear sound: she asks again only when he has really stopped (rig 2026-11-26: the "Hi" of "Hi, I'm Shuki" was
+         dropped as noise and "say that again?" went out over "I'm Shuki") - his next words cancel it */
+      if (leadS.drops > dropSeen){ dropSeen = leadS.drops; againAt = now + LEAD_T.againMs; }
+      if (againAt && now > againAt && idleNow() && now - leadS.stopAt > LEAD_T.afterStopMs){ againAt = 0; leadS.unclear++;
+        if (leadS.unclear === 1){ leadBackup('unclear sound in NAME: "say that again?"'); wroteAgainAt = now; leadLine('again', LEAD_L.again, { step: 'NAME' }); quietFrom = now + LEAD_T.answerGraceMs; continue; } }
+      if ((herV.on || kid.pending || talking()) && quietFrom < now) quietFrom = now;
+      if (kid.pending && !talking() && now - kid.hearingAt > INTRO_TURN_MS) kid.pending = false;
+      const idle = idleNow();
+      if (leadS.unclear >= LEAD_T.unclearMax && idle && now - quietFrom > 1500){ leadBackup('no name (' + leadS.unclear + ' unclear turns)'); break; }
+      if (!reasked && idle && now - quietFrom > LEAD_T.nameQuietMs){ reasked = true; leadBackup('name asked again (6 s quiet)');
+        leadLine('reask', LEAD_L.reask, { step: 'NAME' }); quietFrom = performance.now() + LEAD_T.answerGraceMs; continue; }
+      if (idle && now - tName > LEAD_T.nameCapMs && now - quietFrom > 2500){ leadBackup('no name (' + Math.round((now - tName) / 1000) + ' s)'); break; }
+      if (idle && now - tName > LEAD_T.nameHardMs && now - quietFrom > 600){ leadBackup('no name (' + Math.round((now - tName) / 1000) + ' s, NAME closed)'); break; }
+      await sleep(60);
+    }
+    if (!to){ await leadPlayed(leadLine('noname', LEAD_L.noname, { step: 'NAME' }), 9000); ledInvite('light', false); }       // "That's okay, let's play!" then her light invitation
   }
   v2vIntro.awaitingName = false;
-  /* LIGHT: the step line replaces her own answer to the name turn; the light and the real-lift check start WITH it */
-  step('LIGHT'); const tLight = performance.now();
-  leadStep('LIGHT', leadS.name);
-  const lightLine = LEAD_L.light(leadS.name); leadLine('light', lightLine, { kill: !!leadS.name, step: 'LIGHT', name: leadS.name });
-  log('lead', 'name -> light line asked ' + (leadS.name ? Math.round(tLight - seenAt) + ' ms after the name turn' : '(no name)'));
-  shoulderBeat.light(); shoulderBeat.start({ lead: true });
-  let demoed = false, res = null, demoAt = LEAD_T.lightDemoMs, passAt = LEAD_T.lightPassMs, base = 0; shoulderBeat.done().then(r => { res = r; });
-  /* THE LADDER COUNTS FROM THE MOMENT THE LIGHT LINE HAS PLAYED OUT (not from when it was asked for): the child gets a real
-     6 s to lift, then the demo; 12 s, then the pass. A ladder line waits quietMs of open microphone only when her previous
-     line (an answer of hers, the demo) ended less than quietMs ago. No played-out word in 8 s = logged, counted from 4 s in. */
-  while (!res){
-    const now = performance.now();
-    if (!base && leadPlayedAt.has(lightLine) && !herV.on){ base = Math.max(leadPlayedAt.get(lightLine), herV.endedAt || 0); log('lead', 'light line out ' + Math.round(base - tLight) + ' ms after it was asked - the ladder counts from here'); }
-    if (!base && now - tLight > 8000){ base = tLight + 4000; leadBackup('no played-out for the light line in 8 s (ladder counted from 4 s in)'); }
-    if (kid.textAt > seenAt){ seenAt = kid.textAt; log('lead-kid', JSON.stringify({ text: kid.text, step: 'LIGHT' })); leadAnswer();
-      /* she is answering him (her answer ends with "lift that shoulder"): the ladder waits for that answer, it never talks over it */
-      if (base){ demoAt = Math.max(demoAt, now - base + LEAD_T.afterAnswerMs); passAt = Math.max(passAt, now - base + LEAD_T.afterAnswerMs + 2000); } }
-    const open = !herV.on && now - (herV.endedAt || 0) > LEAD_T.quietMs;
-    if (base && !demoed && now - base > demoAt && !kid.pending && open){ demoed = true; leadBackup('light: she shows how (' + ((now - base) / 1000).toFixed(1) + ' s, no lift)'); leadLine('demo', LEAD_L.demo, { step: 'LIGHT' }); }
-    if (base && now - base > passAt && !kid.pending && open && (!demoed || leadPlayedAt.has(LEAD_L.demo) || now - base > passAt + 5000)){ leadBackup('light: passed (' + ((now - base) / 1000).toFixed(1) + ' s, no lift - nothing claimed)'); shoulderBeat.end('pass'); break; }
-    await sleep(60);
-  }
-  res = res || 'pass';
-  /* a lift seen while her light line is still being said (the child moves the moment the light glows): she finishes that
-     line first, then "Yes! You got it!" - never the praise on top of, or before, the line (pod u2sxm5up5hy5kd) */
-  if (res === 'win' && !leadPlayedAt.has(lightLine)){ const tw = performance.now();
-    while (!leadPlayedAt.has(lightLine) && performance.now() - tw < 7000) await sleep(40);
-    log('lead', 'lift seen during the light line - praise held ' + Math.round(performance.now() - tw) + ' ms until the line played out'); }
-  const tEnd = performance.now();
-  if (res === 'win'){ novaFact('shoulder lift'); leadLine('win', LEAD_L.win, { step: 'LIGHT' }); } else leadLine('pass', LEAD_L.pass, { step: 'LIGHT' });
-  /* GO: one line, then the game - no listening pause */
-  step('GO'); leadStep('GO', leadS.name);
-  leadLine('go', LEAD_L.go, { step: 'GO' });
-  log('lead', 'go line played=' + await leadPlayed(LEAD_L.go, 14000));
+  /* ── CHAT ── ONE exchange. Her question is her own answer to the name turn (asked at tV). */
+  if (to === 'CHAT'){ to = null; step('CHAT');
+    /* her question = her own answer to the name turn, made under the NAME prompt; the CHAT prompt goes in only after it.
+       He goes on talking after the name: the brain drops her early answer and answers the next piece - same verdict. */
+    let h = null; {
+      while (performance.now() - tV < LEAD_T.herSaidMs || kid.pending || talking()){
+        if (leadS.her.at > tV){ h = leadS.her.text; break; }
+        if (kid.textAt > seenAt){ seenAt = kid.textAt; fresh(); log('lead-kid', JSON.stringify({ step: 'CHAT', text: kid.text, piece: 'he went on after the name', voiceS: +leadS.stopS.toFixed(1) }));
+          if (LEAD_REFUSE_RE.test(kid.text)){ to = 'REFUSE'; break; }
+          if (mono()){ leadBackup('over-talk after the name (' + leadS.stopS.toFixed(1) + ' s of talk): steered to the light'); ledInvite('steer', true); break; }
+          leadAnswer(); tV = performance.now(); }
+        if (kid.pending && !talking() && performance.now() - kid.hearingAt > INTRO_TURN_MS) kid.pending = false;
+        await sleep(40); } }
+    if (to){ /* refused or steered */ }
+    else if (h === null){ leadBackup('no answer of hers to the name in 7 s: the light invitation is asked for'); ledInvite('light', false); }
+    else if (/shoulder/i.test(h)){ log('lead', 'her answer already took him to the shoulder - LIGHT'); leadStep('LIGHT'); invite = { from: tV }; to = 'LIGHT'; }
+    else if (!/\?/.test(h)){ leadBackup('she asked no question after the name: straight to the light'); ledInvite('light', false); }
+    else { leadStep('CHAT'); await leadHerStarted(tV, LEAD_T.herStartMs);
+      let quietFrom = performance.now() + 400, again = false, againAt = 0;
+      while (!to){
+        const now = performance.now();
+        if (kid.textAt > seenAt){ seenAt = kid.textAt; againAt = 0; if (fresh()) leadS.turns++;
+          log('lead-kid', JSON.stringify({ step: 'CHAT', text: kid.text, turns: leadS.turns, voiceS: +leadS.stopS.toFixed(1) }));
+          if (LEAD_REFUSE_RE.test(kid.text)){ to = 'REFUSE'; break; }
+          if (mono()){ leadBackup('over-talk in CHAT (' + leadS.stopS.toFixed(1) + ' s of talk): steered to the light'); ledInvite('steer', true); break; }
+          leadAnswer(); leadStep('LIGHT'); invite = { from: now }; to = 'LIGHT'; break; }       // her own answer: a tiny reaction + the light invitation
+        if (leadS.drops > dropSeen){ dropSeen = leadS.drops; againAt = now + LEAD_T.againMs; }
+        if (againAt && now > againAt && idleNow() && now - leadS.stopAt > LEAD_T.afterStopMs){ againAt = 0; leadS.unclear++;
+          if (!again){ again = true; leadBackup('unclear sound in CHAT: "say that again?"'); leadLine('again', LEAD_L.again, { step: 'CHAT' }); quietFrom = now + LEAD_T.answerGraceMs; continue; }
+          leadBackup('unclear again in CHAT: she answers her own question'); ledInvite('selfanswer', false); break; }
+        if ((herV.on || kid.pending || talking()) && quietFrom < now) quietFrom = now;
+        if (kid.pending && !talking() && now - kid.hearingAt > INTRO_TURN_MS) kid.pending = false;
+        if (idleNow() && now - quietFrom > LEAD_T.chatQuietMs){ leadBackup('chat question unanswered ' + ((now - quietFrom) / 1000).toFixed(1) + ' s: she answers it herself'); ledInvite('selfanswer', false); break; }
+        if (ms() > LEAD_T.hardMs - 12000 && idleNow() && now - quietFrom > LEAD_T.quietMs){ leadBackup('chat cut for the clock (' + ms() + ' ms)'); ledInvite('light', false); break; }   // never over a child who is talking: his speech ends, then the steer
+        await sleep(60);
+      } } }
+  /* ── LIGHT ── the light and the real-lift check start when her invitation STARTS */
+  let invOut = () => true;
+  if (to === 'LIGHT'){ step('LIGHT'); const tLight = performance.now();
+    { let t0 = invite.from || invite.at, dl = t0 + LEAD_T.herStartMs;
+      while (herV.startedAt <= t0 && (performance.now() < dl || kid.pending || talking())){
+        if (kid.textAt > seenAt){ seenAt = kid.textAt; fresh();                   // he went on talking: the brain dropped her early answer; this piece carries the next one
+          log('lead-kid', JSON.stringify({ step: 'LIGHT', text: kid.text, piece: 'he went on talking', voiceS: +leadS.stopS.toFixed(1) }));
+          if (LEAD_REFUSE_RE.test(kid.text)){ to = 'REFUSE'; break; }
+          if (mono()){ leadBackup('over-talk (' + leadS.stopS.toFixed(1) + ' s of talk): steered to the light'); invite = { key: leadMake('steer', { kill: true, step: 'LIGHT' }), at: performance.now() }; }
+          else if (invite.from){ leadAnswer(); invite = { from: performance.now() }; }                        // her own answer to this piece carries the invitation
+          else leadDrop();                                                             // a led invitation is already on its way: ONE line, not two
+          t0 = invite.from || invite.at; dl = performance.now() + LEAD_T.herStartMs; }
+        if (kid.pending && !talking() && performance.now() - kid.hearingAt > INTRO_TURN_MS) kid.pending = false;
+        await sleep(30); }
+      if (to === 'LIGHT' && herV.startedAt <= t0){
+        if (invite.from){ leadBackup('her answer had not started ' + (LEAD_T.herStartMs / 1000) + ' s after his chat turn: the light invitation is asked for'); invite = { key: leadMake('light', { step: 'LIGHT' }), at: performance.now() }; await leadHerStarted(invite.at, LEAD_T.herStartMs); }
+        else leadBackup('her light invitation had not started in ' + (LEAD_T.herStartMs / 1000) + ' s: the light is armed now'); } }
+    if (to === 'LIGHT'){
+    shoulderBeat.light(); shoulderBeat.start({ lead: true }); const tArm = performance.now();
+    log('lead', 'light armed with her invitation, ' + Math.round(performance.now() - tLight) + ' ms into LIGHT (' + (invite.key ? 'led line ' + invite.key : 'her own answer') + ')');
+    invOut = () => invite.key ? leadPlayedAt.has(invite.key) && !herV.on
+                              : herV.startedAt > invite.from && !herV.on && herV.endedAt > herV.startedAt && performance.now() - herV.endedAt > LEAD_T.tailMs;
+    let demoed = false, checked = !invite.from, demoAt = LEAD_T.lightDemoMs, passAt = LEAD_T.lightPassMs, base = 0, turns = 0; shoulderBeat.done().then(r => { res = r; });
+    /* THE LADDER COUNTS FROM THE MOMENT HER INVITATION HAS PLAYED OUT: the child gets a real 6 s to lift, then the demo;
+       12 s, then the pass. A ladder line waits quietMs of open microphone after her previous line. */
+    while (!res){
+      const now = performance.now();
+      if (!checked && leadS.her.at > invite.from){ checked = true;                 // truth check on her own answer: did it carry the shoulder?
+        if (!/shoulder/i.test(leadS.her.text)){ leadBackup('her chat answer did not ask for the shoulder: the light invitation is asked for'); invite = { key: leadMake('light', { step: 'LIGHT' }), at: now }; base = 0; } }
+      if (!base && invOut()){ base = Math.max(invite.key ? leadPlayedAt.get(invite.key) : 0, herV.endedAt || 0); log('lead', 'light invitation out ' + Math.round(base - tLight) + ' ms into LIGHT - the ladder counts from here'); }
+      if (!base && now - tArm > 9000){ base = tArm + 5000; leadBackup('no played-out for the light invitation in 9 s (ladder counted from 5 s in)'); }
+      if (kid.textAt > seenAt){ seenAt = kid.textAt; if (fresh()) turns++; log('lead-kid', JSON.stringify({ step: 'LIGHT', text: kid.text, turns, voiceS: +leadS.stopS.toFixed(1) }));
+        if (LEAD_REFUSE_RE.test(kid.text)){ to = 'REFUSE'; break; }
+        if (turns > LEAD_T.turnsMax || mono()){ leadBackup('over-talk in LIGHT (' + (mono() ? leadS.stopS.toFixed(1) + ' s of talk' : turns + ' turns') + '): steered back to the shoulder'); leadMake('steer', { kill: true, step: 'LIGHT' }); }
+        else { leadAnswer();                                                       // her own answer ends with "lift that shoulder"; the ladder waits for it, never talks over it
+          if (base){ demoAt = Math.max(demoAt, now - base + LEAD_T.afterAnswerMs); passAt = Math.max(passAt, now - base + LEAD_T.afterAnswerMs + 2000); } } }
+      if (leadS.drops > dropSeen){ dropSeen = leadS.drops; log('lead', 'unclear sound in LIGHT - the ladder carries on'); }
+      const open = !herV.on && now - (herV.endedAt || 0) > LEAD_T.quietMs;
+      if (ms() > LEAD_T.hardMs && (!(kid.pending || talking()) || ms() > LEAD_T.hardMs + 4000)){ leadBackup('light: passed for the clock (' + ms() + ' ms since the greeting, hard cap 50 s)'); shoulderBeat.end('pass'); break; }
+      if (base && !demoed && now - base > demoAt && !kid.pending && !talking() && open){ demoed = true; leadBackup('light: she shows how (' + ((now - base) / 1000).toFixed(1) + ' s, no lift)'); leadLine('demo', LEAD_L.demo, { step: 'LIGHT' }); }
+      if (base && now - base > passAt && !kid.pending && !talking() && open && (!demoed || leadPlayedAt.has(LEAD_L.demo) || now - base > passAt + 5000)){ leadBackup('light: passed (' + ((now - base) / 1000).toFixed(1) + ' s, no lift - nothing claimed)'); shoulderBeat.end('pass'); break; }
+      await sleep(60);
+    }
+    if (to === 'REFUSE') shoulderBeat.end('pass'); else res = res || 'pass';
+    } }
+  /* ── GO ── one line, then the game - no listening pause */
+  step('GO'); leadStep('GO'); let last;
+  if (to === 'REFUSE'){ res = 'refused'; leadBackup('the child said no ("' + kid.text.slice(0, 30) + '"): "just watch me first" and the game');
+    last = leadLine('refuse', LEAD_L.refuse, { kill: true, step: 'GO' }); }
+  else if (res === 'win'){
+    /* a lift seen while her invitation is still being said: she finishes that line first, then celebrates (pod u2sxm5up5hy5kd) */
+    if (!invOut()){ const tw = performance.now(); while (!invOut() && performance.now() - tw < 7000) await sleep(40);
+      log('lead', 'lift seen during the light invitation - praise held ' + Math.round(performance.now() - tw) + ' ms until it played out'); }
+    novaFact('shoulder lift'); last = leadMake('win', { step: 'GO' }); }                    // her own "yes, you got it - cool, let's dance!"
+  else last = leadLine('pass', LEAD_L.pass, { step: 'GO' });
+  log('lead', 'go line played=' + await leadPlayed(last, 14000));
   step('GAME'); log('lead', 'done: greeting -> game ' + ms() + ' ms, shoulder ' + res + ', name ' + (leadS.name || '-') + ', backups ' + leadS.backups.length);
   return res;
 }

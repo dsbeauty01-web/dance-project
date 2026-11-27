@@ -6,7 +6,7 @@ from playwright.sync_api import sync_playwright
 HERE = os.path.dirname(os.path.abspath(__file__)); RIG = os.environ.get("HEAR_RIG_DIR", "/tmp/nova-hear-rig"); out = sys.argv[1]; os.makedirs(out, exist_ok=True)
 A = dict(a.split("=", 1) for a in sys.argv[2:])
 replay = A.get("replay", "frozen-body,dance-hype,still-sway"); echo = float(A.get("echo", "0"))
-say = dict(x.split(":") for x in A.get("say", "shoulder:hi,listen:yes,game:game,end:end").split(",") if x)
+say = dict(x.split(":") for x in A.get("say", "" if ("ev" in A or "until" in A) else "shoulder:hi,listen:yes,game:game,end:end").split(",") if x)
 W, H = int(A.get("w", 1280)), int(A.get("h", 720)); extra = A.get("extra", ""); cap = float(A.get("cap", 200))
 env = dict(os.environ); env.update({k: v for k, v in A.items() if k.isupper()})
 eng = subprocess.Popen([sys.executable, "-u", os.path.join(HERE, "engine_stub.py")], stdout=open(os.path.join(out, "engine.log"), "w"), stderr=subprocess.STDOUT)
@@ -26,6 +26,37 @@ try:
     def kid(tag):
         if tag in say and tag not in said:
             said[tag] = round(time.time() - t0, 2); d = pg.evaluate("b => window.__kidSay(b)", b64(say[tag])); print("KID says", say[tag], "at", said[tag], "dur", round(d, 2), flush=True)
+    # NOVA-LEAD v2 scenario rig (2026-11-26): ev=STEP:mode:after[:wav];... - events fire in order, each when the page is in STEP.
+    #   open = the child speaks <after> s into open microphone (her voice off) · over = he talks OVER her, <after> s after her
+    #   voice starts · hit = a real shoulder lift <after> s after the check is armed. until=game stops when the game starts.
+    EV = [dict(zip(("step", "mode", "after", "wav"), x.split(":") + [None])) for x in A.get("ev", "").split(";") if x]; evs = {"i": 0, "step": "", "t_step": 0, "her": False, "t_her": 0, "n": 0, "t_arm": None, "t_prev": 0, "n_prev": -1, "d_prev": 0}
+    def scenario():
+        q = pg.evaluate("""() => { const hv = (window.freeze4Log || []).filter(e => e.kind === 'her-voice'); return { step: (window.freeze4Lead || {}).step || '',
+            her: !!hv.length && hv[hv.length - 1].detail === 'start', n: hv.filter(e => e.detail === 'start').length, arm: !!(window.freeze4Shoulder && window.freeze4Shoulder.on) }; }""")
+        now = time.time()
+        if q["step"] != evs["step"]: evs["step"] = q["step"]; evs["t_step"] = now; evs["n_ref"] = q["n"]; evs["t_talk"] = None
+        if evs.get("t_talk") is None and q["n"] > evs.get("n_ref", 0): evs["t_talk"] = now      # her next line became audible
+        if q["her"] != evs["her"]: evs["her"] = q["her"]; evs["t_her"] = now
+        evs["n"] = q["n"]
+        if q["arm"] and evs["t_arm"] is None: evs["t_arm"] = now
+        if evs["i"] >= len(EV): return
+        e = EV[evs["i"]]; aft = float(e["after"] or 0)
+        if e["step"] != q["step"]: return
+        fire = False
+        if e["mode"] == "hit": fire = q["arm"] and now - evs["t_arm"] > aft
+        elif e["mode"] == "over": fire = evs.get("t_talk") is not None and now - evs["t_talk"] > aft and (q["her"] or now - evs["t_her"] < 0.5) and now - evs["t_prev"] > evs["d_prev"] + 0.5
+        else:   # open: her voice off, his previous clip over, and she has answered it (or 7 s passed)
+            fire = (not q["her"] and now - evs["t_her"] > aft and now - evs["t_step"] > aft and now - evs["t_prev"] > evs["d_prev"] + 0.3
+                    and (evs["n"] > evs["n_prev"] or now - evs["t_prev"] > evs["d_prev"] + 7))
+        if not fire: return
+        evs["i"] += 1
+        if e["mode"] == "hit":
+            pg.evaluate("() => { window.freeze4Log.push({ t: +((performance.now() - window.freeze4T0) / 1000).toFixed(2), kind: 'rig-kid', detail: '(lifts the shoulder)' }); window.freeze4Shoulder.on && window.freeze4Shoulder.end('win'); }")
+            print("KID lifts the shoulder at", round(now - t0, 2), flush=True); return
+        d = pg.evaluate("([b, w]) => { window.freeze4Log.push({ t: +((performance.now() - window.freeze4T0) / 1000).toFixed(2), kind: 'rig-kid', detail: w }); return window.__kidSay(b); }", [b64(e["wav"]), e["wav"] + (" (over her)" if e["mode"] == "over" else "")])
+        evs["n_ref"] = q["n"]; evs["t_talk"] = None
+        evs["t_prev"] = now; evs["d_prev"] = d; evs["n_prev"] = q["n"] + (0 if e["mode"] == "over" else 0)
+        print("KID says", e["wav"], "at", round(now - t0, 2), "dur", round(d, 2), "(" + e["mode"] + ", step " + e["step"] + ")", flush=True)
     def shot(n):
         if n not in got: got[n] = round(time.time() - t0, 2); pg.screenshot(path=os.path.join(out, n + ".png"))
     while time.time() - t0 < cap:
@@ -63,7 +94,12 @@ try:
         # NOVA-LEAD rig (2026-11-26): name:<wav> = his answer in NAME (omit = a silent child) · nameq:<wav> = his own question in NAME
         #   first (then name: after her answer) · light:<wav> = his question 2 s into LIGHT · hit=<s> = a real lift <s> after the
         #   LIGHT step (omit, with extra=&shrug=off = he never lifts)
-        if s.get("lname") is not None:
+        if EV or A.get("until") == "game":
+            scenario()
+            if s.get("lgame") is not None:
+                if "t_lgame" not in got: got["t_lgame"] = time.time()
+                if time.time() - got["t_lgame"] > 2.5: break
+        elif s.get("lname") is not None:
             if "t_lname" not in got: got["t_lname"] = time.time()
             if "nameq" in say:
                 if time.time() - got["t_lname"] > 0.5: kid("nameq")
@@ -98,6 +134,17 @@ try:
     for e in L:
         if e["kind"] in ("fps", "badge", "size", "her-voice", "wide-face-track", "face-track"): continue
         print("%7.2f %-16s %s" % (e["t"], e["kind"], str(e["detail"])[:150]))
+    if EV or A.get("until") == "game":
+        # THE TRANSCRIPT: who said what, in page seconds (t = 0 at page load); then time to game + the backups used
+        g = next((e for e in L if e["kind"] == "lead" and str(e["detail"]).startswith("step GAME")), None); gr = next((e for e in L if e["kind"] == "line"), None)
+        print("\n=== TRANSCRIPT " + A.get("name", "") + " ===")
+        who = {"rig-kid": "CHILD  (audio)", "lead-kid": "CHILD  (heard)", "lead-her": "NOVA   (said) ", "line": "NOVA   (asked)", "shoulder": "LIGHT         "}
+        for e in L:
+            d = str(e["detail"])
+            if e["kind"] in who: print("%6.1f  %s  %s" % (e["t"], who[e["kind"]], d[:170]))
+            elif e["kind"] == "lead" and d.startswith(("step ", "backup", "done", "light armed", "she heard")): print("%6.1f  PAGE            %s" % (e["t"], d[:170]))
+        bk = [str(e["detail"])[8:] for e in L if e["kind"] == "lead" and str(e["detail"]).startswith("backup: ")]
+        print("TIME TO GAME: %s s after the greeting was asked | backups used (%d): %s\n" % (("%.1f" % (g["t"] - gr["t"])) if g and gr else "NOT REACHED", len(bk), " · ".join(bk) or "none"))
     print("kid said (s after Play):", said, "| shots", {k: v for k, v in got.items() if not k.startswith("t_")}, "| mic", mic)
     br.close()
 finally:

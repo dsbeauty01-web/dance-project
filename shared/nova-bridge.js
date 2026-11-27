@@ -183,6 +183,8 @@ export function leadHello() { send({ type: 'lead-hello' }); }
 export function leadStep(step, name = null) { send({ type: 'lead-step', step, name }); }
 export function leadSay(text, { kill = false, step = '', name = null } = {}) { send({ type: 'lead-say', text, kill, step, name }); }   // name: NAME SAFETY (the brain says it verbatim only when both transcripts agree)
 export function leadAnswer() { send({ type: 'lead-answer' }); }
+export function leadDrop() { send({ type: 'lead-drop' }); }   // the child's turn gets NO answer of its own: a led line already on its way answers it
+export function leadGen(kind, { kill = false, step = '', id = null } = {}) { send({ type: 'lead-gen', kind, kill, step, id }); }   // LEAD v2: a step line in HER OWN words (pod/rt_lk.py LEAD_GEN)
 export function leadNote({ fact, ttl_ms = 5000, cls = 'background', say = false } = {}) {
   if (fact) send({ type: 'lead-note', fact, t: Date.now(), ttl_ms, cls, say }); }
 export function novaFact(move) { if (move) send({ type: 'nova-fact', move }); }   // a REAL detection (truth gate) - pod/rt_lk.py nova-fact

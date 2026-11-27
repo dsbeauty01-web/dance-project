@@ -27,3 +27,14 @@ Page flag `lead` + brain `NOVA_LEAD=1` (with `NOVA_LIVE2=1`). The stand-in engin
 - `light:<wav>` his question in LIGHT, right after her light line played out (`light_at=<s>` = at a fixed time instead)
 - `hit=<s>` a real shoulder lift <s> after the LIGHT step - `extra='&shrug=off'` = the replayed body never lifts it
 - read the page log lines `lead step <NAME> <ms>`, `lead backup: ...`, `lead played out (...)`, `lead done: greeting -> game <ms>`
+
+### NOVA-LEAD v2 scenarios (2026-11-26)
+
+    bash test/hear_rig/lead_scenarios.sh /tmp/lead-sc            # all 7: normal silent chatty questions refusal noise talkover
+    bash test/hear_rig/lead_scenarios.sh /tmp/lead-sc chatty     # one
+
+Each prints the transcript (who said what, page seconds), the time from the greeting to the game, and the backups used.
+`run.py` scenario arguments: `ev=STEP:mode:after[:wav];...` (events fire in order, each while the page is in STEP;
+`open` = he speaks <after> s into open microphone · `over` = he talks over her, <after> s after her voice starts ·
+`hit` = a real shoulder lift <after> s after the check is armed) and `until=game`. New child clips in `test/phrases/`
+(copy 48 kHz versions to `$HEAR_RIG_DIR/kid/`): `yes_i_love_dancing i_dont_want_to chatty1 chatty2 chatty3 wait_wait`.
