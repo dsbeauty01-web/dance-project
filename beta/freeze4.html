@@ -817,6 +817,11 @@ async function leadIntro(tAsk){
     await sleep(60);
   }
   res = res || 'pass';
+  /* a lift seen while her light line is still being said (the child moves the moment the light glows): she finishes that
+     line first, then "Yes! You got it!" - never the praise on top of, or before, the line (pod u2sxm5up5hy5kd) */
+  if (res === 'win' && !leadPlayedAt.has(lightLine)){ const tw = performance.now();
+    while (!leadPlayedAt.has(lightLine) && performance.now() - tw < 7000) await sleep(40);
+    log('lead', 'lift seen during the light line - praise held ' + Math.round(performance.now() - tw) + ' ms until the line played out'); }
   const tEnd = performance.now();
   if (res === 'win'){ novaFact('shoulder lift'); leadLine('win', LEAD_L.win, { step: 'LIGHT' }); } else leadLine('pass', LEAD_L.pass, { step: 'LIGHT' });
   /* GO: one line, then the game - no listening pause */

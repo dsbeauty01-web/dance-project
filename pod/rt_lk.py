@@ -1563,7 +1563,13 @@ async def relay(request):
                     spec["n"] = None; resp["killed"] = True; resp["spec_hold"] = False; audio_buf.clear()
                     print("[LEAD] her own answer dropped (" + why + ")", flush=True)
                     if speaking["resp_active"]: await cancel_speech("lead: " + why)
+            lead_lock = asyncio.Lock()
             async def lead_say(line, kill, step, name=None):
+                # ONE LINE AT A TIME, IN THE PAGE'S ORDER (pod u2sxm5up5hy5kd 2026-11-26: the light line waited 0.46 s for the
+                # second transcript and "Yes! You got it!" + the GO line overtook it - she said the light line after GO).
+                async with lead_lock:
+                    await lead_say_1(line, kill, step, name)
+            async def lead_say_1(line, kill, step, name=None):
                 """A written step line, word for word, through the one speech verb. kill = it REPLACES her answer to the
                    child's turn (name caught -> the light line). Otherwise it queues behind whatever she is saying.
                    name = the page's caught name inside this line (the LIGHT line): NAME SAFETY decides how it is said."""
