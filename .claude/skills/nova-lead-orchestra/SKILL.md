@@ -26,7 +26,38 @@ LiveKit tasks):
 7. **Length by job**: cue <= 6 words, answer <= 10, between-rounds <= 2 short sentences. Few-shot at that length.
 8. **Unclear audio**: one "Hm? Say that again?" per step, then the ladder moves on.
 
-Nova intro budget: greeting -> game start <= 30 s. Name -> light <= 3 s.
+Nova intro budget: greeting -> game typical 30-35 s, hard cap 50 s (pass forced at 43 s).
+
+**v2 (2026-11-26): she words her own step lines.** A led intro of written lines sounds like reading (Refael: "very
+weird"). Keep the machine (page owns steps, timers, light), but give the voice brain a small per-step prompt - goal, next
+action, 2-3 anchor lines marked "vary them" - and let her say it. Written lines only for the greeting and the ladders.
+
+| Step | Who words it | Line / job | Exit | Ladder |
+|---|---|---|---|---|
+| GREET | written | "Hi, I'm Nova, what's your name?" | line played | - |
+| NAME | her own answer | name back as SHE heard it + ONE light question | she asked her question | 6 s: ask once more · 12 s / 2 unclear: "That's okay, let's play!" -> LIGHT, no name |
+| CHAT | her own answer | tiny reaction (<= 5 words) + the light invitation | his one answer | 5 s unanswered: she answers herself, one line, -> LIGHT |
+| LIGHT | - | light + real check start when her invitation STARTS | real lift | 6 s: "Like this, one shoulder up!" · 12 s: pass |
+| GO | her own / written | "Yes, you got it - cool, let's dance!" / "Magic, let's dance!" | line played | game starts; no listening pause |
+
+Scenario ladders, every step:
+- **Over-talker**: one speech > 8 s or > 2 turns -> when he stops: 5-word reaction + "tell me more after - <next action>".
+  Never cut a child who is still talking, except at the hard cap.
+- **His question**: her own short answer that ends with the step's next action.
+- **Unclear**: "Hm, say that again?" once per step, and only after he really stopped; then the ladder moves on.
+- **Refusal**: "No problem, just watch me first!" -> the activity starts. Never negative.
+- **Talk-over**: barge-in covers step lines too; his words become a normal turn.
+
+Rules that came out of the v2 rig:
+- A child's sentence arrives in pieces. Pieces < 2.5 s apart = one turn; the piece after a step change carries her answer.
+  When a led line is already on its way, the piece gets NO answer of its own (`lead-drop`) - one line, not two.
+- "Idle" = she is silent AND the brain's talking flag is off. A 6 s "pending" timeout is not silence.
+- Never put the page's caught name in the prompt; she says the name she heard. A question is not a name.
+- A page-asked generated line = a stage note ("from the game, not the child") + word limit + "never say a time or a number".
+- Check her own answer after the fact (did it ask a question? did it say "shoulder"?) and patch with one led line if not.
+- Rig: `bash test/hear_rig/lead_scenarios.sh <out>` runs 7 scenarios and prints transcript, time to game, backups.
+
+v1 table (written lines), kept for reference:
 
 | Step | Her line | Exit | Ladder |
 |---|---|---|---|
