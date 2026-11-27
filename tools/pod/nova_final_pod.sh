@@ -86,6 +86,8 @@ if [ "${NF_GO5:-1}" = 1 ] && [ "${NF_CLOSED:-1}" = 1 ] && [ "$(basename "$DITTO_
 #   sentence starts + first words + ALL the rest in one request). Pod r4ec307 failed Gold on 4 open frames inside a 0.2 s
 #   hole between two clauses of one line; that line was 5 separate voice requests.
 [ "${NF_LIVE2:-0}" = 1 ] && export NOVA_EL_JOIN=${NOVA_EL_JOIN:-1}
+# NOVA-LEAD: the face server logs each played-out line ([T] face.played_out); GET /played_out itself is always there (read-only)
+[ "${NF_LEAD:-0}" = 1 ] && export FACE_PO_LOG=1
 [ "$NF_AUDIT" = 1 ] && export NF_PROOF_REPLAY=${NF_PROOF_REPLAY:-own-right-up,frozen-body,dance-hype,still-sway} NF_REC_FIX=${NF_REC_FIX:-1} FACE_VOICE_PREBUF_MS=${FACE_VOICE_PREBUF_MS:-400} FACE_REC_THREAD=${FACE_REC_THREAD:-1} FACE_PUB_STEADY=${FACE_PUB_STEADY:-1} FACE_WIDE_SOURCE=${FACE_WIDE_SOURCE:-camera} FACE_WIDE_TS=${FACE_WIDE_TS:-1}
 # ── NOVA-GO2 (2026-11-23; docs/NOVA-FIX-2026-11-23.md): NF_GO2=1 (default on in this build; 0 = the nova-go build as it was)
 #    · FACE_WIDE_SMOOTH=1  her wide track: one layer (no simulcast), keep the frame rate (tools/pod/nova_face.py)
@@ -168,6 +170,10 @@ NF_GO5=${NF_GO5:-1}
 #   brain NOVA_TTS=eleven), and the confidence cut OFF (-9, log only): Refael's own clear "Okay" scored -2.80 on his laptop mic 2026-11-25 = inside the noise range, so the cut drops real players.
 [ "${NF_LIVE2:-0}" = 1 ] && grep -q 'react: true' $P/beta/freeze4-flags.js && sed -i 's/react: true };/react: true, live2: true, eleven: true, barge: true };/' $P/beta/freeze4-flags.js && export NOVA_LIVE2=1 NOVA_TTS=${NOVA_TTS:-eleven} NOVA_TX_CONF_MIN=${NOVA_TX_CONF_MIN:--9}
 [ "${NF_LIVE2:-0}" = 1 ] && stage "live2: flags $(grep -o 'live2[^}]*' $P/beta/freeze4-flags.js) tts=${NOVA_TTS} eleven_key=$([ -n "$ELEVENLABS_API_KEY" ] && echo set || echo MISSING)"
+# NOVA-LEAD (2026-11-26, docs/NOVA-LEAD-2026-11-26.md): NF_LEAD=1 (needs NF_LIVE2=1) -> she LEADS the intro in 4 steps (page flag
+#   `lead`, brain NOVA_LEAD=1) in her native voice-to-voice voice: page flag `eleven` off and NOVA_TTS unset. Default off.
+[ "${NF_LEAD:-0}" = 1 ] && [ "${NF_LIVE2:-0}" = 1 ] && grep -q 'live2: true' $P/beta/freeze4-flags.js && sed -i 's/ eleven: true,//; s/ };/, lead: true };/' $P/beta/freeze4-flags.js && export NOVA_LEAD=1 && unset NOVA_TTS
+[ "${NF_LEAD:-0}" = 1 ] && stage "lead: NOVA_LEAD=${NOVA_LEAD:-0} tts=${NOVA_TTS:-native} flags $(grep -o 'live2[^}]*' $P/beta/freeze4-flags.js)"
 stage "page flags: $(cat $P/beta/freeze4-flags.js | cut -c1-230) | NOVA_HEAR=${NOVA_HEAR:-0} NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-0} NOVA_FAST_KID=${NOVA_FAST_KID:-0}"
 
 # 3) the brain — its own room; the face engine on :8010 (dual)
@@ -175,7 +181,7 @@ cd /workspace
 # NOVA_KID_EVENTS=1 (2026-11-22, this build only; default off in pod/rt_lk.py): the brain tells the page when a heard
 # utterance was not accepted, so the page's live "You: ..." line closes and the intro does not wait for words that never come.
 # NOVA_INTRO_ANSWER=1 (same): in the intro she may answer the child in one short sentence (see pod/rt_lk.py INTRO_NOTE).
-LK_ROOM=nova-final ENGINE_URL=http://127.0.0.1:8010 NOVA_FACE_SOULX=1 NOVA_FACE_DUAL=1 NOVA_TEST_CLIPS=1 NOVA_KID_EVENTS=${NOVA_KID_EVENTS:-1} NOVA_INTRO_ANSWER=${NOVA_INTRO_ANSWER:-1} NOVA_HEAR=${NOVA_HEAR:-0} NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-0} NOVA_FAST_KID=${NOVA_FAST_KID:-0} NOVA_UTT_MAP=${NOVA_UTT_MAP:-0} NOVA_TX_CONF=${NOVA_TX_CONF:-0} NOVA_RT_EFFORT=${NOVA_RT_EFFORT:-} NOVA_TRACE=${NOVA_TRACE:-0} NOVA_LIVE2=${NOVA_LIVE2:-0} NOVA_TTS=${NOVA_TTS:-} NOVA_TX_CONF_MIN=${NOVA_TX_CONF_MIN:--1.6} NOVA_REC=${NOVA_REC:-0} NOVA_REC_DIR=$OUT \
+LK_ROOM=nova-final ENGINE_URL=http://127.0.0.1:8010 NOVA_FACE_SOULX=1 NOVA_FACE_DUAL=1 NOVA_TEST_CLIPS=1 NOVA_KID_EVENTS=${NOVA_KID_EVENTS:-1} NOVA_INTRO_ANSWER=${NOVA_INTRO_ANSWER:-1} NOVA_HEAR=${NOVA_HEAR:-0} NOVA_V2V_INTRO=${NOVA_V2V_INTRO:-0} NOVA_FAST_KID=${NOVA_FAST_KID:-0} NOVA_UTT_MAP=${NOVA_UTT_MAP:-0} NOVA_TX_CONF=${NOVA_TX_CONF:-0} NOVA_RT_EFFORT=${NOVA_RT_EFFORT:-} NOVA_TRACE=${NOVA_TRACE:-0} NOVA_LIVE2=${NOVA_LIVE2:-0} NOVA_LEAD=${NOVA_LEAD:-0} NOVA_TTS=${NOVA_TTS:-} NOVA_TX_CONF_MIN=${NOVA_TX_CONF_MIN:--1.6} NOVA_REC=${NOVA_REC:-0} NOVA_REC_DIR=$OUT \
   setsid nohup $PY -u rt_lk.py > $OUT/rtlk.log 2>&1 < /dev/null &
 Xvfb :99 -screen 0 1280x720x24 -nolisten tcp >/dev/null 2>&1 &
 export DISPLAY=:99

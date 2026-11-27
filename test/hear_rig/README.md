@@ -13,3 +13,17 @@ noise floor and, with `echo=0.5`, her own voice leaking back in (a phone with no
 
 Read `/tmp/out/rtlk.log`: `[RACE] rest got utt N : <his words>` then `[ORIGIN] kid | <her answer>`.
 It costs OpenAI voice minutes only. It does not prove lips, picture speed or a real phone's microphone.
+
+## NOVA-LEAD (2026-11-26, docs/NOVA-LEAD-2026-11-26.md)
+
+Page flag `lead` + brain `NOVA_LEAD=1` (with `NOVA_LIVE2=1`). The stand-in engine answers `GET /played_out` like the face server.
+
+    F4_FLAGS='{"shoulder":true,...,"v2vintro":true,"react":true,"live2":true,"barge":true,"lead":true}' bash test/hear_rig/deploy.sh
+    python3 test/hear_rig/run.py /tmp/out lang=en NOVA_HEAR=1 NOVA_KID_EVENTS=1 NOVA_INTRO_ANSWER=1 NOVA_V2V_INTRO=1 NOVA_FAST_KID=1 \
+        NOVA_UTT_MAP=1 NOVA_TX_CONF=1 NOVA_TX_CONF_MIN=-9 NOVA_RT_EFFORT=minimal NOVA_TRACE=1 NOVA_LIVE2=1 NOVA_BARGE=1 NOVA_LEAD=1 \
+        echo=0.3 say=name:hi_im_shuki hit=3 cap=45 extra='&debug=1'
+
+- `say=name:<wav>` his answer in NAME (leave `say=` empty = a silent child) - `nameq:<wav>` his own question first, then `name:`
+- `light:<wav>` his question in LIGHT, right after her light line played out (`light_at=<s>` = at a fixed time instead)
+- `hit=<s>` a real shoulder lift <s> after the LIGHT step - `extra='&shrug=off'` = the replayed body never lifts it
+- read the page log lines `lead step <NAME> <ms>`, `lead backup: ...`, `lead played out (...)`, `lead done: greeting -> game <ms>`

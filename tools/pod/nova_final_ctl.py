@@ -95,6 +95,7 @@ def create(commit):
                 **({"NF_PROOF_LANG": os.environ["NF_PROOF_LANG"]} if os.environ.get("NF_PROOF_LANG") else {}),   # NOVA-GO5
                 **({"DITTO_PRIME": os.environ["DITTO_PRIME"]} if os.environ.get("DITTO_PRIME") else {}),
                 **({"NF_LIVE2": "1", "ELEVENLABS_API_KEY": K.get("ELEVENLABS_API_KEY", "")} if os.environ.get("NF_LIVE2") == "1" else {}),
+                **({"NF_LEAD": "1"} if os.environ.get("NF_LEAD") == "1" else {}),   # NOVA-LEAD: she leads, native voice (needs NF_LIVE2=1)
                 **{k: os.environ[k] for k in ("FACE_BURST", "NOVA_EL_OPENERS", "NOVA_EL_JOIN", "NOVA_BARGE") if os.environ.get(k)}},   # NOVA-LIVE2: burst A/B   # NOVA-LIVE2   # NOVA-GO5: shorter lip delay trial
     }
     if vol:

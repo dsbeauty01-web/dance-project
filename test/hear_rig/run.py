@@ -31,7 +31,7 @@ try:
     while time.time() - t0 < cap:
         s = pg.evaluate("""() => { const L = window.freeze4Log || [], has = (k, d) => L.find(e => e.kind === k && (d === undefined || String(e.detail).startsWith(d)));
           return { gate: document.body.dataset.gate || '', stage: document.getElementById('novaPane').dataset.stage, now: performance.now() / 1000,
-            shown: (has('nova-shown') || {}).t, named: (has('v2v', 'greeting said') || {}).t, answered: (has('v2v-answer') || {}).t, chatans: (has('v2v-chat-answer') || {}).t, armed: (has('shoulder', 'armed') || {}).t, listen: (has('intro-listen', 'open') || {}).t, air: (has('voice', 'air') || {}).t,
+            shown: (has('nova-shown') || {}).t, named: (has('v2v', 'greeting said') || {}).t, answered: (has('v2v-answer') || {}).t, chatans: (has('v2v-chat-answer') || {}).t, armed: (has('shoulder', 'armed') || {}).t, lname: (has('lead', 'step NAME') || {}).t, llight: (has('lead', 'step LIGHT') || {}).t, lgame: (has('lead', 'step GAME') || {}).t, lplayed: (L.find(e => e.kind === 'lead' && /^played out.*lift that shoulder/.test(String(e.detail))) || {}).t, listen: (has('intro-listen', 'open') || {}).t, air: (has('voice', 'air') || {}).t,
             lines: L.filter(e => e.kind === 'line').length, herQuiet: (() => { const h = L.filter(e => e.kind === 'her-voice' || e.kind === 'line').slice(-1)[0]; return !h || (h.kind === 'her-voice' && h.detail === 'end' && L[L.length - 1].t - h.t > 3.5); })(), ended: document.getElementById('end').classList.contains('on'), banner: !document.getElementById('banner').classList.contains('hidden'),
             t: L.length ? L[L.length - 1].t : 0, T0: (performance.now() / 1000) - (L.length ? 0 : 0) }; }""")
         # page-log time of "now": freeze4Log t = (performance.now() - T0page)/1000; the page exposes no T0, so use deltas from event times via a probe
@@ -60,7 +60,22 @@ try:
             elif nst > got["n_her0"]:
                 if "t_her_over" not in got: got["t_her_over"] = time.time()
                 if time.time() - got["t_her_over"] > 0.9: kid("over")
-        if s["armed"] is not None:
+        # NOVA-LEAD rig (2026-11-26): name:<wav> = his answer in NAME (omit = a silent child) · nameq:<wav> = his own question in NAME
+        #   first (then name: after her answer) · light:<wav> = his question 2 s into LIGHT · hit=<s> = a real lift <s> after the
+        #   LIGHT step (omit, with extra=&shrug=off = he never lifts)
+        if s.get("lname") is not None:
+            if "t_lname" not in got: got["t_lname"] = time.time()
+            if "nameq" in say:
+                if time.time() - got["t_lname"] > 0.5: kid("nameq")
+                if "nameq" in said and time.time() - t0 - said["nameq"] > float(A.get("nameq_gap", 6.5)): kid("name")
+            elif time.time() - got["t_lname"] > 0.5: kid("name")
+        if s.get("llight") is not None:
+            if "t_llight" not in got: got["t_llight"] = time.time()
+            if "light_at" in A and time.time() - got["t_llight"] > float(A["light_at"]): kid("light")
+            if "light_at" not in A and s.get("lplayed") is not None: kid("light")          # right after her light line played out (the microphone is open)
+            if "hit" in A and "hit" not in got and time.time() - got["t_llight"] > float(A["hit"]):
+                got["hit"] = round(time.time() - t0, 2); pg.evaluate("() => window.freeze4Shoulder.on && window.freeze4Shoulder.end('win')"); print("KID lifts the shoulder at", got["hit"], flush=True)
+        if s["armed"] is not None and s.get("lname") is None:
             if "t_armed" not in got: got["t_armed"] = time.time()
             if time.time() - got["t_armed"] > 1.0: kid("shoulder")
         if s["listen"] is not None: kid("listen")
