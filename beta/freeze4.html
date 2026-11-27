@@ -1083,7 +1083,12 @@ async function begin(){
                            ...(HEARF ? { micStream, micMeter: true } : {}) }); } catch (e) { log('attach-error', String(e?.message || e)); }
   if (HEARF){ pageLog('browser', navigator.userAgent + ' | ' + innerWidth + 'x' + innerHeight); LOG.filter(e => e.kind !== 'fps').forEach(e => pageLog(e.kind, e.detail)); log('mic', 'start ' + JSON.stringify(micState())); }
   dropPerm();                                             // the game's own camera + mic are open now; the permission streams go
-  const deadline = performance.now() + FACE_WAIT_MS;
+  /* READY GATE (Refael's 3rd play 2026-11-27: the page gave up on the picture after 15 s while she was already answering a
+     noise). Under the lead intro she greets the moment body picture + brain + voice are ALL ready; the page waits up to
+     READY_WAIT_MS for them (a pod still warming), then the red banner - never a silent death. [CLI-FILL] 45 s */
+  const READY_WAIT_MS = FLAG('lead') ? Math.max(FACE_WAIT_MS, 45000) : FACE_WAIT_MS;
+  const tReady0 = performance.now(), readyAt = {};
+  const deadline = tReady0 + READY_WAIT_MS;
   /* NOVA-FINAL: a dual pod starts on the WIDE body (the SoulX face is not rendered until the game) — wait for whichever
      face this pod streams first; with no wide track it is the freeze4 pod (face only) exactly as before. */
   let faceOk = false;
@@ -1094,8 +1099,11 @@ async function begin(){
   }
   if (faceOk) log('nova-picture', JSON.stringify({ wide: dual, frames: dual ? wide.state.frames : face.state.frames, hidden: document.body.dataset.gate === 'nova' }));
   if (dual){ face.setActive(false); stage('wide'); } else { wide.setActive(false); $('novaPane').dataset.stage = 'game'; pip.show(true); ambFor('game'); }
+  readyAt.face = faceOk ? Math.round(performance.now() - tReady0) : null;
   let st = bridgeState();
   while (!(st.ws && st.voice) && performance.now() < deadline){ await sleep(200); st = bridgeState(); }
+  readyAt.brain = st.ws ? Math.round(performance.now() - tReady0) : null; readyAt.voice = st.voice ? readyAt.brain : null;
+  log('lead', 'ready ' + Math.round(performance.now() - tReady0) + ' ' + JSON.stringify(readyAt));
   log('attach', JSON.stringify({ face: faceOk, dual, ...st }));
   const why = []; if (!faceOk) why.push(TXT.noFace); if (!st.ws || !st.voice) why.push(TXT.noVoice);
   if (why.length) return refuse(why);
@@ -1106,7 +1114,7 @@ async function begin(){
   const tAsk = performance.now();
   const withShoulder = !fast && FLAG('shoulder');
   if (withShoulder && FLAG('lead') && lang === 'en'){                         // NOVA-LEAD: she leads (4 steps); needs a brain with NOVA_LEAD=1
-    leadHello(); const ackL = await leadAck(1500);
+    leadHello(); const ackL = await leadAck(4000);   // [CLI-FILL] 4 s: a slow ack must not drop her into the earlier intro
     leadS.on = ackL === true; setLead(leadS.on);
     if (!leadS.on){ log('lead', 'THE BRAIN DID NOT TAKE THE LEAD INTRO (' + (ackL === false ? 'NOVA_LEAD is off' : 'no answer') + ') — the earlier intro instead'); leadDbg('lead: OFF on the brain — earlier intro'); }
   }
@@ -1122,7 +1130,10 @@ async function begin(){
     log('greeting', 'asked (Nova still hidden)' + (withShoulder ? ' — shoulder intro' : ''));
     if (!await waitVoiceStart(GREET_WAIT_MS)) return refuse([TXT.noGreet]);
     log('greeting', 'first sound after ' + Math.round(performance.now() - tAsk) + ' ms');
-    if (!(dual ? wide.state.live : face.state.live)) return refuse([TXT.noFace]);
+    { const tF = performance.now();                                            // a picture that blinks out is waited for, not fatal at once [CLI-FILL] 8 s
+      while (!(dual ? wide.state.live : face.state.live) && performance.now() - tF < 8000) await sleep(100);
+      if (performance.now() - tF > 150) log('lead', 'picture waited ' + Math.round(performance.now() - tF) + ' ms at the greeting');
+      if (!(dual ? wide.state.live : face.state.live)) return refuse([TXT.noFace]); }
   }
   caption(''); gate(null);                                                    // THE GATE OPENS: she appears with her first word
   log('nova-shown', JSON.stringify({ wideLive: wide.state.live, wideFrames: wide.state.frames, voice: bridgeState().voice, speaking: !fast }));

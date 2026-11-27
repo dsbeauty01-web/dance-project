@@ -378,8 +378,9 @@ LEAD_GEN = {
              "shoulder: ask them to lift it. ONE line, 14 words at most. Like: 'Ooh, tell me more after - look at your "
              "shoulder! Lift it!'",
     "win": "[stage note - from the game, not the child] The child really lifted the shoulder - the light caught it. "
-           "Say yes to that shoulder in three or four happy words, then: cool, let's dance! ONE line, 8 words at most, "
-           "your own words. Never say a time or a number. Like: 'Yes! You got it! Cool, let's dance!'",
+           "Celebrate in three or four happy words, then: cool, let's dance! ONE line, 8 words at most, "
+           "your own words. Never say a time or a number, never the words 'shoulder' or 'lift'. Like: 'Yes! You got it! Cool, "
+           "let's dance!' / 'Whoa, there it is! Let's dance!'",
 }
 # NAME SAFETY (2026-11-26, rig: the page's fast transcript read "Shuki" as "Shaky" / "Shaquille" and the written light line
 # would have said it). The written line carries the name only when BOTH transcripts of the turn agree on it (edit distance
@@ -1098,7 +1099,7 @@ async def relay(request):
     # po_* = playback truth from the face server; outbox = producer notes waiting for the safe window.
     lead = {"on": False, "step": "NAME", "name": None, "want": None, "verdict": None, "ev": asyncio.Event(), "tx": {}, "ear": False,
             "po_ok": None, "po_seq": 0, "po_voiced": False, "po_pending": False, "po_t": 0.0, "outbox": [],
-            "kid_talking": False, "kid_stop_t": 0.0, "win": None, "guard": 0, "cuts": 0, "notes": {"sent": 0, "said": 0, "stale": 0}}
+            "kid_talking": False, "kid_stop_t": 0.0, "win": None, "greeted": False, "greet_n": -1, "purge": set(), "guard": 0, "cuts": 0, "notes": {"sent": 0, "said": 0, "stale": 0}}
     # he-13: bare create_task results get GARBAGE-COLLECTED mid-flight (documented
     # asyncio gotcha) — all 5 racers vanished silently. Pin them until done.
     race_tasks = set()
@@ -1191,6 +1192,10 @@ async def relay(request):
             _lead = LEAD and _intro == "freeze4" and not _hebrew
             lead["on"] = _lead
             def lead_intro(): return _lead and not sgate["on"] and not sgate.get("ever")
+            # START RIGHT (Refael's plays 2026-11-27: a noise before the greeting was answered "Ooh, Lily! I love that name" /
+            # "Ooh, Mia"): nothing from the microphone is a turn until the page's GREET line has been sent; a sound that began
+            # before it (utterance number <= greet_n) is never answered either.
+            def lead_pre(n): return _lead and not sgate.get("ever") and (not lead["greeted"] or n <= lead["greet_n"])
             if LEAD: print("[LEAD]", "on: 4-step intro, per-step prompt, native voice, notes in the safe window" if _lead
                            else "requested but off (not the Freeze v4 page, or Hebrew)", flush=True)
             _tts_eleven = TTS == "eleven" and bool(EL_KEY) and not _hebrew and not _voice and not _lead   # ?voice= keeps the OpenAI A/B; NOVA-LEAD = native voice
@@ -1552,6 +1557,7 @@ async def relay(request):
             async def spec_start(n):
                 """NOVA-LIVE2 (a): the child's turn is committed - ask for her answer NOW, hold its audio until validated."""
                 if sgate["on"] or n in utt["handled"] or speaking["resp_active"] or speaking["v"]: return
+                if lead_pre(n): return                                       # START RIGHT: no answer is made before the greeting
                 if time.time() - speaking["last_chunk"] < 0.8: return
                 await boundary_open("kid-turn", pump=False)
                 _talk_hear = HEAR and _page_owns and not (_v2v and not sgate.get("ever"))
@@ -1639,6 +1645,9 @@ async def relay(request):
                 said = LEAD_LIGHT_NONAME if ear else line                        # the page still hears "played" for ITS line text
                 tr("lead.say", step or "?", said[:30].replace(" ", "_")); print("[LEAD] step line (" + (step or "?") + "):", said, flush=True)
                 spoken.discard(said.lower()); sayenf["tried"].discard(said)
+                if step == "GREET" and not lead["greeted"]:
+                    lead["greeted"] = True; lead["greet_n"] = utt["n"]
+                    print("[LEAD] greeting goes out - the microphone counts from the next sound (after utt %s)" % utt["n"], flush=True)
                 await _speak_send(None, said, "say", None, False)
                 asyncio.create_task(lead_line_played(line, step))
             async def lead_gen(kind, kill, step, gid):
@@ -1740,6 +1749,21 @@ async def relay(request):
                 if lead["on"] and ktxt and not sgate.get("ever"):                # NOVA-LEAD NAME SAFETY: both sources are kept
                     lead["tx"].setdefault(n, {})[src] = ktxt
                 if n in utt["handled"]:
+                    if item_id and n in lead["purge"]:                           # START RIGHT: the sound before the greeting leaves her context too
+                        lead["purge"].discard(n)
+                        try: await oai.send_json({"type": "conversation.item.delete", "item_id": item_id})
+                        except Exception: pass
+                    return
+                if lead_pre(n):
+                    utt["handled"].add(n)
+                    print("[LEAD] turn before the greeting ignored (utt %s, %s): %s" % (n, src, (ktxt or "")[:40]), flush=True); tr("lead.pre_greeting_drop")
+                    if spec["n"] == n:
+                        spec["n"] = None; resp["killed"] = True; resp["spec_hold"] = False; audio_buf.clear()
+                        if speaking["resp_active"]: await cancel_speech("lead: a sound before the greeting")
+                    if item_id:
+                        try: await oai.send_json({"type": "conversation.item.delete", "item_id": item_id})
+                        except Exception: pass
+                    else: lead["purge"].add(n)
                     return
                 # LAW-INPUT-LOCK VALIDATION: a kid-turn is real ONLY if the
                 # transcript has >=2 real English words, OR it is the session's
@@ -3109,7 +3133,8 @@ async def relay(request):
                                 if speaking["resp_active"] or time.time() - speaking["last_chunk"] < GATE_COOLDOWN: return   # a newer line owns the gate
                             speaking["v"] = False
                             print(f"GATE OPEN: mic live ({GATE_COOLDOWN}s after last chunk)", flush=True)
-                            await ws_client.send_json({"type": "status", "speaking": False, "state": "listening"})
+                            try: await ws_client.send_json({"type": "status", "speaking": False, "state": "listening"})
+                            except Exception: pass                             # the page left (his play 2026-11-27: two tracebacks at teardown)
                         asyncio.create_task(reopen())
                     elif et == "conversation.item.input_audio_transcription.completed":
                         # TRANSCRIPT-RACE: the realtime transcript is now just one racer —
