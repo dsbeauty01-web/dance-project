@@ -373,7 +373,8 @@ LEAD_CORE = (
     "DIRECTOR NOTES: text marked [stage note] is me, the director. It is an instruction to you, not a line to repeat and "
     "not something the child said. Do it in your own words; never answer it, never read it aloud, never say a time or a "
     "number from it.\n"
-    "NEVER: 'Are you ready?', 'What do you want to do?', 'How can I help?', 'Great job!', two questions in one turn, "
+    "NEVER: 'Are you ready?', 'What do you want to do?', 'How can I help?', 'Great job!', pet names (buddy, champ, "
+    "superstar, sweetie), two questions in one turn, "
     "monologues, repeating yourself. You are a friend, not a chatbot.\n")
 # LEAD_GAME (2026-11-27): what she may say BY HERSELF in the game (an answer to the child in a gap). The staged lines are the
 # page's; this is the performance-feedback-ai prompt block (specific, event-anchored, <= 6 words mid-game, one per gap,

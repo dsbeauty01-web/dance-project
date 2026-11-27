@@ -1058,7 +1058,17 @@ function recStop(why){ if (vrec.stopped || !vrec.mr) return; vrec.stopped = true
    count; where the browser has none: the video clock advances). [CLI-FILL] 15 pictures a second = the page's own "fresh
    wide" bar (matchCut, above); 1 s of flow, 600 ms of her visible and silent before the greeting, 300 ms fade: Refael's
    brief 2026-11-27 gives the order, not the numbers. QUESTION. Cap 20 s more, then the red banner (no silent death). */
-const REVEAL = { fps: 15, flowMs: 1000, idleMs: 600, fadeMs: 280, capMs: 20000 };
+const REVEAL = { fps: 10, flowMs: 1000, idleMs: 600, fadeMs: 280, capMs: 20000, stoppedMs: 1000 };
+/* pod 7n9lrlykl2gfkv 2026-11-27 (first v3 proof): the bar was 15 pictures a second, also for "the picture dropped during the
+   greeting" (over 600 ms). The proof browser draws her at 15-18 a second, so a healthy picture was called a drop 1.9 s
+   into the greeting: curtain back, greeting twice. Now: reveal needs >= 10 new pictures in the last second [CLI-FILL];
+   a DROP is only a picture that has really STOPPED - no new picture for 1 s [CLI-FILL], or the track gone. */
+function pictureStopped(){
+  if (!dual) return !face.state.live;
+  if (!wide.state.live) return true;
+  if (hasRVFC) return !wideTimes.length || performance.now() - wideTimes[wideTimes.length - 1] > REVEAL.stoppedMs;
+  return !pictureFlows(REVEAL.stoppedMs);
+}
 const hasRVFC = !!$('novaWide').requestVideoFrameCallback; let _ct = { t: 0, v: 0, ok: 0 };
 function pictureFlows(ms = 1000){
   if (!dual) return !!face.state.live;
@@ -1194,11 +1204,12 @@ async function begin(){
       /* her picture must hold while she greets: a drop sends her back behind the curtain, and she greets again ONCE */
       const tG = performance.now(); let dropped = false;
       while (!leadPlayedAt.has(LEAD_L.greet) && performance.now() - tG < 6000){     // [CLI-FILL] 6 s: the greeting is ~2 s + Ditto's delay
-        if (!pictureFlows(600)){ dropped = true; break; } await sleep(100); }
+        if (pictureStopped()){ dropped = true; break; } await sleep(100); }
       if (!dropped || leadS.regreets >= 1) break;
       leadS.regreets++; leadS.shown = false; herCurtain(true); gate('nova'); caption(TXT.coming, 'wait');
       log('lead', 'reveal LOST: her picture stopped during the greeting - back behind the curtain, she greets again once');
       leadBackup('picture dropped in the greeting: curtain, greeting again');
+      { const tw = performance.now(); while (!leadPlayedAt.has(LEAD_L.greet) && performance.now() - tw < 5000) await sleep(100); }   // the cut greeting runs out unheard first (pod 7n9lr: 0.1 s of its tail was heard after the second reveal)
       if (!await leadReveal(performance.now(), 'again')) return refuse([TXT.noFace]);
     }
   } else if (!fast){                                                          // she explains the game first (skipped with ?fast=1)
