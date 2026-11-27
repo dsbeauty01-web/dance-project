@@ -233,6 +233,25 @@ VS = {"mid": False, "last_in": 0.0, "pad_at": None}
 S.update({"voice_pads": 0, "voice_holes": 0, "voice_prebuf_waits": 0, "voice_lines": [], "voice_hole_log": [], "voice_holes_midline": 0})
 
 
+# NOVA-LEAD PLAYBACK TRUTH (2026-11-26, docs/NOVA-LEAD-2026-11-26.md 2e; skill nova-lead-orchestra section 4): "she is speaking"
+# = playback, not generation. The publisher marks every frame it puts on air as voiced or silent; a line has PLAYED OUT when
+# the last voiced frame is PO_SIL frames (0.48 s) behind, no voice is queued, and the last voice TAKE is older than the
+# lip delay line (voice still inside Ditto's delay line is not on air yet). GET /played_out -> {seq, ms, voiced, pending}:
+# seq counts played-out lines, ms = wall time (ms) of the last voiced frame. Read-only bookkeeping: publishes nothing new.
+PO = {"seq": 0, "ms": 0, "voiced": False, "sil": 99, "last_ms": 0, "take_t": 0.0}
+PO_SIL = int(E("FACE_PO_SIL_FRAMES", "12"))            # [CLI-FILL] 12 frames: longer than a pause inside her sentence
+PO_LOG = E("FACE_PO_LOG", "0") == "1"                  # the log line only under NF_LEAD: flag off = the log as it was
+PO_LINE_S = float(E("FACE_PO_DELAY_S", "1.3"))         # >= DITTO_PRIME x 40 ms (26 -> 1.04 s) + a chunk of slack
+def po_frame(voiced):
+    if voiced:
+        PO["sil"] = 0; PO["voiced"] = True; PO["last_ms"] = int(time.time() * 1000)
+    else:
+        PO["sil"] += 1
+        if PO["voiced"] and PO["sil"] >= PO_SIL and not pending and not VS["mid"] and time.time() - PO["take_t"] > PO_LINE_S:
+            PO["voiced"] = False; PO["seq"] += 1; PO["ms"] = PO["last_ms"]
+            if PO_LOG: print("[T]", int(time.time() * 1000), "face.played_out", PO["seq"], PO["ms"], flush=True)
+
+
 def voice_arrived(t, n=0):
     """called by /humanaudio under the lock: counts a hole when a padded take is followed by more of her line, and how fast
     her voice ARRIVES per line (S["voice_lines"]: [audio s, arrival span s, pieces] — audio s > span s = faster than real time)."""
@@ -341,6 +360,7 @@ def render_loop(R):
                 time.sleep(0.005)
         audio, t_arr = pending_take(n_s)
         speech = audio is not None
+        if speech: PO["take_t"] = time.time()
         if speech and not S.get("_rin_prev") and mode == "wide":     # NOVA-LIVE2 one-clock trace: t5 first voiced chunk to Ditto
             print("[T]", int(time.time() * 1000), "face.render_voiced", "arr_ms=%d" % ((time.time() - t_arr) * 1000 if t_arr else -1), flush=True)
         S["_rin_prev"] = speech
@@ -559,6 +579,7 @@ async def publisher():
                     if S.get("_pub_sil", 99) >= 15: print("[T]", int(time.time() * 1000), "face.pub_voiced", flush=True)
                     S["_pub_sil"] = 0
                 else: S["_pub_sil"] = S.get("_pub_sil", 99) + 1
+            po_frame(bool(seg.any()) and int(np.max(np.abs(seg))) > 30)
             await asrc.capture_frame(rtc.AudioFrame(seg.tobytes(), SR, 1, len(seg)))
             rv = rec.get(mode)
             if rv:
@@ -615,6 +636,12 @@ async def interrupt(req):
         S["cut_req"] = True; VS["mid"] = False
         print("[T]", int(time.time() * 1000), "face.cut_req", flush=True)
     return web.json_response({"code": 0})
+
+
+async def played_out(req):
+    with lock: pend = bool(pending)
+    return web.json_response({"seq": PO["seq"], "ms": PO["ms"], "voiced": PO["voiced"],
+                              "pending": pend or VS["mid"] or (time.time() - PO["take_t"] < PO_LINE_S and not PO["voiced"])})
 
 
 async def is_speaking(req):
@@ -692,6 +719,7 @@ async def main():
     app.router.add_get("/set_avatar", set_avatar)
     app.router.add_post("/interrupt_talk", interrupt)
     app.router.add_post("/is_speaking", is_speaking)
+    app.router.add_get("/played_out", played_out)
     app.router.add_get("/", health)
     app.router.add_post("/pause", pause)
     app.router.add_post("/finish", finish)

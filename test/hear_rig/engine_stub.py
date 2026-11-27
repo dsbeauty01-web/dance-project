@@ -26,6 +26,12 @@ async def face_mode(req):
         try: await c.send_str(json.dumps({"mode": m}))
         except Exception: pass
     return web.json_response({"code": 0, "mode": m})
+# NOVA-LEAD: playback truth as tools/pod/nova_face.py GET /played_out (a line has played out 0.48 s after its last piece)
+PO = {"seq": 0, "ms": 0, "start": 0.0, "end": 0.0, "open": False}
+async def played_out(req):
+    now = time.time(); voiced = PO["start"] <= now < PO["end"]
+    if PO["open"] and now >= PO["end"] + 0.48 and S["q"].empty(): PO["open"] = False; PO["seq"] += 1; PO["ms"] = int(PO["end"] * 1000); log("played_out", PO["seq"])
+    return web.json_response({"seq": PO["seq"], "ms": PO["ms"], "voiced": voiced, "pending": (not S["q"].empty()) or (PO["open"] and now < PO["start"])})
 async def health(req): return web.json_response({"ok": True, "ready": True, "room": True, "mode": S["mode"]})
 async def rigaudio(req):
     ws = web.WebSocketResponse(); await ws.prepare(req); S["clients"].add(ws); log("page shim connected")
@@ -40,6 +46,8 @@ async def pump():
         start = max(t_in + DELAY.get(mode, 1.0), t_free)          # constant pipeline delay, lines never overlap
         if t_free < t_in: log("line starts: fed %.2f, audible in %.2f s (%s)" % (t_in % 1000, start - time.time(), mode))
         if t_in < S.get("cut_t", 0): continue
+        if not PO["open"] or start > PO["end"] + 0.3: PO["start"] = start
+        PO["open"] = True; PO["end"] = start + (len(pcm) / 2) / SR
         for i in range(0, len(pcm), 6400):                         # 0.2 s pieces, real time
             if t_in < S.get("cut_t", 0): t_free = time.time(); break
             piece = pcm[i:i + 6400]; due = start + (i / 2) / SR
@@ -52,7 +60,7 @@ async def pump():
 async def main():
     S["q"] = asyncio.Queue(); app = web.Application(client_max_size=64 * 1024 * 1024)
     app.router.add_post("/humanaudio", humanaudio); app.router.add_get("/face_mode", face_mode); app.router.add_post("/interrupt_talk", interrupt_talk)
-    app.router.add_get("/", health); app.router.add_get("/rigaudio", rigaudio)
+    app.router.add_get("/played_out", played_out); app.router.add_get("/", health); app.router.add_get("/rigaudio", rigaudio)
     r = web.AppRunner(app); await r.setup(); await web.TCPSite(r, "127.0.0.1", 8010).start(); log("on 8010")
     await pump()
 asyncio.run(main())
