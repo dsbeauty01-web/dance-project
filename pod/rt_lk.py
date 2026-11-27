@@ -356,8 +356,7 @@ LEAD_STEP["GREET"] = LEAD_STEP["NAME"]
 # instead, i.e. the instruction is not reliable at minimal effort; a written line is.)
 # LEAD_NAME_WAIT_S: how long the light line waits for the second transcript. [CLI-FILL]
 LEAD_NAME_WAIT_S = float(os.environ.get("NOVA_LEAD_NAME_WAIT_S", "0.5"))
-LEAD_LIGHT_TAIL = "Magic light - lift that shoulder!"
-LEAD_LIGHT_NONAME = "Ooh, magic light - lift that shoulder!"
+LEAD_LIGHT_NONAME = "Ooh, magic light, lift that shoulder!"   # = the page's no-name light line (beta/freeze4.html LEAD_L)
 def _edit1(a, b):
     """True when a and b are equal or one edit apart (case-insensitive)."""
     a, b = a.lower(), b.lower()

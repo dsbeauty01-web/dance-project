@@ -742,9 +742,12 @@ async function v2vNameBeat(tAsk){
    A child's own question in any step gets ONE short answer of hers that ends with the step's next action (brain LEAD_STEP).
    Every backup is logged (`lead backup: …`) and shown in the debug strip (?debug=1). Budget: greeting -> game <= 30 s.
    [CLI-FILL] 6 / 12 / 6 / 12 s and every line, for Refael's ear (design table 2a). QUESTION: the Hebrew lines. */
-const LEAD_L = { greet: "Hi! I'm Nova! What's your name?", reask: "I'm Nova - what's your name?",
-  light: n => n ? n + '! Magic light - lift that shoulder!' : 'Ooh, magic light - lift that shoulder!',
-  demo: 'Like this - one shoulder, up!', win: 'Yes! You got it!', pass: "Magic! Let's go!", go: 'Music on - dance! Music off - freeze!' };
+/* LINES THAT FLOW (pod u2sxm5up5hy5kd 2026-11-26, Gold BLOCK): the native voice made a 0.4 s pause between "I'm Nova!" and
+   "What's your name?" and Ditto's mouth was still open one frame into it (open frame in silence at 19.4 s), pause jitter 2.07.
+   Each step line is ONE flowing sentence now - commas, no full stop or "!" in the middle. Same words, same meaning. */
+const LEAD_L = { greet: "Hi, I'm Nova, what's your name?", reask: "I'm Nova, and what's your name?",
+  light: n => n ? n + ', magic light, lift that shoulder!' : 'Ooh, magic light, lift that shoulder!',
+  demo: 'Like this, one shoulder up!', win: 'Yes, you got it!', pass: "Magic, let's go!", go: 'Music on we dance, music off we freeze!' };
 const LEAD_T = { nameQuietMs: 6000, nameCapMs: 12000, unclearMax: 2, lightDemoMs: 6000, lightPassMs: 12000, tailMs: 350,
   answerGraceMs: 2500, afterAnswerMs: 4500, quietMs: 1500 };   // [CLI-FILL] her answer needs up to ~2.5 s to reach the speaker (measured live2: 1.8-2.6 s); quiet is not counted meanwhile; afterAnswerMs [CLI-FILL]: that delay + a ~2 s answer; quietMs [CLI-FILL]: one child reaction time with the microphone open
 const leadS = { on: false, step: '', name: null, backups: [], t: {}, unclear: 0, said: [] };
