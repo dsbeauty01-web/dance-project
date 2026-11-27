@@ -114,6 +114,13 @@ fi
 
 # 2c) system packages + Chrome + python deps
 export DEBIAN_FRONTEND=noninteractive
+# NOVA-FASTBOOT2 (2026-11-26): on the volume, apt's downloaded .debs + Chrome's .deb are kept under nova-fastboot/debcache
+# (add-only, like the other parts) so a boot installs from local files instead of mirrors (apt + Chrome = 60-90 s,
+# 3 tries on bad mirrors, pods 12-14). Mirrors are still used for anything not in the cache.
+if [ -n "$NFB" ]; then mkdir -p "$NFB_V/debcache/archives/partial"
+  echo "Dir::Cache::Archives \"$NFB_V/debcache/archives\";" > /etc/apt/apt.conf.d/99nova-debcache
+  echo 'APT::Keep-Downloaded-Packages "true";' >> /etc/apt/apt.conf.d/99nova-debcache
+  stage "nfb debcache: $(ls "$NFB_V/debcache/archives" | grep -c '\.deb$') debs cached"; fi
 # fast boot (common image): also python3.10 for /opt/ltenv (+ -dev: triton compiles a C helper against Python.h at the
 # SoulX warm-up; without it the face server dies with "Python.h: No such file", prep pod 2026-11-22), ffmpeg, libs
 NFB_APT=""; [ -n "$NFB" ] && NFB_APT="python3.10 python3.10-dev ffmpeg wget libgl1 libglib2.0-0 libsndfile1"
@@ -129,7 +136,9 @@ if ! command -v Xvfb >/dev/null; then
   timeout 600 bash -c "rm -f /var/lib/dpkg/lock* /var/lib/apt/lists/lock; dpkg --configure -a; apt-get -o Acquire::Retries=5 update; apt-get -o Acquire::Retries=5 install -y --no-install-recommends xvfb pulseaudio fonts-dejavu-core $NFB_APT" > $OUT/apt3.log 2>&1
   stage "apt try 3 done $? xvfb=$(command -v Xvfb) | $(grep -E '^(E:|W:)' $OUT/apt3.log | head -3 | tr '\n' ' ' | cut -c1-200)"
 fi
-wget -q -O /root/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && timeout 300 apt-get install -y -qq /root/chrome.deb >/dev/null 2>&1
+CHROME_DEB=/root/chrome.deb; [ -n "$NFB" ] && CHROME_DEB="$NFB_V/debcache/chrome.deb"
+[ -s "$CHROME_DEB" ] || { wget -q -O "$CHROME_DEB.tmp" https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && mv "$CHROME_DEB.tmp" "$CHROME_DEB"; }
+timeout 300 apt-get install -y -qq "$CHROME_DEB" >/dev/null 2>&1
 stage "chrome: $(google-chrome --version 2>&1)"
 stage "hw: gpu=$(nvidia-smi --query-gpu=name,clocks.max.sm,memory.total,driver_version --format=csv,noheader 2>&1 | head -1) cpu=$(lscpu 2>/dev/null | grep -m1 'Model name' | cut -d: -f2 | xargs) nproc=$(nproc) load=$(cut -d' ' -f1-3 /proc/loadavg)"
 # NOVA-TRACE: GPU/CPU load every 2 s for the whole run (players-per-machine headroom)

@@ -22,6 +22,14 @@ NAME = os.environ.get("NF_NAME", "nova-final")
 # boots the COMMON image below (cached on RunPod hosts: no 9-31 min pull of the 14.3 GB private image), is placed in the
 # volume's data center, mounts the volume at /nfb, and nova_final_pod.sh takes Nova's heavy parts from it.
 NF_VOLUME = os.environ.get("NF_VOLUME", "").strip()
+# NOVA-FASTBOOT2 (2026-11-26, Refael: "machine takes 20 min, not 4"): NF_VOLUME may be a comma list of volume ids, tried in
+# order; a volume whose data center has no free RTX 4090 is skipped (GraphQL gpuAvailability), and with NF_VOLUME_FALLBACK=1
+# (default) the launcher falls back to the old image boot when no volume region has a 4090. 2026-11-26 the only Nova volume
+# (pqbavl4mct, EU-RO-1) was skipped all day by hand for lack of capacity -> every boot paid the 9-31 min image pull.
+# NF_PLAY_FAST=1: play-only pod (no W/A proof): Refael plays, nobody waits for the proof; health checks still run.
+NF_VOLUME_FALLBACK = os.environ.get("NF_VOLUME_FALLBACK", "1") == "1"
+if os.environ.get("NF_PLAY_FAST") == "1":
+    os.environ.setdefault("NF_SKIP_W", "1"); os.environ.setdefault("NF_SKIP_A", "1")
 NF_IMAGE = os.environ.get("NF_IMAGE", "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04")
 # the newest ghcr credential; the oldest (ghcr-maya-lt, Sept) left 3 pods "Exited by Runpod" within 1-16 s on 2026-11-11
 REG = os.environ.get("FREEZE4_REGISTRY", "ghcr-2026-10-30")
@@ -69,6 +77,29 @@ def volume(vid):
     raise SystemExit(f"REFUSED: network volume {vid} not found on the account")
 
 
+def dc_4090_ok(dc):
+    """True when the data center lists RTX 4090 stock (any level but None); unknown -> True (let create decide)"""
+    try:
+        s, d = req("POST", "https://api.runpod.io/graphql", {"query": "query { dataCenters { id gpuAvailability(input:{gpuCount:1}) { gpuTypeId stockStatus } } }"})
+        for x in d["data"]["dataCenters"]:
+            if x["id"] == dc:
+                return any("4090" in (g.get("gpuTypeId") or "") and g.get("stockStatus") for g in x.get("gpuAvailability") or [])
+    except Exception: return True
+    return False
+
+
+def pick_volume():
+    """first volume of NF_VOLUME (comma list) whose data center has a free 4090; None = old image boot"""
+    for vid in [v.strip() for v in NF_VOLUME.split(",") if v.strip()]:
+        v = volume(vid)
+        if dc_4090_ok(v["dataCenterId"]):
+            print("fast boot: picked volume", vid, v["dataCenterId"], "(4090 in stock)"); return v
+        print("fast boot: volume", vid, v["dataCenterId"], "has no free 4090 - next")
+    if NF_VOLUME and not NF_VOLUME_FALLBACK: raise SystemExit("REFUSED: no volume region has a free 4090 (NF_VOLUME_FALLBACK=0)")
+    if NF_VOLUME: print("fast boot: NO volume region has a free 4090 - falling back to the image boot (9-31 min pull)")
+    return None
+
+
 def registry_auth_id():
     s, d = req("GET", REST + "/containerregistryauth")
     for a in d if isinstance(d, list) else []:
@@ -82,7 +113,7 @@ def create(commit):
     if bal is None or float(bal) < FLOOR: raise SystemExit(f"REFUSED: balance {bal} < ${FLOOR}")
     if any(p.get("name") == NAME for p in pods()): raise SystemExit("REFUSED: a pod named nova-final already exists")
     url = f"https://raw.githubusercontent.com/dsbeauty01-web/dance-project/{commit}/tools/pod/nova_final_pod.sh"
-    vol = volume(NF_VOLUME) if NF_VOLUME else None
+    vol = pick_volume() if NF_VOLUME else None
     body = {
         # field set mirrors maya-lt maya_launch/providers/runpod.py create() (the body Maya's lives boot with)
         "name": NAME, "imageName": IMAGE, "computeType": "GPU", "gpuTypeIds": ["NVIDIA GeForce RTX 4090"], "gpuCount": 1,
