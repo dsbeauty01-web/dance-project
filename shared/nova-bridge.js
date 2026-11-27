@@ -152,11 +152,24 @@ export function setBody(id) {
   fetch(BASE + 'set_avatar?id=' + encodeURIComponent(id), { mode: 'no-cors', cache: 'no-store' }).catch(() => {});
 }
 
+// READY REVEAL (2026-11-27, Refael: "her voice can NOT pop out on the blurry screen"): while the page's curtain is up her
+// voice output is at zero whatever the voice mode is - greeting, cached line, anything. The page lifts it at the reveal.
+let herCurtained = false, voiceModeNow = '';
+function applyVoiceGain() {
+  const open = !herCurtained && (voiceModeNow === 'engine' || voiceModeNow === 'air');
+  if (voiceGain) voiceGain.gain.value = open ? 1 : 0;
+  else if (audioEl) audioEl.muted = !open;                      // bare-element fallback (no WebAudio route)
+}
+export function herCurtain(on) { herCurtained = !!on; applyVoiceGain(); }
+export function herVoiceState() {
+  const t = audioEl && audioEl.srcObject && audioEl.srcObject.getAudioTracks ? audioEl.srcObject.getAudioTracks()[0] : null;
+  return { el: !!audioEl, live: !!t && t.readyState === 'live', muted: t ? !!t.muted : null, ctx: ctx ? ctx.state : 'none', curtained: herCurtained };
+}
 export function routeVoice(mode) {
   // 'engine' → she may speak through the engine (intro/ending). 'air' → one page-credited
   // line per gap, streamed as voice_air. 'mute' → no generations at all (freeze hold).
-  speakGated = mode !== 'engine';
-  if (voiceGain) voiceGain.gain.value = (mode === 'engine' || mode === 'air') ? 1 : 0;
+  speakGated = mode !== 'engine'; voiceModeNow = mode;
+  applyVoiceGain();
   send({ type: 'speak_gate', on: speakGated, mode: mode === 'air' ? 'air' : 'hard' });
 }
 
@@ -277,7 +290,7 @@ function routeHerAudio(track) {
     ctx ||= new (window.AudioContext || window.webkitAudioContext)();
     const ms = new MediaStream([track.mediaStreamTrack]);
     const src = ctx.createMediaStreamSource(ms);
-    voiceGain = ctx.createGain(); voiceGain.gain.value = speakGated ? 0 : 1;
+    voiceGain = ctx.createGain(); voiceGain.gain.value = (speakGated || herCurtained) ? 0 : 1;
     src.connect(voiceGain); voiceGain.connect(ctx.destination);
     const a = track.attach(); a.muted = true; a.autoplay = true; a.playsInline = true; document.body.appendChild(a); audioEl = a;
     // level meter → herAudio.playing/ended for music ducking
@@ -294,7 +307,7 @@ function routeHerAudio(track) {
     console.log('[BRIDGE] her voice routed through shared AudioContext, state=' + ctx.state);
   } catch (e) {
     console.warn('[BRIDGE] webaudio route failed, bare element:', e && e.message);
-    const a = track.attach(); a.autoplay = true; a.muted = !!speakGated; a.playsInline = true; document.body.appendChild(a); audioEl = a; a.play().catch(() => {});
+    const a = track.attach(); a.autoplay = true; a.muted = !!speakGated || herCurtained; a.playsInline = true; document.body.appendChild(a); audioEl = a; a.play().catch(() => {});
   }
 }
 

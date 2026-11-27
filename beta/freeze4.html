@@ -146,7 +146,7 @@ import { createLocalBrain } from './lib/brain-local.js';
 import { runDoctor } from './lib/doctor.js';
 import { attachNova, routeVoice, note, onHerAudio, bridgeState, primeAudio, micState, restartMic, pageLog, liveIntro } from '../shared/nova-bridge.js';
 import { catchName } from './lib/name-catch.js';
-import { holdMicFor, setBarge } from '../shared/nova-bridge.js';
+import { holdMicFor, setBarge, herCurtain, herVoiceState } from '../shared/nova-bridge.js';
 import { setLead, leadHello, leadStep, leadSay, leadAnswer, leadGen, leadDrop, novaFact } from '../shared/nova-bridge.js';
 import { createFacePanel } from '../shared/face-panel.js';
 import { mountFacePip } from '../shared/face-pip.js';
@@ -420,7 +420,20 @@ function novaSay1(text, delayMs){
 /* No 'fact:' notes in v4: on the pod (2026-11-11) every note in the game's 'air' mode was credited as the gap's spoken
    line (pod/rt_lk.py SPEAK-GATE, nova-cue arm), so a "silent" fact could make her talk on her own. Everything she says
    about the round is already in the exact line the page stages (Truth Law: only what the judge saw). */
-function mindReact(type, d){ const r = mind.react(type, d); if (r) novaSays(r.text, r.delayMs); }
+/* 2026-11-27 GAME FEEDBACK (Refael's play B: 3 of 6 freezes got her line). Two page causes, both from the 6-word law above:
+   the tip after a miss is 11-13 words in brain-local.js and was never said ("over 6 words", 3 times), and the miss verdict
+   came out as "Oops, you kept moving." - a verdict on the last try, which performance-feedback-ai law 3 + 10 forbid ("a
+   correction is future-tense, about the target; a miss is 'almost - next one's yours!' at most"). Under the lead build
+   (English) those keys get a line that IS <= 6 words, future-tense and never negative, instead of a dropped or a negative
+   one. brain-local.js is not changed (freeze-nova uses it whole). [CLI-FILL] the wording, for Refael's ear. */
+const LEAD_GAME_L = { missed: ["Tricky music! Next one's yours!", 'Ooh, so close! Next one!'],
+  afterMiss: ['Music stops, be a statue!', 'Next stop, freeze like ice!'], afterAlmost: ['Hold it one breath longer!', 'This time, stay frozen longer!'],
+  afterSkip: ['Come back to the middle!', 'Step back, show me everything!'] };
+let leadGameN = 0;
+function mindReact(type, d){ const r = mind.react(type, d); if (!r) return; let text = r.text;
+  if (leadS.on && lang === 'en' && game && !ended){ const alt = LEAD_GAME_L[r.key];
+    if (alt){ text = alt[leadGameN++ % alt.length]; log('line-short', r.key + ': ' + text); } }
+  novaSays(text, r.delayMs); }
 const herV = { on: false, startedAt: 0, endedAt: 0 };
 /* ── NOVA-GO5 (2026-11-24) · flag `react`: she shows she is LISTENING, at once (Refael: "sometimes yes").
    Measured on the real machine (docs/NOVA-GO5-2026-11-24.md part 7): her answer starts 3.7-4.8 s after the child's words,
@@ -437,6 +450,7 @@ function leanIn(on, why){ if (!react.on) return; const p = $('novaPane'); if (!p
   clearTimeout(react.timer); p.classList.toggle('listening', !!on); if (on) react.timer = setTimeout(() => p.classList.remove('listening'), 8000);
   log('react', (on ? 'lean in' : 'lean back') + (why ? ' (' + why + ')' : '')); }
 function maybeHum(){
+  if (FLAG('lead')) return;                                                    // lead intro: hums go through the smart handler only
   if (!react.on || $('novaPane')?.dataset.stage !== 'wide' || herV.on) return;
   if ((Q.get('voice') || 'marin') !== 'marin') return;
   if (react.lastHum){ react.lastHum = false; log('react', 'no hum this turn'); return; }   // every other turn, from the first
@@ -480,11 +494,15 @@ addEventListener('nova:kid', () => { if (!FLAG('live2')) maybeHum(); });
    Voice: Kymmiee's own hums (audio/react/k_hum1-3, ElevenLabs v4) when the page runs her ElevenLabs voice (flag `eleven`). */
 const smart = { last: -1e9, prevTurnHummed: false };
 /* NOVA_BARGE (flag `barge`, with live2): the child talks over her -> the bridge tells the brain, she stops and listens */
-setBarge(FLAG('live2') && FLAG('barge'));
+/* 2026-11-27: under the lead intro talk-over cutting is OFF unless ?leadbarge=1 - play B: 4 events, every one a quick real
+   answer right after her question (she was already silent 1.4 s at 166.8 s), none a child talking over her. */
+setBarge(FLAG('live2') && FLAG('barge') && (!FLAG('lead') || FLAG('leadbarge')));
 addEventListener('nova:barge', e => log('barge', 'child over her: level ' + e.detail.level + ' floor ' + e.detail.floor));
 addEventListener('nova:barged', () => log('barge', 'she stopped - mic open'));
 addEventListener('nova:kid-stopped', e => {
   if (!FLAG('live2') || !react.on) return;
+  if (FLAG('lead') && !leadS.shown){ log('react', 'no hum: she is not shown yet'); return; }          // READY REVEAL: no sound of hers behind the curtain
+  if (leadS.on && !FLAG('leadhum')){ log('react', 'no hum: no hum clips in her new voice (the lean-in stays)'); return; }   // skill nova-smart-reactions rule 5: a hum is in HER voice; the clips are marin
   const dur = +e.detail || 0, now = performance.now(), why = [];
   if ($('novaPane')?.dataset.stage !== 'wide') why.push('not wide');
   if (herV.on) why.push('she is talking');
@@ -523,6 +541,10 @@ function onEvent(type, d){
   if (type === 'freeze'){ holding = true; setVoice('mute'); face.setBase('freeze');                 // HOLDS = hard mute
     animal = d.animal; animalByRound[d.round] = d.animal; music.pause(); sting(); novaPlay(NOVA.freeze[d.animal] || NOVA.freeze.star, { holdEnd: true }); /* Nova strikes the animal pose and holds it */ lights.speedGlow(false); lights.ice(true); freezeAt = t; holdS = game.pace.holdS;
     card(TXT.animals[animal], EMO[animal]); say(TXT.freeze(TXT.animals[animal]), 'wait'); }
+  /* 2026-11-27 SCORING EVIDENCE (Refael's play B: 1 star of 6, and the page log held no number of the judge): every freeze
+     verdict is logged with what the judge measured - hold result, seen share, frames, peak motion vs the bar, when it broke. */
+  if (type === 'calibrated') log('judge', 'calibrated ' + JSON.stringify(d));
+  if (type === 'star' || type === 'notyet' || type === 'skip') log('judge', 'freeze ' + JSON.stringify({ animal: animalByRound[d.round], outcome: d.outcome, hold: d.hold, seen: d.seen, frames: d.frames, maxE: d.maxE, thrMove: d.thrMove, brokeS: d.brokeS, graceS: d.graceS, holdS: game.pace.holdS, engine: src?.state?.kind }));
   if (type === 'star'){ hud.star(); hud.mark(d.round, 'star'); ring(1, true); lights.ice(false); lights.snow('nose'); lights.burst('nose', 'gold'); say(TXT.star, 'good'); }
   if (type === 'notyet'){ hud.mark(d.round, 'notyet'); ring(null); lights.ice(false); say(TXT.notyet, 'wait'); }
   if (type === 'skip'){ hud.mark(d.round, 'skip'); ring(null); lights.ice(false); lights.guide('tooClose'); say(L.cantSee, 'wait'); }
@@ -760,7 +782,7 @@ const LEAD_L = { greet: "Hi, I'm Nova, what's your name?", reask: "I'm Nova, and
 const LEAD_T = { nameQuietMs: 6000, nameCapMs: 12000, unclearMax: 2, chatQuietMs: 5000, turnsMax: 2, monoS: 8, lightDemoMs: 6000, lightPassMs: 12000,
   hardMs: 43000, tailMs: 350, answerGraceMs: 2500, afterAnswerMs: 4500, quietMs: 1500, herStartMs: 3500, herSaidMs: 7000, pieceGapMs: 2500, againMs: 1200, afterStopMs: 1000, nameHardMs: 18000 };   // [CLI-FILL] afterStopMs: his words reach the page ~0.5-0.7 s after he stops (rig); nameHardMs: NAME never lasts longer, whatever was said   // [CLI-FILL] answerGraceMs: her answer needs up to ~2.5 s to reach the speaker (measured live2: 1.8-2.6 s), quiet is not counted meanwhile; afterAnswerMs: that delay + a ~2 s answer; quietMs: one child reaction time with the microphone open; herStartMs / herSaidMs: the same delay + margin, then a logged backup
 const LEAD_REFUSE_RE = /\b(i\s+(really\s+)?(don'?t|do\s+not)\s+(want|wanna)|don'?t\s+wanna|no\s+thank|leave\s+me|go\s+away|i\s+won'?t)\b/i;   // [CLI-FILL] a plain refusal; a bare "no" is an answer, not a refusal
-const leadS = { on: false, step: '', name: null, backups: [], t: {}, unclear: 0, turns: 0, drops: 0, stopS: 0, stopAt: 0, talking: false, hearAt: 0, her: { text: '', at: 0 }, said: [] };
+const leadS = { on: false, shown: false, regreets: 0, step: '', name: null, backups: [], t: {}, unclear: 0, turns: 0, drops: 0, stopS: 0, stopAt: 0, talking: false, hearAt: 0, her: { text: '', at: 0 }, said: [] };
 window.freeze4Lead = leadS;
 function leadAck(capMs){ return new Promise(res => { const t = setTimeout(() => res(null), capMs);
   addEventListener('nova:lead', e => { clearTimeout(t); res(!!e.detail); }, { once: true }); }); }
@@ -942,6 +964,7 @@ async function leadIntro(tAsk){
     novaFact('shoulder lift'); last = leadMake('win', { step: 'GO' }); }                    // her own "yes, you got it - cool, let's dance!"
   else last = leadLine('pass', LEAD_L.pass, { step: 'GO' });
   log('lead', 'go line played=' + await leadPlayed(last, 14000));
+  leadStep('GAME');                                                           // the intro prompt leaves the brain NOW (play B: an intro answer leaked into the game)
   step('GAME'); log('lead', 'done: greeting -> game ' + ms() + ' ms, shoulder ' + res + ', name ' + (leadS.name || '-') + ', backups ' + leadS.backups.length);
   return res;
 }
@@ -1031,6 +1054,37 @@ async function recStart(){
 }
 function recMic(track){ try { if (vrec.on && track){ vrec.actx.createMediaStreamSource(new MediaStream([track.clone()])).connect(vrec.dest); log('rec', 'his microphone is in the recording'); } } catch (e){ log('rec', 'microphone not mixed: ' + (e?.message || e)); } }
 function recStop(why){ if (vrec.stopped || !vrec.mr) return; vrec.stopped = true; log('rec', 'stop: ' + why); try { if (vrec.mr.state !== 'inactive') vrec.mr.stop(); } catch (_){ } }
+/* READY REVEAL helpers. A picture "flows" = NEW decoded pictures of her live body really arrive (requestVideoFrameCallback
+   count; where the browser has none: the video clock advances). [CLI-FILL] 15 pictures a second = the page's own "fresh
+   wide" bar (matchCut, above); 1 s of flow, 600 ms of her visible and silent before the greeting, 300 ms fade: Refael's
+   brief 2026-11-27 gives the order, not the numbers. QUESTION. Cap 20 s more, then the red banner (no silent death). */
+const REVEAL = { fps: 15, flowMs: 1000, idleMs: 600, fadeMs: 280, capMs: 20000 };
+const hasRVFC = !!$('novaWide').requestVideoFrameCallback; let _ct = { t: 0, v: 0, ok: 0 };
+function pictureFlows(ms = 1000){
+  if (!dual) return !!face.state.live;
+  if (!wide.state.live) return false;
+  if (hasRVFC) return wideFps(ms) >= REVEAL.fps;
+  const v = $('novaWide').currentTime, now = performance.now(); if (now - _ct.t > 250){ _ct.ok = v > _ct.v ? now : _ct.ok; _ct.t = now; _ct.v = v; }
+  return now - _ct.ok < ms;
+}
+async function leadReveal(tFrom, tag){
+  const t0 = performance.now(); let flowSince = 0, c = {};
+  while (performance.now() - t0 < REVEAL.capMs){
+    const st = bridgeState(), hv = herVoiceState();
+    c = { brain: !!st.ws, lead: leadS.on, voiceTrack: !!st.voice && hv.live, audioCtx: hv.ctx, trackMuted: hv.muted, picture: dual ? !!wide.state.live : !!face.state.live, fps: dual && hasRVFC ? wideFps(1000) : null };
+    const ok = c.brain && c.lead && c.voiceTrack && (hv.ctx === 'running' || hv.ctx === 'none') && pictureFlows(1000);
+    if (ok){ flowSince ||= performance.now(); if (performance.now() - flowSince >= REVEAL.flowMs) break; } else flowSince = 0;
+    await sleep(100);
+  }
+  if (!flowSince || performance.now() - flowSince < REVEAL.flowMs){ log('lead', 'reveal FAILED (' + tag + ') after ' + Math.round(performance.now() - t0) + ' ms ' + JSON.stringify(c)); return false; }
+  const cur = $('novaCurtain'), shown = cur && getComputedStyle(cur).display !== 'none';
+  if (shown){ cur.style.transition = 'opacity ' + REVEAL.fadeMs + 'ms ease'; cur.style.opacity = '0'; await sleep(REVEAL.fadeMs); }
+  caption(''); gate(null); if (cur){ cur.style.transition = ''; cur.style.opacity = ''; }
+  herCurtain(false); leadS.shown = true;                                      // her voice can be heard only from here
+  log('lead', 'reveal ' + Math.round(performance.now() - tFrom) + ' ' + JSON.stringify({ ...c, tag, flowedMs: Math.round(performance.now() - flowSince), blur: !!document.body.dataset.gate }));
+  await sleep(REVEAL.idleMs);                                                 // she is seen, calm and silent, before her first word
+  return true;
+}
 async function begin(){
   $('startScr').classList.remove('on');
   if (FLAG('rec')) await recStart();          // first thing in the tap: the browser's one "share this tab" question
@@ -1077,6 +1131,7 @@ async function begin(){
      until ALL are true: her wide live picture has delivered a real frame · her voice bridge is connected · the first
      sound (= first lips) of her greeting is playing. Not ready in time = the red refusal, as before. */
   gate('nova'); caption(TXT.coming, 'wait');
+  if (FLAG('lead')) herCurtain(true);                     // READY REVEAL: not one sample of her voice can be heard behind the curtain
   log('attach', 'start');
   if (HEARF) micChip();
   try { await attachNova({ intro: 'freeze4', echoGuard: true, onFace: s => face.attach(s), onWide: s => { dual = dual || !!s; wide.attach(s); },
@@ -1111,21 +1166,43 @@ async function begin(){
 
   if (dual && FLAG('warmgate')) await waitWarm('intro');                      // NOVA-GO2: she is revealed only on a smooth stream
   setVoice('engine'); face.setBase('listening');                              // INTRO = she talks, the child may answer
-  const tAsk = performance.now();
+  let tAsk = performance.now();
   const withShoulder = !fast && FLAG('shoulder');
   if (withShoulder && FLAG('lead') && lang === 'en'){                         // NOVA-LEAD: she leads (4 steps); needs a brain with NOVA_LEAD=1
     leadHello(); const ackL = await leadAck(4000);   // [CLI-FILL] 4 s: a slow ack must not drop her into the earlier intro
     leadS.on = ackL === true; setLead(leadS.on);
     if (!leadS.on){ log('lead', 'THE BRAIN DID NOT TAKE THE LEAD INTRO (' + (ackL === false ? 'NOVA_LEAD is off' : 'no answer') + ') — the earlier intro instead'); leadDbg('lead: OFF on the brain — earlier intro'); }
   }
+  if (!leadS.on) herCurtain(false);                                           // the earlier intros keep their own gate (first word opens it)
   if (withShoulder && FLAG('v2vintro') && !leadS.on){                         // NOVA-GO5: her approved live intro (greet + name, then the light)
     liveIntro('greet'); const ack = await v2vGreetAck(1500);
     v2vIntro.on = ack === true;
     if (!v2vIntro.on) log('v2v', 'THE BRAIN DID NOT TAKE THE LIVE INTRO (' + (ack === false ? 'NOVA_V2V_INTRO is off' : 'no answer') + ') — staged greeting instead');
   }
-  if (!fast){                                                                 // she explains the game first (skipped with ?fast=1)
-    if (leadS.on){ leadStep('NAME'); leadLine('greet', LEAD_L.greet, { step: 'GREET' }); log('lead', 'step GREET 0'); }
-    else if (v2vIntro.on) log('v2v', 'greeting + name question asked (live, in the conversation)');
+  if (!fast && leadS.on){
+    /* READY REVEAL (Refael 2026-11-27, "secure this first"): "she should appear only when fully ready - you can delay her -
+       she cannot react until she is ready - her voice can NOT pop out on the blurry screen - the user sees her as a real
+       human once she is ready, until then he waits". So the order is turned round: FIRST everything is checked behind the
+       curtain, THEN she is shown sharp and silent, THEN she greets. Before: the greeting was asked behind the curtain and
+       the curtain opened on her first sound. */
+    if (!await leadReveal(tReady0, 'first')) return refuse([TXT.noFace]);
+    for (;;){
+      tAsk = performance.now();
+      leadStep('NAME'); leadLine('greet', LEAD_L.greet, { step: 'GREET' }); log('lead', 'step GREET 0'); log('greeting', 'asked (Nova is shown, sharp and silent)');
+      if (!await waitVoiceStart(GREET_WAIT_MS)) return refuse([TXT.noGreet]);
+      log('greeting', 'first sound after ' + Math.round(performance.now() - tAsk) + ' ms');
+      /* her picture must hold while she greets: a drop sends her back behind the curtain, and she greets again ONCE */
+      const tG = performance.now(); let dropped = false;
+      while (!leadPlayedAt.has(LEAD_L.greet) && performance.now() - tG < 6000){     // [CLI-FILL] 6 s: the greeting is ~2 s + Ditto's delay
+        if (!pictureFlows(600)){ dropped = true; break; } await sleep(100); }
+      if (!dropped || leadS.regreets >= 1) break;
+      leadS.regreets++; leadS.shown = false; herCurtain(true); gate('nova'); caption(TXT.coming, 'wait');
+      log('lead', 'reveal LOST: her picture stopped during the greeting - back behind the curtain, she greets again once');
+      leadBackup('picture dropped in the greeting: curtain, greeting again');
+      if (!await leadReveal(performance.now(), 'again')) return refuse([TXT.noFace]);
+    }
+  } else if (!fast){                                                          // she explains the game first (skipped with ?fast=1)
+    if (v2vIntro.on) log('v2v', 'greeting + name question asked (live, in the conversation)');
     else if (withShoulder) novaSays(HELLO + ' ' + SL.arm); else mindReact('intro');   // NOVA-AUDIT: the approved intro opens on the light
     log('greeting', 'asked (Nova still hidden)' + (withShoulder ? ' — shoulder intro' : ''));
     if (!await waitVoiceStart(GREET_WAIT_MS)) return refuse([TXT.noGreet]);
@@ -1135,7 +1212,7 @@ async function begin(){
       if (performance.now() - tF > 150) log('lead', 'picture waited ' + Math.round(performance.now() - tF) + ' ms at the greeting');
       if (!(dual ? wide.state.live : face.state.live)) return refuse([TXT.noFace]); }
   }
-  caption(''); gate(null);                                                    // THE GATE OPENS: she appears with her first word
+  if (!leadS.on || fast){ herCurtain(false); caption(''); gate(null); leadS.shown = true; }   // THE GATE OPENS: she appears with her first word (earlier intros)
   log('nova-shown', JSON.stringify({ wideLive: wide.state.live, wideFrames: wide.state.frames, voice: bridgeState().voice, speaking: !fast }));
   if (withShoulder && leadS.on){
     await leadIntro(tAsk);                                                    // NOVA-LEAD: NAME -> LIGHT -> GO, then straight into the game

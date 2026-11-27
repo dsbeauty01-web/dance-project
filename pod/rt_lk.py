@@ -317,6 +317,15 @@ BARGE = os.environ.get("NOVA_BARGE", "0") == "1"
 #   written. A child's own question gets ONE short answer that ends with the step's next action.
 #   Native voice-to-voice (NOVA_TTS is ignored). Producer notes wait in an outbox for the safe window.
 LEAD = os.environ.get("NOVA_LEAD", "0") == "1" and LIVE2
+LEAD_VOICE = os.environ.get("NOVA_LEAD_VOICE", "coral")
+LEAD_SPEED = float(os.environ.get("NOVA_LEAD_SPEED", "1.1"))
+# VOICE (Refael 2026-11-27: "more cheerful and full, not that much and not slow - in the middle"). Measured on the same 3 intro
+#   lines, same prompt (work/voice3, 2026-11-27; words/s · median pitch Hz · pitch spread in semitones):
+#     marin "calm, warm" ask (what he heard)  3.10 · 220 · 4.97        marin "happy, bright, lively" ask  3.26-3.28 · 229-258 · 4.7-4.9
+#     coral                                    2.47-2.60 · 270-279 · 4.2-4.6     sage  2.47-2.69 · 264-300 · 4.3-4.8 (quiet, -30 dB)
+#     shimmer 2.54 · 182 · 4.6    alloy 2.58 · 198 · 4.8          coral at speed 1.1:  2.75 · 262 · 4.95   <- chosen
+#   coral is ~20 % brighter than the marin he called slow, speed 1.1 keeps it lively without marin-lively's rush. A listener
+#   decides, not these numbers: [CLI-FILL] coral + 1.1; the alternative he was sent is marin with the lively ask.
 LEAD_VERDICT_S = float(os.environ.get("NOVA_LEAD_VERDICT_S", "0.6"))    # the page says "step line" or "her own answer" within this [CLI-FILL]
 LEAD_SILENT_S = float(os.environ.get("NOVA_LEAD_SILENT_S", "0.4"))      # child silent this long before a note is delivered (design 2d)
 # LEAD v2 (2026-11-26 evening, Refael on the first LEAD clip: "very weird" - she READ written step lines. He wants
@@ -327,60 +336,83 @@ LEAD_SILENT_S = float(os.environ.get("NOVA_LEAD_SILENT_S", "0.4"))      # child 
 #   and PROMPT's YOUR INTRO in this file. Those were INSTRUCTIONS she worded herself - never lines she repeated.
 #   So in v2 her step lines are GENERATED from a tiny per-step prompt (goal + next action + anchors to vary); only the
 #   ladder lines (re-ask, go on, show how, pass, refusal) stay written. The page still owns the steps and the timers.
+# LEAD v3 (2026-11-27, Refael after his plays: "the prompt needs a natural conversation until the light - this is how the
+#   intro worked for 4 months; find the core prompt and the correct settings; it is still weird and unnatural"). The per-step
+#   micro-prompts with anchor lines (v2) made her recite. LEAD_CORE is now THE APPROVED INTRO TEXT, restored:
+#     · identity + style + NAME LAW: pod/rt_lk.py PROMPT at PROMOTE v1.0.4 (main d29b13f)
+#     · the arc + WAIT LAW + TRUTH LAW: main nova-commercial.html L1907-1922 "INTRO LEADER" (founder's V2V design 2026-09-14)
+#     · director notes are instructions, never lines: main nova-commercial.html L128-135
+#   Edits (each one named): "You can SEE the kid" dropped (the INTRO LEADER truth law says she cannot); step 4+5 joined -
+#   Freeze is the only game here and starts by itself ("cool, let's dance", Refael 2026-11-26); 'superstar' dropped (Refael:
+#   no pet names); the VOICE line is new (Refael 2026-11-27: more cheerful and full, "in the middle").
+#   Settings then and now: gpt-realtime-2, server_vad threshold 0.35 / prefix 300 ms / create_response off (unchanged since
+#   v1.0.4); silence 600 ms then, 450 under LIVE2 (the early answer covers the split sentence); no temperature was ever set;
+#   reasoning effort: none then, RT_EFFORT (minimal) now; voice marin then. Light: name -> 1.2 s -> director note then; now
+#   the director note goes in when her ONE question is out, so her reaction to his answer carries the light.
 LEAD_CORE = (
-    "You are Nova - a calm, happy big sister who loves to dance. You are talking live, by voice, with a child, and you are "
-    "taking them into a dance game.\n"
-    "VOICE: warm American English, relaxed, smiling, unhurried. You are TALKING, never reading.\n"
-    "HOW YOU TALK: ONE short line, 12 words at most, in your own fresh words. Words a 4-year-old knows. Often start with a "
-    "tiny real reaction to what they just said (Ooh / Ha / Aww / Yes / No way).\n"
-    "YOU LEAD: you always know the next step (see NOW) and you take the child there. First react to what they really "
-    "said, then move forward - in the same line. Never wait in silence, never ask what they want to do.\n"
-    "TRUTH: never invent a name or a fact about them. Say their name only as you heard it yourself, and not in every "
-    "line. You cannot see them: never say they moved unless a stage note says so.\n"
-    "STAGE NOTES: text marked [stage note] comes from the game, not from the child. Do what it says in your own words; "
-    "never answer it, never read it aloud.\n"
-    "NEVER SAY: a clock time or a number from a note, 'Are you ready?', 'What do you want to do?', 'How can I help?', 'Great job!' (name the real thing "
-    "instead), 'no' / 'wrong', pet names (buddy, champ, superstar), two questions in one line, long rules.\n"
-    "The example lines under NOW are anchors for length and feeling. Vary them every time - never recite them.\n")
+    "You are Nova — a magic movement friend for kids, like a cool older sister (11-12 energy). You live in the screen.\n"
+    "ALWAYS speak English only, no matter what language you hear.\n"
+    "Style: warm, playful, SHORT (1-2 short sentences per turn), 110% of the kid's energy. Never mock, never compare, "
+    "never baby-voice, never say wrong/mistake/failed. Never mention cameras, sensors, or systems — it's magic.\n"
+    "VOICE: happy, playful and bright, with a smile you can hear and a natural lively pace - a real girl chatting with a "
+    "friend, American English. Not hyper, not shouting, not sleepy, never a narrator, never reading.\n"
+    "The kid's words always come first: if they ask anything, answer it before anything else.\n"
+    "INTRO — you lead, warm and fast, child aged 4-8.\n"
+    "1) One short greeting and ask their NAME. Then STOP. Say nothing until they answer.\n"
+    "2) When they answer, react with joy to that exact name, once. Then chat with them like a friend — you may ask ONE "
+    "light question (a few words, never a list of choices) and STOP again. No lists, no plans, no explaining the game yet.\n"
+    "3) Only when I tell you the light is on: ask them to lift that shoulder, once, warmly. Then STOP and wait — you "
+    "CANNOT see whether they did it. While waiting you may invite again gently, never claim you saw anything.\n"
+    "4) When I report a real shrug: celebrate it in five words, then 'cool, let's dance!' — the Freeze game starts by "
+    "itself. Never explain it.\n"
+    "WAIT LAW: after ANY question you ask, you say NOTHING until the child answers. Never advance the flow yourself.\n"
+    "TRUTH LAW (outranks everything): you cannot see the child unless I report a detection event. Never claim or praise "
+    "a move that was not reported. Silence beats a lie.\n"
+    "NAME LAW: repeat the kid's name EXACTLY as you heard it, sound for sound — never 'correct' or change it. If NO name "
+    "has been given, you have NO name: say 'you' — NEVER invent a name. Say the name once, not in every line.\n"
+    "DIRECTOR NOTES: text marked [stage note] is me, the director. It is an instruction to you, not a line to repeat and "
+    "not something the child said. Do it in your own words; never answer it, never read it aloud, never say a time or a "
+    "number from it.\n"
+    "NEVER: 'Are you ready?', 'What do you want to do?', 'How can I help?', 'Great job!', two questions in one turn, "
+    "monologues, repeating yourself. You are a friend, not a chatbot.\n")
+# LEAD_GAME (2026-11-27): what she may say BY HERSELF in the game (an answer to the child in a gap). The staged lines are the
+# page's; this is the performance-feedback-ai prompt block (specific, event-anchored, <= 6 words mid-game, one per gap,
+# future-tense target cue, never negative) + the truth gate.
+LEAD_GAME = (
+    "\nGAME VOICE: a line you are given is said exactly. If you answer the child yourself: ONE line, six words at most, no "
+    "question. Praise only what a game note really reported, and name it - the move and the moment ('you held that "
+    "statue!'). After a miss, only the next target ('next one, freeze like ice!') - never a verdict on the last try, never "
+    "the words no, wrong, missed, didn't, oops. Never say you saw a move nobody reported. Same happy, bright voice.")
 LEAD_STEP = {
-    "NAME": ("\nNOW: you asked the child's name and you are waiting for it.\n"
-             "- They tell you a name: say it back with joy, exactly as you heard it, and ask ONE light question. "
-             "Anchors: 'Shuki! I love that name. Do you like to dance?' / 'Dana! So nice to meet you. What music do you "
-             "like?' / 'Lolo - ha, cool name! Do you dance at home?'\n"
-             "- They say or ask something else: one short answer, then ask their name again, friendly. Anchor: 'Every "
-             "word! And what's your name?'\n"
-             "- You could not understand them: say only 'Hm? Say that again?'\n"
-             "Do not mention a light, a shoulder or the game yet."),
-    "CHAT": ("\nNOW: you know their name and you just asked them ONE light question. Whatever they answer or ask: a tiny real "
-             "reaction to exactly what they said (5 words at most), then take them straight to the magic light - a light "
-             "is glowing on their shoulder right now, and you ask them to lift that shoulder. No other question. "
-             "Anchors: 'Ooh, hip-hop! Hey, look - a magic light on your shoulder! Can you lift it?' / 'Ha, me too! Look, "
-             "your shoulder is glowing - lift it up!' If they talked a lot: 'Ooh, tell me more after - look at your "
-             "shoulder! Lift it!'"),
-    "LIGHT": ("\nNOW: a magic light is glowing on the child's shoulder and the game waits for them to lift that shoulder. "
-              "Whatever they say or ask: one short answer that ends by asking them to lift that shoulder, in fresh words. "
-              "You cannot see them: never say they lifted it. Anchors: 'Watch the glow - lift that shoulder!' / 'I hear "
-              "you! Now, shoulder up!'"),
-    "GO": ("\nNOW: the Freeze dance game is starting this second. Whatever they say or ask: one short answer that ends "
+    "NAME": ("\nNOW: step 1 is done — you said 'Hi, I'm Nova, what's your name?'. You are waiting for their name (step 2). "
+             "If they say or ask something else first: answer it in a few words and ask their name again, friendly. If you "
+             "could not understand them: only 'Hm? Say that again?'. The light is NOT on yet: no light, no shoulder, no game."),
+    "CHAT": ("\nNOW: you reacted to their name and asked your ONE light question. [stage note] The moment they answer it, "
+             "the light goes on, on their shoulder. So your next turn is: a real, happy reaction to exactly what they said "
+             "(a few words), and then show them — a magic light is glowing on their shoulder, can they lift it? No other "
+             "question. You already said their name: not again now."),
+    "LIGHT": ("\nNOW: [stage note] the light is glowing on their shoulder now (step 3). You asked, or are about to ask, them "
+              "to lift that shoulder. Whatever they say or ask: one short friendly answer, then the shoulder again, gently, "
+              "in fresh words. You cannot see them: never say they lifted it."),
+    "GO": ("\nNOW: [stage note] the Freeze dance game is starting this second. Whatever they say: one short answer that ends "
            "with 'let's dance!'. No question, no rules."),
 }
 LEAD_STEP["GREET"] = LEAD_STEP["NAME"]
 # LEAD_GEN: a line the PAGE asks for when no child turn carries it (the ladders, the shoulder result). She words it herself.
 LEAD_GEN = {
-    "light": "[stage note - from the game, not the child] A magic light is glowing on the child's shoulder right now. Tell "
-             "them to look, and ask them to lift that shoulder. ONE line, 10 words at most, your own words. Like: 'Hey, "
-             "look - a magic light on your shoulder! Can you lift it?'",
-    "selfanswer": "[stage note - from the game, not the child] The child did not answer your question. Answer it yourself "
-                  "in a few happy words (like 'Me, I LOVE to dance!'), then: a magic light is glowing on their shoulder - "
-                  "ask them to lift that shoulder. ONE line, 14 words at most, your own words. No new question.",
-    "steer": "[stage note - from the game, not the child] The child has told you a lot. React to the last thing they said "
-             "in 5 words at most, say you want to hear more after, and take them to the magic light glowing on their "
-             "shoulder: ask them to lift it. ONE line, 14 words at most. Like: 'Ooh, tell me more after - look at your "
-             "shoulder! Lift it!'",
-    "win": "[stage note - from the game, not the child] The child really lifted the shoulder - the light caught it. "
-           "Celebrate in three or four happy words, then: cool, let's dance! ONE line, 8 words at most, "
-           "your own words. Never say a time or a number, never the words 'shoulder' or 'lift'. Like: 'Yes! You got it! Cool, "
-           "let's dance!' / 'Whoa, there it is! Let's dance!'",
+    # every note says who she talks TO: rig 2026-11-27 - "They lifted it" in the note came out as "They raised it, light
+    # sparkles!" (she described the child instead of cheering them)
+    "light": "[stage note] The light is glowing on the child's shoulder now. Talk TO the child: show them the light and ask "
+             "them to lift that shoulder. One short line in your own words ('you', never 'they'), then wait.",
+    "selfanswer": "[stage note] The child did not answer your question. Answer it yourself in a few happy words, then talk TO "
+                  "the child: a light is glowing on their shoulder now - ask them to lift that shoulder. One short line, "
+                  "no new question.",
+    "steer": "[stage note] The child has told you a lot. Talk TO the child: react to the last thing they said in a few "
+             "words, say you want to hear more after, and then: a light is glowing on their shoulder now - ask them to "
+             "lift it. One short line.",
+    "win": "[stage note] The child really lifted it - the light caught it. Cheer TO the child in two to four happy words "
+           "('you', never 'they'), then say: cool, let's dance! One short line. Do not say the words 'shoulder' or 'lift', "
+           "a time or a number.",
 }
 # NAME SAFETY (2026-11-26, rig: the page's fast transcript read "Shuki" as "Shaky" / "Shaquille" and the written light line
 # would have said it). The written line carries the name only when BOTH transcripts of the turn agree on it (edit distance
@@ -414,10 +446,7 @@ def lead_name_agrees(name, texts):
 def lead_instructions(step, name=None, ear=False):
     # v2: the name is never handed to her as text (the page's fast transcript mis-hears names: "Shaky", "Shaquille" for
     # "Shuki", rig 2026-11-26) - she heard it herself, natively, and says it as she heard it.
-    return (LEAD_CORE + LEAD_STEP.get(step, LEAD_STEP["NAME"])
-            + ("" if step in ("NAME", "GREET") else
-               "\nIf the child told you their name, use it only as you heard it, at most once more. If they did not, you "
-               "have no name: never guess one."))
+    return LEAD_CORE + LEAD_STEP.get(step, LEAD_STEP["NAME"])
 BARGE_GUARD_S = float(os.environ.get("NOVA_BARGE_GUARD_S", "0.3"))
 TCACHE = {}        # (voice, model, text) -> pcm16 24 kHz bytes; lives for the whole process (all sessions)
 TCACHE_EXPECT = {"line": None}   # the exact line her next response must say (set when a verbatim/greet line is asked for)
@@ -755,7 +784,8 @@ def session_update(freeze=False, voice=None, lang="en", gender="", page=False, v
                                          "create_response": False, "interrupt_response": False},
                       "transcription": {"model": "gpt-4o-transcribe", "language": lang,
                                         **({"prompt": LIVE2_TX_PROMPT_EN} if (LIVE2_TX_PROMPT and lang == "en") else {})}},
-            "output": {"format": {"type": "audio/pcm", "rate": 24000}, "voice": (voice or VOICE)}},
+            "output": {"format": {"type": "audio/pcm", "rate": 24000}, "voice": (voice or VOICE),
+                       **({"speed": LEAD_SPEED} if (lead_step and LEAD_SPEED != 1.0) else {})}},
         "max_output_tokens": "inf",
         **({"reasoning": {"effort": RT_EFFORT}} if RT_EFFORT else {}),
         **({"include": ["item.input_audio_transcription.logprobs"]} if TX_CONF else {})}}
@@ -1060,6 +1090,12 @@ async def relay(request):
         # HEBREW MODE: Hebrew letters count as real letters; in EN the old rule is unchanged
         letters = _re.findall(r"[A-Za-zא-ת]" if _hebrew else r"[A-Za-z]", t)
         return len(letters) < max(2, len(t) // 3)   # mostly wrong-script -> garble
+    herlast = {"txt": "", "t": 0.0}
+    def tx_parrot(k):
+        """True when a 'child' transcript of 3+ words is word for word inside her own last line (said < 20 s ago)."""
+        w = _re.findall(r"[a-z']+", (k or "").lower())
+        if len(w) < 3 or time.time() - herlast["t"] > 20: return False
+        return " ".join(w) in " ".join(_re.findall(r"[a-z']+", herlast["txt"]))
     kidinput = {"ts": 0.0}                             # #2 last REAL kid input (garble excluded)
     inlock = {"valid_turns": 0}                        # LAW-INPUT-LOCK: validated-turn counter
     # #1 LIGHT BEAT = ONE ATTEMPT: idle -> invited -> reinvited -> done(fact|moved-on)
@@ -1196,12 +1232,12 @@ async def relay(request):
             # "Ooh, Mia"): nothing from the microphone is a turn until the page's GREET line has been sent; a sound that began
             # before it (utterance number <= greet_n) is never answered either.
             def lead_pre(n): return _lead and not sgate.get("ever") and (not lead["greeted"] or n <= lead["greet_n"])
-            if LEAD: print("[LEAD]", "on: 4-step intro, per-step prompt, native voice, notes in the safe window" if _lead
+            if LEAD: print("[LEAD]", ("on: v3 natural intro prompt (approved INTRO LEADER text), voice " + (_voice or LEAD_VOICE) + ", barge off, notes in the safe window") if _lead
                            else "requested but off (not the Freeze v4 page, or Hebrew)", flush=True)
             _tts_eleven = TTS == "eleven" and bool(EL_KEY) and not _hebrew and not _voice and not _lead   # ?voice= keeps the OpenAI A/B; NOVA-LEAD = native voice
             if TTS == "eleven": print("[TTS]", ("ElevenLabs " + EL_MODEL + (" (http per clause)" if EL_HTTP else " (websocket)") + " voice " + EL_VOICE) if _tts_eleven
                                       else "eleven requested but off (no key / Hebrew / ?voice=) - OpenAI voice", flush=True)
-            await oai.send_json(session_update(freeze=_freeze_mode, voice=_voice,
+            await oai.send_json(session_update(freeze=_freeze_mode, voice=(_voice or (LEAD_VOICE if _lead else None)),
                                                lang=("he" if _hebrew else "en"), gender=_gender,
                                                page=_intro.startswith("page"), v2v=_v2v, text_out=_tts_eleven,
                                                lead_step=("NAME" if _lead else None)))
@@ -1467,12 +1503,16 @@ async def relay(request):
                 # instructions. conversation:"none" gives it NOTHING to blend with: its whole
                 # world is one "repeat after me" message. Same live voice, same output path.
                 _ask = ("חזרי אחריי מילה במילה, פעם אחת, בקול חם ונלהב: " if _hebrew
-                        else "Repeat after me word for word, once, calm, warm and smiling: " if _lead   # NOVA-LEAD: Refael "more calm"
+                        else "Repeat after me word for word, once, happy, bright and smiling, at a natural lively pace: " if _lead   # NOVA-LEAD: Refael "more calm"
                         else "Repeat after me word for word, once, warm and excited: ")
                 return {"conversation": "none",
                         "instructions": say_wrap(line),
                         "input": [{"type": "message", "role": "user",
                                    "content": [{"type": "input_text", "text": _ask + line}]}]}
+            def _air_free():
+                """A page-owned game gap (voice 'air') with no answer owed to the child: the gap's line is not held back by
+                microphone sounds (breath, steps, music) that were never words to her."""
+                return bool(HEAR and _page_owns and sgate["on"] and sgate["mode"] == "air" and not hear["owed"])
             async def say_flush():
                 while True:
                     await asyncio.sleep(0.4)
@@ -1483,12 +1523,18 @@ async def relay(request):
                     await speak_pump()
                     if not saylater: continue
                     if hold["on"]: saylater.clear(); continue          # paused game: staged lines die
-                    if sgate["on"]: continue   # mid-game (air OR hold): staged lines wait for the ending
+                    # GAME HEARING (2026-11-27, Refael's play B: 3 of 6 freezes got her line). "The flamingo got away!" and
+                    # "Oops, you kept moving." were queued behind a sound the microphone took for speech ("PITCH queued
+                    # (busy)"), and a queued line was never said in the game: it waited here for the ENDING and was dropped
+                    # when the gap closed. In a page-owned air gap the gap's ONE credited line goes out at her first free
+                    # moment; only her owed ANSWER to the child's real words outranks it.
+                    _airq = _air_free() and sgate.get("credit")
+                    if sgate["on"] and not _airq: continue   # mid-game hold / no credit: staged lines wait
                     if ask_lock["on"]: continue   # WAIT LAW: she asked — nothing airs until he answers
                     # kid just spoke: HER REPLY airs first. 2.5s (was 5.0, he-7): with the
                     # transcript race her one-shot goes resp_active well inside 2.5s, and the
                     # 5s pause starved the ending trio out of the session's final window.
-                    if time.time() - kidinput["ts"] < 2.5: continue
+                    if time.time() - kidinput["ts"] < 2.5 and not _airq: continue
                     if speaking["resp_active"] or speaking["v"]: continue
                     if time.time() - speaking["last_chunk"] < 0.8: continue   # engine still draining
                     line = saylater.pop(0)
@@ -1686,6 +1732,11 @@ async def relay(request):
                 except asyncio.TimeoutError:
                     lead["guard"] += 1; print("[LEAD] guard: no verdict from the page in %.1f s - her own answer goes out" % LEAD_VERDICT_S, flush=True)
                 if lead["verdict"] == "line": return
+                if (lead["want"][0] if lead["want"] else lead["step"]) in ("GO", "GAME"):   # the step the page asked for, even if its prompt swap is still waiting
+                    # LEAD v3: exactly ONE go line. Play B 2026-11-27: two more "let's dance" lines were her own answers to
+                    # turns during GO ("Ha, that shoulder lift was lovely; let's dance!", "Yes, that spark is back...").
+                    print("[LEAD] turn during GO gets no answer of its own (one go line only):", (ktxt or "")[:40], flush=True)
+                    tr("lead.go_turn_dropped"); await lead_kill_answer("one go line only"); return
                 if held: await spec_release_after(n, LIVE2_FILLER_WAIT_S if LIVE2_FILLER_RE.match(ktxt) else None)
                 else: await speak_now(bare=True, origin="kid")
             async def lead_wait_played(cap=8.0):
@@ -1723,6 +1774,7 @@ async def relay(request):
                             tr("lead.played_out", d_["seq"], d_.get("ms"))
                             try: await ws_client.send_json({"type": "played_out", "line_id": d_["seq"], "ms": d_.get("ms")})
                             except Exception: pass
+                    if lead["want"] and not speaking["resp_active"]: await lead_apply_step()   # a held step change lands at the first free moment
                     # the outbox: stale notes are dropped, ONE note per safe window
                     now_ms = time.time() * 1000
                     for nt in [x for x in lead["outbox"] if now_ms > x["t"] + x["ttl_ms"]]:
@@ -1898,7 +1950,16 @@ async def relay(request):
                     # Now the flush just PAUSES around a kid turn (say_flush skips
                     # for 5s after kidinput) — her reply generates first, staged
                     # lines follow after. Nothing is lost, nothing steals her turn.
-                    await ws_client.send_json({"type": "you_text", "text": ktxt})
+                    _shown = ktxt
+                    if _lead and tx_parrot(ktxt):
+                        # ECHO FINDING (play B 2026-11-27, headphones on): the transcriber wrote HER last line ("Do you like
+                        # to dance?") for his short answer; the second transcriber heard "Perhaps". Her voice was not in the
+                        # microphone (mic chunks held while she spoke: sent 135 -> 135, heldEcho 0). She heard his real
+                        # audio herself, so the turn stays; only the wrong words are not shown or used as his.
+                        _alt = (lead["tx"].get(n) or {}).get("rest" if src == "rt" else "rt") or ""
+                        _shown = _alt if (_alt and not is_garble(_alt) and not tx_parrot(_alt)) else "\u2026"
+                        print("[HEAR] transcript repeats her own last line - not his words:", ktxt[:40], "| shown:", _shown[:30], flush=True); tr("hear.parrot")
+                    await ws_client.send_json({"type": "you_text", "text": _shown})
                     try: open("/workspace/convo.log","a",encoding="utf-8").write(time.strftime("%H:%M:%S ")+"KID:  "+ktxt+"\n")
                     except Exception: pass
                     # #5 CONSENT=REAL YES: a clear spoken yes/ready/ok is a real consent.
@@ -2111,6 +2172,14 @@ async def relay(request):
                         # NOVA-LEAD: the page asks whether this brain runs the lead intro (else it stages the old one)
                         try: await ws_client.send_json({"type": "ack", "of": "lead", "on": bool(_lead)})
                         except Exception: pass
+                    elif t == "lead-step" and _lead and str(m.get("step") or "").upper() == "GAME":
+                        # LEAD v3: the go line has played out - the game prompt goes in NOW, not at the first game section
+                        # (play B: "Yes, that spark is back; let's dance!" was the intro prompt answering after GO).
+                        lead["step"] = "GAME"; lead["want"] = None
+                        try:
+                            await oai.send_json({"type": "session.update", "session": {"type": "realtime", "instructions": PROMPT + FREEZE_RULES + LEAD_GAME}})
+                            tr("lead.step", "GAME"); print("[LEAD] step GAME - intro prompt out, game prompt (FREEZE_RULES) in", flush=True)
+                        except Exception as _e: print("[LEAD] game prompt switch failed:", str(_e)[:80], flush=True)
                     elif t == "lead-step" and _lead:
                         lead["want"] = (str(m.get("step") or "NAME").upper(),
                                         (str(m.get("name"))[:20] if m.get("name") and not lead["ear"] else None))
@@ -2142,6 +2211,11 @@ async def relay(request):
                         # the page has its name (or its safety ran out) and takes the light beat: no re-invite from here
                         v2v["await_name"] = False
                         print("[V2V-INTRO] name wait over:", str(m.get("why", ""))[:40], flush=True)
+                    elif t == "barge" and _lead and os.environ.get("NOVA_LEAD_BARGE", "0") != "1":
+                        # LEAD v3: talk-over cutting is OFF under the lead intro until the detector is right. Play 2026-11-27:
+                        # 4 barge events, all false (a quick answer at the end of her question was taken as talking over her).
+                        tr("barge", "ignored_under_lead lvl=%s floor=%s" % (m.get("level"), m.get("floor")))
+                        print("[BARGE] ignored - off under the lead intro (NOVA_LEAD_BARGE=1 turns it on)", flush=True)
                     elif t == "barge" and LIVE2 and BARGE:
                         # NOVA_BARGE: the page heard the child talk OVER her (echo-cancelled mic, well above her echo, >= 0.4 s)
                         # the PAGE knows she is audible (the brain's line is long done by then: face delay + play-out, rig r5d)
@@ -2193,7 +2267,7 @@ async def relay(request):
                         if line and line.lower() in spoken:      # #6 DE-CAN: never the same line twice
                             print("[DE-CAN] dropped duplicate staged line:", line[:50], flush=True)
                         elif (line and boundary["on"] and not speaking["resp_active"] and not speaking["v"]
-                              and time.time() - kidinput["ts"] > 2.5
+                              and (time.time() - kidinput["ts"] > 2.5 or _air_free())
                               and time.time() - speaking["last_chunk"] > 0.8):
                             # he-6 guards on the direct path: a staged line sent while the
                             # kid's turn was still in flight (transcript pending / her reply
@@ -2335,7 +2409,9 @@ async def relay(request):
                             if "freeze" in move or "held" in move or "still" in move:  # #3/#5 real hold arrived
                                 if statue["active"]: statue["active"] = False; print("[STATUE] hold-fact -> celebrate", flush=True)
                             print("[FACT] detected move:", move, flush=True)
-                            await remember(
+                            if _lead and lead_intro():
+                                print("[LEAD] fact kept for the truth gate only - the win stage note carries it (no 'shoulder lift' wording)", flush=True)
+                            else: await remember(
                                 "[FACT — this really happened, you were told, you did not guess] "
                                 "The child just did a real move: " + move + " at "
                                 + time.strftime("%H:%M:%S") + ". Mention THAT exact move by name "
@@ -2373,7 +2449,7 @@ async def relay(request):
                             try:
                                 await oai.send_json({"type": "session.update", "session": {
                                     "type": "realtime",
-                                    "instructions": PROMPT + FREEZE_RULES
+                                    "instructions": PROMPT + FREEZE_RULES + (LEAD_GAME if _lead else "")
                                                     + ((HEBREW_RULES + gender_line(_gender)) if _hebrew else "")}})
                                 print("[V2V-INTRO] intro over - session moved to FREEZE_RULES", flush=True)
                             except Exception as _e:
@@ -3003,7 +3079,7 @@ async def relay(request):
                         low = txt.lower()
                         if low and low in spoken:
                             print("[DE-CAN] she repeated a line verbatim:", txt[:50], flush=True)
-                        if low: spoken.add(low)
+                        if low: spoken.add(low); herlast["txt"] = low; herlast["t"] = time.time()
                         # INTRO-V2V (2026-09-14): she used to ARM HER OWN TIMERS by speaking —
                         # LIGHT_INVITE_RE matched her transcript and started the 10s/20s
                         # re-invite clocks. The regex was English-only, so in a Hebrew session

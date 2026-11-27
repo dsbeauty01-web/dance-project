@@ -10,6 +10,7 @@ EV[normal]="NAME:open:0.6:hi_im_shuki;CHAT:open:0.7:yes_i_love_dancing;LIGHT:hit
 EV[silent]="";                                                                                   X[silent]="&shrug=off"
 EV[chatty]="NAME:open:0.6:chatty1;CHAT:open:0.7:chatty2;LIGHT:open:1.5:chatty3;LIGHT:hit:6"
 EV[questions]="NAME:open:0.6:can_you_hear_me;NAME:open:0.7:hi_im_shuki;CHAT:open:0.7:what_now;LIGHT:open:1.2:what_do_i_do;LIGHT:hit:5"
+EV[prenoise]=":open:6.3:hi_im_shuki;NAME:open:0.6:hi_im_shuki;CHAT:open:0.7:yes_i_love_dancing;LIGHT:hit:3"   # 2026-11-27: he talks BEHIND THE CURTAIN - no answer, no sound of hers before the reveal
 EV[refusal]="NAME:open:0.6:hi_im_shuki;CHAT:open:0.7:i_dont_want_to"
 EV[noise]="NAME:open:0.6:garble1;NAME:open:1.0:hum;CHAT:open:0.7:garble1;LIGHT:hit:4"
 EV[talkover]="NAME:open:0.6:hi_im_shuki;CHAT:over:0.9:wait_wait;CHAT:open:0.8:yes_i_love_dancing;LIGHT:over:0.8:what_do_i_do;LIGHT:hit:6"

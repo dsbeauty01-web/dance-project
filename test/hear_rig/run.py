@@ -42,6 +42,7 @@ try:
         if evs["i"] >= len(EV): return
         e = EV[evs["i"]]; aft = float(e["after"] or 0)
         if e["step"] != q["step"]: return
+        if e["step"] == "" and now - t0 < aft: return          # 2026-11-27: a sound BEHIND THE CURTAIN, <after> s after the Play tap
         fire = False
         if e["mode"] == "hit": fire = q["arm"] and now - evs["t_arm"] > aft
         elif e["mode"] == "over": fire = evs.get("t_talk") is not None and now - evs["t_talk"] > aft and (q["her"] or now - evs["t_her"] < 0.5) and now - evs["t_prev"] > evs["d_prev"] + 0.5
@@ -142,7 +143,7 @@ try:
         for e in L:
             d = str(e["detail"])
             if e["kind"] in who: print("%6.1f  %s  %s" % (e["t"], who[e["kind"]], d[:170]))
-            elif e["kind"] == "lead" and d.startswith(("step ", "backup", "done", "light armed", "she heard")): print("%6.1f  PAGE            %s" % (e["t"], d[:170]))
+            elif e["kind"] == "lead" and d.startswith(("step ", "backup", "done", "light armed", "she heard", "reveal")): print("%6.1f  PAGE            %s" % (e["t"], d[:170]))
         bk = [str(e["detail"])[8:] for e in L if e["kind"] == "lead" and str(e["detail"]).startswith("backup: ")]
         print("TIME TO GAME: %s s after the greeting was asked | backups used (%d): %s\n" % (("%.1f" % (g["t"] - gr["t"])) if g and gr else "NOT REACHED", len(bk), " · ".join(bk) or "none"))
     print("kid said (s after Play):", said, "| shots", {k: v for k, v in got.items() if not k.startswith("t_")}, "| mic", mic)
