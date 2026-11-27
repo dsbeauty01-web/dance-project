@@ -75,6 +75,7 @@ def run_A(p):
     print("kid game/end lines:", bool(kid_game), bool(kid_end), flush=True)
     # NOVA-GO5: the child answers her name question ("Hi Nova! My name is Shuki."), 0.8 s after her question ends
     kid_name = _b64(os.environ.get("KID_WAV_NAME", "/root/kid_name.wav")); print("kid name line:", bool(kid_name), flush=True)
+    kid_chat = _b64(os.environ.get("KID_WAV_CHAT", "/root/kid_chat.wav")); print("kid chat line:", bool(kid_chat), flush=True)
     # NF_PROOF_REPLAY (NOVA-AUDIT): which recorded children stand in for the camera; the audit build starts with
     # own-right-up (a real lifted right arm/shoulder) so the shoulder light's WIN path is shown, not only its release.
     pg.goto(f"{BASE}/beta/freeze4?replay={os.environ.get('NF_PROOF_REPLAY', 'frozen-body,dance-hype,still-sway')}&rounds=2&checked=1&facewait=40&lang={os.environ.get('NF_PROOF_LANG', 'en')}" + PAGE_EXTRA)
@@ -91,6 +92,9 @@ def run_A(p):
             named: (window.freeze4Log || []).some(e => (e.kind === 'v2v' && String(e.detail).startsWith('greeting said'))
                                                          || (e.kind === 'lead' && String(e.detail).startsWith('greeting played'))),   // NOVA-LEAD: her greeting has played out
             lead: (window.freeze4Log || []).filter(e => e.kind === 'lead').map(e => String(e.detail)).slice(-1)[0] || '',
+            chatReady: (() => { const L = window.freeze4Log || [], c = L.filter(e => e.kind === 'lead' && String(e.detail).startsWith('step CHAT')).slice(-1)[0];
+                                if (!c) return false; const h = L.filter(e => e.kind === 'her-voice' && e.t >= c.t - 1500).slice(-1)[0];
+                                return !!h && h.detail === 'end' && !L.some(e => e.kind === 'lead' && e.t > c.t && String(e.detail).startsWith('step LIGHT')); })(),   // NOVA-LEAD v2: her question has played out
             answered: (window.freeze4Log || []).some(e => e.kind === 'intro-answer'),
             wide: window.freeze4Wide ? window.freeze4Wide.state : null, face: window.freeze4Face ? window.freeze4Face.state : null,
             ended: document.getElementById('end').classList.contains('on'),
@@ -105,6 +109,10 @@ def run_A(p):
             got.setdefault("t_named", time.time())
             if time.time() - got["t_named"] > 0.8:
                 got["kidname"] = round(pg.evaluate("b => window.__kidSay(b)", kid_name), 2); print("kid said (name) at", t, flush=True)
+        if kid_chat and s.get("chatReady") and "kidchat" not in got:                    # NOVA-LEAD v2: he answers her question
+            got.setdefault("t_chat", time.time())
+            if time.time() - got["t_chat"] > 0.6:
+                got["kidchat"] = round(pg.evaluate("b => window.__kidSay(b)", kid_chat), 2); print("kid said (chat) at", t, flush=True)
         key = (s["gate"] or "open", s["stage"], (s["face"] or {}).get("badge"), s["ended"])
         if not marks or marks[-1][1] != key:
             marks.append([t, key])

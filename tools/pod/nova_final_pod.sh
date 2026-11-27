@@ -220,7 +220,8 @@ if [ "${NF_GO4:-1}" = 1 ]; then
   # NOVA-GO5: + the NAME answer; NF_PROOF_LANG=he = the child speaks Hebrew
   if [ "${NF_PROOF_LANG:-en}" = he ]; then KL1="game|נובה, את שומעת אותי?"; KL2="end|תודה נובה, היה כיף!"; KL3="name|היי נובה! קוראים לי שוקי."
   else KL1="game|Nova, can you hear me?"; KL2="end|Thank you Nova, that was fun!"; KL3="name|Hi Nova! My name is Shuki."; fi
-  for kl in "$KL1" "$KL2" "$KL3"; do kn=${kl%%|*}; kt=${kl#*|}
+  KL4="chat|Yes! I love dancing."   # NOVA-LEAD v2: the proof child answers her one light question (English only)
+  for kl in "$KL1" "$KL2" "$KL3" "$KL4"; do kn=${kl%%|*}; kt=${kl#*|}
     curl -s -m 40 https://api.openai.com/v1/audio/speech -H "Authorization: Bearer $OPENAI_API_KEY" -H "Content-Type: application/json" \
       -d "{\"model\":\"gpt-4o-mini-tts\",\"voice\":\"ash\",\"input\":\"$kt\",\"response_format\":\"wav\"}" -o /root/kid_raw_$kn.wav 2>/dev/null
     ffmpeg -loglevel error -y -i /root/kid_raw_$kn.wav -ac 1 -ar 48000 /root/kid_$kn.wav 2>/dev/null; done
