@@ -61,3 +61,19 @@ fast-boot files are `tools/pod/nova_fastboot.sh`, `tools/pod/nfb_layers.py` and 
 | eamh46fgumc9yz nova-fastboot-prep | filled the volume; face died (no Python.h, fixed in 209e282) | 31.7 | $0.47 |
 | wwqxbdhpqxalnz nova-fastboot-cold1 | cold boot from the volume, PASS (late 1, underruns 1), A proof pictures OK | 12.0 | $0.18 |
 | wrm6c1gljzu4bk nova-fastboot-cold2 | cold boot, warm compile cache: face in 3 min 51 s; speed late 3 / underruns 4 | 8.3 | $0.12 |
+
+## 5. FASTBOOT2 (2026-11-26, branch nova-fastboot2 from nova-live2 ca747ed)
+Why: on 2026-11-26 every Nova boot (pods 12-14 and the earlier LIVE2 runs) was launched with `NF_VOLUME=` because
+EU-RO-1 had no free 4090 once, so all of them paid the 9-31 min image pull. Measured inside the pod (pod14, 13:30:35
+boot): apt+Chrome 76 s, Ditto ready 95-647 s (host-dependent), SoulX weights fetch + warm-up to face ready 5 min 27 s,
+proof A to 8 min 33 s. The rest of the ~20 min was RunPod pulling the 14.3 GB image before the script started.
+Changes:
+- `nova_play.py`: fast boot is the default (`NF_VOLUME=pqbavl4mct`); `NF_VOLUME=` forces the old boot.
+- `nova_final_ctl.py`: `NF_VOLUME` may be a comma list; each volume's data center is checked for RTX 4090 stock
+  (GraphQL `gpuAvailability`) and skipped if none; with no volume region in stock it falls back to the image boot
+  (`NF_VOLUME_FALLBACK=0` refuses instead). `NF_PLAY_FAST=1` = play-only (skips proof W and A).
+- `nova_final_pod.sh`: apt .debs and Chrome's .deb cached on the volume (`nova-fastboot/debcache`, add-only).
+Expected (fast path, after one warm run fills debcache): create -> first STAGES 4 s, apt+Chrome ~15 s, Ditto ~70 s
+(in parallel), SoulX warm-up with compile cache ~134 s -> face ready ~4 min; with NF_PLAY_FAST=1 the link is usable then.
+NOT TESTED on a pod (no pod run in this task). A second volume in a US region would remove the EU-RO-1 single point of
+failure (RunPod charge for storage; needs Refael's OK).

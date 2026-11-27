@@ -11,6 +11,10 @@ import importlib.util, os, sys
 # Default = the FULL on-pod proof (W + A): the pod's own Chrome plays the game and saves A-1..A-6 screenshots and
 # nova-final-run.mp4 on :8099. Only that proves her picture reaches a browser. NF_SKIP_W=1 NF_SKIP_A=1 = play-only (faster).
 os.environ.setdefault("NF_GAMES", "none")
+# NOVA-FASTBOOT2 (2026-11-26): fast boot is the DEFAULT now - Nova's volume first (EU-RO-1, ~4-5 min to face ready, measured
+# 2026-11-22), the old image boot only when that region has no free 4090 (nova_final_ctl.pick_volume). NF_VOLUME= (empty)
+# forces the old boot.
+os.environ.setdefault("NF_VOLUME", "pqbavl4mct")
 os.environ.setdefault("FREEZE4_REGISTRY", "ghcr-2026-11-21")   # the older saved ghcr passwords are rejected: pods exit in 2 s
 HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE)
 sys.argv, ARGV = [sys.argv[0], "noop"], sys.argv[1:]
