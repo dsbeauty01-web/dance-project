@@ -164,8 +164,28 @@ export function note(text) {
   if (!text) return;
   const say = /^\s*say\s+exactly\s*:/i.test(text);
   if (say) send({ type: 'nova-say', text: text.replace(/^\s*say\s+exactly\s*:\s*/i, '').replace(/^["']|["']$/g, '') });
+  else if (leadOn) leadNote({ fact: text, ttl_ms: 15000 });     // NOVA-LEAD: director notes wait in the outbox for the safe window
   else send({ type: 'nova-cue', intent: 'note', ctx: text });   // facts / staging = silent context
 }
+
+// [NOVA-LEAD 2026-11-26] docs/NOVA-LEAD-2026-11-26.md, skill nova-lead-orchestra (pod/rt_lk.py NOVA_LEAD=1, page flag `lead`).
+//   leadHello()               — asks the brain whether it runs the lead intro; window 'nova:lead' { detail: true|false }.
+//   leadStep(step, name)      — the page's intro step (NAME | LIGHT | GO): the brain swaps its tiny per-step prompt.
+//   leadSay(text, {kill,step})— a written step line, word for word. kill = it REPLACES her answer to the child's turn.
+//   leadAnswer()              — the child's turn gets HER OWN short answer (the page has no step line for it).
+//   leadNote({fact, ttl_ms, cls, say}) — a producer note: a FACT with an expiry. cls 'background' (default) waits for the
+//                               safe window (her line played out + child silent + nothing being made), one per window, stale
+//                               ones are dropped; cls 'cue' keeps today's immediate path. say:true = she may say one line on it.
+//   window 'nova:played-out' { detail: { line_id, ms } } — the face server put her last voiced frame of a line on air.
+let leadOn = false;
+export function setLead(on) { leadOn = !!on; }
+export function leadHello() { send({ type: 'lead-hello' }); }
+export function leadStep(step, name = null) { send({ type: 'lead-step', step, name }); }
+export function leadSay(text, { kill = false, step = '' } = {}) { send({ type: 'lead-say', text, kill, step }); }
+export function leadAnswer() { send({ type: 'lead-answer' }); }
+export function leadNote({ fact, ttl_ms = 5000, cls = 'background', say = false } = {}) {
+  if (fact) send({ type: 'lead-note', fact, t: Date.now(), ttl_ms, cls, say }); }
+export function novaFact(move) { if (move) send({ type: 'nova-fact', move }); }   // a REAL detection (truth gate) - pod/rt_lk.py nova-fact
 
 // [NOVA-GO5 2026-11-24] the approved live intro (pod/rt_lk.py NOVA_V2V_INTRO=1, page flag `v2vintro`):
 //   liveIntro('greet')        — ask the brain for her greeting + name question, said INSIDE the conversation.
@@ -295,6 +315,10 @@ function connectWS(intro) {
         window.dispatchEvent(new Event('nova:consent'));
       return;
     }
+    if (m.type === 'ack' && m.of === 'lead') { window.dispatchEvent(new CustomEvent('nova:lead', { detail: !!m.on })); return; }
+    if (m.type === 'played_out') { window.dispatchEvent(new CustomEvent('nova:played-out', { detail: { line_id: m.line_id, ms: m.ms } })); return; }
+    if (m.type === 'lead_played') { window.dispatchEvent(new CustomEvent('nova:lead-played', { detail: { text: m.text, step: m.step, src: m.src } })); return; }
+    if (m.type === 'lead_warn' || m.type === 'lead_note') { window.dispatchEvent(new CustomEvent('nova:lead-warn', { detail: m })); return; }
     if (m.type === 'ack' && m.of === 'v2v-greet') { window.dispatchEvent(new CustomEvent('nova:v2v', { detail: !!m.on })); return; }
     if (m.type === 'you_delta') { window.dispatchEvent(new CustomEvent('nova:kid-delta', { detail: m.delta || '' })); return; }
     if (m.type === 'you_drop') { window.dispatchEvent(new CustomEvent('nova:kid-drop', { detail: { text: m.text || '', why: m.why || '' } })); return; }

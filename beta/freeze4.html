@@ -147,6 +147,7 @@ import { runDoctor } from './lib/doctor.js';
 import { attachNova, routeVoice, note, onHerAudio, bridgeState, primeAudio, micState, restartMic, pageLog, liveIntro } from '../shared/nova-bridge.js';
 import { catchName } from './lib/name-catch.js';
 import { holdMicFor, setBarge } from '../shared/nova-bridge.js';
+import { setLead, leadHello, leadStep, leadSay, leadAnswer, novaFact } from '../shared/nova-bridge.js';
 import { createFacePanel } from '../shared/face-panel.js';
 import { mountFacePip } from '../shared/face-pip.js';
 import { createShoulderBeat, LINES as SHOULDER_LINES, HE_NEUTRAL } from './lib/shoulder-beat.js';
@@ -640,14 +641,16 @@ const shoulderBeat = {
   light(){ lights.sparkle('rShoulder'); lights.meter('rShoulder', 0); log('shoulder', 'light on (rShoulder)'); },
   /* the shrug check and its clock start only AFTER she has said the light line (main L4016: "light her shoulder AFTER she
      explains it"). Pod run exarcvmcwq6czb: armed at the light, a lifted arm "won" 1.1 s in, while she was still saying hello. */
-  start(){ const cam = $('cam'); const aspect = cam.videoWidth ? cam.videoHeight / cam.videoWidth : 16 / 9;
+  start(opts){ const cam = $('cam'); const aspect = cam.videoWidth ? cam.videoHeight / cam.videoWidth : 16 / 9;
+    this.lead = !!(opts && opts.lead);                   // NOVA-LEAD: the page's own ladder (6 / 12 s) and lines; only the real-lift check is used
     this.beat = createShoulderBeat({ aspect }); this.beat.start(performance.now()); this.on = true; this.res = null;
     lights.sparkle('rShoulder'); lights.meter('rShoulder', 0); log('shoulder', 'armed (rShoulder) aspect=' + aspect.toFixed(3));
-    this.timer = setInterval(() => { const e = this.beat.tick(performance.now()); if (e === 'retry'){ log('shoulder', 'retry (8 s, no lift seen)'); introSay(SL.retry); } if (e === 'release') this.end('release'); }, 100); },
-  feed(k){ const r = this.beat.feed(k, performance.now()); lights.meter('rShoulder', this.beat.progress()); if (r === 'win') this.end('win'); },
+    this.timer = setInterval(() => { if (this.lead) return; const e = this.beat.tick(performance.now()); if (e === 'retry'){ log('shoulder', 'retry (8 s, no lift seen)'); introSay(SL.retry); } if (e === 'release') this.end('release'); }, 100); },
+  feed(k){ if (Q.get('shrug') === 'off') return;         // rig hook: a child who never lifts the shoulder
+    const r = this.beat.feed(k, performance.now()); lights.meter('rShoulder', this.beat.progress()); if (r === 'win') this.end('win'); },
   end(res){ if (!this.on) return; this.on = false; clearInterval(this.timer); this.res = res; lights.meter(null); lights.sparkle(null);
-    if (res === 'win'){ lights.flash('rShoulder'); lights.burst('rShoulder', 'gold'); introSay(SL.win); }   // a REAL detected lift, nothing else
-    log('shoulder', res === 'win' ? 'WIN — a real lift was detected' : 'release — no lift seen in 20 s (nothing claimed)');
+    if (res === 'win'){ lights.flash('rShoulder'); lights.burst('rShoulder', 'gold'); if (!this.lead) introSay(SL.win); }   // a REAL detected lift, nothing else
+    log('shoulder', res === 'win' ? 'WIN — a real lift was detected' : this.lead ? 'pass — no lift seen (nothing claimed)' : 'release — no lift seen in 20 s (nothing claimed)');
     this.waiters.splice(0).forEach(w => w(res)); },
   done(){ return this.res ? Promise.resolve(this.res) : new Promise(r => this.waiters.push(r)); },
 };
@@ -724,6 +727,101 @@ async function v2vNameBeat(tAsk){
   note('The magic light is glowing on the child\'s shoulder now, and you are asking them to lift that shoulder. You cannot see whether they did — only a director note can tell you.');
   introSay(SL.arm);
   return tArm;
+}
+/* ── NOVA-LEAD (2026-11-26) · SHE LEADS — flag `lead` (pod NF_LEAD=1: brain NOVA_LEAD=1), default off. English only.
+   docs/NOVA-LEAD-2026-11-26.md + skill nova-lead-orchestra. Refael's play 2026-11-26: 97 s, never reached the game; the light
+   was armed 58 s after his name; she asked 0 questions. Cause: the live2 chat loop above waits for the child to go quiet.
+   Here the intro is 4 steps, each with ONE exit and a ladder; the page moves on the moment the exit is met:
+     GREET  "Hi! I'm Nova! What's your name?"            exit: line played out
+     NAME   -                                            exit: catchName hit -> LIGHT at once
+            ladder: 6 s quiet -> ask once more · 12 s total or 2 unclear turns -> LIGHT without a name
+     LIGHT  "{Name}! Magic light - lift that shoulder!"   the light AND the real-lift check start WITH the line
+            exit: a real lift -> "Yes! You got it!"
+            ladder: 6 s -> "Like this - one shoulder, up!" · 12 s -> "Magic! Let's go!" (a pass: nothing is claimed)
+     GO     "Music on - dance! Music off - freeze!"      exit: line played out -> game.start (no listening pause)
+   A child's own question in any step gets ONE short answer of hers that ends with the step's next action (brain LEAD_STEP).
+   Every backup is logged (`lead backup: …`) and shown in the debug strip (?debug=1). Budget: greeting -> game <= 30 s.
+   [CLI-FILL] 6 / 12 / 6 / 12 s and every line, for Refael's ear (design table 2a). QUESTION: the Hebrew lines. */
+const LEAD_L = { greet: "Hi! I'm Nova! What's your name?", reask: "I'm Nova - what's your name?",
+  light: n => n ? n + '! Magic light - lift that shoulder!' : 'Ooh, magic light - lift that shoulder!',
+  demo: 'Like this - one shoulder, up!', win: 'Yes! You got it!', pass: "Magic! Let's go!", go: 'Music on - dance! Music off - freeze!' };
+const LEAD_T = { nameQuietMs: 6000, nameCapMs: 12000, unclearMax: 2, lightDemoMs: 6000, lightPassMs: 12000, tailMs: 350,
+  answerGraceMs: 2500, afterAnswerMs: 4500, quietMs: 1500 };   // [CLI-FILL] her answer needs up to ~2.5 s to reach the speaker (measured live2: 1.8-2.6 s); quiet is not counted meanwhile; afterAnswerMs [CLI-FILL]: that delay + a ~2 s answer; quietMs [CLI-FILL]: one child reaction time with the microphone open
+const leadS = { on: false, step: '', name: null, backups: [], t: {}, unclear: 0, said: [] };
+window.freeze4Lead = leadS;
+function leadAck(capMs){ return new Promise(res => { const t = setTimeout(() => res(null), capMs);
+  addEventListener('nova:lead', e => { clearTimeout(t); res(!!e.detail); }, { once: true }); }); }
+function leadDbg(txt){ if (Q.get('debug') !== '1') return; let d = $('leadDbg');
+  if (!d){ d = document.createElement('div'); d.id = 'leadDbg'; d.style.cssText = 'position:fixed;left:6px;bottom:6px;z-index:99;font:12px/1.3 monospace;color:#111;background:#ffd84d;padding:3px 6px;border-radius:4px;max-width:70vw'; document.body.appendChild(d); }
+  d.textContent = txt; }
+function leadBackup(what){ leadS.backups.push(what); log('lead', 'backup: ' + what); leadDbg('lead backup: ' + leadS.backups.join(' · ')); }
+function leadLine(key, text, opts){ leadS.said.push(key); leadPlayedAt.delete(text); leadSay(text, opts); window.novaBrainLog.push({ t: performance.now() / 1000, text, delayMs: 0, mode: 'lead', sent: true });
+  face.thinking(); log('line', text); pip.say(text); }
+addEventListener('nova:kid-drop', () => { if (leadS.on && leadS.step === 'NAME') leadS.unclear++; });
+addEventListener('nova:played-out', e => log('played-out', JSON.stringify(e.detail)));
+addEventListener('nova:lead-warn', e => { log('lead', 'brain: ' + JSON.stringify(e.detail)); if (e.detail && e.detail.what) leadBackup(e.detail.what); });
+/* a written line has PLAYED OUT: the brain says so from the face server's own count of voiced frames put on air (`lead_played`);
+   then her voice in this browser must be quiet tailMs. No word from the brain inside capMs = logged as a backup, never silent. */
+const leadPlayedAt = new Map();
+addEventListener('nova:lead-played', e => { leadPlayedAt.set(e.detail.text, performance.now()); log('lead', 'played out (' + e.detail.src + '): ' + e.detail.text); });
+async function leadPlayed(text, capMs){ const t0 = performance.now();
+  while (performance.now() - t0 < capMs){
+    if (leadPlayedAt.has(text) && !herV.on && performance.now() - herV.endedAt > LEAD_T.tailMs) return true;
+    await sleep(40); }
+  leadBackup('no played-out for "' + text.slice(0, 18) + '…" in ' + Math.round(capMs / 1000) + ' s'); return false; }
+async function leadIntro(tAsk){
+  const ms = () => Math.round(performance.now() - tAsk), step = st => { leadS.step = st; leadS.t[st] = ms(); log('lead', 'step ' + st + ' ' + ms()); leadDbg('lead: ' + st + (leadS.backups.length ? ' · backup: ' + leadS.backups.join(' · ') : '')); };
+  v2vIntro.awaitingName = true;                                               // no hum while the name is awaited (skill nova-smart-reactions)
+  log('lead', 'greeting played=' + await leadPlayed(LEAD_L.greet, 15000));
+  step('NAME');
+  const tName = performance.now(); let seenAt = tAsk, quietFrom = tName, reasked = false, turns = 0;
+  while (true){
+    const now = performance.now();
+    if (kid.textAt > seenAt){ seenAt = kid.textAt; turns++;
+      const name = catchName(kid.text, { asked: turns === 1 });
+      log('lead-kid', JSON.stringify({ text: kid.text, name, turns }));
+      if (name){ leadS.name = name; break; }
+      leadAnswer();                                                           // her own short answer; it ends by asking the name again
+      quietFrom = performance.now() + LEAD_T.answerGraceMs; continue; }           // never blocks: his next words are judged the moment they land
+    if ((herV.on || kid.pending) && quietFrom < now) quietFrom = now;
+    if (kid.pending && now - kid.hearingAt > INTRO_TURN_MS) kid.pending = false;
+    const idle = !herV.on && !kid.pending;
+    if (leadS.unclear >= LEAD_T.unclearMax && idle && now - quietFrom > 1500){ leadBackup('no name (' + leadS.unclear + ' unclear turns)'); break; }
+    if (!reasked && idle && now - quietFrom > LEAD_T.nameQuietMs){ reasked = true; leadBackup('name asked again (6 s quiet)');
+      leadLine('reask', LEAD_L.reask, { step: 'NAME' }); quietFrom = performance.now() + LEAD_T.answerGraceMs; continue; }
+    if (idle && now - tName > LEAD_T.nameCapMs && now - quietFrom > 2500){ leadBackup('no name (' + Math.round((now - tName) / 1000) + ' s)'); break; }
+    await sleep(60);
+  }
+  v2vIntro.awaitingName = false;
+  /* LIGHT: the step line replaces her own answer to the name turn; the light and the real-lift check start WITH it */
+  step('LIGHT'); const tLight = performance.now();
+  leadStep('LIGHT', leadS.name);
+  const lightLine = LEAD_L.light(leadS.name); leadLine('light', lightLine, { kill: !!leadS.name, step: 'LIGHT' });
+  log('lead', 'name -> light line asked ' + (leadS.name ? Math.round(tLight - seenAt) + ' ms after the name turn' : '(no name)'));
+  shoulderBeat.light(); shoulderBeat.start({ lead: true });
+  let demoed = false, res = null, demoAt = LEAD_T.lightDemoMs, passAt = LEAD_T.lightPassMs; shoulderBeat.done().then(r => { res = r; });
+  while (!res){
+    const now = performance.now();
+    if (kid.textAt > seenAt){ seenAt = kid.textAt; log('lead-kid', JSON.stringify({ text: kid.text, step: 'LIGHT' })); leadAnswer();
+      /* she is answering him (her answer ends with "lift that shoulder"): the ladder waits for that answer, it never talks over it */
+      demoAt = Math.max(demoAt, now - tLight + LEAD_T.afterAnswerMs); passAt = Math.max(passAt, now - tLight + LEAD_T.afterAnswerMs + 2000); }
+    /* a ladder line never follows her last line back to back: the microphone is closed while she speaks, so the child gets
+       quietMs of open microphone after each line of hers before the next one (on the pod the light line is over ~4.3 s in) */
+    const lastKey = demoed ? LEAD_L.demo : lightLine, heard = leadPlayedAt.has(lastKey) && !herV.on && now - Math.max(leadPlayedAt.get(lastKey), herV.endedAt) > LEAD_T.quietMs;
+    const stuck = now - tLight > passAt + 6000;                                // no played-out word from the brain: the ladder still ends
+    if (!demoed && now - tLight > demoAt && !kid.pending && (heard || stuck)){ demoed = true; leadBackup('light: she shows how (6 s, no lift)'); leadLine('demo', LEAD_L.demo, { step: 'LIGHT' }); }
+    if (now - tLight > passAt && !kid.pending && (heard || stuck)){ leadBackup('light: passed (12 s, no lift - nothing claimed)'); shoulderBeat.end('pass'); break; }
+    await sleep(60);
+  }
+  res = res || 'pass';
+  const tEnd = performance.now();
+  if (res === 'win'){ novaFact('shoulder lift'); leadLine('win', LEAD_L.win, { step: 'LIGHT' }); } else leadLine('pass', LEAD_L.pass, { step: 'LIGHT' });
+  /* GO: one line, then the game - no listening pause */
+  step('GO'); leadStep('GO', leadS.name);
+  leadLine('go', LEAD_L.go, { step: 'GO' });
+  log('lead', 'go line played=' + await leadPlayed(LEAD_L.go, 14000));
+  step('GAME'); log('lead', 'done: greeting -> game ' + ms() + ' ms, shoulder ' + res + ', name ' + (leadS.name || '-') + ', backups ' + leadS.backups.length);
+  return res;
 }
 /* An intro line after her first one needs a speaking moment from the brain (pod/rt_lk.py PRODUCER-SILENT: a staged line
    waits for a boundary). Pod run exarcvmcwq6czb: "Yes! The light caught it!" and the Freeze explanation were queued "not a
@@ -885,13 +983,19 @@ async function begin(){
   setVoice('engine'); face.setBase('listening');                              // INTRO = she talks, the child may answer
   const tAsk = performance.now();
   const withShoulder = !fast && FLAG('shoulder');
-  if (withShoulder && FLAG('v2vintro')){                                      // NOVA-GO5: her approved live intro (greet + name, then the light)
+  if (withShoulder && FLAG('lead') && lang === 'en'){                         // NOVA-LEAD: she leads (4 steps); needs a brain with NOVA_LEAD=1
+    leadHello(); const ackL = await leadAck(1500);
+    leadS.on = ackL === true; setLead(leadS.on);
+    if (!leadS.on){ log('lead', 'THE BRAIN DID NOT TAKE THE LEAD INTRO (' + (ackL === false ? 'NOVA_LEAD is off' : 'no answer') + ') — the earlier intro instead'); leadDbg('lead: OFF on the brain — earlier intro'); }
+  }
+  if (withShoulder && FLAG('v2vintro') && !leadS.on){                         // NOVA-GO5: her approved live intro (greet + name, then the light)
     liveIntro('greet'); const ack = await v2vGreetAck(1500);
     v2vIntro.on = ack === true;
     if (!v2vIntro.on) log('v2v', 'THE BRAIN DID NOT TAKE THE LIVE INTRO (' + (ack === false ? 'NOVA_V2V_INTRO is off' : 'no answer') + ') — staged greeting instead');
   }
   if (!fast){                                                                 // she explains the game first (skipped with ?fast=1)
-    if (v2vIntro.on) log('v2v', 'greeting + name question asked (live, in the conversation)');
+    if (leadS.on){ leadStep('NAME'); leadLine('greet', LEAD_L.greet, { step: 'GREET' }); log('lead', 'step GREET 0'); }
+    else if (v2vIntro.on) log('v2v', 'greeting + name question asked (live, in the conversation)');
     else if (withShoulder) novaSays(HELLO + ' ' + SL.arm); else mindReact('intro');   // NOVA-AUDIT: the approved intro opens on the light
     log('greeting', 'asked (Nova still hidden)' + (withShoulder ? ' — shoulder intro' : ''));
     if (!await waitVoiceStart(GREET_WAIT_MS)) return refuse([TXT.noGreet]);
@@ -900,7 +1004,9 @@ async function begin(){
   }
   caption(''); gate(null);                                                    // THE GATE OPENS: she appears with her first word
   log('nova-shown', JSON.stringify({ wideLive: wide.state.live, wideFrames: wide.state.frames, voice: bridgeState().voice, speaking: !fast }));
-  if (withShoulder){
+  if (withShoulder && leadS.on){
+    await leadIntro(tAsk);                                                    // NOVA-LEAD: NAME -> LIGHT -> GO, then straight into the game
+  } else if (withShoulder){
     let tLight = tAsk;
     if (v2vIntro.on) tLight = await v2vNameBeat(tAsk);                         // NOVA-GO5: name first — the name arms the light
     else shoulderBeat.light();                                                // the light lands on his shoulder as she appears
