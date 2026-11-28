@@ -198,7 +198,7 @@ function refuse(reasons, { help = '', retry = false } = {}){ const b = $('banner
 
 const tune = (await (await fetch('freeze2/script.json')).json()).tune;
 const fast = Q.get('fast') === '1';
-const pace = fast ? { danceS: [2.6, 3.2], resultS: 1.2, cueS: 1.5 } : { cueS: Q.get('cue') === '0' ? 0 : 3.0 };   // 2026-11-27 FAIR FREEZE: animal announced 3 s before the stop (main animal-freeze READY.md warning lead); ?cue=0 = old
+const pace = fast ? { danceS: [2.6, 3.2], resultS: 1.2, cueS: 1.5 } : { cueS: Q.get('cue') === '0' ? 0 : 3.0, danceS: [9, 11], trickRound: Q.get('trick') === '0' ? 0 : 5 };   /* music 9-11 s between freezes (was 6-9; main FREEZES are 11.6-13.0 s apart incl. the 2.5 s hold = 9.1-10.5 s of music), trick on round 5 = 'statue' */ //   // 2026-11-27 FAIR FREEZE: animal announced 3 s before the stop (main animal-freeze READY.md warning lead); ?cue=0 = old
 if (+Q.get('rounds') > 0) pace.rounds = +Q.get('rounds');        // shorter games for the lobby demo
 /* Nova's body pane: which of HER clips plays in which phase (all from ../freezegame — the approved Freeze assets; same map as freeze-nova) */
 const NOVA = { idle: '../freezegame/idle_sway.mp4', dance: ['../freezegame/dance-active.mp4', '../freezegame/dance-sub.mp4'],
@@ -532,6 +532,7 @@ function onEvent(type, d){
   const t = performance.now() / 1000; rec.event(type, d, t);
   /* 2026-11-27 FAIR FREEZE: the animal is announced ~3 s BEFORE the music stops (card + caption, no voice line, the music keeps
      playing) so the child is already in the pose and only has to freeze. Screen only: not sent to her brain, no line asked. */
+  if (type === 'trick'){ log('judge', 'trick round ' + d.round); return; }
   if (type === 'cue'){ card(TXT.animals[d.animal], EMO[d.animal]); say(TXT.cue(TXT.animals[d.animal]), 'gold'); log('judge', 'cue ' + d.animal + ' ' + d.inS + ' s before the stop'); return; }
   brain(type, d);
   if (type === 'phase'){
