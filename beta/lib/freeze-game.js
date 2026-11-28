@@ -18,6 +18,11 @@ export const FREEZE_PACE = {
   rounds: 6,
   // pacing, not judging: how long the music plays before it stops. Not a threshold.
   danceS: [6, 9],
+  /* 2026-11-27 FAIR FREEZE (Refael's play B, 1 star of 6; measured on his recording, docs/FREEZE-FAIR-2026-11-27.md): the animal
+     was first shown AT the music stop, so he moved INTO the pose for 1.9-2.8 s and stood perfectly still only after the
+     2.5 s window had closed. The approved live game (main pod/pages/animal-freeze.html, READY.md scheduler) warned ~3 s
+     before every freeze. cueS = that lead: the animal is announced while the music still plays. The judge is unchanged. */
+  cueS: 0,          // off unless the page asks (freeze4 passes 3.0); other pages keep their flow
   holdS: 2.5,       // the hold length the freeze2 judge was measured on (realdata test windows; script.json round 1)
   calibS: 2.0,      // freeze2 script.json calibrationS
   resultS: 1.6,     // how long the star/skip moment shows
@@ -56,6 +61,7 @@ export function createFreezeGame({ tune, pace = {}, on = () => {}, rng = Math.ra
   function tick(t){
     S.t = t; seenCheck(t);
     if (S.phase === 'idle' || S.phase === 'end') return;
+    if (S.phase === 'dance' && !S.cued && P.cueS > 0 && t >= S.until - P.cueS){ S.cued = true; emit('cue', { animal: ANIMALS[(S.round - 1) % ANIMALS.length], inS: +(S.until - t).toFixed(2) }); }
     if (t < S.until) return;
     if (S.phase === 'calib'){ J.stopSample(); S.calib = J.finishCalibration(); emit('calibrated', { thrMove: S.calib.thr.move }); nextRound(t); return; }
     if (S.phase === 'dance'){ S.hold = new Hold(J, t, P.holdS, T); set('freeze', t + P.holdS); emit('freeze', { animal: ANIMALS[(S.round - 1) % ANIMALS.length] }); return; }
@@ -63,7 +69,7 @@ export function createFreezeGame({ tune, pace = {}, on = () => {}, rng = Math.ra
     if (S.phase === 'result'){ if (S.round >= P.rounds) finish(); else nextRound(t); }
   }
 
-  function nextRound(t){ S.round++; S.hold = null; set('dance', t + danceLen()); }
+  function nextRound(t){ S.round++; S.hold = null; S.cued = false; set('dance', t + danceLen()); }
 
   function judge(t){
     const h = S.hold, res = h.result ?? h.finish();

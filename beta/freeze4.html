@@ -157,7 +157,7 @@ const lang = getLang(); applyLang(lang);
 const voiceDir = lang === 'he' ? (Q.get('g') === 'm' ? 'he-m' : 'he-f') : 'en';
 const TXT = {
   en: { title: 'Freeze!', howto: 'Dance while the music plays. When it stops — FREEZE like the animal!', calib: 'Stand still for a moment…', dance: 'Dance! 💃',
-        freeze: a => `FREEZE like a ${a}!`, star: 'Frozen! ⭐', notyet: "Next one's yours!", warming: "Nova's warming up ✨",
+        cue: a => `Get ready: ${a}!`, freeze: a => `FREEZE like a ${a}!`, star: 'Frozen! ⭐', notyet: "Next one's yours!", warming: "Nova's warming up ✨",
         animals: { flamingo: 'flamingo', bear: 'bear', frog: 'frog', star: 'star', statue: 'statue' },
         refuse: 'Freeze v4 cannot start', noFace: "Nova's live face (SoulX) is not streaming", noVoice: "Nova's live voice is not connected", noBody: 'A Nova body clip is missing: ',
         op: 'For the operator: this page needs the Nova pod — a live voice and a face stream published as "nova-face". Nothing is faked when they are missing.',
@@ -166,7 +166,7 @@ const TXT = {
         camFail: 'The camera did not start: ', noGreet: 'Nova did not start talking', retry: 'Try again', micDead: "I can't hear you — tap here",
         allow: 'How to allow it: tap the lock (or camera) icon next to the web address, set Camera and Microphone to "Allow", then press Try again. Nova needs both: the camera to see your freeze, the microphone to hear you.' },
   he: { title: 'קופאים!', howto: 'רוקדים כשיש מוזיקה. כשהיא נעצרת — קופאים כמו החיה!', calib: 'רגע אחד בלי לזוז…', dance: 'רוקדים! 💃',
-        freeze: a => `קופאים כמו ${a}!`, star: 'קפאת! ⭐', notyet: 'הפעם הבאה שלך!', warming: 'נובה מתעוררת ✨',
+        cue: a => `מתכוננים: ${a}!`, freeze: a => `קופאים כמו ${a}!`, star: 'קפאת! ⭐', notyet: 'הפעם הבאה שלך!', warming: 'נובה מתעוררת ✨',
         animals: { flamingo: 'פלמינגו', bear: 'דוב', frog: 'צפרדע', star: 'כוכב', statue: 'פסל' },
         refuse: 'קופאים v4 לא יכול להתחיל', noFace: 'הפנים החיות של נובה (SoulX) לא משודרות', noVoice: 'הקול החי של נובה לא מחובר', noBody: 'חסר קליפ גוף של נובה: ',
         op: 'למפעיל: הדף צריך את הפוד של נובה — קול חי וזרם פנים בשם "nova-face". כשהם חסרים שום דבר לא מזויף.',
@@ -198,7 +198,7 @@ function refuse(reasons, { help = '', retry = false } = {}){ const b = $('banner
 
 const tune = (await (await fetch('freeze2/script.json')).json()).tune;
 const fast = Q.get('fast') === '1';
-const pace = fast ? { danceS: [2.6, 3.2], resultS: 1.2 } : {};
+const pace = fast ? { danceS: [2.6, 3.2], resultS: 1.2, cueS: 1.5 } : { cueS: Q.get('cue') === '0' ? 0 : 3.0 };   // 2026-11-27 FAIR FREEZE: animal announced 3 s before the stop (main animal-freeze READY.md warning lead); ?cue=0 = old
 if (+Q.get('rounds') > 0) pace.rounds = +Q.get('rounds');        // shorter games for the lobby demo
 /* Nova's body pane: which of HER clips plays in which phase (all from ../freezegame — the approved Freeze assets; same map as freeze-nova) */
 const NOVA = { idle: '../freezegame/idle_sway.mp4', dance: ['../freezegame/dance-active.mp4', '../freezegame/dance-sub.mp4'],
@@ -529,7 +529,11 @@ function say(text, cls = ''){ phaseCap = [text, cls]; if (game?.state.seen !== f
 
 /* the game's own cues, lights and scoring — line for line what freeze-nova does; only the voice calls differ */
 function onEvent(type, d){
-  const t = performance.now() / 1000; rec.event(type, d, t); brain(type, d);
+  const t = performance.now() / 1000; rec.event(type, d, t);
+  /* 2026-11-27 FAIR FREEZE: the animal is announced ~3 s BEFORE the music stops (card + caption, no voice line, the music keeps
+     playing) so the child is already in the pose and only has to freeze. Screen only: not sent to her brain, no line asked. */
+  if (type === 'cue'){ card(TXT.animals[d.animal], EMO[d.animal]); say(TXT.cue(TXT.animals[d.animal]), 'gold'); log('judge', 'cue ' + d.animal + ' ' + d.inS + ' s before the stop'); return; }
+  brain(type, d);
   if (type === 'phase'){
     if (d.phase === 'calib') say(TXT.calib, 'wait');
     if (d.phase === 'dance'){ holding = false; setVoice('air'); face.setBase('watching');          // GAME = her voice in the air
